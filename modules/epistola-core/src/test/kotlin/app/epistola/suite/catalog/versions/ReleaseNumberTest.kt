@@ -105,7 +105,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
             CreateCatalog(tenant, shared, "Shared").execute()
             mediator.releaseNext(CatalogId(shared, TenantId(tenant)))
             val catalog = GetCatalog(tenant, shared).query()!!
-            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", "^1.0.0"))).execute()
+            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", "1.0.0"))).execute()
         }
         mediator.releaseNext(catalogId(tenant))
         tenant
@@ -115,16 +115,18 @@ class ReleaseNumberTest : IntegrationTestBase() {
     private fun assess(tenant: TenantKey) = withMediator { AssessDraftNumber(tenant, letters).query()!! }
 
     @Test
-    fun `a catalog never released is released as 1_0_0, whatever it holds`() {
+    fun `a catalog never released is released as 1_0_0 or higher, whatever it holds`() {
         val tenant = withMediator { createTenant("release-number-first").id }
         withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
 
         val first = withMediator { AssessDraftNumber(tenant, letters).query()!! }
 
-        assertThat(first.latest).isNull()
+        assertThat(first.base).isNull()
         assertThat(first.needs).isNull()
+        assertThat(first.needed).isEqualTo("1.0.0")
         assertThat(first.suggested).isEqualTo("1.0.0")
-        assertThat(first.refuses("0.9.0")).`as`("any first number").isNull()
+        assertThat(first.refuses("2.0.0")).`as`("a higher first number").isNull()
+        assertThat(first.refuses("0.9.0")).`as`("a draft without a base needs 1.0.0").contains("needs at least 1.0.0")
     }
 
     @Test
@@ -216,7 +218,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         val tenant = released("change-kind-dependency", dependency = true)
         withMediator {
             val shared = GetCatalog(tenant, CatalogKey.of("shared")).query()!!
-            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "~1.0.0"))).execute()
+            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "1.0.0"))).execute()
         }
 
         assertThat(assess(tenant).needs).isEqualTo(ChangeKind.NONE)
@@ -352,7 +354,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         // Nothing changed since: a patch, unless the author asks for more.
         withMediator { MarkCatalogReady(tenant, letters).execute() }
         assertThat(withMediator { ReleaseCatalogVersion(tenant, letters, "3.0.0").execute() }.version).isEqualTo("3.0.0")
-        assertThat(assess(tenant).latest).isEqualTo("3.0.0")
+        assertThat(assess(tenant).base).`as`("the next version continues on the release").isEqualTo("3.0.0")
         assertThat(assess(tenant).suggested).isEqualTo("3.0.1")
     }
 }

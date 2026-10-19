@@ -69,8 +69,9 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
         val tenant = createTenant("Font per version").id
         withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
         houseSans(tenant, "LiberationSans-Bold.ttf", version = null)
-        val work = withMediator { requireNotNull(CreateCatalogDraft(tenant, letters, name = "New house font").execute().draftId) }
-        houseSans(tenant, "LiberationSans-Regular.ttf", CatalogVersionRef(tenant, letters, DraftRef.Id(work)))
+        val workKey = withMediator { CreateCatalogDraft(tenant, letters, name = "New house font").execute().versionId }
+        houseSans(tenant, "LiberationSans-Regular.ttf", CatalogVersionRef(tenant, letters, DraftRef.Id(workKey)))
+        val work = withMediator { targeting.resolve(CatalogVersionRef(tenant, letters, DraftRef.Id(workKey))) }
         val next = withMediator { targeting.resolve(CatalogVersionRef(tenant, letters, DraftRef.Next)) }
 
         assertThat(renderedIn(tenant, next)).isEqualTo(font("LiberationSans-Bold.ttf"))

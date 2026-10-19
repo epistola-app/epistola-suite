@@ -16,8 +16,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
 /**
- * A draft of a catalog as a message names it (contract ADR 0002, amendment 2): its next version, or
- * a draft by id. A draft has no number until it is released, so a number never names one.
+ * A draft of a catalog as a message names it (contract ADR 0002): its next version (a convention of
+ * this suite), or a draft by its id. A draft has no number until it is released, so a number never
+ * names one.
  */
 sealed interface DraftRef {
     /** The catalog's next version: the draft everyday work goes into. */
@@ -25,19 +26,26 @@ sealed interface DraftRef {
         override fun toString(): String = NEXT
     }
 
-    /** A draft by its id, the `version_id` its content rows belong to. */
-    data class Id(val id: UUID) : DraftRef {
-        override fun toString(): String = id.toString()
+    /** A draft by its public id (contract `CatalogVersionId`), its `version_key`. */
+    data class Id(val key: String) : DraftRef {
+        override fun toString(): String = key
     }
 
     companion object {
         /** How [Next] is written in an address. */
         const val NEXT: String = "next"
 
-        /** [value] as an address writes it: `next` or a draft id; null when it is neither. */
-        fun parse(value: String): DraftRef? = when (value) {
-            NEXT -> Next
-            else -> runCatching { UUID.fromString(value) }.getOrNull()?.let(::Id)
+        /** A version id: lowercase letters, digits and single hyphens, 4 to 36 characters, never a dot. */
+        private val KEY = Regex("^[a-z0-9]+(-[a-z0-9]+)*$")
+
+        /** Whether [value] has the shape of a version id. */
+        fun isKey(value: String): Boolean = value.length in 4..36 && KEY.matches(value)
+
+        /** [value] as an address writes it: `next` or a version id; null when it is neither. */
+        fun parse(value: String): DraftRef? = when {
+            value == NEXT -> Next
+            isKey(value) -> Id(value)
+            else -> null
         }
     }
 }
@@ -94,7 +102,7 @@ class CatalogVersionTargeting(
     fun resolve(ref: CatalogVersionRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val match = when (val draft = ref.draft) {
             DraftRef.Next -> "v.is_next"
-            is DraftRef.Id -> "v.version_id = :id"
+            is DraftRef.Id -> "v.version_key = :id"
         }
         handle.createQuery(
             """
@@ -104,7 +112,7 @@ class CatalogVersionTargeting(
         )
             .bind("t", ref.tenantKey)
             .bind("c", ref.catalogKey)
-            .also { query -> (ref.draft as? DraftRef.Id)?.let { query.bind("id", it.id) } }
+            .also { query -> (ref.draft as? DraftRef.Id)?.let { query.bind("id", it.key) } }
             .mapTo(UUID::class.java)
             .findOne()
             .orElseGet {

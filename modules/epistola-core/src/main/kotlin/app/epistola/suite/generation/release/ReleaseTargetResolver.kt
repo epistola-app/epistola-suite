@@ -40,7 +40,7 @@ import java.util.UUID
 data class ReleaseTarget(val release: ReleaseRef, val variantKey: VariantKey)
 
 /** A draft an environment uses, live, through its override ([app.epistola.suite.environments.EnvironmentOverride]). */
-data class DraftSource(val catalogKey: CatalogKey, val draftId: UUID, val label: String)
+data class DraftSource(val catalogKey: CatalogKey, val draftId: String, val label: String)
 
 /** What a catalog's requests through an environment render: a release, or a draft it follows. */
 sealed interface CatalogSelection {
@@ -140,8 +140,15 @@ class ReleaseTargetResolver(
             releaseVersion = null,
             draft = selection.source,
             templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
-                handle.createQuery("SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v AND id = :template")
+                handle.createQuery(
+                    """
+                    SELECT t.resource_id FROM document_templates t
+                    JOIN catalog_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id
+                    WHERE t.tenant_key = :t AND v.version_key = :v AND v.catalog_id = ${catalogAt("t", "c")} AND t.id = :template
+                    """,
+                )
                     .bind("t", tenantKey)
+                    .bind("c", selection.source.catalogKey)
                     .bind("v", selection.source.draftId)
                     .bind("template", templateKey)
                     .mapTo(UUID::class.java)

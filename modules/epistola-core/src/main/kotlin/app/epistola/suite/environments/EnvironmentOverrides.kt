@@ -39,7 +39,8 @@ data class EnvironmentOverride(
     val environmentKey: EnvironmentKey,
     val catalogKey: CatalogKey,
     val version: String?,
-    val draftId: UUID?,
+    /** The draft it follows, by its public id (contract `CatalogVersionId`). */
+    val draftId: String?,
     val draftLabel: String?,
     val setAt: OffsetDateTime,
 ) {
@@ -192,7 +193,7 @@ object EnvironmentOverrideStore {
     internal fun draft(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, ref: DraftRef): Pair<UUID, String>? {
         val match = when (ref) {
             DraftRef.Next -> "v.is_next"
-            is DraftRef.Id -> "v.version_id = :id"
+            is DraftRef.Id -> "v.version_key = :id"
         }
         return handle.createQuery(
             """
@@ -201,7 +202,7 @@ object EnvironmentOverrideStore {
             """,
         )
             .bind("t", tenantKey).bind("c", catalogKey)
-            .also { q -> (ref as? DraftRef.Id)?.let { q.bind("id", it.id) } }
+            .also { q -> (ref as? DraftRef.Id)?.let { q.bind("id", it.key) } }
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("label") }
             .findOne()
             .orElse(null)
@@ -209,7 +210,7 @@ object EnvironmentOverrideStore {
 
     fun list(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey?, catalogKey: CatalogKey?): List<EnvironmentOverride> = handle.createQuery(
         """
-        SELECT o.environment_key, c.catalog_key, o.version, o.draft_id, o.set_at,
+        SELECT o.environment_key, c.catalog_key, o.version, v.version_key AS draft_key, o.set_at,
                CASE WHEN v.version_id IS NULL THEN NULL ELSE $LABEL END AS draft_label
         FROM environment_catalog_overrides o
         JOIN catalogs c ON c.tenant_key = o.tenant_key AND c.catalog_id = o.catalog_id
@@ -228,7 +229,7 @@ object EnvironmentOverrideStore {
                 environmentKey = EnvironmentKey.of(rs.getString("environment_key")),
                 catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                 version = rs.getString("version"),
-                draftId = rs.getObject("draft_id", UUID::class.java),
+                draftId = rs.getString("draft_key"),
                 draftLabel = rs.getString("draft_label"),
                 setAt = rs.getObject("set_at", OffsetDateTime::class.java),
             )
@@ -237,7 +238,7 @@ object EnvironmentOverrideStore {
 
     /**
      * Records [overrides] as cleared, for those that end because what they named goes away: an
-     * undeployed release, a discarded draft. Call it with what [list] returned before the change,
+     * undeployed release, a released or discarded draft. Call it with what [list] returned before the change,
      * after making it; the foreign keys remove the rows.
      */
     internal fun recordEnded(handle: Handle, tenantKey: TenantKey, overrides: List<EnvironmentOverride>) = overrides.forEach {

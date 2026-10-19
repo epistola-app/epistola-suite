@@ -251,10 +251,10 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     fun `discarding the draft ends the override, and the history records each change`() {
         val setup = setup("override-discard")
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.draftId!!)).execute() }
+        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.versionId)).execute() }
         assertThat(generate(setup, test).draftLabel).isEqualTo("Redesign")
 
-        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.draftId!!)).execute() }
+        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId)).execute() }
 
         assertThat(withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }).isEmpty()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
@@ -270,16 +270,16 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an environment following the next version still follows it after long-term work is promoted`() {
+    fun `an override follows a draft by its id, so making another draft the next version does not move it`() {
         val setup = setup("override-promote")
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
+        val next = withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
 
-        withMediator { PromoteCatalogDraft(setup.tenant, default, work.draftId!!, keepPreviousAs = "Old next").execute() }
+        withMediator { PromoteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId), keepPreviousAs = "Old next").execute() }
 
         val override = withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }.single()
-        assertThat(override.draftId).isEqualTo(work.draftId)
-        assertThat(override.draftLabel).isEqualTo("Next version")
+        assertThat(override.draftId).isEqualTo(next.draftId)
+        assertThat(override.draftLabel).isEqualTo("Old next")
     }
 
     @Test
@@ -320,8 +320,8 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
             .containsExactly(Triple(DeploymentAction.OVERRIDE_CLEARED, "1.0.0", null), Triple(DeploymentAction.UNDEPLOYED, "1.0.0", null))
 
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.draftId!!)).execute() }
-        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.draftId!!)).execute() }
+        withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Id(work.versionId)).execute() }
+        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId)).execute() }
         assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.first().let { Triple(it.action, it.version, it.draftLabel) })
             .isEqualTo(Triple(DeploymentAction.OVERRIDE_CLEARED, null, "Redesign"))
 

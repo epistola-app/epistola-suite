@@ -30,7 +30,7 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.1.0",
+    "version": "6.2.0",
     "releasedAt": "2026-10-17T00:00:00Z",
     "fingerprint": "v5:8d49cf71e438485aa4ccccd35f5cad90b98fc80db0e42137bd120ae168e4df00"
   },
@@ -39,7 +39,6 @@
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "version": "^2.0.0",
       "releaseVersion": "2.0.0",
       "releaseFingerprint": "v5:ca81faf3377fd558f5b634b7e566f59f520ef4b6380ae0ee991cf7e7d060f808"
     }

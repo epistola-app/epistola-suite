@@ -32,14 +32,13 @@
   "release": {
     "version": "5.17.2",
     "releasedAt": "2026-08-21T00:00:00Z",
-    "fingerprint": "v5:21db304b6f7646298d2764e324d50e1a38e2fc24a440ce25146272e427913ad2"
+    "fingerprint": "v5:02e124e10d54fae3678610d229d9a29d171acc699ff3615709c38e5629d91fb6"
   },
   "catalogDependencies": [
     {
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "version": "^2.0.0",
       "releaseVersion": "2.0.0",
       "releaseFingerprint": "v5:ca81faf3377fd558f5b634b7e566f59f520ef4b6380ae0ee991cf7e7d060f808"
     }

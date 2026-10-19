@@ -163,7 +163,7 @@ class DraftDocumentRenderer(
 
     data class Rendered(val pdf: ByteArray, val templateResourceId: UUID?)
 
-    fun render(tenantKey: TenantKey, catalogKey: CatalogKey, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: UUID): Rendered {
+    fun render(tenantKey: TenantKey, catalogKey: CatalogKey, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String): Rendered {
         val draft = CatalogVersionRef(tenantKey, catalogKey, DraftRef.Id(draftId))
         val prepared = mediator.query(PrepareDraftRender(tenantKey, catalogKey, templateKey, variantKey, data, draft))
 

@@ -127,39 +127,50 @@ WHERE CASE r.resource_type
     ELSE TRUE
 END;
 
--- A catalog declares each catalog it depends on once, with a version selector in the npm range
--- grammar (contract ADR 0003). A declaration names the catalog (registry, namespace, key) rather
--- than referencing a row: an imported catalog may depend on one the tenant does not have yet.
+-- A catalog declares each catalog it depends on once, pinned to an exact release of it (contract
+-- ADR 0003). A declaration names the catalog (registry, namespace, key) rather than referencing a
+-- row: an imported catalog may depend on one the tenant does not have yet.
 --
--- Each declaration is locked to one release of the dependency, like a lockfile: the release the
--- working copy's next release is cut with. A lock moves only when the declaration changes or the
--- author resolves again, never because the dependency released; an import takes the archive's.
--- A declaration no release matched yet has no lock, and both lock columns stay null together.
+-- The pin is the release the draft renders with and its release is cut with. It moves only when
+-- the author changes it; an import takes the archive's. A declaration migrated from wire v7 pins
+-- no release, and both pin columns stay null together until the author pins one.
+--
+-- Instead of a release, a draft may name a draft of the other catalog (dependency_version_id), to
+-- build on work that is not released yet. A release never pins a draft: releasing refuses it
+-- unless the named draft is released along, and releasing the named draft turns the declaration
+-- into a pin of the release it became.
 CREATE TABLE catalog_dependencies (
     tenant_key          TENANT_KEY   NOT NULL,
     catalog_id          UUID         NOT NULL,
     registry            TEXT         NOT NULL,
     namespace           TEXT         NOT NULL,
     dependency_key      VARCHAR(50)  NOT NULL,
-    version_selector    VARCHAR(100) NOT NULL,
     -- Declaration order, which the manifest keeps.
     position            INT          NOT NULL,
     release_version     VARCHAR(100),
     release_fingerprint VARCHAR(80),
+    -- The draft of the dependency it names instead of a release, if any.
+    dependency_version_id UUID,
     -- The draft that declares it: each draft declares its own.
     version_id          UUID         NOT NULL,
     CONSTRAINT catalog_dependencies_pkey PRIMARY KEY (tenant_key, version_id, registry, namespace, dependency_key),
     FOREIGN KEY (tenant_key, catalog_id) REFERENCES catalogs (tenant_key, catalog_id) ON DELETE CASCADE,
     CONSTRAINT fk_catalog_dependencies_version
         FOREIGN KEY (tenant_key, version_id, catalog_id) REFERENCES catalog_versions (tenant_key, version_id, catalog_id) ON DELETE CASCADE,
-    CONSTRAINT chk_catalog_dependencies_locked CHECK ((release_version IS NULL) = (release_fingerprint IS NULL))
+    -- Discarding a draft another catalog's draft names is refused first, with a reason; this is the backstop.
+    CONSTRAINT fk_catalog_dependencies_dependency_version
+        FOREIGN KEY (tenant_key, dependency_version_id) REFERENCES catalog_versions (tenant_key, version_id) ON DELETE RESTRICT,
+    CONSTRAINT chk_catalog_dependencies_locked CHECK ((release_version IS NULL) = (release_fingerprint IS NULL)),
+    CONSTRAINT chk_catalog_dependencies_release_or_draft CHECK (release_version IS NULL OR dependency_version_id IS NULL)
 );
 
 COMMENT ON TABLE catalog_dependencies IS
-    'The catalogs a catalog depends on, each declared once with a version selector and locked to one release (wire v8 catalogDependencies).';
+    'The catalogs a catalog depends on, each declared once and pinned to an exact release (wire v8 catalogDependencies).';
 COMMENT ON COLUMN catalog_dependencies.release_version IS
-    'The release the declaration is locked to; null while no release of the dependency matched the selector.';
+    'The release the declaration pins; null for a declaration migrated from wire v7, which pins none yet.';
 COMMENT ON COLUMN catalog_dependencies.version_id IS 'The catalog version that declares the dependency.';
+COMMENT ON COLUMN catalog_dependencies.dependency_version_id IS
+    'A draft of the dependency the declaring draft builds on instead of a release; null when it pins a release.';
 
 -- Copies every content row of version from_version into to_version, of the same catalog (the
 -- (tenant_key, version_id, catalog_id) references refuse another), keeping each resource_id: the copy

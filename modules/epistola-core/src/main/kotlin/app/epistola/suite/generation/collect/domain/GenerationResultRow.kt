@@ -46,7 +46,7 @@ data class GenerationResultRow(
     /** The catalog release rendered; null for results of requests accepted before 2.0. */
     val releaseVersion: String? = null,
     /** The draft rendered, live, through an environment that follows it; null for a release. */
-    val draftId: java.util.UUID? = null,
+    val draftId: String? = null,
     /** The draft's name when it was rendered. */
     val draftLabel: String? = null,
     val filename: String?,

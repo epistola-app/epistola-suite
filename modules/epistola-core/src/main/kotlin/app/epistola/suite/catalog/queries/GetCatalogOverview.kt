@@ -64,7 +64,7 @@ data class CatalogOverview(
  * An open draft: the next version, or long-term work by [label]; and the releases it does not
  * contain that are above its base.
  */
-data class DraftOverview(val draftId: UUID, val label: String, val isNext: Boolean, val base: String?, val behind: List<String>)
+data class DraftOverview(val draftId: String, val label: String, val isNext: Boolean, val base: String?, val behind: List<String>)
 
 data class ReleaseOverview(val version: String, val releasedAt: OffsetDateTime?)
 
@@ -87,7 +87,7 @@ class GetCatalogOverviewHandler(
                     name = catalog.name,
                     namespace = catalog.namespace,
                     type = catalog.type,
-                    drafts = drafts.map { DraftOverview(requireNotNull(it.draftId), it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
+                    drafts = drafts.map { DraftOverview(it.versionId, it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
                     latestRelease = (catalog.installedReleaseVersion?.let { installed -> releases.firstOrNull { it.version == installed } } ?: releases.firstOrNull())
                         ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
                     // The current version's readiness: the next version's.

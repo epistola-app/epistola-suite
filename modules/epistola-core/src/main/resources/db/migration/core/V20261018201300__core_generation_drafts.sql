@@ -2,10 +2,12 @@
 -- environment follows (an override), live. Requests from before 2.0 named a template version or an
 -- environment instead; every request names one of these, and never both a release and a draft.
 
--- No foreign key: a document outlives the draft it came from. The label is the draft's name when it
--- was rendered ("Next version" for the next version), so the document still says where it came from.
+-- No foreign key: a document outlives the draft it came from. draft_id is the draft's public id
+-- (contract CatalogVersionId), which its release keeps, so it still names the version after the draft
+-- is released. The label is the draft's name when it was rendered ("Next version" for the next
+-- version), so the document still says where it came from.
 ALTER TABLE document_generation_requests
-    ADD COLUMN draft_id UUID,
+    ADD COLUMN draft_id VARCHAR(36),
     ADD COLUMN draft_label VARCHAR(100);
 
 ALTER TABLE document_generation_requests
@@ -19,7 +21,7 @@ COMMENT ON COLUMN document_generation_requests.draft_id IS
 COMMENT ON COLUMN document_generation_requests.draft_label IS 'The draft''s name when the request was accepted';
 
 ALTER TABLE documents
-    ADD COLUMN draft_id UUID,
+    ADD COLUMN draft_id VARCHAR(36),
     ADD COLUMN draft_label VARCHAR(100);
 
 ALTER TABLE documents
@@ -30,7 +32,7 @@ COMMENT ON COLUMN documents.draft_label IS 'The draft''s name when the document 
 
 -- The collect feed says the same of each result.
 ALTER TABLE generation_results
-    ADD COLUMN draft_id UUID,
+    ADD COLUMN draft_id VARCHAR(36),
     ADD COLUMN draft_label VARCHAR(100);
 
 COMMENT ON COLUMN generation_results.draft_id IS 'The draft rendered, live, through an environment that follows it. NULL when rendered from a release.';

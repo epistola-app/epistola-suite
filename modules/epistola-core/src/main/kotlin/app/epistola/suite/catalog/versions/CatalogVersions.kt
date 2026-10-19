@@ -20,19 +20,20 @@ import java.util.UUID
 enum class CatalogVersionStatus { DRAFT, RELEASED }
 
 /**
- * One version of a catalog: an open draft, or a release (contract ADR 0002, amendment 2).
+ * One version of a catalog: an open draft, or a release (contract ADR 0002).
  *
- * A draft has no number until it is released: [version] is null for one, and it is named by
- * [draftId] instead. A catalog's [isNext] draft is its next version, the one everyday work goes into;
- * any other is long-term work, with a [name].
+ * Every version has a [versionId] (contract `CatalogVersionId`), which a draft keeps when it is
+ * released. A draft has no number until then: [version] is null for one. Which draft is the next
+ * version ([isNext]) is a convention of this suite, not of the contract: the one everyday work goes
+ * into. Any other is named ([name]).
  *
- * @property base the released version a draft started from; for a release, the one its draft started
- *   from. Null for a draft of a catalog that was never released, a catalog's first release, a release
- *   installed from elsewhere, and a release cut before releases recorded it (`V20261018200200`).
- * @property createdFrom for a draft, the released version it was copied from when that is not its
- *   base, or [CatalogDraft.FROM_NEXT] when it was copied from the next version.
- * @property behind for a draft, the released versions above its base, lowest first: it does not
- *   contain their changes unless an author applied them by hand.
+ * @property base the release a draft started from, fixed; for a release, the one its draft started
+ *   from. Null for a draft started when the catalog had no release, a catalog's first release, a
+ *   release installed from elsewhere, and a release cut before releases recorded it.
+ * @property createdFrom for a draft, the [versionId] of the draft it was copied from, unreleased
+ *   changes included; null when it was started from a release or from nothing.
+ * @property behind for a draft, the releases it is behind for the number it would be released as
+ *   ([CatalogDrafts.behind]), lowest first; filled only by queries that ask for it.
  * @property deployedTo the environments that deploy a released version.
  */
 data class CatalogVersion(
@@ -46,7 +47,7 @@ data class CatalogVersion(
     val fingerprint: String? = null,
     val deployedTo: List<String> = emptyList(),
     val behind: List<BehindRelease> = emptyList(),
-    val draftId: UUID? = null,
+    val versionId: String,
     val name: String? = null,
     val isNext: Boolean = false,
 ) {
@@ -61,7 +62,7 @@ data class CatalogVersion(
     val draftRef: DraftRef? get() = when {
         status == CatalogVersionStatus.RELEASED -> null
         isNext -> DraftRef.Next
-        else -> draftId?.let(DraftRef::Id)
+        else -> DraftRef.Id(versionId)
     }
 }
 
@@ -75,11 +76,13 @@ data class BehindRelease(val version: String, val changes: List<ReleasedChange>)
 data class ReleasedChange(val type: String, val key: String, val change: String)
 
 /**
- * An open draft of an authored catalog. [versionId] is what its content rows belong to, and its id.
- * The [isNext] one is the catalog's next version; any other is long-term work, with a [name].
+ * An open draft of an authored catalog. [versionId] is what its content rows belong to; [key] is its
+ * public id (contract `CatalogVersionId`), which its release keeps. The [isNext] one is the catalog's
+ * next version, a convention of this suite; any other has a [name].
  */
 data class CatalogDraft(
     val versionId: UUID,
+    val key: String,
     val isNext: Boolean,
     val name: String?,
     val base: String?,
@@ -88,14 +91,11 @@ data class CatalogDraft(
 ) {
     val label: String get() = if (isNext) NEXT_LABEL else name ?: NEXT_LABEL
 
-    val ref: DraftRef get() = if (isNext) DraftRef.Next else DraftRef.Id(versionId)
+    val ref: DraftRef get() = if (isNext) DraftRef.Next else DraftRef.Id(key)
 
     companion object {
-        /** What the next version is always called: it has no name of its own (ADR 0002, amendment 2). */
+        /** What the next version is always called: it has no name of its own. */
         const val NEXT_LABEL: String = "Next version"
-
-        /** [createdFrom] of a draft copied from the next version, unreleased changes included. */
-        const val FROM_NEXT: String = "next"
     }
 }
 
@@ -137,13 +137,14 @@ class CatalogDrafts {
     fun find(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, ref: DraftRef): CatalogDraft? = drafts(handle, tenantKey, catalogKey).firstOrNull { draft ->
         when (ref) {
             DraftRef.Next -> draft.isNext
-            is DraftRef.Id -> draft.versionId == ref.id
+            is DraftRef.Id -> draft.key == ref.key
         }
     }
 
     /**
      * Opens a draft on [base], empty; returns its `version_id`. Without a [name] it is the catalog's
-     * next version, which must not have one yet; with one, it is long-term work.
+     * next version, which must not have one yet; with one, it is another draft. [createdFrom] is the
+     * key of the draft it is a copy of, if any.
      */
     fun open(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, base: String?, name: String? = null, createdFrom: String? = null): UUID = handle
         .createQuery(
@@ -163,13 +164,14 @@ class CatalogDrafts {
         .one()
 
     /**
-     * After the next version [versionId] is released as [base], it continues as the next version: the
-     * same row, so the content it holds, which the release copied, stays in place.
+     * After the next version [versionId] is released as [base], a new next version continues on the
+     * release: the same row, so the content it holds, which the release copied, stays in place, under
+     * a new key, since its old one now addresses the release.
      */
     fun advance(handle: Handle, tenantKey: TenantKey, versionId: UUID, base: String) {
         val moved = handle.createUpdate(
             """
-            UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW()
+            UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key()
             WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND is_next
             """,
         )
@@ -181,11 +183,12 @@ class CatalogDrafts {
     }
 
     /**
-     * Makes long-term work [promoted] the next version, on [base], in place of [previous]: that one is
-     * deleted when [keepAs] is null, else kept as long-term work called [keepAs]. The old next version
-     * stops being next before the new one starts, as the catalog has one next version at a time.
+     * Makes draft [promoted] the next version in place of [previous]: that one is deleted when
+     * [keepAs] is null, else kept as another draft called [keepAs]. Neither base moves: a base is
+     * fixed (contract ADR 0002). The old next version stops being next before the new one starts, as
+     * the catalog has one next version at a time.
      */
-    fun promote(handle: Handle, tenantKey: TenantKey, promoted: UUID, previous: UUID?, keepAs: String?, base: String?) {
+    fun promote(handle: Handle, tenantKey: TenantKey, promoted: UUID, previous: UUID?, keepAs: String?) {
         if (previous != null) {
             if (keepAs == null) {
                 delete(handle, tenantKey, previous)
@@ -198,13 +201,12 @@ class CatalogDrafts {
             }
         }
         val moved = handle.createUpdate(
-            "UPDATE catalog_versions SET is_next = TRUE, name = NULL, base_version = :base WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next",
+            "UPDATE catalog_versions SET is_next = TRUE, name = NULL WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next",
         )
             .bind("t", tenantKey)
             .bind("v", promoted)
-            .bind("base", base)
             .execute()
-        check(moved == 1) { "no long-term work $promoted to promote" }
+        check(moved == 1) { "no draft $promoted to make the next version" }
     }
 
     /** Renames long-term work [versionId]. */
@@ -239,6 +241,7 @@ class CatalogDrafts {
 
     private fun toDraft(rs: ResultSet, @Suppress("UNUSED_PARAMETER") ctx: StatementContext) = CatalogDraft(
         rs.getObject("version_id", UUID::class.java),
+        rs.getString("version_key"),
         rs.getBoolean("is_next"),
         rs.getString("name"),
         rs.getString("base_version"),
@@ -247,7 +250,7 @@ class CatalogDrafts {
     )
 
     companion object {
-        private const val SELECT = "SELECT version_id, is_next, name, base_version, created_from, created_at FROM catalog_versions"
+        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at FROM catalog_versions"
 
         /** The number a catalog's first release gets when nothing says otherwise. */
         const val FIRST: String = "1.0.0"
@@ -262,13 +265,22 @@ class CatalogDrafts {
         fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
 
         /**
-         * The released versions a draft on [base] is behind (contract ADR 0002): every release above its
-         * base, lowest first. Without a base, every release.
+         * The releases a draft on [base], started at [createdAt], is behind when it is released as
+         * [number] (contract ADR 0002, "A draft can be behind"), lowest first: every release
+         * (a) numbered above its base and below [number], or (b) published after the draft was
+         * started and numbered below [number], other than its base. [releases] are the catalog's
+         * releases with when each was published.
          */
-        fun behind(base: String?, releases: Collection<String>): List<String> {
+        fun behind(base: String?, createdAt: OffsetDateTime?, number: String, releases: Collection<Pair<String, OffsetDateTime?>>): List<String> {
+            val ceiling = SemVer.parseOrNull(number) ?: return emptyList()
             val floor = base?.let(SemVer::parseOrNull)
-            return releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }
-                .filter { (semVer, _) -> floor == null || semVer > floor }
+            return releases.mapNotNull { (r, releasedAt) -> SemVer.parseOrNull(r)?.let { Triple(it, r, releasedAt) } }
+                .filter { (semVer, r, releasedAt) ->
+                    val below = semVer < ceiling
+                    val aboveBase = floor == null || semVer > floor
+                    val publishedSince = createdAt != null && releasedAt != null && releasedAt.isAfter(createdAt)
+                    r != base && below && (aboveBase || publishedSince)
+                }
                 .sortedBy { it.first }
                 .map { it.second }
         }

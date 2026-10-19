@@ -42,7 +42,7 @@ data class Document(
     /** The catalog release rendered, from 2.0 on. Null for documents generated before. */
     val releaseVersion: String? = null,
     /** The draft rendered, live, through an environment that follows it; null for a release. */
-    val draftId: java.util.UUID? = null,
+    val draftId: String? = null,
     /** The draft's name when the document was rendered. */
     val draftLabel: String? = null,
     /**

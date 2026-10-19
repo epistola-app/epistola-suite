@@ -4,17 +4,17 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.catalog.protocol.CatalogNamespaces
+import app.epistola.catalog.protocol.CatalogReleaseVersions
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.CatalogVersionSelector
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -27,20 +27,24 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
-/** A catalog to depend on, as an author declares it: its name and a version selector. */
+/**
+ * A catalog to depend on, as an author declares it: its name and the exact release to render with,
+ * or, in a draft, a draft of it by its id ([versionId]). Exactly one of the two.
+ */
 data class DeclaredCatalogDependency(
     val registry: String,
     val namespace: String,
     val catalogKey: String,
-    val version: String,
+    val releaseVersion: String? = null,
+    val versionId: String? = null,
 )
 
 /**
  * Replaces the catalogs an authored catalog depends on (contract ADR 0003), in the order given.
  *
- * Each declaration names a catalog the tenant has and selects its releases with an npm range. A
- * declaration whose lock still satisfies its selector keeps it; any other is locked to the highest
- * release that matches, or left unlocked when none does yet, which releasing then refuses.
+ * Each declaration names a catalog the tenant has and pins an exact release of it that the tenant
+ * has, recorded with that release's fingerprint, or names one of that catalog's drafts, to build on
+ * work not released yet (contract ADR 0002). A range is not a declaration (contract 2.0).
  */
 data class UpdateCatalogDependencies(
     override val tenantKey: TenantKey,
@@ -66,8 +70,18 @@ data class UpdateCatalogDependencies(
             validate("$field.catalogKey", runCatching { CatalogKey.of(dependency.catalogKey) }.isSuccess, ValidationCode.CATALOG_DEPENDENCY_INVALID) {
                 "Catalog key '${dependency.catalogKey}' is not a valid catalog key"
             }
-            validate("$field.version", CatalogVersionSelector.parseOrNull(dependency.version) != null, ValidationCode.CATALOG_DEPENDENCY_INVALID) {
-                "Version '${dependency.version}' must be an npm version range of at most ${CatalogDependency.MAX_VERSION_LENGTH} characters"
+            validate("$field", (dependency.releaseVersion == null) != (dependency.versionId == null), ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+                "Name either a release of ${dependency.catalogKey} or one of its drafts, not both or neither"
+            }
+            dependency.releaseVersion?.let { release ->
+                validate("$field.releaseVersion", CatalogReleaseVersions.isValid(release), ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+                    "Release '$release' must be a release number, MAJOR.MINOR.PATCH, of at most ${CatalogReleaseVersions.MAX_LENGTH} characters"
+                }
+            }
+            dependency.versionId?.let { draft ->
+                validate("$field.versionId", DraftRef.isKey(draft), ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+                    "Draft '$draft' is not a version id"
+                }
             }
         }
         val duplicate = dependencies.groupBy { Triple(it.registry, it.namespace, it.catalogKey) }.values.firstOrNull { it.size > 1 }?.first()
@@ -87,10 +101,9 @@ class UpdateCatalogDependenciesHandler(
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
-        val existing = store.declarations(handle, command.tenantKey, command.catalogKey).associateBy { it.identity }
 
         val declarations = command.dependencies.mapIndexed { index, dependency ->
-            val declared = CatalogDependencyDeclaration(dependency.registry, dependency.namespace, dependency.catalogKey, dependency.version)
+            val declared = CatalogDependencyDeclaration(dependency.registry, dependency.namespace, dependency.catalogKey)
             val field = "dependencies[$index]"
             if (declared.identity == Triple(catalog.registry, catalog.namespace, catalog.id.value)) {
                 throw ValidationException(field, "A catalog cannot depend on itself", ValidationCode.CATALOG_DEPENDENCY_INVALID)
@@ -98,13 +111,16 @@ class UpdateCatalogDependenciesHandler(
             if (store.catalogNamed(handle, command.tenantKey, declared) == null) {
                 throw ValidationException(field, "This tenant has no catalog $declared", ValidationCode.CATALOG_DEPENDENCY_INVALID)
             }
-            val kept = existing[declared.identity]?.let { declared.copy(releaseVersion = it.releaseVersion, releaseFingerprint = it.releaseFingerprint) }
-            if (kept != null && store.lockHolds(handle, command.tenantKey, kept)) {
-                kept
-            } else {
-                val release = store.highestMatch(handle, command.tenantKey, declared)
-                declared.copy(releaseVersion = release?.version, releaseFingerprint = release?.fingerprint)
+            val draftKey = dependency.versionId
+            if (draftKey != null) {
+                val (_, name) = store.draftOf(handle, command.tenantKey, declared, draftKey)
+                    ?: throw ValidationException("$field.versionId", "${declared.catalogKey} has no draft $draftKey", ValidationCode.CATALOG_DEPENDENCY_INVALID)
+                return@mapIndexed declared.copy(draftId = draftKey, draftName = name)
             }
+            val version = requireNotNull(dependency.releaseVersion)
+            val release = store.release(handle, command.tenantKey, declared, version)
+                ?: throw ValidationException("$field.releaseVersion", "This tenant has no release $version of ${declared.catalogKey}", ValidationCode.CATALOG_DEPENDENCY_INVALID)
+            declared.copy(releaseVersion = release.version, releaseFingerprint = release.fingerprint)
         }
         store.replace(handle, command.tenantKey, command.catalogKey, declarations)
         declarations

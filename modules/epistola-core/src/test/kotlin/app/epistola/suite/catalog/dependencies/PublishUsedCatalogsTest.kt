@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test
 /**
  * Publishing with what the preview showed (docs/catalog-working-model.md, rule 7): a catalog used
  * here whose work differs from what a publish would tie to is published along, or re-tied, in one
- * transaction — and a range that does not accept the new version refuses the whole of it.
+ * transaction.
  */
 class PublishUsedCatalogsTest : IntegrationTestBase() {
 
@@ -44,14 +44,14 @@ class PublishUsedCatalogsTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
 
     /** `shared` with a brand theme published as 1.0.0; `letters` with an invoice using it, declared. */
-    private fun setUp(name: String, range: String = "*"): TenantKey = withMediator {
+    private fun setUp(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateTheme(brand(tenant), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
         MarkCatalogReady(tenant, shared).execute()
         ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
-        declareDependency(tenant, letters, on = shared, version = range)
+        declareDependency(tenant, letters, on = shared)
         useTheme(tenant, "brand")
         tenant
     }
@@ -118,20 +118,5 @@ class PublishUsedCatalogsTest : IntegrationTestBase() {
 
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isEqualTo("1.0.1")
         assertThat(sharedReleases(tenant)).`as`("nothing published").containsExactly("1.0.1", "1.0.0")
-    }
-
-    @Test
-    fun `a range that does not accept the new version refuses, and nothing is published`() {
-        val tenant = setUp("along-range", range = "~1.0.0")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(shared, TenantId(tenant))), "Seasonal").execute() }
-        useTheme(tenant, "seasonal")
-        val number = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single().nextNumber
-        assertThat(number).`as`("an addition: the next minor, outside ~1.0.0").isEqualTo("1.1.0")
-
-        assertThatThrownBy { withMediator { PublishUsedCatalogs(tenant, letters, publish = setOf("shared")).execute() } }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("accepts shared ~1.0.0, which v1.1.0 is not")
-
-        assertThat(sharedReleases(tenant)).`as`("all or nothing").containsExactly("1.0.0")
     }
 }

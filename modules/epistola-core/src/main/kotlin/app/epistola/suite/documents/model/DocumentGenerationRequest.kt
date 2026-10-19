@@ -68,7 +68,7 @@ data class DocumentGenerationRequest(
      */
     val releaseVersion: String? = null,
     /** The draft this request renders, live, when its environment follows one; null for a release. */
-    val draftId: java.util.UUID? = null,
+    val draftId: String? = null,
     /** The draft's name when the request was accepted. */
     val draftLabel: String? = null,
     /** Times it was taken back from a node that stopped while rendering it (stale-job recovery). */

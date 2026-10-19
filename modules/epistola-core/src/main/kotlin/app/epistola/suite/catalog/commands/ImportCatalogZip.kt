@@ -594,13 +594,13 @@ class ImportCatalogZipHandler(
      * releasing would refuse otherwise. The catalog still imports, as unreleased work.
      */
     private fun dependencyLocksHold(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val unresolved = dependencyStore.declarations(handle, tenantKey, catalogKey).filterNot { dependencyStore.lockHolds(handle, tenantKey, it) }
+        val unresolved = dependencyStore.declarations(handle, tenantKey, catalogKey).filterNot { dependencyStore.pinHolds(handle, tenantKey, it) }
         if (unresolved.isNotEmpty()) {
             logger.info(
                 "Did not adopt imported release {} for new catalog '{}': this tenant lacks the dependency releases it was cut with: {}",
                 version,
                 catalogKey.value,
-                unresolved.joinToString { "$it locked to ${it.releaseVersion}" },
+                unresolved.joinToString { it.toString() },
             )
         }
         unresolved.isEmpty()

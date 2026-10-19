@@ -17,12 +17,14 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * The number a draft would be released as (contract ADR 0002, amendment 2): numbered from the kind of
- * change it holds against the catalog's latest release, by ADR 0001's rule of what breaks. Breaking
- * changes raise the major, additions the minor, anything else the patch. A catalog never released
- * starts at [CatalogDrafts.FIRST].
+ * The number a draft would be released as (contract ADR 0002, "Releasing any draft"): from the kind
+ * of change it holds against its base, by ADR 0001's rule of what breaks. Breaking changes raise the
+ * major, additions the minor, anything else the patch; a draft without a base needs
+ * [CatalogDrafts.FIRST].
  *
- * The author may choose a higher number, never a lower one ([DraftNumberAssessment.refuses]).
+ * The number must be above the base and not taken. When the one the changes need is taken, the draft
+ * gets the next free number of the same kind (from `1.4.0` while `2.0.0` exists, a breaking change
+ * is `3.0.0`). The author may choose a higher number, never a lower one ([DraftNumberAssessment.refuses]).
  */
 data class AssessDraftNumber(
     override val tenantKey: TenantKey,
@@ -38,32 +40,49 @@ data class AssessDraftNumber(
 }
 
 /**
- * @property latest the catalog's latest release, which the draft is measured against; null when it was
- *   never released.
- * @property needs the kind of change the draft holds against [latest]; null when there is nothing to
- *   compare with (never released), so any higher number fits.
+ * @property base the draft's base, which it is measured against; null when it has none.
+ * @property needs the kind of change the draft holds against [base]; null when there is nothing to
+ *   compare with (no base, or the base kept no content).
  * @property reasons what makes the change [needs], breaking first; empty for a fix.
- * @property suggested the lowest number that fits.
+ * @property needed the number the changes need: [base] raised by [needs], or [CatalogDrafts.FIRST].
+ * @property suggested [needed], or the next free number of the same kind when a release has it.
+ * @property taken the numbers the catalog's releases have.
  */
 data class DraftNumberAssessment(
-    val latest: String?,
+    val base: String?,
     val needs: ChangeKind?,
     val reasons: List<String>,
+    val needed: String,
     val suggested: String,
+    val taken: Set<String> = emptySet(),
 ) {
     /**
-     * Why [version] cannot be the release's number, or null when it can: it must be a version, above
-     * [latest], and no lower than [suggested] when the changes say what they need.
+     * Why [version] cannot be the release's number, or null when it can: it must be a version no
+     * release has, above [base], and no lower than [needed].
      */
     fun refuses(version: String): String? {
         val wanted = SemVer.parseOrNull(version) ?: return "Version '$version' must be MAJOR.MINOR.PATCH"
-        val floor = latest?.let(SemVer::parseOrNull) ?: return null
-        if (wanted <= floor) return "Version $wanted must be greater than the latest release $floor"
-        val step = VersionStep.between(floor, wanted) ?: return null
-        if (needs != null && needs > step.allows) {
-            return "Version $wanted is too low for what changed since $floor: it needs at least $suggested (" + reasons.joinToString("; ") + ")"
+        if (wanted.toString() in taken) return "Version $wanted is released already"
+        base?.let(SemVer::parseOrNull)?.let { floor ->
+            if (wanted <= floor) return "Version $wanted must be greater than its base $floor"
+        }
+        val floor = SemVer.parse(needed)
+        if (wanted < floor) {
+            val since = base?.let { " since $it" }.orEmpty()
+            return "Version $wanted is too low for what changed$since: it needs at least $needed" + reasons.takeIf { it.isNotEmpty() }?.joinToString("; ", " (", ")").orEmpty()
         }
         return null
+    }
+
+    companion object {
+        /** [needed], or the next number of the same [kind] that no release has. */
+        fun nextFree(needed: SemVer, kind: ChangeKind, taken: Set<String>): SemVer = generateSequence(needed) { previous ->
+            when (kind) {
+                ChangeKind.BREAKING -> previous.bumpMajor()
+                ChangeKind.ADDITIVE -> previous.bumpMinor()
+                ChangeKind.NONE -> previous.bumpPatch()
+            }
+        }.first { it.toString() !in taken }
     }
 }
 
@@ -74,22 +93,29 @@ class AssessDraftNumberHandler(
     private val changeKinds: DraftChangeKinds,
 ) : QueryHandler<AssessDraftNumber, DraftNumberAssessment?> {
     override fun handle(query: AssessDraftNumber): DraftNumberAssessment? {
-        jdbi.withHandle<CatalogDraft?, Exception> { drafts.find(it, query.tenantKey, query.catalogKey, query.draft) } ?: return null
-        val released = ListCatalogReleases(query.tenantKey, query.catalogKey).query().map { it.version }
-        val latest = CatalogDrafts.latest(released) ?: return DraftNumberAssessment(null, null, emptyList(), CatalogDrafts.FIRST)
-        val latestVersion = SemVer.parse(latest)
-        val changes = changeKinds.against(query.tenantKey, query.catalogKey, latest)
-            ?: return DraftNumberAssessment(latest, null, emptyList(), latestVersion.bumpPatch().toString())
-        val suggested = when (changes.kind) {
-            ChangeKind.BREAKING -> latestVersion.bumpMajor()
-            ChangeKind.ADDITIVE -> latestVersion.bumpMinor()
-            ChangeKind.NONE -> latestVersion.bumpPatch()
+        val draft = jdbi.withHandle<CatalogDraft?, Exception> { drafts.find(it, query.tenantKey, query.catalogKey, query.draft) } ?: return null
+        val taken = ListCatalogReleases(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
+        val base = draft.base
+        if (base == null) {
+            // Nothing to measure against: the first number, or the next free major after it.
+            val first = SemVer.parse(CatalogDrafts.FIRST)
+            return DraftNumberAssessment(null, null, emptyList(), first.toString(), DraftNumberAssessment.nextFree(first, ChangeKind.BREAKING, taken).toString(), taken)
+        }
+        val baseVersion = SemVer.parse(base)
+        val changes = changeKinds.against(query.tenantKey, query.catalogKey, base)
+        val kind = changes?.kind ?: ChangeKind.NONE
+        val needed = when (kind) {
+            ChangeKind.BREAKING -> baseVersion.bumpMajor()
+            ChangeKind.ADDITIVE -> baseVersion.bumpMinor()
+            ChangeKind.NONE -> baseVersion.bumpPatch()
         }
         return DraftNumberAssessment(
-            latest = latest,
-            needs = changes.kind,
-            reasons = changes.above(ChangeKind.NONE).map { it.toString() },
-            suggested = suggested.toString(),
+            base = base,
+            needs = changes?.kind,
+            reasons = changes?.above(ChangeKind.NONE).orEmpty().map { it.toString() },
+            needed = needed.toString(),
+            suggested = DraftNumberAssessment.nextFree(needed, kind, taken).toString(),
+            taken = taken,
         )
     }
 }

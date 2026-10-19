@@ -178,8 +178,8 @@ class ContentRevisionsTest : IntegrationTestBase() {
         val variant = template(catalog)
         withMediator {
             val atNext = UpdateVariantContent(variant, document("next")).execute().revision
-            val draft = CreateCatalogDraft(catalog.tenantKey, catalog.key, "Redesign").execute()
-            val inDraft = CatalogVersionRef(catalog.tenantKey, catalog.key, DraftRef.Id(draft.draftId!!))
+            val draft = CreateCatalogDraft(catalog.tenantKey, catalog.key, "Redesign", from = DraftRef.NEXT).execute()
+            val inDraft = CatalogVersionRef(catalog.tenantKey, catalog.key, DraftRef.Id(draft.versionId))
 
             assertThat(GetVariant(variant, catalogVersion = inDraft).query()!!.revision).`as`("a copy keeps the revision").isEqualTo(atNext)
             UpdateVariantContent(variant, document("redesign"), catalogVersion = inDraft, expectedRevision = atNext).execute()

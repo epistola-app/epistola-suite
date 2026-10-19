@@ -31,7 +31,7 @@ data class DocumentMetadata(
     /** The catalog release rendered, from 2.0 on. */
     val releaseVersion: String? = null,
     /** The draft rendered, through an environment that follows it; null for a release. */
-    val draftId: java.util.UUID? = null,
+    val draftId: String? = null,
     /** The draft's name when the document was rendered. */
     val draftLabel: String? = null,
     val filename: String,
@@ -83,7 +83,7 @@ class GetDocumentMetadataHandler(
                     templateId = TemplateKey(rs.getString("template_key")),
                     variantId = VariantKey(rs.getString("variant_key")),
                     releaseVersion = rs.getString("release_version"),
-                    draftId = rs.getObject("draft_id", java.util.UUID::class.java),
+                    draftId = rs.getString("draft_id"),
                     draftLabel = rs.getString("draft_label"),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),

@@ -11,6 +11,9 @@
 CREATE TABLE catalog_versions (
     tenant_key    TENANT_KEY  NOT NULL,
     version_id    UUID        NOT NULL DEFAULT epistola_uuidv7(),
+    -- The draft's public id (contract CatalogVersionId), which its release keeps. version_id stays
+    -- the internal identity the content rows reference.
+    version_key   VARCHAR(36) NOT NULL DEFAULT epistola_version_key(),
     catalog_id    UUID        NOT NULL,
     version       VARCHAR(50),
     kind          VARCHAR(16) NOT NULL,
@@ -24,6 +27,7 @@ CREATE TABLE catalog_versions (
     name          VARCHAR(100),
     PRIMARY KEY (tenant_key, version_id),
     CONSTRAINT uq_catalog_versions_number UNIQUE (tenant_key, catalog_id, version),
+    CONSTRAINT uq_catalog_versions_key UNIQUE (tenant_key, catalog_id, version_key),
     -- The target of the content tables' (tenant_key, version_id, catalog_id) references, which keep a
     -- content row's catalog_id and version_id in agreement.
     CONSTRAINT uq_catalog_versions_catalog UNIQUE (tenant_key, version_id, catalog_id),
@@ -49,7 +53,9 @@ COMMENT ON COLUMN catalog_versions.is_next IS
 COMMENT ON COLUMN catalog_versions.name IS
     'What people call a draft that is long-term work (not the next version), e.g. "Redesign 2027". NULL for the next version, which is always "Next version".';
 COMMENT ON COLUMN catalog_versions.created_from IS
-    'The released version a draft was copied from when that is not its base; ''next'' when it was copied from the next version, unreleased changes included.';
+    'The version_key of the draft this draft was copied from, unreleased changes included; NULL when it was started from a release, its base, or from nothing.';
+COMMENT ON COLUMN catalog_versions.version_key IS
+    'The draft''s id (contract CatalogVersionId). Releasing the draft gives its release this id; the next version then continues under a new one.';
 
 -- Every authored catalog's working copy becomes its next version. It has no base: no 1.x release
 -- kept its content, so the upgrade removes them (V20261018201400) and cuts a first release instead.

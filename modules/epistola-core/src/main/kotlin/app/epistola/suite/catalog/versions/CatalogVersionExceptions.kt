@@ -13,10 +13,9 @@ class CatalogVersionNotFoundException(val catalogKey: CatalogKey, val version: S
 class CatalogVersionReleasedException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Version $version of catalog '${catalogKey.value}' is released and cannot change")
 
 /**
- * A draft that is behind releases (released versions above its base, which it does not contain
- * unless an author applied their changes by hand) is released only when every one of them is
- * acknowledged (contract ADR 0002). [version] names the draft; [behind] are the releases not
- * acknowledged.
+ * A draft that is behind releases (contract ADR 0002, "A draft can be behind": releases it does not
+ * contain unless an author applied their changes by hand) is released only when every one of them is
+ * acknowledged. [version] names the draft; [behind] are the releases not acknowledged.
  */
 class CatalogVersionBehindException(val catalogKey: CatalogKey, val version: String, val behind: List<String>) : RuntimeException("Version $version of catalog '${catalogKey.value}' is behind release ${behind.joinToString()}; acknowledge ${if (behind.size == 1) "it" else "them"} to release it")
 
@@ -30,3 +29,21 @@ class CatalogVersionHeldException(val catalogKey: CatalogKey, val version: Strin
         "Draft $version of catalog '${catalogKey.value}' cannot be discarded: it alone holds what " +
             "${holders.joinToString("; ")} ${if (holders.size == 1) "uses" else "use"}. Change ${if (holders.size == 1) "it" else "them"} first.",
     )
+
+/** A draft of another catalog that a dependency declaration names, which a release cannot pin. */
+data class UnreleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val draftName: String)
+
+/**
+ * The draft's dependency declarations name drafts of other catalogs ([unreleased], directly or
+ * through those drafts' own declarations), and the release was not asked to release them along
+ * (contract `release-dependencies-unreleased`).
+ */
+class CatalogDependenciesUnreleasedException(val catalogKey: CatalogKey, val unreleased: List<UnreleasedDependency>) :
+    RuntimeException(
+        "${catalogKey.value} uses drafts of other catalogs: " +
+            unreleased.joinToString { "${it.namespace}/${it.catalogKey} (${it.draftName})" } +
+            ". Release them first, or release them along.",
+    )
+
+/** Draft [version] is named by another catalog's draft ([namedBy]), so it cannot be discarded. */
+class CatalogDraftInUseException(val catalogKey: CatalogKey, val version: String, val namedBy: List<String>) : RuntimeException("Draft $version of catalog '${catalogKey.value}' cannot be discarded: ${namedBy.joinToString()} ${if (namedBy.size == 1) "builds" else "build"} on it.")

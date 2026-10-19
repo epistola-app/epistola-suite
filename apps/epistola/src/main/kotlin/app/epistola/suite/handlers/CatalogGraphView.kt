@@ -120,7 +120,7 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
                 val bend = ((x1 - x2) / 2).coerceAtLeast(40)
                 Arrow(
                     path = "M $x1 $y1 C ${x1 - bend} $y1, ${x2 + bend} $y2, $x2 $y2",
-                    label = edge.selector + (edge.release?.let { " · v$it" } ?: " · not tied"),
+                    label = edge.release?.let { "v$it" } ?: "not tied",
                     labelX = (x1 + x2) / 2,
                     labelY = (y1 + y2) / 2 - 6,
                     untied = edge.release == null,

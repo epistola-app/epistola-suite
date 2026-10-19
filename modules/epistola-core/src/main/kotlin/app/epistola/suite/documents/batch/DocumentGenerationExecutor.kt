@@ -313,7 +313,7 @@ class DocumentGenerationExecutor(
      * which holds no database connection while it lays out the document). Its data is validated
      * against the draft's contract. A draft discarded since the request was accepted fails it.
      */
-    private fun generateFromDraft(request: DocumentGenerationRequest, draftId: UUID): Triple<Document, ByteArray, String> {
+    private fun generateFromDraft(request: DocumentGenerationRequest, draftId: String): Triple<Document, ByteArray, String> {
         val rendered = draftRenderer.render(request.tenantKey, request.catalogKey, request.templateKey, request.variantKey, request.data, draftId)
         val pdfBytes = rendered.pdf
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024

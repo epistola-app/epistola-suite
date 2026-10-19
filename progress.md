@@ -364,6 +364,28 @@ still render bare when opened directly. `EmbeddingBridgeUiTest` navigate and
 `ExpressionClipboardPlaywrightUiTest` fail intermittently under load. Running Gradle tests rewrites
 module jars under a running demo (ZipException): restart the demo after.
 
+### Contract catch-up 2: `642b6e2`..`ae39e22` (19 October, in progress)
+
+Five breaking contract commits landed on 19 October and were published as the local
+`2.0.0-SNAPSHOT`; the branch stopped compiling. Decided with the user: keep "Next version" as a
+suite convention (one draft marked as the default; promote removed, any draft releasable; after
+the default is released a new default opens from that release), and use short random version ids
+(the unreleased migrations are rewritten, the demo database is reset).
+
+| Step | Contract                                                                                                                                    | Status      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1    | `642b6e2` dependencies pin an exact release; `ReleaseVersion` everywhere; generation takes ranges                                           | in progress |
+| 2    | `5f3b81f` every version has a `versionId`, kept when released; addressed by id or number                                                    | to do       |
+| 3    | `17e623c` any draft is released; free number above base; behind (a)/(b); dependency drafts, `releaseDependencies`; overrides end on release | to do       |
+| 4    | `70a5c77` import installs the archive's release, never a draft; `catalogType` required on create                                            | to do       |
+| 5    | `5f3b81f` archive carries pinned releases under `dependencies/`, replacing `bundle.json`                                                    | to do       |
+| 6    | `ae39e22` upgrade installs a release; preview lists available releases; no in-place reconcile                                               | to do       |
+| 7    | REST, MCP, UI, docs, demo catalog, changelog                                                                                                | to do       |
+
+Found while starting: a fat export in the demo failed with "Release 2.0.0 of catalog 'system'
+rebuilds to fingerprint … but was released as …". Not yet known whether stale demo data or a bug;
+re-test once the build compiles (a fresh tenant exporting `system` 2.0.0).
+
 ### Contract `feature/v2` (local, not pushed)
 
 | Change                                                                                                                                                                                                                                                                                                                                                       | Where                                     | Coverage                                                                                                                                                                                                                                                                                                                          |

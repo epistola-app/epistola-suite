@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -182,7 +183,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release is refused while a catalog it depends on has no release`() {
+    fun `a release is refused while it builds on a catalog that has no release`() {
         val tenant = createTenant("rr-unreleased")
         val shared = catalogIn(tenant.id, "shared")
         val letters = catalogIn(tenant.id, "letters")
@@ -195,10 +196,9 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
                 release(letters, "1.0.0")
             }
         }
-            .isInstanceOf(ValidationException::class.java)
-            .hasValidationCode(ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED)
-            .hasMessageContaining("shared@*")
-            .hasMessageContaining("matches no release")
+            .`as`("the declaration names shared's draft, which a release cannot pin")
+            .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
+            .hasMessageContaining("shared (Next version)")
     }
 
     @Test

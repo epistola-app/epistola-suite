@@ -160,6 +160,27 @@ ALTER TABLE catalog_releases ADD COLUMN base_version VARCHAR(50);
 COMMENT ON COLUMN catalog_releases.base_version IS
     'The released version this release''s draft started from; null when it had none or was released before it was recorded.';
 
+-- A catalog version's id (contract `CatalogVersionId`): opaque, assigned when a version is started as
+-- a draft and kept when it is released, so it addresses a release as its number does. Eight
+-- characters from an alphabet without look-alikes (no 0/o, 1/l/i), which people can read and type;
+-- never a dot, so it cannot be mistaken for a release number. 31^8 is about 8.5e11, and an id only
+-- has to be unique within its catalog, which the unique constraints check.
+CREATE FUNCTION epistola_version_key() RETURNS VARCHAR(36)
+    LANGUAGE sql
+    VOLATILE
+AS $$
+SELECT string_agg(substr('abcdefghjkmnpqrstuvwxyz23456789', 1 + floor(random() * 31)::int, 1), '')
+FROM generate_series(1, 8);
+$$;
+
+-- Every release gets an id: a release cut from a draft takes the draft's (set when it is released);
+-- one installed, imported or recorded before this column gets a new one.
+ALTER TABLE catalog_releases ADD COLUMN version_key VARCHAR(36) NOT NULL DEFAULT epistola_version_key();
+ALTER TABLE catalog_releases ADD CONSTRAINT uq_catalog_releases_version_key UNIQUE (tenant_key, catalog_id, version_key);
+
+COMMENT ON COLUMN catalog_releases.version_key IS
+    'The release''s id (contract CatalogVersionId): the id of the draft it was released from, or a new one for a release installed from elsewhere. Addresses the release as its number does.';
+
 -- Let the content sweep find an asset by the bytes it points at.
 --
 -- `ContentReaper` asks, for each candidate blob, whether any live `assets` row still points at it.
@@ -268,8 +289,8 @@ CREATE TRIGGER trg_template_variants_catalog_touched
     AFTER DELETE ON template_variants
     FOR EACH ROW EXECUTE FUNCTION touch_catalog_content_on_variant_delete();
 
--- What each release was cut with: every declaration, and the release of the dependency it resolved
--- to with that release''s fingerprint. A release renders with exactly these releases. A release
+-- What each release was cut with: every declaration, and the release of the dependency it pinned,
+-- with that release''s fingerprint. A release renders with exactly these releases. A release
 -- imported from an archive of wire v7 or earlier never recorded one, so both stay null together.
 CREATE TABLE catalog_release_dependencies (
     tenant_key          TENANT_KEY   NOT NULL,
@@ -278,7 +299,6 @@ CREATE TABLE catalog_release_dependencies (
     registry            TEXT         NOT NULL,
     namespace           TEXT         NOT NULL,
     dependency_key      VARCHAR(50)  NOT NULL,
-    version_selector    VARCHAR(100) NOT NULL,
     position            INT          NOT NULL,
     release_version     VARCHAR(100),
     release_fingerprint VARCHAR(80),
@@ -289,4 +309,4 @@ CREATE TABLE catalog_release_dependencies (
 );
 
 COMMENT ON TABLE catalog_release_dependencies IS
-    'The dependency declarations a release was cut with, each pinned to the release it resolved to (releaseVersion + releaseFingerprint).';
+    'The dependency declarations a release was cut with, each with the release it pinned (releaseVersion + releaseFingerprint).';

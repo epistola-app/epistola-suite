@@ -141,6 +141,8 @@ class CatalogUpgradeRunner(
         if (declared.isNotEmpty()) {
             logger.info("Catalog {}/{} now declares {}", catalog.tenantKey.value, catalog.catalogKey.value, declared.joinToString())
         }
+        // A catalog it depends on may have been released since it was declared, earlier in this run.
+        declarer.pinUnpinned(catalog.tenantKey, catalog.catalogKey)
         if (!hasRelease(catalog) &&
             contentBuilder.build(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
         ) {

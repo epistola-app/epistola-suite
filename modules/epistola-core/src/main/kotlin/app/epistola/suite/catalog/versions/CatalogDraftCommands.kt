@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
@@ -28,15 +29,18 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /**
- * Starts long-term work on an authored catalog (contract `createCatalogDraft`, ADR 0002, amendment 2):
- * a draft named [name], next to the next version, that is not released until it is ready.
+ * Starts a draft of an authored catalog (contract `createCatalogDraft`, ADR 0002), named [name], next
+ * to the catalog's other drafts, each released on its own.
  *
- * - Without [from], it starts as a copy of the next version, unreleased changes included; its base is
- *   the next version's.
- * - With [from], a released version, it starts as a copy of that release, which is its base.
+ * - With [from] a released version (its number or its id), it starts as a copy of that release,
+ *   which is its base. A fix to an older line is a draft from a release of that line.
+ * - With [from] another draft's id (or `next`), it starts as a copy of that draft, unreleased changes
+ *   included, on that draft's base.
+ * - Without [from], it starts as a copy of the catalog's highest release, or empty with no base when
+ *   the catalog has none.
  *
  * A copy keeps every resource's identity. Refused for a subscribed catalog, for a name another draft
- * of the catalog has, and when [from] is not a release of the catalog.
+ * of the catalog has, and when [from] names no version of the catalog.
  */
 data class CreateCatalogDraft(
     override val tenantKey: TenantKey,
@@ -52,11 +56,11 @@ data class CreateCatalogDraft(
     }
 }
 
-/** Renames long-term work (contract `renameCatalogDraft`). The next version has no name to change. */
+/** Renames a draft (contract `renameCatalogDraft`); its id does not change. The next version has no name to change. */
 data class RenameCatalogDraft(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val draftId: UUID,
+    val draft: DraftRef,
     val name: String,
 ) : Command<CatalogVersion>,
     RequiresPermission {
@@ -73,12 +77,13 @@ data class RenameCatalogDraft(
  * it.
  *
  * Discarding the **next version** throws its changes away: it starts again as a copy of the latest
- * release (empty when there is none), so everyday work always has somewhere to go. Long-term work is
- * simply gone.
+ * release (empty when there is none), so everyday work always has somewhere to go (a convention of
+ * this suite). Any other draft is simply gone. Environment overrides that follow it end.
  *
- * Refused ([CatalogVersionHeldException]) while the draft alone holds a resource something outside it
- * still needs: the tenant's default theme, a code list an attribute of another version binds, a theme
- * a template of another version uses.
+ * Refused ([CatalogDraftInUseException]) while a draft of another catalog names it in a dependency
+ * declaration, and ([CatalogVersionHeldException]) while the draft alone holds a resource something
+ * outside it still needs: the tenant's default theme, a code list an attribute of another version
+ * binds, a theme a template of another version uses.
  */
 data class DeleteCatalogDraft(
     override val tenantKey: TenantKey,
@@ -104,25 +109,21 @@ data class OpenNextVersion(
 }
 
 /**
- * Makes long-term work the catalog's next version (contract `promoteCatalogDraft`, ADR 0002, amendment
- * 2), when it is ready to go out with everyday work.
+ * Makes a draft the catalog's next version: the draft everyday work goes into, a convention of this
+ * suite that the contract does not know. Nothing about either draft's content or base changes.
  *
- * - It must contain every release published since it started, or the caller acknowledges those it
- *   leaves out ([acknowledgedBehind] names every release it is behind, as releasing a behind draft
- *   does): it then continues on the latest release, as the next version always does, and is behind
- *   nothing.
- * - The draft that was the next version is discarded with its changes, or, with [keepPreviousAs], kept
- *   as long-term work under that name.
+ * The draft that was the next version is discarded with its changes, or, with [keepPreviousAs], kept
+ * as another draft under that name.
  *
  * Refused for the next version itself, for a name another draft has, and while the next version,
- * when discarded, alone holds what something outside it uses ([CatalogVersionHeldException]).
+ * when discarded, alone holds what something outside it uses ([CatalogVersionHeldException]) or is
+ * named by another catalog's draft ([CatalogDraftInUseException]).
  */
 data class PromoteCatalogDraft(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val draftId: UUID,
+    val draft: DraftRef,
     val keepPreviousAs: String? = null,
-    val acknowledgedBehind: Set<String> = emptySet(),
 ) : Command<CatalogVersion>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_RELEASE
@@ -158,20 +159,28 @@ class CreateCatalogDraftHandler(
         val created = jdbi.withHandle<UUID, Exception> { handle ->
             val open = drafts.drafts(handle, tenantKey, catalogKey)
             if (open.any { it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(catalogKey, name)
-            when (val from = command.from) {
-                null -> {
-                    val next = open.firstOrNull { it.isNext } ?: throw CatalogVersionNotFoundException(catalogKey, DraftRef.NEXT)
-                    drafts.open(handle, tenantKey, catalogKey, next.base, name, CatalogDraft.FROM_NEXT).also { drafts.copyContent(handle, tenantKey, next.versionId, it) }
-                }
-
-                else -> {
-                    val release = versions.all(handle, tenantKey, catalogKey).firstOrNull { it.status == CatalogVersionStatus.RELEASED && it.version == from }
-                        ?: throw CatalogVersionNotFoundException(catalogKey, from)
-                    drafts.open(handle, tenantKey, catalogKey, from, name).also { copier.copy(tenantKey, catalogKey, release, it) }
-                }
+            val all = versions.all(handle, tenantKey, catalogKey)
+            val from = command.from?.trim()
+            val source = from?.let { DraftRef.parse(it) }?.let { ref -> open.firstOrNull { it.ref == ref || (ref is DraftRef.Id && it.key == ref.key) } }
+            val release = if (source != null) {
+                null
+            } else if (from != null) {
+                all.firstOrNull { it.status == CatalogVersionStatus.RELEASED && (it.version == from || it.versionId == from) }
+                    ?: throw CatalogVersionNotFoundException(catalogKey, from)
+            } else {
+                CatalogDrafts.latest(all.filter { it.status == CatalogVersionStatus.RELEASED }.mapNotNull { it.version })
+                    ?.let { highest -> all.first { it.status == CatalogVersionStatus.RELEASED && it.version == highest } }
+            }
+            when {
+                source != null -> drafts.open(handle, tenantKey, catalogKey, source.base, name, source.key).also { drafts.copyContent(handle, tenantKey, source.versionId, it) }
+                release != null -> drafts.open(handle, tenantKey, catalogKey, release.version, name).also { copier.copy(tenantKey, catalogKey, release, it) }
+                else -> drafts.open(handle, tenantKey, catalogKey, base = null, name = name)
             }
         }
-        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, tenantKey, catalogKey).first { it.draftId == created } }
+        return jdbi.withHandle<CatalogVersion, Exception> { handle ->
+            val key = drafts.drafts(handle, tenantKey, catalogKey).first { it.versionId == created }.key
+            versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == key }
+        }
     }
 }
 
@@ -181,40 +190,32 @@ class PromoteCatalogDraftHandler(
     private val drafts: CatalogDrafts,
     private val versions: CatalogVersionReader,
     private val holdersCheck: DeleteCatalogDraftHandler,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<PromoteCatalogDraft, CatalogVersion> {
     override fun handle(command: PromoteCatalogDraft): CatalogVersion {
         requireCatalogEditable(command.tenantKey, command.catalogKey)
         val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
         return jdbi.inTransaction<CatalogVersion, Exception> { handle ->
             val open = drafts.drafts(handle, tenantKey, catalogKey)
-            val work = open.firstOrNull { it.versionId == command.draftId } ?: throw CatalogVersionNotFoundException(catalogKey, command.draftId.toString())
+            val work = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
             if (work.isNext) throw CatalogDraftIsNextException(catalogKey, "The next version of catalog '${catalogKey.value}' is the next version already")
             val previous = open.firstOrNull { it.isNext }
             val keepAs = command.keepPreviousAs?.trim()
             if (keepAs != null && open.any { it.versionId != previous?.versionId && it.name.equals(keepAs, ignoreCase = true) }) {
                 throw CatalogDraftNameInUseException(catalogKey, keepAs)
             }
-            val releases = versions.all(handle, tenantKey, catalogKey).filter { it.status == CatalogVersionStatus.RELEASED }.mapNotNull { it.version }
-            val unacknowledged = CatalogDrafts.behind(work.base, releases).filter { it !in command.acknowledgedBehind }
-            if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(catalogKey, work.label, unacknowledged)
-            if (previous != null && keepAs == null) {
+            val ended = if (previous != null && keepAs == null) {
                 val holders = holdersCheck.holders(handle, tenantKey, previous.versionId)
                 if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, previous.label, holders)
+                val namedBy = dependencyStore.namedBy(handle, tenantKey, previous.versionId)
+                if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, previous.label, namedBy)
+                EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == previous.key }
+            } else {
+                emptyList()
             }
-            // Behind nothing now: it continues on the latest release, as the next version does.
-            // An environment following the next version keeps following the next version: the work now.
-            if (previous != null) {
-                handle.createUpdate(
-                    """
-                    UPDATE environment_catalog_overrides SET draft_id = :work
-                    WHERE tenant_key = :t AND draft_id = :previous
-                    """,
-                )
-                    .bind("t", tenantKey).bind("work", work.versionId).bind("previous", previous.versionId)
-                    .execute()
-            }
-            drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs, CatalogDrafts.latest(releases) ?: work.base)
-            versions.all(handle, tenantKey, catalogKey).first { it.draftId == work.versionId }
+            drafts.promote(handle, tenantKey, work.versionId, previous?.versionId, keepAs)
+            EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
+            versions.all(handle, tenantKey, catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == work.key }
         }
     }
 }
@@ -230,27 +231,18 @@ class RenameCatalogDraftHandler(
         val name = command.name.trim()
         return jdbi.withHandle<CatalogVersion, Exception> { handle ->
             val open = drafts.drafts(handle, command.tenantKey, command.catalogKey)
-            val draft = open.firstOrNull { it.versionId == command.draftId } ?: throw CatalogVersionNotFoundException(command.catalogKey, command.draftId.toString())
+            val draft = drafts.find(handle, command.tenantKey, command.catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(command.catalogKey, command.draft.toString())
+            // The next version is a convention of this suite, always called "Next version".
             if (draft.isNext) throw CatalogDraftIsNextException(command.catalogKey, "The next version of catalog '${command.catalogKey.value}' has no name of its own")
             if (open.any { it.versionId != draft.versionId && it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(command.catalogKey, name)
             drafts.rename(handle, command.tenantKey, draft.versionId, name)
-            versions.all(handle, command.tenantKey, command.catalogKey).first { it.draftId == draft.versionId }
+            versions.all(handle, command.tenantKey, command.catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == draft.key }
         }
     }
 }
 
-/**
- * What only one kind of draft can do, asked of the other: renaming the next version (it has no name of
- * its own), or releasing long-term work (only the next version releases; ADR 0002, amendment 2).
- */
-class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) : RuntimeException(message) {
-    companion object {
-        fun notNext(catalogKey: CatalogKey, name: String) = CatalogDraftIsNextException(
-            catalogKey,
-            "'$name' is long-term work of catalog '${catalogKey.value}': only the next version is released. Try it by pointing a test environment at it, and make it the next version when it is ready.",
-        )
-    }
-}
+/** Asked of the next version what only another draft can do: being renamed, made the next version, or opened again. */
+class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) : RuntimeException(message)
 
 /**
  * Copies a released version into a draft. A release's content is the content it retained: rebuilt
@@ -295,7 +287,7 @@ class OpenNextVersionHandler(
         jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, command.tenantKey, command.catalogKey) }
             ?.let { throw CatalogDraftIsNextException(command.catalogKey, "Catalog '${command.catalogKey.value}' has a next version already") }
         val opened = nextVersions.open(command.tenantKey, command.catalogKey)
-        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, command.tenantKey, command.catalogKey).first { it.draftId == opened } }
+        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, command.tenantKey, command.catalogKey).first { it.isNext } }
     }
 }
 
@@ -324,16 +316,19 @@ class DeleteCatalogDraftHandler(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
     private val nextVersions: NextVersionOpener,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<DeleteCatalogDraft, Unit> {
     override fun handle(command: DeleteCatalogDraft) {
         requireCatalogEditable(command.tenantKey, command.catalogKey)
         val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
         val draft = jdbi.withHandle<CatalogDraft, Exception> { handle ->
             val draft = drafts.find(handle, tenantKey, catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(catalogKey, command.draft.toString())
+            val namedBy = dependencyStore.namedBy(handle, tenantKey, draft.versionId)
+            if (namedBy.isNotEmpty()) throw CatalogDraftInUseException(catalogKey, draft.label, namedBy)
             val holders = holders(handle, tenantKey, draft.versionId)
             if (holders.isNotEmpty()) throw CatalogVersionHeldException(catalogKey, draft.label, holders)
             // Environments following it stop: recorded in their history.
-            val ended = EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == draft.versionId }
+            val ended = EnvironmentOverrideStore.list(handle, tenantKey, null, catalogKey).filter { it.draftId == draft.key }
             drafts.delete(handle, tenantKey, draft.versionId)
             EnvironmentOverrideStore.recordEnded(handle, tenantKey, ended)
             draft

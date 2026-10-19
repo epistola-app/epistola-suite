@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.dependencies
 
-import app.epistola.suite.catalog.CatalogVersionSelector
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -33,8 +32,7 @@ import org.springframework.stereotype.Component
  *   version is tied to; it is tied to that one.
  *
  * Then every catalog used but not declared is declared ([DeclareUsedCatalogs]), and each declaration
- * of a catalog above is locked to its new version. A declaration whose range does not accept it is
- * refused, naming both, rather than quietly widened.
+ * of a catalog above is pinned to its new version.
  *
  * The publish of this version itself is the caller's next step; when it fails, what was published
  * here stays published, as any published version does.
@@ -82,17 +80,10 @@ class PublishUsedCatalogsHandler(
             for (key in command.retie) {
                 val target = borrowed(key).retieTo ?: continue
                 val declaration = declared.firstOrNull { it.catalogKey == key } ?: continue
-                store.highestMatch(handle, command.tenantKey, declaration.copy(version = target))?.let { tiedTo[key] = it }
+                store.release(handle, command.tenantKey, declaration, target)?.let { tiedTo[key] = it }
             }
             val relocked = declared.map { declaration ->
                 val target = tiedTo[declaration.catalogKey] ?: return@map declaration
-                if (CatalogVersionSelector.parseOrNull(declaration.version)?.matches(target.version) != true) {
-                    throw ValidationException(
-                        "catalogs",
-                        "${command.catalogKey.value} accepts ${declaration.catalogKey} ${declaration.version}, which v${target.version} is not. Change the range under Advanced first.",
-                        ValidationCode.GENERIC,
-                    )
-                }
                 declaration.copy(releaseVersion = target.version, releaseFingerprint = target.fingerprint)
             }
             store.replace(handle, command.tenantKey, command.catalogKey, relocked)

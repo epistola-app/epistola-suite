@@ -37,8 +37,8 @@ data class ResolvedCatalogVersion(
 
 /**
  * Resolves `…/catalogs/{registry}/{namespace}/{catalogKey}/versions/{catalogVersion}` (contract ADR
- * 0002/0003): the tenant's catalog with that name, and the version [version] names: `next` or a draft
- * id for a draft, a number for a release. [registry]
+ * 0002/0003): the tenant's catalog with that name, and the version [version] names: its id (a draft
+ * or a release), a release's number, or `next` for the next version. [registry]
  * null, or `~`, is the installation's default registry. A catalog whose key matches but whose name
  * does not is another catalog, and not found.
  *
@@ -66,11 +66,12 @@ class ResolveCatalogVersionHandler(
         val catalog = handle.findCatalog(query.tenantKey, query.catalogKey)
             ?.takeIf { it.registry == registry && it.namespace == query.namespace }
             ?: throw CatalogNotFoundException(query.catalogKey)
-        // A draft is named `next` or by its id; a release by its number (ADR 0002, amendment 2).
+        // A version is named by its id, a draft and its release alike; a release also by its number
+        // (contract ADR 0002). `next`, the next version, is a convention of this suite.
         val all = versions.all(handle, query.tenantKey, query.catalogKey)
-        val version = when (val draft = DraftRef.parse(query.version)) {
+        val version = when (val ref = DraftRef.parse(query.version)) {
             DraftRef.Next -> all.firstOrNull { it.isNext }
-            is DraftRef.Id -> all.firstOrNull { it.status == CatalogVersionStatus.DRAFT && it.draftId == draft.id }
+            is DraftRef.Id -> all.firstOrNull { it.versionId == ref.key }
             null -> all.firstOrNull { it.status == CatalogVersionStatus.RELEASED && it.version == query.version }
         } ?: throw CatalogVersionNotFoundException(query.catalogKey, query.version)
         ResolvedCatalogVersion(catalog, version)

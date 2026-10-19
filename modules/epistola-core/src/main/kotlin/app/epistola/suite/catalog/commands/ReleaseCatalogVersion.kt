@@ -21,25 +21,33 @@ import app.epistola.suite.catalog.ReleaseStencilCheck
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyRelease
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versions.AssessDraftNumber
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.versions.CatalogDraft
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.CatalogVersionTargeting
+import app.epistola.suite.catalog.versions.ChangeKind
+import app.epistola.suite.catalog.versions.DraftNumberAssessment
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.UnreleasedDependency
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
+import app.epistola.suite.environments.EnvironmentOverride
+import app.epistola.suite.environments.EnvironmentOverrideStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
@@ -55,20 +63,23 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * Releases the next version of an AUTHORED catalog (contract `releaseCatalogDraft`, ADR 0002,
- * amendment 2): records an explicit, immutable release boundary (SemVer + content fingerprint + notes
- * + a manifest snapshot) and advances the catalog's released-version pointer.
+ * Releases a draft of an AUTHORED catalog (contract `releaseCatalogDraft`, ADR 0002): records an
+ * explicit, immutable release boundary (SemVer + content fingerprint + notes + a manifest snapshot)
+ * and, when it is the catalog's highest, advances the catalog's released-version pointer.
  *
- * - A draft is numbered when it is released: [version], or, when that is null, the number its changes
- *   need against the latest release ([AssessDraftNumber]). A given number must be above every release
- *   and no lower than the changes need; the author may raise it, to mark a major on purpose.
- * - Only the next version releases: the catalog's history moves forward. Long-term work
- *   ([catalogVersion] naming another draft) is refused: it is tried by pointing an environment at it
- *   (an override) and released once it is made the next version ([PromoteCatalogDraft]).
- * - A next version that is behind releases (above its base) is released only when
+ * - Any draft can be released: [catalogVersion], or the next version when that is null.
+ * - It is numbered when it is released: [version], or, when that is null, the number its changes
+ *   need against its base, or the next free one of that kind ([AssessDraftNumber]). A given number
+ *   must be free, above the base and no lower than the changes need.
+ * - A draft that is behind releases for that number ([CatalogDrafts.behind]) is released only when
  *   [acknowledgedBehind] names every one of them.
- * - After the release, the next version continues on it, as a copy of the release. Long-term work is
- *   untouched, and is now behind this release.
+ * - A declaration naming a draft of another catalog is refused
+ *   ([CatalogDependenciesUnreleasedException]) unless [releaseDependencies] releases those drafts
+ *   first, each numbered by its own changes, in the same transaction; the release then pins the
+ *   releases they became.
+ * - The draft becomes the release, which keeps its id. Environment overrides that followed it end.
+ *   The next version, a convention of this suite, then continues on the release under a new id;
+ *   another draft is gone. Declarations in other drafts that named it now pin the release.
  *
  * See [`docs/catalog-versioning.md`](../../../../../../../../../docs/catalog-versioning.md).
  */
@@ -87,8 +98,10 @@ data class ReleaseCatalogVersion(
     internal val source: ContentSource = ContentSource.WORKING_COPY,
     /** The releases the caller confirms this draft may be behind; naming others changes nothing. */
     val acknowledgedBehind: Set<String> = emptySet(),
-    /** The draft to release; null for the next version, the only one that releases. */
+    /** The draft to release; null for the next version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** Release the drafts of other catalogs this draft's declarations name, first. */
+    val releaseDependencies: Boolean = false,
 ) : CatalogVersionScoped,
     Command<ReleaseCatalogVersionResult>,
     RequiresPermission {
@@ -114,9 +127,16 @@ data class ReleaseCatalogVersionResult(
     val unchangedContent: Boolean,
     /** Set when the release was queued for publication; null when it was not. */
     val publicationId: UUID? = null,
-    /** The long-term work that is now behind this release, by name. */
+    /** The catalog's other drafts this release puts behind, by name. */
     val draftsBehind: List<String> = emptyList(),
+    /** The drafts of other catalogs released along with this one, dependencies first. */
+    val releasedDependencies: List<ReleasedDependency> = emptyList(),
+    /** The release's id (contract `CatalogVersionId`): the id the draft had. */
+    val versionId: String = "",
 )
+
+/** A draft of another catalog released along with a release, and the release it became. */
+data class ReleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val releaseVersion: String)
 
 /** Thrown when the requested release version is not a strictly increasing SemVer. */
 class CatalogReleaseVersionException(message: String) : RuntimeException(message)
@@ -149,18 +169,67 @@ class ReleaseCatalogVersionHandler(
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.tenantKey, command.catalogKey, command.catalogVersion?.draft ?: DraftRef.Next)
         } ?: throw CatalogVersionNotFoundException(command.catalogKey, command.catalogVersion?.draft?.toString() ?: DraftRef.NEXT)
-        if (!draft.isNext) throw CatalogDraftIsNextException.notNext(command.catalogKey, draft.label)
+
+        // Drafts of other catalogs this one builds on are released first, or the release is refused.
+        val releasedDependencies = targeting.within(draft.versionId) { releaseDependencies(command, draft) }
 
         val existing = loadReleases(command.tenantKey, command.catalogKey)
         val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()
         val newVersion = number(command, draft, existing, latest)
-        val open = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }
-        val behind = CatalogDrafts.behind(draft.base, existing.map { it.version })
-        val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
-        if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
+        val others = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }.filter { it.versionId != draft.versionId }
+        if (command.source == ContentSource.WORKING_COPY) {
+            val behind = CatalogDrafts.behind(draft.base, draft.createdAt, newVersion.toString(), existing.map { it.version to it.releasedAt })
+            val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
+            if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
+        }
+        // The other drafts this release puts behind: those numbered above it once it has its number.
+        val draftsBehind = others.filter { other ->
+            val assessment = AssessDraftNumber(command.tenantKey, command.catalogKey, other.ref).query() ?: return@filter false
+            val theirs = DraftNumberAssessment.nextFree(SemVer.parse(assessment.needed), assessment.needs ?: ChangeKind.NONE, assessment.taken + newVersion.toString())
+            other.base != newVersion.toString() && newVersion < theirs
+        }.map { it.label }
 
         // Everything below reads and writes the draft being released, whichever one that is.
-        return targeting.within(draft.versionId) { release(command, catalog, newVersion, latest, existing, draft, open) }
+        return targeting.within(draft.versionId) { release(command, catalog, newVersion, latest, existing, draft, draftsBehind) }
+            .copy(releasedDependencies = releasedDependencies)
+    }
+
+    /**
+     * Releases, recursively and first, the drafts of other catalogs [draft]'s declarations name, when
+     * [ReleaseCatalogVersion.releaseDependencies] asks; refuses the release when it does not. Each is
+     * released by its own rules (behind, readiness), so one refusal refuses all. Runs targeting
+     * [draft], whose declarations it reads.
+     */
+    private fun releaseDependencies(command: ReleaseCatalogVersion, draft: CatalogDraft): List<ReleasedDependency> {
+        val named = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, command.tenantKey, command.catalogKey) }
+            .filter { it.namesDraft }
+        if (named.isEmpty()) return emptyList()
+        if (!command.releaseDependencies) {
+            throw CatalogDependenciesUnreleasedException(command.catalogKey, unreleased(command.tenantKey, named, mutableSetOf()))
+        }
+        val released = mutableListOf<ReleasedDependency>()
+        for (declaration in named) {
+            val other = CatalogKey.of(declaration.catalogKey)
+            val result = ReleaseCatalogVersion(
+                tenantKey = command.tenantKey,
+                catalogKey = other,
+                catalogVersion = CatalogVersionRef(command.tenantKey, other, DraftRef.Id(requireNotNull(declaration.draftId))),
+                releaseDependencies = true,
+            ).execute()
+            released += result.releasedDependencies
+            released += ReleasedDependency(declaration.registry, declaration.namespace, declaration.catalogKey, result.versionId, result.version)
+        }
+        return released.distinctBy { it.registry to it.namespace to it.catalogKey }
+    }
+
+    /** [named], each followed by the drafts it names in turn, once each. */
+    private fun unreleased(tenantKey: TenantKey, named: List<CatalogDependencyDeclaration>, seen: MutableSet<String>): List<UnreleasedDependency> = named.flatMap { declaration ->
+        val key = requireNotNull(declaration.draftId)
+        if (!seen.add("${declaration.catalogKey}/$key")) return@flatMap emptyList()
+        val own = UnreleasedDependency(declaration.registry, declaration.namespace, declaration.catalogKey, key, declaration.draftName.orEmpty())
+        val other = CatalogKey.of(declaration.catalogKey)
+        val further = ListCatalogDependencies(tenantKey, other, CatalogVersionRef(tenantKey, other, DraftRef.Id(key))).query().filter { it.namesDraft }
+        listOf(own) + unreleased(tenantKey, further, seen)
     }
 
     /**
@@ -190,7 +259,7 @@ class ReleaseCatalogVersionHandler(
         latest: SemVer?,
         existing: List<ReleaseRow>,
         draft: CatalogDraft,
-        open: List<CatalogDraft>,
+        draftsBehind: List<String>,
     ): ReleaseCatalogVersionResult {
         if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
@@ -230,20 +299,24 @@ class ReleaseCatalogVersionHandler(
         val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
-        val draftsBehind = open.filter { other -> !other.isNext && (other.base?.let(SemVer::parseOrNull)?.let { it < newVersion } ?: true) }.map { it.label }
         val highest = latest == null || newVersion > latest
+        val followers = jdbi.withHandle<List<EnvironmentOverride>, Exception> { handle ->
+            EnvironmentOverrideStore.list(handle, command.tenantKey, null, command.catalogKey).filter { it.draftId == draft.key }
+        }
 
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, base_version)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base)
+                                              rendering_defaults_version, base_version, version_key)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base, :key)
                 """,
             )
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
                 .bind("version", newVersion.toString())
+                // The release keeps the draft's id (contract ADR 0002).
+                .bind("key", draft.key)
                 // The release keeps the draft's base (ADR 0002), which is gone once the draft is.
                 .bind("base", draft.base)
                 .bind("fingerprint", fingerprint)
@@ -287,9 +360,21 @@ class ReleaseCatalogVersionHandler(
                 resourceFingerprints,
             )
 
-            // The next version continues on this release (contract ADR 0002, amendment 2): the same
-            // draft, its content the release's, now measured against it.
-            drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())
+            // Declarations in other drafts that named this draft now pin the release it became.
+            dependencyStore.pinDeclarationsOf(handle, command.tenantKey, draft.versionId, CatalogDependencyRelease(newVersion.toString(), fingerprint))
+            // The draft became the release: environments that followed it stop (contract ADR 0002).
+            handle.createUpdate("DELETE FROM environment_catalog_overrides WHERE tenant_key = :t AND draft_id = :v")
+                .bind("t", command.tenantKey)
+                .bind("v", draft.versionId)
+                .execute()
+            EnvironmentOverrideStore.recordEnded(handle, command.tenantKey, followers)
+            if (draft.isNext) {
+                // The next version, a convention of this suite, continues on this release: the same
+                // row, its content the release's, under a new id, now measured against it.
+                drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())
+            } else {
+                drafts.delete(handle, command.tenantKey, draft.versionId)
+            }
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(
@@ -321,6 +406,7 @@ class ReleaseCatalogVersionHandler(
             unchangedContent = unchanged,
             publicationId = publicationId,
             draftsBehind = draftsBehind,
+            versionId = draft.key,
         )
     }
 
@@ -339,29 +425,18 @@ class ReleaseCatalogVersionHandler(
     }
 
     /**
-     * The release of each declared dependency this release is cut with (contract ADR 0003): its lock.
-     * A declaration still unlocked is locked first to the highest release that matches now. Refused
-     * when a declaration matches no release, or its lock no longer holds because the release is gone
-     * or no longer matches.
+     * The release of each declared dependency this release is cut with (contract ADR 0003): its pin.
+     * Refused when a declaration pins no release, or the tenant no longer has the pinned release with
+     * the fingerprint the pin recorded.
      */
-    private fun pinDependencies(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
+    private fun pinDependencies(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
         val declarations = dependencyStore.declarations(handle, tenantKey, catalogKey)
-        val locked = declarations.map { declaration ->
-            if (declaration.locked) {
-                declaration
-            } else {
-                dependencyStore.highestMatch(handle, tenantKey, declaration)
-                    ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
-                    ?: declaration
-            }
-        }
-        if (locked != declarations) dependencyStore.replace(handle, tenantKey, catalogKey, locked)
-        val problems = locked.mapNotNull { declaration ->
+        val problems = declarations.mapNotNull { declaration ->
             when {
-                !declaration.locked -> "$declaration matches no release of it this tenant has that kept its content"
+                !declaration.pinned -> "$declaration pins no release"
 
-                !dependencyStore.lockHolds(handle, tenantKey, declaration) ->
-                    "$declaration is locked to ${declaration.releaseVersion}, which this tenant no longer has as it was locked or which no longer matches"
+                !dependencyStore.pinHolds(handle, tenantKey, declaration) ->
+                    "$declaration pins ${declaration.releaseVersion}, which this tenant no longer has as it was pinned"
 
                 else -> null
             }
@@ -373,7 +448,7 @@ class ReleaseCatalogVersionHandler(
                 code = ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED,
             )
         }
-        locked
+        declarations
     }
 
     /**
@@ -397,15 +472,15 @@ class ReleaseCatalogVersionHandler(
         return catalog.exchangePublicationPolicy.resolve(tenantDefault, override)
     }
 
-    private data class ReleaseRow(val version: String, val fingerprint: String)
+    private data class ReleaseRow(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime?)
 
     private fun loadReleases(tenantKey: TenantKey, catalogKey: CatalogKey): List<ReleaseRow> = jdbi.withHandle<List<ReleaseRow>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
+            "SELECT version, fingerprint, released_at FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
-            .map { rs, _ -> ReleaseRow(rs.getString("version"), rs.getString("fingerprint")) }
+            .map { rs, _ -> ReleaseRow(rs.getString("version"), rs.getString("fingerprint"), rs.getObject("released_at", OffsetDateTime::class.java)) }
             .list()
     }
 }

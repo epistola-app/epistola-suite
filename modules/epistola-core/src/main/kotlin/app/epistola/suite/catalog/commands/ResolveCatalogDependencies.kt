@@ -22,9 +22,9 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Moves every dependency lock of an authored catalog to the highest release its selector matches,
- * as upgrading a library does. A declaration that matches no release keeps its lock, and stays
- * unlocked when it had none. The next release is cut with the locks this leaves.
+ * Moves every dependency pin of an authored catalog to the highest release of that catalog the
+ * tenant has, as upgrading a library does. A declaration of a catalog with no release keeps its pin,
+ * and stays unpinned when it had none. The next release is cut with the pins this leaves.
  */
 data class ResolveCatalogDependencies(
     override val tenantKey: TenantKey,
@@ -49,7 +49,7 @@ class ResolveCatalogDependenciesHandler(
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
         val resolved = store.declarations(handle, command.tenantKey, command.catalogKey).map { declaration ->
-            store.highestMatch(handle, command.tenantKey, declaration)
+            store.highest(handle, command.tenantKey, declaration)
                 ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
                 ?: declaration
         }

@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -112,45 +113,42 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     // ── Declaring ──
 
     @Test
-    fun `a declaration is locked to the highest release its selector matches`() {
-        val tenant = setUp("deps-lock", "1.0.0", "1.1.0", "2.0.0")
+    fun `a declaration pins the exact release it names, with that release's fingerprint`() {
+        val tenant = setUp("deps-pin", "1.0.0", "1.1.0", "2.0.0")
 
-        val locked = update(tenant, declared(tenant, "^1.0.0")).single()
+        val pinned = update(tenant, declared(tenant, "1.1.0")).single()
 
-        assertThat(locked.releaseVersion).isEqualTo("1.1.0")
-        assertThat(locked.releaseFingerprint).startsWith("v5:")
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).containsExactly(locked)
+        assertThat(pinned.releaseVersion).`as`("the release named, not the highest").isEqualTo("1.1.0")
+        assertThat(pinned.releaseFingerprint).isEqualTo(releaseFingerprint(tenant, shared, "1.1.0"))
+        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).containsExactly(pinned)
     }
 
     @Test
-    fun `a lock stays where it is when the dependency releases, until resolved again`() {
+    fun `a pin stays where it is when the dependency releases, until resolved again`() {
         val tenant = setUp("deps-stay", "1.0.0")
-        update(tenant, declared(tenant, "^1.0.0"))
+        update(tenant, declared(tenant, "1.0.0"))
         releaseShared(tenant, "1.1.0", "#111111")
 
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isEqualTo("1.0.0")
-        // Declaring again with a selector the lock still satisfies keeps it too.
-        assertThat(update(tenant, declared(tenant, ">=1.0.0 <3.0.0")).single().releaseVersion).isEqualTo("1.0.0")
 
         val resolved = withMediator { ResolveCatalogDependencies(tenant, letters).execute() }.single()
         assertThat(resolved.releaseVersion).isEqualTo("1.1.0")
     }
 
     @Test
-    fun `a selector the lock no longer satisfies moves it, and one matching nothing leaves it unlocked`() {
-        val tenant = setUp("deps-move", "1.0.0", "1.1.0")
-        update(tenant, declared(tenant, "1.0.0"))
+    fun `a declaration of a release the tenant does not have is refused`() {
+        val tenant = setUp("deps-missing-release", "1.0.0")
 
-        assertThat(update(tenant, declared(tenant, "~1.1.0")).single().releaseVersion).isEqualTo("1.1.0")
-        val unlocked = update(tenant, declared(tenant, "^2.0.0")).single()
-        assertThat(unlocked.releaseVersion).isNull()
-        assertThat(unlocked.releaseFingerprint).isNull()
+        assertThatThrownBy { update(tenant, declared(tenant, "2.0.0")) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.CATALOG_DEPENDENCY_INVALID)
+            .hasMessageContaining("no release 2.0.0 of shared")
     }
 
     @Test
-    fun `a declaration is refused for a bad selector, a duplicate, itself or a catalog the tenant does not have`() {
+    fun `a declaration is refused for a range, a duplicate, itself or a catalog the tenant does not have`() {
         val tenant = setUp("deps-refused", "1.0.0")
-        val good = declared(tenant, "^1.0.0")
+        val good = declared(tenant, "1.0.0")
         val own = withMediator { GetCatalog(tenant, letters).query()!! }
 
         fun refused(vararg dependencies: DeclaredCatalogDependency, message: String) = assertThatThrownBy { update(tenant, *dependencies) }
@@ -158,17 +156,17 @@ class CatalogDependenciesTest : IntegrationTestBase() {
             .hasValidationCode(ValidationCode.CATALOG_DEPENDENCY_INVALID)
             .hasMessageContaining(message)
 
-        // Ivy's interval syntax is not the npm range grammar.
-        refused(good.copy(version = "[1.0,2.0)"), message = "npm version range")
-        refused(good, good.copy(version = "*"), message = "declared more than once")
-        refused(DeclaredCatalogDependency(own.registry, own.namespace, letters.value, "*"), message = "cannot depend on itself")
+        // A declaration pins a release; a range is not one (contract 2.0).
+        refused(good.copy(releaseVersion = "^1.0.0"), message = "must be a release number")
+        refused(good, good.copy(releaseVersion = "1.0.0"), message = "declared more than once")
+        refused(DeclaredCatalogDependency(own.registry, own.namespace, letters.value, "1.0.0"), message = "cannot depend on itself")
         refused(good.copy(namespace = "elsewhere"), message = "has no catalog")
     }
 
     @Test
-    fun `a dependency renamed to another namespace stays declared, with its lock`() {
+    fun `a dependency renamed to another namespace stays declared, with its pin`() {
         val tenant = setUp("deps-rename", "1.0.0")
-        val before = update(tenant, declared(tenant, "^1.0.0")).single()
+        val before = update(tenant, declared(tenant, "1.0.0")).single()
 
         withMediator { ChangeCatalogNamespace(tenant, shared, "renamed").execute() }
 
@@ -198,16 +196,15 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         }
 
         val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
-        assertThat(declared.catalogKey to declared.version).isEqualTo(shared.value to "*")
-        assertThat(declared.releaseVersion).isEqualTo("1.0.0")
+        assertThat(declared.catalogKey to declared.releaseVersion).`as`("pinned to its highest release").isEqualTo(shared.value to "1.0.0")
     }
 
     // ── Releasing ──
 
     @Test
-    fun `a release records the release each dependency was locked to, and the manifest carries it`() {
+    fun `a release records the release each dependency pins, and the manifest carries it`() {
         val tenant = setUp("deps-release", "1.0.0")
-        update(tenant, declared(tenant, "^1.0.0"))
+        update(tenant, declared(tenant, "1.0.0"))
         invoiceOnSharedTheme(tenant)
         releaseShared(tenant, "1.1.0", "#111111")
 
@@ -223,17 +220,21 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a release locks a declaration that had no release to match until now`() {
+    fun `a release with a declaration that pins no release is refused, until one is pinned`() {
         val tenant = setUp("deps-late")
-        update(tenant, declared(tenant, "^1.0.0"))
         invoiceOnSharedTheme(tenant)
-        releaseShared(tenant, "1.0.0", "#111111")
+        // shared has no release yet, so the declaration this adds pins none.
+        withMediator { DeclareUsedCatalogs(tenant, letters).execute() }
+        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isNull()
 
         withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() }
+        assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }
+            .hasMessageContaining("pins no release")
 
+        releaseShared(tenant, "1.0.0", "#111111")
+        update(tenant, declared(tenant, "1.0.0"))
+        withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() }
         assertThat(withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isEqualTo("1.0.0")
     }
 
     @Test
@@ -251,7 +252,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     @Test
     fun `an installed catalog keeps the pins its archive was cut with and renders with them`() {
         val origin = setUp("deps-origin", "1.0.0")
-        update(origin, declared(origin, "^1.0.0"))
+        update(origin, declared(origin, "1.0.0"))
         invoiceOnSharedTheme(origin)
         withMediator { MarkCatalogReady(origin, letters).execute() }
         withMediator { ReleaseCatalogVersion(origin, letters, "1.0.0").execute() }

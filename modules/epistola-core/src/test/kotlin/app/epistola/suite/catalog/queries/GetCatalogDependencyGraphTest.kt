@@ -42,8 +42,7 @@ class GetCatalogDependencyGraphTest : IntegrationTestBase() {
         assertThat(graph.nodes.single { it.catalogKey == "letters" }.type).isEqualTo(CatalogType.AUTHORED)
         val edge = graph.edges.single { it.from == "letters" }
         assertThat(edge.to).isEqualTo("shared")
-        assertThat(edge.selector).isEqualTo("*")
-        assertThat(edge.release).`as`("locked to the highest release, as declaring does").isEqualTo("1.0.0")
+        assertThat(edge.release).`as`("pinned to the highest release, as declaring does").isEqualTo("1.0.0")
         assertThat(graph.edges.map { it.from }).`as`("only declarations, nothing for shared itself").doesNotContain("shared")
     }
 }

@@ -27,14 +27,12 @@ data class CatalogGraphNode(
  *
  * @property to the depended-on catalog's key in this tenant, or null when the tenant does not have it.
  * @property toIdentity how the declaration names it (`registry/namespace/key`), shown when [to] is null.
- * @property selector the version range the declaration allows, e.g. `^1.0.0` or `*`.
- * @property release the release the declaration is tied to, or null while it is not.
+ * @property release the release the declaration pins, or null while it pins none.
  */
 data class CatalogGraphEdge(
     val from: String,
     val to: String?,
     val toIdentity: String,
-    val selector: String,
     val release: String?,
 )
 
@@ -71,7 +69,7 @@ class GetCatalogDependencyGraphHandler(
             """
             SELECT owner.catalog_key AS from_key, target.catalog_key AS to_key,
                    d.registry || '/' || d.namespace || '/' || d.dependency_key AS to_identity,
-                   d.version_selector, d.release_version
+                   d.release_version
             FROM catalog_dependencies d
             JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
             JOIN catalogs owner ON owner.tenant_key = d.tenant_key AND owner.catalog_id = d.catalog_id
@@ -83,7 +81,7 @@ class GetCatalogDependencyGraphHandler(
         )
             .bind("t", query.tenantKey)
             .map { rs, _ ->
-                CatalogGraphEdge(rs.getString("from_key"), rs.getString("to_key"), rs.getString("to_identity"), rs.getString("version_selector"), rs.getString("release_version"))
+                CatalogGraphEdge(rs.getString("from_key"), rs.getString("to_key"), rs.getString("to_identity"), rs.getString("release_version"))
             }
             .list()
         CatalogDependencyGraph(nodes, edges)

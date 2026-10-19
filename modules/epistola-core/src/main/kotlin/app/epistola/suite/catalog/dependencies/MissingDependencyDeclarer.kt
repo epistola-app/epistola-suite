@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Declares, for an authored catalog, every catalog its content references but does not declare:
- * with selector `*`, locked to the highest release there is, or unlocked when there is none.
+ * pinned to the highest release there is, or unpinned when there is none.
  *
  * For where references into another catalog arise without an author declaring them: a resource
  * moved into another catalog, and catalogs upgraded from 1.x, which had no declarations. A
@@ -53,11 +53,27 @@ class MissingDependencyDeclarer(
             .distinct()
             .filter { it != own && declared.none { declaration -> declaration.identity == it } }
         return referenced.map { (registry, namespace, key) ->
-            val declaration = CatalogDependencyDeclaration(registry, namespace, key, "*")
-            store.highestMatch(handle, tenantKey, declaration)
+            val declaration = CatalogDependencyDeclaration(registry, namespace, key)
+            store.highest(handle, tenantKey, declaration)
                 ?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
                 ?: declaration
         }
+    }
+
+    /**
+     * Pins every declaration of [catalogKey] that pins nothing (and names no draft) to the highest
+     * release of its catalog, where there is one now: the 2.0 upgrade declares a catalog before the
+     * catalog it depends on is released. A declaration whose catalog still has no release stays
+     * unpinned, which releasing refuses. @return the declarations pinned.
+     */
+    fun pinUnpinned(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
+        val declarations = store.declarations(handle, tenantKey, catalogKey)
+        val pinned = declarations.map { declaration ->
+            if (declaration.pinned || declaration.namesDraft) return@map declaration
+            store.highest(handle, tenantKey, declaration)?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) } ?: declaration
+        }
+        if (pinned != declarations) store.replace(handle, tenantKey, catalogKey, pinned)
+        pinned.filter { it !in declarations }
     }
 
     /** [declareMissing] for every authored catalog of [tenantKey]. */

@@ -4,12 +4,11 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.catalog.protocol.CatalogDependency
 import org.semver4j.Semver
 
 /**
- * The version selector of a catalog dependency (contract ADR 0003): a range in the npm SemVer range
- * grammar (`^1.4.0`, `~1.4`, `>=1.0.0 <2.0.0`, `1.2.3 - 1.4`, `1.x`, `*`, `a || b`).
+ * A version selector, as generation, preview and validation take one to pick a release: a range in
+ * the npm SemVer range grammar (`^1.4.0`, `~1.4`, `>=1.0.0 <2.0.0`, `1.2.3 - 1.4`, `1.x`, `*`, `a || b`).
  *
  * The grammar is checked here, against npm's own BNF, because the library that evaluates a range
  * also accepts other syntaxes (Ivy's `[1.0,2.0)`) that another implementation of the contract would
@@ -34,10 +33,13 @@ class CatalogVersionSelector private constructor(val value: String) {
     override fun toString(): String = value
 
     companion object {
-        /** Parses [value], or null when it is not an npm range of at most [CatalogDependency.MAX_VERSION_LENGTH] characters. */
+        /** Longest selector a request may give (the contract's `version` on generation and preview). */
+        const val MAX_LENGTH = 100
+
+        /** Parses [value], or null when it is not an npm range of at most [MAX_LENGTH] characters. */
         fun parseOrNull(value: String): CatalogVersionSelector? {
             val trimmed = value.trim()
-            if (trimmed.isEmpty() || trimmed.length > CatalogDependency.MAX_VERSION_LENGTH) return null
+            if (trimmed.isEmpty() || trimmed.length > MAX_LENGTH) return null
             return if (RANGE_SET.matches(trimmed)) CatalogVersionSelector(trimmed) else null
         }
 

@@ -89,7 +89,7 @@ class ListDocumentsHandler(
                 templateId = TemplateKey(rs.getString("template_key")),
                 variantId = VariantKey(rs.getString("variant_key")),
                 releaseVersion = rs.getString("release_version"),
-                draftId = rs.getObject("draft_id", java.util.UUID::class.java),
+                draftId = rs.getString("draft_id"),
                 draftLabel = rs.getString("draft_label"),
                 filename = rs.getString("filename"),
                 correlationId = rs.getString("correlation_id"),

@@ -183,8 +183,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         val declared = withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }
-        assertThat(declared.map { it.catalogKey to it.version }).containsExactly(SYSTEM_CATALOG_KEY.value to "*")
-        assertThat(declared.single().releaseVersion).`as`("locked to the installed system release").isNotNull()
+        assertThat(declared.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
+        assertThat(declared.single().releaseVersion).`as`("pinned to the installed system release").isNotNull()
         assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
         assertThat(queueRow(catalog)).isNull()
     }
@@ -341,7 +341,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(queueRow(lettersCatalog)).contains("matches no release")
+        assertThat(queueRow(lettersCatalog)).contains("pins no release")
         assertThat(versions(lettersCatalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
 
         queue(sharedCatalog)

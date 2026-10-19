@@ -28,8 +28,8 @@ data class ListCatalogDependents(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-/** A catalog that depends on another: the [range] it accepts and the [lockedTo] release it renders with. */
-data class CatalogDependent(val catalogKey: String, val name: String, val range: String, val lockedTo: String?)
+/** A catalog that depends on another, and the [lockedTo] release of it that it pins. */
+data class CatalogDependent(val catalogKey: String, val name: String, val lockedTo: String?)
 
 @Component
 class ListCatalogDependentsHandler(
@@ -44,7 +44,7 @@ class ListCatalogDependentsHandler(
             val identity = Triple(target.registry, target.namespace, query.catalogKey.value)
             others.mapNotNull { other ->
                 store.declarations(handle, query.tenantKey, other.id).firstOrNull { it.identity == identity }
-                    ?.let { CatalogDependent(other.id.value, other.name, it.version, it.releaseVersion) }
+                    ?.let { CatalogDependent(other.id.value, other.name, it.releaseVersion) }
             }.sortedBy { it.name.lowercase() }
         }
     }

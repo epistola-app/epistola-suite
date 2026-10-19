@@ -71,7 +71,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
         }
 
         assertThat(version(tenant, "1.0.2").base).isEqualTo("1.0.1")
-        val work = withMediator { ListCatalogVersions(tenant, letters).query() }.single { it.name == "Redesign" }
+        val work = withMediator { ListCatalogVersions(tenant, letters, withBehind = true).query() }.single { it.name == "Redesign" }
         val behind = work.behind.associate { it.version to it.changes }
         assertThat(behind.keys).containsExactly("1.0.1", "1.0.2")
         assertThat(behind["1.0.1"]).containsExactly(ReleasedChange("template", "invoice", "modified"))

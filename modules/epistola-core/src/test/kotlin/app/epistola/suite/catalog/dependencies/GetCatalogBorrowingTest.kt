@@ -123,7 +123,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenant, letters, "1.0.0").execute()
             CreateCatalogDraft(tenant, letters, "Redesign").execute()
         }
-        val draft = CatalogVersionRef(tenant, letters, DraftRef.Id(work.draftId!!))
+        val draft = CatalogVersionRef(tenant, letters, DraftRef.Id(work.versionId))
         invoiceOnSharedTheme(tenant, draft)
 
         assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs).`as`("the next version uses nothing").isEmpty()
