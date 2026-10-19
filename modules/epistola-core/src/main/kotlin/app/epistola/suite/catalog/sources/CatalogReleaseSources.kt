@@ -71,8 +71,9 @@ class CatalogReleaseSources(private val sources: List<CatalogReleaseSource>) {
 }
 
 /**
- * A catalog subscribed from a manifest URL (an `https:` or bundled `classpath:` address): it offers
- * the one release its manifest describes now, assembled into an archive from the files it names.
+ * A catalog subscribed from a manifest URL (any address [CatalogClient] reads: `https:`, a bundled
+ * `classpath:`, a local `file:`): it offers the one release its manifest describes now, assembled into
+ * an archive from the files it names. Asked last, after the sources that claim a scheme of their own.
  */
 @Component
 @Order
@@ -81,7 +82,7 @@ class ManifestUrlReleaseSource(
     private val objectMapper: ObjectMapper,
     private val archiveBuilder: CatalogArchiveBuilder,
 ) : CatalogReleaseSource {
-    override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl?.let { it.startsWith("https:") || it.startsWith("http:") || it.startsWith("classpath:") } == true
+    override fun supports(catalog: Catalog): Boolean = catalog.sourceUrl != null
 
     override fun offered(catalog: Catalog): List<String> = listOf(fetch { manifest(catalog) }.release.version)
 

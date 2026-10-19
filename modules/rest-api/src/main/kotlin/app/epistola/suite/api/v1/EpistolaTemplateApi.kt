@@ -239,7 +239,7 @@ class EpistolaTemplateApi(
             templateId = TemplateKey.of(templateKey),
             data = validateTemplateDataRequest.data,
             variantId = validateTemplateDataRequest.variantKey?.let { VariantKey.of(it) },
-            releaseVersion = validateTemplateDataRequest.version,
+            releaseVersion = validateTemplateDataRequest.versionRange,
             environmentId = validateTemplateDataRequest.environmentKey?.let { EnvironmentKey.of(it) },
         ).query()
 

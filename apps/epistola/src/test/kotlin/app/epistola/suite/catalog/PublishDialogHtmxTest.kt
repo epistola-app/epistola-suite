@@ -29,7 +29,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -168,7 +168,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
         withMediator {
             CreateEnvironment(production, "Production", production = true).execute()
-            DeployRelease(production, letters, "1.0.0").execute()
+            DeployCatalogVersion(production, letters, "1.0.0").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
                 .execute().withRequiredDataExample()
         }

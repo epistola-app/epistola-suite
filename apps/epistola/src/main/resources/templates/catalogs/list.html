@@ -540,76 +540,46 @@
     <th:block th:fragment="upgrade-dialog">
         <dialog id="upgrade-dialog" class="ep-dialog">
             <div class="ep-dialog-header">
-                <h3>Review catalog upgrade</h3>
+                <h3>Available releases</h3>
             </div>
-            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
-                  hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
-                <div th:replace="~{epistola-web/form-error :: form-error(id='upgrade-catalog-error')}"></div>
-                <div class="ep-dialog-body">
-                    <th:block th:if="${diff != null}">
-                        <div class="form-group">
-                            <span class="ep-label">Version</span>
-                            <p style="margin: var(--ep-space-1) 0 0;">
-                                <strong th:text="${diff.previousVersion != null ? 'v' + diff.previousVersion : '—'}"></strong>
-                                →
-                                <strong th:text="${'v' + diff.newVersion}"></strong>
-                            </p>
+            <div th:replace="~{epistola-web/form-error :: form-error(id='upgrade-catalog-error')}"></div>
+            <div class="ep-dialog-body">
+                <!--/* Every release the source offers that this tenant lacks, older lines included.
+                       Installing one adds it beside the others: nothing is replaced or removed,
+                       and which one an environment serves is decided by deploying it. */-->
+                <th:block th:if="${available != null}">
+                    <p th:if="${available.available.isEmpty()}" class="text-muted" data-testid="catalog-available-none">
+                        This catalog has every release its source offers.
+                    </p>
+                    <div th:each="release : ${available.available}" class="form-group" data-testid="catalog-available-release"
+                         th:attr="data-version=${release.releaseVersion}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
+                            <strong th:text="'v' + ${release.releaseVersion}">v1.4.1</strong>
+                            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+                                  hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
+                                <input type="hidden" name="releaseVersion" th:value="${release.releaseVersion}">
+                                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-available-install">Install</button>
+                            </form>
                         </div>
-
-                        <div class="alert alert-error" th:if="${diff.hasConflicts}">
-                            <strong>Cannot apply — resources are still in use:</strong>
-                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                                <li th:each="c : ${diff.conflicts}" th:text="${c}"></li>
-                            </ul>
-                        </div>
-
-                        <p th:if="${!diff.hasChanges}" class="text-muted">
-                            This catalog is already up to date — nothing to apply.
+                        <p class="form-hint" style="margin: var(--ep-space-1) 0 0;" th:if="${release.comparedTo == null}">
+                            Everything in it is new here.</p>
+                        <p class="form-hint" style="margin: var(--ep-space-1) 0 0;" th:if="${release.comparedTo != null}">
+                            Against <th:block th:text="'v' + ${release.comparedTo}">v1.4.0</th:block>, the release below it here:
+                            <th:block th:if="${release.changes.isEmpty()}">nothing changed.</th:block>
+                            <th:block th:each="c, s : ${release.changes}"
+                                      th:text="(${c.name} ?: ${c.key}) + ' ' + ${#strings.toLowerCase(c.change.name())} + (${s.last} ? '.' : ',')">Footer modified.</th:block>
                         </p>
-
-                        <!--/* New, updated and removed are named, not just counted, and all three
-                               read the same way: an upgrade reconciles the whole manifest (#850), so
-                               every one of them is something this button is about to do. Additions
-                               used to be a checkbox list because they were opt-in; the choice is
-                               gone, the visibility is not. */-->
-                        <div class="form-group" th:if="${diff.hasChanges}">
-                            <span class="ep-label">This upgrade will</span>
-                            <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
-                                <li th:if="${!diff.added.isEmpty()}">
-                                    install <strong th:text="${diff.added.size()}"></strong> new
-                                    <span class="form-hint"
-                                          th:text="${'(' + #strings.listJoin(diff.added.![type + '/' + slug], ', ') + ')'}"></span>
-                                </li>
-                                <li th:if="${!diff.changed.isEmpty()}">
-                                    update <strong th:text="${diff.changed.size()}"></strong> changed
-                                    <span class="form-hint"
-                                          th:text="${'(' + #strings.listJoin(diff.changed.![type + '/' + slug], ', ') + ')'}"></span>
-                                </li>
-                                <li th:if="${!diff.removed.isEmpty()}">
-                                    remove <strong th:text="${diff.removed.size()}"></strong>
-                                    <span class="form-hint"
-                                          th:text="${'(' + #strings.listJoin(diff.removed.![type + '/' + slug], ', ') + ')'}"></span>
-                                </li>
-                                <li th:if="${!diff.metadataChanges.isEmpty()}">
-                                    update the catalog's own details
-                                    <span class="form-hint"
-                                          th:text="${'(' + #strings.listJoin(diff.metadataChanges, ', ') + ')'}"></span>
-                                </li>
-                                <li th:if="${!diff.unchanged.isEmpty()}" class="text-muted">
-                                    leave <span th:text="${diff.unchanged.size()}"></span> unchanged
-                                </li>
-                            </ul>
-                        </div>
-                    </th:block>
-                </div>
-                <div class="ep-dialog-footer">
-                    <button type="button" class="ep-btn ep-btn-ghost"
-                            data-close-dialog="upgrade-dialog">Cancel</button>
-                    <button type="submit" class="ep-btn ep-btn-primary"
-                            th:if="${diff != null and diff.hasChanges}"
-                            th:disabled="${diff.hasConflicts}">Apply upgrade</button>
-                </div>
-            </form>
+                        <p class="form-hint" style="margin: var(--ep-space-1) 0 0;" th:unless="${release.dependencies.isEmpty()}">
+                            It uses
+                            <th:block th:each="d, s : ${release.dependencies}"
+                                      th:text="${d.catalogKey} + ' v' + ${d.releaseVersion} + (${d.present} ? '' : ' (installed first)') + (${s.last} ? '.' : ',')">shared v1.0.0.</th:block>
+                        </p>
+                    </div>
+                </th:block>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="upgrade-dialog">Close</button>
+            </div>
         </dialog>
     </th:block>
 

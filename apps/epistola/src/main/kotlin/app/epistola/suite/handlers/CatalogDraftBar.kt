@@ -15,7 +15,7 @@ import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.htmx
@@ -255,7 +255,7 @@ data class CatalogDraftBar(
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
             val followedBy = chosen?.versionId?.takeIf { authored && chosen.status == CatalogVersionStatus.DRAFT }?.let { draftId ->
-                val following = ListEnvironmentOverrides(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
+                val following = ListDraftDeployments(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
                 if (following.isEmpty()) {
                     emptyList()
                 } else {

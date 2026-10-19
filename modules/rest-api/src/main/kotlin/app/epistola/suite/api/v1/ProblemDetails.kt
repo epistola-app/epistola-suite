@@ -94,7 +94,8 @@ object ApiProblemTypes {
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
     val CATALOG_DRAFT_NAME_IN_USE = problem("CATALOG_DRAFT_NAME_IN_USE", "Catalog Draft Name In Use", HttpStatus.CONFLICT, "Another draft of the catalog has this name; names tell drafts apart.", listOf("catalogKey", "name"))
     val RESOURCE_MODIFIED = problem("RESOURCE_MODIFIED", "Resource Modified", HttpStatus.PRECONDITION_FAILED, "The resource changed since the ETag sent in If-Match was read. Read it again and reapply your change.", listOf("expectedRevision", "currentRevision"))
-    val ENVIRONMENT_OVERRIDE_REFUSED = problem("ENVIRONMENT_OVERRIDE_REFUSED", "Environment Override Refused", HttpStatus.CONFLICT, "The environment cannot use that: a production environment uses only published versions, and an override names a release the environment serves.", emptyList())
+    val ENVIRONMENT_DEPLOYMENT_REFUSED = problem("ENVIRONMENT_DEPLOYMENT_REFUSED", "Environment Deployment Refused", HttpStatus.CONFLICT, "The environment cannot serve that: a production environment serves only releases, never a draft.", emptyList())
+    val CATALOG_SOURCE_UNAVAILABLE = problem("CATALOG_SOURCE_UNAVAILABLE", "Catalog Source Unavailable", HttpStatus.SERVICE_UNAVAILABLE, "The catalog's source could not be reached or did not answer in time (503), or answered badly (502).", emptyList())
     val CONFLICT = problem("CONFLICT", "Conflict", HttpStatus.CONFLICT, "The request conflicts with the current state of the resource.", emptyList())
     val RELEASE_DEPENDENCIES_UNRELEASED = problem("RELEASE_DEPENDENCIES_UNRELEASED", "Release Dependencies Unreleased", HttpStatus.CONFLICT, "The draft's dependency declarations name drafts of other catalogs and the request does not release them along (`releaseDependencies`); `unreleasedDependencies` lists each.", listOf("unreleasedDependencies"))
     val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
@@ -171,7 +172,8 @@ object ApiProblemTypes {
         CATALOG_DRAFT_NAME_IN_USE,
         CONFLICT,
         RELEASE_DEPENDENCIES_UNRELEASED,
-        ENVIRONMENT_OVERRIDE_REFUSED,
+        ENVIRONMENT_DEPLOYMENT_REFUSED,
+        CATALOG_SOURCE_UNAVAILABLE,
         RESOURCE_MODIFIED,
         CATALOG_VERSION_BEHIND,
         CATALOG_VERSION_HELD,

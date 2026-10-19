@@ -425,6 +425,30 @@ Noticed, not touched:
   can disagree. Unifying them is the remaining item of this follow-up.
 - Contract `a99594e` (subscribed catalogs list and install their source's releases) not adapted.
 
+### Contract catch-up 3: `a99594e`, `576d46a`, `3e3b00e` (19 October)
+
+| Change                                                                                                                                                                                                                                                                                                                                                                                                            | Where                                                                                                                 | Coverage                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| One namespace: `catalogs.namespace` is where a catalog publishes; `catalog_exchange_bindings` records only what reached Exchange; `ChangeCatalogNamespace` (`CATALOG_PUBLISH`) replaces `SetCatalogPublicationNamespace`, fixed once a release is accepted (no acknowledged move); a recreated key returns to its published namespace; identity migration takes a bound or Exchange-installed catalog's namespace | exchange, `CreateCatalog`, migration `…200100`                                                                        | ✅ `CatalogIdentityMigrationTest` (failed before), Exchange lifecycle/withdrawal tests rewritten |
+| Environments deploy versions: releases and at most one draft per catalog; no-version requests get the draft, ranges/numbers releases only; production refuses drafts; releasing a deployed draft keeps the deployment (RELEASED); discarding undeploys; overrides removed (migration `…201200` rewritten)                                                                                                         | `DeployCatalogVersion`, `UndeployCatalogVersion`, `DraftDeploymentStore`, `ReleaseTargetResolver`, UI follow → deploy | ✅ `DraftDeploymentTest` (rewritten from the override tests)                                     |
+| Subscribed releases side by side: `ListAvailableCatalogReleases` (every offered release the tenant lacks, vs the closest installed below), `InstallCatalogRelease` (lower ones too, pinned releases installed first via the source serving their registry); `catalog-source-unavailable` 503/502                                                                                                                  | `catalog/sources/`, `ExchangeCatalogReleaseSource`, `ImportCatalogZip`, `RecordInstalledRelease`                      | ✅ `ExchangeCatalogInstallTest` side by side (failed before)                                     |
+| Naming: `releaseVersion`, `versionRange`, `highestReleaseVersion` on the wire                                                                                                                                                                                                                                                                                                                                     | rest-api                                                                                                              | ✅ app IT                                                                                        |
+
+Noticed, not touched:
+
+- A deployed draft's usage is not counted (`DeploymentUsage` keys by release number).
+- `PreviewCatalogUpgrade` and `UpgradeCatalog` remain for the bundled-catalog loader
+  (`EnsureSubscribedCatalog`); no surface calls them. Installing a higher release still prunes and
+  conflict-checks the mirror in place.
+- A manifest-URL source offers only its current release; older ones cannot be listed.
+- `ManifestUrlReleaseSource` reads any address `CatalogClient` does, `file:` included, as the old
+  upgrade path did; it widens nothing, but it is the same surface as review finding F1 (SSRF via
+  `sourceUrl`), still open.
+- Fixed on the way: the catalog's Settings page still read `publication.boundNamespace`, removed with
+  the one-namespace change, and answered 500 (`ExchangeHandlerHtmxTest`, `CatalogListHandlerTest`
+  failed before).
+- `CatalogKeywordUiTest` and `EmbeddingBridgeUiTest` timed out once in a full run and passed alone.
+
 ### Contract `feature/v2` (local, not pushed)
 
 | Change                                                                                                                                                                                                                                                                                                                                                       | Where                                     | Coverage                                                                                                                                                                                                                                                                                                                          |

@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -80,8 +81,8 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("upgrade-dialog")
-            assertThat(response.body).contains("Review catalog upgrade")
-            assertThat(response.body).containsIgnoringCase("already up to date")
+            assertThat(response.body).contains("Available releases")
+            assertThat(response.body).contains("data-testid=\"catalog-available-none\"")
         }
     }
 
@@ -95,7 +96,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
      * visibility must not.
      */
     @Test
-    fun `upgrade-preview names what is new, updated and removed`(@TempDir tmp: Path) = fixture {
+    fun `upgrade-preview lists the release the source offers, naming what it adds, changes and removes`(@TempDir tmp: Path) = fixture {
         lateinit var testTenant: Tenant
         given {
             writeDiffCatalog(tmp, version = "1.0.0", templateSlug = "old-letter", themeSize = "11pt")
@@ -125,14 +126,10 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val body = response.body!!
-            assertThat(body).contains("This upgrade will")
+            val release = body.substringAfter("data-version=\"1.1.0\"")
+            assertThat(release).contains("Install").contains("Against v1.0.0")
             // Named, not merely counted, for each of the three kinds.
-            assertThat(body).contains("template/new-letter")
-            assertThat(body).contains("template/old-letter")
-            assertThat(body).contains("theme/house")
-            // The opt-in list and its "not installed by default" caveat are gone.
-            assertThat(body).doesNotContain("newSlugs")
-            assertThat(body).doesNotContain("not installed by default")
+            assertThat(release).contains("Letter added").contains("Letter removed").contains("House modified")
         }
     }
 
@@ -186,7 +183,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `apply upgrade with no changes returns the done fragment and no error`() = fixture {
+    fun `installing the release already here returns the done fragment and no error`() = fixture {
         lateinit var testTenant: Tenant
         given {
             testTenant = tenant("Upgrade Apply Tenant")
@@ -199,7 +196,12 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         whenever {
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade",
-                HttpEntity(org.springframework.util.LinkedMultiValueMap<String, String>(), htmxForm()),
+                HttpEntity(
+                    org.springframework.util.LinkedMultiValueMap<String, String>().apply {
+                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
+                    },
+                    htmxForm(),
+                ),
                 String::class.java,
             )
         }
@@ -244,7 +246,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("upgrade-catalog-error")
             assertThat(response.body).contains("form-global-error")
             // No diff → no Apply button rendered.
-            assertThat(response.body).doesNotContain("Apply upgrade")
+            assertThat(response.body).doesNotContain("catalog-available-install")
         }
     }
 

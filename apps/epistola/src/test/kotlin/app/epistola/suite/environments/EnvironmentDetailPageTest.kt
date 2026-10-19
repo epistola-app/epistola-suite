@@ -20,8 +20,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
-import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
@@ -58,8 +58,8 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     fun `the page lists every release served, each with its own undeploy, and offers only unserved releases again`() {
         val (tenant, production) = tenantWithReleases("env-page")
         withMediator {
-            DeployRelease(production, LETTERS, "1.0.0").execute()
-            DeployRelease(production, LETTERS, "1.0.1").execute()
+            DeployCatalogVersion(production, LETTERS, "1.0.0").execute()
+            DeployCatalogVersion(production, LETTERS, "1.0.1").execute()
         }
 
         val body = page(tenant, "production")
@@ -77,7 +77,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     @Test
     fun `deploying from the page adds the version, replaces the others when asked, and the history says which`() {
         val (tenant, production) = tenantWithReleases("env-deploy")
-        withMediator { DeployRelease(production, LETTERS, "1.0.1").execute() }
+        withMediator { DeployCatalogVersion(production, LETTERS, "1.0.1").execute() }
 
         val added = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0")
         assertThat(added.statusCode.is2xxSuccessful).`as`("the redirect lands back on the environment").isTrue()
@@ -85,7 +85,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             .`as`("beside the other").containsExactly("1.0.1", "1.0.0")
         assertThat(page(tenant, "production")).contains("Not used since it was deployed")
 
-        withMediator { UndeployRelease(production, LETTERS, "1.0.0").execute() }
+        withMediator { UndeployCatalogVersion(production, LETTERS, "1.0.0").execute() }
         post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0", "replace" to "true")
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.0")
         assertThat(withMediator { ListDeploymentHistory(production).query() }.first().version).isEqualTo("1.0.0")
@@ -96,8 +96,8 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     fun `undeploying one release from the page keeps the others and records it`() {
         val (tenant, production) = tenantWithReleases("env-undeploy")
         withMediator {
-            DeployRelease(production, LETTERS, "1.0.0").execute()
-            DeployRelease(production, LETTERS, "1.0.1").execute()
+            DeployCatalogVersion(production, LETTERS, "1.0.0").execute()
+            DeployCatalogVersion(production, LETTERS, "1.0.1").execute()
         }
 
         post("/tenants/${tenant.id.value}/environments/production/deployments/letters/undeploy", "version" to "1.0.1")

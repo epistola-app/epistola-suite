@@ -20,6 +20,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
@@ -84,7 +85,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.catalogVersion.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(body, "$.catalogVersion.releaseVersion")).isEqualTo("1.0.0")
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.status")).isEqualTo("released")
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.fingerprint")).isNotBlank()
         assertThat(JsonPath.read<String>(body, "$.catalogVersion.notes")).isEqualTo("first cut")
@@ -94,11 +95,11 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<Any>>(body, "$.releasedDependencies")).isEmpty()
 
         val byId = restTemplate.exchange(versionPath(tenantKey, catalogSlug, before), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
-        assertThat(JsonPath.read<String>(byId, "$.version")).`as`("its id addresses the release").isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(byId, "$.releaseVersion")).`as`("its id addresses the release").isEqualTo("1.0.0")
         val next = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
         assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next version")
         assertThat(JsonPath.read<String>(next, "$.versionId")).isNotEqualTo(before)
-        assertThat(JsonPath.read<String?>(next, "$.version")).`as`("numbered only when released").isNull()
+        assertThat(JsonPath.read<String?>(next, "$.releaseVersion")).`as`("numbered only when released").isNull()
         assertThat(JsonPath.read<String>(next, "$.base")).isEqualTo("1.0.0")
     }
 
@@ -168,13 +169,13 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(preview.body!!, "$.reasons")).contains("theme 'tha': removed")
         assertThat(JsonPath.read<String>(preview.body!!, "$.suggested")).isEqualTo("2.0.0")
 
-        val refused = call(HttpMethod.POST, "${versionPath(tenantKey, catalogSlug, "next")}/release", """{"version":"1.0.1"}""")
+        val refused = call(HttpMethod.POST, "${versionPath(tenantKey, catalogSlug, "next")}/release", """{"releaseVersion":"1.0.1"}""")
         assertThat(refused.statusCode.is4xxClientError).describedAs(refused.body).isTrue()
         assertThat(refused.body).contains("needs at least 2.0.0")
 
         val released = call(HttpMethod.POST, "${versionPath(tenantKey, catalogSlug, "next")}/release", "{}")
         assertThat(released.statusCode).describedAs(released.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(released.body!!, "$.catalogVersion.version")).isEqualTo("2.0.0")
+        assertThat(JsonPath.read<String>(released.body!!, "$.catalogVersion.releaseVersion")).isEqualTo("2.0.0")
     }
 
     @Test
@@ -225,7 +226,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
         val listed = call(HttpMethod.GET, versions).body!!
         assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next version", "Redesign", null)
-        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].version")).containsExactly(null, null, "1.0.0")
+        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].releaseVersion")).containsExactly(null, null, "1.0.0")
 
         val renamed = call(HttpMethod.PATCH, "$versions/$work", """{"name":"Redesign 2027"}""")
         assertThat(renamed.statusCode).describedAs(renamed.body).isEqualTo(HttpStatus.OK)
@@ -234,7 +235,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(call(HttpMethod.POST, "$versions/$work/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
         val release = call(HttpMethod.POST, "$versions/$work/release", "{}")
         assertThat(release.statusCode).describedAs(release.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).`as`("a fix against its base").isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.releaseVersion")).`as`("a fix against its base").isEqualTo("1.0.1")
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work").body!!, "$.status")).`as`("its id addresses the release").isEqualTo("released")
         assertThat(call(HttpMethod.PATCH, "$versions/$work/themes/tha", """{"name":"Again"}""").statusCode).`as`("a release does not change").isEqualTo(HttpStatus.CONFLICT)
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).`as`("the next version is untouched").isEqualTo("Th")
@@ -257,7 +258,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(released.statusCode).describedAs(released.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(released.body!!, "$.draftsBehind")).containsExactly("Redesign")
-        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/$work").body!!, "$.behind[*].version")).containsExactly("1.0.1")
+        assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/$work").body!!, "$.behind[*].releaseVersion")).containsExactly("1.0.1")
         assertThat(JsonPath.read<List<String>>(call(HttpMethod.GET, "$versions/next").body!!, "$.behind")).isEmpty()
     }
 
@@ -303,45 +304,42 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `upgrade catalog applies subscribed catalog upgrade request`() {
+    fun `a subscribed catalog lists nothing available once it has its source's release, and installing that again changes nothing`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of("epistola-demo")).execute()
         }
+        val catalog = withMediator { CatalogApiPaths.catalog(tenantKey, "epistola-demo") }
+        val installed = withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(tenantKey, CatalogKey.of("epistola-demo")).query().single().version }
 
-        val response = restTemplate.exchange(
-            "${withMediator { CatalogApiPaths.catalog(tenantKey, "epistola-demo") }}/upgrade",
-            HttpMethod.POST,
-            HttpEntity("{}", baseHeaders(apiKey)),
-            String::class.java,
-        )
+        val available = restTemplate.exchange("$catalog/available-releases", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        assertThat(available.statusCode).describedAs(available.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<Any>>(available.body!!, "$.available")).isEmpty()
+
+        val response = restTemplate.exchange("$catalog/available-releases/$installed/install", HttpMethod.POST, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
 
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
-        val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.releaseVersion")).isNotBlank()
-        assertThat(JsonPath.read<Boolean>(body, "$.newlyInstalled")).`as`("the release offered is the one installed").isFalse
-        assertThat(JsonPath.read<Int>(body, "$.total")).isPositive()
+        assertThat(JsonPath.read<String>(response.body!!, "$.releaseVersion")).isEqualTo(installed)
+        assertThat(JsonPath.read<Boolean>(response.body!!, "$.newlyInstalled")).`as`("the release is already here").isFalse
     }
 
     @Test
-    fun `upgrade rejects an authored catalog with not upgradeable problem details`() {
+    fun `an authored catalog has no source, so asking what is available is a conflict`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "upg-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
 
         val response = restTemplate.exchange(
-            "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/upgrade",
-            HttpMethod.POST,
-            HttpEntity("{}", baseHeaders(apiKey)),
+            "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/available-releases",
+            HttpMethod.GET,
+            HttpEntity<Void>(baseHeaders(apiKey)),
             String::class.java,
         )
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.type")).isEqualTo("https://epistola.app/errors/catalog-not-upgradeable")
-        assertThat(JsonPath.read<String>(body, "$.catalogId")).isEqualTo(catalogSlug)
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
     }
 
     private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }

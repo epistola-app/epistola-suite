@@ -913,7 +913,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
             String::class.java,
         )
         assertThat(release.statusCode).`as`(release.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(release.body!!, "$.catalogVersion.releaseVersion")).isEqualTo("1.0.0")
         assertThat(JsonPath.read<Map<String, Any>>(release.body!!, "$")).`as`("the next version continues; nothing is opened").doesNotContainKey("openedDraft")
         // The release has its own address, by number; the next version stays at `next` and continues.
         val releasedVersion = firstDraft.replace("/versions/next", "/versions/1.0.0")

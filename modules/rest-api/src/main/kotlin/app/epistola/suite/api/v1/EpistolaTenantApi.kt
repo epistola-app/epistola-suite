@@ -15,12 +15,10 @@ import app.epistola.api.model.CreateTenantRequest
 import app.epistola.api.model.DeploymentDto
 import app.epistola.api.model.DeploymentEventDto
 import app.epistola.api.model.DeploymentHistoryResponse
+import app.epistola.api.model.DeploymentKind
 import app.epistola.api.model.DeploymentListResponse
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.EnvironmentListResponse
-import app.epistola.api.model.EnvironmentOverrideDto
-import app.epistola.api.model.EnvironmentOverrideListResponse
-import app.epistola.api.model.SetEnvironmentOverrideRequest
 import app.epistola.api.model.TenantDto
 import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
@@ -71,15 +69,11 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.environments.CatalogDeployment
-import app.epistola.suite.environments.ClearEnvironmentOverride
 import app.epistola.suite.environments.DeploymentAction
-import app.epistola.suite.environments.EnvironmentOverride
-import app.epistola.suite.environments.ListEnvironmentOverrides
-import app.epistola.suite.environments.SetEnvironmentOverride
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
-import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.CountDeploymentHistory
 import app.epistola.suite.environments.queries.GetEnvironment
@@ -382,11 +376,12 @@ class EpistolaTenantApi(
 
     // ================== Deployments ==================
     //
-    // An environment serves any number of releases of each catalog; generation naming it renders
-    // the highest, or the highest satisfying the request's version selector. Deploying checks the
-    // releases of other catalogs the release renders with, and deploys them along on request. A
-    // dependency release the tenant does not have is not fetched from its registry: it is reported
-    // UNAVAILABLE.
+    // An environment serves catalog versions (contract ADR 0003): any number of releases of each
+    // catalog, and at most one draft. Generation naming it renders the draft for a request naming
+    // no version, else the highest release, or the highest satisfying the request's version range.
+    // Deploying a release checks the releases of other catalogs it renders with, and deploys them
+    // along on request. A dependency release the tenant does not have is not fetched from its
+    // registry: it is reported UNAVAILABLE.
 
     override fun listEnvironmentDeployments(
         tenantKey: String,
@@ -400,34 +395,34 @@ class EpistolaTenantApi(
         )
     }
 
-    override fun deployRelease(
+    override fun deployCatalogVersion(
         tenantKey: String,
         environmentKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        releaseVersion: String,
+        catalogVersion: String,
         includeDependencies: Boolean,
         replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployRelease(environmentId(tenantKey, environmentKey), catalog.id, releaseVersion, includeDependencies, replace = replace).execute()
+        val deployment = DeployCatalogVersion(environmentId(tenantKey, environmentKey), catalog.id, catalogVersion, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
-    /** Stops serving the release; 404 when the environment does not serve that release of the catalog. */
-    override fun undeployRelease(
+    /** Stops serving the version; 404 when the environment does not deploy that version of the catalog. */
+    override fun undeployCatalogVersion(
         tenantKey: String,
         environmentKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        releaseVersion: String,
+        catalogVersion: String,
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployRelease(environment, catalog.id, releaseVersion).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, releaseVersion)
+        if (!UndeployCatalogVersion(environment, catalog.id, catalogVersion).execute()) {
+            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, catalogVersion)
         }
         return ResponseEntity.noContent().build()
     }
@@ -453,11 +448,12 @@ class EpistolaTenantApi(
                         action = when (entry.action) {
                             DeploymentAction.DEPLOYED -> DeploymentEventDto.Action.DEPLOYED
                             DeploymentAction.UNDEPLOYED -> DeploymentEventDto.Action.UNDEPLOYED
-                            DeploymentAction.OVERRIDE_SET -> DeploymentEventDto.Action.OVERRIDE_SET
-                            DeploymentAction.OVERRIDE_CLEARED -> DeploymentEventDto.Action.OVERRIDE_CLEARED
+                            DeploymentAction.RELEASED -> DeploymentEventDto.Action.RELEASED
                         },
+                        versionId = entry.versionKey.orEmpty(),
+                        kind = if (entry.version == null) DeploymentKind.DRAFT else DeploymentKind.RELEASE,
                         releaseVersion = entry.version,
-                        draftLabel = entry.draftLabel,
+                        draftName = if (entry.version == null || entry.action == DeploymentAction.RELEASED) entry.draftLabel else null,
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )
@@ -466,71 +462,6 @@ class EpistolaTenantApi(
             ),
         )
     }
-
-    // ================== Overrides ==================
-    //
-    // What an environment uses as its latest version of a catalog instead of the highest release it
-    // serves: one of those releases, or a draft (never on production). Requests naming an exact
-    // release are not affected.
-
-    override fun listEnvironmentOverrides(tenantKey: String, environmentKey: String): ResponseEntity<EnvironmentOverrideListResponse> {
-        val environment = existingEnvironment(tenantKey, environmentKey)
-        val overrides = ListEnvironmentOverrides(environment.tenantKey, environment.key).query()
-        val catalogs = GetCatalogNames(environment.tenantKey, overrides.map { it.catalogKey }).query()
-        return ResponseEntity.ok(EnvironmentOverrideListResponse(items = overrides.mapNotNull { override -> catalogs[override.catalogKey]?.let { override.toDto(it) } }))
-    }
-
-    override fun setEnvironmentOverride(
-        tenantKey: String,
-        environmentKey: String,
-        registry: String,
-        namespace: String,
-        catalogKey: String,
-        setEnvironmentOverrideRequest: SetEnvironmentOverrideRequest,
-    ): ResponseEntity<EnvironmentOverrideDto> {
-        val environment = existingEnvironment(tenantKey, environmentKey)
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val release = setEnvironmentOverrideRequest.releaseVersion
-        val versionId = setEnvironmentOverrideRequest.versionId
-        if ((release == null) == (versionId == null)) {
-            throw ValidationException(field = "releaseVersion", message = "Give either releaseVersion or versionId, not both")
-        }
-        // The versionId of a released version names that release, exactly as its number would.
-        val named = versionId?.let { id ->
-            ListCatalogVersions(catalog.tenantKey, catalog.id).query().firstOrNull { it.versionId == id }
-                ?: throw CatalogVersionNotFoundException(catalog.id, id)
-        }
-        val override = when {
-            named == null -> SetEnvironmentOverride(environment, catalog.id, version = release).execute()
-            named.status == CatalogVersionStatus.RELEASED -> SetEnvironmentOverride(environment, catalog.id, version = named.version).execute()
-            else -> SetEnvironmentOverride(environment, catalog.id, draft = DraftRef.Id(named.versionId)).execute()
-        }
-        return ResponseEntity.ok(override.toDto(CatalogName(catalog.registry, catalog.namespace, catalog.id)))
-    }
-
-    override fun clearEnvironmentOverride(
-        tenantKey: String,
-        environmentKey: String,
-        registry: String,
-        namespace: String,
-        catalogKey: String,
-    ): ResponseEntity<Unit> {
-        val environment = existingEnvironment(tenantKey, environmentKey)
-        val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        ClearEnvironmentOverride(environment, catalog.id).execute()
-        return ResponseEntity.noContent().build()
-    }
-
-    private fun EnvironmentOverride.toDto(catalog: CatalogName) = EnvironmentOverrideDto(
-        environmentKey = environmentKey.value,
-        registry = catalog.registry,
-        namespace = catalog.namespace,
-        catalogKey = catalogKey.value,
-        setAt = setAt,
-        releaseVersion = version,
-        versionId = draftId,
-        draftLabel = draftLabel,
-    )
 
     private fun environmentId(tenantKey: String, environmentKey: String) = EnvironmentId(EnvironmentKey.of(environmentKey), TenantId(TenantKey.of(tenantKey)))
 
@@ -544,7 +475,10 @@ class EpistolaTenantApi(
         registry = catalog.registry,
         namespace = catalog.namespace,
         catalogKey = catalogKey.value,
+        versionId = versionId.orEmpty(),
+        kind = if (isDraft) DeploymentKind.DRAFT else DeploymentKind.RELEASE,
         releaseVersion = version,
+        draftName = draftName,
         deployedAt = deployedAt,
         lastUsedAt = lastUsedAt,
         documentsRequested = documentsRequested,

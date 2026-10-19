@@ -35,7 +35,6 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
-import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.ListCatalogDependents
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -51,10 +50,11 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.sources.InstallCatalogRelease
+import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
@@ -66,15 +66,13 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
-import app.epistola.suite.environments.ClearEnvironmentOverride
-import app.epistola.suite.environments.EnvironmentOverrideRefusedException
-import app.epistola.suite.environments.ListEnvironmentOverrides
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
-import app.epistola.suite.environments.SetEnvironmentOverride
-import app.epistola.suite.environments.commands.DeployRelease
-import app.epistola.suite.environments.commands.UndeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.exchange.CancelCatalogPublication
@@ -538,7 +536,7 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
+                    DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
@@ -612,20 +610,14 @@ class CatalogHandler {
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         // Beside what the environment serves, unless the deployer chose to stop using the others.
         val replace = request.param("replace").orElse("") == "true"
-        // A draft (`draft:<id>`) is followed rather than deployed: the environment uses it as it is edited.
-        version.removePrefix("draft:").takeIf { it != version }?.let { draft ->
-            val draftId = draft.takeIf { DraftRef.isKey(it) }
-                ?: return deployments(request, error = "Choose a draft of this catalog to follow.")
-            return try {
-                SetEnvironmentOverride(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft = DraftRef.Id(draftId)).execute()
-                redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
-            } catch (failure: EnvironmentOverrideRefusedException) {
-                deployments(request, error = failure.message)
-            }
-        }
+        // A draft (`draft:<id>`) is deployed by its id and served live, beside the releases.
+        val draft = version.removePrefix("draft:").takeIf { it != version }
+        if (draft != null && !DraftRef.isKey(draft)) return deployments(request, error = "Choose a draft of this catalog to deploy.")
         return try {
-            DeployRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, version, includeDependencies, replace = replace).execute()
+            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft ?: version, includeDependencies, replace = replace && draft == null).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
+        } catch (failure: EnvironmentDeploymentRefusedException) {
+            deployments(request, error = failure.message)
         } catch (failure: ReleaseNotDeployableException) {
             deployments(request, error = failure.message)
         } catch (failure: EnvironmentNotFoundException) {
@@ -649,36 +641,39 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
-        UndeployRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
+        UndeployCatalogVersion(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
-    /** Stops an environment following a draft of this catalog: it uses what is deployed there again. */
+    /** Stops an environment serving a draft of this catalog: requests naming no version get its highest release again. */
     fun unfollow(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
         val catalogKey = request.catalogId()
-        ClearEnvironmentOverride(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey).execute()
+        val environment = EnvironmentKey.of(request.pathVariable("environmentId"))
+        ListDraftDeployments(tenantId.key, environment, catalogKey).query().singleOrNull()?.let { deployed ->
+            UndeployCatalogVersion(EnvironmentId(environment, tenantId), catalogKey, deployed.draftId).execute()
+        }
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
     /** One row per environment of the tenant, with every release of this catalog it serves, highest first. */
     private fun deploymentRows(tenantKey: TenantKey, catalogKey: CatalogKey): List<DeploymentRowView> {
-        val served = ListDeployments(tenantKey, catalogKey).query().groupBy { it.environmentKey }
-        // An environment may use something else than what is deployed: a draft it follows, or a pinned version.
-        val overrides = ListEnvironmentOverrides(tenantKey, catalogKey = catalogKey).query().associateBy { it.environmentKey }
+        val served = ListDeployments(tenantKey, catalogKey).query().filter { !it.isDraft }.groupBy { it.environmentKey }
+        // A draft it serves, which a request naming no version renders.
+        val drafts = ListDraftDeployments(tenantKey, catalogKey = catalogKey).query().associateBy { it.environmentKey }
         val names by lazy { ListCatalogs(tenantKey).query().associate { it.id to it.name } }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
             DeploymentRowView(
                 environmentKey = environment.id.value,
                 environmentName = environment.name,
                 production = environment.production,
-                served = served[environment.id].orEmpty().map { ServedReleaseView(it.version, it.deployedAt, it.documentsRequested, it.lastUsedAt) },
+                served = served[environment.id].orEmpty().map { ServedReleaseView(requireNotNull(it.version), it.deployedAt, it.documentsRequested, it.lastUsedAt) },
                 // Not deployed itself, but used there because a deployed catalog depends on it.
                 implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
                     .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
-                uses = overrides[environment.id]?.label,
-                followsDraft = overrides[environment.id]?.draftId,
+                uses = drafts[environment.id]?.draftLabel,
+                followsDraft = drafts[environment.id]?.draftId,
             )
         }
     }
@@ -777,11 +772,11 @@ class CatalogHandler {
         model["catalogId"] = catalogKey.value
         model["error"] = error
         try {
-            model["diff"] = PreviewCatalogUpgrade(tenantId.key, catalogKey).query()
+            model["available"] = ListAvailableCatalogReleases(tenantId.key, catalogKey).query()
         } catch (e: Exception) {
-            logger.warn("Upgrade preview failed for catalog {}: {}", catalogKey, e.message)
-            model["diff"] = null
-            if (error == null) model["error"] = e.message ?: "Failed to preview upgrade. The remote catalog may be unavailable."
+            logger.warn("Listing the releases available for catalog {} failed: {}", catalogKey, e.message)
+            model["available"] = null
+            if (error == null) model["error"] = e.message ?: "The catalog's source could not be asked. It may be unavailable."
         }
         // A refused upgrade says so with a 422; the preview is a plain 200.
         if (refused) return refusedDialog(request, "upgrade-dialog", model)
@@ -798,17 +793,17 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
 
+        val releaseVersion = request.param("releaseVersion").orElse("").trim().ifEmpty { null }
+            ?: return upgradeDialog(request, tenantId, catalogKey, "Choose a release to install.", refused = true)
+
         return try {
-            val result = UpgradeCatalog(
-                tenantKey = tenantId.key,
-                catalogKey = catalogKey,
-            ).execute()
+            val result = InstallCatalogRelease(tenantId.key, catalogKey, releaseVersion).execute()
 
             if (result.aborted) {
-                val failed = result.installResults
+                val failed = result.results
                     .filter { it.status == InstallStatus.FAILED }
                     .joinToString(", ") { "${it.type}/${it.slug}" }
-                return upgradeDialog(request, tenantId, catalogKey, "Upgrade aborted — these resources failed to install (nothing was changed, the version was not advanced): $failed", refused = true)
+                return upgradeDialog(request, tenantId, catalogKey, "Installing v$releaseVersion stopped: these resources failed to install, and nothing was changed: $failed", refused = true)
             }
 
             request.htmx {
@@ -822,10 +817,10 @@ class CatalogHandler {
                 }
             }
         } catch (e: CatalogUpgradeConflictException) {
-            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Upgrade blocked — resources are still in use.", refused = true)
+            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Installing it is blocked: resources are still in use.", refused = true)
         } catch (e: Exception) {
-            logger.warn("Failed to upgrade catalog: ${e.message}", e)
-            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Failed to upgrade catalog.", refused = true)
+            logger.warn("Failed to install a release of catalog: ${e.message}", e)
+            upgradeDialog(request, tenantId, catalogKey, e.message ?: "Failed to install the release.", refused = true)
         }
     }
 

@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -18,8 +19,9 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.GetEnvironment
+import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
@@ -64,8 +66,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
             for ((key, production) in listOf("test" to false, "production" to true)) {
                 val id = env(tenant, key)
                 CreateEnvironment(id, key.replaceFirstChar { it.uppercase() }, production = production).execute()
-                DeployRelease(id, letters, "1.0.0").execute()
-                DeployRelease(id, letters, "1.0.1").execute()
+                DeployCatalogVersion(id, letters, "1.0.0").execute()
+                DeployCatalogVersion(id, letters, "1.0.1").execute()
             }
         }
         return tenant
@@ -76,38 +78,32 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     private fun row(page: String, version: String) = page.substringAfter("data-catalog=\"letters\" data-version=\"$version\"").substringBefore("</tr>")
 
     @Test
-    fun `the environment page marks the latest release, and choosing another makes it the latest there`() {
+    fun `the environment page marks the latest release, and undeploying the newer one rolls back to the older`() {
         val tenant = setup("page-latest")
         val before = page(tenant, "production")
-        assertThat(row(before, "1.0.1")).contains("Latest here").doesNotContain("Use as latest")
-        assertThat(row(before, "1.0.0")).doesNotContain("Latest here").contains("Use as latest")
+        assertThat(row(before, "1.0.1")).contains("Latest here")
+        assertThat(row(before, "1.0.0")).doesNotContain("Latest here")
+        assertThat(before).`as`("rollback is undeploying, not choosing a latest").doesNotContain("Use as latest")
 
-        post("/tenants/${tenant.id.value}/environments/production/overrides", "catalog" to "letters", "version" to "1.0.0")
+        post("/tenants/${tenant.id.value}/environments/production/deployments/letters/undeploy", "version" to "1.0.1")
 
-        val after = page(tenant, "production")
-        assertThat(row(after, "1.0.0")).contains("Latest here (chosen)").contains("Use the highest again")
-        assertThat(row(after, "1.0.1")).doesNotContain("Latest here").contains("Use as latest")
-        assertThat(after).contains("Uses Letters v1.0.0 as its latest")
-
-        post("/tenants/${tenant.id.value}/environments/production/overrides/letters/clear")
-        assertThat(row(page(tenant, "production"), "1.0.1")).contains("Latest here").doesNotContain("(chosen)")
-        assertThat(page(tenant, "production")).contains("Uses the highest Letters release it serves again, not v1.0.0")
+        assertThat(row(page(tenant, "production"), "1.0.0")).contains("Latest here")
     }
 
     @Test
-    fun `the production mark is shown and changed on the page, and refused while it follows work in progress`() {
+    fun `the production mark is shown and changed on the page, and refused while it serves work in progress`() {
         val tenant = setup("page-production")
         assertThat(page(tenant, "production")).contains("Only published versions are used here.").contains("Not production")
         assertThat(page(tenant, "test")).contains("Mark as production")
 
-        withMediator { SetEnvironmentOverride(env(tenant, "test"), letters, draft = DraftRef.Next).execute() }
+        withMediator { DeployCatalogVersion(env(tenant, "test"), letters, GetCatalogDraft(tenant.id, letters).query()!!.versionId).execute() }
         val refused = post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
 
-        assertThat(refused.body).contains("uses work in progress").contains("Next version")
+        assertThat(refused.body).contains("serves work in progress").contains("Next version")
         assertThat(withMediator { GetEnvironment(env(tenant, "test")).query()!! }.production).isFalse()
-        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next version").contains("Stop following")
+        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next version").contains("Undeploy")
 
-        post("/tenants/${tenant.id.value}/environments/test/overrides/letters/clear")
+        post("/tenants/${tenant.id.value}/environments/test/drafts/letters/undeploy")
         post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
         assertThat(withMediator { GetEnvironment(env(tenant, "test")).query()!! }.production).isTrue()
     }
@@ -127,7 +123,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         val followed = postHtmx("$at/follow", "environment" to "test")
 
         assertThat(followed.headers["HX-Location"].orEmpty().joinToString()).contains("/catalogs/letters@$work/draft")
-        assertThat(withMediator { ListEnvironmentOverrides(tenant.id, EnvironmentKey.of("test")).query() }.single().draftLabel).isEqualTo("Redesign")
+        assertThat(withMediator { ListDraftDeployments(tenant.id, EnvironmentKey.of("test")).query() }.single().draftLabel).isEqualTo("Redesign")
         assertThat(get("$at/draft").body).contains("Test follows it.")
         assertThat(getHtmx("$at/follow").body!!.substringAfter("data-environment=\"test\"").substringBefore("</tr>")).contains("Stop following")
 
@@ -138,7 +134,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
 
         postHtmx("$at/unfollow", "environment" to "test")
-        assertThat(withMediator { ListEnvironmentOverrides(tenant.id, EnvironmentKey.of("test")).query() }).isEmpty()
+        assertThat(withMediator { ListDraftDeployments(tenant.id, EnvironmentKey.of("test")).query() }).isEmpty()
         assertThat(get("$at/draft").body).doesNotContain("Test follows it.")
     }
 

@@ -22,8 +22,7 @@ class EnvironmentRoutes(private val handler: EnvironmentHandler) {
             GET("/{environmentId}", handler::detail)
             POST("/{environmentId}/deployments", handler::deploy)
             POST("/{environmentId}/deployments/{catalogId}/undeploy", handler::undeploy)
-            POST("/{environmentId}/overrides", handler::setOverride)
-            POST("/{environmentId}/overrides/{catalogId}/clear", handler::clearOverride)
+            POST("/{environmentId}/drafts/{catalogId}/undeploy", handler::undeployDraft)
             POST("/{environmentId}/production", handler::setProduction)
             POST("/{environmentId}/delete", handler::delete)
         }

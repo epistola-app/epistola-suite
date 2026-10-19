@@ -65,7 +65,7 @@ releases (and an installed release) are numbered.
   (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into and the one a
   caller that names no version means. The mark is a suite default, not a kind of draft. Every other
   draft is named (`catalog_versions.name`, unique per catalog ignoring case): a redesign, a fix to an
-  older line, work tried through an environment override. A version is identified by its
+  older line, work tried by deploying it to an environment. A version is identified by its
   **version id** (`version_key`, eight characters such as `k7m2x9qa`, from `epistola_version_key()`),
   which a release keeps from the draft it was released from; `next` names the next version.
 - **Content belongs to a version.** Every content row (`themes`, `document_templates`,
@@ -116,7 +116,7 @@ releases (and an installed release) are numbered.
   it, to mark a major on purpose. The release takes the draft's version id. Releasing the next version
   **continues** it: the same draft under a new version id, its content the release's, its base the new
   release. Releasing another draft removes it: environments following it stop (recorded as
-  override-cleared), and another catalog's draft that named it as a dependency now pins the release.
+  released), and another catalog's draft that named it as a dependency now pins the release.
   Other drafts are untouched and may now be behind it (`draftsBehind`, by name). The 2.0 upgrade
   releases what was published before 2.0 under the next patch of the latest release, as its draft was
   numbered then, and is not held to the change rule.
@@ -448,53 +448,55 @@ next release records one.
 
 ## What an environment uses
 
-Deploying (`DeployRelease`) adds a version beside the ones an environment serves, in the UI as over
+Deploying (`DeployCatalogVersion`, contract `deployCatalogVersion`) names a catalog version by its
+release number or its `versionId`, and adds it beside what the environment serves, in the UI as over
 REST; `replace` (the UI's _Stop using the catalog's other versions here_) stops serving the others.
-Each deployment counts the generation requests accepted through the environment for it and when the
-last was (`documents_requested`, `last_used_at`; `DeploymentUsage` tallies per node and adds them
-about once a minute), so a version nobody asks for any more can be undeployed. Undeploying resets
-the count.
+Each release deployment counts the generation requests accepted through the environment for it and
+when the last was (`documents_requested`, `last_used_at`; `DeploymentUsage` tallies per node and
+adds them about once a minute), so a version nobody asks for any more can be undeployed. Undeploying
+resets the count. A deployed draft is not counted.
 
-An environment serves releases of a catalog (`DeployRelease`), and a request through it that names no
-version gets the highest of them. An **override** (`SetEnvironmentOverride`, `ClearEnvironmentOverride`,
-table `environment_catalog_overrides`) names what it uses instead, per catalog:
+An environment serves catalog versions (contract ADR 0003, "Deploying"): any number of releases of a
+catalog, and **at most one draft**, rendered **live**: what is changed in it is what the next
+document gets, with no release in between. This is how work is tried before it is published.
+Deploying another draft replaces it. There is no override: rolling back is undeploying the newer
+release, and holding one back is not deploying it.
 
-- **A release it serves**, for a rollback or to hold back a newer one. Only a release the environment
-  serves can be named; undeploying it ends the override.
-- **A draft**, the next version or any other, rendered **live**: what is changed in it is what the
-  next document gets, with no release in between. This is how work is tried before it is published.
+| A request through the environment asks for | It gets                                                |
+| ------------------------------------------ | ------------------------------------------------------ |
+| no version                                 | the deployed draft, else the highest release it serves |
+| a range (`^1.4.0`)                         | the highest served release that fits; never a draft    |
+| an exact release (`1.4.2`)                 | that release                                           |
 
-| A request through the environment asks for | With an override | Without one                          |
-| ------------------------------------------ | ---------------- | ------------------------------------ |
-| no version                                 | the override     | the highest release it serves        |
-| a range (`^1.4.0`)                         | the override     | the highest served release that fits |
-| an exact release (`1.4.2`)                 | that release     | that release                         |
+A draft never matches a range or a number, as a SemVer pre-release does not, so a breaking draft based
+on `1.2.0` is never served to `^1.2.0`. `ReleaseTargetResolver.select` makes the choice for
+generation, batches, `PreviewDocument` and `AnalyzeTemplateData` alike; `GetEnvironmentLatest` reports
+it per catalog.
 
-`ReleaseTargetResolver.select` makes the choice for generation, batches, `PreviewDocument` and
-`AnalyzeTemplateData` alike; `GetEnvironmentLatest` reports it per catalog.
-
-- **Production.** An environment marked `production` uses only published versions: an override there
-  names a release, and marking an environment production while it follows a draft is refused
-  (`EnvironmentOverrideRefusedException`). The migration marks environments keyed or named
-  `production`, `prod`, `prd` or `productie`.
+- **Production.** An environment marked `production` serves only releases: deploying a draft there,
+  and marking an environment production while it serves one, are refused
+  (`EnvironmentDeploymentRefusedException`, REST 409 `environment-deployment-refused`). The migration
+  marks environments keyed or named `production`, `prod`, `prd` or `productie`.
 - **Documents from a draft** record the draft's id and its name at the time (`draft_id`, `draft_label`
   on requests and documents, no release version), validate their data against the draft's contract,
   and carry the preview watermark, so nobody takes one for a published document. They do not pin
   the draft's exact content: a document says which draft it came from and when, not a fingerprint.
-- **Changes to what it names**: undeploying the release, deploying another in its place, or
-  discarding or releasing the followed draft ends the override, recorded in the history as cleared.
-- **History.** Setting and clearing an override is recorded in the environment's history beside
-  deploys (`OVERRIDE_SET`, `OVERRIDE_CLEARED`).
-- **In the UI** the environment page marks the release that is _Latest here_, offers _Use as latest_
-  on every other release it serves, lists the work in progress it follows, and shows the production
-  mark. A draft's version menu offers _Try it on an environment…_, listing production environments
-  without offering them; the banner of a draft other than the next version names the environments following it.
-- **Over REST** `setEnvironmentOverride` (`releaseVersion` or `versionId`), `clearEnvironmentOverride`
-  and `listEnvironmentOverrides`; a refusal is 409 `environment-override-refused`. `EnvironmentDto.production`,
-  history actions `override-set`/`override-cleared`, and `versionId`/`draftLabel` on documents, job items
-  and collected results.
-- **Over MCP** nothing sets an override, as nothing deploys; `preview_document` and
-  `analyze_template_data` with an `environmentId` follow it.
+- **A draft's lifecycle carries through.** Releasing a deployed draft keeps its `versionId` on the
+  release, so the deployment becomes one of that release, logged `RELEASED`; discarding it, or
+  discarding the next version by making another draft the next version, undeploys it, logged.
+- **History.** Every deploy, undeploy and release of a deployed draft is recorded in the environment's
+  history (`DEPLOYED`, `UNDEPLOYED`, `RELEASED`, with the version's id, and the draft's name for a draft).
+- **Dependencies of a deployed draft** are used as for a release: what its declarations pin is used
+  implicitly (`ListImplicitDeployments`); `includeDependencies` deploys those pinned releases along,
+  never a draft.
+- **In the UI** the environment page marks the release that is _Latest here_, lists the work in
+  progress it serves with _Undeploy_, and shows the production mark. A draft's version menu offers
+  _Try it on an environment…_ (deploying it), listing production environments without offering them;
+  the banner of a draft other than the next version names the environments serving it.
+- **Over REST** `deployCatalogVersion` and `undeployCatalogVersion` (`…/deployments/{registry}/{namespace}/{catalogKey}/{catalogVersion}`);
+  deployments and history entries carry `versionId`, `kind` (`release` | `draft`) and `draftName`.
+- **Over MCP** nothing deploys; `preview_document` and `analyze_template_data` with an
+  `environmentId` render what the environment serves.
 
 ## Making a draft the next version
 
@@ -572,27 +574,29 @@ Its drafts are untouched; they are behind the new release if it is above their b
 creates the catalog opens its next version on the release. There is no MCP import tool, so import is
 not an MCP surface.
 
-### SUBSCRIBED — the ZIP _is_ the upgrade
+### SUBSCRIBED — releases installed side by side
 
-A SUBSCRIBED catalog is a managed mirror. With no source URL to poll, importing
-a newer ZIP **is** its upgrade — and it runs the **full `UpgradeCatalog`
-contract**, the ZIP merely being the transport instead of an HTTP source:
+Nothing is upgraded (contract ADR 0003). A subscribed catalog holds the releases it installed side by
+side, each an immutable release with its retained content, and installing another adds it, whether
+it is numbered above them or below. Its source, a manifest URL (`ManifestUrlReleaseSource`) or
+Epistola Exchange (`ExchangeCatalogReleaseSource`), offers releases:
 
-- **conflict-checked before any mutation** — a stale resource still referenced
-  from another catalog blocks the whole import (`CatalogUpgradeConflictException`);
-- resources are installed/replaced, then **stale resources are pruned**
-  (shared `CatalogUpgradeAnalyzer.removeStale` — one definition with the URL
-  path);
-- **abort-on-failed-install** — if any resource fails, stale is _not_ pruned
-  and `installed_*` is _not_ advanced, so the catalog stays on its previous
-  release and a re-import retries (never a silent half-upgrade);
-- on success `installed_release_version` / `installed_fingerprint` /
-  `installed_resource_fingerprints` are advanced from the manifest, computed
-  with the **exact same** canonicalization as a URL source — so drift
-  detection and the upgrade preview are consistent regardless of transport.
+- **`ListAvailableCatalogReleases`** (contract `listAvailableCatalogReleases`, MCP
+  `list_available_catalog_releases`, the UI's _Available releases_) lists every release the source
+  offers that the tenant lacks, lowest first: a fix `1.4.1` is listed while `2.0.0` is installed.
+  Each is compared to the closest installed release below it (`comparedTo`), with the resources it
+  added, modified or removed against that one, and the releases it pins, each with whether it is
+  here. A manifest URL offers the one release it describes now; Exchange lists every installable one.
+- **`InstallCatalogRelease`** (contract `installCatalogRelease`, the UI's _Install_) installs one, as
+  importing its archive does, after installing the releases it pins that the tenant lacks from the
+  source serving their registry (Exchange); one none can supply refuses it
+  (`release-dependencies-missing`). The same release again changes nothing; the same number with
+  other content is refused (409 `conflict`). A release above the installed one also becomes what the
+  catalog mirrors in its content tables; one below is recorded beside the others from its archive.
+- A source that cannot be reached answers 503 `catalog-source-unavailable` (with `Retry-After` when
+  it gave one), one that answers badly 502 (`CatalogSourceUnavailableException`).
 
-So SUBSCRIBED upgrade has two equivalent transports — re-fetch a source URL
-(`UpgradeCatalog`) or re-import a ZIP — with identical semantics.
+Importing a ZIP into a subscribed catalog is the same install with the archive in hand.
 
 ## Bundled catalogs
 

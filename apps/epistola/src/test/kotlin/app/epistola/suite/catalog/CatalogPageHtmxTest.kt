@@ -15,7 +15,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
@@ -99,7 +99,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             invoice(catalog)
             mediator.releaseNext(catalog)
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
-            DeployRelease(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val status = status(get(tenant, "/catalogs/letters/browse").body!!)

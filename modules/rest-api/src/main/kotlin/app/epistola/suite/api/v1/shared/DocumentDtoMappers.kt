@@ -142,7 +142,7 @@ internal fun GenerateDocumentRequest.toCommand(
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
-        releaseVersion = version,
+        releaseVersion = versionRange,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
@@ -163,7 +163,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
-        releaseVersion = version,
+        releaseVersion = versionRange,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
@@ -240,7 +240,7 @@ internal fun PreviewDocumentRequest.toQuery(
     catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
     requireDraft: (catalog: Catalog, version: String) -> Unit,
 ): PreviewDocument {
-    if (draft != null && (version != null || environmentKey != null)) {
+    if (draft != null && (versionRange != null || environmentKey != null)) {
         throw ValidationException(field = "draft", message = "draft cannot be combined with version or environmentKey")
     }
     val catalog = catalogAt(registry, namespace, catalogKey)
@@ -252,7 +252,7 @@ internal fun PreviewDocumentRequest.toQuery(
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
         data = data,
-        releaseVersion = version,
+        releaseVersion = versionRange,
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         // The draft it names: the next version, or long-term work by its id.

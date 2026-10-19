@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.CatalogsApi
+import app.epistola.api.model.AvailableReleaseDependencyDto
 import app.epistola.api.model.AvailableReleaseDto
 import app.epistola.api.model.BehindReleaseDto
 import app.epistola.api.model.CatalogChangesDto
@@ -14,11 +15,11 @@ import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDraftSummary
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
-import app.epistola.api.model.CatalogUpgradePreview
 import app.epistola.api.model.CatalogVersionDto
 import app.epistola.api.model.CatalogVersionListResponse
 import app.epistola.api.model.CreateCatalogDraftRequest
 import app.epistola.api.model.ImportCatalogResponse
+import app.epistola.api.model.InstallCatalogReleaseResponse
 import app.epistola.api.model.ReleaseCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
@@ -27,7 +28,6 @@ import app.epistola.api.model.ReleasedDependencyDto
 import app.epistola.api.model.RenameCatalogDraftRequest
 import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
-import app.epistola.api.model.UpgradeCatalogResponse
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
@@ -54,6 +54,8 @@ import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.catalog.sources.InstallCatalogRelease
+import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -76,6 +78,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder
+import app.epistola.api.model.AvailableCatalogReleases as AvailableCatalogReleasesDto
 import app.epistola.api.model.CatalogVersionStatus as CatalogVersionStatusDto
 
 /**
@@ -105,71 +108,55 @@ class EpistolaCatalogApi(
     }
 
     /**
-     * What the catalog's source offers above the highest installed release. The source offers its
-     * latest release only, so that is the one listed when it is higher; its changes are against the
-     * installed release. Which releases it pins is not read from the source yet: none are listed.
+     * Every release the catalog's source offers that the tenant lacks, older lines included, each
+     * against the closest installed release below it (contract `listAvailableCatalogReleases`).
      */
-    override fun previewCatalogUpgrade(
+    override fun listAvailableCatalogReleases(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-    ): ResponseEntity<CatalogUpgradePreview> {
+    ): ResponseEntity<AvailableCatalogReleasesDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val diff = PreviewCatalogUpgrade(tenantKey = catalog.tenantKey, catalogKey = catalog.id).query()
-        val installed = catalog.installedReleaseVersion ?: diff.previousVersion.orEmpty()
-        val higher = SemVer.parseOrNull(diff.newVersion)?.let { offered -> SemVer.parseOrNull(installed)?.let { offered > it } ?: true } == true
-        fun changes(kind: ReleasedChangeDto.Change, of: List<app.epistola.suite.catalog.queries.UpgradeResourceChange>) = of.map { ReleasedChangeDto(type = it.type, key = it.slug, change = kind) }
-        val available = if (higher) {
-            listOf(
-                AvailableReleaseDto(
-                    version = diff.newVersion,
-                    changes = changes(ReleasedChangeDto.Change.ADDED, diff.added) + changes(ReleasedChangeDto.Change.MODIFIED, diff.changed) + changes(ReleasedChangeDto.Change.REMOVED, diff.removed),
-                    dependencies = emptyList(),
-                ),
-            )
-        } else {
-            emptyList()
-        }
+        val listed = ListAvailableCatalogReleases(catalog.tenantKey, catalog.id).query()
         return ResponseEntity.ok(
-            CatalogUpgradePreview(
-                registry = catalog.registry,
-                namespace = catalog.namespace,
-                catalogKey = catalog.id.value,
-                installedVersion = installed,
-                available = available,
+            AvailableCatalogReleasesDto(
+                registry = listed.registry,
+                namespace = listed.namespace,
+                catalogKey = listed.catalogKey.value,
+                available = listed.available.map { release ->
+                    AvailableReleaseDto(
+                        releaseVersion = release.releaseVersion,
+                        comparedTo = release.comparedTo,
+                        changes = release.changes.map { ReleasedChangeDto(type = it.type, key = it.key, change = ReleasedChangeDto.Change.forValue(it.change.name.lowercase())) },
+                        dependencies = release.dependencies.map { AvailableReleaseDependencyDto(it.registry, it.namespace, it.catalogKey, it.releaseVersion, it.present) },
+                    )
+                },
             ),
         )
     }
 
-    /**
-     * Installs a newer release of a subscribed catalog from its source, which offers its latest
-     * release only: a `releaseVersion` other than that one is not offered (404).
-     */
-    override fun upgradeCatalog(
+    /** Installs release [releaseVersion] from the catalog's source, beside its others (contract `installCatalogRelease`). */
+    override fun installCatalogRelease(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        releaseVersion: String?,
-    ): ResponseEntity<UpgradeCatalogResponse> {
+        releaseVersion: String,
+    ): ResponseEntity<InstallCatalogReleaseResponse> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (releaseVersion != null) {
-            val offered = PreviewCatalogUpgrade(tenantKey = catalog.tenantKey, catalogKey = catalog.id).query().newVersion
-            if (offered != releaseVersion) throw CatalogVersionNotFoundException(catalog.id, releaseVersion)
-        }
-        val result = UpgradeCatalog(tenantKey = catalog.tenantKey, catalogKey = catalog.id).execute()
-        if (result.aborted) throw IllegalStateException("Upgrading ${catalog.id.value} to ${result.newVersion} failed; nothing changed")
+        val result = InstallCatalogRelease(catalog.tenantKey, catalog.id, releaseVersion).execute()
+        if (result.aborted) throw IllegalStateException("Installing ${catalog.id.value} $releaseVersion failed; nothing changed")
         return ResponseEntity.ok(
-            UpgradeCatalogResponse(
+            InstallCatalogReleaseResponse(
                 registry = catalog.registry,
                 namespace = catalog.namespace,
                 catalogKey = catalog.id.value,
-                releaseVersion = result.newVersion,
-                newlyInstalled = result.previousVersion != result.newVersion,
-                total = result.installResults.size,
-                installedDependencies = emptyList(),
-                presentDependencies = emptyList(),
+                releaseVersion = result.releaseVersion ?: releaseVersion,
+                newlyInstalled = result.newlyInstalled,
+                total = result.results.size,
+                installedDependencies = result.installedDependencies,
+                presentDependencies = result.presentDependencies,
             ),
         )
     }
@@ -322,7 +309,7 @@ class EpistolaCatalogApi(
         val result = ReleaseCatalogVersion(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
-            version = releaseCatalogDraftRequest.version,
+            version = releaseCatalogDraftRequest.releaseVersion,
             notes = releaseCatalogDraftRequest.notes,
             acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
             catalogVersion = draft.ref,
@@ -427,7 +414,7 @@ class EpistolaCatalogApi(
             } else {
                 emptyList()
             },
-            releasedVersion = if (authored) releasedVersion else installedReleaseVersion,
+            highestReleaseVersion = if (authored) releasedVersion else installedReleaseVersion,
             fingerprint = if (authored) releasedFingerprint else installedFingerprint,
         )
     }
@@ -448,13 +435,13 @@ class EpistolaCatalogApi(
             ListReleaseDependencies(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
         }
         return CatalogVersionDto(
-            version = version,
+            releaseVersion = version,
             versionId = versionId,
             name = if (draft) label else null,
             status = if (draft) CatalogVersionStatusDto.DRAFT else CatalogVersionStatusDto.RELEASED,
             behind = behindNow.map { release ->
                 BehindReleaseDto(
-                    version = release.version,
+                    releaseVersion = release.version,
                     changes = release.changes.map { ReleasedChangeDto(type = it.type, key = it.key, change = ReleasedChangeDto.Change.forValue(it.change)) },
                 )
             },

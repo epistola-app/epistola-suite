@@ -17,10 +17,10 @@ import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.environments.ClearEnvironmentOverride
-import app.epistola.suite.environments.EnvironmentOverrideRefusedException
-import app.epistola.suite.environments.ListEnvironmentOverrides
-import app.epistola.suite.environments.SetEnvironmentOverride
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
+import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
@@ -238,17 +238,18 @@ class CatalogDraftHandler(
             ?: return ServerResponse.badRequest().build()
         val environmentId = EnvironmentId(environment, tenantId)
         return try {
+            // Trying a draft on an environment is deploying it there (contract ADR 0003).
             if (follow) {
-                SetEnvironmentOverride(environmentId, segment.key, draft = DraftRef.Id(draftId)).execute()
+                DeployCatalogVersion(environmentId, segment.key, draftId).execute()
             } else {
-                ClearEnvironmentOverride(environmentId, segment.key).execute()
+                UndeployCatalogVersion(environmentId, segment.key, draftId).execute()
             }
             val target = CatalogPages.draft(tenantId, segment)
             request.htmx {
                 dialogLocation(target)
                 onFullPage { redirect(target) }
             }
-        } catch (e: EnvironmentOverrideRefusedException) {
+        } catch (e: EnvironmentDeploymentRefusedException) {
             request.htmx {
                 fragment("catalogs/drafts", "follow-dialog") {
                     followModel(tenantId, segment, bar)
@@ -262,18 +263,18 @@ class CatalogDraftHandler(
     }
 
     private fun ModelBuilder.followModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar) {
-        val overrides = ListEnvironmentOverrides(tenantId.key, catalogKey = segment.key).query().associateBy { it.environmentKey }
+        val drafts = ListDraftDeployments(tenantId.key, catalogKey = segment.key).query().associateBy { it.environmentKey }
         "tenantId" to tenantId.key
         "segment" to segment.value
         "draftName" to bar.chosen?.label
         "environments" to ListEnvironments(tenantId).query().map { environment ->
-            val override = overrides[environment.id]
+            val deployed = drafts[environment.id]
             FollowEnvironmentView(
                 key = environment.id.value,
                 name = environment.name,
                 production = environment.production,
-                following = override?.draftId != null && override.draftId == bar.chosen?.versionId,
-                usesNow = override?.label,
+                following = deployed != null && deployed.draftId == bar.chosen?.versionId,
+                usesNow = deployed?.draftLabel,
             )
         }
     }

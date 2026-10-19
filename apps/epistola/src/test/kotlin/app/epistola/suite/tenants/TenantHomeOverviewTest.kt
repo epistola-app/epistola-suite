@@ -16,7 +16,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -49,7 +49,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
             CreateCatalogDraft(tenant.id, letters, "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            DeployRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
@@ -87,10 +87,10 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(notice()).contains("Production and Test use no catalog yet, so documents requested there fail.")
             .contains("href=\"/tenants/${tenant.id.value}/environments\"").contains("Deploy a version")
 
-        withMediator { DeployRelease(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        withMediator { DeployCatalogVersion(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).contains("Test uses no catalog yet").contains("href=\"/tenants/${tenant.id.value}/environments/test\"")
 
-        withMediator { DeployRelease(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        withMediator { DeployCatalogVersion(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).`as`("everything can make documents: no notice").isEmpty()
     }
 }

@@ -29,6 +29,8 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
+import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.versions.CatalogDraftInUseException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
@@ -51,8 +53,8 @@ import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.EnvironmentInUseException
-import app.epistola.suite.environments.EnvironmentOverrideRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
@@ -245,6 +247,20 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity(problemDetail(servletRequest, type, detail, extensions), headers, type.status)
     }
 
+    /**
+     * A catalog's source could not be asked (contract `catalog-source-unavailable`): 503, with
+     * `Retry-After` when the source gave one, when it could not be reached or did not answer in
+     * time; 502 when it answered badly.
+     */
+    @ExceptionHandler(CatalogSourceUnavailableException::class)
+    fun handleCatalogSourceUnavailable(ex: CatalogSourceUnavailableException, request: WebRequest): ResponseEntity<Any> {
+        log.warn("Catalog source unavailable: {}", ex.message)
+        val headers = HttpHeaders()
+        ex.retryAfterSeconds?.let { headers.set(HttpHeaders.RETRY_AFTER, it.toString()) }
+        val type = if (ex.badGateway) ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE.copy(status = HttpStatus.BAD_GATEWAY) else ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE
+        return problemEntity(request, headers, type, ex.message ?: "The catalog's source is unavailable")
+    }
+
     // ------------------------------------------------------------------
     // Mapped domain exceptions — dispatched via ApiExceptionMappings
     // ------------------------------------------------------------------
@@ -306,7 +322,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogImportDependenciesMissingException::class,
         CatalogDraftInUseException::class,
         CatalogDependenciesUnreleasedException::class,
-        EnvironmentOverrideRefusedException::class,
+        EnvironmentDeploymentRefusedException::class,
+        CatalogHasNoSourceException::class,
         ResourceModifiedException::class,
         CatalogVersionBehindException::class,
         CatalogVersionHeldException::class,

@@ -25,9 +25,9 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
 /**
- * Moving a published catalog to another namespace has consequences worth stating, but only for
- * someone who is actually moving it. Opening the same dialog to change the release policy should
- * not confront them with a warning about something they are not doing.
+ * A catalog's namespace is part of its name on Exchange, so once Exchange accepted a release under it
+ * there is no moving it (`CatalogNamespaceFixedException`). The publication dialog says so instead
+ * of offering a picker that could only be refused.
  */
 class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
 
@@ -35,7 +35,7 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
     private lateinit var worker: CatalogPublicationWorker
 
     @Test
-    fun `the move warning appears only once the namespace is actually changed`() {
+    fun `once Exchange accepted a release the namespace is shown as fixed, with nothing to change it`() {
         val tenant = createTenant("Move Warning")
         val catalogKey = CatalogKey.of("invoices")
         withMediator {
@@ -64,19 +64,8 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
             "#catalog-metadata-dialog",
         )
 
-        val warning = dialog.locator(".alert-warning")
-        val acknowledgement = dialog.locator("input[name='acknowledgeAlreadyPublished']")
-
-        // Opened to change the policy: nothing is being moved, so nothing warns.
-        assertThat(warning).isHidden()
-
-        dialog.locator("select[name='chosenNamespace']").selectOption("internal-forms")
-        assertThat(warning).isVisible()
-        assertThat(acknowledgement).isVisible()
-
-        // Put it back and the warning goes with it.
-        dialog.locator("select[name='chosenNamespace']").selectOption("public-services")
-        assertThat(warning).isHidden()
+        assertThat(dialog.getByTestId("catalog-namespace-fixed")).containsText("public-services")
+        assertThat(dialog.locator("select[name='chosenNamespace']")).hasCount(0)
     }
 
     companion object {

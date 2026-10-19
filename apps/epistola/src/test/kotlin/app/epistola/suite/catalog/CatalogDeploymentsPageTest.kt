@@ -19,7 +19,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -84,8 +84,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.0.1").execute()
-            DeployRelease(production, key, "1.0.0").execute()
-            DeployRelease(production, key, "1.0.1").execute()
+            DeployCatalogVersion(production, key, "1.0.0").execute()
+            DeployCatalogVersion(production, key, "1.0.1").execute()
         }
 
         val body = live(tenant, "dep-two")
@@ -116,7 +116,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenant.id, key, version = "1.1.0").execute()
-            DeployRelease(production, key, "1.0.0").execute()
+            DeployCatalogVersion(production, key, "1.0.0").execute()
         }
 
         restTemplate.postForEntity(
@@ -202,7 +202,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, CatalogKey.of("dep-guard")).execute()
             ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-guard"), version = "1.0.0").execute()
-            DeployRelease(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
+            DeployCatalogVersion(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
         }
 
         val response = restTemplate.postForEntity(

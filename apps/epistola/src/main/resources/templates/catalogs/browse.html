@@ -413,10 +413,9 @@
                         </dd>
                         <dt>Namespace</dt>
                         <dd>
-                            <code th:if="${publication.boundNamespace != null}" th:text="${publication.namespace}">namespace</code>
-                            <span th:if="${publication.boundNamespace == null}" class="text-muted">Not chosen yet</span>
+                            <code th:text="${publication.namespace}">namespace</code>
                             <span th:if="${publication.namespaceLocked}" class="text-muted">
-                                — already published here; moving affects future releases only</span>
+                                — published there, so it stays there</span>
                         </dd>
                     </dl>
                     <p class="text-muted" style="margin: var(--ep-space-4) 0 0; font-size: var(--ep-text-sm);"

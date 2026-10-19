@@ -431,8 +431,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         val body = releaseDialog(tenant, catalogKey)
 
         assertThat(body).contains("""name="publishToExchange"""")
-        assertThat(body).contains("""name="chosenNamespace"""")
-        assertThat(body).contains("public-services")
+        assertThat(body).`as`("the catalog was created in the granted namespace, so it is shown, not asked")
+            .contains("Publishes as").contains("/public-services/publishable").doesNotContain("""name="chosenNamespace"""")
         assertThat(body).doesNotContain("not connected to Epistola Exchange")
     }
 
@@ -490,8 +490,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
         val body = browsePage(tenant, catalogKey)
 
-        assertThat(body).contains("""name="chosenNamespace"""")
-        assertThat(body).contains("public-services")
+        assertThat(body).`as`("created in the granted namespace, it shows where it publishes and asks nothing")
+            .contains("<code>public-services</code>").doesNotContain("""name="chosenNamespace"""")
         assertThat(body).doesNotContain("This catalog has nowhere to publish yet")
     }
 

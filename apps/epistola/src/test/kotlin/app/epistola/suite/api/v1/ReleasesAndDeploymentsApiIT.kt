@@ -89,16 +89,16 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val list = exchange(HttpMethod.GET, "$catalog/versions?status=released", key)
         assertThat(list.statusCode).describedAs(list.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[*].version")).containsExactly("1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1", "1.0.0")
         assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[1].deployedTo")).containsExactly("production")
         assertThat(JsonPath.read<Int>(list.body!!, "$.page.totalElements")).isEqualTo(2)
 
         val all = exchange(HttpMethod.GET, "$catalog/versions", key)
-        assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].version")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].releaseVersion")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
         assertThat(JsonPath.read<String>(all.body!!, "$.items[0].status")).isEqualTo("draft")
 
         val paged = exchange(HttpMethod.GET, "$catalog/versions?status=released&page=1&size=1", key)
-        assertThat(JsonPath.read<List<String>>(paged.body!!, "$.items[*].version")).containsExactly("1.0.0")
+        assertThat(JsonPath.read<List<String>>(paged.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.0")
 
         val one = exchange(HttpMethod.GET, "$catalog/versions/1.0.1", key)
         assertThat(one.statusCode).isEqualTo(HttpStatus.OK)
@@ -146,7 +146,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.1", key)
         val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
         val body = { version: String? ->
-            val selector = version?.let { "\"version\":\"$it\"," }.orEmpty()
+            val selector = version?.let { "\"versionRange\":\"$it\"," }.orEmpty()
             """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}",$selector"environmentKey":"production","data":{}}"""
         }
         val rendered = { version: String? ->
@@ -197,7 +197,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val (tenant, key) = tenantWithTwoReleases()
         val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
         val body = { release: String ->
-            """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","version":"$release","data":{}}"""
+            """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","versionRange":"$release","data":{}}"""
         }
 
         val accepted = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("1.0.0"))
@@ -231,54 +231,48 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `an override makes a served release, or a draft on a test environment, the one generation uses`() {
+    fun `a draft deployed to a test environment renders for no version, a range gets a release, and production refuses it`() {
         val (tenant, key) = tenantWithTwoReleases()
         val namespace = withMediator { CatalogApiPaths.namespace(tenant) }
         val environments = "/api/tenants/${tenant.value}/environments"
         exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0", key)
         exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.1", key)
-        val override = "$environments/production/overrides/~/$namespace/default"
-        val generated = { environment: String ->
+        val generated = { environment: String, range: String? ->
+            val selector = range?.let { "\"versionRange\":\"$it\"," }.orEmpty()
             val accepted = exchange(
                 HttpMethod.POST,
                 "/api/tenants/${tenant.value}/documents/generate",
                 key,
-                """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","environmentKey":"$environment","data":{}}""",
+                """{"namespace":"$namespace","catalogKey":"default","templateKey":"invoice","variantKey":"${VariantKey.INITIAL.value}","environmentKey":"$environment",$selector"data":{}}""",
             )
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
             exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
         }
-
-        val set = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0"}""")
-        assertThat(set.statusCode).describedAs(set.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(set.body!!, "$.releaseVersion")).isEqualTo("1.0.0")
-        assertThat(JsonPath.read<String>(generated("production"), "$.items[0].releaseVersion")).isEqualTo("1.0.0")
-        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "$environments/production/overrides", key).body!!, "$.items[*].releaseVersion")).containsExactly("1.0.0")
-        assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].action")).isEqualTo("override-set")
-
         val next = withMediator { app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
-        val both = exchange(HttpMethod.PUT, override, key, """{"releaseVersion":"1.0.0","versionId":"$next"}""")
-        assertThat(both.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
 
-        // Production uses only published versions.
+        // Production serves only releases.
         val marked = exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":true}""")
         assertThat(marked.statusCode).describedAs(marked.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(marked.body!!, "$.name")).`as`("a partial update keeps the name").isEqualTo("Production")
-        assertThat(JsonPath.read<Boolean>(marked.body!!, "$.production")).isTrue()
-        val refused = exchange(HttpMethod.PUT, override, key, """{"versionId":"$next"}""")
+        val refused = exchange(HttpMethod.PUT, "${deployments(tenant)}/$next", key)
         assertThat(refused.statusCode).isEqualTo(HttpStatus.CONFLICT)
-        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/environment-override-refused")
-
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).isEqualTo("https://epistola.app/errors/environment-deployment-refused")
         assertThat(exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":false}""").statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(exchange(HttpMethod.PUT, override, key, """{"versionId":"$next"}""").statusCode).isEqualTo(HttpStatus.OK)
-        val fromDraft = generated("production")
-        assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].releaseVersion")).isNull()
-        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].draftLabel")).isEqualTo("Next version")
-        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].versionId")).isEqualTo(next)
 
-        assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
-        assertThat(exchange(HttpMethod.DELETE, override, key).statusCode).`as`("idempotent").isEqualTo(HttpStatus.NO_CONTENT)
-        assertThat(JsonPath.read<String>(generated("production"), "$.items[0].releaseVersion")).isEqualTo("1.0.1")
+        val deployed = exchange(HttpMethod.PUT, "${deployments(tenant)}/$next", key)
+        assertThat(deployed.statusCode).describedAs(deployed.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.kind")).isEqualTo("draft")
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.versionId")).isEqualTo(next)
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.draftName")).isEqualTo("Next version")
+        val fromDraft = generated("production", null)
+        assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].releaseVersion")).isNull()
+        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].versionId")).isEqualTo(next)
+        assertThat(JsonPath.read<String>(generated("production", "^1.0.0"), "$.items[0].releaseVersion")).`as`("a range matches releases only").isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].kind")).isEqualTo("draft")
+
+        assertThat(exchange(HttpMethod.DELETE, "${deployments(tenant)}/$next", key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
+        assertThat(exchange(HttpMethod.DELETE, "${deployments(tenant)}/$next", key).statusCode).`as`("no longer deployed").isEqualTo(HttpStatus.NOT_FOUND)
+        assertThat(JsonPath.read<String>(generated("production", null), "$.items[0].releaseVersion")).isEqualTo("1.0.1")
     }
 
     @Test

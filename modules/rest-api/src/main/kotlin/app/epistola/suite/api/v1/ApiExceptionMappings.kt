@@ -28,6 +28,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
 import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.versions.CatalogDraftInUseException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
@@ -49,8 +50,8 @@ import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.EnvironmentInUseException
-import app.epistola.suite.environments.EnvironmentOverrideRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
@@ -651,10 +652,16 @@ object ApiExceptionMappings {
             logMessage = { "Stale write refused: ${it.message}" },
         )
 
-        builder.register<EnvironmentOverrideRefusedException>(
-            problemType = ApiProblemTypes.ENVIRONMENT_OVERRIDE_REFUSED,
-            defaultDetail = "The environment cannot use that version",
-            logMessage = { "Environment override refused: ${it.message}" },
+        builder.register<EnvironmentDeploymentRefusedException>(
+            problemType = ApiProblemTypes.ENVIRONMENT_DEPLOYMENT_REFUSED,
+            defaultDetail = "The environment cannot serve that version",
+            logMessage = { "Environment deployment refused: ${it.message}" },
+        )
+
+        builder.register<CatalogHasNoSourceException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The catalog has no source",
+            logMessage = { "No catalog source: ${it.message}" },
         )
 
         builder.register<CatalogVersionBehindException>(
