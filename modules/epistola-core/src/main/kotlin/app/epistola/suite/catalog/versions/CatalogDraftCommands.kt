@@ -95,20 +95,6 @@ data class DeleteCatalogDraft(
 }
 
 /**
- * Opens an authored catalog's next version where it has none, as a copy of its latest release (empty
- * when there is none), so everyday work has somewhere to go. A catalog always has one, except one whose
- * drafts were all discarded before amendment 2 of ADR 0002 kept it; this opens it again. Refused when
- * the catalog already has a next version.
- */
-data class OpenNextVersion(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
-) : Command<CatalogVersion>,
-    RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_EDIT
-}
-
-/**
  * Makes a draft the catalog's next version: the draft everyday work goes into, a convention of this
  * suite that the contract does not know. Nothing about either draft's content or base changes.
  *
@@ -119,7 +105,7 @@ data class OpenNextVersion(
  * when discarded, alone holds what something outside it uses ([CatalogVersionHeldException]) or is
  * named by another catalog's draft ([CatalogDraftInUseException]).
  */
-data class PromoteCatalogDraft(
+data class MakeNextVersion(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val draft: DraftRef,
@@ -185,14 +171,14 @@ class CreateCatalogDraftHandler(
 }
 
 @Component
-class PromoteCatalogDraftHandler(
+class MakeNextVersionHandler(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
     private val versions: CatalogVersionReader,
     private val holdersCheck: DeleteCatalogDraftHandler,
     private val dependencyStore: CatalogDependencyStore,
-) : CommandHandler<PromoteCatalogDraft, CatalogVersion> {
-    override fun handle(command: PromoteCatalogDraft): CatalogVersion {
+) : CommandHandler<MakeNextVersion, CatalogVersion> {
+    override fun handle(command: MakeNextVersion): CatalogVersion {
         requireCatalogEditable(command.tenantKey, command.catalogKey)
         val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
         return jdbi.inTransaction<CatalogVersion, Exception> { handle ->
@@ -272,22 +258,6 @@ class CatalogReleaseCopier(
             "Copying release $version of '${catalogKey.value}' into a draft failed for " +
                 failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" }
         }
-    }
-}
-
-@Component
-class OpenNextVersionHandler(
-    private val jdbi: Jdbi,
-    private val drafts: CatalogDrafts,
-    private val versions: CatalogVersionReader,
-    private val nextVersions: NextVersionOpener,
-) : CommandHandler<OpenNextVersion, CatalogVersion> {
-    override fun handle(command: OpenNextVersion): CatalogVersion {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
-        jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, command.tenantKey, command.catalogKey) }
-            ?.let { throw CatalogDraftIsNextException(command.catalogKey, "Catalog '${command.catalogKey.value}' has a next version already") }
-        val opened = nextVersions.open(command.tenantKey, command.catalogKey)
-        return jdbi.withHandle<CatalogVersion, Exception> { handle -> versions.all(handle, command.tenantKey, command.catalogKey).first { it.isNext } }
     }
 }
 

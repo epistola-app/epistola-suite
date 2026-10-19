@@ -93,12 +93,6 @@ data class CatalogDraftBar(
     val severalDrafts: Boolean get() = drafts.size > 1
 
     /**
-     * An authored catalog with no next version: there is nothing to edit until it is opened, so the
-     * page offers to open it (on [openDraftFrom]) instead of failing.
-     */
-    val noDraft: Boolean get() = authored && current == null
-
-    /**
      * The page works in long-term work, not the next version. Shown as a banner, so nobody mistakes it
      * for everyday work, and publishing is not offered: only the next version is published.
      */
@@ -218,20 +212,11 @@ data class CatalogDraftBar(
     /** Whether to offer discarding the chosen draft. */
     val offerDiscard: Boolean get() = authored && mayDiscardDrafts && chosen != null
 
-    /**
-     * Whether to offer opening the next version where there is none: a copy of the latest release, or
-     * an empty draft when nothing was ever released.
-     */
-    val offerOpenDraft: Boolean get() = noDraft && mayOpenDrafts
-
     /** Starting work is withheld because the viewer may not edit the catalog's content. */
     val draftControlsWithheld: Boolean get() = authored && !mayOpenDrafts
 
     /** Discarding the chosen draft is withheld because the viewer may not release the catalog. */
     val discardWithheld: Boolean get() = authored && chosen != null && !mayDiscardDrafts
-
-    /** What an opened next version copies when there is none: the latest release. */
-    val openDraftFrom: String? get() = latestRelease?.version
 
     /** The draft links, the next version first, each to this page in that draft. */
     val draftLinks: List<DraftLink>

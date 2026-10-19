@@ -9,10 +9,10 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -136,7 +136,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
             assertThat(revisionCount(tenant.id)).isGreaterThan(0)
 
-            UnregisterCatalog(tenantKey = tenant.id, catalogKey = key).execute()
+            DeleteCatalog(tenantKey = tenant.id, catalogKey = key).execute()
 
             assertThat(revisionCount(tenant.id))
                 .`as`("the catalog's content went with it, instead of outliving it unreachably")

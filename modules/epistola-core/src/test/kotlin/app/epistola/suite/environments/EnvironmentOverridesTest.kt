@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.PromoteCatalogDraft
+import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -275,7 +275,7 @@ class EnvironmentOverridesTest : IntegrationTestBase() {
         val next = withMediator { SetEnvironmentOverride(env(setup, test), default, draft = DraftRef.Next).execute() }
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
 
-        withMediator { PromoteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId), keepPreviousAs = "Old next").execute() }
+        withMediator { MakeNextVersion(setup.tenant, default, DraftRef.Id(work.versionId), keepPreviousAs = "Old next").execute() }
 
         val override = withMediator { ListEnvironmentOverrides(setup.tenant, test).query() }.single()
         assertThat(override.draftId).isEqualTo(next.draftId)

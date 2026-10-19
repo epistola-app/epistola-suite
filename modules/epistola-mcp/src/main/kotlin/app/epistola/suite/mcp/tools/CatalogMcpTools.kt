@@ -8,8 +8,8 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
-import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -137,17 +137,17 @@ class CatalogMcpTools(
     }
 
     @McpTool(
-        name = "resolve_catalog_dependencies",
+        name = "upgrade_catalog_dependencies",
         description = "Move every dependency of an AUTHORED catalog to the highest release of it, as " +
             "upgrading a library does. The catalog's next release is cut with the result. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
-    fun resolveCatalogDependencies(
+    fun upgradeCatalogDependencies(
         @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<CatalogDependencyInfo> = ResolveCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+    ): List<CatalogDependencyInfo> = UpgradeCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
         .map(CatalogDependencyInfo::from)
 }

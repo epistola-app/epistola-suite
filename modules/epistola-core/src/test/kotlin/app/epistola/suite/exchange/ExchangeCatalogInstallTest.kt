@@ -239,7 +239,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
 
         // Relocation mints a resource identity from a database trigger on every resource insert,
         // so a rollback that only removed the catalog would leave the registry describing
-        // resources that no longer exist. UnregisterCatalog cascades them; this is what says so.
+        // resources that no longer exist. DeleteCatalog cascades them; this is what says so.
         assertThat(registeredResourceIdentities(consumer, "broken")).isZero()
     }
 

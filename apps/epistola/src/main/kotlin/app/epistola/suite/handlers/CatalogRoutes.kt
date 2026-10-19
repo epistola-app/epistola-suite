@@ -36,7 +36,7 @@ class CatalogRoutes(
             POST("/create", handler::createCatalog)
             GET("/import", handler::importForm)
             POST("/import", handler::importZip)
-            POST("/{catalogId}/delete", handler::unregister)
+            POST("/{catalogId}/delete", handler::deleteCatalog)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
             // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name long-term

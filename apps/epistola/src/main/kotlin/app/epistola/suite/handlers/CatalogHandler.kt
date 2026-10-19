@@ -22,6 +22,7 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -32,7 +33,6 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
-import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
@@ -324,13 +324,13 @@ class CatalogHandler {
         }
     }
 
-    fun unregister(request: ServerRequest): ServerResponse {
+    fun deleteCatalog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
 
         return try {
             val force = request.param("force").orElse("false").toBoolean()
-            UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey, force = force).execute()
+            DeleteCatalog(tenantKey = tenantId.key, catalogKey = catalogKey, force = force).execute()
 
             return request.htmx {
                 fragment("catalogs/list", "catalog-list") {

@@ -13,7 +13,7 @@ import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.PromoteCatalogDraft
+import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.CatalogReleaseInfo
@@ -185,7 +185,7 @@ class CatalogVersionMcpTools {
         @McpToolParam(description = "Keep the previous next version as a draft under this name. Omit to discard it.", required = false)
         keepPreviousAs: String?,
     ): CatalogVersionInfo = CatalogVersionInfo.from(
-        PromoteCatalogDraft(
+        MakeNextVersion(
             tenantKey = mcpTenantKey(),
             catalogKey = CatalogKey.of(catalogId),
             draft = draftRefOf(draft),

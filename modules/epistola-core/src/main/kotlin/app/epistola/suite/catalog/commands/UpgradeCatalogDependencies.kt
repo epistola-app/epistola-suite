@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  * tenant has, as upgrading a library does. A declaration of a catalog with no release keeps its pin,
  * and stays unpinned when it had none. The next release is cut with the pins this leaves.
  */
-data class ResolveCatalogDependencies(
+data class UpgradeCatalogDependencies(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     /** The catalog version this addresses; null for its catalog's current version. */
@@ -39,12 +39,12 @@ data class ResolveCatalogDependencies(
 }
 
 @Component
-class ResolveCatalogDependenciesHandler(
+class UpgradeCatalogDependenciesHandler(
     private val jdbi: Jdbi,
     private val store: CatalogDependencyStore,
-) : CommandHandler<ResolveCatalogDependencies, List<CatalogDependencyDeclaration>> {
+) : CommandHandler<UpgradeCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
-    override fun handle(command: ResolveCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
+    override fun handle(command: UpgradeCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)

@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
+import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogReleases
@@ -103,7 +103,7 @@ class PublishUsedCatalogsTest : IntegrationTestBase() {
     @Test
     fun `a newer published version than the one tied to is re-tied, without publishing anything`() {
         val tenant = setUp("along-retie")
-        withMediator { ResolveCatalogDependencies(tenant, letters).execute() }
+        withMediator { UpgradeCatalogDependencies(tenant, letters).execute() }
         withMediator {
             UpdateTheme(brand(tenant), documentStyles = mapOf("color" to "#00ff00")).execute()
             MarkCatalogReady(tenant, shared).execute()

@@ -117,14 +117,6 @@ class CatalogDraftBarVersionsTest {
     }
 
     @Test
-    fun `a catalog without a next version offers to start it on the latest release`() {
-        val none = bar(emptyList(), listOf(release("1.2.0")))
-        assertThat(none.noDraft).isTrue()
-        assertThat(none.offerOpenDraft).isTrue()
-        assertThat(none.openDraftFrom).isEqualTo("1.2.0")
-    }
-
-    @Test
     fun `a draft can be discarded by a publisher, a published version deleted by a catalog manager, and the page says what is missing`() {
         val drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0"))
         val releases = listOf(release("1.2.0"))

@@ -18,7 +18,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
-data class UnregisterCatalog(
+data class DeleteCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val force: Boolean = false,
@@ -28,12 +28,12 @@ data class UnregisterCatalog(
 }
 
 @Component
-class UnregisterCatalogHandler(
+class DeleteCatalogHandler(
     private val jdbi: Jdbi,
     private val revisions: ResourceRevisionStore,
-) : CommandHandler<UnregisterCatalog, Boolean> {
+) : CommandHandler<DeleteCatalog, Boolean> {
 
-    override fun handle(command: UnregisterCatalog): Boolean {
+    override fun handle(command: DeleteCatalog): Boolean {
         require(command.catalogKey != CatalogKey.DEFAULT) {
             "The default catalog cannot be deleted"
         }

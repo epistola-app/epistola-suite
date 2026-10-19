@@ -16,8 +16,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
@@ -257,7 +257,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
         change(tenant)
         MarkCatalogReady(tenant, shared).execute()
         ReleaseCatalogVersion(tenant, shared, "2.0.0").execute()
-        ResolveCatalogDependencies(tenant, letters).execute()
+        UpgradeCatalogDependencies(tenant, letters).execute()
         tenant
     }
 

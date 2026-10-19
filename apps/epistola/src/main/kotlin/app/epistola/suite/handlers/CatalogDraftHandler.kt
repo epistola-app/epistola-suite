@@ -13,8 +13,7 @@ import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.OpenNextVersion
-import app.epistola.suite.catalog.versions.PromoteCatalogDraft
+import app.epistola.suite.catalog.versions.MakeNextVersion
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -30,7 +29,6 @@ import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
-import app.epistola.suite.htmx.htmxTarget
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
@@ -44,8 +42,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 /**
- * Starting and discarding drafts of an authored catalog (contract ADR 0002, amendment 2), from the
- * catalog page and from the empty state of a catalog without a next version. Publishing is
+ * Starting and discarding drafts of an authored catalog (contract ADR 0002), from the catalog page. Publishing is
  * [CatalogHandler]; which draft a page works in is the route's catalog segment ([CatalogSegment]).
  */
 @Component
@@ -74,9 +71,7 @@ class CatalogDraftHandler(
 
     /**
      * `POST /{catalogId}/drafts`. With `name` (and optionally `from`, a published version) it starts
-     * long-term work and lands on its page; a refusal comes back on its field. Without one, from the
-     * empty state of a catalog without a next version (a plain form), it opens the next version on the
-     * latest release, and a refusal comes back on the catalog page.
+     * a draft and lands on its page; a refusal comes back on its field.
      */
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -85,8 +80,6 @@ class CatalogDraftHandler(
         val form = request.form {
             field("name") { maxLength(FieldLimits.MAX_NAME_LENGTH) }
         }
-        val fromDialog = request.htmxTarget == "create-draft-form"
-        if (!fromDialog) return openNext(request, tenantId, segment)
 
         fun refused(field: String, message: String): ServerResponse = request.htmx {
             dialogFieldErrors(
@@ -117,14 +110,6 @@ class CatalogDraftHandler(
             dialogLocation(target)
             onFullPage { redirect(target) }
         }
-    }
-
-    /** Opens the next version where there is none, and lands on it. */
-    private fun openNext(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment): ServerResponse = try {
-        OpenNextVersion(tenantId.key, segment.key).execute()
-        redirect(CatalogPages.draft(tenantId, segment))
-    } catch (e: CatalogDraftIsNextException) {
-        redirect(CatalogPages.draft(tenantId, segment))
     }
 
     /**
@@ -193,7 +178,7 @@ class CatalogDraftHandler(
         }
         if (keep && keepAs == null) return refused("Give the current next version a name to keep it under.")
         return try {
-            PromoteCatalogDraft(tenantId.key, segment.key, DraftRef.Id(work.versionId), keepPreviousAs = keepAs.takeIf { keep }).execute()
+            MakeNextVersion(tenantId.key, segment.key, DraftRef.Id(work.versionId), keepPreviousAs = keepAs.takeIf { keep }).execute()
             val target = CatalogPages.browse(tenantId, segment.at(null))
             request.htmx {
                 dialogLocation(target)

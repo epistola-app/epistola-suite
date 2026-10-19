@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test
 class CatalogDeletionTest : IntegrationTestBase() {
 
     @Nested
-    inner class UnregisterCatalogTests {
+    inner class DeleteCatalogTests {
 
         @Test
         fun `unregister with force=false and cross-references throws CatalogInUseException`() {
@@ -85,7 +85,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
                 // Attempt unregister without force — should throw
                 assertThatThrownBy {
-                    UnregisterCatalog(
+                    DeleteCatalog(
                         tenantKey = tenant.id,
                         catalogKey = catalogKeyA,
                         force = false,
@@ -135,7 +135,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 ).execute()
 
                 // Force unregister — should succeed
-                val deleted = UnregisterCatalog(
+                val deleted = DeleteCatalog(
                     tenantKey = tenant.id,
                     catalogKey = catalogKeyA,
                     force = true,

@@ -11,8 +11,8 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.dependencies.DeclareUsedCatalogs
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -132,7 +132,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isEqualTo("1.0.0")
 
-        val resolved = withMediator { ResolveCatalogDependencies(tenant, letters).execute() }.single()
+        val resolved = withMediator { UpgradeCatalogDependencies(tenant, letters).execute() }.single()
         assertThat(resolved.releaseVersion).isEqualTo("1.1.0")
     }
 

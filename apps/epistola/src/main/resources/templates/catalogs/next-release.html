@@ -29,18 +29,6 @@
                 <span th:text="${nextReleaseError}"></span>
             </div>
 
-            <!--/* No next version: one left over from before every catalog kept one. Offer to start again. */-->
-            <th:block th:if="${readiness.drafts.noDraft}">
-                <p class="text-muted" data-testid="catalog-draft-none">Nothing is open to edit.</p>
-                <form th:if="${readiness.drafts.offerOpenDraft}" method="post" style="display: inline;"
-                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${readiness.catalogKey})}">
-                    <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start editing</button>
-                </form>
-                <p th:if="${readiness.drafts.draftControlsWithheld}" class="form-hint" data-testid="catalog-draft-open-withheld">
-                    Editing needs the content author role.
-                </p>
-            </th:block>
-
             <th:block th:if="${readiness.hasDraft}">
             <!--/* A version published after this draft started, which it lacks: said plainly, with what it changed. */-->
             <div th:unless="${readiness.drafts.behind.isEmpty()}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"

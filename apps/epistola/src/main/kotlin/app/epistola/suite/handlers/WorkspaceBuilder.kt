@@ -83,7 +83,6 @@ class WorkspaceBuilder {
             val label = when {
                 publishedVersion != null -> publishedVersion
                 !bar.authored -> bar.shown?.let { "v${it.version}" } ?: "Not installed"
-                bar.noDraft -> "Nothing in progress"
                 else -> bar.draftTitle ?: CatalogDraft.NEXT_LABEL
             }
             val versions = if (bar.authored) {

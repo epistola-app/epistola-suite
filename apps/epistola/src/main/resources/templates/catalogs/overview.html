@@ -41,18 +41,6 @@
 
             <div class="ep-auto-grid catalog-boxes">
                 <!--/* Nothing open: the way to start again. */-->
-                <div th:if="${bar.noDraft}" class="ep-panel catalog-box" data-testid="catalog-status-work">
-                    <div class="catalog-box-title">Next version</div>
-                    <strong data-testid="catalog-draft-none">Nothing is in progress.</strong>
-                    <div class="text-muted text-sm">Start the next version to change this catalog again.</div>
-                    <div class="catalog-box-actions">
-                        <form th:if="${bar.offerOpenDraft}" method="post"
-                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${catalog.id})}">
-                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-draft-open">Start the next version</button>
-                        </form>
-                    </div>
-                </div>
-
                 <!--/* The next version: what people work in almost always. */-->
                 <div th:if="${bar.current != null}" class="ep-panel catalog-box" data-testid="catalog-status-work"
                      th:classappend="${!contents.isEmpty and !readiness.nothingToPublish} ? 'catalog-box-pending' : ''">
@@ -119,7 +107,7 @@
                     </div>
                 </div>
             </div>
-            <p th:if="${bar.draftControlsWithheld and (bar.noDraft or contents.isEmpty)}" class="form-hint" data-testid="catalog-draft-open-withheld">
+            <p th:if="${bar.draftControlsWithheld and contents.isEmpty}" class="form-hint" data-testid="catalog-draft-open-withheld">
                 Editing needs the content author role.
             </p>
         </div>

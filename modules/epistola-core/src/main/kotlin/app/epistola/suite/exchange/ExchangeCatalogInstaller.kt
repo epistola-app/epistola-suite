@@ -8,10 +8,10 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -98,7 +98,7 @@ class ExchangeCatalogInstaller(
             // needs. Only a catalog this attempt brought into being is removed; an upgrade that
             // aborts leaves the existing catalog exactly where it was.
             if (!existedBefore) {
-                UnregisterCatalog(tenantKey, imported.catalogKey, force = true).execute()
+                DeleteCatalog(tenantKey, imported.catalogKey, force = true).execute()
             }
             return ExchangeInstallResult(imported, release, aborted = true, rolledBack = !existedBefore)
         }

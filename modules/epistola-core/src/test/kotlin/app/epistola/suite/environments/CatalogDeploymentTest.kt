@@ -5,8 +5,8 @@
 package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
-import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleases
@@ -110,7 +110,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogRelease(letters.tenantKey, letters.key, "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("deployed to 'production'")
-        assertThatThrownBy { withMediator { UnregisterCatalog(letters.tenantKey, letters.key, force = true).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalog(letters.tenantKey, letters.key, force = true).execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
 
         // The release nobody serves is free to go.

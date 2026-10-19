@@ -106,7 +106,7 @@ catalog/
   commands/
     CreateCatalog.kt                  # Create authored catalog
     RegisterCatalog.kt                # Subscribe to remote catalog
-    UnregisterCatalog.kt              # Remove catalog + all resources
+    DeleteCatalog.kt              # Remove catalog + all resources
     InstallFromCatalog.kt             # Import orchestrator
     ExportCatalog.kt                  # Export by template dependencies
     ExportCatalogZip.kt               # Export entire catalog as ZIP

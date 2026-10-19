@@ -129,7 +129,7 @@ class PromotionTest : IntegrationTestBase() {
             mediator.releaseNext(catalogId(tenant)) // 1.0.1, which the work does not contain
         }
 
-        val promoted = withMediator { PromoteCatalogDraft(tenant, letters, DraftRef.Id(work)).execute() }
+        val promoted = withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work)).execute() }
 
         assertThat(promoted.isNext).isTrue()
         assertThat(promoted.versionId).`as`("the same draft").isEqualTo(work)
@@ -143,15 +143,15 @@ class PromotionTest : IntegrationTestBase() {
         val (tenant, work) = withWork("promote-keep")
         withMediator { UpdateTheme(brand(tenant), name = "Brand, small fix").execute() }
 
-        assertThatThrownBy { withMediator { PromoteCatalogDraft(tenant, letters, DraftRef.Id(work), keepPreviousAs = "redesign 2027").execute() } }
+        assertThatThrownBy { withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work), keepPreviousAs = "redesign 2027").execute() } }
             .`as`("a name another draft has").isInstanceOf(CatalogDraftNameInUseException::class.java)
-        withMediator { PromoteCatalogDraft(tenant, letters, DraftRef.Id(work), keepPreviousAs = "Small fixes").execute() }
+        withMediator { MakeNextVersion(tenant, letters, DraftRef.Id(work), keepPreviousAs = "Small fixes").execute() }
 
         val drafts = drafts(tenant)
         assertThat(drafts.map { it.label to it.isNext }).containsExactly("Next version" to true, "Small fixes" to false)
         val kept = drafts.single { !it.isNext }
         assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = CatalogVersionRef(tenant, letters, kept.draftRef!!)).query()!! }.name).isEqualTo("Brand, small fix")
-        assertThatThrownBy { withMediator { PromoteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
+        assertThatThrownBy { withMediator { MakeNextVersion(tenant, letters, DraftRef.Next).execute() } }
             .isInstanceOf(CatalogDraftIsNextException::class.java)
     }
 }

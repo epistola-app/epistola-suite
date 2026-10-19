@@ -75,10 +75,9 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `a published version's page, a subscribed catalog and a catalog with nothing open each say so`() {
+    fun `a published version's page and a subscribed catalog each say so`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), "v1.1.0, published", "/tenants/acme/catalogs/letters/releases/1.1.0", everything).versionLabel)
             .isEqualTo("v1.1.0, published")
-        assertThat(WorkspaceBuilder.scope(bar(emptyList(), published), null, "/", everything).versionLabel).isEqualTo("Nothing in progress")
 
         val subscribed = WorkspaceBuilder.scope(bar(emptyList(), published, authored = false, installed = release("1.2.0")), null, "/", everything)
         assertThat(subscribed.versionLabel).isEqualTo("v1.2.0")

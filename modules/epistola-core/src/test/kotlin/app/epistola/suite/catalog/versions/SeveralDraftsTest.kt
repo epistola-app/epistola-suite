@@ -317,22 +317,6 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a catalog left without a next version gets it back on its latest release, and only then`() {
-        val tenant = released("drafts-open-next")
-        assertThatThrownBy { withMediator { OpenNextVersion(tenant, letters).execute() } }.`as`("it has one").isInstanceOf(CatalogDraftIsNextException::class.java)
-        // No command leaves a catalog without a next version any more; one whose drafts were all
-        // discarded before ADR 0002 amendment 2 is the state this repairs.
-        jdbi.useHandle<Exception> { it.createUpdate("DELETE FROM catalog_versions WHERE version_id = :v").bind("v", versionId(tenant, DraftRef.Next)).execute() }
-        assertThat(withMediator { GetCatalogDraft(tenant, letters).query() }).isNull()
-
-        val opened = withMediator { OpenNextVersion(tenant, letters).execute() }
-
-        assertThat(opened.isNext).isTrue()
-        assertThat(opened.base).isEqualTo("1.0.0")
-        assertThat(themeName(tenant, null)).`as`("a copy of the latest release").isEqualTo("Brand")
-    }
-
-    @Test
     fun `releasing the next version numbers it, continues it on the release, and puts another draft behind it`() {
         val tenant = released("drafts-release-next")
         val redesign = work(tenant, "Redesign")

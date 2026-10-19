@@ -69,7 +69,7 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(declared.single().namespace).isEqualTo(tenantId.key.value)
         assertThat(runAsApiKey(tenantId) { catalogTools.listCatalogDependencies("letters") }).isEqualTo(declared)
 
-        assertThat(runAsApiKey(tenantId) { catalogTools.resolveCatalogDependencies("letters") }.single().release).isEqualTo("1.1.0")
+        assertThat(runAsApiKey(tenantId) { catalogTools.upgradeCatalogDependencies("letters") }.single().release).isEqualTo("1.1.0")
         assertThat(runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared"))) }.single().release)
             .`as`("none named: the highest").isEqualTo("1.1.0")
     }

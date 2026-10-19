@@ -6,8 +6,8 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ResolveCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -136,7 +136,7 @@ class CatalogReleaseHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val error = try {
-            ResolveCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
+            UpgradeCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message

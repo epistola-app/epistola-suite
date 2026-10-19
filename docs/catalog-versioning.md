@@ -92,8 +92,7 @@ releases (and an installed release) are numbered.
   catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
   resource's identity, and those references would fail as a foreign-key violation or, for a template's
   theme, be cleared silently. The refusal names each holder, e.g. `the tenant's default theme (theme
-  letters/seasonal)`. `OpenNextVersion` opens a missing next version again, for a catalog whose drafts
-  were all discarded before the amendment.
+  letters/seasonal)`.
 - **Behind.** A draft is _behind_ a release it does not contain: (a) one above its base, or (b) one
   below it released after the draft started, a fix to an older line (`CatalogDrafts.behind`). It
   lists each with what it changed against its own base. The next version continues on each release
@@ -150,8 +149,7 @@ that names none. The view answers, per catalog, the version the caller means:
 
 1. the version the transaction **targets**, when it is a version of that catalog;
 2. else a subscribed catalog's installed release;
-3. else the authored catalog's **next version**. Long-term work is reached only by targeting it, so a
-   catalog without a next version has no current version and a write that names none fails.
+3. else the authored catalog's **next version**. Another draft is reached only by targeting it.
 
 A command or query that addresses one draft implements
 [`CatalogVersionScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/versions/CatalogVersionScoped.kt)
@@ -194,7 +192,7 @@ fonts, images, the template editor and its preview). List pages take it as their
 - **Publishing** is offered for every draft, numbered from its changes against its base; the release
   dialog lists the releases it is behind, with their changes, and asks to confirm each
   (`acknowledgedBehind`). _Discard_ on the next version throws its changes away; on another draft it
-  removes it. An authored catalog without a next version offers to open it from its latest release.
+  removes it.
 - A route naming a draft the catalog does not have is a 404; a number names no draft.
 
 Over MCP the content tools take an optional `catalogVersion` argument (`next` or a version id), and
@@ -293,7 +291,7 @@ release** of it (`releaseVersion`), not a range. A draft may instead name a **dr
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an authored catalog;
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
 fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
-releases again; `ResolveCatalogDependencies` moves every pin to the highest release, the way a
+releases again; `UpgradeCatalogDependencies` moves every pin to the highest release, the way a
 library upgrade does. Renaming the dependency's namespace carries the declarations that name it.
 
 **Releasing** is cut with the pins. A declaration that names a draft must have that draft released
@@ -482,7 +480,7 @@ table `environment_catalog_overrides`) names what it uses instead, per catalog:
 ## Making a draft the next version
 
 Which draft is the next version is only a default: any draft is released as it is.
-`PromoteCatalogDraft` moves the mark to another draft. Neither draft's base moves and nothing is
+`MakeNextVersion` moves the mark to another draft. Neither draft's base moves and nothing is
 acknowledged; the draft that was the next version is discarded (held resources refuse it, as
 discarding does) or kept under `keepPreviousAs`. REST has no promote operation; MCP has
 `make_next_version`, the UI _Make this the next version…_ on the draft's banner.
