@@ -280,23 +280,7 @@ document.addEventListener('click', function (event) {
   if (trigger) window.openConfirmDialog(trigger);
 });
 
-// ── Catalog filter navigation on list pages ─────────────────────────────────
-// Usage: <select data-catalog-filter-base="/tenants/acme/templates">
-document.addEventListener('change', function (event) {
-  const select = event.target.closest && event.target.closest('select[data-catalog-filter-base]');
-  if (!select) return;
-  const base = select.getAttribute('data-catalog-filter-base') || '';
-  // Only navigate to a same-origin absolute path. Resolving through the URL API
-  // against the current origin guarantees an http(s) URL; a base that isn't a
-  // rooted path (e.g. a "javascript:"/"data:" scheme) is rejected before it can
-  // reach the navigation sink.
-  if (!base.startsWith('/')) return;
-  const url = new URL(base, window.location.origin);
-  if (select.value) url.searchParams.set('catalog', select.value);
-  window.location.assign(url.href);
-});
-
-// ── Confirm-then-submit ──────────────────────────
+// ── Confirm-then-submit ─────────────────────────────────────────────────────
 // Usage: <button data-confirm-submit[="form-id"] data-confirm-submit-message="…"
 //                data-confirm-submit-title="…" data-confirm-submit-label="Delete"
 //                [data-confirm-submit-class="ep-btn-destructive"]>
