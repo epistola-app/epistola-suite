@@ -34,18 +34,13 @@
     border-bottom: 1px solid var(--ep-stone-200);
   }
 
+  /* The tabs wrap onto another line rather than scroll: a strip whose arrows show only on hover
+     hid the last tabs (Quality among them) from anyone who did not know they were there. */
   .sidebar-tabs {
     display: flex;
+    flex-wrap: wrap;
     flex: 1 1 auto;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
   }
 
   .sidebar-tab-scroll {
@@ -80,7 +75,7 @@
   }
 
   .sidebar-tab {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-width: 5.75rem;
     display: inline-flex;
     align-items: center;

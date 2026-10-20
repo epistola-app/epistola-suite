@@ -22,8 +22,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 - [ ] **U4. Icon-only actions.** Several toolbar and block actions have no visible label.
 - [ ] **U5. Internal node ids visible.** Raw node ids appear in the editor where a name is expected.
-- [ ] **U6. Truncated tabs hide Quality.** At ordinary widths the editor tabs cut off, and the
-      Quality tab is not reachable without knowing it is there.
+- [x] **U6. Truncated tabs hide Quality.** The tabs wrap instead of scrolling (`sidebar.css`). Evidence:
+      `EditorSidebarTabsUiTest` with Quality and AI on (fails without it: Document ended at 276 of 260 px).
+      The scroll-arrow code in `EpistolaSidebar` no longer triggers; left in place.
 - [x] **U7. "sp" unit unexplained.** Unit menus and options carry `unitTitle` ("1 sp = N pt" from the
       theme). Evidence: `style-inputs.test.ts` "unit explanations" (fails without it).
 - [ ] **U8. Unsaved work restored silently.** Reopening a template brings back unsaved local edits
