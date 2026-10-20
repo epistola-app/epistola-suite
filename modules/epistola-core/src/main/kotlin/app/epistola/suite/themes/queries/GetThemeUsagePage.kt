@@ -25,7 +25,7 @@ private const val MAX_USAGE_PAGE_SIZE = 100
 enum class ThemeUsageSource {
     VARIANT_OVERRIDE,
     TEMPLATE_DEFAULT,
-    TENANT_DEFAULT,
+    CATALOG_DEFAULT,
 }
 
 data class ThemeUsage(
@@ -47,7 +47,8 @@ data class ThemeUsagePage(
  * cascade resolves to [themeId].
  *
  * Resolution mirrors [app.epistola.suite.themes.ThemeStyleResolver]:
- * version override, then template default, then tenant default. An unqualified
+ * version override, then template default, then the default theme of the template's
+ * catalog version (contract ADR 0007). An unqualified
  * version override is only assigned to a theme when its key is unique within
  * the tenant; otherwise the reference itself is ambiguous.
  */
@@ -86,14 +87,14 @@ class GetThemeUsagePageHandler(
                             THEN 'VARIANT_OVERRIDE'
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN 'TEMPLATE_DEFAULT'
-                        ELSE 'TENANT_DEFAULT'
+                        ELSE 'CATALOG_DEFAULT'
                     END AS usage_source,
                     CASE
                         WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
                             THEN variant.template_model -> 'themeRef' ->> 'themeKey'
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN template_theme.id::text
-                        ELSE tenant_theme.id::text
+                        ELSE catalog_theme.id::text
                     END AS effective_theme_key,
                     CASE
                         WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
@@ -103,7 +104,7 @@ class GetThemeUsagePageHandler(
                             )
                         WHEN template.theme_resource_id IS NOT NULL
                             THEN template_theme_catalog.catalog_key::text
-                        ELSE tenant_theme_catalog.catalog_key::text
+                        ELSE catalog_theme_catalog.catalog_key::text
                     END AS effective_theme_catalog_key
                 FROM template_variants variant
                 JOIN document_templates template
@@ -113,7 +114,9 @@ class GetThemeUsagePageHandler(
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key
                  AND template_catalog.catalog_id = template.catalog_id
-                JOIN tenants tenant ON tenant.id = variant.tenant_key
+                JOIN catalog_versions template_version
+                  ON template_version.tenant_key = template.tenant_key
+                 AND template_version.version_id = template.version_id
                 LEFT JOIN themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
@@ -121,13 +124,13 @@ class GetThemeUsagePageHandler(
                 LEFT JOIN catalogs template_theme_catalog
                   ON template_theme_catalog.tenant_key = template_theme.tenant_key
                  AND template_theme_catalog.catalog_id = template_theme.catalog_id
-                LEFT JOIN themes tenant_theme
-                  ON tenant_theme.tenant_key = tenant.id
-                 AND tenant_theme.resource_id = tenant.default_theme_resource_id
-                 AND ${inCurrentVersion("tenant_theme")}
-                LEFT JOIN catalogs tenant_theme_catalog
-                  ON tenant_theme_catalog.tenant_key = tenant_theme.tenant_key
-                 AND tenant_theme_catalog.catalog_id = tenant_theme.catalog_id
+                LEFT JOIN themes catalog_theme
+                  ON catalog_theme.tenant_key = template_version.tenant_key
+                 AND catalog_theme.resource_id = template_version.default_theme_resource_id
+                 AND ${inCurrentVersion("catalog_theme")}
+                LEFT JOIN catalogs catalog_theme_catalog
+                  ON catalog_theme_catalog.tenant_key = catalog_theme.tenant_key
+                 AND catalog_theme_catalog.catalog_id = catalog_theme.catalog_id
                 WHERE variant.tenant_key = :tenantKey
                   AND ${inCurrentVersion("variant")}
             ),

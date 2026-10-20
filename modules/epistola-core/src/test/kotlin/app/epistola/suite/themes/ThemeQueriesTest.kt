@@ -288,10 +288,15 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val otherTheme = ThemeId(ThemeKey.of("other"), catalogId)
         CreateTheme(id = targetTheme, name = "Brand").execute()
         CreateTheme(id = otherTheme, name = "Other").execute()
-        SetTenantDefaultTheme(tenant.id, targetTheme.key, targetTheme.catalogKey).execute()
+        // A template that names no theme uses its catalog's default theme (contract ADR 0007).
+        app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+            tenant.id,
+            catalogId.key,
+            app.epistola.suite.catalog.versions.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogKey),
+        ).execute()
 
-        val tenantTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-        CreateDocumentTemplate(tenantTemplateId, "Tenant Default").execute().withRequiredDataExample()
+        val catalogDefaultTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
+        CreateDocumentTemplate(catalogDefaultTemplateId, "Catalog Default").execute().withRequiredDataExample()
 
         val templateDefaultId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         CreateDocumentTemplate(templateDefaultId, "Template Default").execute().withRequiredDataExample()
@@ -323,7 +328,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         assertThat(usages.items)
             .extracting<String> { "${it.templateName}:${it.source}" }
             .containsExactlyInAnyOrder(
-                "Tenant Default:TENANT_DEFAULT",
+                "Catalog Default:CATALOG_DEFAULT",
                 "Template Default:TEMPLATE_DEFAULT",
                 "Variant Override:VARIANT_OVERRIDE",
             )

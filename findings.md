@@ -147,7 +147,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       `templateId`/`variantId`/`draftId`, no catalog, `COMPLETED` and `count`. Fixed in `65c66c142`;
       `CollectWireContractTest` now reads each line as the generated `GenerationResult`/`CollectMeta`.
 - [x] **C2. A theme the draft still used could be deleted.** Refused now (409 `theme-in-use`).
-- [ ] **C3. The theme usage list still resolves the tenant default.** `GetThemeUsagePage` resolves
+- [x] **C3. The theme usage list still resolved the tenant default.** Fixed: it resolves the
+      catalog default theme ("Catalog default"). Evidence: `ThemeQueriesTest` (fails before).
+      Was: `GetThemeUsagePage` resolves
       variant override → template theme → tenant default; since ADR 0007 the last step is the
       catalog's default theme, so the "used by" list on a theme can be wrong.
 - [ ] **C4. The suite still accepts `X-API-Key`.** The contract dropped it; the suite keeps it as a
