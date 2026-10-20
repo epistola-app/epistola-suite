@@ -66,6 +66,19 @@ object StencilInstances {
 
         /** The document binds a parameter the stencil does not declare. */
         UNKNOWN_PARAMETER,
+
+        /**
+         * The document binds a parameter the stencil no longer declares ([Finding.detail]) and leaves
+         * one it declares unbound ([Finding.name]): most likely the parameter was renamed, and the
+         * instance would render without it.
+         */
+        PROBABLY_RENAMED_PARAMETER,
+
+        /**
+         * The document binds a value whose type is certain (a literal, or a field the template's data
+         * contract types) to a parameter declared with another type. [Finding.detail] says which.
+         */
+        PARAMETER_TYPE_MISMATCH,
     }
 
     /**
@@ -80,6 +93,8 @@ object StencilInstances {
         val usedIn: StencilRef?,
         val problem: Problem,
         val name: String? = null,
+        /** What else the problem names: the old binding of a rename, the types of a mismatch. */
+        val detail: String? = null,
     ) {
         /** Only an unknown binding is harmless: it is ignored when rendering. */
         val blocking: Boolean get() = problem != Problem.UNKNOWN_PARAMETER
@@ -163,9 +178,14 @@ object StencilInstances {
     /**
      * [document], owned by catalog [catalogKey], with every stencil instance's content inlined from
      * [resolver], and every way it no longer fits the stencils it uses. An instance whose stencil
-     * cannot be inlined keeps its fills and renders nothing of the stencil.
+     * cannot be inlined keeps its fills and renders nothing of the stencil. With the template's
+     * [dataModel] (its data contract, a JSON Schema), a binding of an instance written in the
+     * template whose type is certain is checked against the parameter's ([BindingTypes]).
      */
-    fun expand(document: TemplateDocument, catalogKey: String, resolver: Resolver): Expanded {
+    fun expand(document: TemplateDocument, catalogKey: String, resolver: Resolver): Expanded = expand(document, catalogKey, resolver, null)
+
+    /** [expand], judging the bindings written in the template by the template's [dataModel] too. */
+    fun expand(document: TemplateDocument, catalogKey: String, resolver: Resolver, dataModel: Map<String, Any?>?): Expanded {
         val stored = collapse(document)
         if (stored.nodes.values.none { it.type == StencilNodeKeys.NODE_TYPE }) return Expanded(stored, emptyList())
         val nodes = stored.nodes.toMutableMap()
@@ -176,22 +196,24 @@ object StencilInstances {
         val expanded = mutableSetOf<String>()
 
         /** Expands the instances below [nodeId]; [path] is the stencils already being inlined. */
-        fun walk(nodeId: String, contextCatalog: String, path: List<StencilRef>) {
+        fun walk(nodeId: String, contextCatalog: String, path: List<StencilRef>, inLoop: Boolean = false) {
             val node = nodes[nodeId] ?: return
             if (node.type != StencilNodeKeys.NODE_TYPE) {
-                node.slots.mapNotNull(slots::get).forEach { slot -> slot.children.forEach { walk(it, contextCatalog, path) } }
+                // Inside a loop a binding may read its item, which the data contract does not type.
+                val loops = inLoop || node.type in BindingTypes.LOOP_NODE_TYPES
+                node.slots.mapNotNull(slots::get).forEach { slot -> slot.children.forEach { walk(it, contextCatalog, path, loops) } }
                 return
             }
             if (!expanded.add(node.id)) return
             val props = node.props.orEmpty()
             val stencilKey = props[StencilNodeKeys.PROP_STENCIL_KEY] as? String ?: return
             val ref = StencilRef(stencilKey, (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: contextCatalog)
-            fun finding(problem: Problem, name: String? = null) = Finding(node.id, ref.stencilKey, ref.catalogKey, path.lastOrNull(), problem, name)
+            fun finding(problem: Problem, name: String? = null, detail: String? = null) = Finding(node.id, ref.stencilKey, ref.catalogKey, path.lastOrNull(), problem, name, detail)
 
             val childrenSlotId = node.slots.single()
             val fills = fillsByName(slots.getValue(childrenSlotId).children, nodes, slots)
             // Fills are the document's content, in the context it is in: expand instances there first.
-            fills.values.forEach { fill -> fill.children.forEach { walk(it, contextCatalog, path) } }
+            fills.values.forEach { fill -> fill.children.forEach { walk(it, contextCatalog, path, inLoop) } }
 
             val content = when {
                 ref in path -> null.also { findings += finding(Problem.RECURSION) }
@@ -222,7 +244,9 @@ object StencilInstances {
                 // An unknown fill is not rendered.
                 fills.getValue(name).children.forEach { removeSubtree(it, nodes, slots, emptySet()) }
             }
-            findings += parameterFindings(props, content.parameterSchema) { problem, name -> finding(problem, name) }
+            // Written in the template, outside a loop: its bindings read the template's data.
+            val typedData = dataModel.takeIf { path.isEmpty() && !inLoop }
+            findings += parameterFindings(props, content.parameterSchema, typedData, ::finding)
             val expandedProps = props +
                 listOfNotNull(
                     content.parameterSchema?.let { StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT to it },
@@ -240,13 +264,36 @@ object StencilInstances {
     private fun parameterFindings(
         props: Map<String, Any?>,
         schema: Map<String, Any?>?,
-        finding: (Problem, String) -> Finding,
+        dataModel: Map<String, Any?>?,
+        finding: (Problem, String?, String?) -> Finding,
     ): List<Finding> {
-        val bindings = (props[NodeParameterKeys.PROP_PARAMETER_BINDINGS] as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty().toSet()
-        val declared = (schema?.get("properties") as? Map<*, *>)?.keys?.filterIsInstance<String>().orEmpty().toSet()
-        val unbound = (mustBind(schema) - bindings).sorted().map { finding(Problem.UNBOUND_REQUIRED_PARAMETER, it) }
-        val unknown = (bindings - declared).sorted().map { finding(Problem.UNKNOWN_PARAMETER, it) }
-        return unbound + unknown
+        val expressions = (props[NodeParameterKeys.PROP_PARAMETER_BINDINGS] as? Map<*, *>).orEmpty()
+            .mapNotNull { (name, expression) -> (name as? String)?.let { it to (expression as? String).orEmpty() } }
+            .toMap()
+        val bindings = expressions.keys
+        val properties = (schema?.get("properties") as? Map<*, *>).orEmpty()
+        val declared = properties.keys.filterIsInstance<String>().toSet()
+        val required = mustBind(schema)
+        val unbound = (required - bindings).sorted().map { finding(Problem.UNBOUND_REQUIRED_PARAMETER, it, null) }
+        val unknownNames = (bindings - declared).sorted()
+        val unknown = unknownNames.map { finding(Problem.UNKNOWN_PARAMETER, it, null) }
+        // A binding the stencil lost next to a parameter it declares and nobody binds: a rename. A
+        // required one is reported unbound already.
+        val renamed = if (unknownNames.isEmpty()) {
+            emptyList()
+        } else {
+            (declared - bindings - required).sorted().map { finding(Problem.PROBABLY_RENAMED_PARAMETER, it, unknownNames.joinToString(", ")) }
+        }
+        val mismatched = if (dataModel == null) {
+            emptyList()
+        } else {
+            expressions.filterKeys { it in declared }.toSortedMap().mapNotNull { (name, expression) ->
+                val found = BindingTypes.infer(expression, dataModel) ?: return@mapNotNull null
+                val wanted = BindingTypes.declared(properties[name]) ?: return@mapNotNull null
+                if (BindingTypes.fits(found, wanted)) null else finding(Problem.PARAMETER_TYPE_MISMATCH, name, "binds ${found.label}, declared ${wanted.label}")
+            }
+        }
+        return unbound + renamed + mismatched + unknown
     }
 
     /**

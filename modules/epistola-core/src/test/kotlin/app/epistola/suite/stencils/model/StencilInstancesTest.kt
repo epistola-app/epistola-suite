@@ -222,7 +222,8 @@ class StencilInstancesTest {
             ),
             "required" to listOf("name", "greeting"),
         )
-        val stored = storedTemplate(mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("gone" to "x")))
+        // Every parameter it declares but the required one is bound, so `gone` is no rename.
+        val stored = storedTemplate(mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("gone" to "x", "greeting" to "'Hi'")))
 
         val findings = StencilInstances.expand(stored, "letters", resolver(("letterhead" to "letters") to content(letterhead, schema))).findings
 
@@ -231,6 +232,80 @@ class StencilInstancesTest {
             Problem.UNKNOWN_PARAMETER to "gone",
         )
         assertThat(findings.map { it.blocking }).containsExactly(true, false)
+    }
+
+    @Test
+    fun `parameters - a binding the stencil lost next to a parameter nobody binds is a rename, and blocks`() {
+        val schema = mapOf("type" to "object", "properties" to mapOf("companyName" to mapOf("type" to "string")))
+        val stored = storedTemplate(mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("company" to "customer.company")))
+
+        val findings = StencilInstances.expand(stored, "letters", resolver(("letterhead" to "letters") to content(letterhead, schema))).findings
+
+        assertThat(findings.map { Triple(it.problem, it.name, it.detail) }).containsExactly(
+            Triple(Problem.PROBABLY_RENAMED_PARAMETER, "companyName", "company"),
+            Triple(Problem.UNKNOWN_PARAMETER, "company", null),
+        )
+        assertThat(findings.first().blocking).isTrue()
+        assertThat(findings.first().describe()).contains("was it renamed? Bind 'companyName'")
+    }
+
+    @Test
+    fun `parameters - a binding whose type is certain must fit the parameter's, judged against the data contract`() {
+        val schema = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "amount" to mapOf("type" to "number"),
+                "name" to mapOf("type" to "string"),
+                "urgent" to mapOf("type" to "boolean"),
+                "tags" to mapOf("type" to "array", "items" to mapOf("type" to "string")),
+                "free" to mapOf("type" to "string"),
+            ),
+        )
+        val dataModel = mapOf(
+            "type" to "object",
+            "properties" to mapOf(
+                "customer" to mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string"), "age" to mapOf("type" to listOf("integer", "null")))),
+                "labels" to mapOf("type" to "array", "items" to mapOf("type" to "integer")),
+            ),
+        )
+        val bindings = mapOf(
+            "amount" to "customer.name", // a string where a number is declared
+            "name" to "customer.age", // a nullable integer where a string is declared
+            "urgent" to "'yes'", // a string literal where a boolean is declared
+            "tags" to "labels", // a list of integers where a list of strings is declared
+            "free" to "\$uppercase(customer.name)", // a function: not certain, not judged
+        )
+        val stored = storedTemplate(mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to bindings))
+
+        val findings = StencilInstances.expand(stored, "letters", resolver(("letterhead" to "letters") to content(letterhead, schema)), dataModel).findings
+
+        assertThat(findings.map { it.problem to it.name }).containsExactly(
+            Problem.PARAMETER_TYPE_MISMATCH to "amount",
+            Problem.PARAMETER_TYPE_MISMATCH to "name",
+            Problem.PARAMETER_TYPE_MISMATCH to "tags",
+            Problem.PARAMETER_TYPE_MISMATCH to "urgent",
+        )
+        assertThat(findings.first { it.name == "amount" }.describe()).contains("binds a string, declared a number for parameter 'amount'")
+        assertThat(findings).allMatch { it.blocking }
+    }
+
+    @Test
+    fun `parameters - matching types, unknown fields and bindings inside a loop are not judged`() {
+        val schema = mapOf("type" to "object", "properties" to mapOf("amount" to mapOf("type" to "number"), "name" to mapOf("type" to "string")))
+        val dataModel = mapOf("type" to "object", "properties" to mapOf("total" to mapOf("type" to "integer"), "name" to mapOf("type" to "number")))
+        val fits = storedTemplate(mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("amount" to "total", "name" to "unknown.field")))
+        // Inside a loop, `name` may be the loop's item: the data contract does not type it.
+        val looped = doc {
+            text("my-body", "Dear customer")
+            placeholder("fill-body", "body", fill = listOf("my-body"))
+            stencil("inst", "letterhead", listOf("fill-body"), mapOf(NodeParameterKeys.PROP_PARAMETER_BINDINGS to mapOf("amount" to "name", "name" to "name")))
+            node("loop", "loop", mapOf("itemAlias" to "name"), "children" to listOf("inst"))
+            build("loop")
+        }
+        val stencils = resolver(("letterhead" to "letters") to content(letterhead, schema))
+
+        assertThat(StencilInstances.expand(fits, "letters", stencils, dataModel).findings).isEmpty()
+        assertThat(StencilInstances.expand(looped, "letters", stencils, dataModel).findings).isEmpty()
     }
 
     @Test

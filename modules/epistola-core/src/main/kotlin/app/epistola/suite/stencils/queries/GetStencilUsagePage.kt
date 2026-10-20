@@ -56,7 +56,7 @@ data class GetStencilUsagePage(
 private val USAGE_CTE = """
     WITH usage AS (
         SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name AS template_name,
-               tv.id AS variant_key, tv.template_model::text AS template_model,
+               tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
         FROM template_variants tv
         JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
@@ -66,7 +66,7 @@ private val USAGE_CTE = """
         WHERE tv.tenant_key = :tenantId
           AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text
+        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text, dt.data_model::text
     )
 """
 
@@ -103,7 +103,8 @@ class GetStencilUsagePageHandler(
             .map { rs, _ ->
                 val catalogKey = rs.getString("catalog_key")
                 val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)
-                val problems = StencilInstances.expand(document, catalogKey, resolver).findings
+                val dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
+                val problems = StencilInstances.expand(document, catalogKey, resolver, dataModel).findings
                     .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey == query.stencilId.catalogKey.value && it.blocking }
                     .map { it.describe() }
                 StencilUsageDetail(

@@ -136,8 +136,13 @@ export function openParameterBindingsDialog(
     closeBtn.addEventListener('click', () => finish(null));
     cancelBtn.addEventListener('click', () => finish(null));
     saveBtn.addEventListener('click', () => {
+      // Only what the stencil declares: a binding for a parameter it no longer has (renamed or
+      // removed) is dropped here, the one place an author can let go of it.
+      const declared = Object.fromEntries(
+        Object.entries(bindings).filter(([name]) => Object.hasOwn(properties, name)),
+      );
       finish({
-        bindings: { ...bindings },
+        bindings: declared,
         paramsAlias: aliasInput.value.trim() || 'params',
       });
     });

@@ -18,10 +18,21 @@ fun Finding.describe(): String {
     val where = usedIn?.let { " (inside stencil ${it.catalogKey}/${it.stencilKey})" }.orEmpty()
     return when (problem) {
         Problem.UNKNOWN_PLACEHOLDER -> "fills placeholder '$name', which stencil $stencil does not have"
+
         Problem.UNBOUND_REQUIRED_PARAMETER -> "does not bind required parameter '$name' of stencil $stencil"
+
         Problem.UNKNOWN_PARAMETER -> "binds '$name', which stencil $stencil does not declare"
+
+        Problem.PROBABLY_RENAMED_PARAMETER ->
+            "binds '$detail', which stencil $stencil no longer declares, and leaves its parameter '$name' unbound: " +
+                "was it renamed? Bind '$name' (saving Configure parameters drops the old binding)"
+
+        Problem.PARAMETER_TYPE_MISMATCH -> "$detail for parameter '$name' of stencil $stencil"
+
         Problem.STENCIL_NOT_FOUND -> "uses stencil $stencil, which does not exist"
+
         Problem.RECURSION -> "uses stencil $stencil, which contains itself"
+
         Problem.DEPTH_EXCEEDED -> "nests stencils too deeply at $stencil"
     } + where
 }

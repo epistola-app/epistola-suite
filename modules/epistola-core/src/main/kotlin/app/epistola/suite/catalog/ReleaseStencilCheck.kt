@@ -43,16 +43,16 @@ class ReleaseStencilCheck(
 
         val documents = content.resourceDetails.values.flatMap { detail ->
             when (val resource = detail.resource) {
-                is TemplateResource -> listOf("template '${resource.key}'" to resource.templateModel) +
-                    resource.variants.mapNotNull { variant -> variant.templateModel?.let { "template '${resource.key}' variant '${variant.key}'" to it } }
+                is TemplateResource -> listOf(Triple("template '${resource.key}'", resource.templateModel, resource.dataModel)) +
+                    resource.variants.mapNotNull { variant -> variant.templateModel?.let { Triple("template '${resource.key}' variant '${variant.key}'", it, resource.dataModel) } }
 
-                is StencilResource -> listOf("stencil '${resource.key}'" to resource.content)
+                is StencilResource -> listOf(Triple("stencil '${resource.key}'", resource.content, null))
 
                 else -> emptyList()
             }
         }
-        val misfits = documents.flatMap { (where, document) ->
-            StencilInstances.expand(document, catalogKey.value, resolver).findings.filter { it.blocking }.map { where to it }
+        val misfits = documents.flatMap { (where, document, dataModel) ->
+            StencilInstances.expand(document, catalogKey.value, resolver, dataModel).findings.filter { it.blocking }.map { where to it }
         }
         if (misfits.isEmpty()) return
         throw ValidationException(

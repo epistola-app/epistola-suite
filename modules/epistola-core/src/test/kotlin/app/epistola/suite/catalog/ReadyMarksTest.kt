@@ -214,6 +214,39 @@ class ReadyMarksTest : IntegrationTestBase() {
                 .hasMessageContaining("recipientName")
         }
 
+        private fun binding(bindings: Map<String, String>) = stencilDocument {
+            text("my-body", "Dear customer")
+            placeholder("fill", "body", fill = listOf("my-body"))
+            stencil("inst", "letterhead", listOf("fill"), bindings = bindings)
+            build("inst")
+        }
+
+        @Test
+        fun `a parameter the stencil renamed is caught, though the new one is optional`() {
+            val (_, variant) = setUp("fit-renamed", """{"type":"object","properties":{"companyName":{"type":"string"}}}""")
+
+            assertThatThrownBy { markWith(variant, binding(mapOf("company" to "'Acme'"))) }
+                .hasMessageContaining("binds 'company', which stencil")
+                .hasMessageContaining("was it renamed? Bind 'companyName'")
+            // Binding the new name is the fix; the old binding left over is harmless then.
+            markWith(variant, binding(mapOf("company" to "'Acme'", "companyName" to "'Acme'")))
+        }
+
+        @Test
+        fun `a binding of another type than the parameter's, by the template's data contract, is refused`() {
+            val (_, variant) = setUp("fit-type", """{"type":"object","properties":{"amount":{"type":"number"}}}""")
+            withMediator {
+                app.epistola.suite.templates.contracts.commands.UpdateDataContract(
+                    templateId = variant.templateId,
+                    dataModel = ObjectMapper().readTree("""{"type":"object","properties":{"total":{"type":"string"},"count":{"type":"integer"}}}""") as tools.jackson.databind.node.ObjectNode,
+                ).execute()
+            }
+
+            assertThatThrownBy { markWith(variant, binding(mapOf("amount" to "total"))) }
+                .hasMessageContaining("binds a string, declared a number for parameter 'amount'")
+            markWith(variant, binding(mapOf("amount" to "count")))
+        }
+
         @Test
         fun `a stencil whose own instance does not fit cannot be marked ready`() {
             val (catalog, _) = setUp("fit-stencil")

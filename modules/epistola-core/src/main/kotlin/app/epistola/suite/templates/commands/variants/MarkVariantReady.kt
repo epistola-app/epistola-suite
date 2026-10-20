@@ -56,21 +56,24 @@ class MarkVariantReadyHandler(
         jdbi.useTransaction<Exception> { handle ->
             val row = handle.createQuery(
                 """
-                SELECT template_resource_id, template_model::text AS template_model FROM template_variants
-                WHERE tenant_key = :t AND id = :v AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")}
-                FOR UPDATE
+                SELECT tv.template_resource_id, tv.template_model::text AS template_model, dt.data_model::text AS data_model
+                FROM template_variants tv
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :t AND tv.id = :v AND tv.version_id = ${versionAt("t", "c")} AND tv.template_resource_id = ${templateAtAddress("t", "c", "k")}
+                FOR UPDATE OF tv
                 """,
             )
                 .bind("t", variant.tenantKey)
                 .bind("c", variant.catalogKey)
                 .bind("k", variant.templateKey)
                 .bind("v", variant.key)
-                .map { rs, _ -> rs.getObject("template_resource_id", UUID::class.java) to rs.getString("template_model") }
+                .map { rs, _ -> Triple(rs.getObject("template_resource_id", UUID::class.java), rs.getString("template_model"), rs.getString("data_model")) }
                 .findOne()
                 .orElseThrow { TemplateVariantNotFoundException(variant.tenantKey, variant.templateKey, variant.key) }
             val model = objectMapper.readValue(row.second, TemplateDocument::class.java)
             validator.validateTemplatePublishable(model)
-            stencilFit.requireInstancesFit(variant.tenantKey, variant.catalogKey.value, model, "Cannot mark variant '${variant.key.value}' ready")
+            val dataModel = row.third?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
+            stencilFit.requireInstancesFit(variant.tenantKey, variant.catalogKey.value, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)
             readyMarks.mark(handle, variant.tenantKey, row.first, variant.key.value)
         }
     }

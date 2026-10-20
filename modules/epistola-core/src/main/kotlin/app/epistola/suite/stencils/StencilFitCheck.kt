@@ -16,17 +16,23 @@ import org.springframework.stereotype.Component
 
 /**
  * Whether every stencil instance in a document fits the stencil as it is now (contract ADR 0006):
- * a fill for a placeholder the stencil lost, an unbound required parameter, a missing stencil,
- * recursion or too deep nesting does not.
+ * a fill for a placeholder the stencil lost, an unbound required parameter, a parameter that was
+ * probably renamed, a binding of the wrong type, a missing stencil, recursion or too deep nesting
+ * does not.
  */
 @Component
 class StencilFitCheck(
     private val stencilResolvers: StencilResolvers,
     private val dependencyViews: DraftDependencyViews,
 ) {
-    /** @throws ValidationException naming every instance of [document] that does not fit. */
-    fun requireInstancesFit(tenantKey: TenantKey, catalogKey: String, document: TemplateDocument, what: String) {
-        val problems = StencilInstances.expand(document, catalogKey, stencilResolvers.workingCopies(tenantKey, dependencyViews.of(tenantKey, CatalogKey.of(catalogKey)))).findings.filter { it.blocking }
+    /**
+     * @param dataModel the template's data contract, which types its bindings; null for a stencil's
+     *   own content, whose bindings read its parameters.
+     * @throws ValidationException naming every instance of [document] that does not fit.
+     */
+    fun requireInstancesFit(tenantKey: TenantKey, catalogKey: String, document: TemplateDocument, what: String, dataModel: Map<String, Any?>? = null) {
+        val resolver = stencilResolvers.workingCopies(tenantKey, dependencyViews.of(tenantKey, CatalogKey.of(catalogKey)))
+        val problems = StencilInstances.expand(document, catalogKey, resolver, dataModel).findings.filter { it.blocking }
         if (problems.isEmpty()) return
         throw ValidationException(
             field = "templateModel",
