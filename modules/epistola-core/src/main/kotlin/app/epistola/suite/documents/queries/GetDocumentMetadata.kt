@@ -25,7 +25,7 @@ import java.util.UUID
 data class DocumentMetadata(
     val id: DocumentKey,
     val tenantId: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     /** The catalog release rendered, from 2.0 on. */

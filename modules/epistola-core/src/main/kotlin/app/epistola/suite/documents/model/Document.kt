@@ -34,7 +34,7 @@ import java.time.OffsetDateTime
 data class Document(
     val id: DocumentKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     /** The template version rendered, for documents generated before 2.0. Null from 2.0 on. */

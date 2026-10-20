@@ -56,9 +56,8 @@ data class CatalogId(
     companion object {
         /**
          * The [CatalogId] of the default catalog every tenant is provisioned with
-         * ([CatalogKey.DEFAULT]). A convenience for seeding and tests — production
-         * request paths (REST/UI/MCP) always carry an explicit catalog and never
-         * rely on this.
+         * ([CatalogKey.DEFAULT]). For tests only: the default catalog can be deleted,
+         * so production code names the catalog it has in hand and never calls this.
          */
         fun default(tenantId: TenantId) = CatalogId(CatalogKey.DEFAULT, tenantId)
     }

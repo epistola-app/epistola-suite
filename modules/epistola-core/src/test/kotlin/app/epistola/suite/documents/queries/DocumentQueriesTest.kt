@@ -61,6 +61,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -142,6 +143,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -179,6 +181,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -225,6 +228,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -273,6 +277,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -355,6 +360,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "template1-$i.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -368,6 +374,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "template2.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

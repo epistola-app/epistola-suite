@@ -40,9 +40,10 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by, tv.revision
+                SELECT tv.id, tv.tenant_key, c.catalog_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by, tv.revision
                 FROM template_variants tv
                 ${templateJoin("tv")}
+                JOIN catalogs c ON c.tenant_key = template.tenant_key AND c.catalog_id = template.catalog_id
                 WHERE tv.id = :variantId
                   AND tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}

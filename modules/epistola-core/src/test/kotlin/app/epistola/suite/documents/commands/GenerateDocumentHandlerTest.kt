@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -70,6 +71,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = data,
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -90,6 +92,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     variantId = TestIdHelpers.nextVariantId(),
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(CatalogNotReleasedException::class.java)
@@ -113,6 +116,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     templateId = TestIdHelpers.nextTemplateId(),
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(TemplateNotInReleaseException::class.java)
@@ -131,6 +135,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     releaseVersion = "9.9.9",
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(ReleaseNotFoundException::class.java)
@@ -149,6 +154,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }.doesNotThrowAnyException()
     }

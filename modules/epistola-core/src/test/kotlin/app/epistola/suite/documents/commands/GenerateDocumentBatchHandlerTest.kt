@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -58,6 +59,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -69,7 +71,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
         val requests = jdbi.withHandle<List<app.epistola.suite.documents.model.DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -112,6 +114,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc-1.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
@@ -119,6 +122,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -150,6 +154,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }.doesNotThrowAnyException()
     }

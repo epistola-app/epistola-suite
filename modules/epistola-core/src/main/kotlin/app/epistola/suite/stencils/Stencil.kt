@@ -23,7 +23,7 @@ import java.time.OffsetDateTime
 data class Stencil(
     val id: StencilKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val description: String? = null,

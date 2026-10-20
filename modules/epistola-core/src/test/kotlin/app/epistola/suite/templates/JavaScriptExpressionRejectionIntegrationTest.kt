@@ -147,6 +147,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.FAILED)

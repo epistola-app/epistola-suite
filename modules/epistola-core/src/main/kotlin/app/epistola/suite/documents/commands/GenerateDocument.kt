@@ -56,7 +56,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class GenerateDocument(
     val tenantId: TenantKey,
-    val catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,

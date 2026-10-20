@@ -103,7 +103,7 @@ class CreateVariantHandler(
                                                created_at, updated_at, created_by, updated_by)
                 VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault,
                         :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *, CAST(:templateId AS TEXT) AS template_key
+                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
                 """,
                 )
                     .bind("id", command.id.key)

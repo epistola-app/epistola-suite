@@ -5,6 +5,7 @@
 package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -115,6 +116,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = data,
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -190,6 +192,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = data,
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -240,6 +243,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = environmentKey,
                     data = objectMapper.createObjectNode().put("other", "value"),
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { (setup, _), request ->
@@ -273,6 +277,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "metrics.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -328,6 +333,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "report-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -399,6 +405,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value1"),
                 filename = "doc1.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             // TODO: Add item with schema-violating data once validation is implemented
             BatchGenerationItem(
@@ -407,6 +414,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value2"),
                 filename = "doc2.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             // Valid item
             BatchGenerationItem(
@@ -415,6 +423,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value3"),
                 filename = "doc3.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -428,7 +437,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -477,6 +486,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -539,6 +549,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", it),
                     filename = "doc-$it.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -578,6 +589,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 
@@ -633,6 +645,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -678,6 +691,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "order-123",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -686,6 +700,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "order-456",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -698,7 +713,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -743,6 +758,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "duplicate-id",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -751,6 +767,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "duplicate-id",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -788,6 +805,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "same-name.pdf",
                 correlationId = "order-1",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -796,6 +814,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "same-name.pdf",
                 correlationId = "order-2",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -833,6 +852,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = null, // null is allowed
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -841,6 +861,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = null, // multiple nulls are allowed
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -874,6 +895,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = null, // null is allowed - will be auto-generated
                 correlationId = "order-1",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -882,6 +904,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = null, // multiple nulls are allowed
                 correlationId = "order-2",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -926,6 +949,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "target-correlation",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -934,6 +958,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "other-correlation",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -942,6 +967,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 3),
                 filename = "doc3.pdf",
                 correlationId = null,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -989,6 +1015,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "single-doc.pdf",
                     correlationId = "single-order-789",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

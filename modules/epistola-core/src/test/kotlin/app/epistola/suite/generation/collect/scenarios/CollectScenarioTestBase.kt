@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.collect.scenarios
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -71,6 +72,7 @@ abstract class CollectScenarioTestBase : IntegrationTestBase() {
             filename = filename,
             correlationId = correlationId,
             routingKey = routingKey,
+            catalogKey = CatalogKey.DEFAULT,
         ).execute()
     }
 }

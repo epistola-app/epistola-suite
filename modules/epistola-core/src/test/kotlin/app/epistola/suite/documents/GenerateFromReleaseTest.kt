@@ -96,6 +96,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     variantId = variant.key,
                     data = objectMapper.createObjectNode().put("name", "Ada"),
                     filename = "letter.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
             // 2.0.0 requires a field the accepted request does not carry: a breaking change, so the
@@ -148,6 +149,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -175,6 +177,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     variantId = variant.key,
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -204,6 +207,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -230,6 +234,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     releaseVersion = "1.0.0",
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -262,6 +267,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                             environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                             data = objectMapper.createObjectNode(),
                             filename = null,
+                            catalogKey = CatalogKey.DEFAULT,
                         ),
                     )
                 }.isInstanceOf(NoReleaseDeployedException::class.java)

@@ -49,7 +49,7 @@ import tools.jackson.databind.node.ObjectNode
  * [environmentId] limits the candidates to the releases that environment serves.
  */
 data class BatchGenerationItem(
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,

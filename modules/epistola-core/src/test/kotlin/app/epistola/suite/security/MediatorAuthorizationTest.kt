@@ -52,6 +52,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                         app.epistola.suite.tenants.commands.SetTenantDefaultTheme(
                             tenantId = TenantKey.of("authz-no-access"),
                             themeId = app.epistola.suite.common.ids.ThemeKey.of("nonexistent"),
+                            catalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
                         ),
                     )
                 }.isInstanceOf(TenantAccessDeniedException::class.java)

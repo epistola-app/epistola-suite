@@ -34,7 +34,7 @@ import tools.jackson.databind.ObjectMapper
  */
 data class ImportAttribute(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val slug: String,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),

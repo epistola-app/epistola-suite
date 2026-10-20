@@ -14,7 +14,6 @@ import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.common.ids.AssetKey
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
@@ -75,9 +74,9 @@ class DocumentPreviewRenderer(
         val assetResolver = draftAssetResolver(tenantId, null, dependencies)
         // Owning catalog for unqualified font refs: same cascade the theme
         // resolution + asset binding use (template theme catalog → tenant
-        // default theme catalog → the tenant's default catalog).
+        // default theme catalog → the template's own catalog).
         val owningCatalogKey =
-            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
+            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: template.catalogKey
         val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, dependencies = dependencies)
         val theme = resolvedThemeOverride ?: generationService.resolveTheme(
             tenantId,

@@ -266,7 +266,7 @@ class GenerationService(
      */
     fun validatePreviewData(
         tenantId: TenantKey,
-        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+        catalogKey: app.epistola.suite.common.ids.CatalogKey,
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {

@@ -27,7 +27,7 @@ import tools.jackson.databind.ObjectMapper
 
 data class ImportTheme(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val slug: String,
     val name: String,
     val description: String? = null,

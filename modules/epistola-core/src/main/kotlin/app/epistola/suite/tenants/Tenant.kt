@@ -12,7 +12,7 @@ import java.time.OffsetDateTime
 data class Tenant(
     val id: TenantKey,
     val name: String,
-    val defaultThemeCatalogKey: CatalogKey? = CatalogKey.DEFAULT,
+    val defaultThemeCatalogKey: CatalogKey?,
     val defaultThemeKey: ThemeKey?,
     val defaultLocale: String? = null,
     val publishCatalogsByDefault: Boolean = false,

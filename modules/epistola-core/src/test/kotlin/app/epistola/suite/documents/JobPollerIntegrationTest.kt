@@ -6,6 +6,7 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.cluster.WallClockClusterSchedulingDriver
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -144,6 +145,7 @@ class JobPollerIntegrationTest {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "async-test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

@@ -43,7 +43,7 @@ import tools.jackson.databind.node.ObjectNode
 
 data class ImportTemplates(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templates: List<ImportTemplateInput>,
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {

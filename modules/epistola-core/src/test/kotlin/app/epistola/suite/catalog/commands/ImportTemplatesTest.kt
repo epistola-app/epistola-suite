@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -61,6 +62,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
         }
 
@@ -107,6 +109,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -141,6 +144,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val variants = ListVariants(templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))).query()
@@ -172,6 +176,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results[0].status).isNotEqualTo(ImportStatus.FAILED)
@@ -212,6 +217,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(ListVariants(templateId = templateId).query()).hasSize(2)
@@ -232,6 +238,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val remaining = ListVariants(templateId = templateId).query()
@@ -262,6 +269,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -293,6 +301,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -321,6 +330,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         variants = emptyList(),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -351,6 +361,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
@@ -390,6 +401,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
         }
@@ -443,6 +455,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.UPDATED)

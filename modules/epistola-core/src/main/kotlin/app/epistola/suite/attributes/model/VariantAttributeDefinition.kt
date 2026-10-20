@@ -35,7 +35,7 @@ import java.time.OffsetDateTime
 data class VariantAttributeDefinition(
     val id: AttributeKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     @get:org.jdbi.v3.core.mapper.reflect.ColumnName("catalog_type")
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val displayName: String,

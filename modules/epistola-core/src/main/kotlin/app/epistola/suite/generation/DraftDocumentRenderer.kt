@@ -144,7 +144,7 @@ class PrepareDraftRenderHandler(
             templateName = template.name,
             pdfaEnabled = template.pdfaEnabled,
             // Unqualified font references belong to the template's theme catalog, then the tenant's.
-            owningCatalogKey = template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT,
+            owningCatalogKey = template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: template.catalogKey,
             theme = theme,
             data = data,
             culture = localeResolver.resolveCulture(tenant, variantId),

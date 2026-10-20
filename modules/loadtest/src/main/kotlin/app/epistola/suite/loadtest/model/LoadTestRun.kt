@@ -61,7 +61,7 @@ data class LoadTestRun(
     val id: LoadTestRunKey,
     val batchId: BatchKey?,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val versionKey: VersionKey?,

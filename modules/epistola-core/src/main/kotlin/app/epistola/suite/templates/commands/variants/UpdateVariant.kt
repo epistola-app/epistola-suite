@@ -68,7 +68,7 @@ class UpdateVariantHandler(
                 SET title = :title, attributes = :attributes::jsonb, updated_at = NOW(), updated_by = :updatedBy
                 WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND ${Revisions.MATCHES}
-                RETURNING *, CAST(:templateId AS TEXT) AS template_key
+                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)

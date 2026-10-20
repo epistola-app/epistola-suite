@@ -160,6 +160,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
             releaseVersion = selector,
             data = data(field),
             filename = null,
+            catalogKey = CatalogKey.DEFAULT,
         ).execute()
     }
 
@@ -237,7 +238,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val batch = withMediator {
             GenerateDocumentBatch(
                 setup.tenant,
-                listOf(BatchGenerationItem(templateId = setup.variant.templateId.key, variantId = setup.variant.key, data = data("name"), filename = null, environmentId = test)),
+                listOf(BatchGenerationItem(templateId = setup.variant.templateId.key, variantId = setup.variant.key, data = data("name"), filename = null, environmentId = test, catalogKey = CatalogKey.DEFAULT)),
             ).execute()
         }
 

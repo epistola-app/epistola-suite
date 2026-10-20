@@ -18,7 +18,7 @@ import java.time.OffsetDateTime
 data class TemplateVariant(
     val id: VariantKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val title: String,
     val description: String?,

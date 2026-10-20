@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -86,6 +87,7 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 
@@ -113,7 +115,7 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
             val variant = variant(compositeTemplateId, "Default")
             released(VariantId(variant.id, compositeTemplateId), TestTemplateBuilder.buildMinimal(name = "Crashing Template"))
             val request = execute(
-                GenerateDocument(tenantId = tenant.id, templateId = template.id, variantId = variant.id, environmentId = null, data = objectMapper.createObjectNode(), filename = null),
+                GenerateDocument(tenantId = tenant.id, templateId = template.id, variantId = variant.id, environmentId = null, data = objectMapper.createObjectNode(), filename = null, catalogKey = CatalogKey.DEFAULT),
             )
             // Three nodes in turn stop while rendering it.
             repeat(3) {

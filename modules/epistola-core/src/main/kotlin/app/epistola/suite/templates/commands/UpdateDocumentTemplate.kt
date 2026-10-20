@@ -39,7 +39,7 @@ data class UpdateDocumentTemplate(
     val id: TemplateId,
     val name: String? = null,
     val themeId: ThemeKey? = null,
-    val themeCatalogKey: app.epistola.suite.common.ids.CatalogKey? = null,
+    val themeCatalogKey: CatalogKey? = null,
     val clearThemeId: Boolean = false,
     val pdfaEnabled: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
@@ -57,6 +57,7 @@ data class UpdateDocumentTemplate(
             validate("name", name.isNotBlank()) { "Name cannot be blank" }
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
+        validate("themeCatalogKey", themeId == null || themeCatalogKey != null) { "A theme needs the catalog it lives in" }
     }
 }
 
@@ -89,7 +90,7 @@ class UpdateDocumentTemplateHandler(
         } else if (command.themeId != null) {
             updates.add("theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeId")}")
             bindings["themeId"] = command.themeId
-            bindings["themeCatalogKey"] = command.themeCatalogKey ?: CatalogKey.DEFAULT
+            bindings["themeCatalogKey"] = command.themeCatalogKey
         }
         if (command.pdfaEnabled != null) {
             updates.add("pdfa_enabled = :pdfaEnabled")
@@ -113,7 +114,7 @@ class UpdateDocumentTemplateHandler(
 
         val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
             if (!command.clearThemeId && command.themeId != null) {
-                val themeCatalogKey = command.themeCatalogKey ?: CatalogKey.DEFAULT
+                val themeCatalogKey = command.themeCatalogKey
                 val themeExists = handle.createQuery(
                     """
                     SELECT 1

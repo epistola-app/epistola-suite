@@ -96,7 +96,7 @@ class BlockStylePresetsSerializer : ValueSerializer<BlockStylePresets>() {
 data class Theme(
     val id: ThemeKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val description: String?,

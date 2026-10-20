@@ -5,6 +5,7 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ResourceStatus
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.Stencil
@@ -32,6 +33,7 @@ class PortableModelDtoMappersTest {
             content = document,
             createdAt = createdAt,
             updatedAt = createdAt,
+            catalogKey = CatalogKey.DEFAULT,
         )
 
         assertSame(document, stencil.toContentDto(ResourceStatus.MODIFIED).content)

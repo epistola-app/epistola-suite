@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -164,6 +165,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = ObjectMapper().createObjectNode(),
                 filename = filename,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
         return tenant.id to request.id

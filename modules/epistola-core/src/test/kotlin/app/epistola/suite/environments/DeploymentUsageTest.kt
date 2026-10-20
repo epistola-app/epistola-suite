@@ -65,7 +65,7 @@ class DeploymentUsageTest : IntegrationTestBase() {
         }
         val test = EnvironmentKey.of("test")
         fun generate(environment: EnvironmentKey?, version: String? = null) = withMediator {
-            GenerateDocument(tenantId = tenant, templateId = variant.templateId.key, variantId = variant.key, environmentId = environment, releaseVersion = version, data = objectMapper.createObjectNode(), filename = null).execute()
+            GenerateDocument(tenantId = tenant, templateId = variant.templateId.key, variantId = variant.key, environmentId = environment, releaseVersion = version, data = objectMapper.createObjectNode(), filename = null, catalogKey = CatalogKey.DEFAULT).execute()
         }
         fun deployments(): Map<String, CatalogDeployment> = withMediator { ListDeployments(tenant, environmentKey = test).query() }.filter { !it.isDraft }.associateBy { it.version!! }
 
@@ -75,7 +75,7 @@ class DeploymentUsageTest : IntegrationTestBase() {
         withMediator {
             GenerateDocumentBatch(
                 tenant,
-                List(2) { BatchGenerationItem(templateId = variant.templateId.key, variantId = variant.key, data = objectMapper.createObjectNode(), filename = null, environmentId = test) },
+                List(2) { BatchGenerationItem(templateId = variant.templateId.key, variantId = variant.key, data = objectMapper.createObjectNode(), filename = null, environmentId = test, catalogKey = CatalogKey.DEFAULT) },
             ).execute()
         }
         usage.flush()

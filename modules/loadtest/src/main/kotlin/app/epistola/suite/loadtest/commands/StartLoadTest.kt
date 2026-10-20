@@ -42,7 +42,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class StartLoadTest(
     val tenantId: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val environmentId: EnvironmentKey? = null,

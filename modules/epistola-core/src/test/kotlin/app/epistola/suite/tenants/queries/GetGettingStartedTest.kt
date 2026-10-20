@@ -5,6 +5,7 @@
 package app.epistola.suite.tenants.queries
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -59,6 +60,7 @@ class GetGettingStartedTest : IntegrationTestBase() {
                 environmentId = staging.key,
                 data = ObjectMapper().createObjectNode(),
                 filename = null,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
         drainGenerationJobs(tenant.id)
