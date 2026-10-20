@@ -82,6 +82,13 @@ class TemplateContentV8MigrationTest {
     }
 
     @Test
+    fun `an instance kept without a copy stays a reference to its stencil`() {
+        assertThat(model["nodes"]["bare"]["props"]["stencilKey"].asString()).isEqualTo("letterhead")
+        assertThat(children(model, "root", "children")).contains("bare")
+        assertThat(report()).noneMatch { it.contains("instance bare") && it.contains("became plain content") }
+    }
+
+    @Test
     fun `an instance without a stencil becomes plain content, its placeholder's default in place`() {
         assertThat(model["nodes"].has("orphan")).isFalse()
         assertThat(children(model, "root", "children")).contains("orphan-default")
@@ -239,6 +246,10 @@ class TemplateContentV8MigrationTest {
         instance("older", "letterhead", 1, logo = false, extra = false, fill = null)
         instance("changed", "letterhead", 2, logo = true, extra = true, fill = "customer.name")
         instance("orphan", null, 1, logo = false, extra = false, fill = null)
+        // 1.x also kept an instance as a bare reference, without a copy of the stencil, as the demo
+        // catalog's Hello World does: it rendered the stencil itself.
+        rootChildren += "bare"
+        nodes += "\"bare\":{\"id\":\"bare\",\"type\":\"stencil\",\"slots\":[],\"props\":{\"stencilId\":\"letterhead\",\"version\":2}}"
         rootChildren += "image"
         nodes += "\"image\":{\"id\":\"image\",\"type\":\"image\",\"props\":{\"assetId\":\"logo\"}}"
         slots += "\"s-root\":{\"id\":\"s-root\",\"nodeId\":\"root\",\"name\":\"children\",\"children\":[${rootChildren.joinToString(",") { "\"$it\"" }}]}"

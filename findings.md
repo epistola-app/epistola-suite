@@ -102,14 +102,14 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       out cleared it (G8). Evidence: `TemplateContentV8MigrationTest`; end to end, the upgraded
       letter is identical in text to 1.x apart from the G1 markers (16 pages, Inter, company name
       13 times).
-- [~] **G9. An instance inlined by the upgrade loses its parameters.** Why (explained 2026-10-20): a
-  1.x instance is a copy of the stencil plus bindings; when the copy no longer matches a stencil
-  version (edited, stencil or version gone) the upgrade keeps it as plain content and the bindings
-  go, so its `params.x` read nothing. Reported now: the upgrade
-  report names each inlined copy and the parameters it reads (`noteParametersLost`; evidence:
-  `TemplateContentV8MigrationTest` "…reported with them"). Still open, for a decision: rewriting
-  each `params.x` in the copy to its binding or default, so it renders as before (the complex
-  option set aside for G5).
+- [x] **G9. An instance inlined by the upgrade loses its parameters.** The real cause was not an edge
+      case: 1.x also kept an instance as a bare reference without a copy (the demo catalog's Hello
+      World, and templates made from it), and the upgrade read the missing copy as a changed one and
+      turned it into empty plain content, so the stencil vanished. Fixed: an instance without a copy
+      stays a reference. Evidence: `TemplateContentV8MigrationTest` "an instance kept without a copy…"
+      (fails before), and the 1.x dump upgraded again (`epistola_upg8`): 0 instances became plain
+      content (5 before), `company-header` kept in both templates. What remains is a copy someone
+      changed in a template: it becomes plain content, reported with the parameters it reads.
 - [x] **G8. A stencil content save through REST dropped its parameters.** The cause behind G5's
       data: `updateStencilContent` cleared the schema when `parameterSchema` was left out, by
       contract ("full replacement"); 1.5.0 did the same. The editor and MCP were not affected. Now

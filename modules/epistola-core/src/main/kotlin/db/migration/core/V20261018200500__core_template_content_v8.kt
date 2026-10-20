@@ -175,6 +175,9 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
             val pinned = (props["draftVersion"] ?: props["version"])?.takeIf { it.isNumber }?.asInt()
             val pinnedContent = if (stencil != null && pinned != null) versions["${stencil.tenantKey}|${stencil.resourceId}|$pinned"] else null
             val subject = "$where, stencil instance $instanceId"
+            // 1.x also kept an instance as a bare reference, without a copy of the stencil (the demo
+            // catalog's templates do), and rendered the stencil itself: there is nothing to compare.
+            val bare = copyRoots(instance, slots).isEmpty()
             when {
                 key == null -> {
                     noteParametersLost(instance, props, nodes, slots, subject)
@@ -188,20 +191,20 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
                     note(subject, "stencil $catalog/$key does not exist; its content became plain content")
                 }
 
-                pinnedContent == null -> {
+                pinnedContent == null && !bare -> {
                     noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "stencil $catalog/$key has no version $pinned; its content became plain content")
                 }
 
-                shape(copyRoots(instance, slots), nodes, slots) != contentShape(pinnedContent) -> {
+                !bare && shape(copyRoots(instance, slots), nodes, slots) != contentShape(pinnedContent!!) -> {
                     noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "its content differs from stencil $catalog/$key version $pinned; it became plain content")
                 }
 
                 else -> {
-                    if (contentShape(pinnedContent) != contentShape(stencil.content)) {
+                    if (pinnedContent == null || contentShape(pinnedContent) != contentShape(stencil.content)) {
                         note(subject, "used version $pinned of stencil $catalog/$key; it now renders the stencil as it is")
                     }
                     val alias = props.text("paramsAlias")?.takeIf { it.isNotBlank() } ?: "params"
