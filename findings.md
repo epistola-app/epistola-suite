@@ -74,9 +74,10 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       its retained content has been altered", with or without the G4 fix. The recorded fingerprint
       is the publisher's; the retained content rebuilds to another. Check whether the UI offers
       this export, and whether the seeded fonts are what make the two differ.
-- [ ] **G7. A generation job names the wrong catalog.** Rendering `epistola-demo/sectioned-letter`
-      returns a job item with `catalogKey: "default"` (and `releaseVersion: 5.21.1`, which is
-      epistola-demo's). Seen on the upgraded database; not yet checked on a fresh one.
+- [x] **G7. A generation job named the wrong catalog.** Fixed: `GetGenerationJob` did not select
+      `catalog_key`, so every item fell back to the model's default (`default`), and the registry and
+      namespace looked up by it were the default catalog's. Rendering was always right. Not
+      upgrade-specific. Evidence: `DocumentQueriesTest` "names the catalog of each item".
 - [x] **G5. Stencil parameters rendered empty after the upgrade.** Fixed ("declare again the stencil parameters templates still bind"), the
       simple way: a parameter an instance binds that its pinned version declared but the stencil no
       longer does is declared again, optional, on the working copy and the latest published

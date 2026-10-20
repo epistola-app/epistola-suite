@@ -4,7 +4,9 @@
 
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -71,6 +73,34 @@ class DocumentQueriesTest : IntegrationTestBase() {
         assertThat(job.items[0].variantKey).isEqualTo(variant.id)
         assertThat(job.items[0].versionKey).`as`("a request renders a release, not a version").isNull()
         assertThat(job.items[0].releaseVersion).isEqualTo("1.0.0")
+    }
+
+    @Test
+    fun `GetGenerationJob names the catalog of each item`(): Unit = withAuthentication {
+        val tenant = createTenant("Test Tenant")
+        val letters = CatalogKey.of("letters")
+        mediator.send(CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters"))
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(letters, TenantId(tenant.id)))
+        mediator.send(CreateDocumentTemplate(id = templateId, name = "Letter"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Letter")))
+        mediator.publishAndRelease(variantId)
+
+        val request = mediator.send(
+            GenerateDocument(
+                tenantId = tenant.id,
+                catalogKey = letters,
+                templateId = templateId.key,
+                variantId = variantId.key,
+                environmentId = null,
+                data = objectMapper.createObjectNode(),
+                filename = null,
+            ),
+        )
+
+        val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
+        assertThat(job.items.single().catalogKey).`as`("not the default catalog").isEqualTo(letters)
     }
 
     @Test
