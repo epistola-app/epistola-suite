@@ -5,8 +5,11 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
+import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
@@ -17,12 +20,14 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SystemInternal
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -152,13 +157,53 @@ class RecordInstalledReleaseHandler(
                 version,
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
-            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
+            val revisionDigests = revisionStore.retain(handle, command.tenantKey, withBundledFaces(handle, command.tenantKey, command.catalogKey, content))
             releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
+}
+
+/**
+ * [content] with the bundled faces of its fonts, for retaining it.
+ *
+ * The wire form carries only asset-backed faces, so content built from the installed rows lists a
+ * seeded font (the system catalog's) without any. A release keeps them by hash instead: rendering
+ * reads the face from the retained revision and its bytes from the classpath, checked against that
+ * hash (`ReleaseContentAssembler.readBinary`). Without them a release renders the font as Helvetica.
+ */
+internal fun withBundledFaces(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent): CatalogContent {
+    data class BundledFace(val slug: String, val weight: Int, val italic: Boolean, val location: String, val contentHash: String)
+    val faces = handle.createQuery(
+        """
+        SELECT f.slug, v.weight, v.italic, v.classpath_location, v.content_hash
+        FROM font_variants v
+        JOIN fonts f ON f.tenant_key = v.tenant_key AND f.version_id = v.version_id AND f.resource_id = v.font_resource_id
+        WHERE v.tenant_key = :t AND v.version_id = ${versionAt("t", "c")}
+          AND v.source = 'CLASSPATH' AND v.content_hash IS NOT NULL
+        ORDER BY f.slug, v.italic, v.weight
+        """,
+    )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .map { rs, _ -> BundledFace(rs.getString("slug"), rs.getInt("weight"), rs.getBoolean("italic"), rs.getString("classpath_location"), rs.getString("content_hash")) }
+        .list()
+        .groupBy { it.slug }
+    if (faces.isEmpty()) return content
+
+    val details = content.resourceDetails.mapValues { (_, detail) ->
+        val font = detail.resource as? FontResource ?: return@mapValues detail
+        val bundled = faces[font.key].orEmpty().filter { face -> font.variants.none { it.weight == face.weight && it.italic == face.italic } }
+        if (bundled.isEmpty()) return@mapValues detail
+        val added = bundled.map { face ->
+            val mediaType = if (face.location.endsWith(".otf", ignoreCase = true)) AssetMediaType.OTF else AssetMediaType.TTF
+            FontVariantEntry(weight = face.weight, italic = face.italic, mediaType = mediaType.mimeType, contentHash = face.contentHash)
+        }
+        detail.copy(resource = font.copy(variants = font.variants + added))
+    }
+    return content.copy(resourceDetails = details)
 }
 
 /**

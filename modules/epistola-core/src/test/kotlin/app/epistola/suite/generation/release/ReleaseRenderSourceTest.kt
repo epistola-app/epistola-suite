@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -180,6 +181,32 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             .isEqualTo(regular)
         // The parsed-font cache keys on this hash, so it must be the hash of exactly these bytes.
         assertThat(face?.contentHash).isEqualTo(sha256Hex(regular))
+    }
+
+    @Test
+    fun `a bundled font of the system catalog renders from the release that was pinned`() {
+        val tenant = createTenant("rr-bundled-font")
+        val letters = catalogIn(tenant.id, "letters")
+        val regular = classpathBytes("epistola/fonts/inter/inter-Regular.ttf")
+        withMediator {
+            declareDependency(tenant.id, letters.key, on = SYSTEM_CATALOG_KEY)
+            CreateTheme(
+                ThemeId(ThemeKey.of("brand"), letters),
+                "Brand",
+                documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
+            ).execute()
+            invoice(letters, theme = ThemeKey.of("brand"), nodeId = "body")
+            release(letters, "1.0.0")
+        }
+
+        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val face = inputs.fontFamilyResolver.resolve("system", "inter", 400, false)
+
+        assertThat(face?.bytes)
+            .`as`("the system release keeps its bundled faces; without them the PDF falls back to Helvetica")
+            .isEqualTo(regular)
+        assertThat(inputs.fontFamilyResolver.resolve("system", "inter", 700, false)?.bytes)
+            .isEqualTo(classpathBytes("epistola/fonts/inter/inter-Bold.ttf"))
     }
 
     @Test
