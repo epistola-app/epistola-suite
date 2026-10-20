@@ -4,6 +4,15 @@
 
 package app.epistola.suite.mcp.tools
 
+import app.epistola.suite.catalog.versions.ApplyHouseTheme
+import app.epistola.suite.catalog.versions.ApplyHouseThemeResult
+import app.epistola.suite.catalog.versions.AvailablePreset
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
+import app.epistola.suite.catalog.versions.CatalogPreset
+import app.epistola.suite.catalog.versions.GetAvailablePresets
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.versions.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.ThemeId
@@ -211,5 +220,92 @@ class ThemeMcpTools(
         const val BLOCK_STYLE_PRESETS = "JSON object string of named block style presets, same shape as " +
             "`get_theme` returns."
         const val SPACING_UNIT = "Spacing base unit in points (default 4)."
+    }
+
+    /** A catalog version's theme settings (contract ADR 0007), as MCP returns them. */
+    data class CatalogThemeSettingsInfo(
+        /** The theme its templates that name none render with: `catalogKey/themeKey`; null for none. */
+        val defaultTheme: String?,
+        /** The presets the version declares. */
+        val presets: List<CatalogPreset>,
+        /** The presets its content may use: its own, then its dependencies', each key once. */
+        val availablePresets: List<AvailablePreset>,
+    )
+
+    @McpTool(
+        name = "get_catalog_theme_settings",
+        description = "A catalog version's theme settings: its default theme (the theme its templates that name " +
+            "none render with) and the block style presets it declares, plus the presets its content may use " +
+            "(its own and its dependencies'). A block's stylePreset must be one of those once any are declared.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
+    )
+    fun getCatalogThemeSettings(
+        @McpToolParam(description = "Catalog key.")
+        catalogId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): CatalogThemeSettingsInfo = settingsInfo(catalogId, catalogVersion)
+
+    @McpTool(
+        name = "set_catalog_theme_settings",
+        description = "Set a catalog version's default theme and/or the block style presets it declares. The default " +
+            "theme may be in the catalog itself or in a catalog it depends on (declared as a use of it). " +
+            "Omitted arguments are kept. `presets` replaces the declared presets: a JSON array of " +
+            "{\"key\", \"name\", \"description\"?}; keys are lowercase with dashes, each once.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
+    )
+    fun setCatalogThemeSettings(
+        @McpToolParam(description = "Catalog key.")
+        catalogId: String,
+        @McpToolParam(description = "Theme key of the new default theme.", required = false)
+        defaultThemeKey: String? = null,
+        @McpToolParam(description = "Catalog of the default theme; omit for this catalog.", required = false)
+        defaultThemeCatalogId: String? = null,
+        @McpToolParam(description = "True to clear the default theme; ignored when defaultThemeKey is given.", required = false)
+        clearDefaultTheme: Boolean? = null,
+        @McpToolParam(description = "JSON array of presets replacing the declared ones.", required = false)
+        presets: String? = null,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
+    ): CatalogThemeSettingsInfo {
+        val tenantKey = mcpTenantId().key
+        val catalogKey = CatalogKey.of(catalogId)
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        if (defaultThemeKey != null || clearDefaultTheme == true) {
+            val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.let(CatalogKey::of) ?: catalogKey) }
+            mediator.send(SetCatalogDefaultTheme(tenantKey, catalogKey, theme, catalogVersion = version))
+        }
+        if (presets != null) {
+            val declared = objectMapper.readTree(presets).iterator().asSequence().map { node ->
+                CatalogPreset(
+                    key = node.get("key").asString(),
+                    name = node.get("name")?.asString() ?: node.get("key").asString(),
+                    description = node.get("description")?.takeUnless { it.isNull }?.asString(),
+                )
+            }.toList()
+            mediator.send(SetCatalogPresets(tenantKey, catalogKey, declared, catalogVersion = version))
+        }
+        return settingsInfo(catalogId, catalogVersion)
+    }
+
+    @McpTool(
+        name = "apply_house_theme",
+        description = "Make the tenant's house theme (its default theme, never used while rendering) the default theme " +
+            "of every catalog the tenant authors, in each one's next version. Each takes it on its next publish. " +
+            "Returns which catalogs took it and which had no next version.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
+    )
+    fun applyHouseTheme(): ApplyHouseThemeResult = mediator.send(ApplyHouseTheme(mcpTenantId().key))
+
+    private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
+        val tenantKey = mcpTenantId().key
+        val catalogKey = CatalogKey.of(catalogId)
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        val settings = mediator.query(GetCatalogThemeSettings(tenantKey, catalogKey, version))
+        return CatalogThemeSettingsInfo(
+            defaultTheme = settings.defaultTheme?.let { "${it.catalogKey.value}/${it.themeKey.value}" },
+            presets = settings.presets,
+            availablePresets = mediator.query(GetAvailablePresets(tenantKey, catalogKey, version)),
+        )
     }
 }
