@@ -87,6 +87,25 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the available presets are the catalog's own, then its dependencies', each key once`() {
+        val catalog = lettersIn("Available Presets")
+        val shared = CatalogKey.of("shared")
+        withMediator {
+            CreateCatalog(tenantKey = catalog.tenantKey, id = shared, name = "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(catalog.tenantKey))), "Brand").execute()
+            SetCatalogPresets(catalog.tenantKey, shared, listOf(CatalogPreset("accent", "Shared accent"), CatalogPreset("small-print", "Small print"))).execute()
+            SetCatalogPresets(catalog.tenantKey, letters, listOf(CatalogPreset("accent", "Letters accent"))).execute()
+            // Using the shared theme makes letters depend on shared.
+            SetCatalogDefaultTheme(catalog.tenantKey, letters, CatalogDefaultTheme(ThemeKey.of("brand"), shared)).execute()
+
+            val available = GetAvailablePresets(catalog.tenantKey, letters).query()
+
+            assertThat(available.map { it.key to it.name }).containsExactly("accent" to "Letters accent", "small-print" to "Small print")
+            assertThat(available.last().catalogKey).isEqualTo(shared)
+        }
+    }
+
+    @Test
     fun `a draft renders a template that names no theme with the catalog's default theme`() {
         val catalog = lettersIn("Default Theme Render")
         val template = TemplateId(TemplateKey.of("invoice"), catalog)

@@ -8,6 +8,7 @@ import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.GetAvailablePresets
 import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
@@ -479,6 +480,9 @@ class DocumentTemplateHandler(
                 "templateModel" to context.templateModel,
                 "variantRevision" to context.variantRevision,
                 "editorTheme" to editorTheme,
+                // The presets this catalog's content may use (contract ADR 0007); the editor offers these.
+                "availablePresets" to GetAvailablePresets(tenantId.key, segment.key, catalogVersion = version).query()
+                    .map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) },
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
                 "leaderTiming" to leaderTiming,

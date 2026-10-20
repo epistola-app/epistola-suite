@@ -229,4 +229,20 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         assertThat(deleted.body).contains("id=\"catalog-list\"")
         assertThat(withMediator { GetCatalog(tenant.id, letters).query() }).isNull()
     }
+
+    @Test
+    fun `the editor is given the presets the catalog declares`() {
+        val tenant = catalog("Editor Presets") { t, c ->
+            invoice(c)
+            app.epistola.suite.catalog.versions.SetCatalogPresets(
+                t.id,
+                letters,
+                listOf(app.epistola.suite.catalog.versions.CatalogPreset("heading-accent", "Heading accent")),
+            ).execute()
+        }
+
+        val editor = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/templates/invoice/variants/initial/editor", String::class.java).body!!
+
+        assertThat(editor).contains("availablePresets").contains("heading-accent").contains("Heading accent")
+    }
 }

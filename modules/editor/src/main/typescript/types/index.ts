@@ -27,7 +27,16 @@ export type {
 import type { Theme } from '@epistola.app/epistola-catalog';
 
 /** Theme defaults required by the template editor's style cascade. */
-export type EditorTheme = Pick<
-  Theme,
-  'documentStyles' | 'pageSettings' | 'blockStylePresets' | 'spacingUnit'
->;
+/** A block style preset the template's catalog declares (contract ADR 0007); the theme styles it. */
+export interface AvailablePreset {
+  key: string;
+  name: string;
+  description?: string | null;
+}
+
+export type EditorTheme = Partial<
+  Pick<Theme, 'documentStyles' | 'pageSettings' | 'blockStylePresets' | 'spacingUnit'>
+> & {
+  /** The presets the catalog's content may use; when present the editor offers exactly these. */
+  availablePresets?: AvailablePreset[];
+};

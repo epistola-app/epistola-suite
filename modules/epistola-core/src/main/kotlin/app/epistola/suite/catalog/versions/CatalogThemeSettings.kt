@@ -189,3 +189,34 @@ class SetCatalogPresetsHandler(
         return GetCatalogThemeSettings(command.tenantKey, command.catalogKey, command.catalogVersion).query()
     }
 }
+
+/** A preset the content of a catalog may use (contract ADR 0007), and the catalog that declares it. */
+data class AvailablePreset(val key: String, val name: String, val description: String?, val catalogKey: CatalogKey)
+
+/**
+ * The presets the content of [catalogKey] may use (contract ADR 0007): the ones its version declares,
+ * then those its dependencies declare, each key once (the catalog's own first). Empty when none of them
+ * declares any; the editor then falls back to the presets its theme styles.
+ */
+data class GetAvailablePresets(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    override val catalogVersion: CatalogVersionRef? = null,
+) : Query<List<AvailablePreset>>,
+    CatalogVersionScoped,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+@Component
+class GetAvailablePresetsHandler : QueryHandler<GetAvailablePresets, List<AvailablePreset>> {
+    override fun handle(query: GetAvailablePresets): List<AvailablePreset> {
+        val own = GetCatalogThemeSettings(query.tenantKey, query.catalogKey, query.catalogVersion).query().presets
+            .map { AvailablePreset(it.key, it.name, it.description, query.catalogKey) }
+        val fromDependencies = app.epistola.suite.catalog.queries.ListCatalogDependencies(query.tenantKey, query.catalogKey, query.catalogVersion).query()
+            .map { CatalogKey.of(it.catalogKey) }
+            .distinct()
+            .flatMap { dependency -> GetCatalogThemeSettings(query.tenantKey, dependency).query().presets.map { AvailablePreset(it.key, it.name, it.description, dependency) } }
+        return (own + fromDependencies).distinctBy { it.key }
+    }
+}

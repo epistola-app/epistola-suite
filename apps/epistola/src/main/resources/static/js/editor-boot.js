@@ -46,7 +46,11 @@ async function mount(container) {
   mountEditor({
     container: container,
     template: config.templateModel,
-    theme: config.theme ?? undefined,
+    // The catalog's available presets (ADR 0007) travel with the theme the inspector reads.
+    theme:
+      config.availablePresets && config.availablePresets.length > 0
+        ? { ...(config.theme ?? {}), availablePresets: config.availablePresets }
+        : (config.theme ?? undefined),
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
     plugins: plugins,
