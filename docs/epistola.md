@@ -94,14 +94,26 @@ Themes are reusable style definitions that can be shared across templates. A the
 
 1. Theme document styles
 2. Template document style overrides
-3. Block style preset (from theme)
+3. Block style preset (its styles come from the theme)
 4. Block inline styles
 
-**Theme selection cascade** (highest → lowest priority):
+**Theme selection cascade** (highest → lowest priority; contract ADR 0007):
 
 1. Variant-level theme override (`themeRef` in the template document)
 2. Template-level default theme
-3. Tenant default theme
+3. The catalog's default theme, which each catalog version carries (a published version renders with
+   the one it was published with)
+4. None: the rendering defaults alone
+
+The tenant's **house theme** is a starting value only: a new catalog starts with it as its default
+theme, and "apply house theme to all catalogs" sets it on every authored catalog. No render reads it.
+
+**Presets.** A catalog declares the block style presets its content may use (key, name, description);
+each theme gives them their styles. Its available presets are its own plus those of the catalogs it
+depends on; the editor offers exactly those, a block naming another one is refused once the catalog
+declares any, and the quality ledger reports a block whose preset its theme does not style. Both
+settings are on the catalog's Details page, over REST on a catalog version, and over MCP
+(`get_catalog_theme_settings`, `set_catalog_theme_settings`, `apply_house_theme`).
 
 ### Multi-Tenancy
 

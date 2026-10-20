@@ -87,10 +87,14 @@ Rendered by the editor bundle (`modules/editor`), not by a Thymeleaf template.
 
 ### Themes
 
-| `data-testid`         | Attached to                                       | Covers                             |
-| --------------------- | ------------------------------------------------- | ---------------------------------- |
-| `theme-default-badge` | `.badge.badge-primary` on `themes/list.html`      | Marking the tenant's default theme |
-| `delete-action`       | Danger-zone delete button on `themes/detail.html` | Permanently deleting a theme       |
+| `data-testid`                 | Attached to                                       | Covers                                   |
+| ----------------------------- | ------------------------------------------------- | ---------------------------------------- |
+| `theme-default-badge`         | `.badge.badge-outline` on `themes/list.html`      | Marking the tenant's house theme         |
+| `theme-catalog-default-badge` | `.badge.badge-primary` on `themes/list.html`      | Marking the catalog's default theme      |
+| `theme-make-catalog-default`  | Row action on `themes/list.html`                  | Making a theme the catalog's default     |
+| `house-theme-apply`           | Button on `themes/list.html`                      | Applying the house theme to all catalogs |
+| `catalog-theme-settings-form` | Form on `catalogs/theme-settings.html`            | A catalog's default theme and presets    |
+| `delete-action`               | Danger-zone delete button on `themes/detail.html` | Permanently deleting a theme             |
 
 ### Template Settings
 

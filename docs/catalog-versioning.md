@@ -88,11 +88,15 @@ releases (and an installed release) are numbered.
   work always has somewhere to go. It is refused while a draft of another catalog names it as a dependency
   (`CatalogDraftInUseException`), and (`CatalogVersionHeldException`, REST
   `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone holds a resource something outside it
-  still references: the tenant's default theme, a code list an attribute of another version or
+  still references: the tenant's house theme, a code list an attribute of another version or
   catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
   resource's identity, and those references would fail as a foreign-key violation or, for a template's
   theme, be cleared silently. The refusal names each holder, e.g. `the tenant's default theme (theme
   letters/seasonal)`.
+- **Theme settings** (contract ADR 0007). A version carries its default theme and the presets it
+  declares (`catalog_versions.default_theme_resource_id`, `presets`). A release freezes both in its
+  manifest's `catalog` and renders with them; new parallel work copies them from the version it starts
+  from, and an import takes them from the archive.
 - **Behind.** A draft is _behind_ a release it does not contain: (a) one above its base, or (b) one
   below it released after the draft started, a fix to an older line (`CatalogDrafts.behind`). It
   lists each with what it changed against its own base. The next version continues on each release
