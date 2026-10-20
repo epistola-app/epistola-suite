@@ -492,7 +492,9 @@ it per catalog.
 - **In the UI** the environment page marks the release that is _Latest here_, lists the work in
   progress it serves with _Undeploy_, and shows the production mark. A draft's version menu offers
   _Try it on an environment…_ (deploying it), listing production environments without offering them;
-  the banner of a draft other than the next version names the environments serving it.
+  the banner of a draft other than the next version names the environments serving it. _Try a
+  document_ on the environment page makes a PDF of a deployed template as the environment serves it,
+  with the template's first example data (`EnvironmentHandler.tryDocument` → `PreviewDocument`).
 - **Over REST** `deployCatalogVersion` and `undeployCatalogVersion` (`…/deployments/{registry}/{namespace}/{catalogKey}/{catalogVersion}`);
   deployments and history entries carry `versionId`, `kind` (`release` | `draft`) and `draftName`.
 - **Over MCP** nothing deploys; `preview_document` and `analyze_template_data` with an
