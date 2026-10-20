@@ -129,7 +129,8 @@
                 }
               ]
             }
-          }
+          },
+          "stylePreset": "muted"
         }
       },
       "slots": {

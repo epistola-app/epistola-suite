@@ -23,16 +23,26 @@
       "spdxExpression": "CC-BY-4.0",
       "url": "https://creativecommons.org/licenses/by/4.0/",
       "copyrightText": "Copyright Epistola Nederland B.V."
-    }
+    },
+    "defaultTheme": {
+      "key": "corporate"
+    },
+    "presets": [
+      {
+        "key": "muted",
+        "name": "Muted text",
+        "description": "Small grey text for notes, footnotes and footers"
+      }
+    ]
   },
   "publisher": {
     "name": "Epistola",
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.2.0",
-    "releasedAt": "2026-10-17T00:00:00Z",
-    "fingerprint": "v5:9299c01c0f26f80038d6328f30ec74163d7cf1bc17a70c423868ac1c20ed516b"
+    "version": "6.3.0",
+    "releasedAt": "2026-10-20T00:00:00Z",
+    "fingerprint": "v5:a7f5dfce353d814a4ab56338e18b4af657f49e296e400c30675822880bddeed8"
   },
   "catalogDependencies": [
     {
