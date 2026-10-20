@@ -60,15 +60,23 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
   Option: create a release per distinct activation set, so each environment keeps what it served.
   Until decided, `docs/upgrades.md` ("Documents can look different after the upgrade") warns.
 
-- [ ] **G4. Upgraded releases render without their fonts.** 1.x: Inter (embedded), 16 pages. 2.0:
-      Helvetica, 14 pages, the title no longer bold. The log says
-      `Font ref 'inter' (catalog 'system', weight 400) could not be resolved; falling back to the
-      built-in font`. The fonts are there: `system` is installed at 2.0.0 with 9 fonts, has a
-      `catalog_releases` row, and `epistola-demo` 5.21.1 pins it. Release renders read other catalogs
-      through `DraftDependencyView.released` / `releasedBinary` (retained release content), so the
-      suspicion is that the retained content of the installed `system` 2.0.0 lacks the font
-      resource or its bytes. Not yet proven. Not seen in the fresh demo log, so it looks
-      upgrade-specific, but that is also unproven.
+- [x] **G4. Releases render without the system catalog's fonts.** Fixed in `30c6dd0e1`. 1.x rendered
+      Inter, 2.0 Helvetica (`Font ref 'inter' (catalog 'system') could not be resolved`). Not
+      upgrade-specific: the system catalog's release kept every font with `"variants": []`, on a
+      fresh 2.0 demo too, because `RecordInstalledRelease` retained content built by `ExportFonts`,
+      which leaves classpath faces out. The retained revisions now carry the bundled faces by hash.
+      Evidence: `ReleaseRenderSourceTest` (fails without the fix); a 1.5.0 database upgraded with the
+      fixed build renders in Inter. **Existing 2.0 databases** (the local demo, dev databases) keep
+      the faceless system release until the system catalog's version is bumped, because recording
+      it is idempotent: recreate them, or bump the system catalog when this ships.
+- [ ] **G6. The system catalog's release cannot be exported.** `ExportCatalogZip(tenant, system)`
+      fails with "Release 2.0.0 of catalog 'system' rebuilds to fingerprint … but was released as …;
+      its retained content has been altered", with or without the G4 fix. The recorded fingerprint
+      is the publisher's; the retained content rebuilds to another. Check whether the UI offers
+      this export, and whether the seeded fonts are what make the two differ.
+- [ ] **G7. A generation job names the wrong catalog.** Rendering `epistola-demo/sectioned-letter`
+      returns a job item with `catalogKey: "default"` (and `releaseVersion: 5.21.1`, which is
+      epistola-demo's). Seen on the upgraded database; not yet checked on a fresh one.
 - [ ] **G5. Stencil parameters render empty after the upgrade.** The letterhead's company name
       ("Globex Corporation", from `companyName`) shows in 1.x header and footer on every page
       (13 times) and in 2.0 once, outside the stencil. The upgraded reference keeps
