@@ -144,6 +144,13 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
   Next step: a design note (or contract ADR, since it touches the release model) before
   building, after the `release/2.0` merge.
 
+## Flaky tests
+
+- [ ] **T1. `EmbeddingBridgeUiTest` "clicking a boosted row link…" fails in full UI runs.** Failed in two
+      of three full `uiTest` runs on 2026-10-20 (the page stays on the templates list instead of
+      `/boosted-row`), passes alone every time (twice in a row with `--rerun`). Likely an ordering or
+      timing dependence on state left by an earlier test; not caused by this branch's changes.
+
 ## Ideas for later
 
 - **F1. A data contract as its own catalog resource.** Templates and stencils would reference a
