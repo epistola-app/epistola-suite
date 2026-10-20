@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
@@ -21,6 +22,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -49,6 +51,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift None").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(key)
@@ -63,6 +66,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             // A resource changed after the release → working copy drifted.
@@ -79,8 +83,9 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Reimport").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
-            val zip = ExportCatalogZip(tenantKey = tenant.id, catalogKey = key).execute().zipBytes
+            val zip = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(key, app.epistola.suite.common.ids.TenantId(tenant.id))).zipBytes
 
             // Re-import bumps resources' updated_at, but also imported_at (set
             // after the upserts) — so the baseline keeps pace and this is NOT

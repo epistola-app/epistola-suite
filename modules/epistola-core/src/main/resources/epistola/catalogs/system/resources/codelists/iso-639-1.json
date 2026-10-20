@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "codeList",
-    "slug": "iso-639-1",
+    "key": "iso-639-1",
     "name": "ISO 639-1 Languages",
     "description": "Two-letter language codes from ISO 639-1. Retired codes (e.g. iw, in) are intentionally omitted; tenants who need them can author overrides.",
     "entries": [

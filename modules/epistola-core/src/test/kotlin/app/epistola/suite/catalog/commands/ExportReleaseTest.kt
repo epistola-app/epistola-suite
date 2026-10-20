@@ -5,9 +5,10 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -43,6 +44,7 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         val released = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -53,7 +55,7 @@ class ExportReleaseTest : IntegrationTestBase() {
         val release = withMediator {
             ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute()
         }
-        val working = withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key).execute() }
+        val highest = withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key).execute() }
 
         assertThat(release.filename).isEqualTo("exp-release-1.0.0.zip")
         val manifest = entryOf(release.zipBytes, "catalog.json")
@@ -62,27 +64,9 @@ class ExportReleaseTest : IntegrationTestBase() {
             .contains("\"version\":\"1.0.0\"", released.fingerprint)
         assertThat(entryOf(release.zipBytes, "resources/theme/brand.json")).contains("As released")
 
-        // The working copy has moved on, and says so in its own label rather than quietly
-        // shipping the edit as 1.0.0.
-        assertThat(working.filename).isEqualTo("exp-release-1.0.0-dev.zip")
-        assertThat(entryOf(working.zipBytes, "resources/theme/brand.json")).contains("Edited since")
-    }
-
-    @Test
-    fun `a release that retained no content refuses rather than exporting the working copy`() {
-        val catalog = authoredCatalog("exp-legacy")
-
-        withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
-
-        assertThatThrownBy {
-            withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute() }
-        }
-            .isInstanceOf(CatalogReleaseNotRetainedException::class.java)
-            .hasMessageContaining("did not retain its content")
+        // Naming no version exports the highest release, never the draft's edit (contract 2.0).
+        assertThat(highest.filename).isEqualTo("exp-release-1.0.0.zip")
+        assertThat(entryOf(highest.zipBytes, "resources/theme/brand.json")).contains("As released").doesNotContain("Edited since")
     }
 
     @Test
@@ -91,32 +75,34 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "9.9.9").execute() }
-        }.isInstanceOf(CatalogReleaseNotRetainedException::class.java)
+        }.isInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
     @Test
-    fun `a subscribed catalog exports at the version it has installed, not as never released`() {
-        val tenant = createTenant("exp-subscribed")
+    fun `a subscribed catalog exports the release it installed, as its publisher released it`() {
+        val publisher = authoredCatalog("exp-subscribed")
+        val archive = withMediator {
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), publisher), name = "Brand").execute()
+            MarkCatalogReady(publisher.tenantKey, publisher.key).execute()
+            ReleaseCatalogVersion(tenantKey = publisher.tenantKey, catalogKey = publisher.key, version = "1.2.0").execute()
+            ExportCatalogZip(publisher.tenantKey, publisher.key).execute()
+        }
+        val subscriber = createTenant("exp-subscriber").id
+        withMediator { ImportCatalogZip(subscriber, archive.zipBytes, CatalogType.SUBSCRIBED).execute() }
 
-        // Every tenant is provisioned with the bundled `system` catalog as a SUBSCRIBED install, so
-        // it is a real subscribed catalog with a real installed version and no releases of its own.
-        val catalog = withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query() }!!
-        assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
-        val installed = catalog.installedReleaseVersion
-        assertThat(installed).`as`("the system catalog records what it installed").isNotNull()
+        val export = withMediator { ExportCatalogZip(subscriber, publisher.key).execute() }
 
-        val export = withMediator { ExportCatalogZip(tenant.id, SYSTEM_CATALOG_KEY).execute() }
-
-        // Releases live in `catalog_releases`, which a subscribed catalog has no rows in — reading
-        // the label from there called a catalog installed at 1.2.0 `0.0.0-dev`.
-        assertThat(export.filename).isEqualTo("system-$installed.zip")
-        assertThat(entryOf(export.zipBytes, "catalog.json")).contains("\"version\":\"$installed\"")
+        assertThat(export.filename).isEqualTo("exp-subscribed-1.2.0.zip")
+        assertThat(entryOf(export.zipBytes, "catalog.json")).contains("\"version\":\"1.2.0\"", archiveFingerprint(archive.zipBytes))
     }
+
+    private fun archiveFingerprint(zip: ByteArray): String = Regex("\"fingerprint\":\"(v5:[0-9a-f]+)\"").find(entryOf(zip, "catalog.json"))!!.groupValues[1]
 
     private fun authoredCatalog(slug: String): CatalogId {
         val tenant = createTenant(slug)

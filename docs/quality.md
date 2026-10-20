@@ -11,7 +11,7 @@ directly in the template editor.
 findings and the ledger owns them from then on. That distinction drives everything below.
 
 Checks only ever analyse a template's **example data**
-(`contract_versions.data_examples`) — never real user data.
+(`document_templates.data_examples`) — never real user data.
 
 ## Three needs, one write model
 
@@ -60,14 +60,17 @@ core, mirroring `FeedbackKey` — feedback is likewise its own module.
 The module ships its **own UI** (`ui/QualityHandler` + `templates/quality/`), following
 `epistola-support-feedback`: Spring merges classpath templates from every JAR, so a feature
 module hosts its handlers and templates while the host app keeps owning the chrome
-(`layout/shell`, `layout/nav`). `QualityNavContributor` contributes the item into the host's
-**Authoring** group — quality is about the templates being authored, and it is OSS, not
-support-tier, so it does not belong under Support.
+(`layout/shell`, `layout/nav`). Quality is about a catalog's templates, so it is an item of the
+catalog's own nav (`CatalogNav`, docs/workspace-shell.md), shown while the feature is available:
+it opens the catalog's report, and the page passes the catalog as
+`workspaceCatalog`, so the shell shows that catalog's bar and nav around it.
 
 ## The report page
 
-`/tenants/{t}/quality` — every finding in the tenant, from every source. Filter by status,
-severity, source and template; search messages; page. All of it is pushed to SQL, including
+`/tenants/{t}/catalogs/{catalog}/quality` — every finding against the catalog's templates, from
+every source; a finding's page is `…/quality/{finding}`, in the catalog of its template. Like the
+catalog's lists, there is no page of every finding in the tenant. Filter by status, severity,
+source and template; search messages; page. All of it is pushed to SQL, including
 the filter on effective status, which is _derived_ (see [Ignores](#ignores)) — doing that in
 Kotlin would mean fetching every finding in the tenant to render fifty of them, and a total
 that disagreed with the rows.
@@ -139,8 +142,7 @@ A finding is metadata _about_ a resource and means nothing once that resource is
 tables carry foreign keys to `document_templates` and `template_variants` with
 `ON DELETE CASCADE`. Delete a template and its findings, ignores and comments go with it;
 delete one variant and only that variant's findings go. Catalog and tenant deletion already
-cascade through `document_templates`, so those come free. Versions need no rule of their own —
-they are archived, never deleted.
+cascade through `document_templates`, so those come free.
 
 **Why foreign keys rather than an event handler.** They point quality → core, the same
 direction the module dependency already points, so the cleanup costs nothing architecturally:
@@ -242,8 +244,8 @@ example of both sides:
 An ignore is recorded against `(ignore_scope_urn, source_id, rule_id, fingerprint)` — note
 what is **not** in that key:
 
-- **No version.** An ignore carries forward across publishes. Key it per version and every
-  publish resurfaces every previously-dismissed finding.
+- **No version.** An ignore carries forward across edits and releases. Key it per release and
+  every release resurfaces every previously-dismissed finding.
 - **No finding row.** There is no FK. An ignore must outlive its finding (which
   auto-resolves) and be able to pre-exist a resurface.
 
@@ -252,9 +254,9 @@ That makes "an unchanged fingerprint retains its ignore" true by construction, w
 dual-write to diverge.
 
 Ignores live here rather than in `TemplateDocument` for two independent reasons: the model
-is a generated type from the external `epistola-catalog` contract, and published versions are
-frozen — an ignore there could never be applied to a published version, which is exactly
-where an author most needs one.
+is a generated type from the external `epistola-catalog` contract, and released content is
+frozen — an ignore there could never be applied to a release, which is exactly where an
+author most needs one.
 
 **Unignore soft-deletes** (`revoked_at`), and that is not tidiness. Sources read
 dispositions with a `since` cursor; a hard `DELETE` would vanish from that feed, so a source
@@ -266,8 +268,8 @@ ignore.
 
 ### In-process
 
-Implement `QualityFindingSource` and make it a `@Component`. The framework runs you after a
-publish and on the editor's "Check now". Being a bean _is_ the "runs locally" flag.
+Implement `QualityFindingSource` and make it a `@Component`. The framework runs you when a
+variant is marked ready and on the editor's "Check now". Being a bean _is_ the "runs locally" flag.
 
 ```kotlin
 @Component
@@ -374,20 +376,20 @@ revision and must never be marked outdated by an edit.
 
 ## Triggers
 
-| Trigger                                        | What runs             | Built |
-| ---------------------------------------------- | --------------------- | ----- |
-| `OnVersionPublishedRunChecks` (`AFTER_COMMIT`) | The published variant | yes   |
-| Editor "Check now"                             | The open variant      | yes   |
+| Trigger                                    | What runs                | Built |
+| ------------------------------------------ | ------------------------ | ----- |
+| `OnVariantReadyRunChecks` (`AFTER_COMMIT`) | The variant marked ready | yes   |
+| Editor "Check now"                         | The open variant         | yes   |
 
 All of them dispatch the same `RunQualityChecks`, so reconciliation, ignores and staleness
 behave identically wherever a check was triggered from.
 
-`RunQualityChecks` reads the **persisted** draft (falling back to the newest published
-version), so an editor trigger is necessarily save-then-check — checking unsaved state would
-be stale-in, stale-out. A consequence worth rendering explicitly when the panel lands: an
-invalid draft will not save, so neither editor trigger fires on an unsaveable document.
+`RunQualityChecks` reads the variant's **persisted** working model, so an editor trigger
+is necessarily save-then-check — checking unsaved state would be stale-in, stale-out. A
+consequence worth rendering explicitly when the panel lands: an invalid model will not
+save, so neither editor trigger fires on an unsaveable document.
 
-**No autosave or daily sweep yet.** During alpha, checks run only on publish and explicit
+**No autosave or daily sweep yet.** During alpha, checks run only on a ready mark and explicit
 "Check now". That keeps background cost and latency visible rather than hiding it in a scheduler.
 We do intend to add a periodic reconciliation sweep, but only with a run ledger and source tiering
 so cheap local checks, expensive local checks and remote checks do not share one trigger. The sweep
@@ -461,7 +463,7 @@ grants and their tests for an alpha feature. A dedicated pair is the natural ref
 quality earns its own role.
 
 No quality command calls `requireCatalogEditable`: a finding is metadata _about_ content,
-not content. Ignoring a finding on a frozen published version, or raising a review note
+not content. Ignoring a finding on released content, or raising a review note
 against a read-only system catalog, must work — those are precisely the places an author
 cannot "just fix it".
 

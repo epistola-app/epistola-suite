@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.ImportTemplateInput
 import app.epistola.suite.catalog.commands.ImportTemplates
 import app.epistola.suite.catalog.commands.ImportVariantInput
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
@@ -29,11 +30,12 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -42,6 +44,7 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -98,7 +101,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "JS Draft").execute()
 
             val exception = assertThrows<ValidationException> {
-                UpdateDraft(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript")).execute()
+                UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("javascript")).execute()
             }
 
             assertThat(exception.field).isEqualTo("templateModel.nodes.cond.props.condition.language")
@@ -106,7 +109,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             assertThat(exception.message).contains("JavaScript expressions are no longer supported")
 
             // The same document in JSONata is accepted: only the language is refused.
-            UpdateDraft(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata")).execute()
+            UpdateVariantContent(variantId = VariantId(VariantKey.INITIAL, templateId), templateModel = documentWithCondition("jsonata")).execute()
         }
     }
 
@@ -144,6 +147,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
+                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.FAILED)
@@ -162,9 +166,9 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(catalogKey, TenantId(source.id)))
             CreateDocumentTemplate(id = templateId, name = "JS Zip Template").execute().withRequiredDataExample()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateDraft(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-            ExportCatalogZip(tenantKey = source.id, catalogKey = catalogKey).execute().zipBytes
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
+            MarkVariantReady(variantId).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(source.id))).zipBytes
         }
 
         // A hand-edited archive: the publisher switched the expression to JavaScript.
@@ -177,13 +181,11 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             entries[name] = json.replace("\"language\":\"jsonata\"", "\"language\":\"javascript\"").toByteArray()
         }
 
-        val result = withMediator {
-            ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute()
-        }
-
-        val templateResult = result.results.single { it.type == "template" }
-        assertThat(templateResult.status).isEqualTo(InstallStatus.FAILED)
-        assertThat(templateResult.errorMessage).contains("JavaScript expressions are no longer supported")
+        // Installing a release is all or nothing: the template is refused, and so is the release.
+        assertThatThrownBy {
+            withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute() }
+        }.hasMessageContaining("JavaScript expressions are no longer supported")
+        assertThat(withMediator { GetCatalog(target.id, catalogKey).query() }).isNull()
     }
 
     @Test
@@ -193,7 +195,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val variantId = VariantId(VariantKey.INITIAL, templateId)
         withMediator {
             CreateDocumentTemplate(id = templateId, name = "JS Stored").execute()
-            UpdateDraft(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
+            UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
         }
 
         // Raw SQL on purpose: every command now refuses a JavaScript expression, and this is the
@@ -201,7 +203,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                UPDATE template_versions
+                UPDATE template_variants
                 SET template_model = jsonb_set(template_model, '{nodes,cond,props,condition,language}', '"javascript"')
                 WHERE tenant_key = :tenantKey AND template_model #> '{nodes,cond}' IS NOT NULL
                 """,
@@ -215,7 +217,6 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         assertThat(affected).singleElement().satisfies({ row ->
             assertThat(row["template"].toString()).isEqualTo(templateId.key.value)
             assertThat(row["variant"].toString()).isEqualTo(VariantKey.INITIAL.value)
-            assertThat(row["status"]).isEqualTo("draft")
         })
 
         // …the document still loads, so it can be opened and rewritten in JSONata…
@@ -248,7 +249,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         val read = CatalogArchiveReader.read(ByteArrayInputStream(rawZip(refreshed)))
         val archive = read.archive ?: return rawZip(refreshed)
-        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
+        val fingerprint = archive.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
         (manifest.get("release") as ObjectNode).put("fingerprint", fingerprint)
         refreshed["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
         return rawZip(refreshed)
@@ -269,12 +270,14 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
     companion object {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
-            SELECT t.tenant_key, t.catalog_key, t.id AS template, v.variant_key AS variant, v.id AS version, v.status
-            FROM template_versions v
+            SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
+            FROM template_variants v
             JOIN document_templates t
               ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+            JOIN catalogs c
+              ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')
-            ORDER BY 1, 2, 3, 4, 5
+            ORDER BY 1, 2, 3, 4
         """
     }
 }

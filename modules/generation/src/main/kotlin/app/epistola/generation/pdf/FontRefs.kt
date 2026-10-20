@@ -22,7 +22,8 @@ import app.epistola.catalog.protocol.FontRef
 object FontRefs {
     fun parse(value: Any?): FontRef? {
         val map = value as? Map<*, *> ?: return null
-        val slug = (map["slug"] as? String)?.takeIf { it.isNotBlank() } ?: return null
-        return FontRef(catalogKey = map["catalogKey"] as? String, slug = slug)
+        // Wire v8 calls the member `key`; content stored before it still says `slug`.
+        val key = ((map["key"] ?: map["slug"]) as? String)?.takeIf { it.isNotBlank() } ?: return null
+        return FontRef(catalogKey = map["catalogKey"] as? String, key = key)
     }
 }

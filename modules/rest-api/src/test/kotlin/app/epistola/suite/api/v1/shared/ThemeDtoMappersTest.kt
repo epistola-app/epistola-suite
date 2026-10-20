@@ -4,6 +4,7 @@
 
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.themes.BlockStylePresets
@@ -67,6 +68,7 @@ class ThemeDtoMappersTest {
             spacingUnit = 4f,
             createdAt = timestamp,
             updatedAt = timestamp,
+            catalogKey = CatalogKey.DEFAULT,
         )
 
         val dto = theme.toDto()

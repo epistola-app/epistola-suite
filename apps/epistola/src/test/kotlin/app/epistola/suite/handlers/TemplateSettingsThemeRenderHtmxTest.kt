@@ -70,7 +70,7 @@ class TemplateSettingsThemeRenderHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/$tenantKey/templates/default/$templateKey/settings",
+                "/tenants/$tenantKey/catalogs/default/templates/$templateKey/settings",
                 String::class.java,
             )
         }

@@ -5,10 +5,18 @@
 package app.epistola.suite.generation.release
 
 import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.CatalogVersionSelector
+import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.CatalogNotReleasedException
@@ -16,39 +24,154 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
+import app.epistola.suite.environments.DraftDeployment
+import app.epistola.suite.environments.DraftDeploymentStore
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.services.VariantCandidate
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /** What a generation request renders: a variant of a template, in one release. */
 data class ReleaseTarget(val release: ReleaseRef, val variantKey: VariantKey)
 
+/** A draft an environment serves, live ([app.epistola.suite.environments.DraftDeployment]). */
+data class DraftSource(val catalogKey: CatalogKey, val draftId: String, val label: String)
+
+/** What a catalog's requests through an environment render: a release, or a draft it follows. */
+sealed interface CatalogSelection {
+    data class Release(val version: String) : CatalogSelection
+
+    data class Draft(val source: DraftSource) : CatalogSelection
+}
+
+/**
+ * What a generation request renders: a variant of a template, in a release ([releaseVersion]) or in
+ * the draft its environment follows ([draft]); exactly one of them.
+ */
+data class GenerationTarget(
+    val variantKey: VariantKey,
+    val releaseVersion: String?,
+    val draft: DraftSource?,
+    /**
+     * The template's identity in what is rendered, recorded on the request: the next version may
+     * have dropped or moved the template since that release.
+     */
+    val templateResourceId: UUID? = null,
+)
+
+/** Refused: a release is asked of an environment that uses a draft of the catalog, which has none. */
+class EnvironmentUsesDraftException(val environmentKey: EnvironmentKey, val catalogKey: CatalogKey, val draftLabel: String) : RuntimeException("Environment '${environmentKey.value}' uses '$draftLabel' of ${catalogKey.value}, which is not a release")
+
 /**
  * Decides which release and variant a generation or preview request renders.
  *
- * The release is the one the request's environment serves for the catalog, or, without an
- * environment, the catalog's latest release that kept its content. The variant is chosen from the
- * variants **that release** holds, by the same rule as always — explicit, then attribute selection,
- * then the default — so a variant added to the working copy since the release is not offered, and
- * one removed since still is.
+ * The release is chosen among candidates: the releases of the catalog the request's environment
+ * serves, or, without an environment, every release of the catalog that kept its content. The
+ * request's version selector (npm range grammar, contract "Version selectors") picks the highest
+ * candidate that satisfies it; without one, the highest candidate is rendered. The variant is
+ * chosen from the variants **that release** holds, by the same rule as always — explicit, then
+ * attribute selection, then the default — so a variant added to the working copy since the release
+ * is not offered, and one removed since still is.
+ *
+ * An environment serving a draft of the catalog ([app.epistola.suite.environments.DraftDeployment])
+ * renders it, live, for every request through it that names no version; a request naming a range or
+ * a number gets a release, as a draft never matches one (contract ADR 0003, [select], [resolveForGeneration]).
  */
 @Component
 class ReleaseTargetResolver(
     private val jdbi: Jdbi,
     private val renderSource: ReleaseRenderSource,
-    private val entryStore: ReleaseEntryStore,
     private val variantResolver: VariantResolver,
+    private val mediator: Mediator,
 ) {
 
     /**
-     * The release a request renders: the one it names, else the one its environment serves, else the
-     * catalog's latest. Naming both a release and an environment is refused by the request itself.
+     * What a request for [catalogKey] renders: the draft [environmentKey] serves when [versionSelector]
+     * names no version, else the release [selectRelease] picks.
+     */
+    fun select(tenantKey: TenantKey, catalogKey: CatalogKey, environmentKey: EnvironmentKey?, versionSelector: String?): CatalogSelection {
+        val selector = versionSelector?.trim()?.ifEmpty { null }
+        if (environmentKey != null && selector == null) {
+            val draft = jdbi.withHandle<DraftDeployment?, Exception> { DraftDeploymentStore.list(it, tenantKey, environmentKey, catalogKey).singleOrNull() }
+            if (draft != null) return CatalogSelection.Draft(DraftSource(catalogKey, draft.draftId, draft.draftLabel))
+        }
+        return CatalogSelection.Release(highestCandidate(tenantKey, catalogKey, environmentKey, selector))
+    }
+
+    /** [resolve] for generation, which also renders the draft an environment follows. */
+    fun resolveForGeneration(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        templateKey: TemplateKey,
+        variantKey: VariantKey?,
+        criteria: VariantSelectionCriteria?,
+        environmentKey: EnvironmentKey?,
+        versionSelector: String?,
+    ): GenerationTarget = resolveIn(tenantKey, catalogKey, select(tenantKey, catalogKey, environmentKey, versionSelector), templateKey, variantKey, criteria)
+
+    /** The variant a request renders in [selection], for a selection already made. */
+    fun resolveIn(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        selection: CatalogSelection,
+        templateKey: TemplateKey,
+        variantKey: VariantKey?,
+        criteria: VariantSelectionCriteria?,
+    ): GenerationTarget = when (selection) {
+        is CatalogSelection.Release -> ReleaseRef(catalogKey, selection.version).let { release ->
+            GenerationTarget(
+                resolveIn(tenantKey, release, templateKey, variantKey, criteria).variantKey,
+                releaseVersion = selection.version,
+                draft = null,
+                templateResourceId = renderSource.templateResourceId(tenantKey, release, templateKey.value),
+            )
+        }
+
+        is CatalogSelection.Draft -> GenerationTarget(
+            resolveInDraft(tenantKey, selection.source, templateKey, variantKey, criteria),
+            releaseVersion = null,
+            draft = selection.source,
+            templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT t.resource_id FROM document_templates t
+                    JOIN catalog_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id
+                    WHERE t.tenant_key = :t AND v.version_key = :v AND v.catalog_id = ${catalogAt("t", "c")} AND t.id = :template
+                    """,
+                )
+                    .bind("t", tenantKey)
+                    .bind("c", selection.source.catalogKey)
+                    .bind("v", selection.source.draftId)
+                    .bind("template", templateKey)
+                    .mapTo(UUID::class.java)
+                    .findOne()
+                    .orElse(null)
+            },
+        )
+    }
+
+    /** The variant chosen among those [draft] holds now, by the same rule as for a release. */
+    private fun resolveInDraft(tenantKey: TenantKey, draft: DraftSource, templateKey: TemplateKey, variantKey: VariantKey?, criteria: VariantSelectionCriteria?): VariantKey {
+        val templateId = TemplateId(templateKey, CatalogId(draft.catalogKey, TenantId(tenantKey)))
+        val summaries = mediator.query(GetVariantSummaries(templateId, CatalogVersionRef(tenantKey, draft.catalogKey, DraftRef.Id(draft.draftId))))
+        fun missing(variant: VariantKey?) = TemplateNotInReleaseException(tenantKey, draft.catalogKey, draft.label, templateKey, variant, draftLabel = draft.label)
+        val candidates = summaries.map { VariantCandidate(it.id, it.attributes, it.isDefault) }
+        return when {
+            variantKey != null -> candidates.firstOrNull { it.id == variantKey }?.id ?: throw missing(variantKey)
+            criteria != null -> variantResolver.select(templateKey, candidates, criteria)
+            else -> (candidates.firstOrNull { it.isDefault } ?: candidates.firstOrNull())?.id ?: throw missing(null)
+        }
+    }
+
+    /**
+     * The release and variant a request renders: [selectRelease], then the variant within it.
      *
-     * @throws ReleaseNotFoundException when the named release does not exist or kept no content
-     * @throws NoReleaseDeployedException when the environment serves no release of the catalog
-     * @throws CatalogNotReleasedException when neither is given and the catalog was never released
+     * @throws TemplateNotInReleaseException when the release lacks the template, or the explicit variant
      */
     fun resolve(
         tenantKey: TenantKey,
@@ -57,26 +180,87 @@ class ReleaseTargetResolver(
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
         environmentKey: EnvironmentKey?,
-        releaseVersion: String?,
-    ): ReleaseTarget = when {
-        releaseVersion != null -> resolveIn(tenantKey, ReleaseRef(catalogKey, namedRelease(tenantKey, catalogKey, releaseVersion)), templateKey, variantKey, criteria)
-        environmentKey != null -> resolveDeployed(tenantKey, environmentKey, catalogKey, templateKey, variantKey, criteria)
-        else -> resolveLatest(tenantKey, catalogKey, templateKey, variantKey, criteria)
+        versionSelector: String?,
+    ): ReleaseTarget = resolveIn(
+        tenantKey,
+        ReleaseRef(catalogKey, selectRelease(tenantKey, catalogKey, environmentKey, versionSelector)),
+        templateKey,
+        variantKey,
+        criteria,
+    )
+
+    /**
+     * The release of [catalogKey] a request renders: the highest candidate satisfying
+     * [versionSelector], or the highest candidate without one. The candidates are the releases
+     * [environmentKey] serves, or without it every release of the catalog that kept its content.
+     *
+     * A selector that names a candidate exactly picks it, so an exact version keeps working for a
+     * release whose number is not SemVer (a label from before 2.0); otherwise the selector is an npm
+     * range evaluated as [CatalogVersionSelector] does. Highest is SemVer precedence for a range and
+     * the catalog's release order ([LATEST_RELEASE_ORDER]) without a selector; they agree for every
+     * `MAJOR.MINOR.PATCH` release.
+     *
+     * @throws EnvironmentNotFoundException when the environment does not exist
+     * @throws NoReleaseDeployedException when the environment serves no release of the catalog, or none satisfying the selector
+     * @throws ReleaseNotFoundException when, without an environment, no release that kept its content satisfies the selector
+     * @throws CatalogNotReleasedException when, without either, the catalog has no release that kept its content
+     * @throws ValidationException when the selector names no candidate and is not a version selector
+     * @throws EnvironmentUsesDraftException when the environment serves a draft, which a request naming no version renders
+     */
+    fun selectRelease(tenantKey: TenantKey, catalogKey: CatalogKey, environmentKey: EnvironmentKey?, versionSelector: String?): String = when (val selection = select(tenantKey, catalogKey, environmentKey, versionSelector)) {
+        is CatalogSelection.Release -> selection.version
+        is CatalogSelection.Draft -> throw EnvironmentUsesDraftException(environmentKey!!, catalogKey, selection.source.label)
     }
 
-    /** [releaseVersion], when the catalog has that release and it kept its content. */
-    fun namedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, releaseVersion: String): String {
-        val retained = jdbi.withHandle<Boolean?, Exception> { handle ->
-            handle.createQuery("SELECT content_retained FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v")
+    private fun highestCandidate(tenantKey: TenantKey, catalogKey: CatalogKey, environmentKey: EnvironmentKey?, selector: String?): String {
+        val chosen = jdbi.withHandle<String?, Exception> { handle ->
+            if (environmentKey != null) {
+                val environmentExists = handle.createQuery("SELECT EXISTS (SELECT 1 FROM environments WHERE tenant_key = :t AND id = :e)")
+                    .bind("t", tenantKey)
+                    .bind("e", environmentKey)
+                    .mapTo(Boolean::class.java)
+                    .one()
+                if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, environmentKey)
+            }
+            fun candidates(condition: String, limit: String = "") = handle.createQuery(
+                if (environmentKey != null) {
+                    """
+                    SELECT r.version FROM environment_catalog_deployments d
+                    JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
+                    WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")} $condition
+                    $LATEST_RELEASE_ORDER $limit
+                    """
+                } else {
+                    """
+                    SELECT r.version FROM catalog_releases r
+                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} $condition
+                    $LATEST_RELEASE_ORDER $limit
+                    """
+                },
+            )
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
-                .bind("v", releaseVersion)
-                .mapTo(Boolean::class.java)
-                .findOne()
-                .orElse(null)
+                .apply { if (environmentKey != null) bind("e", environmentKey) }
+                .apply { if (":v" in condition) bind("v", selector) }
+                .mapTo(String::class.java)
+                .list()
+
+            when {
+                selector == null -> candidates("", "LIMIT 1").firstOrNull()
+
+                else -> candidates("AND r.version = :v").firstOrNull() ?: run {
+                    val range = CatalogVersionSelector.parseOrNull(selector)
+                        ?: throw ValidationException("version", "'$selector' is not a version selector: give a release version such as 1.4.0, or a range such as ^1.4.0")
+                    // A range is evaluated here, not in SQL; the candidates are one column per release.
+                    range.highestMatch(candidates(""))
+                }
+            }
         }
-        if (retained != true) throw ReleaseNotFoundException(tenantKey, catalogKey, releaseVersion)
-        return releaseVersion
+        return chosen ?: when {
+            environmentKey != null -> throw NoReleaseDeployedException(tenantKey, environmentKey, catalogKey, selector)
+            selector != null -> throw ReleaseNotFoundException(tenantKey, catalogKey, selector)
+            else -> throw CatalogNotReleasedException(tenantKey, catalogKey)
+        }
     }
 
     /**
@@ -89,15 +273,10 @@ class ReleaseTargetResolver(
         templateKey: TemplateKey,
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
-    ): ReleaseTarget {
-        val version = jdbi.withHandle<String?, Exception> { handle ->
-            entryStore.latestRetainedRelease(handle, tenantKey, catalogKey)
-        } ?: throw CatalogNotReleasedException(tenantKey, catalogKey)
-        return resolveIn(tenantKey, ReleaseRef(catalogKey, version), templateKey, variantKey, criteria)
-    }
+    ): ReleaseTarget = resolve(tenantKey, catalogKey, templateKey, variantKey, criteria, environmentKey = null, versionSelector = null)
 
     /**
-     * The release [environmentKey] serves for [catalogKey], and the variant within it.
+     * The highest release [environmentKey] serves for [catalogKey], and the variant within it.
      *
      * @throws EnvironmentNotFoundException when the environment does not exist
      * @throws NoReleaseDeployedException when it serves no release of the catalog
@@ -109,37 +288,7 @@ class ReleaseTargetResolver(
         templateKey: TemplateKey,
         variantKey: VariantKey?,
         criteria: VariantSelectionCriteria?,
-    ): ReleaseTarget = resolveIn(
-        tenantKey,
-        ReleaseRef(catalogKey, deployedRelease(tenantKey, environmentKey, catalogKey)),
-        templateKey,
-        variantKey,
-        criteria,
-    )
-
-    /**
-     * The version of [catalogKey] that [environmentKey] serves.
-     *
-     * @throws EnvironmentNotFoundException when the environment does not exist
-     * @throws NoReleaseDeployedException when it serves no release of the catalog
-     */
-    fun deployedRelease(tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey): String = jdbi.withHandle<String?, Exception> { handle ->
-        val environmentExists = handle.createQuery("SELECT EXISTS (SELECT 1 FROM environments WHERE tenant_key = :t AND id = :e)")
-            .bind("t", tenantKey)
-            .bind("e", environmentKey)
-            .mapTo(Boolean::class.java)
-            .one()
-        if (!environmentExists) throw EnvironmentNotFoundException(tenantKey, environmentKey)
-        handle.createQuery(
-            "SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c",
-        )
-            .bind("t", tenantKey)
-            .bind("e", environmentKey)
-            .bind("c", catalogKey)
-            .mapTo(String::class.java)
-            .findOne()
-            .orElse(null)
-    } ?: throw NoReleaseDeployedException(tenantKey, environmentKey, catalogKey)
+    ): ReleaseTarget = resolve(tenantKey, catalogKey, templateKey, variantKey, criteria, environmentKey, versionSelector = null)
 
     /** As [resolveLatest], for a release already chosen. */
     fun resolveIn(
@@ -151,7 +300,7 @@ class ReleaseTargetResolver(
     ): ReleaseTarget {
         val template = renderSource.template(tenantKey, release, templateKey.value)
             ?: throw TemplateNotInReleaseException(tenantKey, release.catalogKey, release.version, templateKey, variantId = null)
-        val candidates = template.variants.map { VariantCandidate(VariantKey.of(it.slug), it.attributes.orEmpty(), it.isDefault) }
+        val candidates = template.variants.map { VariantCandidate(VariantKey.of(it.key), it.attributes.orEmpty(), it.isDefault) }
 
         val chosen = when {
             variantKey != null -> candidates.firstOrNull { it.id == variantKey }?.id

@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "hello-world",
+    "key": "hello-world",
     "name": "Hello World",
     "pdfaEnabled": false,
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -25,6 +25,7 @@
     },
     "dataExamples": [
       {
+        "key": "default",
         "name": "Default",
         "data": {
           "companyName": "Globex Corporation",
@@ -52,9 +53,8 @@
           "type": "stencil",
           "slots": [],
           "props": {
-            "stencilId": "company-header",
+            "stencilKey": "company-header",
             "catalogKey": "epistola-demo",
-            "version": 2,
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"
@@ -151,7 +151,7 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       }
     ]
   }

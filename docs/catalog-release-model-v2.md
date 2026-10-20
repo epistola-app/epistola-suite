@@ -49,9 +49,10 @@ per-template deployment matrix in the UI, and the permissions `TEMPLATE_PUBLISH`
 
 - **Generation renders releases** (WP1, first slice): requests without an environment bind to the
   catalog's latest release when accepted; a resource from another catalog renders from the release
-  of that catalog the environment deploys, else from its latest release (pins were dropped on 13
-  October 2026, see the revised order below); preview renders the latest release or, on request,
-  the working copy.
+  of that catalog the release pinned (pins were dropped on 13 October 2026 and came back on 17
+  October with declared dependencies, contract ADR 0003; see
+  [catalog versioning](catalog-versioning.md#declared-dependencies)); preview renders the latest
+  release or, on request, the working copy.
 - **Environments deploy catalog releases** (WP5): one release per environment and catalog, deployed
   from the catalog page; generation and preview by environment bind the deployed release at
   acceptance. Activations are removed from the code; their table stays unread (D1). Load tests render
@@ -69,7 +70,7 @@ per-template deployment matrix in the UI, and the permissions `TEMPLATE_PUBLISH`
 | Revision        | no      | Immutable content of one resource, or one part of one, keyed by digest. Internal.                        |
 | Release         | no      | A catalog at a semver version: one revision per resource, plus manifest metadata. The version.           |
 | Deployment      | yes     | `(environment, catalog) → release`, or `→ working copy` for testing. Replaces activations.               |
-| Pin             | yes     | `(catalog, dependency catalog) → release`. Post-major; see §11.                                          |
+| Pin             | yes     | `(catalog, dependency catalog) → release`: a declaration's lock, recorded per release. Since 17 October. |
 | Installed cache | derived | For a subscribed or system catalog, the live tables mirror one installed release and are rebuildable.    |
 
 ### 3.2 How a resource is reached
@@ -344,7 +345,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 - **Permissions:** `TEMPLATE_PUBLISH` and `STENCIL_PUBLISH` retire; `CATALOG_RELEASE` (cut a
   release) and a deployment permission arrive; `CATALOG_PUBLISH` keeps meaning "send to Exchange".
   `CONTENT_PUBLISHER` maps to the new ones. Identity-provider role names do not change.
-- **Toggles:** `catalog-context` graduates. `resource-relocation` stays alpha; the crude move loses
+- **Toggles:** `catalog-context` graduates (done 17 October: retired; the version bar is always shown, docs/catalog-workspace-navigation.md). `resource-relocation` stays alpha; the crude move loses
   its version pins and keeps working on the working copy only.
 - **Guards:** `AuthorizationCoverageTest`, `MediatorWiringTest`, `KnownFeaturesTest`, the fingerprint
   tests, the drift ratchet and `checkMigrationVersions` are updated with the code they guard.

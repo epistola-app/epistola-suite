@@ -8,35 +8,32 @@
  * Companion to `node-types.ts` in the placeholder folder. Pattern:
  *
  *   if (isStencil(node)) {
- *     // node.props.stencilId is typed as string | null
- *     // node.props.draftVersion is typed as number | undefined
+ *     // node.props.stencilKey is typed as string | null
  *   }
  *
- *   const sid = stencilId(node);     // string | null | undefined
- *   const isPub = isPublishedStencil(node);  // narrows to a stencil whose
- *                                            // stencilId is non-null and
- *                                            // draftVersion is absent
+ *   const ref = stencilRefOf(node, 'my-catalog'); // { stencilKey, catalogKey } | null
  *
- * The runtime layout is enforced by the server-side `PlaceholderValidator`
- * and by the JSON Schema; these types are a TypeScript contract over that.
+ * The runtime layout is enforced by the server-side validator and by the
+ * contract's JSON Schema; these types are a TypeScript contract over that.
  */
 
 import type { JsonSchema } from '../../data-contract/types.js';
 import type { Node } from '../../types/index.js';
 import { STENCIL_TYPE } from './constants.js';
+import type { StencilRef } from './types.js';
 
 /**
- * Strongly-typed props for stencil nodes.
+ * Strongly-typed props for stencil nodes (wire v8: an instance names its
+ * stencil, it pins no version).
  *
- * `stencilId` and `catalogKey` are nullable because a stencil node can be
- * "unlinked" — present in the document but not yet published. `version` is
- * the published-version number, also null when unlinked.
+ * `stencilKey` is nullable because a stencil node can be unlinked: present
+ * in the document without a stencil behind it (inserted without stencil
+ * callbacks).
  */
 export interface StencilProps {
-  stencilId: string | null;
-  catalogKey: string | null;
-  version?: number | null;
-  draftVersion?: number | null;
+  stencilKey: string | null;
+  /** The stencil's catalog; absent or null means the referencing document's own catalog. */
+  catalogKey?: string | null;
   /**
    * Map of `paramName → JSONata expression`. Each entry binds one parameter
    * declared in `parameterSchemaSnapshot` to an expression evaluated at
@@ -45,17 +42,16 @@ export interface StencilProps {
    */
   parameterBindings?: Record<string, string>;
   /**
-   * Snapshot of the stencil version's parameter schema, copied here at
-   * insert/upgrade time. Stencils are dynamic components — each version has
-   * its own schema — so the schema cannot live in a static component
-   * definition; the snapshot keeps it accessible to the renderer / editor
-   * scope provider without a DB lookup.
+   * The stencil's parameter schema, set while the instance is expanded (by
+   * the server when it loads the template, by the editor when it inserts or
+   * refreshes the instance). Never stored with the template.
    */
   parameterSchemaSnapshot?: JsonSchema;
+  /** Set while expanded when the stencil reads the using template's data. Never stored. */
+  readsTemplateData?: boolean;
   /**
    * Optional namespace alias under which this stencil's parameters are
-   * exposed inside its content. Defaults to `'params'`. Configurable per
-   * instance so nested parametrised nodes don't shadow each other's scopes.
+   * exposed inside its content. Defaults to `'params'`.
    */
   paramsAlias?: string;
 }
@@ -66,47 +62,37 @@ export type StencilNode = Node & {
   readonly props: StencilProps;
 };
 
-/** Branded view of a published stencil with no mutable draft provenance. */
-export type PublishedStencilNode = StencilNode & {
-  readonly props: StencilProps & { stencilId: string; version: number; draftVersion?: null };
-};
-
 /** Type guard: narrows `Node` to `StencilNode` when `node.type === 'stencil'`. */
 export function isStencil(node: Node | undefined): node is StencilNode {
   return node?.type === STENCIL_TYPE;
 }
 
+/** True for a stencil node that names a stencil. */
+export function isLinkedStencil(node: Node | undefined): node is StencilNode {
+  return isStencil(node) && typeof node.props?.stencilKey === 'string' && !!node.props.stencilKey;
+}
+
+/** Read the stencil's key. Returns undefined when not a stencil. */
+export function stencilKey(node: Node | undefined): string | null | undefined {
+  if (!isStencil(node)) return undefined;
+  return node.props?.stencilKey ?? null;
+}
+
 /**
- * True for a stencil that is linked to a published definition AND not in
- * draft mode — i.e. its content is frozen.
+ * The stencil an instance names, with an absent catalog resolved to
+ * [contextCatalogKey] (the catalog of the document it is written in).
+ * Null for an unlinked stencil, or a non-stencil node.
  */
-export function isPublishedStencil(node: Node | undefined): node is PublishedStencilNode {
-  if (!isStencil(node)) return false;
-  return (
-    node.props.stencilId != null && node.props.version != null && node.props.draftVersion == null
-  );
+export function stencilRefOf(
+  node: Node | undefined,
+  contextCatalogKey?: string,
+): StencilRef | null {
+  if (!isLinkedStencil(node)) return null;
+  const catalogKey = node.props.catalogKey || contextCatalogKey || '';
+  return { stencilKey: node.props.stencilKey!, catalogKey };
 }
 
-/** Read the stencil's ID. Returns undefined when not a stencil. */
-export function stencilId(node: Node | undefined): string | null | undefined {
-  if (!isStencil(node)) return undefined;
-  return node.props.stencilId;
-}
-
-/** Read the stencil's catalog key. Returns undefined when not a stencil. */
-export function stencilCatalogKey(node: Node | undefined): string | null | undefined {
-  if (!isStencil(node)) return undefined;
-  return node.props.catalogKey;
-}
-
-/** Read the stencil's version. Returns undefined when not a stencil. */
-export function stencilVersion(node: Node | undefined): number | null | undefined {
-  if (!isStencil(node)) return undefined;
-  return node.props.version;
-}
-
-/** Read the stencil's exact draft version. Returns undefined when not a stencil. */
-export function stencilDraftVersion(node: Node | undefined): number | null | undefined {
-  if (!isStencil(node)) return undefined;
-  return node.props.draftVersion;
+/** One string per stencil, for sets and maps: `{catalogKey}/{stencilKey}`. */
+export function stencilIdentity(ref: StencilRef): string {
+  return `${ref.catalogKey}/${ref.stencilKey}`;
 }

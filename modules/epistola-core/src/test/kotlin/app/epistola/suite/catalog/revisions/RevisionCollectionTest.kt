@@ -7,11 +7,12 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
-import app.epistola.suite.catalog.commands.ForgetReleaseContent
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -26,12 +27,12 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -46,8 +47,8 @@ import org.springframework.beans.factory.annotation.Autowired
  * Nothing deleted a revision. Not a sweep, not a command, not a cascade short of dropping the whole
  * tenant — so content accumulated for the life of an installation, and `revision_binaries` went on
  * holding the bytes it named against the content sweep. Two moments make a revision unreachable:
- * forgetting one release's content, and deleting a catalog, whose releases cascade away with it.
- * Both now collect, and these tests are what say so.
+ * deleting a release, and deleting a catalog, whose releases cascade away with it. Both collect, and
+ * these tests are what say so.
  *
  * The case that makes it more than a `DELETE` is a template: its revision names its models by
  * reference, so a model is reachable only through its parent. Collecting what no release entry names
@@ -59,48 +60,23 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Test
-    fun `forgetting a release drops its content and keeps the release`() {
+    fun `deleting a release collects its content`() {
         val tenant = createTenant("Forget Content")
         val key = CatalogKey.of("forget-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Forget cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0", notes = "first").execute()
 
             assertThat(revisionCount(tenant.id)).`as`("released content is retained").isGreaterThan(0)
 
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute()).isTrue()
+            assertThat(DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()).isTrue()
 
             assertThat(revisionCount(tenant.id)).`as`("and collected once nothing reaches it").isZero()
             assertThat(entryCount(tenant.id)).isZero()
         }
-
-        // The release itself survives, which is the whole point: the history and the fingerprint
-        // stay as the evidence of what that version was, for whoever installed it.
-        val release = releaseRow(tenant.id.value, "forget-cat", "1.0.0")
-        assertThat(release).`as`("the release row is still there").isNotNull()
-        assertThat(release!!["content_retained"]).isEqualTo(false)
-        assertThat(release["notes"]).isEqualTo("first")
-        assertThat(release["fingerprint"] as String).isNotBlank()
-    }
-
-    @Test
-    fun `forgetting is honest about having nothing to forget`() {
-        val tenant = createTenant("Forget Twice")
-        val key = CatalogKey.of("twice-cat")
-        withMediator {
-            CreateCatalog(tenantKey = tenant.id, id = key, name = "Twice cat").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
-
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute()).isTrue()
-            assertThat(ForgetReleaseContent(tenant.id, key, "1.0.0").execute())
-                .`as`("a second click collected nothing, and says so")
-                .isFalse()
-            assertThat(ForgetReleaseContent(tenant.id, key, "9.9.9").execute())
-                .`as`("a version that was never released")
-                .isFalse()
-        }
+        assertThat(releaseRow(tenant.id.value, "forget-cat", "1.0.0")).`as`("the release is gone with it").isNull()
     }
 
     /**
@@ -110,7 +86,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
      * and a round-trip test of the *other* release would still pass, because it has its own.
      */
     @Test
-    fun `a release that keeps its content keeps the models its templates reference`() {
+    fun `a release that is kept keeps the models its templates reference`() {
         val tenant = createTenant("Forget Shared")
         val key = CatalogKey.of("shared-cat")
         val catalog = CatalogId(key, TenantId(tenant.id))
@@ -119,15 +95,17 @@ class RevisionCollectionTest : IntegrationTestBase() {
             // Published, not merely created: a release takes published versions only, so a draft
             // template carries no model and would write no model revision to reason about.
             publishTemplate(TemplateId(TemplateKey.of("invoice"), catalog))
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             publishTemplate(TemplateId(TemplateKey.of("letter"), catalog))
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.1.0").execute()
 
             val models = revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND)
             assertThat(models).`as`("a template's model is a revision of its own").isGreaterThan(0)
 
-            ForgetReleaseContent(tenant.id, key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
 
             assertThat(revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND))
                 .`as`("1.1.0 still holds the invoice, so its model is still reachable")
@@ -153,11 +131,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Doomed cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             assertThat(revisionCount(tenant.id)).isGreaterThan(0)
 
-            UnregisterCatalog(tenantKey = tenant.id, catalogKey = key).execute()
+            DeleteCatalog(tenantKey = tenant.id, catalogKey = key).execute()
 
             assertThat(revisionCount(tenant.id))
                 .`as`("the catalog's content went with it, instead of outliving it unreachably")
@@ -169,11 +148,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
     /**
      * What the reclaim is actually for. A release holds an image's bytes through
      * `revision_binaries`, which is what stops the content sweep taking them when the asset is
-     * deleted from the working copy. Forgetting the release releases that hold, so the bytes become
+     * deleted from the working copy. Deleting the release releases that hold, so the bytes become
      * collectable — the sweep itself still owns when.
      */
     @Test
-    fun `forgetting a release releases the hold on the bytes it kept`() {
+    fun `deleting a release releases the hold on the bytes it kept`() {
         val tenant = createTenant("Forget Blobs")
         val key = CatalogKey.of("blob-cat")
         withMediator {
@@ -187,6 +166,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 height = 1,
                 catalogKey = key,
             ).execute().id
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
             DeleteAsset(tenant.id, asset).execute()
 
@@ -194,7 +174,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 .`as`("only the release holds those bytes now")
                 .isGreaterThan(0)
 
-            ForgetReleaseContent(tenant.id, key, "1.0.0").execute()
+            DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
 
             assertThat(binaryCount(tenant.id))
                 .`as`("nothing holds them any more, so the sweep may take them")
@@ -217,8 +197,10 @@ class RevisionCollectionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Latest cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.1.0").execute()
 
             assertThat(pointer(tenant.id.value, "latest-cat")["released_version"]).isEqualTo("1.1.0")
@@ -241,8 +223,10 @@ class RevisionCollectionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Older cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.1.0").execute()
 
             DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
@@ -260,6 +244,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Only cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
             ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
 
             DeleteCatalogRelease(tenant.id, key, "1.0.0").execute()
@@ -279,7 +264,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun publishTemplate(templateId: TemplateId) {
         val variant = VariantId(VariantKey.INITIAL, templateId)
         CreateDocumentTemplate(templateId, templateId.key.value).execute().withRequiredDataExample()
-        UpdateDraft(
+        UpdateVariantContent(
             variant,
             TemplateDocument(
                 modelVersion = 1,
@@ -289,7 +274,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 themeRef = ThemeRef.Inherit,
             ),
         ).execute()
-        PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+        MarkVariantReady(variant).execute()
     }
 
     /**
@@ -298,7 +283,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
      */
     private fun pointer(tenantKey: String, catalogKey: String): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { handle ->
         handle.createQuery(
-            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND id = :c",
+            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND catalog_key = :c",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ ->
@@ -313,7 +298,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     private fun releaseFingerprint(tenantKey: String, catalogKey: String, version: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
             .mapTo(String::class.java)
@@ -324,7 +309,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') AND (:kind IS NULL OR kind = :kind)",
+            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND (:kind IS NULL OR kind = :kind)",
         )
             .bind("t", tenantKey)
             .bind("kind", kind)
@@ -333,12 +318,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     private fun entryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_key <> 'system'")
+        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id <> (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
     private fun binaryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system')")
+        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
@@ -349,14 +334,13 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun releaseRow(tenantKey: String, catalogKey: String, version: String): Map<String, Any?>? = jdbi.withHandle<Map<String, Any?>?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT content_retained, notes, fingerprint FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+                SELECT notes, fingerprint FROM catalog_releases
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
             .map { rs, _ ->
                 mapOf(
-                    "content_retained" to rs.getBoolean("content_retained"),
                     "notes" to rs.getString("notes"),
                     "fingerprint" to rs.getString("fingerprint"),
                 )
@@ -368,7 +352,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private class ReleaseEntryStoreProbe(private val jdbi: Jdbi) {
         fun entryCount(tenantKey: TenantKey, catalogKey: String, version: String): Int = jdbi.withHandle<Int, Exception> { handle ->
             handle.createQuery(
-                "SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_key = :c AND version = :v",
+                "SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
             )
                 .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
                 .mapTo(Int::class.java)

@@ -7,10 +7,15 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -51,7 +56,10 @@ data class UploadAsset(
     val id: AssetKey? = null,
     /** When true, the blob is stored in a per-tenant isolated dedup scope (see #738/#751). */
     val sensitive: Boolean = false,
-) : Command<Asset>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Asset>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey get() = tenantId
@@ -66,6 +74,8 @@ data class UploadAsset(
         }
         // An SVG must be self-contained and inert before it is stored (see SvgContentPolicy).
         SvgContentPolicy.requireSafe(mediaType, content)
+        // A raster image must not declare more pixels than a render can decode.
+        ImagePixelPolicy.requireReasonable(mediaType, content)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -118,8 +128,8 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
+                INSERT INTO assets (id, tenant_key, catalog_id, version_id, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
                 """,
             )
                 .bind("id", id.value)

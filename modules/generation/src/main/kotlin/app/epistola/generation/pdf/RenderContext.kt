@@ -55,6 +55,17 @@ data class RenderContext(
      */
     val parameterScopes: Map<String, Map<String, Any?>> = emptyMap(),
     /**
+     * The expression scope a placeholder's **fill** renders in: the scope of the place the fill was
+     * written, which is outside the stencil that owns the placeholder. Set by [StencilNodeRenderer]
+     * on entering a stencil; null outside any stencil.
+     */
+    val fillScope: ExpressionScope? = null,
+    /**
+     * The parameters of the stencil this content belongs to, as evaluated at its instance; what a
+     * placeholder that passes parameters hands to its fill. Null outside any stencil.
+     */
+    val stencilParameters: Map<String, Any?>? = null,
+    /**
      * Pluggable schema lookup for parametrised nodes. Returns the JSON Schema
      * (as a JSON-structured `Map<String, Any?>`) describing the node's
      * parameters, or null if the node has none. Production wiring delegates to
@@ -74,11 +85,12 @@ data class RenderContext(
      */
     val bookmarkCollector: MutableList<BookmarkEntry> = mutableListOf(),
     /**
-     * Stencil IDs of every stencil node we are currently inside. Pushed by
-     * [StencilNodeRenderer] when entering a stencil. A duplicate is the
-     * defence-in-depth recursion catch; the editor and server-side validator
-     * already reject documents that would recurse, so this should never trigger
-     * in normal flow.
+     * Stencil IDs of every stencil node we are lexically inside. Pushed by
+     * [StencilNodeRenderer] when entering a stencil, and restored to the outer
+     * stencils inside a fill, which is written outside the stencil it fills. A
+     * duplicate is the defence-in-depth recursion catch; publishing already
+     * refuses stencils that contain themselves, so this should never trigger in
+     * normal flow.
      */
     val ancestorStencilIds: Set<String> = emptySet(),
     /** Number of stencil nodes currently in the ancestor chain. */
@@ -124,6 +136,23 @@ data class RenderContext(
         return if (resolved === inheritedStyles) this else copy(inheritedStyles = resolved)
     }
 
+    /** The part of this context expressions see. */
+    fun expressionScope(): ExpressionScope = ExpressionScope(data, loopContext, parameterScopes, fillScope, stencilParameters, ancestorStencilIds, stencilNestingDepth)
+
+    /**
+     * This context, with expressions seeing [scope] instead. Everything else — styles, fonts, page
+     * state — stays, because a fill renders where it sits even though it reads where it was written.
+     */
+    fun withExpressionScope(scope: ExpressionScope): RenderContext = copy(
+        data = scope.data,
+        loopContext = scope.loopContext,
+        parameterScopes = scope.parameterScopes,
+        fillScope = scope.fillScope,
+        stencilParameters = scope.stencilParameters,
+        ancestorStencilIds = scope.ancestorStencilIds,
+        stencilNestingDepth = scope.stencilNestingDepth,
+    )
+
     /**
      * Data map with engine-provided scopes merged in. System parameters live
      * under `sys.*`; each named entry in [parameterScopes] (default alias
@@ -166,3 +195,22 @@ data class RenderContext(
         systemParams = systemParams + SystemParameterRegistry.buildNestedMap(mapOf("pages.total" to totalPages)),
     )
 }
+
+/**
+ * What one place in a document lexically sees: its data, loop variables and parameter scopes, and the
+ * stencils it is written inside. A fill is written outside the stencil that owns its placeholder, so
+ * it sees neither that stencil's scope nor that stencil as an ancestor (contract ADR 0006).
+ */
+data class ExpressionScope(
+    val data: Map<String, Any?>,
+    val loopContext: Map<String, Any?>,
+    val parameterScopes: Map<String, Map<String, Any?>>,
+    /** The scope fills of the stencil this scope is inside render in; see [RenderContext.fillScope]. */
+    val fillScope: ExpressionScope?,
+    /** See [RenderContext.stencilParameters]. */
+    val stencilParameters: Map<String, Any?>?,
+    /** See [RenderContext.ancestorStencilIds]. */
+    val ancestorStencilIds: Set<String> = emptySet(),
+    /** See [RenderContext.stencilNestingDepth]. */
+    val stencilNestingDepth: Int = 0,
+)

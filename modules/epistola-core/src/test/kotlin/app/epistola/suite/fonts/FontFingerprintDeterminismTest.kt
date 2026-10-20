@@ -27,12 +27,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.queries.versions.GetDraft
-import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.releaseNext
@@ -171,7 +169,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("brand-theme"), catalogId),
                 name = "Brand Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "brand-sans", "catalogKey" to "default"),
+                    "fontFamily" to mapOf("key" to "brand-sans", "catalogKey" to "default"),
                 ),
             ).execute()
 
@@ -185,8 +183,8 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             ).execute()
 
             val variantId = VariantId(VariantKey.INITIAL, templateId)
-            UpdateDraft(variantId = variantId, templateModel = templateModel()).execute()
-            UpdateContractVersion(
+            UpdateVariantContent(variantId = variantId, templateModel = templateModel()).execute()
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readValue(
                     """
@@ -201,11 +199,8 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            // 3. Publish — the snapshot pins the brand-sans family fingerprint.
-            val draft = GetDraft(variantId).query()!!
-            val published = PublishVersion(VersionId(draft.id, variantId)).execute()!!
-            assertThat(published.resolvedTheme).isNotNull()
-            assertThat(published.resolvedTheme!!.fontFingerprints).isNotEmpty()
+            // 3. Mark the variant ready for release.
+            MarkVariantReady(variantId).execute()
 
             // 4. Released, and the release renders.
             mediator.releaseNext(catalogId)

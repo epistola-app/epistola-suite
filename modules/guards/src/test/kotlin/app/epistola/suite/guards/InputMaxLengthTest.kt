@@ -120,6 +120,60 @@ class InputMaxLengthTest {
     }
 
     /**
+     * Every field someone types into carries a `maxlength`, or is listed below with why it has none.
+     * The targets above pin the exact limits that matter most; this catches the field nobody thought of,
+     * so a new one is a choice, not an omission. Matched by `id`, else `name`, per template.
+     */
+    private val noLimit = mapOf(
+        // Filters and searches: read, never stored.
+        "fragments/search.html#q" to "search box",
+        "logs/list.html#log-filter-q" to "filter",
+        "logs/list.html#log-filter-logger" to "filter",
+        "audit/list.html#audit-filter-action" to "filter",
+        "quality/list.html#q" to "filter",
+        "catalogs/exchange-browse.html#exchange-search" to "search box",
+        // Signing in: a limit on a password would lock people out of a long one.
+        "login.html#username" to "login",
+        "login.html#password" to "login",
+        // Stored without a limit (TEXT columns, no limit in the command).
+        "attributes/new.html#allowedValues" to "no server limit",
+        "attributes/list.html#edit-attr-allowedValues" to "no server limit",
+        "catalogs/list.html#release-notes" to "no server limit",
+        "catalogs/metadata.html#catalog-metadata-description" to "no server limit",
+        "catalogs/metadata.html#catalog-license-name" to "no server limit",
+        "catalogs/metadata.html#catalog-license-spdx" to "no server limit",
+        "catalogs/metadata.html#catalog-license-url" to "no server limit",
+        "catalogs/metadata.html#catalog-license-copyright" to "no server limit",
+        "catalogs/metadata.html#\${'catalog-attribute-' + field.descriptor.qualifiedKey}" to "no server limit (an attribute value)",
+        "catalogs/subscribe.html#authCredential" to "a credential, stored encrypted",
+        "themes/new.html#description" to "no server limit",
+        "stencils/new.html#tags" to "a list; each tag is limited (50) on the server",
+        "loadtest/new.html#testData" to "JSON test data",
+        "quality/manual-form.html#manual-message" to "no server limit",
+        "feedback/detail.html#body" to "no server limit",
+        "feedback/submit-form.html#fb-title" to "no server limit",
+        "feedback/submit-form.html#fb-description" to "no server limit",
+    )
+
+    @Test
+    fun `every text field has a maxlength or a stated reason not to`() {
+        val textTypes = setOf("text", "search", "email", "url", "tel", "password")
+        val violations = RepoSources.uiAssetFiles().filter { it.toString().endsWith(".html") }.flatMap { path ->
+            val relative = RepoSources.relativize(path).substringAfter("/templates/")
+            val html = RepoSources.stripHtmlComments(Files.readString(path))
+            Regex("""<(input|textarea)\b[^>]*>""").findAll(html).mapNotNull { match ->
+                val tag = match.value
+                val type = Regex("""\btype="([^"]+)"""").find(tag)?.groupValues?.get(1)
+                val typed = match.groupValues[1] == "textarea" || type == null || type in textTypes
+                val named = Regex("""\b(?:id|name)="([^"]+)"""").find(tag)?.groupValues?.get(1).orEmpty()
+                val exempt = "$relative#$named" in noLimit
+                if (!typed || exempt || Regex("""\b(th:)?maxlength=""").containsMatchIn(tag) || "readonly" in tag) null else "$relative: <${match.groupValues[1]} $named>"
+            }.toList()
+        }
+        assertTrue(violations.isEmpty(), "Text fields without a maxlength (add the server's limit, or list it in noLimit with why):\n" + violations.joinToString("\n"))
+    }
+
+    /**
      * Issue #608 (UI side): the code-list entry rows are built by JS (dynamic ids),
      * so they can't be matched by id like the targets above. Since the strict-CSP
      * migration (ADR 0010) the row markup lives in the static JS file rather than an

@@ -51,7 +51,7 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `create INLINE code list via new form lands on detail page with entries rendered`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
 
         // The inline editor's bootstrap script auto-seeds one empty row when
         // there's no prior submission, so we don't need to click add for the
@@ -71,7 +71,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // The page has multiple `type="submit"` buttons (form + nav-bar logout
         // forms). Match by visible text to disambiguate.
         page.locator("button:has-text('Create code list')").click()
-        page.waitForURL(Pattern.compile(".*/code-lists/default/locales$"))
+        page.waitForURL(Pattern.compile(".*/catalogs/default/code-lists/locales$"))
 
         // Detail page: both entries listed in the entries table.
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
@@ -83,7 +83,7 @@ class CodeListUiTest : BasePlaywrightTest() {
     fun `duplicate inline entry codes show validation error on new form`() {
         val tenant = withMediator { createUiTenant() }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Duplicate Codes")
@@ -106,7 +106,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a validation error retargets the form (422) and swaps it
         // in place, leaving the dialog open on the /new route (no HX-Push-Url on the
         // error response). The form + errors + entered values stay shown (asserted here).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -126,7 +126,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/new")
         assertThat(page.locator("#entries-tbody tr").first()).isVisible()
 
         page.locator("#displayName").fill("Locales Again")
@@ -141,7 +141,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a duplicate slug retargets the form (422) and swaps it in
         // place, leaving the dialog open on the /new route (no HX-Push-Url on the error
         // response). The form + errors + entered value stay shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 
@@ -159,7 +159,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/attributes/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/attributes/new")
 
         page.locator("#displayName").fill("Language")
         page.locator("#slug").fill("language")
@@ -215,7 +215,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         val dialog = page.openDialogByTrigger(
             page.locator("button:has-text('New Variant')"),
             "#create-variant-dialog",
@@ -268,7 +268,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
         val dialog = page.openDialogByTrigger(
             page.locator("button:has-text('New Variant')"),
             "#create-variant-dialog",
@@ -302,7 +302,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Filter to the tenant's `default` catalog — the bundled `system`
         // catalog also contributes code lists (bcp-47, iso-639-1,
         // iso-3166-1-alpha2) that the unfiltered listing would show.
-        gotoAndReady("/tenants/${tenant.id}/code-lists?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists")
 
         val rows = page.locator("table.ep-table tbody tr")
         assertThat(rows).hasCount(1)
@@ -334,7 +334,7 @@ class CodeListUiTest : BasePlaywrightTest() {
             t
         }
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists/default/locales")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists/locales")
 
         // Open the shared confirm dialog from the detail page's Delete action.
         // The button sits in the page header beneath the sticky top nav, whose

@@ -5,6 +5,7 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.handlers.CatalogNav
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.tenants.queries.GetTenant
@@ -31,6 +32,9 @@ internal fun notFoundPageModel(requestPath: String): Map<String, Any?> {
         if (tenant != null) {
             put("tenantId", tenant.id)
             put("tenantName", tenant.name)
+            // A page about a resource this catalog version does not hold (reached by switching
+            // versions): lead to that section of the version instead of a dead end.
+            CatalogNav.sectionOf(requestPath)?.let { put("catalogSection", it) }
         }
     }
 }

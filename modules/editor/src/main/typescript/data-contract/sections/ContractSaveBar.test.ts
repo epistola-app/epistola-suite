@@ -39,7 +39,7 @@ describe('ContractSaveBar', () => {
       { onSave, onForceSave: vi.fn() },
     );
 
-    expect(container.textContent).toContain('Unsaved draft changes');
+    expect(container.textContent).toContain('Unsaved changes');
     expect(container.textContent).toContain('Schema');
     expect(container.textContent).toContain('Examples');
 
@@ -75,21 +75,21 @@ describe('ContractSaveBar', () => {
 
   it('shows the shared saving and saved states', () => {
     const saving = renderBar({ examplesDirty: true, saving: true });
-    expect(saving.textContent).toContain('Saving draft…');
+    expect(saving.textContent).toContain('Saving…');
     expect(saving.querySelector<HTMLButtonElement>('.dc-save-btn')?.textContent).toContain(
       'Saving…',
     );
 
     const saved = renderBar({ saveSuccess: true });
-    expect(saved.textContent).toContain('Draft saved');
+    expect(saved.textContent).toContain('Saved');
   });
 
   it('labels the shared action as saving the draft', () => {
     const container = renderBar({ examplesDirty: true });
     const saveButton = container.querySelector<HTMLButtonElement>('.dc-save-btn');
 
-    expect(saveButton?.textContent).toContain('Save draft');
-    expect(saveButton?.title).toBe('Save schema and examples as one draft');
+    expect(saveButton?.textContent).toContain('Save');
+    expect(saveButton?.title).toBe('Save the schema and examples together');
   });
 
   it('shows errors and exposes the existing force-save action', () => {

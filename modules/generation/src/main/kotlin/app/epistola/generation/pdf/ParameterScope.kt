@@ -42,12 +42,15 @@ object ParameterScope {
     private const val PROP_PARAMS_ALIAS = "paramsAlias"
     private const val DEFAULT_ALIAS = "params"
 
+    /** The name [node]'s parameters appear under: its `paramsAlias`, else `params`. */
+    fun aliasOf(node: Node): String = (node.props?.get(PROP_PARAMS_ALIAS) as? String)?.takeIf { it.isNotBlank() } ?: DEFAULT_ALIAS
+
     fun push(node: Node, schema: Map<String, Any?>?, outer: RenderContext): RenderContext {
         if (schema == null) return outer
         @Suppress("UNCHECKED_CAST")
         val properties = schema["properties"] as? Map<String, Any?> ?: return outer
 
-        val alias = (node.props?.get(PROP_PARAMS_ALIAS) as? String)?.takeIf { it.isNotBlank() } ?: DEFAULT_ALIAS
+        val alias = aliasOf(node)
 
         @Suppress("UNCHECKED_CAST")
         val rawBindings = (node.props?.get(PROP_PARAMETER_BINDINGS) as? Map<String, Any?>).orEmpty()

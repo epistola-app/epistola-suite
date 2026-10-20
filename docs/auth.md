@@ -532,10 +532,8 @@ Include the key in every REST API request via the `Authorization` header:
 curl -H "Authorization: ApiKey epk_abc123..." https://epistola.example.com/api/v1/...
 ```
 
-The legacy `X-API-Key` header is still accepted for existing integrations. The
-compatibility header name is configurable via `epistola.auth.api-key.header-name`
-(defaults to `X-API-Key`) and is treated as an additional alias, not as a
-replacement for the standard `Authorization: ApiKey` scheme.
+This is the only way to send an API key: since 2.0 the `X-API-Key` header is not
+read, and the `epistola.auth.api-key.header-name` setting is gone.
 
 ### Key Format
 
@@ -691,8 +689,7 @@ This error means code is trying to access `SecurityContext.current()` outside of
 
 ### API Key Requests Return 401
 
-1. Verify the key is correctly included as `Authorization: ApiKey <key>`; legacy `X-API-Key` is still accepted for older clients
+1. Verify the key is included as `Authorization: ApiKey <key>`; an `X-API-Key` header is not read since 2.0
 2. Check that the key has not expired
 3. Confirm the key was not revoked (check the API keys list in the UI)
-4. If using a custom legacy header name, verify `epistola.auth.api-key.header-name` matches
-5. Ensure the request path starts with `/api` — API key auth only applies to the API security chain
+4. Ensure the request path starts with `/api` — API key auth only applies to the API security chain

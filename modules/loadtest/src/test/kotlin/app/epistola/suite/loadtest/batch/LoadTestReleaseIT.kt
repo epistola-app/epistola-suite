@@ -17,12 +17,12 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployRelease
+import app.epistola.suite.environments.commands.DeployCatalogVersion
 import app.epistola.suite.loadtest.commands.StartLoadTest
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
@@ -66,7 +66,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
         withMediator {
             CreateEnvironment(production, "Production").execute()
-            DeployRelease(production, variant.catalogKey, "1.0.0").execute()
+            DeployCatalogVersion(production, variant.catalogKey, "1.0.0").execute()
         }
 
         val run = start(tenant, variant, environment = production.key)
@@ -84,7 +84,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
             .isInstanceOf(CatalogNotReleasedException::class.java)
 
         withMediator {
-            UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
             mediator.publishAndRelease(variant)
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         }
@@ -98,7 +98,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenant))))
         withMediator {
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
+            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
             mediator.publishAndRelease(variant)
             mediator.releaseNext(variant.templateId.catalogId)
         }

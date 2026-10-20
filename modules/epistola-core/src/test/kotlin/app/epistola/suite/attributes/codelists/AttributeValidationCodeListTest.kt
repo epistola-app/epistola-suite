@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -21,9 +22,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * Variant attribute validation when the bound attribute uses a code list,
@@ -31,9 +30,6 @@ import org.springframework.beans.factory.annotation.Autowired
  * check against the DB.
  */
 class AttributeValidationCodeListTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var jdbi: Jdbi
 
     @Test
     fun `value accepted when present in bound code list`() {
@@ -179,17 +175,8 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val defaultCatalog = CatalogId.default(tenantId)
 
-        // Create a second authored catalog "shared" alongside default.
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
-                VALUES ('shared', :tenantKey, 'Shared', 'AUTHORED', NOW(), NOW())
-                """,
-            )
-                .bind("tenantKey", tenant.id)
-                .execute()
-        }
+        // A second authored catalog "shared" alongside default.
+        withMediator { CreateCatalog(tenant.id, app.epistola.suite.common.ids.CatalogKey.of("shared"), "Shared").execute() }
 
         val sharedCatalogKey = app.epistola.suite.common.ids.CatalogKey.of("shared")
         val codeListId = CodeListId(

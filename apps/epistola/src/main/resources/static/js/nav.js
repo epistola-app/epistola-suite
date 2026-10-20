@@ -55,7 +55,55 @@
       return;
     }
 
+    // Switching catalog versions keeps the page: the menu's links are the same on every page, so the
+    // page someone is on travels with the click (VersionSwitch on the server).
+    var versionLink = e.target.closest('a[data-version-switch]');
+    if (versionLink) {
+      var url = new URL(versionLink.href, window.location.origin);
+      url.searchParams.set('from', window.location.pathname + window.location.search);
+      versionLink.href = url.pathname + url.search;
+    }
+
     if (!e.target.closest('.app-nav-dropdown')) closeAllDropdowns();
+  });
+
+  // A boosted navigation inside the workspace replaces only the page (docs/workspace-shell.md):
+  // say which bar this page shows, so the server sends the bar again only when it changes.
+  document.addEventListener('htmx:configRequest', function (e) {
+    if (e.detail.headers['HX-Boosted'] !== 'true') return;
+    var key = document.getElementById('ws-shell-key');
+    if (key) e.detail.headers['X-Epistola-Shell'] = key.getAttribute('data-key');
+  });
+
+  // A save on the page (any request but a GET) can change what is not published yet: refresh the
+  // bar's status, so an inline edit shows in it without reloading the page.
+  document.addEventListener('htmx:afterRequest', function (e) {
+    var config = e.detail.requestConfig;
+    var verb = config && config.verb ? String(config.verb).toLowerCase() : 'get';
+    if (!e.detail.successful || verb === 'get') return;
+    if (document.getElementById('ws-status') && window.htmx)
+      window.htmx.trigger(document.body, 'ws-status-refresh');
+  });
+
+  // When the bar is replaced for the same catalog version, show its status as it was until the
+  // fresh one arrives, instead of an empty space.
+  var keptStatus = null;
+  document.addEventListener('htmx:beforeSwap', function () {
+    var status = document.getElementById('ws-status');
+    keptStatus = status ? { href: status.getAttribute('hx-get'), html: status.innerHTML } : null;
+  });
+  document.addEventListener('htmx:afterSwap', function () {
+    var status = document.getElementById('ws-status');
+    if (
+      keptStatus &&
+      status &&
+      status.getAttribute('hx-get') === keptStatus.href &&
+      !status.innerHTML.trim()
+    ) {
+      status.innerHTML = keptStatus.html;
+      if (window.htmx) window.htmx.process(status);
+    }
+    keptStatus = null;
   });
 
   document.addEventListener('keydown', function (e) {

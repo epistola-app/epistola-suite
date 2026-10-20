@@ -21,6 +21,7 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.environments.DeploymentUsage
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -45,16 +46,17 @@ import tools.jackson.databind.node.ObjectNode
  * @property templateId Template to use for generation
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
- * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
- * @property environmentId Environment whose deployed release is rendered (mutually exclusive with
- *   releaseVersion). With neither, the catalog's latest release is rendered.
+ * @property releaseVersion A version selector (npm range grammar, an exact version included): the
+ *   highest candidate release satisfying it is rendered. Despite the name it need not be a release.
+ * @property environmentId Environment whose releases are the candidates; without it, every release
+ *   of the catalog that kept its content is. With neither, the highest candidate is rendered.
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
     val tenantId: TenantKey,
-    val catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -75,9 +77,6 @@ data class GenerateDocument(
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
         }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
-        }
     }
 }
 
@@ -85,16 +84,18 @@ data class GenerateDocument(
 class GenerateDocumentHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
+    private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         // Every request renders a release: the one it names, the one its environment serves for the
-        // catalog, or the catalog's latest. The variant is chosen from the variants that
+        // catalog (or its override names), or the catalog's latest; or the draft its environment's
+        // override follows, live. The variant is chosen from the variants that
         // release holds. Bound now, at acceptance: a release cut or deployed while the request waits
         // in the queue does not change what it renders.
-        val target = releaseTargetResolver.resolve(
+        val target = releaseTargetResolver.resolveForGeneration(
             command.tenantId,
             command.catalogKey,
             command.templateId,
@@ -104,20 +105,26 @@ class GenerateDocumentHandler(
             command.releaseVersion,
         )
 
-        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.release.version)
+        logger.info("Generating single document for tenant {} template {} variant {} from {}@{}", command.tenantId, command.templateId, target.variantKey, command.catalogKey, target.releaseVersion ?: target.draft?.label)
 
         return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             val requestId = GenerationRequestKey.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                    release_version, data, filename, correlation_id, routing_key, document_key, status
+                    id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
+                    environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
-                VALUES (:id, NULL, :tenantId, :catalogKey, :templateId, :variantId, NULL, :environmentId,
-                        :releaseVersion, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
-                RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                          release_version, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
+                VALUES (:id, NULL, :tenantId, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        :templateId, :variantId, NULL, :environmentId,
+                        :releaseVersion, :draftId, :draftLabel,
+                        COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+                         WHERE c.tenant_key = :tenantId AND c.catalog_key = :catalogKey AND r.version = :releaseVersion)),
+                        :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                RETURNING id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
+                          release_version, draft_id, draft_label, catalog_version_id, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
                           claimed_at, error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
@@ -127,7 +134,10 @@ class GenerateDocumentHandler(
                 .bind("templateId", command.templateId)
                 .bind("variantId", target.variantKey)
                 .bind("environmentId", command.environmentId)
-                .bind("releaseVersion", target.release.version)
+                .bind("releaseVersion", target.releaseVersion)
+                .bind("draftId", target.draft?.draftId)
+                .bind("draftLabel", target.draft?.label)
+                .bind("templateResourceId", target.templateResourceId)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)
@@ -138,6 +148,10 @@ class GenerateDocumentHandler(
 
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
             request
+        }.also {
+            // How much the deployed version is used, for deciding when to undeploy it.
+            val version = target.releaseVersion
+            if (command.environmentId != null && version != null) usage.record(command.tenantId, command.environmentId, command.catalogKey, version)
         }
     }
 }

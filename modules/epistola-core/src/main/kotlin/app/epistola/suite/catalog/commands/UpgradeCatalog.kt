@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -93,6 +95,8 @@ class UpgradeCatalogHandler(
     private val analyzer: CatalogUpgradeAnalyzer,
     private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
+    private val importRows: CatalogImportRows,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -111,7 +115,7 @@ class UpgradeCatalogHandler(
 
         // 1. Fetch manifest (once — reused for install and stale check)
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
 
         // 2. Find which resources are currently installed locally
         val installedSlugs = analyzer.installedByType(command.tenantKey, command.catalogKey)
@@ -182,7 +186,10 @@ class UpgradeCatalogHandler(
             manifest.catalog.name,
             manifest.catalog.description,
             objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
+            manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
         )
+        // The upgraded version's theme settings (contract ADR 0007), as its archive declares them.
+        importRows.updateThemeSettings(command.tenantKey, command.catalogKey, manifest.catalog, objectMapper)
 
         if (!InstalledReleaseRecording.isDeferred) {
             RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()
@@ -220,6 +227,7 @@ class UpgradeCatalogHandler(
         name: String,
         description: String?,
         catalogMetadataJson: String,
+        dependencies: List<CatalogDependencyDeclaration>,
     ) {
         // #692: bound the re-fetched manifest name to catalogs.name VARCHAR(255).
         validateCatalogNameLength(name)
@@ -231,7 +239,7 @@ class UpgradeCatalogHandler(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
+                WHERE tenant_key = :t AND catalog_key = :c
                 """,
             )
                 .bind("t", tenantKey)
@@ -243,6 +251,7 @@ class UpgradeCatalogHandler(
                 .bind("description", description)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
+            dependencyStore.replace(handle, tenantKey, catalogKey, dependencies)
         }
     }
 }

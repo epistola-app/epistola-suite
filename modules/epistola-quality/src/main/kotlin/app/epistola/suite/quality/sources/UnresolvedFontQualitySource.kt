@@ -64,7 +64,7 @@ class UnresolvedFontQualitySource : QualityFindingSource {
         nodeIds: List<String>,
         input: QualityCheckInput,
     ): SubmittedFinding {
-        val where = ref.catalogKey?.let { "$it/${ref.slug}" } ?: ref.slug
+        val where = ref.catalogKey?.let { "$it/${ref.key}" } ?: ref.key
         return SubmittedFinding(
             ruleId = RULE_UNRESOLVED_FONT,
             // Wrong typeface, not a broken document — but it is wrong, and silently so, which is
@@ -74,12 +74,12 @@ class UnresolvedFontQualitySource : QualityFindingSource {
             // is a materially different problem and should resurface for a fresh look; fixing it so
             // the font resolves stops the report and auto-resolves the finding.
             fingerprint = fingerprint(RULE_UNRESOLVED_FONT, input.subject.urn, anchor, where),
-            message = "The font \"${ref.slug}\" is not available, so this text falls back to a default " +
+            message = "The font \"${ref.key}\" is not available, so this text falls back to a default " +
                 "typeface. Add the font, or change the style to one that is installed.",
             messageCode = MSG_UNRESOLVED_FONT,
             nodeIds = nodeIds,
             context = JsonNodeFactory.instance.objectNode()
-                .put("slug", ref.slug)
+                .put("slug", ref.key)
                 .apply { ref.catalogKey?.let { put("catalogKey", it) } },
         )
     }

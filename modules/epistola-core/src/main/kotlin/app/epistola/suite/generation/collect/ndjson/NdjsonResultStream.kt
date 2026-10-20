@@ -18,7 +18,7 @@ import java.util.zip.GZIPOutputStream
  *
  * Format per the v0.3 spec:
  *   - one JSON-encoded `GenerationResult` per line (LF-terminated),
- *   - then a final `{"_meta": true, "hasMore": ..., "count": ..., "lastSequence": ...,
+ *   - then a final `{"_meta": true, "hasMore": ..., "resultCount": ..., "lastSequence": ...,
  *     "partitions": {"total": ..., "mine": [...], "hash": "murmur3"}}` line.
  *
  * Compression negotiation is server-driven from `Accept-Encoding`. v0.3 ships
@@ -59,7 +59,7 @@ class NdjsonResultStream(
      * gzip if [encoding] is [Encoding.GZIP].
      *
      * The caller is responsible for setting `Content-Type:
-     * application/vnd.epistola.v1+ndjson` and (when applicable)
+     * application/vnd.epistola.v2+ndjson` and (when applicable)
      * `Content-Encoding: gzip` on the response. This class only emits bytes.
      *
      * @param meta computed by the controller from the result of
@@ -99,18 +99,27 @@ class NdjsonResultStream(
         }
     }
 
-    /** What we actually emit per result line — keys mirror the contract `GenerationResult` schema. */
+    /**
+     * What we actually emit per result line: the keys and values of the contract `GenerationResult`
+     * schema, which this hand-written writer has to follow by itself (`NdjsonResultStreamTest` holds
+     * it to the generated model). A status is lowercase on the wire.
+     */
     private fun GenerationResultRow.toWireDto(): Map<String, Any?> = linkedMapOf(
         "sequence" to sequence,
         "requestId" to requestId.value.toString(),
         "batchId" to batchId?.value?.toString(),
-        "status" to status.name,
+        "status" to status.name.lowercase(),
         "documentId" to documentId?.value?.toString(),
         "correlationId" to correlationId,
         "routingKey" to routingKey,
-        "templateId" to templateId?.value,
-        "variantId" to variantId?.value,
+        "registry" to registry,
+        "namespace" to namespace,
+        "catalogKey" to catalogKey,
+        "templateKey" to templateId?.value,
+        "variantKey" to variantId?.value,
         "releaseVersion" to releaseVersion,
+        "versionId" to (catalogVersionId ?: draftId),
+        "draftLabel" to draftLabel,
         "filename" to filename,
         "contentType" to contentType,
         "sizeBytes" to sizeBytes,
@@ -122,7 +131,7 @@ class NdjsonResultStream(
     private fun MetaLine.toWireMap(): Map<String, Any?> = linkedMapOf(
         "_meta" to true,
         "hasMore" to hasMore,
-        "count" to count,
+        "resultCount" to count,
         "lastSequence" to lastSequence,
         "partitions" to linkedMapOf(
             "total" to partitions.total,

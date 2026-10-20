@@ -5,6 +5,9 @@
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -25,7 +28,10 @@ import org.springframework.stereotype.Component
 data class DeleteStencil(
     val id: StencilId,
     val force: Boolean = false,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey
@@ -49,7 +55,7 @@ class DeleteStencilHandler(
             val rowsDeleted = handle.createUpdate(
                 """
             DELETE FROM stencils
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
+            WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
             """,
             )
                 .bind("tenantId", command.id.tenantKey)

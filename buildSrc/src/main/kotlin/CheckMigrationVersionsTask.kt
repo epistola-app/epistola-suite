@@ -37,8 +37,10 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
     @get:Input
     abstract val githubBaseRef: Property<String>
 
+    // SQL migrations, and Kotlin ones (a data migration that must run the catalog contract's own code):
+    // both share Flyway's one version namespace.
     private val runtimeMigrationPath =
-        Regex("""^modules/[^/]+/src/main/resources/db/migration/[^/]+/V(\d{14})__.+\.sql$""")
+        Regex("""^modules/[^/]+/src/main/(?:resources/db/migration/[^/]+/V(\d{14})__.+\.sql|kotlin/db/migration/[^/]+/V(\d{14})__.+\.kt)$""")
 
     /**
      * A merged migration someone deliberately edited, pinned to the exact content that was reviewed.
@@ -117,6 +119,11 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                 .maxOrNull()
 
         val movedMigrationPaths = movedBetweenModules(baseRef, currentMigrationPaths, targetMigrationPaths)
+        // What a release can have shipped: the migrations on main. A target branch ahead of main (a
+        // release line under development) holds migrations no installation ran; those may be
+        // rewritten, as long as they never reached main.
+        val releasedMigrationPaths = releasedMigrationPaths(baseRef)
+        fun released(path: String) = releasedMigrationPaths?.contains(path) ?: true
 
         val failures = mutableListOf<String>()
         if (targetMaxVersion != null) {
@@ -155,6 +162,8 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
                         "Merged runtime migration was modified as reviewed: $oldPath " +
                             "(${reviewedModifications.getValue(oldPath).reason})",
                     )
+                (status == 'M' || status == 'D' || status == 'R') && oldIsMigration && !released(requireNotNull(oldPath)) ->
+                    logger.lifecycle("Runtime migration that never reached main was rewritten: $line")
                 status == 'M' && oldIsMigration ->
                     failures += "Merged runtime migration was modified: $oldPath"
                 status == 'D' && oldIsMigration ->
@@ -198,6 +207,20 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
             }.toSet()
     }
 
+    /**
+     * The migrations on main, which a release can have shipped; null when [baseRef] is main itself
+     * (every migration on it counts as released) or main is not available.
+     */
+    private fun releasedMigrationPaths(baseRef: String): Set<String>? {
+        val main = listOf("origin/main", "main").firstOrNull { runGit("rev-parse", "--verify", "$it^{commit}") != null } ?: return null
+        if (runGit("rev-parse", "$main^{commit}") == runGit("rev-parse", "$baseRef^{commit}")) return null
+        return runGit("ls-tree", "-r", "--name-only", main, "--", "modules")
+            ?.lineSequence()
+            ?.filter { migrationVersion(it) != null }
+            ?.toSet()
+            .orEmpty()
+    }
+
     private fun resourcePath(path: String): String = path.substringAfter("/src/main/resources/")
 
     private fun findBaseRef(): String? {
@@ -227,7 +250,7 @@ abstract class CheckMigrationVersionsTask : DefaultTask() {
     }
 
     private fun migrationVersion(path: String): Long? =
-        runtimeMigrationPath.matchEntire(path)?.groupValues?.get(1)?.toLong()
+        runtimeMigrationPath.matchEntire(path)?.groupValues?.drop(1)?.firstOrNull { it.isNotEmpty() }?.toLong()
 
     private fun runGit(vararg args: String): String? = gitBytes(*args)?.toString(Charsets.UTF_8)?.trim()
 

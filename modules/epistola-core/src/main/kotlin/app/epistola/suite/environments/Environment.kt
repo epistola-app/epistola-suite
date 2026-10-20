@@ -16,8 +16,12 @@ data class Environment(
     val id: EnvironmentKey,
     val tenantKey: TenantKey,
     val name: String,
+    /** Serves only published versions: an override here names a release, never a draft. */
+    val production: Boolean = false,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised when its name or production mark changes (optimistic locking: REST `ETag` / `If-Match`). */
+    val revision: Long = 1,
 )

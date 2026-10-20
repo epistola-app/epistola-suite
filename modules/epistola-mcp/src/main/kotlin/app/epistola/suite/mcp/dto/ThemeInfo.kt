@@ -45,6 +45,8 @@ data class ThemeInfo(
     val spacingUnit: Float?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+    /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
+    val revision: Long? = null,
 ) {
     companion object {
         fun from(theme: Theme): ThemeInfo = ThemeInfo(
@@ -58,6 +60,7 @@ data class ThemeInfo(
             spacingUnit = theme.spacingUnit,
             createdAt = theme.createdAt,
             updatedAt = theme.updatedAt,
+            revision = theme.revision,
         )
     }
 }

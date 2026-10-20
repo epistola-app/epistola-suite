@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.migration.CatalogMigrationCodes
+import app.epistola.catalog.migration.CatalogMigrationOptions
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -21,6 +22,7 @@ import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogCanonicalizer
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
 import app.epistola.suite.catalog.CatalogMetadata
@@ -31,10 +33,15 @@ import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
@@ -48,53 +55,39 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 
 /**
- * Imports a catalog from a ZIP archive into a catalog of [catalogType].
+ * Installs the release a catalog archive carries (contract `importCatalog`, ADR 0003): at its number,
+ * as an immutable release of the catalog the archive names, beside the releases of it the tenant has.
+ * Nothing is merged and no draft is created or changed.
  *
- * A slug that already exists with a *different* type is rejected (it would flip
- * ownership semantics). Otherwise:
+ * - The same number with the same fingerprint is the release the tenant has: nothing changes.
+ * - The same number with another fingerprint is refused ([CatalogImportConflictException]).
+ * - A new catalog is created with [catalogType], which it then must name, holding that release and
+ *   no draft. A catalog the tenant has keeps its type: naming the other one is refused.
+ * - The releases it pins must be present, with the fingerprints they were pinned with
+ *   ([CatalogImportDependenciesMissingException]).
  *
- * - **AUTHORED** — your editable copy. When the import *creates* the catalog
- *   and the manifest carries a clean released SemVer + fingerprint, that
- *   becomes the initial release. Importing into an **existing** AUTHORED
- *   catalog is an *edit* (release state is never touched — drift shows and the
- *   owner re-releases deliberately); [authoredMode] decides what happens to
- *   your local-only resources:
- *     - `MERGE` (default) — upsert the ZIP's resources over your copy, **keep**
- *       resources you have locally that the ZIP doesn't (overlay);
- *     - `REPLACE` — make the catalog *exactly* the ZIP: also **delete**
- *       local-only resources, conflict-checked before mutating (a pruned
- *       resource still referenced from another catalog blocks the import,
- *       same as the SUBSCRIBED path); release state still untouched.
- *   (Ignored when the import creates the catalog, or for SUBSCRIBED.)
- * - **SUBSCRIBED** — a managed mirror. The ZIP *is* the upgrade transport
- *   (instead of a source URL): full `UpgradeCatalog` parity — conflict-checked
- *   before mutating, resources replaced, stale pruned, abort-on-failed-install
- *   (no silent half-upgrade), and `installed_*` advanced from the manifest.
+ * A SUBSCRIBED catalog also mirrors the release it installs, when it is above the one installed, as
+ * its browsable content. An AUTHORED one installs it through a short-lived draft holding the
+ * archive's content, released under the archive's number and fingerprint.
+ *
+ * Internally the same archive reader fills a draft ([intoDraft], copying a release into a draft) or
+ * restores a tenant snapshot ([restore]); those keep the per-resource merge they always had.
  */
 data class ImportCatalogZip(
     override val tenantKey: TenantKey,
     val zipBytes: ByteArray,
-    val catalogType: CatalogType,
-    val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
-    /**
-     * What to do when an imported stencil version collides with an
-     * already-installed version of the same (slug, version) carrying
-     * different content. `FAIL` (default) aborts the whole import with a
-     * structured report so the operator can decide. `RENUMBER` is only
-     * accepted for **AUTHORED MERGE** imports — the conflicting source
-     * stencil version is installed at `MAX(target.version) + 1` and the
-     * matching pins in templates from the same ZIP are rewritten to the
-     * new number. SUBSCRIBED and AUTHORED REPLACE are mirror-semantic
-     * imports — renumber there would silently diverge the mirror from
-     * source, so the orchestrator rejects it.
-     */
-    val onStencilConflict: OnStencilConflict = OnStencilConflict.FAIL,
+    /** The type of the catalog the import creates; null for a catalog the tenant has. */
+    val catalogType: CatalogType? = null,
+    /** How a [restore] treats local-only resources of an authored catalog. Internal. */
+    internal val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
     /**
      * Whether to pre-validate that cross-catalog dependencies (a theme / code list /
      * font / stencil this catalog references in *another* catalog) already exist.
@@ -126,10 +119,34 @@ data class ImportCatalogZip(
      * separately), so a null here must leave an existing source alone rather than clear it.
      */
     val sourceUrl: String? = null,
+    /**
+     * Fills a new draft with a release of the catalog itself (`CreateCatalogVersion` from a released
+     * version), into the version that command targets: only the content, its dependency
+     * declarations and ready marks are written. The catalog's metadata and its import time stay, since
+     * the archive is the catalog's own past, not a new arrival. Internal so no API can set it.
+     */
+    internal val intoDraft: Boolean = false,
+    /**
+     * A tenant snapshot's catalog, restored as it was: an authored one fills its next version, as
+     * imports did before contract 2.0. Internal so no API can set it.
+     */
+    internal val restore: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
-    override val permission get() = Permission.TEMPLATE_EDIT
+    // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
+    // draft, which starting a draft does, is editing it.
+    override val permission get() = if (intoDraft) Permission.TEMPLATE_EDIT else Permission.CATALOG_MANAGE
 }
+
+/** The import conflicts with what the tenant has: another type, or the release under other content. */
+class CatalogImportConflictException(message: String) : RuntimeException(message)
+
+/** The archive's release pins releases the tenant does not have ([missing]), and the archive does not carry them. */
+class CatalogImportDependenciesMissingException(
+    val catalogKey: CatalogKey,
+    val version: String,
+    val missing: List<app.epistola.suite.environments.MissingReleaseDependency>,
+) : RuntimeException("${catalogKey.value} $version renders with releases that cannot be had: " + missing.joinToString())
 
 /** What an AUTHORED ZIP import does with resources you have locally but the ZIP doesn't. */
 enum class AuthoredImportMode {
@@ -151,6 +168,18 @@ data class ImportCatalogZipResult(
      * never a silent half-upgrade).
      */
     val aborted: Boolean = false,
+    /**
+     * For a fat export ([CatalogBundle]): the catalogs it uses that the import installed, as
+     * `catalogKey vVERSION`, in the order it installed them, and those this installation had already.
+     */
+    val installedDependencies: List<String> = emptyList(),
+    val presentDependencies: List<String> = emptyList(),
+    /** The release the archive carries, which the tenant now has. */
+    val releaseVersion: String? = null,
+    /** False when the tenant had that release already, with the same fingerprint, and nothing changed. */
+    val newlyInstalled: Boolean = true,
+    /** The archive's content as its publisher released it, for the release an install records. */
+    val published: app.epistola.suite.catalog.CatalogContent? = null,
 )
 
 @Component
@@ -161,12 +190,183 @@ class ImportCatalogZipHandler(
     private val jdbi: org.jdbi.v3.core.Jdbi,
     private val analyzer: CatalogUpgradeAnalyzer,
     private val schemaMigrator: CatalogSchemaMigrator,
+    private val identity: CatalogIdentityProperties,
+    private val dependencyStore: CatalogDependencyStore,
+    private val readyMarks: ReadyMarks,
+    private val drafts: app.epistola.suite.catalog.versions.CatalogDrafts,
+    private val targeting: app.epistola.suite.catalog.versions.CatalogVersionTargeting,
+    private val rows: CatalogImportRows,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
-    override fun handle(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+    override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
+        if (command.intoDraft || command.restore) return importArchive(command, requireNotNull(command.catalogType) { "an internal import names its type" })
+        return install(command)
+    }
+
+    /** What [handle] does for an archive: installs its release (see [ImportCatalogZip]). */
+    private fun install(command: ImportCatalogZip): ImportCatalogZipResult {
+        val parsed = parse(command, command.catalogType)
+        val manifest = parsed.manifest
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
+        val registry = manifest.catalog.registry ?: identity.defaultRegistry
+        val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
+        val existing = GetCatalog(command.tenantKey, catalogKey).query()
+        if (existing != null && (existing.registry != registry || existing.namespace != namespace)) {
+            throw CatalogImportConflictException(
+                "This tenant has a catalog '${catalogKey.value}' in ${existing.registry}/${existing.namespace}; the archive names $registry/$namespace/${catalogKey.value}, another catalog.",
+            )
+        }
+        if (existing != null && command.catalogType != null && command.catalogType != existing.type) {
+            throw CatalogImportConflictException("Catalog '${catalogKey.value}' is ${existing.type}; an import never changes a catalog's type.")
+        }
+        val type = existing?.type ?: command.catalogType
+            ?: throw ValidationException("catalogType", "Name the type of the catalog this import creates: AUTHORED or SUBSCRIBED", ValidationCode.GENERIC)
+        val version = manifest.release.version
+        val published = manifest.release.fingerprint
+
+        // The releases it carries, before it: each one this tenant lacks is installed, in a
+        // subscribed catalog when the tenant does not have that catalog; one it has is left alone.
+        val installedDependencies = mutableListOf<String>()
+        val presentDependencies = mutableListOf<String>()
+        for ((release, bytes) in parsed.carried) {
+            val label = "${release.catalogKey} v${release.releaseVersion}"
+            val dependencyCatalog = GetCatalog(command.tenantKey, CatalogKey.of(release.catalogKey)).query()
+            val dependency = install(
+                ImportCatalogZip(
+                    tenantKey = command.tenantKey,
+                    zipBytes = bytes,
+                    catalogType = if (dependencyCatalog == null) CatalogType.SUBSCRIBED else null,
+                    confirmMigration = true,
+                ),
+            )
+            if (dependency.newlyInstalled) installedDependencies += label else presentDependencies += label
+        }
+
+        fun result(newly: Boolean) = ImportCatalogZipResult(
+            catalogKey = catalogKey,
+            catalogName = manifest.catalog.name,
+            results = manifest.resources.map { InstallResult(it.type, it.key, if (newly) InstallStatus.INSTALLED else InstallStatus.SKIPPED) },
+            releaseVersion = version,
+            newlyInstalled = newly,
+            installedDependencies = installedDependencies,
+            presentDependencies = presentDependencies,
+        )
+
+        val present = existing?.let { ListCatalogReleases(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
+        if (present != null) {
+            if (published == null || present.fingerprint == published) return result(newly = false)
+            throw CatalogImportConflictException(
+                "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
+            )
+        }
+
+        val missing = jdbi.withHandle<List<app.epistola.suite.environments.MissingReleaseDependency>, Exception> { handle ->
+            manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
+                .filter { it.pinned && !dependencyStore.pinHolds(handle, command.tenantKey, it) }
+                .map { app.epistola.suite.environments.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE) }
+        }
+        if (missing.isNotEmpty()) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
+
+        when (type) {
+            CatalogType.SUBSCRIBED -> {
+                val installed = existing?.installedReleaseVersion?.let(SemVer::parseOrNull)
+                val incoming = SemVer.parseOrNull(version)
+                if (installed != null && incoming != null && incoming < installed) {
+                    // Installed beside the others (contract `installCatalogRelease`): a release below
+                    // the installed one is recorded from the archive as published, and what the
+                    // catalog mirrors stays the highest release it has.
+                    val bound = parsed.manifest.resources.associate { entry ->
+                        val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
+                            ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
+                        "${entry.type}/${entry.key}" to schemaMigrator.migrateAndBindResourceDetail(entry.type, detail, parsed.catalogCtx).resource
+                    }
+                    RecordInstalledRelease(
+                        command.tenantKey,
+                        catalogKey,
+                        published = publishedContent(manifest, bound, parsed.entries),
+                        release = RecordedRelease(version, published),
+                    ).execute()
+                    return result(newly = true)
+                }
+                val imported = importArchive(command, CatalogType.SUBSCRIBED)
+                // Nothing was advanced: the catalog stays on the release it had, and the caller
+                // decides what to do with what the failed install left (an exchange install
+                // removes a catalog it created).
+                if (imported.aborted) return imported.copy(releaseVersion = version, newlyInstalled = false, installedDependencies = installedDependencies, presentDependencies = presentDependencies)
+            }
+
+            CatalogType.AUTHORED -> installAuthored(command, manifest, catalogKey, existing == null)
+        }
+        return result(newly = true)
+    }
+
+    /**
+     * Installs the archive's release in an authored catalog: its content into a draft, released at
+     * the archive's number with the archive's fingerprint, which the draft then becomes.
+     *
+     * A catalog the import creates gets its next version, as every authored catalog of this suite
+     * has one: the archive fills it, and after the release it continues on it, as a copy of what was
+     * installed. That is where references from other catalogs resolve, and where the author edits.
+     * (The contract has a new catalog hold no draft; the next version is this suite's convention.)
+     * An existing catalog gets the release through a draft of its own, which then is gone, so its
+     * drafts are untouched.
+     */
+    private fun installAuthored(command: ImportCatalogZip, manifest: app.epistola.catalog.protocol.CatalogManifest, catalogKey: CatalogKey, creates: Boolean) {
+        if (creates) {
+            CreateCatalog(
+                tenantKey = command.tenantKey,
+                id = catalogKey,
+                name = manifest.catalog.name,
+                description = manifest.catalog.description,
+                namespace = manifest.catalog.namespace,
+                registry = manifest.catalog.registry,
+            ).execute()
+            rows.updateAuthoredMetadata(
+                command.tenantKey,
+                catalogKey,
+                manifest.catalog.name,
+                manifest.catalog.description,
+                objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
+            )
+        }
+        val version = manifest.release.version
+        val holder = jdbi.withHandle<app.epistola.suite.catalog.versions.CatalogDraft, Exception> { handle ->
+            if (creates) {
+                requireNotNull(drafts.next(handle, command.tenantKey, catalogKey)) { "a new authored catalog has its next version" }
+            } else {
+                val id = drafts.open(handle, command.tenantKey, catalogKey, base = null, name = "Installing $version (${app.epistola.suite.common.UUIDv7.generate().toString().takeLast(8)})")
+                drafts.drafts(handle, command.tenantKey, catalogKey).first { it.versionId == id }
+            }
+        }
+        val filled = targeting.within(holder.versionId) { importArchive(command.copy(intoDraft = true), CatalogType.AUTHORED) }
+        val failed = filled.results.filter { it.status == InstallStatus.FAILED }
+        check(failed.isEmpty()) { "Installing ${catalogKey.value} $version failed for " + failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" } }
+        // The release takes the archive's theme settings (contract ADR 0007) from the draft it is cut from.
+        targeting.within(holder.versionId) { rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper) }
+        ReleaseCatalogVersion(
+            tenantKey = command.tenantKey,
+            catalogKey = catalogKey,
+            version = version,
+            notes = "Installed from a catalog archive (publisher: ${manifest.publisher.name})",
+            publication = ReleasePublication.SUPPRESS,
+            catalogVersion = app.epistola.suite.catalog.versions.CatalogVersionRef(command.tenantKey, catalogKey, holder.ref),
+            imported = ImportedRelease(manifest.release.fingerprint, manifest.release.releasedAt?.let { runCatching { java.time.OffsetDateTime.parse(it) }.getOrNull() }, filled.published),
+        ).execute()
+        rows.touchImportedAt(command.tenantKey, catalogKey)
+    }
+
+    private data class Parsed(
+        val entries: Map<String, ByteArray>,
+        val manifest: app.epistola.catalog.protocol.CatalogManifest,
+        val catalogCtx: app.epistola.suite.catalog.migrations.CatalogMigrationContext,
+        /** The releases the archive carries for its pins, each as an archive of its own, in install order. */
+        val carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList(),
+    )
+
+    private fun parse(command: ImportCatalogZip, catalogType: CatalogType?): Parsed {
         // Size checks: compressed ZIP and decompressed total
         val maxZipSize = sizeLimits.maxZipSize.toBytes()
         val maxDecompressedSize = sizeLimits.maxDecompressedSize.toBytes()
@@ -179,12 +379,20 @@ class ImportCatalogZipHandler(
         // epistola-catalog owns ZIP safety and path normalization. Suite
         // materializes the already-checked entries because the persistence
         // orchestration below consumes them more than once.
+        // An archive from before wire v8 names no registry or namespace: it lands in the importing
+        // tenant's namespace on the default registry (contract ADR 0003). The reader migrates it, so
+        // it is told here, not only the manifest binding below.
+        val migration = CatalogMigrationOptions(
+            namespace = CatalogIdentityProperties.defaultNamespace(command.tenantKey),
+            registry = identity.defaultRegistry,
+        )
         val read = CatalogArchiveReader.read(
             ByteArrayInputStream(command.zipBytes),
             CatalogArchivePolicy(
                 maxCompressedBytes = maxZipSize,
                 maxExpandedBytes = maxDecompressedSize,
             ),
+            migration,
         )
         val migrationFinding = read.findings.firstOrNull {
             it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
@@ -201,10 +409,11 @@ class ImportCatalogZipHandler(
                 CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
             },
         )
+        var carried: List<Pair<app.epistola.catalog.archive.EmbeddedCatalogRelease, ByteArray>> = emptyList()
         val entries = archive.use { safeArchive ->
             val validation = CatalogValidator.validate(
                 safeArchive,
-                CatalogValidationPolicy(verifyFingerprint = true),
+                CatalogValidationPolicy(verifyFingerprint = true, migration = migration),
             )
             val validationFindings = read.findings.map {
                 CatalogImportValidationFinding(it.code, ValidationSeverity.ERROR, it.path, it.message)
@@ -213,6 +422,15 @@ class ImportCatalogZipHandler(
             }
             if (read.findings.isNotEmpty() || !validation.valid) {
                 throw CatalogImportValidationException(validationFindings)
+            }
+            carried = safeArchive.dependencies.map { release ->
+                release to java.io.ByteArrayOutputStream().also {
+                    app.epistola.catalog.archive.CatalogArchiveWriter.write(
+                        release.archive,
+                        it,
+                        CatalogArchivePolicy(maxCompressedBytes = maxZipSize, maxExpandedBytes = maxDecompressedSize),
+                    )
+                }.toByteArray()
             }
             safeArchive.paths.associateWith { path ->
                 safeArchive.content.open(path).use { it.readAllBytes() }
@@ -227,7 +445,8 @@ class ImportCatalogZipHandler(
         // schemaVersion and every resource detail echoes it, so details are gated
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
-        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes)
+        // An archive from before wire v8 lands in the importing tenant's namespace (ADR 0003).
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Decide what to do about an outdated-schema ZIP (a source-less transport
@@ -238,7 +457,7 @@ class ImportCatalogZipHandler(
         // is current iff a chain upgraded it. Covers the UI and REST import paths.
         when (
             CatalogImportSchemaAction.decide(
-                catalogType = command.catalogType,
+                catalogType = catalogType ?: CatalogType.AUTHORED,
                 sourceVersion = catalogCtx.sourceVersion,
                 migratedVersion = manifest.schemaVersion,
                 current = CATALOG_SCHEMA_VERSION,
@@ -257,7 +476,12 @@ class ImportCatalogZipHandler(
 
             CatalogImportSchemaAction.IMPORT -> {} // proceed
         }
-        val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        return Parsed(entries, manifest, catalogCtx, carried)
+    }
+
+    private fun importArchive(command: ImportCatalogZip, catalogType: CatalogType): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+        val (entries, manifest, catalogCtx) = parse(command, catalogType)
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
         // #692: bound the manifest name to catalogs.name VARCHAR(255). SUBSCRIBED writes
         // it directly (insert/update); AUTHORED goes through CreateCatalog (tighter cap),
         // so this only tightens the direct-write paths that had no guard.
@@ -269,10 +493,10 @@ class ImportCatalogZipHandler(
         // semantics. Same type is fine: AUTHORED ⇒ in-place edit; SUBSCRIBED ⇒
         // an upgrade (the ZIP is the transport instead of a source URL).
         val existingCatalog = GetCatalog(command.tenantKey, catalogKey).query()
-        if (existingCatalog != null && existingCatalog.type != command.catalogType) {
+        if (existingCatalog != null && existingCatalog.type != catalogType) {
             throw IllegalArgumentException(
                 "Catalog '${catalogKey.value}' already exists as ${existingCatalog.type} — " +
-                    "cannot import it as ${command.catalogType}.",
+                    "cannot import it as $catalogType.",
             )
         }
 
@@ -288,33 +512,20 @@ class ImportCatalogZipHandler(
             )
         }
 
-        // Renumber-on-stencil-conflict is mirror-incompatible. SUBSCRIBED *is*
-        // a mirror by definition (source wins); AUTHORED REPLACE is the explicit
-        // "make my catalog exactly this ZIP" mode. Allowing renumber there would
-        // silently let target diverge from source. Restrict to AUTHORED MERGE.
-        if (command.onStencilConflict == OnStencilConflict.RENUMBER &&
-            !(command.catalogType == CatalogType.AUTHORED && command.authoredMode == AuthoredImportMode.MERGE)
-        ) {
-            throw IllegalArgumentException(
-                "onStencilConflict=RENUMBER is only supported for AUTHORED MERGE imports " +
-                    "(got catalogType=${command.catalogType}, authoredMode=${command.authoredMode}).",
-            )
-        }
-
         // Validate cross-catalog dependencies exist (batch check). Skipped during a full-tenant
         // restore, which imports a self-consistent snapshot in dependency order within one
         // transaction (the DB FKs still enforce integrity).
         val dependencies = manifest.dependencies.orEmpty()
         if (command.validateCrossCatalogDeps && dependencies.isNotEmpty()) {
-            val missing = findMissingDependencies(command.tenantKey, dependencies)
+            val missing = rows.findMissingDependencies(command.tenantKey, dependencies)
             if (missing.isNotEmpty()) {
                 val details = missing.joinToString(", ") { dep ->
                     when (dep) {
-                        is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.slug}' from catalog '${dep.catalogKey}'"
-                        is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.slug}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Image -> "image '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.CodeList -> "code list '${dep.key}' from catalog '${dep.catalogKey}'"
+                        is app.epistola.catalog.protocol.DependencyRef.Font -> "font '${dep.key}' from catalog '${dep.catalogKey}'"
                     }
                 }
                 throw IllegalArgumentException(
@@ -325,7 +536,7 @@ class ImportCatalogZipHandler(
         }
 
         val tenantId = TenantId(command.tenantKey)
-        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.slug })
+        val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
 
         // Stale-prune cases: SUBSCRIBED (always — the ZIP is the upgrade), and
         // AUTHORED REPLACE into an existing catalog (mirror it exactly). Both
@@ -333,9 +544,9 @@ class ImportCatalogZipHandler(
         // resource still referenced from another catalog blocks the whole
         // import. (New catalog ⇒ nothing installed ⇒ no stale ⇒ no conflicts;
         // AUTHORED MERGE keeps local-only resources, so never prunes.)
-        val prunesStale = command.catalogType == CatalogType.SUBSCRIBED ||
+        val prunesStale = catalogType == CatalogType.SUBSCRIBED ||
             (
-                command.catalogType == CatalogType.AUTHORED &&
+                catalogType == CatalogType.AUTHORED &&
                     existingCatalog != null &&
                     command.authoredMode == AuthoredImportMode.REPLACE
                 )
@@ -353,20 +564,25 @@ class ImportCatalogZipHandler(
 
         // Ensure the catalog row exists with the requested type before install.
         if (existingCatalog == null) {
-            when (command.catalogType) {
+            when (catalogType) {
+                // A catalog keeps the name its archive gives it (contract ADR 0003).
                 CatalogType.AUTHORED -> CreateCatalog(
                     tenantKey = command.tenantKey,
                     id = catalogKey,
                     name = manifest.catalog.name,
                     description = manifest.catalog.description,
+                    namespace = manifest.catalog.namespace,
+                    registry = manifest.catalog.registry,
                 ).execute()
 
-                CatalogType.SUBSCRIBED -> insertSubscribedCatalog(
+                CatalogType.SUBSCRIBED -> rows.insertSubscribedCatalog(
                     command.tenantKey,
                     catalogKey,
                     manifest.catalog.name,
                     manifest.catalog.description,
                     command.sourceUrl,
+                    registry = manifest.catalog.registry ?: identity.defaultRegistry,
+                    namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey),
                 )
             }
         }
@@ -395,34 +611,23 @@ class ImportCatalogZipHandler(
                     ?: throw IllegalArgumentException(
                         "Resource at ${entry.detailUrl} declared type 'stencil' but parsed as ${parsed::class.simpleName}",
                     )
-                entry.slug to stencil
+                entry.key to stencil
             }
-        val stencilConflicts = scanStencilVersionConflicts(
-            command.tenantKey,
-            catalogKey,
-            parsedStencilsBySlug.values.toList(),
-        )
-        if (stencilConflicts.isNotEmpty() && command.onStencilConflict == OnStencilConflict.FAIL) {
-            throw StencilVersionImportConflictsException(catalogKey, stencilConflicts)
-        }
-
-        // Renumber decisions collected as stencils install — handed to
-        // ImportTemplates so template stencil-node pins from the same ZIP can
-        // be rewritten in lockstep. Filled in the install loop below.
-        val stencilRenumbers: MutableMap<StencilKey, StencilRenumber> = mutableMapOf()
-
-        // Install resources in dependency order
+        // Install resources in dependency order. What each binds to is kept as well: a subscribed
+        // catalog records its release from the archive as published, not from the rows it mirrors.
+        val bound = linkedMapOf<String, CatalogResource>()
         val results = ordered.map { entry ->
             try {
                 val resource: CatalogResource = if (entry.type == "stencil") {
-                    parsedStencilsBySlug[entry.slug]
-                        ?: error("Pre-scan produced no stencil for slug '${entry.slug}' (manifest/pre-scan out of sync)")
+                    parsedStencilsBySlug[entry.key]
+                        ?: error("Pre-scan produced no stencil for slug '${entry.key}' (manifest/pre-scan out of sync)")
                 } else {
                     val detailPath = entry.detailUrl.removePrefix("./")
                     val detailBytes = entries[detailPath]
                         ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
                     schemaMigrator.migrateAndBindResourceDetail(entry.type, detailBytes, catalogCtx).resource
                 }
+                bound["${entry.type}/${entry.key}"] = resource
 
                 val status = installResource(
                     tenantKey = command.tenantKey,
@@ -431,10 +636,8 @@ class ImportCatalogZipHandler(
                     resource = resource,
                     version = manifest.release.version,
                     entries = entries,
-                    onStencilConflict = command.onStencilConflict,
-                    stencilRenumbers = stencilRenumbers,
                 )
-                InstallResult(type = entry.type, slug = entry.slug, status = status)
+                InstallResult(type = entry.type, slug = entry.key, status = status)
             } catch (e: CatalogSchemaException) {
                 // A wire-version gate failure (too new/old/unknown) rejects the
                 // whole import and surfaces the dedicated operator remediation
@@ -442,15 +645,16 @@ class ImportCatalogZipHandler(
                 // FAILED resource by the generic catch below.
                 throw e
             } catch (e: Exception) {
-                logger.error("Failed to import {} '{}': {}", entry.type, entry.slug, e.message, e)
-                InstallResult(type = entry.type, slug = entry.slug, status = InstallStatus.FAILED, errorMessage = e.message)
+                logger.error("Failed to import {} '{}': {}", entry.type, entry.key, e.message, e)
+                InstallResult(type = entry.type, slug = entry.key, status = InstallStatus.FAILED, errorMessage = e.message)
             }
         }
 
         val anyFailed = results.any { it.status == InstallStatus.FAILED }
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
+        val declared = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)
 
-        if (command.catalogType == CatalogType.SUBSCRIBED) {
+        if (catalogType == CatalogType.SUBSCRIBED) {
             // A ZIP import of a SUBSCRIBED catalog IS its upgrade — same
             // contract as a URL `UpgradeCatalog`, the ZIP just being the
             // transport instead of a source URL.
@@ -468,7 +672,7 @@ class ImportCatalogZipHandler(
                 return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true)
             }
             analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
-            updateSubscribedInstalledState(
+            rows.updateSubscribedInstalledState(
                 command.tenantKey,
                 catalogKey,
                 manifest.release.version,
@@ -478,24 +682,51 @@ class ImportCatalogZipHandler(
                 manifest.catalog.description,
                 catalogMetadataJson,
             )
+            jdbi.useHandle<Exception> { dependencyStore.replace(it, command.tenantKey, catalogKey, declared) }
+            rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
             if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(command.tenantKey, catalogKey).execute()
+                RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries)).execute()
             }
         } else if (!anyFailed) {
-            updateAuthoredMetadata(
-                command.tenantKey,
-                catalogKey,
-                manifest.catalog.name,
-                manifest.catalog.description,
-                catalogMetadataJson,
-            )
+            if (!command.intoDraft) {
+                rows.updateAuthoredMetadata(
+                    command.tenantKey,
+                    catalogKey,
+                    manifest.catalog.name,
+                    manifest.catalog.description,
+                    catalogMetadataJson,
+                )
+            }
+            // The archive's declarations, locked as it was cut. A merge keeps those it does not name.
+            jdbi.useHandle<Exception> { handle ->
+                val kept = if (existingCatalog != null && command.authoredMode != AuthoredImportMode.REPLACE) {
+                    dependencyStore.declarations(handle, command.tenantKey, catalogKey).filter { local -> declared.none { it.identity == local.identity } }
+                } else {
+                    emptyList()
+                }
+                dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
+            }
+            // A merge into existing work keeps its theme settings; a fresh or replacing import, or one
+            // filling a draft (a release copied into it), takes the archive's.
+            if (existingCatalog == null || command.authoredMode == AuthoredImportMode.REPLACE || command.intoDraft) {
+                rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
+            }
+            jdbi.useHandle<Exception> { handle ->
+                // What an archive brings is released content: imported, every resource of it is
+                // ready as it is (contract ADR 0002), which adopting its release below relies on.
+                for (entry in manifest.resources) {
+                    readyMarks.resourceId(handle, command.tenantKey, catalogKey, entry.type, entry.key)
+                        ?.let { readyMarks.mark(handle, command.tenantKey, it) }
+                }
+            }
         }
 
-        if (command.catalogType == CatalogType.AUTHORED &&
+        if (catalogType == CatalogType.AUTHORED &&
             existingCatalog == null &&
             manifest.release.fingerprint != null &&
             SemVer.parseOrNull(manifest.release.version) != null &&
-            !anyFailed
+            !anyFailed &&
+            dependencyLocksHold(command.tenantKey, catalogKey, manifest.release.version)
         ) {
             // AUTHORED: adopt the published version as the *initial* release
             // only when this import created the catalog. A release is an
@@ -525,7 +756,7 @@ class ImportCatalogZipHandler(
                     e.message,
                 )
             }
-        } else if (command.catalogType == CatalogType.AUTHORED &&
+        } else if (catalogType == CatalogType.AUTHORED &&
             existingCatalog != null &&
             command.authoredMode == AuthoredImportMode.REPLACE
         ) {
@@ -556,110 +787,32 @@ class ImportCatalogZipHandler(
         // updated_at: a no-op re-import advances this in lockstep and does NOT
         // register as AUTHORED drift; only a later edit does. With released_at
         // it is the GREATEST(released_at, imported_at) drift baseline.
-        touchImportedAt(command.tenantKey, catalogKey)
+        if (!command.intoDraft) rows.touchImportedAt(command.tenantKey, catalogKey)
 
         ImportCatalogZipResult(
             catalogKey = catalogKey,
             catalogName = manifest.catalog.name,
             results = results,
+            published = publishedContent(manifest, bound, entries),
         )
     }
 
-    private fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND id = :c")
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
-                .execute()
-        }
-    }
-
-    /** Inserts an empty SUBSCRIBED catalog row (no source URL — ZIP-sourced). */
-    private fun insertSubscribedCatalog(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        name: String,
-        description: String?,
-        sourceUrl: String?,
-    ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, created_at, updated_at)
-                VALUES (:c, :t, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
-                """,
-            )
-                .bind("c", catalogKey)
-                .bind("t", tenantKey)
-                .bind("name", name)
-                .bind("description", description)
-                .bind("sourceUrl", sourceUrl)
-                .execute()
-        }
-    }
-
     /**
-     * Advances the SUBSCRIBED install pointer from the imported ZIP — the same
-     * `installed_*` state a URL [RegisterCatalog]/[UpgradeCatalog] records,
-     * so the upgrade preview / drift detection work identically. Run last,
-     * only on a fully successful import.
+     * Whether every dependency the archive declares is locked to a release this tenant has as the
+     * archive pinned it. Only then is its release adopted: a release is cut with exactly those, and
+     * releasing would refuse otherwise. The catalog still imports, as unreleased work.
      */
-    private fun updateSubscribedInstalledState(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        version: String,
-        fingerprint: String?,
-        resourceFingerprintsJson: String,
-        name: String,
-        description: String?,
-        catalogMetadataJson: String,
-    ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE catalogs
-                SET installed_release_version = :version, installed_fingerprint = :fingerprint,
-                    installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
-                """,
+    private fun dependencyLocksHold(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        val unresolved = dependencyStore.declarations(handle, tenantKey, catalogKey).filterNot { dependencyStore.pinHolds(handle, tenantKey, it) }
+        if (unresolved.isNotEmpty()) {
+            logger.info(
+                "Did not adopt imported release {} for new catalog '{}': this tenant lacks the dependency releases it was cut with: {}",
+                version,
+                catalogKey.value,
+                unresolved.joinToString { it.toString() },
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
-                .bind("version", version)
-                .bind("fingerprint", fingerprint)
-                .bind("resourceFingerprints", resourceFingerprintsJson)
-                .bind("name", name)
-                .bind("description", description)
-                .bind("catalogMetadata", catalogMetadataJson)
-                .execute()
         }
-    }
-
-    private fun updateAuthoredMetadata(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        name: String,
-        description: String?,
-        catalogMetadataJson: String,
-    ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE catalogs
-                SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
-                    content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND id = :c
-                """,
-            )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
-                .bind("name", name)
-                .bind("description", description)
-                .bind("catalogMetadata", catalogMetadataJson)
-                .execute()
-        }
+        unresolved.isEmpty()
     }
 
     /**
@@ -674,7 +827,7 @@ class ImportCatalogZipHandler(
         entries: Map<String, ByteArray>,
     ): Map<String, String> {
         val detailBytesByKey = manifest.resources.mapNotNull { entry ->
-            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.slug}" to it }
+            entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.key}" to it }
         }.toMap()
         return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytesByKey) { contentUrl ->
             entries[contentUrl.removePrefix("./")]
@@ -688,25 +841,23 @@ class ImportCatalogZipHandler(
         resource: CatalogResource,
         version: String,
         entries: Map<String, ByteArray>,
-        onStencilConflict: OnStencilConflict,
-        stencilRenumbers: MutableMap<StencilKey, StencilRenumber>,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
             val input = ImportTemplateInput(
-                slug = resource.slug,
+                slug = resource.key,
                 name = resource.name,
                 version = version,
-                themeId = resource.themeId,
-                themeCatalogKey = if (resource.themeId != null) resource.themeCatalogKey ?: catalogKey.value else null,
+                themeId = resource.themeKey,
+                themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: catalogKey.value else null,
                 pdfaEnabled = resource.pdfaEnabled,
                 dataModel = protocolMapper.toObjectNode(resource.dataModel),
                 dataExamples = resource.dataExamples?.map {
-                    DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!)
+                    DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
                 } ?: emptyList(),
                 templateModel = resource.templateModel,
                 variants = resource.variants.map { variant ->
                     ImportVariantInput(
-                        id = variant.slug,
+                        id = variant.key,
                         title = variant.title,
                         attributes = variant.attributes ?: emptyMap(),
                         templateModel = variant.templateModel,
@@ -718,11 +869,10 @@ class ImportCatalogZipHandler(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
                 templates = listOf(input),
-                stencilRenumbers = stencilRenumbers.toMap(),
             ).execute()
             val result = results.first()
             if (result.status == ImportStatus.FAILED) {
-                throw RuntimeException("Import failed for '${resource.slug}': ${result.errorMessage}")
+                throw RuntimeException("Import failed for '${resource.key}': ${result.errorMessage}")
             }
             if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
         }
@@ -730,7 +880,7 @@ class ImportCatalogZipHandler(
         is ThemeResource -> ImportTheme(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             description = resource.description,
             documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
@@ -739,37 +889,27 @@ class ImportCatalogZipHandler(
             spacingUnit = resource.spacingUnit,
         ).execute()
 
-        is StencilResource -> {
-            val result = ImportStencil(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
-                slug = resource.slug,
-                name = resource.name,
-                version = resource.version,
-                description = resource.description,
-                tags = resource.tags,
-                content = resource.content,
-                parameterSchema = resource.parameterSchema,
-                onConflict = onStencilConflict,
-            ).execute()
-            if (result.wasRenumbered) {
-                stencilRenumbers[StencilKey.of(resource.slug)] = StencilRenumber(
-                    sourceVersion = resource.version,
-                    assignedVersion = result.assignedVersion,
-                )
-            }
-            result.status
-        }
+        is StencilResource -> ImportStencil(
+            tenantId = tenantId,
+            catalogKey = catalogKey,
+            slug = resource.key,
+            name = resource.name,
+            description = resource.description,
+            tags = resource.tags,
+            content = resource.content,
+            parameterSchema = resource.parameterSchema,
+            readsTemplateData = resource.readsTemplateData,
+        ).execute()
 
         is AttributeResource -> {
             val bindingCatalog = resource.codeListBinding?.let {
                 it.catalogKey?.let(CatalogKey::of) ?: catalogKey
             }
-            val bindingSlug = resource.codeListBinding?.slug?.let(CodeListKey::of)
+            val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
             ImportAttribute(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
-                slug = resource.slug,
+                slug = resource.key,
                 displayName = resource.name,
                 allowedValues = resource.allowedValues,
                 codeListCatalogKey = bindingCatalog,
@@ -780,7 +920,7 @@ class ImportCatalogZipHandler(
         is app.epistola.catalog.protocol.CodeListResource -> ImportCodeList(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             displayName = resource.name,
             description = resource.description,
             entries = resource.entries.map { wire ->
@@ -796,7 +936,7 @@ class ImportCatalogZipHandler(
         is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
             tenantId = tenantId,
             catalogKey = catalogKey,
-            slug = resource.slug,
+            slug = resource.key,
             name = resource.name,
             kind = resource.kind,
             // Every variant's binary rode the ZIP as an `AssetResource`
@@ -805,7 +945,7 @@ class ImportCatalogZipHandler(
             variants = resource.variants.map { entry ->
                 val faceBytes = entries[entry.contentPath()]
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
-                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.slug, entry, faceBytes)
+                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.key, entry, faceBytes)
                 app.epistola.suite.fonts.commands.ImportFontVariant(
                     weight = entry.weight,
                     italic = entry.italic,
@@ -825,7 +965,7 @@ class ImportCatalogZipHandler(
             // -- and this accepts them. It used to parse the slug as a UUID, because the REST
             // surface could not represent anything else; `/images` addresses an image by `slug`,
             // a plain string, and the asset operations that forced the UUID are gone.
-            val assetId = AssetKey.of(resource.slug)
+            val assetId = AssetKey.of(resource.key)
             ImportAsset(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -837,160 +977,5 @@ class ImportCatalogZipHandler(
                 height = resource.height,
             ).execute()
         }
-    }
-
-    /**
-     * Checks all dependencies in a single query per resource type.
-     * Returns the list of dependencies that do NOT exist in the target system.
-     */
-    private fun findMissingDependencies(
-        tenantKey: TenantKey,
-        deps: List<app.epistola.catalog.protocol.DependencyRef>,
-    ): List<app.epistola.catalog.protocol.DependencyRef> {
-        if (deps.isEmpty()) return emptyList()
-
-        val found = mutableSetOf<String>() // unique key per dependency
-
-        jdbi.withHandle<Unit, Exception> { handle ->
-            // Catalog-scoped: themes
-            val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
-            if (themeDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, id FROM themes WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
-                    .bind("tenantKey", tenantKey)
-                    .bindList("slugs", themeDeps.map { it.slug })
-                    .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }
-                    .list()
-                    .let { found.addAll(it) }
-            }
-
-            // Catalog-scoped: stencils
-            val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
-            if (stencilDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, id FROM stencils WHERE tenant_key = :tenantKey AND id IN (<slugs>)")
-                    .bind("tenantKey", tenantKey)
-                    .bindList("slugs", stencilDeps.map { it.slug })
-                    .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }
-                    .list()
-                    .let { found.addAll(it) }
-            }
-
-            // Catalog-scoped: images. This probe matched tenant-wide until wire v7, which was
-            // only ever safe because an image's slug was a generated UUID -- two catalogs can both
-            // hold a `logo`, and a match in the wrong one reported a dependency as satisfied that
-            // was not. The dependency names its catalog now, so the probe can too.
-            val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
-            if (imageDeps.isNotEmpty()) {
-                handle.createQuery(
-                    "SELECT catalog_key, id::text FROM assets WHERE tenant_key = :tenantKey AND id::text IN (<slugs>)",
-                )
-                    .bind("tenantKey", tenantKey)
-                    .bindList("slugs", imageDeps.map { it.slug })
-                    .map { rs, _ -> "image:${rs.getString("catalog_key")}:${rs.getString("id")}" }
-                    .list()
-                    .let { found.addAll(it) }
-            }
-
-            // Catalog-scoped: code lists. Matches the same `catalog_key + slug`
-            // shape as themes/stencils so the look-up cost is one PK probe.
-            val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
-            if (codeListDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, slug FROM code_lists WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
-                    .bind("tenantKey", tenantKey)
-                    .bindList("slugs", codeListDeps.map { it.slug })
-                    .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
-                    .list()
-                    .let { found.addAll(it) }
-            }
-
-            // Catalog-scoped: fonts. Same `catalog_key + slug` PK-probe shape
-            // as themes/stencils/code lists.
-            val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
-            if (fontDeps.isNotEmpty()) {
-                handle.createQuery("SELECT catalog_key, slug FROM fonts WHERE tenant_key = :tenantKey AND slug IN (<slugs>)")
-                    .bind("tenantKey", tenantKey)
-                    .bindList("slugs", fontDeps.map { it.slug })
-                    .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }
-                    .list()
-                    .let { found.addAll(it) }
-            }
-        }
-
-        return deps.filter { dep ->
-            when (dep) {
-                is app.epistola.catalog.protocol.DependencyRef.Theme -> "theme:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Stencil -> "stencil:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Image -> "image:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.CodeList -> "codeList:${dep.catalogKey}:${dep.slug}" !in found
-                is app.epistola.catalog.protocol.DependencyRef.Font -> "font:${dep.catalogKey}:${dep.slug}" !in found
-            }
-        }
-    }
-
-    /**
-     * Read-only conflict scan over every stencil in the manifest. For each
-     * (slug, version) carried by the ZIP, compares the source content against
-     * what target already has at that exact version. Returns one entry per
-     * stencil where target has a row with **different content** — same content
-     * is idempotent, missing rows are installable. No mutation; safe to run
-     * before deciding whether to proceed (FAIL aborts; RENUMBER overlays).
-     *
-     * All `(slug, version, content)` tuples are sent in a single batched query
-     * via a `VALUES` CTE, so the round-trip cost is O(1) instead of O(N).
-     */
-    private fun scanStencilVersionConflicts(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
-        stencils: List<StencilResource>,
-    ): List<StencilVersionImportConflictsException.StencilImportConflict> {
-        if (stencils.isEmpty()) return emptyList()
-
-        val valuesPlaceholders = stencils.indices.joinToString(", ") { idx ->
-            "(:slug$idx, :ver$idx, :content$idx)"
-        }
-        val sql = """
-            WITH incoming AS (
-                SELECT
-                    slug::text   AS slug,
-                    version::int AS version,
-                    content::jsonb AS content
-                FROM (VALUES $valuesPlaceholders) AS t(slug, version, content)
-            )
-            SELECT i.slug AS slug, i.version AS version
-            FROM incoming i
-            JOIN stencils s
-              ON s.tenant_key  = :tenantKey
-             AND s.catalog_key = :catalogKey
-             AND s.id          = i.slug
-            JOIN stencil_versions sv
-              ON sv.tenant_key          = s.tenant_key
-             AND sv.stencil_resource_id = s.resource_id
-             AND sv.id                  = i.version
-            WHERE sv.content <> i.content
-        """.trimIndent()
-
-        val conflictKeys: Set<Pair<String, Int>> = jdbi.withHandle<Set<Pair<String, Int>>, Exception> { handle ->
-            val query = handle.createQuery(sql)
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
-            stencils.forEachIndexed { idx, resource ->
-                query
-                    .bind("slug$idx", resource.slug)
-                    .bind("ver$idx", resource.version)
-                    .bind("content$idx", objectMapper.writeValueAsString(resource.content))
-            }
-            query.map { rs, _ -> rs.getString("slug") to rs.getInt("version") }
-                .list()
-                .toSet()
-        }
-
-        return stencils
-            .filter { (it.slug to it.version) in conflictKeys }
-            .map { resource ->
-                StencilVersionImportConflictsException.StencilImportConflict(
-                    stencilKey = StencilKey.of(resource.slug),
-                    stencilName = resource.name,
-                    version = resource.version,
-                )
-            }
     }
 }

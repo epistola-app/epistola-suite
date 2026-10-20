@@ -4,44 +4,36 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.suite.fonts.queries.ResolvedFontFace
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import java.time.Duration
 
 /**
- * Process-wide cache of resolved font-face bytes, shared across renders so a
- * document (and repeated renders of the same template) don't re-hit the DB +
- * content store for every text run.
+ * The bytes of font faces, by content hash, so a render does not fetch a face's binary from the
+ * content store for every face it embeds.
  *
- * Bounded by total cached bytes (a font face is ~100–700 KB) and evicted a
- * while after write — short enough that a draft re-upload is picked up
- * reasonably soon. Published-version determinism does **not** rely on this
- * cache: [FontSnapshotVerifier] reads the live `content_hash` directly and
- * fails the render before bytes are fetched, so a stale entry can never mask
- * font drift on a published version.
+ * Keyed by `tenant|content hash`: which face a render uses is decided in the version it renders
+ * ([app.epistola.suite.fonts.queries.ResolveFontFace]), and the bytes behind a hash never change, so
+ * an entry can never stand in for another version's face. Bounded by total cached bytes (a face is
+ * ~100–700 KB) and evicted a while after write.
  *
- * Negative results are not cached: a missing family should resolve as soon as
- * its faces are imported.
+ * Negative results are not cached: a missing face should resolve as soon as it is imported.
  */
 @Component
 class FontByteCache {
 
     private val cache = Caffeine.newBuilder()
         .maximumWeight(MAX_TOTAL_BYTES)
-        .weigher<String, ResolvedFontFace> { _, value -> value.content.size }
+        .weigher<String, ByteArray> { _, value -> value.size }
         .expireAfterWrite(Duration.ofMinutes(10))
-        .build<String, ResolvedFontFace>()
+        .build<String, ByteArray>()
 
-    /**
-     * Returns the cached face for [key], or invokes [loader]; a non-null
-     * result is cached, a null (not found) is not.
-     */
-    fun getOrResolve(key: String, loader: () -> ResolvedFontFace?): ResolvedFontFace? {
+    /** The cached bytes for [key], or [loader]'s; a non-null result is cached, a null is not. */
+    fun getOrLoad(key: String, loader: () -> ByteArray?): ByteArray? {
         cache.getIfPresent(key)?.let { return it }
-        val resolved = loader() ?: return null
-        cache.put(key, resolved)
-        return resolved
+        val loaded = loader() ?: return null
+        cache.put(key, loaded)
+        return loaded
     }
 
     private companion object {

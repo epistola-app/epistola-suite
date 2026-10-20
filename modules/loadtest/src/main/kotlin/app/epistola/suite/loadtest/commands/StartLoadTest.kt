@@ -4,6 +4,7 @@
 
 package app.epistola.suite.loadtest.commands
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -41,7 +42,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class StartLoadTest(
     val tenantId: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val environmentId: EnvironmentKey? = null,
@@ -86,7 +87,7 @@ class StartLoadTestHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_key = :tenantId AND id = :variantId
+                    WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :variantId
                       AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 )
                 """,

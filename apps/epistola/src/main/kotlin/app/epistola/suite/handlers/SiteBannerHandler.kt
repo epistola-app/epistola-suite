@@ -8,6 +8,7 @@ import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.ClearSiteBanner
 import app.epistola.suite.banner.commands.SetSiteBanner
 import app.epistola.suite.banner.queries.GetSiteBanner
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.springframework.stereotype.Component
@@ -47,8 +48,6 @@ class SiteBannerHandler {
                 enabled = request.param("enabled").isPresent,
             ).execute()
         }
-        return ServerResponse.status(303)
-            .header("Location", "/platform/banner?saved=true")
-            .build()
+        return redirect("/platform/banner?saved=true")
     }
 }

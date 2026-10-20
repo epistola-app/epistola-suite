@@ -7,7 +7,14 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.contentRevision
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
@@ -28,7 +35,12 @@ data class UpdateAttributeDefinition(
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
     val codeListId: CodeListId? = null,
-) : Command<VariantAttributeDefinition?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+    /** The attribute's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
+) : CatalogVersionScoped,
+    Command<VariantAttributeDefinition?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
@@ -64,8 +76,16 @@ class AllowedValuesInUseException(
 class UpdateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateAttributeDefinition, VariantAttributeDefinition?> {
     override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        if (saved != null) usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.codeListId?.catalogId?.key)
+        return saved
+    }
+
+    private fun save(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
             // If allowed values are being narrowed, check for existing variants using removed values
@@ -73,7 +93,7 @@ class UpdateAttributeDefinitionHandler(
                 val currentAllowedValues = handle.createQuery(
                     """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                    WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                     """,
                 )
                     .bind("id", command.id.key)
@@ -97,6 +117,7 @@ class UpdateAttributeDefinitionHandler(
                             SELECT COUNT(*) FROM template_variants variants
                             ${templateJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
+                              AND ${inCurrentVersion("variants")}
                               AND ${AttributeReferences.usesValue("variants", "value")}
                             """,
                         )
@@ -123,14 +144,21 @@ class UpdateAttributeDefinitionHandler(
                     allowed_values         = :allowedValues::jsonb,
                     code_list_resource_id  = ${boundCodeListAtAddress("tenantId")},
                     updated_at          = NOW()
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
-                RETURNING id, tenant_key, catalog_key, display_name, allowed_values, created_at, updated_at,
-                          (SELECT catalog_key FROM code_lists cl
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
+                  AND ${Revisions.MATCHES}
+                RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at, revision,
+                          (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
+                          (SELECT cl_cat.catalog_key FROM code_lists cl
+                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
                           (SELECT slug FROM code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_slug
                 """,
             )
                 .bind("id", command.id.key)
@@ -140,9 +168,14 @@ class UpdateAttributeDefinitionHandler(
                 .bind("allowedValues", allowedValuesJson)
                 .bind("codeListCatalogKey", command.codeListId?.catalogKey)
                 .bind("codeListSlug", command.codeListId?.key)
+                .bind("expectedRevision", command.expectedRevision)
                 .mapTo<VariantAttributeDefinition>()
                 .findOne()
                 .orElse(null)
+                ?: run {
+                    Revisions.refuse("Attribute '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("variant_attribute_definitions", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                    null
+                }
         }
     }
 }

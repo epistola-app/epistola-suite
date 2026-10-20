@@ -10,7 +10,9 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -19,6 +21,8 @@ import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -81,6 +85,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             ).execute()
 
             CreateCatalog(tenantKey = tenant.id, id = main, name = "Main").execute()
+            declareDependency(tenant.id, main, on = shared)
             CreateAttributeDefinition(
                 id = regionAttr,
                 displayName = "Region",
@@ -123,6 +128,10 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             val restoredTenant = GetTenant(tenant.id).query()
             assertThat(restoredTenant!!.defaultThemeKey?.value).isEqualTo("brand")
             assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
+
+            // A restored authored catalog has a draft to keep working in.
+            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.label to it.status })
+                .containsExactly("Next version" to CatalogVersionStatus.DRAFT)
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()
@@ -210,7 +219,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
     private fun themeIdentity(tenantKey: String, catalogKey: String, key: String): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         handle
-            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_key = :c AND id = :k")
+            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .bind("k", key)

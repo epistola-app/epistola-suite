@@ -26,9 +26,9 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.query
-import app.epistola.suite.stencils.queries.ListStencilVersions
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
@@ -78,7 +78,7 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
         withMediator {
             when (movable) {
                 MovableResource.STENCIL ->
-                    assertThat(ListStencilVersions(StencilId(StencilKey.of(target.key), catalog)).query()).isNotEmpty()
+                    assertThat(GetStencil(StencilId(StencilKey.of(target.key), catalog)).query()).isNotNull()
 
                 MovableResource.ATTRIBUTE ->
                     assertThat(GetAttributeDefinition(AttributeId(AttributeKey.of(target.key), catalog)).query()).isNotNull()
@@ -86,7 +86,7 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
                 MovableResource.TEMPLATE -> {
                     val templateId = TemplateId(TemplateKey.of(target.key), catalog)
                     assertThat(GetDocumentTemplate(templateId).query()).isNotNull()
-                    assertThat(GetDraft(VariantId(VariantKey.INITIAL, templateId)).query()).isNotNull()
+                    assertThat(GetVariantContent(VariantId(VariantKey.INITIAL, templateId)).query()).isNotNull()
                 }
 
                 MovableResource.CODE_LIST ->

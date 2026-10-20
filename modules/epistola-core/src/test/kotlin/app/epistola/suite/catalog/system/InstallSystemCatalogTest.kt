@@ -125,7 +125,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
                 """
                 UPDATE catalogs
                 SET installed_release_version = '0', installed_fingerprint = 'stale-fingerprint'
-                WHERE tenant_key = :tenantKey AND id = 'system'
+                WHERE tenant_key = :tenantKey AND catalog_key = 'system'
                 """,
             )
                 .bind("tenantKey", tenant.id)

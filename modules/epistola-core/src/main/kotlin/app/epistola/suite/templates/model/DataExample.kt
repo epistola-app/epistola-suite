@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.model
 
+import app.epistola.catalog.protocol.CatalogKeys
 import tools.jackson.core.JsonGenerator
 import tools.jackson.core.JsonParser
 import tools.jackson.databind.DeserializationContext
@@ -25,22 +26,49 @@ data class DataExample(
     val id: String,
     val name: String,
     val data: ObjectNode,
+    /**
+     * The example's address within its template (wire v8): unique there, and kept when the example
+     * is renamed. Null only until the example joins a [DataExamples] list, which assigns it.
+     */
+    val key: String? = null,
 ) {
     @JsonPOJOBuilder(withPrefix = "with", buildMethodName = "build")
     class Builder {
         var id: String? = null
         var name: String? = null
         var data: ObjectNode? = null
+        var key: String? = null
 
         fun withId(id: String?) = apply { this.id = id }
         fun withName(name: String?) = apply { this.name = name }
         fun withData(data: ObjectNode?) = apply { this.data = data }
+        fun withKey(key: String?) = apply { this.key = key }
 
         fun build() = DataExample(
             id = id ?: UUID.randomUUID().toString(),
             name = name ?: "Unnamed",
             data = data ?: throw IllegalArgumentException("data is required and cannot be null"),
+            key = key,
         )
+    }
+}
+
+/**
+ * [examples] with a key each: one an example already has is kept, and one it lacks is derived from
+ * its name, in order, unique within the list -- exactly as the contract's v7-to-v8 migration keys a
+ * catalog's examples ([CatalogKeys.deriveDataExampleKey]), so a stored template and an archive agree.
+ */
+fun assignDataExampleKeys(examples: List<DataExample>): List<DataExample> {
+    if (examples.all { it.key != null }) return examples
+    val taken = examples.mapNotNullTo(mutableSetOf()) { it.key }
+    return examples.map { example ->
+        if (example.key != null) {
+            example
+        } else {
+            val key = CatalogKeys.deriveDataExampleKey(example.name, taken)
+            taken += key
+            example.copy(key = key)
+        }
     }
 }
 
@@ -61,7 +89,7 @@ data class DataExample(
 @JsonSerialize(using = DataExamplesSerializer::class)
 data class DataExamples(
     private val items: List<DataExample> = emptyList(),
-) : List<DataExample> by items {
+) : List<DataExample> by assignDataExampleKeys(items) {
     companion object {
         val EMPTY = DataExamples(emptyList())
 

@@ -142,7 +142,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
-            UnregisterCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            DeleteCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
             val catalog = GetCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).query()
             assertThat(catalog).isNull()
@@ -160,7 +160,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
-            UnregisterCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            DeleteCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
 
             // Re-register and install — resources were deleted by CASCADE, so this is a fresh install
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
@@ -263,10 +263,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     private fun writeCatalogWithName(dir: Path, name: String): String {
         val manifest = """
             {
-              "schemaVersion": 5,
-              "catalog": { "slug": "overlong-name", "name": ${escapeJson(name)} },
+              "schemaVersion": 8,
+              "catalog": { "key": "overlong-name", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": ${escapeJson(name)} },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": []
             }
         """.trimIndent()
@@ -307,23 +307,74 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * A catalog installed from a URL is held to what a ZIP import is: every rule a valid catalog
+     * keeps, here that each catalog its content references is declared (contract ADR 0003). Before,
+     * only a ZIP import checked, so a URL install succeeded and the catalog could not be exported.
+     */
+    @Test
+    fun `a URL catalog that references another catalog without declaring it is refused whole`(@TempDir tmp: Path) {
+        val tenant = createTenant("Install Undeclared Test")
+        val sourceUrl = writeCatalogReferencingSystemUndeclared(tmp)
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+
+            assertThatThrownBy { InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("undeclared-test")).execute() }
+                .isInstanceOf(CatalogImportValidationException::class.java)
+                .hasMessageContaining("which catalogDependencies does not declare")
+            assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value }).doesNotContain("undeclared-theme")
+        }
+    }
+
+    private fun writeCatalogReferencingSystemUndeclared(dir: Path): String {
+        dir.resolve("catalog.json").writeText(
+            """
+            {
+              "schemaVersion": 8,
+              "catalog": { "key": "undeclared-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Undeclared Test Catalog" },
+              "publisher": { "name": "Test" },
+              "release": { "version": "1.0.0" },
+              "resources": [
+                { "type": "theme", "key": "undeclared-theme", "name": "Undeclared Theme", "detailUrl": "./resources/themes/undeclared-theme.json" }
+              ]
+            }
+            """.trimIndent(),
+        )
+        dir.resolve("resources/themes").createDirectories()
+        dir.resolve("resources/themes/undeclared-theme.json").writeText(
+            """
+            {
+              "schemaVersion": 8,
+              "resource": {
+                "type": "theme",
+                "key": "undeclared-theme",
+                "name": "Undeclared Theme",
+                "documentStyles": { "fontFamily": { "key": "inter", "catalogKey": "system" } }
+              }
+            }
+            """.trimIndent(),
+        )
+        return dir.resolve("catalog.json").toUri().toString()
+    }
+
     private fun writeCatalogWithBrokenTemplate(dir: Path): String {
         val manifest = """
             {
-              "schemaVersion": 6,
-              "catalog": { "slug": "rollback-test", "name": "Rollback Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "rollback-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Rollback Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": [
                 {
                   "type": "theme",
-                  "slug": "rollback-theme",
+                  "key": "rollback-theme",
                   "name": "Rollback Theme",
                   "detailUrl": "./resources/themes/rollback-theme.json"
                 },
                 {
                   "type": "template",
-                  "slug": "broken",
+                  "key": "broken",
                   "name": "Broken Template",
                   "detailUrl": "./resources/templates/broken.json"
                 }
@@ -332,10 +383,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         """.trimIndent()
         val theme = """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "theme",
-                "slug": "rollback-theme",
+                "key": "rollback-theme",
                 "name": "Rollback Theme",
                 "documentStyles": { "fontSize": "11pt" }
               }
@@ -345,10 +396,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         // than during the wire-version or manifest gate, which is what exercises the rollback.
         val template = """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "template",
-                "slug": "broken",
+                "key": "broken",
                 "name": "Broken Template",
                 "templateModel": {
                   "modelVersion": 1,
@@ -371,21 +422,21 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     /**
-     * Writes a minimal `file:` catalog under [dir]: a current-version (5) manifest
+     * Writes a minimal `file:` catalog under [dir]: a current-version (8) manifest
      * declaring one `codeList`, whose detail is deliberately stamped at version 3.
      * Returns the `file:` URL of the manifest.
      */
     private fun writeDriftedCatalog(dir: Path): String {
         val manifest = """
             {
-              "schemaVersion": 5,
-              "catalog": { "slug": "drift-test", "name": "Drift Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "drift-test", "registry": "exchange.epistola.app", "namespace": "test-publisher", "name": "Drift Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": [
                 {
                   "type": "codeList",
-                  "slug": "colours",
+                  "key": "colours",
                   "name": "Colours",
                   "detailUrl": "./resources/codelists/colours.json"
                 }

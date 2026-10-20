@@ -1,16 +1,10 @@
 ---
 type: feat
-scopes: [catalog]
+scopes: [catalog, templates]
 audience: user
+breaking: true
 issues: [988]
-title: Releasing a catalog says which resources it will change.
+title: Templates are no longer versioned; you work in a catalog's next version and publish it, numbered from what changed.
 ---
 
-The release dialog said only that the working copy had unreleased changes, never which ones — so
-releasing meant trusting that everything which had accumulated since the last release was meant to
-ship. It now names them: what this release adds, updates and drops, and how much it carries over
-unchanged.
-
-A release records the per-resource digests of what it contained, which is what the next one compares
-against. A catalog whose last release predates that says so in one sentence rather than listing
-every resource as new; the next release restores the detail.
+In 1.x every template, data contract and stencil had versions of its own, published one at a time. In 2.0 the catalog version is the only version. A template variant has one model and a template one data contract, both edited in place, and everyday work goes into the catalog's **next version**, which has no number until you publish it. **Publish…**, offered on every page of the catalog, lists what changes by name ("Added: Invoice (Template)") and says what that means for whoever uses the catalog: only corrections, additions that keep everything working, or a warning naming what can break. It picks the number from that — corrections raise the patch, additions the minor, breaking changes the major — and you may raise it under Advanced, never lower it; a catalog's first version is 1.0.0. After publishing, the next version carries on from what was published, and discarding it throws its changes away and starts it again from the latest published version. A large change that is not ready goes into **parallel work**: a named copy started from the next version or a published version and kept apart from everyday work. You try it on a test environment and publish it on its own when it is ready, numbered from what it started from, after you confirm each version published since it started that it does not contain; a fix to an older version is parallel work started from that version. Publishing parallel work asks where everyday work continues: in the next version, as before, or from what you just published, keeping the old next version under a name or discarding it. Nothing is merged. Behind publishing is a **ready mark**: a record that a resource's current content is reviewed, which any edit makes stale. Publishing in the web UI marks the changes ready for you; over REST and MCP you mark a variant, template, stencil or the whole catalog ready, and releasing is refused while a change is not ready. Marking a variant ready runs the checks that publishing a template version used to.

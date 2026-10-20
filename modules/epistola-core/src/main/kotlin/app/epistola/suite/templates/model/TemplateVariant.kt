@@ -18,7 +18,7 @@ import java.time.OffsetDateTime
 data class TemplateVariant(
     val id: VariantKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val title: String,
     val description: String?,
@@ -28,16 +28,17 @@ data class TemplateVariant(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change; a write naming the revision it read is refused when it moved on. */
+    val revision: Long = 1,
 )
 
 /**
- * Summary of a variant with version statistics.
+ * Summary of a variant: whether its content is marked ready as it is now (contract ADR 0002).
  */
 data class VariantSummary(
     val id: VariantKey,
     val title: String,
     @Json val attributes: Map<String, String>,
     val isDefault: Boolean,
-    val hasDraft: Boolean,
-    @Json val publishedVersions: List<Int>,
+    val ready: Boolean,
 )

@@ -66,7 +66,7 @@ class LogsHandler {
                 "tenantId" to filters.tenantKey
                 applyResultsModel(page)
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/logs") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/logs") }
         }
     }
 
@@ -80,7 +80,7 @@ class LogsHandler {
                 "tenantId" to filters.tenantKey
                 applyResultsModel(page)
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/logs") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/logs") }
         }
     }
 
@@ -97,7 +97,7 @@ class LogsHandler {
                 "newerCursorId" to (page.newerCursorId ?: cursor.id.toString())
                 "logs" to page.logs
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/logs") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/logs") }
         }
     }
 

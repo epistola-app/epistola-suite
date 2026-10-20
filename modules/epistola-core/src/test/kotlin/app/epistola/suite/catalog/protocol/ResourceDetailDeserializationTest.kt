@@ -34,7 +34,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         assertThat(detail.resource).isInstanceOf(TemplateResource::class.java)
 
         val template = detail.resource as TemplateResource
-        assertThat(template.slug).isEqualTo("hello-world")
+        assertThat(template.key).isEqualTo("hello-world")
         assertThat(template.name).isEqualTo("Hello World")
         assertThat(template.variants).isNotEmpty()
     }
@@ -67,7 +67,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         assertThat(detail.resource).isInstanceOf(ThemeResource::class.java)
 
         val theme = detail.resource as ThemeResource
-        assertThat(theme.slug).isEqualTo("corporate")
+        assertThat(theme.key).isEqualTo("corporate")
         assertThat(theme.name).isEqualTo("Corporate Theme")
         assertThat(theme.documentStyles).isNotEmpty()
     }
@@ -83,10 +83,10 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         assertThat(detail.resource).isInstanceOf(AttributeResource::class.java)
 
         val attr = detail.resource as AttributeResource
-        assertThat(attr.slug).isEqualTo("language")
+        assertThat(attr.key).isEqualTo("language")
         assertThat(attr.allowedValues).isEmpty()
         assertThat(attr.codeListBinding?.catalogKey).isEqualTo("system")
-        assertThat(attr.codeListBinding?.slug).isEqualTo("iso-639-1")
+        assertThat(attr.codeListBinding?.key).isEqualTo("iso-639-1")
     }
 
     @Test
@@ -98,7 +98,7 @@ class ResourceDetailDeserializationTest : IntegrationTestBase() {
         assertThat(detail.resource).isInstanceOf(StencilResource::class.java)
 
         val stencil = detail.resource as StencilResource
-        assertThat(stencil.slug).isEqualTo("company-header")
+        assertThat(stencil.key).isEqualTo("company-header")
         assertThat(stencil.tags).containsExactly("header", "branding")
     }
 }

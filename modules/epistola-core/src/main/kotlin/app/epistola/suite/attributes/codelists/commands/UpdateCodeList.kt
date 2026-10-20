@@ -10,7 +10,12 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -44,7 +49,12 @@ data class UpdateCodeList(
     val authType: AuthType = AuthType.NONE,
     val credential: String? = null,
     val entries: List<CodeListEntry>? = null,
-) : Command<CodeList?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+    /** The code list's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
+) : CatalogVersionScoped,
+    Command<CodeList?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
@@ -79,12 +89,17 @@ class UpdateCodeListHandler(
                     source_url    = COALESCE(:sourceUrl, source_url),
                     auth_type     = :authType,
                     credential    = :credential,
-                    updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                RETURNING slug, tenant_key, catalog_key, display_name, description,
+                    updated_at = NOW(),
+                    -- Replacing an inline list's entries changes the list, which its own columns do not show.
+                    revision      = CASE WHEN :replacesEntries AND source_type = 'INLINE' THEN revision + 1 ELSE revision END
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
+                  AND ${Revisions.MATCHES}
+                RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                          display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
-                          created_at, updated_at
+                          created_at, updated_at, revision
                 """,
             )
                 .bind("slug", command.id.key)
@@ -95,9 +110,15 @@ class UpdateCodeListHandler(
                 .bind("sourceUrl", command.sourceUrl)
                 .bind("authType", command.authType.name)
                 .bind("credential", command.credential?.let(::Secret))
+                .bind("replacesEntries", command.entries != null)
+                .bind("expectedRevision", command.expectedRevision)
                 .mapTo<CodeList>()
                 .findOne()
-                .orElse(null) ?: return@inTransaction null
+                .orElse(null)
+                ?: run {
+                    Revisions.refuse("Code list '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("code_lists", "slug", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                    return@inTransaction null
+                }
 
             // Entry replacement is only allowed for INLINE lists; URL/CLASSPATH
             // entries flow through RefreshCodeList. Silently ignore entries on
@@ -107,7 +128,7 @@ class UpdateCodeListHandler(
                 handle.createUpdate(
                     """
                     DELETE FROM code_list_entries
-                    WHERE tenant_key = :tenantKey AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                     """,
                 )
                     .bind("tenantKey", command.id.tenantKey)
@@ -124,7 +145,7 @@ class UpdateCodeListHandler(
         handle.createQuery(
             """
             SELECT source_url FROM code_lists
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
             """,
         )
             .bind("tenantKey", command.id.tenantKey)

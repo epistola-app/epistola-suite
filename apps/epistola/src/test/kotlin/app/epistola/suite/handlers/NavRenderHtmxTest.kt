@@ -5,6 +5,8 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
@@ -27,28 +29,60 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `core nav groups render on the tenant shell`() {
+    fun `outside a catalog the tenant nav lists the catalogs, then the groups, with the page marked`() {
         val tenant = createTenant("Nav Core")
+        withMediator { CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute() }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).let {
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).let {
             assertThat(it.statusCode).isEqualTo(HttpStatus.OK)
             it.body!!
         }
 
-        assertThat(body).contains("nav-dropdown-authoring", "nav-dropdown-resources", "nav-dropdown-operations", "nav-dropdown-settings")
-        assertThat(body).contains("/tenants/${tenant.id.value}/themes", "/tenants/${tenant.id.value}/code-lists")
-        // Active highlighting: the Templates item is marked active on the templates page.
-        // (Thymeleaf classappend can emit extra whitespace, so normalise before matching.)
-        assertThat(body).contains("nav-item-templates")
-        assertThat(body.replace(Regex("\\s+"), " ")).contains("app-nav-dropdown-item active")
+        assertThat(body).contains("nav-group-catalogs", "nav-group-documents", "nav-group-operations", "nav-group-settings")
+        // The catalogs come first in their group; the system catalog, part of every tenant, is not among them.
+        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\" class=\"ws-nav-item\" data-catalog=\"letters\"")
+        assertThat(body).doesNotContain("data-catalog=\"system\" data-testid=\"ws-nav-catalog\"")
+        // Parts live in a catalog's own nav, not here.
+        assertThat(body).doesNotContain("nav-item-themes").doesNotContain("nav-item-code-lists")
+        // The page is marked in the nav and named in the bar.
+        assertThat(body.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"nav-item-environments\" aria-current=\"page\"")
+        assertThat(body).contains("data-testid=\"ws-crumb-section\">Environments<")
+    }
+
+    @Test
+    fun `the tenant nav lists the five catalogs changed most recently`() {
+        val tenant = createTenant("Nav Recent")
+        withMediator { (1..7).forEach { CreateCatalog(tenant.id, CatalogKey.of("catalog-$it"), "Catalog $it").execute() } }
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).body!!
+
+        val listed = Regex("""data-catalog="([^"]+)" data-testid="ws-nav-catalog"""").findAll(body).map { it.groupValues[1] }.toList()
+        assertThat(listed).`as`("newest first").containsExactly("catalog-7", "catalog-6", "catalog-5", "catalog-4", "catalog-3")
+        assertThat(body).contains("data-testid=\"nav-item-catalogs\"")
+    }
+
+    @Test
+    fun `quality filtered to a catalog is inside that catalog, and not in the tenant nav`() {
+        val tenant = createTenant("Nav Quality")
+        withMediator {
+            CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY, enabled = true).execute()
+        }
+
+        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/letters/quality", String::class.java).body!!
+        assertThat(quality.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>")).contains(">Letters<")
+        assertThat(quality.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"ws-nav-quality\"")
+
+        val outside = restTemplate.getForEntity("/tenants/${tenant.id.value}/environments", String::class.java).body!!
+        assertThat(outside).doesNotContain("nav-item-quality")
     }
 
     @Test
     fun `shared chrome renders the application display name`() {
         val tenant = createTenant("Nav Display Name")
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
-        val navUser = body.substringAfter("""class="app-nav-username"""").substringBefore("</a>")
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
+        val navUser = body.substringAfter("""class="ws-account-name"""").substringBefore("</span>")
         val footerUser = body.substringAfter("""class="user-info"""").substringBefore("</footer>")
 
         assertThat(navUser).contains(">${TestPrincipalUser.DISPLAY_NAME}")
@@ -65,7 +99,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_COMPATIBILITY_CHECK, enabled = false).execute()
         }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).doesNotContain("nav-dropdown-support")
         // The feedback footer FAB is also contributed via the footer SPI, so it disappears too.
@@ -79,7 +113,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.SUPPORT_FEEDBACK, enabled = true).execute()
         }
 
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).contains("nav-dropdown-support")
         assertThat(body).contains("/tenants/${tenant.id.value}/support") // Overview
@@ -130,7 +164,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
 
         // Render a page whose header is NOT the resource graph, so the badge in the markup is the one
         // the nav item emits — this isolates the nav-template rendering from the feature page header.
-        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/templates", String::class.java).body!!
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs", String::class.java).body!!
 
         assertThat(body).contains("/tenants/${tenant.id.value}/resource-graph")
         assertThat(body).contains("badge badge-alpha")

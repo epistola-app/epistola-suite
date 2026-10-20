@@ -2,556 +2,243 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-/**
- * Direct tests of the `stencil-actions.ts` module.
- *
- * These call the action functions with mocked callbacks and assert engine
- * state — no inspector / Lit / DOM involvement. Sibling files cover other
- * angles:
- *   - `extract-subtree.test.ts`     — extractSubtree + fill stripping
- *   - `replace-content.test.ts`     — RemoveNode/InsertNode swap flow
- *   - `stencil-state.test.ts`       — props transitions + getLabel + catalogKey
- *   - `stencil-callbacks.test.ts`   — simulated inspector flows (callbacks)
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDocument, resetCounter, nodeId, slotId } from '../../engine/test-helpers.js';
+import { describe, expect, it } from 'vitest';
+import type { NodeId, SlotId, TemplateDocument } from '../../types/index.js';
+import { isSlotLocked } from '../../engine/locks.js';
 import * as actions from './stencil-actions.js';
+import { expand, resolverOver } from './instances.js';
+import { stencilIdentity } from './node-types.js';
 import {
-  setupEngine,
-  insertStencil,
+  buildDocument,
+  CATALOG,
+  childrenOf,
+  container,
   createMockCallbacks,
-  richText,
-  richTextValue,
+  insertText,
+  placeholder,
+  setupEngine,
+  storedInstance,
+  text,
+  textOf,
+  workingCopy,
 } from './stencil-test-helpers.js';
-import type { TemplateDocument, NodeId, SlotId } from '../../types/index.js';
-import type { StencilCallbacks } from './types.js';
-import type { JsonSchema } from '../../data-contract/types.js';
+import type { StencilWorkingCopy } from './types.js';
 
-beforeEach(() => {
-  resetCounter();
+const letter = (header = 'Header') =>
+  workingCopy('letter', [
+    text('hdr', header),
+    placeholder('ph', 'body', { default: [text('d', 'Default body')] }),
+    container('box'),
+  ]);
+
+/** A template with expanded instances of `letter` (`inst`, and `other` when asked), `inst` filled by the template. */
+function setup(copies: StencilWorkingCopy[] = [letter()], withOther = false) {
+  const callbacks = createMockCallbacks(copies);
+  const stored = buildDocument([
+    storedInstance('inst', 'letter', { body: [text('mine', 'Mine')] }),
+    ...(withOther ? [storedInstance('other', 'letter')] : []),
+  ]);
+  const fetched = new Map(copies.map((c) => [stencilIdentity(c.ref), c]));
+  const { document } = expand(stored, CATALOG, resolverOver(fetched));
+  const env = setupEngine(callbacks, document);
+  const ctx: actions.StencilActionContext = {
+    engine: env.engine,
+    callbacks,
+    editing: env.editing,
+    stencilNodeId: 'inst' as NodeId,
+  };
+  return { ...env, callbacks, ctx };
+}
+
+function savedContent(callbacks: ReturnType<typeof setup>['callbacks']): TemplateDocument {
+  const call = (callbacks.saveStencil as unknown as { mock: { calls: unknown[][] } }).mock.calls[0];
+  return (call[1] as { content: TemplateDocument }).content;
+}
+
+describe('startEditing', () => {
+  it('shows the latest working copy, keeps the template fill, and unlocks the content', async () => {
+    const { ctx, callbacks, engine, registry } = setup();
+    callbacks.copies.set(`${CATALOG}/letter`, letter('Newer header'));
+
+    await actions.startEditing(ctx);
+
+    expect(textOf(engine, 'inst:hdr')).toBe('Newer header');
+    expect(childrenOf(engine, 'inst:ph', 'fill')).toEqual(['mine']);
+    expect(ctx.editing.isEditing('inst')).toBe(true);
+    expect(
+      isSlotLocked(engine.doc, 'inst:s:box:children' as SlotId, engine.indexes, registry),
+    ).toBe(false);
+  });
+
+  it('refuses a stencil of a read-only catalog', async () => {
+    const { ctx } = setup([workingCopy('letter', [text('hdr')], { editable: false })]);
+
+    await expect(actions.startEditing(ctx)).rejects.toThrow('read-only catalog');
+    expect(ctx.editing.isEditing('inst')).toBe(false);
+  });
 });
 
-describe('stencil-actions module', () => {
-  const RECIPIENT_SCHEMA: JsonSchema = {
-    type: 'object',
-    properties: { recipientName: { type: 'string' } },
-  };
+describe('saveStencil', () => {
+  it("saves the instance's content without the template's fills, in stored form", async () => {
+    const { ctx, callbacks, engine, registry } = setup();
+    await actions.startEditing(ctx);
+    insertText(engine, registry, 'inst:s:box:children' as SlotId, 'Added while editing');
 
-  function setupCtx(stencilProps: Record<string, unknown>, callbacks: StencilCallbacks) {
-    const { engine, registry, rootSlotId } = setupEngine(callbacks);
-    const stencilId = insertStencil(engine, registry, rootSlotId, stencilProps);
-    const ctx: actions.StencilActionContext = {
-      engine,
-      callbacks,
-      stencilNodeId: stencilId,
-    };
-    return { engine, registry, rootSlotId, stencilId, ctx };
-  }
+    await actions.saveStencil(ctx);
 
-  it('startEditing loads the exact backend draft and records its version', async () => {
-    const content = createTestDocument();
-    const draft = {
-      ref: { stencilId: 'header', catalogKey: 'cat' },
-      stencilName: 'Header',
-      version: 7,
-      status: 'draft' as const,
-      content,
-    };
-    const callbacks = createMockCallbacks({
-      startEditing: vi.fn().mockResolvedValue(draft),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1 },
-      callbacks,
-    );
-
-    const result = await actions.startEditing(ctx);
-
-    expect(result).toEqual(draft);
-    expect(callbacks.startEditing).toHaveBeenCalledWith({
-      stencilId: 'header',
-      catalogKey: 'cat',
-    });
-    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(7);
-  });
-
-  it('startEditing throws when the stencil is unlinked', async () => {
-    const callbacks = createMockCallbacks();
-    const { ctx } = setupCtx({ stencilId: null, catalogKey: null }, callbacks);
-    await expect(actions.startEditing(ctx)).rejects.toThrow(/not linked/);
-  });
-
-  it('saveDraft strips fills before sending to the backend', async () => {
-    const updateStencil = vi.fn().mockResolvedValue({ version: 3 });
-    const callbacks = createMockCallbacks({ updateStencil });
-    const { ctx, stencilId, engine } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 2, draftVersion: 2 },
-      callbacks,
-    );
-    // Place a placeholder with both default + fill content under the stencil.
-    const phNode = nodeId('ph');
-    const defaultSlot = slotId('ph-default');
-    const fillSlot = slotId('ph-fill');
-    const defaultText = nodeId('default-text');
-    const fillText = nodeId('fill-text');
-    const stencilSlot = engine.doc.nodes[stencilId].slots[0];
-    engine.dispatch({
-      type: 'InsertNode',
-      node: {
-        id: phNode,
-        type: 'placeholder',
-        slots: [defaultSlot, fillSlot],
-        props: { name: 'body' },
-      },
-      slots: [
-        { id: defaultSlot, nodeId: phNode, name: 'default', children: [defaultText] },
-        { id: fillSlot, nodeId: phNode, name: 'fill', children: [fillText] },
-      ],
-      targetSlotId: stencilSlot,
-      index: -1,
-      _restoreNodes: [
-        {
-          id: defaultText,
-          type: 'text',
-          slots: [],
-          props: { content: richText('default content') },
-        },
-        {
-          id: fillText,
-          type: 'text',
-          slots: [],
-          props: { content: richText('override content') },
-        },
-      ],
-    });
-
-    const result = await actions.saveDraft(ctx);
-    expect(result).toEqual({ version: 3 });
-    expect(updateStencil).toHaveBeenCalledOnce();
-    expect(updateStencil).toHaveBeenCalledWith(
-      { stencilId: 'header', catalogKey: 'cat' },
-      2,
-      expect.anything(),
-      undefined,
-    );
-    const sentContent = updateStencil.mock.calls[0][2] as TemplateDocument;
-    // Fill slot exists in the sent content but is empty.
-    const fillSlotInSent = Object.values(sentContent.slots).find((s) => s.name === 'fill');
-    expect(fillSlotInSent).toBeDefined();
-    expect(fillSlotInSent!.children).toEqual([]);
-    // Default content survives.
-    const defaultTextInSent = Object.values(sentContent.nodes).find(
-      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'default content',
-    );
-    expect(defaultTextInSent).toBeDefined();
-    // Override content is NOT sent to the backend.
-    const fillTextInSent = Object.values(sentContent.nodes).find(
-      (n) => n.type === 'text' && richTextValue(n.props?.content) === 'override content',
-    );
-    expect(fillTextInSent).toBeUndefined();
-  });
-
-  it('publishDraft saves then publishes and updates local node props', async () => {
-    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
-    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
-    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 4, draftVersion: 2 },
-      callbacks,
-    );
-
-    const result = await actions.publishDraft(ctx);
-
-    expect(result).toEqual({ version: 5 });
-    expect(updateStencil).toHaveBeenCalledOnce();
-    expect(publishDraft).toHaveBeenCalledWith({ stencilId: 'header', catalogKey: 'cat' }, 2);
-    expect(engine.doc.nodes[stencilId].props?.version).toBe(5);
-    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
-  });
-
-  it('publishDraft rejects missing required bindings before changing backend state', async () => {
-    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
-    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
-    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
-    const requiredSchema: JsonSchema = {
-      ...RECIPIENT_SCHEMA,
-      required: ['recipientName'],
-    };
-    const { engine, stencilId, ctx } = setupCtx(
-      {
-        stencilId: 'header',
-        catalogKey: 'cat',
-        version: 4,
-        draftVersion: 2,
-        parameterSchemaSnapshot: requiredSchema,
-      },
-      callbacks,
-    );
-
-    await expect(actions.publishDraft(ctx)).rejects.toThrow(
-      'Configure required parameter before publishing: recipientName',
-    );
-
-    expect(updateStencil).not.toHaveBeenCalled();
-    expect(publishDraft).not.toHaveBeenCalled();
-    expect(engine.doc.nodes[stencilId].props?.version).toBe(4);
-    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBe(2);
-  });
-
-  it('publishDraft accepts a required parameter supplied by a schema default', async () => {
-    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
-    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
-    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
-    const requiredSchema: JsonSchema = {
-      type: 'object',
-      properties: {
-        recipientName: { type: 'string', default: 'Anonymous' },
-      },
-      required: ['recipientName'],
-    };
-    const { ctx } = setupCtx(
-      {
-        stencilId: 'header',
-        catalogKey: 'cat',
-        version: 4,
-        draftVersion: 2,
-        parameterSchemaSnapshot: requiredSchema,
-      },
-      callbacks,
-    );
-
-    await actions.publishDraft(ctx);
-
-    expect(updateStencil).toHaveBeenCalledOnce();
-    expect(publishDraft).toHaveBeenCalledOnce();
-  });
-
-  it('publishDraft does NOT swap local content — fills survive', async () => {
-    const updateStencil = vi.fn().mockResolvedValue({ version: 5 });
-    const publishDraft = vi.fn().mockResolvedValue({ version: 5 });
-    const callbacks = createMockCallbacks({ updateStencil, publishDraft });
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 4, draftVersion: 2 },
-      callbacks,
-    );
-    // Stencil has a placeholder with override.
-    const phNode = nodeId('ph');
-    const defaultSlot = slotId('ph-default');
-    const fillSlot = slotId('ph-fill');
-    const fillText = nodeId('fill-text');
-    const stencilSlot = engine.doc.nodes[stencilId].slots[0];
-    engine.dispatch({
-      type: 'InsertNode',
-      node: {
-        id: phNode,
-        type: 'placeholder',
-        slots: [defaultSlot, fillSlot],
-        props: { name: 'body' },
-      },
-      slots: [
-        { id: defaultSlot, nodeId: phNode, name: 'default', children: [] },
-        { id: fillSlot, nodeId: phNode, name: 'fill', children: [fillText] },
-      ],
-      targetSlotId: stencilSlot,
-      index: -1,
-      _restoreNodes: [
-        {
-          id: fillText,
-          type: 'text',
-          slots: [],
-          props: { content: richText('override') },
-        },
-      ],
-    });
-
-    await actions.publishDraft(ctx);
-
-    expect(engine.doc.slots[fillSlot].children).toEqual([fillText]);
-    expect(richTextValue(engine.doc.nodes[fillText]?.props?.content)).toBe('override');
-  });
-
-  it('discard reverts to the published version and preserves user fills', async () => {
-    // v1 stencil content: placeholder body with default "v1 default".
-    const v1: TemplateDocument = {
-      modelVersion: 1,
-      root: 'v1-root' as NodeId,
-      nodes: {
-        'v1-root': {
-          id: 'v1-root' as NodeId,
-          type: 'root',
-          slots: ['v1-rs' as SlotId],
-        },
-        'v1-ph': {
-          id: 'v1-ph' as NodeId,
-          type: 'placeholder',
-          slots: ['v1-default' as SlotId, 'v1-fill' as SlotId],
-          props: { name: 'body' },
-        },
-        'v1-default-text': {
-          id: 'v1-default-text' as NodeId,
-          type: 'text',
-          slots: [],
-          props: { content: richText('v1 default') },
-        },
-      },
-      slots: {
-        'v1-rs': {
-          id: 'v1-rs' as SlotId,
-          nodeId: 'v1-root' as NodeId,
-          name: 'children',
-          children: ['v1-ph' as NodeId],
-        },
-        'v1-default': {
-          id: 'v1-default' as SlotId,
-          nodeId: 'v1-ph' as NodeId,
-          name: 'default',
-          children: ['v1-default-text' as NodeId],
-        },
-        'v1-fill': {
-          id: 'v1-fill' as SlotId,
-          nodeId: 'v1-ph' as NodeId,
-          name: 'fill',
-          children: [],
-        },
-      },
-      themeRef: { type: 'inherit' },
-    };
-    const callbacks = createMockCallbacks({
-      getStencilVersion: vi.fn().mockResolvedValue({
-        ref: { stencilId: 'header', catalogKey: 'cat' },
-        stencilName: 'Header',
-        version: 1,
-        content: v1,
-      }),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1, draftVersion: 2 },
-      callbacks,
-    );
-    // Seed the local stencil with a placeholder + edited default + filled override.
-    const phNode = nodeId('ph');
-    const defaultSlot = slotId('ph-default');
-    const fillSlot = slotId('ph-fill');
-    const editedDefaultText = nodeId('edited-default');
-    const fillText = nodeId('fill-text');
-    const stencilSlot = engine.doc.nodes[stencilId].slots[0];
-    engine.dispatch(
-      {
-        type: 'InsertNode',
-        node: {
-          id: phNode,
-          type: 'placeholder',
-          slots: [defaultSlot, fillSlot],
-          props: { name: 'body' },
-        },
-        slots: [
-          { id: defaultSlot, nodeId: phNode, name: 'default', children: [editedDefaultText] },
-          { id: fillSlot, nodeId: phNode, name: 'fill', children: [fillText] },
-        ],
-        targetSlotId: stencilSlot,
-        index: -1,
-        _restoreNodes: [
-          {
-            id: editedDefaultText,
-            type: 'text',
-            slots: [],
-            props: { content: richText('edited (to be discarded)') },
-          },
-          {
-            id: fillText,
-            type: 'text',
-            slots: [],
-            props: { content: richText('user override') },
-          },
-        ],
-      },
-      { bypassLock: true },
-    );
-
-    await actions.discard(ctx, 1);
-
-    // The edited default was discarded; the new placeholder has v1's default.
-    const newPlaceholders = Object.values(engine.doc.nodes).filter((n) => n.type === 'placeholder');
-    expect(newPlaceholders).toHaveLength(1);
-    const newPh = newPlaceholders[0];
-    const newDefaultSlotId = newPh.slots.find((s) => engine.doc.slots[s]?.name === 'default')!;
-    const newFillSlotId = newPh.slots.find((s) => engine.doc.slots[s]?.name === 'fill')!;
+    const content = savedContent(callbacks);
+    const texts = Object.keys(content.nodes)
+      .map((id) => textOf(content, id))
+      .filter(Boolean);
+    expect(texts).toContain('Added while editing');
+    expect(texts).toContain('Default body');
+    // The template's fill is not part of the stencil.
+    expect(texts).not.toContain('Mine');
+    expect(content.slots['ph:fill' as SlotId].children).toEqual([]);
+    // The stencil keeps its own IDs, not the instance-prefixed ones it was shown with.
+    expect(Object.keys(content.nodes)).toEqual(expect.arrayContaining(['hdr', 'ph', 'd', 'box']));
     expect(
-      richTextValue(
-        engine.doc.nodes[engine.doc.slots[newDefaultSlotId].children[0]]?.props?.content,
-      ),
-    ).toBe('v1 default');
-    // The user's fill was preserved by name.
-    expect(engine.doc.slots[newFillSlotId].children).toHaveLength(1);
-    expect(
-      richTextValue(engine.doc.nodes[engine.doc.slots[newFillSlotId].children[0]]?.props?.content),
-    ).toBe('user override');
-    // Stencil exits draft mode.
-    expect(engine.doc.nodes[stencilId].props?.draftVersion).toBeUndefined();
+      (callbacks.saveStencil as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1],
+    ).toMatchObject({ parameterSchema: null });
   });
 
-  it('discard restores the published parameter schema and prunes draft-only bindings', async () => {
-    const callbacks = createMockCallbacks({
-      getStencilVersion: vi.fn().mockResolvedValue({
-        ref: { stencilId: 'header', catalogKey: 'cat' },
-        stencilName: 'Header',
-        version: 1,
-        content: createTestDocument(),
-        parameterSchema: RECIPIENT_SCHEMA,
-      }),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      {
-        stencilId: 'header',
-        catalogKey: 'cat',
-        version: 1,
-        draftVersion: 2,
-        parameterSchemaSnapshot: {
-          type: 'object',
-          properties: {
-            recipientName: { type: 'string' },
-            draftOnly: { type: 'string' },
-          },
-        },
-        parameterBindings: {
-          recipientName: 'customer.name',
-          draftOnly: 'customer.reference',
-        },
-      },
-      callbacks,
-    );
-
-    await actions.discard(ctx, 1);
-
-    expect(engine.doc.nodes[stencilId].props).toMatchObject({
-      version: 1,
-    });
-    expect(engine.doc.nodes[stencilId].props?.parameterSchemaSnapshot).toEqual(RECIPIENT_SCHEMA);
-    expect(engine.doc.nodes[stencilId].props?.parameterBindings).toEqual({
-      recipientName: 'customer.name',
-    });
-  });
-
-  it('upgrade adds a parameter schema to a previously parameterless instance', async () => {
-    const callbacks = createMockCallbacks({
-      getStencilVersion: vi.fn().mockResolvedValue({
-        ref: { stencilId: 'header', catalogKey: 'cat' },
-        stencilName: 'Header',
-        version: 2,
-        content: createTestDocument(),
-        parameterSchema: RECIPIENT_SCHEMA,
-      }),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1 },
-      callbacks,
-    );
-
-    await actions.upgrade(ctx, 2);
-
-    expect(engine.doc.nodes[stencilId].props).toMatchObject({
-      version: 2,
-      parameterSchemaSnapshot: RECIPIENT_SCHEMA,
-    });
-  });
-
-  it('upgrade refreshes the schema and preserves only bindings declared by the new version', async () => {
-    const newSchema: JsonSchema = {
-      type: 'object',
-      properties: {
-        retained: { type: 'string' },
-        added: { type: 'integer' },
-      },
-    };
-    const callbacks = createMockCallbacks({
-      getStencilVersion: vi.fn().mockResolvedValue({
-        ref: { stencilId: 'header', catalogKey: 'cat' },
-        stencilName: 'Header',
-        version: 2,
-        content: createTestDocument(),
-        parameterSchema: newSchema,
-      }),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      {
-        stencilId: 'header',
-        catalogKey: 'cat',
-        version: 1,
-
-        parameterSchemaSnapshot: {
-          type: 'object',
-          properties: {
-            retained: { type: 'string' },
-            removed: { type: 'string' },
-          },
-        },
-        parameterBindings: {
-          retained: 'customer.name',
-          removed: 'customer.reference',
-        },
-        paramsAlias: 'stencilParams',
-      },
-      callbacks,
-    );
-
-    await actions.upgrade(ctx, 2);
-
-    expect(engine.doc.nodes[stencilId].props).toMatchObject({
-      version: 2,
-      paramsAlias: 'stencilParams',
-    });
-    expect(engine.doc.nodes[stencilId].props?.parameterSchemaSnapshot).toEqual(newSchema);
-    expect(engine.doc.nodes[stencilId].props?.parameterBindings).toEqual({
-      retained: 'customer.name',
-    });
-  });
-
-  it('upgrade removes the parameter snapshot and bindings when the new version has no schema', async () => {
-    const callbacks = createMockCallbacks({
-      getStencilVersion: vi.fn().mockResolvedValue({
-        ref: { stencilId: 'header', catalogKey: 'cat' },
-        stencilName: 'Header',
-        version: 2,
-        content: createTestDocument(),
-      }),
-    });
-    const { engine, stencilId, ctx } = setupCtx(
-      {
-        stencilId: 'header',
-        catalogKey: 'cat',
-        version: 1,
-
-        parameterSchemaSnapshot: RECIPIENT_SCHEMA,
-        parameterBindings: { recipientName: 'customer.name' },
-      },
-      callbacks,
-    );
-
-    await actions.upgrade(ctx, 2);
-
-    expect(engine.doc.nodes[stencilId].props).not.toHaveProperty('parameterSchemaSnapshot');
-    expect(engine.doc.nodes[stencilId].props).not.toHaveProperty('parameterBindings');
-  });
-
-  it('detach replaces the stencil node type with container', () => {
-    const callbacks = createMockCallbacks();
-    const { engine, stencilId, ctx } = setupCtx(
-      { stencilId: 'header', catalogKey: 'cat', version: 1 },
-      callbacks,
-    );
-    actions.detach(ctx);
-    expect(engine.doc.nodes[stencilId].type).toBe('container');
-  });
-
-  it('findLatestPublishedVersion picks the highest published version', async () => {
-    const listVersions = vi.fn().mockResolvedValue([
-      { version: 1, status: 'published' },
-      { version: 2, status: 'published' },
-      { version: 3, status: 'draft' },
+  it('saves a stencil nested in the content by reference, with the fill the stencil gives it', async () => {
+    const page = workingCopy('page', [
+      storedInstance('frame-inst', 'frame', { inside: [text('page-fill', 'Page fill')] }),
     ]);
-    const callbacks = createMockCallbacks({ listVersions });
-    const { ctx } = setupCtx({ stencilId: 'header', catalogKey: 'cat', version: 1 }, callbacks);
-    expect(await actions.findLatestPublishedVersion(ctx)).toBe(2);
+    const frame = workingCopy('frame', [text('frame-text', 'Frame'), placeholder('fp', 'inside')]);
+    const callbacks = createMockCallbacks([page, frame]);
+    const fetched = new Map([page, frame].map((c) => [stencilIdentity(c.ref), c]));
+    const { document } = expand(
+      buildDocument([storedInstance('inst', 'page')]),
+      CATALOG,
+      resolverOver(fetched),
+    );
+    const env = setupEngine(callbacks, document);
+    const ctx = {
+      engine: env.engine,
+      callbacks,
+      editing: env.editing,
+      stencilNodeId: 'inst' as NodeId,
+    };
+    await actions.startEditing(ctx);
+
+    await actions.saveStencil(ctx);
+
+    const content = savedContent(callbacks);
+    // `frame`'s content is not copied into `page`; its fill (page's own content) is kept.
+    expect(Object.values(content.nodes).some((n) => textOf(content, n.id) === 'Frame')).toBe(false);
+    expect(content.nodes['frame-inst' as NodeId].props).toEqual({
+      stencilKey: 'frame',
+      catalogKey: CATALOG,
+    });
+    expect(content.slots['frame-inst:fill:inside:fill' as SlotId].children).toEqual(['page-fill']);
+  });
+
+  it('sends the parameters defined on the instance', async () => {
+    const { ctx, callbacks, engine } = setup();
+    await actions.startEditing(ctx);
+    const schema = { type: 'object', properties: { who: { type: 'string' } } };
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: 'inst' as NodeId,
+      props: { ...engine.doc.nodes['inst' as NodeId].props, parameterSchemaSnapshot: schema },
+    });
+
+    await actions.saveStencil(ctx);
+
+    expect(
+      (callbacks.saveStencil as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][1],
+    ).toMatchObject({ parameterSchema: schema });
+  });
+
+  it('refreshes every other instance of the stencil in the document, keeping their fills', async () => {
+    const { ctx, callbacks, engine, registry } = setup([letter()], true);
+    await actions.startEditing(ctx);
+    insertText(engine, registry, 'inst:s:box:children' as SlotId, 'Shared change');
+    callbacks.saveStencil = async (_ref, update) => {
+      callbacks.copies.set(`${CATALOG}/letter`, { ...letter(), content: update.content });
+    };
+
+    await actions.saveStencil(ctx);
+
+    const otherTexts = childrenOf(engine, 'other:box', 'children').map((id) => textOf(engine, id));
+    expect(otherTexts).toEqual(['Shared change']);
+    expect(childrenOf(engine, 'inst:ph', 'fill')).toEqual(['mine']);
+  });
+});
+
+describe('saveAndMarkReady', () => {
+  it('saves, marks the stencil ready and stops editing', async () => {
+    const { ctx, callbacks } = setup();
+    await actions.startEditing(ctx);
+
+    await actions.saveAndMarkReady(ctx);
+
+    expect(callbacks.saveStencil).toHaveBeenCalled();
+    expect(callbacks.markStencilReady).toHaveBeenCalledWith({
+      stencilKey: 'letter',
+      catalogKey: CATALOG,
+    });
+    expect(ctx.editing.isEditing('inst')).toBe(false);
+  });
+
+  it('refuses while a required parameter is unbound, before saving', async () => {
+    const { ctx, callbacks, engine } = setup();
+    await actions.startEditing(ctx);
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: 'inst' as NodeId,
+      props: {
+        ...engine.doc.nodes['inst' as NodeId].props,
+        parameterSchemaSnapshot: {
+          type: 'object',
+          properties: { who: { type: 'string' } },
+          required: ['who'],
+        },
+      },
+    });
+
+    await expect(actions.saveAndMarkReady(ctx)).rejects.toThrow('who');
+    expect(callbacks.saveStencil).not.toHaveBeenCalled();
+  });
+
+  it('keeps editing when the stencil cannot be marked ready', async () => {
+    const { ctx, callbacks } = setup();
+    callbacks.markStencilReady = async () => {
+      throw new Error('Stencil uses a stencil that does not exist');
+    };
+    await actions.startEditing(ctx);
+
+    await expect(actions.saveAndMarkReady(ctx)).rejects.toThrow('does not exist');
+    expect(ctx.editing.isEditing('inst')).toBe(true);
+  });
+});
+
+describe('stopEditing', () => {
+  it('drops unsaved changes, keeps the template fill, and locks the content', async () => {
+    const { ctx, engine, registry } = setup();
+    await actions.startEditing(ctx);
+    insertText(engine, registry, 'inst:s:box:children' as SlotId, 'Not saved');
+
+    await actions.stopEditing(ctx);
+
+    expect(childrenOf(engine, 'inst:box', 'children')).toEqual([]);
+    expect(childrenOf(engine, 'inst:ph', 'fill')).toEqual(['mine']);
+    expect(
+      isSlotLocked(engine.doc, 'inst:s:box:children' as SlotId, engine.indexes, registry),
+    ).toBe(true);
+  });
+});
+
+describe('detach', () => {
+  it('turns the instance into a container and stops editing it', async () => {
+    const { ctx, engine } = setup();
+    await actions.startEditing(ctx);
+
+    actions.detach(ctx);
+
+    expect(engine.doc.nodes['inst' as NodeId].type).toBe('container');
+    expect(ctx.editing.isEditing('inst')).toBe(false);
   });
 });

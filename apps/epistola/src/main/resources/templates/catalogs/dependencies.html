@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* The catalogs a catalog uses (docs/workspace-shell.md): while working its templates see their
+           work; publishing ties it to exact published versions of them. Model: the catalog page's. */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Dependencies',
+            pageDescription='The catalogs ' + ${catalog.name} + ' builds on, and the ones that build on it. Its templates can use the stencils, themes, images and fonts of the catalogs it depends on; you change those in the catalog they belong to.'
+        )}"></div>
+        <div id="catalog-alert"></div>
+        <!--/* At a glance: what this catalog builds on (to its left) and what builds on it (to its right). */-->
+        <div class="ep-panel detail-section" data-testid="catalog-dependency-graph">
+            <div class="detail-section-header">
+                <h2>At a glance</h2>
+                <a th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}">All catalogs</a>
+            </div>
+            <div class="detail-section-body">
+                <div th:replace="~{catalogs/graph :: graph(view=${dependencyGraph})}"></div>
+            </div>
+        </div>
+        <th:block th:if="${readiness != null}">
+            <div th:replace="~{catalogs/content :: borrowed}"></div>
+        </th:block>
+        <div th:if="${readiness == null}" class="ep-panel detail-section" data-testid="catalog-uses-subscribed">
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin: 0;">What a subscribed catalog depends on is decided by its publisher, and installed with it.</p>
+            </div>
+        </div>
+
+        <!--/* The other side: who is affected when this catalog changes. */-->
+        <div class="ep-panel detail-section" data-testid="catalog-dependents">
+            <div class="detail-section-header"><h2>Used by</h2></div>
+            <div class="detail-section-body">
+                <p th:if="${dependents.isEmpty()}" class="text-muted" style="margin: 0;"
+                   th:text="'No other catalog depends on ' + ${catalog.name} + '.'">No other catalog depends on Shared.</p>
+                <table th:unless="${dependents.isEmpty()}" class="ep-table">
+                    <thead><tr><th>Catalog</th><th>Uses</th></tr></thead>
+                    <tbody>
+                        <tr th:each="d : ${dependents}" th:attr="data-catalog=${d.catalogKey}">
+                            <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${d.catalogKey})}" th:text="${d.name}">Letters</a></td>
+                            <td>
+                                <span th:if="${d.lockedTo != null}" th:text="'v' + ${d.lockedTo}">v1.0.0</span>
+                                <span th:if="${d.lockedTo == null}" class="text-muted">nothing published yet</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div id="dialog-mount" data-dialog-mount></div>
+    </th:block>
+</body>
+</html>

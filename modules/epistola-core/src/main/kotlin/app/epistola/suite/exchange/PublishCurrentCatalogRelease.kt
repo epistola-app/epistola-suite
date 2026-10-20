@@ -6,13 +6,12 @@ package app.epistola.suite.exchange
 
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.suite.catalog.CatalogArchiveBuilder
-import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -61,11 +60,9 @@ data class PublishCurrentCatalogRelease(
 @Component
 class PublishCurrentCatalogReleaseHandler(
     private val jdbi: Jdbi,
-    private val contentBuilder: CatalogContentBuilder,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val assembler: ReleaseContentAssembler,
-    private val releaseEntryStore: ReleaseEntryStore,
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
@@ -83,14 +80,14 @@ class PublishCurrentCatalogReleaseHandler(
             ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
         ) { "This catalog's publication policy forbids Exchange publishing." }
 
-        // Nothing is queued without a destination, so this is checked before any work is done.
+        // Nothing is queued without a destination the connection grants, so this is checked first.
         validate(
             "namespace",
             jdbi.withHandle<Boolean, Exception> { handle ->
-                namespaceBinder.existingBinding(handle, command.tenantKey, command.catalogKey) != null
+                namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey) in namespaceBinder.grantedNamespaces(handle, command.tenantKey)
             },
             ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE,
-        ) { "Choose the Exchange namespace for this catalog before publishing it." }
+        ) { "This catalog's namespace is not one the Exchange connection grants. Choose a granted one in its settings." }
 
         val release = releaseToPublish(command)
         // Read the status without the archive: a 10 MB blob must not be fetched just to branch.
@@ -98,7 +95,7 @@ class PublishCurrentCatalogReleaseHandler(
             handle.createQuery(
                 """
                 SELECT status FROM catalog_release_publications
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND version = :version
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version
                 """,
             ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
                 .bind("version", release.version)
@@ -117,7 +114,7 @@ class PublishCurrentCatalogReleaseHandler(
         val archive = if (previousStatus == CatalogPublicationStatus.FAILED) null else buildReleaseArchive(command, release)
 
         return jdbi.inTransaction<UUID, Exception> { handle ->
-            val namespace = requireNotNull(namespaceBinder.existingBinding(handle, command.tenantKey, command.catalogKey))
+            val namespace = requireNotNull(namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey))
             val existing = store.findByVersion(handle, command.tenantKey, command.catalogKey, release.version)
             when {
                 existing == null -> UUIDv7.generate().also { id ->
@@ -153,47 +150,26 @@ class PublishCurrentCatalogReleaseHandler(
     }
 
     /**
-     * The bytes of [release], preferring the content the release retained.
-     *
-     * A release that kept its content needs no working copy at all, which is the point: publishing
-     * v1.0.0 is publishing what v1.0.0 was, whatever has been edited since. The fingerprint is
-     * recomputed and a mismatch refuses, the same guard the release export applies — it should be
-     * impossible, and submitting an archive whose contents contradict the fingerprint it advertises
-     * would spread that rather than stop it.
-     *
-     * A release cut before content was retained has only the working copy to rebuild from, so it
-     * keeps the old refusal: those bytes are only that release's bytes while nothing has changed.
+     * The bytes of [release]: publishing v1.0.0 is publishing what v1.0.0 was, whatever has been
+     * edited since. The fingerprint is recomputed and a mismatch refuses, the same guard the release
+     * export applies -- it should be impossible, and submitting an archive whose contents contradict
+     * the fingerprint it advertises would spread that rather than stop it.
      */
     private fun buildReleaseArchive(command: PublishCurrentCatalogRelease, release: Release): ByteArray {
-        val retained = assembler.assemble(command.tenantKey, command.catalogKey, release.version)
-        if (retained != null) {
-            val rebuilt = fingerprintService.fingerprint(retained.content)
-            check(rebuilt == release.fingerprint) {
-                "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
-                    "$rebuilt but was released as ${release.fingerprint}; its retained content has been altered."
-            }
-            return archiveBuilder.build(retained.content, retained.release)
+        val content = requireNotNull(assembler.assemble(command.tenantKey, command.catalogKey, release.version)) {
+            "Release ${release.version} of catalog '${command.catalogKey.value}' is gone"
         }
-
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
-        fingerprintService.requirePublishable(content)
-        validate(
-            "publication",
-            fingerprintService.matchesFingerprint(content, release.fingerprint),
-            ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED,
-        ) { "The working copy differs from v${release.version}, and that release did not retain its content; release those changes before publishing to Exchange." }
-        return archiveBuilder.build(
-            content,
-            ReleaseInfo(release.version, release.releasedAt.toString(), release.fingerprint),
-        )
+        val rebuilt = fingerprintService.fingerprint(content.content)
+        check(fingerprintService.matchesFingerprint(content.content, release.fingerprint)) {
+            "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
+                "$rebuilt but was released as ${release.fingerprint}; its content has been altered."
+        }
+        return archiveBuilder.build(content.content, content.release)
     }
 
     /**
      * The release to send: the one named, or the one the catalog is currently on.
      *
-     * A named release that kept no content is refused rather than rebuilt. Only the current release
-     * can be rebuilt from the working copy, and only while nothing has changed — reaching for an
-     * older one would quietly send today's content under yesterday's version.
      */
     private fun releaseToPublish(command: PublishCurrentCatalogRelease): Release {
         val release = findRelease(command) ?: throw ValidationException(
@@ -201,15 +177,6 @@ class PublishCurrentCatalogReleaseHandler(
             command.version?.let { "This catalog has no release $it to publish." } ?: "This catalog has no release to publish.",
             ValidationCode.PUBLICATION_NO_RELEASE,
         )
-        if (command.version != null) {
-            validate(
-                "publication",
-                jdbi.withHandle<Boolean, Exception> { handle ->
-                    releaseEntryStore.retainedVersions(handle, command.tenantKey, command.catalogKey).contains(release.version)
-                },
-                ValidationCode.PUBLICATION_WORKING_COPY_DRIFTED,
-            ) { "Release ${release.version} did not retain its content and can no longer be rebuilt, so only the catalog's current release can be published." }
-        }
         return release
     }
 
@@ -223,8 +190,8 @@ class PublishCurrentCatalogReleaseHandler(
             """
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
-            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.id = r.catalog_key
-            WHERE r.tenant_key = :tenantKey AND r.catalog_key = :catalogKey
+            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+            WHERE r.tenant_key = :tenantKey AND c.catalog_key = :catalogKey
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }

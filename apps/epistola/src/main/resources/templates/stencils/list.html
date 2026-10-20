@@ -11,16 +11,8 @@
             actions=~{::stencil-list-actions}
         )}"></div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
-                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+
 
         <div th:if="${#lists.isEmpty(stencils)}" class="empty-state">
             <div class="empty-state-icon">
@@ -28,9 +20,9 @@
             </div>
             <div class="empty-state-title">No stencils yet</div>
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
-            <button th:if="${auth.has('STENCIL_EDIT')}" type="button"
+            <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="stencil-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -71,7 +63,7 @@
                     </tr>
                     <tr th:each="stencil : ${stencils}">
                         <td th:title="${stencil.name}">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${stencil.catalogKey}"><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
@@ -82,9 +74,9 @@
                         <td class="cell-wrap" th:title="${#strings.listJoin(stencil.tags, ', ')}">
                             <span th:each="tag : ${stencil.tags}" class="badge" th:text="${tag}" style="margin-right: var(--ep-space-1);"></span>
                         </td>
-                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${stencil.updatedAt}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
@@ -95,7 +87,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete stencil"
                                         data-confirm-title="Delete Stencil"
-                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/stencils/{catalogId}/{stencilId}/delete(tenantId=${tenantId},catalogId=${stencil.catalogKey},stencilId=${stencil.id})}"
+                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                         data-confirm-target="#stencil-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -107,7 +99,6 @@
         </table>
         </div>
 
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
         <!-- Dialog mount: the create dialog is swapped in here by the trigger
              (hx-get → #dialog-mount) and opened by static/js/behaviors.js. On
@@ -118,6 +109,8 @@
              element — th:replace (precedence 100) runs before th:if (300), so
              the two on the SAME element would include the dialog unconditionally.
              See docs/dialog-forms.md. -->
+        <div th:replace="~{fragments/from-other-catalogs :: section(${fromOtherCatalogs}, 'stencils')}"></div>
+
         <div id="dialog-mount" data-dialog-mount>
             <th:block th:if="${openDialog}">
                 <th:block th:replace="~{stencils/new :: dialog}"></th:block>
@@ -125,8 +118,8 @@
         </div>
     </th:block>
     <th:block th:fragment="stencil-list-actions">
-        <button th:if="${auth.has('STENCIL_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/stencils/new(tenantId=${tenantId})}"
+        <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

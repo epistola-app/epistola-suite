@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -55,15 +56,9 @@ class ReleaseContentAssembler(
     private val releaseEntryStore: ReleaseEntryStore,
 ) {
 
-    /**
-     * The content of [version] of a catalog, or null when that release retained none — every
-     * release cut before `V20260923201010`, which cannot be reconstructed from the working copy
-     * and must not be guessed at from it.
-     */
+    /** The content of [version] of a catalog, or null when the catalog has no such release. */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
-        // The flag, not the entry count: a catalog with no resources retains a release that
-        // contains nothing, which is not the same as a release that kept nothing.
-        if (!releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
+        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
 
         val snapshot = loadManifestSnapshot(handle, tenantKey, catalogKey, version)
@@ -84,7 +79,9 @@ class ReleaseContentAssembler(
                 resourceEntries = entries.map { it.toResourceEntry() },
                 resourceDetails = details,
                 dependencies = snapshot.dependencies,
+                catalogDependencies = snapshot.catalogDependencies,
                 assetContents = loadAssetContents(handle, tenantKey, details.values),
+                publisher = snapshot.publisher,
             ),
             release = snapshot.release,
         )
@@ -106,7 +103,7 @@ class ReleaseContentAssembler(
         val digest = handle.createQuery(
             """
             SELECT revision_digest FROM release_entries
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = :type AND resource_key = :key
             """,
         )
@@ -169,10 +166,10 @@ class ReleaseContentAssembler(
         return bytes.takeIf { sha256Hex(it) == contentHash }
     }
 
-    /** The latest release of a catalog that retained its content, or null when none has. */
+    /** The latest release of a catalog, or null when it has none. */
     fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
-            releaseEntryStore.retainedVersions(handle, tenantKey, catalogKey).firstOrNull()
+            releaseEntryStore.versions(handle, tenantKey, catalogKey).firstOrNull()
         }
         return latest?.let { assemble(tenantKey, catalogKey, it) }
     }
@@ -289,11 +286,20 @@ class ReleaseContentAssembler(
             .toMap()
     }
 
+    /**
+     * The catalog details release [version] froze (its manifest's `catalog`): name, default theme,
+     * presets (contract ADR 0007); null when the catalog has no such release.
+     */
+    fun readCatalogInfo(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): app.epistola.catalog.protocol.CatalogInfo? = jdbi.withHandle<app.epistola.catalog.protocol.CatalogInfo?, Exception> { handle ->
+        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
+        loadManifestSnapshot(handle, tenantKey, catalogKey, version).catalog
+    }
+
     private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest = handle
         .createQuery(
             """
             SELECT manifest_snapshot::text AS snapshot FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
         .bind("t", tenantKey)

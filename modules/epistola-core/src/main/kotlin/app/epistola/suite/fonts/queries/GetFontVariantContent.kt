@@ -5,6 +5,8 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -38,7 +40,10 @@ data class GetFontVariantContent(
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
-) : Query<ByteArray?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ByteArray?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId

@@ -5,6 +5,7 @@
 package app.epistola.suite.documents
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -27,7 +28,6 @@ import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
@@ -36,7 +36,7 @@ import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -74,23 +74,19 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     private lateinit var schemaValidator: JsonSchemaValidator
 
     @Autowired
-    private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired
-    private lateinit var fontByteCache: FontByteCache
-
-    @Autowired
     private lateinit var localeResolver: TenantLocaleResolver
 
     @Autowired
     private lateinit var releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource
+
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
 
     private val objectMapper = ObjectMapper()
 
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }
@@ -120,6 +116,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = data,
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -166,7 +163,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
             val version = released(compositeVariantId, templateModel)
 
-            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                 templateId = compositeTemplateId,
                 dataModel = objectMapper.readValue(
                     """
@@ -195,6 +192,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = data,
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -214,7 +212,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             val tenantId = TenantId(tenant.id)
             val template = template(tenant.id, "Invoice Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
-            app.epistola.suite.templates.contracts.commands.UpdateContractVersion(
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(
                 templateId = compositeTemplateId,
                 dataModel = objectMapper.readValue(
                     """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
@@ -245,6 +243,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = environmentKey,
                     data = objectMapper.createObjectNode().put("other", "value"),
                     filename = "invoice-001.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { (setup, _), request ->
@@ -278,6 +277,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "metrics.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -318,11 +318,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Report Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create batch items
@@ -333,6 +333,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "report-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -388,11 +389,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create mix of valid and invalid data
@@ -404,6 +405,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value1"),
                 filename = "doc1.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             // TODO: Add item with schema-violating data once validation is implemented
             BatchGenerationItem(
@@ -412,6 +414,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value2"),
                 filename = "doc2.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             // Valid item
             BatchGenerationItem(
@@ -420,6 +423,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value3"),
                 filename = "doc3.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -433,7 +437,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -467,11 +471,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create a large batch to ensure it stays in PENDING/IN_PROGRESS for a moment
@@ -482,6 +486,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -527,11 +532,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Create multiple requests
@@ -544,6 +549,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", it),
                     filename = "doc-$it.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -583,6 +589,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 
@@ -622,11 +629,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
             name = "Template 1",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId1,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version1 = mediator.publishAndRelease(variantId1)
 
         // Generate document for tenant 1
@@ -638,6 +645,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -668,11 +676,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -683,6 +691,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "order-123",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -691,6 +700,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "order-456",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -703,7 +713,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val allRequests = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -733,11 +743,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -748,6 +758,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "duplicate-id",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -756,6 +767,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "duplicate-id",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -778,11 +790,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -793,6 +805,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "same-name.pdf",
                 correlationId = "order-1",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -801,6 +814,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "same-name.pdf",
                 correlationId = "order-2",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -823,11 +837,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -838,6 +852,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = null, // null is allowed
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -846,6 +861,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = null, // multiple nulls are allowed
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -864,11 +880,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -879,6 +895,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = null, // null is allowed - will be auto-generated
                 correlationId = "order-1",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -887,6 +904,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = null, // multiple nulls are allowed
                 correlationId = "order-2",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -915,11 +933,11 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         // Generate documents with different correlation IDs
@@ -931,6 +949,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc1.pdf",
                 correlationId = "target-correlation",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -939,6 +958,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc2.pdf",
                 correlationId = "other-correlation",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = template.id,
@@ -947,6 +967,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                 data = objectMapper.createObjectNode().put("id", 3),
                 filename = "doc3.pdf",
                 correlationId = null,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -994,6 +1015,7 @@ class DocumentGenerationIntegrationTest : IntegrationTestBase() {
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "single-doc.pdf",
                     correlationId = "single-order-789",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

@@ -5,12 +5,10 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ResourceStatus
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
-import app.epistola.suite.stencils.model.StencilVersion
-import app.epistola.suite.stencils.model.StencilVersionStatus
+import app.epistola.suite.stencils.Stencil
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -28,17 +26,16 @@ class PortableModelDtoMappersTest {
 
     @Test
     fun `stencil working-copy DTO retains the catalog document instance`() {
-        val version = StencilVersion(
-            id = VersionKey.of(1),
+        val stencil = Stencil(
+            id = StencilKey.of("address"),
             tenantKey = TenantKey.of("tenant"),
-            stencilKey = StencilKey.of("address"),
+            name = "Address",
             content = document,
-            status = StencilVersionStatus.DRAFT,
             createdAt = createdAt,
-            publishedAt = null,
-            archivedAt = null,
+            updatedAt = createdAt,
+            catalogKey = CatalogKey.DEFAULT,
         )
 
-        assertSame(document, version.toContentDto(ResourceStatus.MODIFIED).content)
+        assertSame(document, stencil.toContentDto(ResourceStatus.MODIFIED).content)
     }
 }

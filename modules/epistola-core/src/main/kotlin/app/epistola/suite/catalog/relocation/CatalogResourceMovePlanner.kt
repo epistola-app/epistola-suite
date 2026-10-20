@@ -4,10 +4,12 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -40,6 +42,7 @@ class CatalogResourceMovePlanner(
         }
 
         val catalogTypes = loadCatalogTypes(handle, tenantKey, relocations)
+        val draftCounts = loadDraftCounts(handle, tenantKey, relocations)
         // An address a batch member is vacating is free for another member to take, so occupancy is
         // judged against the batch rather than against the current state alone.
         val vacated = relocations.map { it.source }.toSet()
@@ -76,6 +79,11 @@ class CatalogResourceMovePlanner(
             }
             if (catalogTypes[target.catalogKey] != "AUTHORED") {
                 blockers += blocker("target-read-only", "${target.catalogKey} must be authored and editable", source)
+            }
+            // A resource has one identity, with one address, in every version of its catalog; a move
+            // takes the current draft's rows only, so it is refused while either catalog has several.
+            listOf(source.catalogKey, target.catalogKey).distinct().filter { (draftCounts[it] ?: 0) > 1 }.forEach { catalog ->
+                blockers += blocker("several-drafts", "$catalog has several open drafts; discard or release all but one before moving resources", source)
             }
 
             val resourceId = resolveIdentity(handle, tenantKey, source)
@@ -201,10 +209,32 @@ class CatalogResourceMovePlanner(
     ): Map<String, String> {
         val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
         if (keys.isEmpty()) return emptyMap()
-        return handle.createQuery("SELECT id::text, type::text FROM catalogs WHERE tenant_key = :tenantKey AND id IN (<keys>)")
+        return handle.createQuery("SELECT catalog_key::text, type::text FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key IN (<keys>)")
             .bind("tenantKey", tenantKey)
             .bindList("keys", keys)
-            .map { rs, _ -> rs.getString("id") to rs.getString("type") }
+            .map { rs, _ -> rs.getString("catalog_key") to rs.getString("type") }
+            .list()
+            .toMap()
+    }
+
+    private fun loadDraftCounts(
+        handle: Handle,
+        tenantKey: TenantKey,
+        relocations: List<ResourceRelocation>,
+    ): Map<String, Int> {
+        val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
+        if (keys.isEmpty()) return emptyMap()
+        return handle.createQuery(
+            """
+            SELECT c.catalog_key::text, count(v.version_id) AS drafts
+            FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.kind = 'draft'
+            WHERE c.tenant_key = :tenantKey AND c.catalog_key IN (<keys>)
+            GROUP BY c.catalog_key
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bindList("keys", keys)
+            .map { rs, _ -> rs.getString("catalog_key") to rs.getInt("drafts") }
             .list()
             .toMap()
     }
@@ -213,7 +243,7 @@ class CatalogResourceMovePlanner(
         """
         SELECT resource_id FROM catalog_resources
         WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-          AND catalog_key = :catalogKey AND resource_key = :resourceKey
+          AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
         """,
     )
         .bind("tenantKey", tenantKey)
@@ -231,7 +261,7 @@ class CatalogResourceMovePlanner(
         SELECT EXISTS(
             SELECT 1 FROM catalog_resources
             WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-              AND catalog_key = :catalogKey AND resource_key = :resourceKey
+              AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
         )
         """,
     )
@@ -243,7 +273,7 @@ class CatalogResourceMovePlanner(
         .one()
 
     private fun hasRelease(handle: Handle, tenantKey: TenantKey, catalogKey: String): Boolean = handle.createQuery(
-        "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey)",
+        "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")})",
     )
         .bind("tenantKey", tenantKey)
         .bind("catalogKey", catalogKey)
@@ -275,33 +305,30 @@ class CatalogResourceMovePlanner(
         val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
         val movingThemes = relocations.filter { it.source.type == CatalogResourceType.THEME }.associateBy { it.source }
         rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites)
-        pinThemeSnapshots(handle, tenantKey, movingThemes.values.filter { it.source.catalogKey != it.target.catalogKey }, rewrites)
         if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
         // Only a batch that moves a referenced type has to look at every holder in the tenant; one
-        // that moves templates alone needs nothing but the templates' own versions.
+        // that moves templates alone needs nothing but the templates' own variants.
         val everyHolder = contentMoves.isNotEmpty()
-        for (row in loadTemplateVersions(handle, tenantKey, if (everyHolder) null else movingTemplates.keys)) {
+        for (row in loadVariantModels(handle, tenantKey, if (everyHolder) null else movingTemplates.keys)) {
             val owner = movingTemplates[ResourceAddress(CatalogResourceType.TEMPLATE, row.catalogKey, row.ownerKey)]
             rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
-                rewrites += JsonRewrite.TemplateVersion(
+                rewrites += JsonRewrite.VariantModel(
                     row.catalogKey,
                     row.ownerKey,
                     row.variantKey!!,
-                    row.version,
                     row.rawJson,
                     result.json.toString(),
                     result.attributedTo,
                 )
             }
         }
-        for (row in loadStencilVersions(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
+        for (row in loadStencils(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
             val owner = movingStencils[ResourceAddress(CatalogResourceType.STENCIL, row.catalogKey, row.ownerKey)]
             rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
-                rewrites += JsonRewrite.StencilVersion(
+                rewrites += JsonRewrite.StencilContent(
                     row.catalogKey,
                     row.ownerKey,
-                    row.version,
                     row.rawJson,
                     result.json.toString(),
                     result.attributedTo,
@@ -328,9 +355,11 @@ class CatalogResourceMovePlanner(
         if (contentMoves.keys.none { it.type == CatalogResourceType.FONT } && movingThemes.isEmpty()) return
         handle.createQuery(
             """
-            SELECT catalog_key::text, id::text theme_key, document_styles::text, block_style_presets::text presets
-            FROM themes WHERE tenant_key = :tenantKey
-            ORDER BY catalog_key, id
+            SELECT c.catalog_key::text, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
+            FROM themes th
+            JOIN catalogs c ON c.tenant_key = th.tenant_key AND c.catalog_id = th.catalog_id
+            WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
+            ORDER BY c.catalog_key, th.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -362,85 +391,6 @@ class CatalogResourceMovePlanner(
             .list()
             .filterNotNull()
             .let(rewrites::addAll)
-    }
-
-    /**
-     * A published version freezes its theme into `resolved_theme`. A font the theme named without a
-     * catalog was frozen that way before publishes qualified it, and is resolved at render against
-     * the catalog of the template's bound theme -- or, unbound, the tenant's default theme -- which
-     * follows that theme when it moves. So when a theme changes catalog, the frozen relative fonts of
-     * the versions resolving through it are pinned to the catalog they resolve against today, and
-     * their integrity pins rekeyed to match: bytes change, meaning does not. The same exception the
-     * moving resource's own versions get, extended to the snapshots that are copies of this theme.
-     */
-    private fun pinThemeSnapshots(
-        handle: Handle,
-        tenantKey: TenantKey,
-        movingThemes: List<ResourceRelocation>,
-        rewrites: MutableList<JsonRewrite>,
-    ) {
-        for (theme in movingThemes) {
-            handle.createQuery(
-                """
-                SELECT template.catalog_key::text, template.id::text owner_key, versions.variant_key::text,
-                       versions.id, versions.resolved_theme::text json
-                FROM template_versions versions
-                ${templateJoin("versions")}
-                JOIN tenants tenant ON tenant.id = template.tenant_key
-                LEFT JOIN themes bound
-                  ON bound.tenant_key = template.tenant_key AND bound.resource_id = template.theme_resource_id
-                LEFT JOIN themes fallback
-                  ON fallback.tenant_key = tenant.id AND fallback.resource_id = tenant.default_theme_resource_id
-                WHERE versions.tenant_key = :tenantKey AND versions.resolved_theme IS NOT NULL
-                  AND COALESCE(bound.catalog_key, fallback.catalog_key) = :themeCatalog
-                  AND COALESCE(bound.id, fallback.id) = :themeKey
-                ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("themeCatalog", theme.source.catalogKey)
-                .bind("themeKey", theme.source.key)
-                .map { rs, _ ->
-                    val raw = rs.getString("json")
-                    val pinned = pinSnapshotFonts(objectMapper.readTree(raw) as ObjectNode, theme.source.catalogKey)
-                        ?: return@map null
-                    JsonRewrite.TemplateVersionSnapshot(
-                        rs.getString("catalog_key"),
-                        rs.getString("owner_key"),
-                        rs.getString("variant_key"),
-                        rs.getInt("id"),
-                        raw,
-                        pinned.toString(),
-                        theme.source,
-                    )
-                }
-                .list()
-                .filterNotNull()
-                .let(rewrites::addAll)
-        }
-    }
-
-    /** The snapshot with its relative fonts pinned to [catalogKey], or null when it has none. */
-    private fun pinSnapshotFonts(snapshot: ObjectNode, catalogKey: String): ObjectNode? {
-        val pinned = snapshot.deepCopy()
-        var changed = false
-        fun pin(styles: JsonNode?) {
-            val font = styles?.get("fontFamily") as? ObjectNode ?: return
-            if (font.hasNonNull("catalogKey") || !font.hasNonNull("slug")) return
-            font.put("catalogKey", catalogKey)
-            changed = true
-        }
-        pin(pinned.get("documentStyles"))
-        pinned.get("blockStylePresets")?.properties()?.forEach { (_, preset) -> pin(preset) }
-        (pinned.get("fontFingerprints") as? ObjectNode)?.let { fingerprints ->
-            for ((key, value) in fingerprints.properties().toList()) {
-                if (!key.startsWith("/")) continue
-                fingerprints.remove(key)
-                fingerprints.set("$catalogKey$key", value)
-                changed = true
-            }
-        }
-        return pinned.takeIf { changed }
     }
 
     /** The rewritten payload for one version, or null when it needs no change. */
@@ -511,7 +461,7 @@ class CatalogResourceMovePlanner(
             val answering = handle.createQuery(
                 """
                 SELECT id::text slug, COUNT(*) definitions FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey AND id IN (<slugs>)
+                WHERE tenant_key = :tenantKey AND ${inCurrentVersion("variant_attribute_definitions")} AND id IN (<slugs>)
                 GROUP BY id
                 """,
             )
@@ -527,13 +477,15 @@ class CatalogResourceMovePlanner(
 
         return handle.createQuery(
             """
-            SELECT template.catalog_key::text, template.id::text AS template_key,
+            SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
                    variants.id::text variant_key, variants.attributes::text
             FROM template_variants variants
             ${templateJoin("variants")}
-            WHERE variants.tenant_key = :tenantKey
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
+            WHERE variants.tenant_key = :tenantKey AND ${inCurrentVersion("variants")}
               AND EXISTS (SELECT 1 FROM jsonb_object_keys(variants.attributes) named WHERE named IN (<keys>))
-            ORDER BY template.catalog_key, template.id, variants.id
+            ORDER BY template_catalog.catalog_key, template.id, variants.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -560,16 +512,19 @@ class CatalogResourceMovePlanner(
             .list()
     }
 
-    private fun loadTemplateVersions(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
+    /** Variants' working models: one per variant, always editable, so planned like a draft. */
+    private fun loadVariantModels(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT template.catalog_key::text, template.id::text owner_key,
-                   versions.variant_key::text, versions.id, versions.status, versions.template_model::text json
-            FROM template_versions versions
-            ${templateJoin("versions")}
-            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "template.catalog_key")}
-            ORDER BY template.catalog_key, template.id, versions.variant_key, versions.id
+            SELECT template_catalog.catalog_key::text, template.id::text owner_key,
+                   variant.id::text AS variant_key, 0 AS id, 'draft' AS status, variant.template_model::text json
+            FROM template_variants variant
+            ${templateJoin("variant")}
+            JOIN catalogs template_catalog
+              ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
+            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")} ${ownerFilter(owners, "template.id", "template_catalog.catalog_key")}
+            ORDER BY template_catalog.catalog_key, template.id, variant.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -580,17 +535,18 @@ class CatalogResourceMovePlanner(
             }.list()
     }
 
-    private fun loadStencilVersions(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
+    /** Stencils' working copies: one per stencil, always editable, so planned like a draft. */
+    private fun loadStencils(handle: Handle, tenantKey: TenantKey, owners: Set<ResourceAddress>?): List<JsonOwnerRow> {
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT stencil.catalog_key::text, stencil.id::text owner_key,
-                   versions.id, versions.status, versions.content::text json
-            FROM stencil_versions versions
-            JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                 AND stencil.resource_id = versions.stencil_resource_id
-            WHERE versions.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "stencil.catalog_key")}
-            ORDER BY stencil.catalog_key, stencil.id, versions.id
+            SELECT stencil_catalog.catalog_key::text, stencil.id::text owner_key,
+                   0 AS id, 'draft' AS status, stencil.content::text json
+            FROM stencils stencil
+            JOIN catalogs stencil_catalog
+              ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
+            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")} ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
+            ORDER BY stencil_catalog.catalog_key, stencil.id
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -692,40 +648,29 @@ internal sealed interface JsonRewrite {
     /** Which relocation in the batch caused this rewrite; null when it could not be attributed. */
     val attributedTo: ResourceAddress?
 
-    data class TemplateVersion(
+    /** A variant's working model; a variant has no versions, so [version] is always 0. */
+    data class VariantModel(
         override val catalogKey: String,
         override val ownerKey: String,
         val variantKey: String,
-        override val version: Int,
         override val expected: String,
         override val replacement: String,
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
-        override val identity get() = "template:$catalogKey:$ownerKey:$variantKey:$version"
+        override val version: Int get() = 0
+        override val identity get() = "template:$catalogKey:$ownerKey:$variantKey"
     }
 
-    data class StencilVersion(
+    /** A stencil's working copy; a stencil has no versions, so [version] is always 0. */
+    data class StencilContent(
         override val catalogKey: String,
         override val ownerKey: String,
-        override val version: Int,
         override val expected: String,
         override val replacement: String,
         override val attributedTo: ResourceAddress?,
     ) : JsonRewrite {
-        override val identity get() = "stencil:$catalogKey:$ownerKey:$version"
-    }
-
-    /** A published version's frozen theme snapshot, pinned when the theme it resolves through moves. */
-    data class TemplateVersionSnapshot(
-        override val catalogKey: String,
-        override val ownerKey: String,
-        val variantKey: String,
-        override val version: Int,
-        override val expected: String,
-        override val replacement: String,
-        override val attributedTo: ResourceAddress?,
-    ) : JsonRewrite {
-        override val identity get() = "template-snapshot:$catalogKey:$ownerKey:$variantKey:$version"
+        override val version: Int get() = 0
+        override val identity get() = "stencil:$catalogKey:$ownerKey"
     }
 
     /**

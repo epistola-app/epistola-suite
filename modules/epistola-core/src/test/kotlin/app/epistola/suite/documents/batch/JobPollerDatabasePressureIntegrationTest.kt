@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -75,6 +76,7 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Rendered by the tenant-home page through the HomeNotice SPI. `notice.data` is a
+         GenerationReadinessNoticeData: why documents cannot be made yet. Same card classes as the
+         other home notices. -->
+    <th:block th:fragment="banner">
+        <div class="version-update-card" role="status" data-testid="generation-readiness-notice">
+            <div class="version-update-row" th:if="${notice.data.upgrading != null}" data-testid="generation-readiness-upgrading">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
+                    <span th:text="${notice.data.upgrading}">2 catalogs are still being prepared for Epistola 2.0.</span>
+                </div>
+            </div>
+            <div class="version-update-row" th:if="${notice.data.idle != null}" data-testid="generation-readiness-idle">
+                <div class="version-update-info">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
+                    <span th:text="${notice.data.idle}">Test and Production use no catalog yet, so documents requested there fail.</span>
+                </div>
+                <div class="version-update-actions" th:if="${notice.data.mayDeploy}">
+                    <a th:href="${notice.data.environmentKey != null}
+                           ? @{/tenants/{t}/environments/{e}(t=${notice.data.tenantId},e=${notice.data.environmentKey})}
+                           : @{/tenants/{t}/environments(t=${notice.data.tenantId})}"
+                       class="ep-btn ep-btn-outline ep-btn-sm">Deploy a version</a>
+                </div>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

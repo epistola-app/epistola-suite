@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "quality-showcase",
+    "key": "quality-showcase",
     "name": "Quality Showcase",
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -20,6 +20,7 @@
     },
     "dataExamples": [
       {
+        "key": "default",
         "name": "Default",
         "data": {
           "customerName": "Marlowe Fenwick",
@@ -161,7 +162,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "imageKey": "01966a00-0000-7000-8000-000000000001",
             "width": "90pt"
           }
         },
@@ -170,7 +171,7 @@
           "type": "image",
           "slots": [],
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "imageKey": "01966a00-0000-7000-8000-000000000001",
             "decorative": true,
             "width": "40pt"
           }
@@ -221,7 +222,7 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       }
     ]
   }

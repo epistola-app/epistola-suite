@@ -28,7 +28,7 @@ object StencilReferences {
     fun refersTo(node: Node, stencil: StencilId, templateCatalog: CatalogKey): Boolean {
         if (node.type != StencilNodeKeys.NODE_TYPE) return false
         val props = node.props ?: return false
-        if (props[StencilNodeKeys.PROP_STENCIL_ID] as? String != stencil.key.value) return false
+        if (props[StencilNodeKeys.PROP_STENCIL_KEY] as? String != stencil.key.value) return false
         val refCatalog = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: templateCatalog.value
         return refCatalog == stencil.catalogKey.value
     }
@@ -40,7 +40,7 @@ object StencilReferences {
      */
     fun refersTo(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
-        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
+        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
         AND ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
     )"""
 
@@ -56,17 +56,27 @@ object StencilReferences {
      */
     fun usedBy(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
-        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_ID}' = :$KEY_PARAM
+        AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
         AND (
             ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
             OR NOT EXISTS (
                 SELECT 1 FROM stencils referenced
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
-                  AND referenced.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND referenced.version_id = (
+                      SELECT referenced_version.version_id FROM catalog_current_versions referenced_version
+                      JOIN catalogs referenced_catalog ON referenced_catalog.tenant_key = referenced_version.tenant_key
+                       AND referenced_catalog.catalog_id = referenced_version.catalog_id
+                      WHERE referenced_catalog.tenant_key = referenced.tenant_key
+                        AND referenced_catalog.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                  )
                   AND referenced.id = :$KEY_PARAM
             )
         )
     )"""
 
-    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), $templateAlias.catalog_key)"
+    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), ${templateCatalog(templateAlias)})"
+
+    /** The key of the catalog the template aliased [templateAlias] lives in. */
+    private fun templateCatalog(templateAlias: String) = "(SELECT template_catalog.catalog_key FROM catalogs template_catalog" +
+        " WHERE template_catalog.tenant_key = $templateAlias.tenant_key AND template_catalog.catalog_id = $templateAlias.catalog_id)"
 }

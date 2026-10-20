@@ -6,6 +6,7 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ImageDto
 import app.epistola.suite.assets.Asset
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 
 /**
@@ -15,13 +16,15 @@ import app.epistola.suite.catalog.CatalogType
  * images API: an image from a catalog published elsewhere may be named `municipality-mark`, which
  * the asset operations cannot express because their `id` is declared `format: uuid`.
  */
-internal fun Asset.toImageDto() = ImageDto(
-    slug = id.value,
-    tenantId = tenantKey.value,
-    catalog = catalogKey.value,
+internal fun Asset.toImageDto(catalog: Catalog) = ImageDto(
+    key = id.value,
+    tenantKey = tenantKey.value,
+    registry = catalog.registry,
+    namespace = catalog.namespace,
+    catalogKey = catalogKey.value,
     catalogType = when (catalogType) {
-        CatalogType.AUTHORED -> ImageDto.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> ImageDto.CatalogType.SUBSCRIBED
+        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
     },
     readOnly = catalogType == CatalogType.SUBSCRIBED,
     name = name,

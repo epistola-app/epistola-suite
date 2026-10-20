@@ -7,14 +7,12 @@ package app.epistola.suite.catalog.relocation
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.fonts.model.FontIntegrityException
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -83,7 +81,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
     fun `a published document still renders after the image it shows moves, without the image`() {
         val tenant = tenantWith("Render after image move")
         uploadPng(tenant, letters, "logo", renderablePng())
-        publishTemplate(tenant, letters, singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to letters.value))))
+        publishTemplate(tenant, letters, singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to letters.value))))
         releaseAll(tenant, catalogsOf(tenant))
 
         move(tenant, address(CatalogResourceType.IMAGE, letters, "logo").movedTo(shared))
@@ -97,7 +95,6 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         publishTemplate(tenant, letters, templateEmbedding("header", letters.value)) {
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
         }
         releaseAll(tenant, catalogsOf(tenant))
 

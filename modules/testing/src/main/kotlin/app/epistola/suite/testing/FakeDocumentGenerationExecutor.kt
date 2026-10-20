@@ -35,10 +35,9 @@ class FakeDocumentGenerationExecutor(
     contentStore: DocumentContentStore,
     meterRegistry: io.micrometer.core.instrument.MeterRegistry,
     schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator,
-    fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
-    fontByteCache: app.epistola.suite.fonts.FontByteCache,
     localeResolver: app.epistola.suite.i18n.TenantLocaleResolver,
     releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource,
+    draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -51,10 +50,9 @@ class FakeDocumentGenerationExecutor(
     schemaValidator = schemaValidator,
     contentStore = contentStore,
     meterRegistry = meterRegistry,
-    fontSnapshotVerifier = fontSnapshotVerifier,
-    fontByteCache = fontByteCache,
     localeResolver = localeResolver,
     releaseRenderSource = releaseRenderSource,
+    draftRenderer = draftRenderer,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {
@@ -143,12 +141,15 @@ class FakeDocumentGenerationExecutor(
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
-                        id, tenant_key, template_key, variant_key, version_key, release_version,
+                        id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version,
                         filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )
                     VALUES (
-                        :id, :tenantId, :templateId, :variantId, :versionId, :releaseVersion,
+                        :id, :tenantId, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        :templateId, :variantId, :versionId, :releaseVersion,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
                         :createdAt, :createdBy
                     )
@@ -156,6 +157,7 @@ class FakeDocumentGenerationExecutor(
                 )
                     .bind("id", documentId)
                     .bind("tenantId", request.tenantKey)
+                    .bind("catalogKey", request.catalogKey)
                     .bind("templateId", request.templateKey)
                     .bind("variantId", request.variantKey)
                     .bind("versionId", request.versionKey)

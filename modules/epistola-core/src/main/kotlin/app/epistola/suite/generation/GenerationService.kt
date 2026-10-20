@@ -12,6 +12,7 @@ import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
+import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -56,7 +57,7 @@ class GenerationService(
      * Theme resolution cascade:
      * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
-     * 3. Tenant default theme (tenantDefaultThemeId parameter) - ultimate fallback
+     * 3. Tenant default theme (catalogDefaultThemeId parameter) - ultimate fallback
      *
      * When a theme is resolved, theme styles are merged:
      * - Theme document styles serve as defaults, template document styles override
@@ -67,7 +68,7 @@ class GenerationService(
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
-     * @param tenantDefaultThemeId Optional default theme from Tenant (ultimate fallback)
+     * @param catalogDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
         tenantId: TenantKey,
@@ -75,14 +76,14 @@ class GenerationService(
         data: Map<String, Any?>,
         outputStream: OutputStream,
         templateDefaultThemeId: ThemeKey? = null,
-        tenantDefaultThemeId: ThemeKey? = null,
+        catalogDefaultThemeId: ThemeKey? = null,
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         templateCatalogKey: CatalogKey? = null,
-        tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        catalogDefaultThemeCatalogKey: CatalogKey? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
         resolvedThemeOverride: ResolvedTheme? = null,
@@ -91,21 +92,14 @@ class GenerationService(
 
         // Live editor previews can provide the exact theme snapshot used by
         // the canvas; all other callers resolve the authoritative cascade.
-        val resolvedTheme = resolvedThemeOverride ?: themeStyleResolver.resolveStyles(
+        val resolvedTheme = resolvedThemeOverride ?: resolveTheme(
             tenantId,
-            templateDefaultThemeId,
-            tenantDefaultThemeId,
             templateModel,
-            templateCatalogKey = templateCatalogKey,
-            tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
-        ).let { resolvedStyles ->
-            ResolvedTheme(
-                documentStyles = resolvedStyles.documentStyles,
-                pageSettings = resolvedStyles.pageSettings,
-                blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
-                spacingUnit = resolvedStyles.spacingUnit,
-            )
-        }
+            templateDefaultThemeId,
+            catalogDefaultThemeId,
+            templateCatalogKey,
+            catalogDefaultThemeCatalogKey,
+        )
 
         pdfRenderer.render(
             document = templateModel,
@@ -121,6 +115,36 @@ class GenerationService(
             culture = culture,
             clock = EpistolaClock.current(),
             watermarkText = watermarkText,
+        )
+    }
+
+    /**
+     * The theme cascade [renderPdf] applies when it is given none: the template model's own theme,
+     * then the template's, then the tenant's default. Reads the themes of the catalog version the
+     * calling message targets, so a caller can resolve it in a short read and render later.
+     */
+    fun resolveTheme(
+        tenantId: TenantKey,
+        templateModel: TemplateDocument,
+        templateDefaultThemeId: ThemeKey?,
+        catalogDefaultThemeId: ThemeKey?,
+        templateCatalogKey: CatalogKey?,
+        catalogDefaultThemeCatalogKey: CatalogKey?,
+        dependencies: DraftDependencyView? = null,
+    ): ResolvedTheme = themeStyleResolver.resolveStyles(
+        tenantId,
+        templateDefaultThemeId,
+        catalogDefaultThemeId,
+        templateModel,
+        templateCatalogKey = templateCatalogKey,
+        catalogDefaultThemeCatalogKey = catalogDefaultThemeCatalogKey,
+        dependencies = dependencies,
+    ).let { resolvedStyles ->
+        ResolvedTheme(
+            documentStyles = resolvedStyles.documentStyles,
+            pageSettings = resolvedStyles.pageSettings,
+            blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+            spacingUnit = resolvedStyles.spacingUnit,
         )
     }
 
@@ -242,18 +266,17 @@ class GenerationService(
      */
     fun validatePreviewData(
         tenantId: TenantKey,
-        catalogKey: app.epistola.suite.common.ids.CatalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+        catalogKey: app.epistola.suite.common.ids.CatalogKey,
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        // Load the latest contract version's data model for validation
-        val contractVersion = app.epistola.suite.templates.contracts.queries.GetLatestContractVersion(
+        // The template's data contract as it is now: preview renders the working copy.
+        val dataModel: ObjectNode? = app.epistola.suite.templates.contracts.queries.GetDataContract(
             templateId = app.epistola.suite.common.ids.TemplateId(
                 templateId,
                 app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantId)),
             ),
-        ).query()
-        val dataModel: ObjectNode? = contractVersion?.dataModel
+        ).query()?.dataModel
 
         if (dataModel == null) {
             return PreviewValidationResult(valid = true) // No schema means no validation

@@ -5,6 +5,10 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.model.CodeList
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -25,7 +29,10 @@ import org.springframework.stereotype.Component
 data class ListCodeLists(
     val tenantId: TenantId,
     val catalogKey: CatalogKey? = null,
-) : Query<List<CodeList>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<CodeList>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId.key
@@ -39,18 +46,19 @@ class ListCodeListsHandler(
         val sql = buildString {
             append(
                 """
-                SELECT cl.slug, cl.tenant_key, cl.catalog_key, cl.display_name, cl.description,
+                SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, cl.display_name, cl.description,
                        cl.source_type, cl.source_url, cl.auth_type, cl.credential,
                        cl.last_refreshed_at, cl.last_refresh_error,
-                       cl.created_at, cl.updated_at,
+                       cl.created_at, cl.updated_at, cl.revision,
                        c.type AS catalog_type
                 FROM code_lists cl
-                JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.id = cl.catalog_key
+                JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
                 WHERE cl.tenant_key = :tenantId
+                  AND ${inCurrentVersion("cl")}
                 """,
             )
             if (query.catalogKey != null) {
-                append(" AND cl.catalog_key = :catalogKey")
+                append(" AND cl.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             append(" ORDER BY cl.display_name ASC")
         }

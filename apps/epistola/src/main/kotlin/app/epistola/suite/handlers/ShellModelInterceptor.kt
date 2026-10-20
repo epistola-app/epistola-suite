@@ -21,7 +21,8 @@ import org.springframework.web.servlet.ModelAndView
  * feature flags, footer chrome) come from [CommonViewModel] — the SAME source the
  * HTMX fragment render path uses ([HtmxFragmentModelContributor]) so the two
  * paths can't drift. This interceptor adds, on top, the shell-only nav model
- * (`navGroups`, `activeNavSection`) when rendering `layout/shell`.
+ * (`navGroups`, `activeNavSection`) and the [workspace][Workspace]
+ * — the context bar and side nav — when rendering `layout/shell`.
  *
  * The [CommonViewModel] attributes are merged into EVERY view that renders (not
  * just tenant-scoped ones) — `auth` and `isManager` are deliberately always
@@ -33,6 +34,7 @@ import org.springframework.web.servlet.ModelAndView
 class ShellModelInterceptor(
     private val commonViewModel: CommonViewModel,
     private val navMenuAggregator: NavMenuAggregator,
+    private val workspaceBuilder: WorkspaceBuilder,
 ) : HandlerInterceptor {
 
     override fun postHandle(
@@ -66,5 +68,34 @@ class ShellModelInterceptor(
         val nav = navMenuAggregator.build(context, requestPath)
         modelAndView.addObject("navGroups", nav.groups)
         modelAndView.addObject("activeNavSection", nav.activeNavSection)
+        val tenantName = modelAndView.model["tenantName"]?.toString() ?: tenantId
+        val workspace = workspaceBuilder.build(TenantKey.of(tenantId), tenantName, auth, modelAndView.model, request, requestPath, nav)
+        modelAndView.addObject("workspace", workspace)
+        boostInsideWorkspace(request, response, modelAndView, workspace)
+    }
+
+    /**
+     * A boosted navigation from one workspace page to another replaces only the page
+     * (docs/workspace-shell.md): the response is `layout/boosted`, retargeted at `#ws-page`, with the
+     * side nav out of band and the context bar too only when it changed. When it did not, the bar's
+     * status is told to refresh in place. The page the click came from says which bar it shows in
+     * the `X-Epistola-Shell` header; from a page without the workspace the whole body is swapped.
+     */
+    private fun boostInsideWorkspace(request: HttpServletRequest, response: HttpServletResponse, modelAndView: ModelAndView, workspace: Workspace) {
+        if (request.getHeader("HX-Boosted") != "true") return
+        val shown = request.getHeader(SHELL_HEADER) ?: return
+        if (!shown.startsWith("nav:")) return
+        val barChanged = shown != "nav:${workspace.barKey}"
+        modelAndView.viewName = "layout/boosted"
+        modelAndView.addObject("boosted", true)
+        modelAndView.addObject("barChanged", barChanged)
+        response.setHeader("HX-Retarget", "#ws-page")
+        response.setHeader("HX-Reswap", "outerHTML")
+        if (!barChanged) response.setHeader("HX-Trigger", "ws-status-refresh")
+    }
+
+    private companion object {
+        /** The bar the page shows, as `Workspace.barKey`; sent by nav.js on a boosted navigation. */
+        const val SHELL_HEADER = "X-Epistola-Shell"
     }
 }

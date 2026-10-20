@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional
  * entry in the `system.bcp-47` code list.
  */
 data class SetTenantDefaultLocale(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val locale: String?,
 ) : Command<Tenant>,
     TenantScoped,

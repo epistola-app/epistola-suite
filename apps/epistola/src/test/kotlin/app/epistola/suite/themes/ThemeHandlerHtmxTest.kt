@@ -62,7 +62,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/new",
+                "/tenants/${testTenant.id}/catalogs/default/themes/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -77,9 +77,8 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("ep-dialog")
             assertThat(response.body).contains("""id="create-theme-form"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/themes\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="name"""")
             assertThat(response.body).contains("""name="slug"""")
             assertThat(response.body).contains("""name="description"""")
@@ -100,7 +99,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("name", "Valid Name")
             form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -122,8 +121,8 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("value=\"Valid Name\"")
             assertThat(response.body).contains("value=\"INVALID SLUG\"")
             // authoredCatalogs prefill survived → the <select> is still populated.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/themes\"").doesNotContain("<select id=\"catalog\"")
         }
     }
 
@@ -140,7 +139,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "corporate")
             form.add("description", "Our house style")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -153,7 +152,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             // — asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/themes/default/corporate")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/themes/corporate")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
@@ -166,7 +165,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/themes",
+                "/tenants/${testTenant.id}/catalogs/default/themes",
                 String::class.java,
             )
         }
@@ -207,7 +206,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/themes/default/brand",
+                "/tenants/${testTenant.id}/catalogs/default/themes/brand",
                 String::class.java,
             )
         }
@@ -248,7 +247,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/default/brand/usage",
+                "/tenants/${testTenant.id}/catalogs/default/themes/brand/usage",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -261,7 +260,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""id="theme-usage-dialog"""")
             assertThat(response.body).contains("Invoice")
             assertThat(response.body).contains("Template default")
-            assertThat(response.body).contains("/templates/default/${templateId.key}")
+            assertThat(response.body).contains("/catalogs/default/templates/${templateId.key}")
             assertThat(response.body).doesNotContain("<html")
         }
     }
@@ -283,7 +282,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/themes/default/unused/usage?page=1",
+                "/tenants/${testTenant.id}/catalogs/default/themes/unused/usage?page=1",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -304,5 +303,28 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
     private fun htmxFormHeaders() = HttpHeaders().apply {
         contentType = MediaType.APPLICATION_FORM_URLENCODED
         set("HX-Request", "true")
+    }
+
+    @Test
+    fun `the themes list makes a theme the catalog's default and applies the house theme to all catalogs`() {
+        val tenant = createTenant("Theme Defaults")
+        val catalog = CatalogId(CatalogKey.of("default"), TenantId(tenant.id))
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute() }
+
+        val headers = htmxHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+        val form: MultiValueMap<String, String> = LinkedMultiValueMap<String, String>().apply {
+            add("themeId", "brand")
+            add("themeCatalogKey", "default")
+        }
+        val rows = restTemplate.exchange("/tenants/${tenant.id}/catalogs/default/default-theme", HttpMethod.POST, HttpEntity(form, headers), String::class.java)
+        assertThat(rows.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(rows.body).contains("data-testid=\"theme-catalog-default-badge\"")
+
+        // With a house theme, the list offers applying it everywhere; applying says how many took it.
+        withMediator { app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenant.id, ThemeKey.of("brand"), catalogKey = CatalogKey.of("default")).execute() }
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/default/themes", String::class.java).body!!
+        assertThat(page).contains("data-testid=\"house-theme-apply\"").contains("data-testid=\"catalog-theme-settings-mount\"")
+        val applied = restTemplate.postForEntity("/tenants/${tenant.id}/house-theme/apply?catalog=default", null, String::class.java)
+        assertThat(applied.body).contains("data-testid=\"house-theme-applied\"")
     }
 }

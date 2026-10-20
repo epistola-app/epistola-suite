@@ -4,7 +4,6 @@
 
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
@@ -17,13 +16,13 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.documents.NoPublishedVersionException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.environments.DeploymentUsage
 import app.epistola.suite.generation.release.ReleaseRef
 import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.mediator.Command
@@ -45,9 +44,12 @@ import tools.jackson.databind.node.ObjectNode
  *
  * Variant can be specified either explicitly via [variantId] or resolved automatically
  * via [variantSelectionCriteria]. Exactly one of the two must be set.
+ *
+ * The release is chosen as for [GenerateDocument]: [releaseVersion] is a version selector, and
+ * [environmentId] limits the candidates to the releases that environment serves.
  */
 data class BatchGenerationItem(
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -61,9 +63,6 @@ data class BatchGenerationItem(
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
         }
     }
 }
@@ -134,33 +133,28 @@ data class GenerateDocumentBatch(
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val releaseTargetResolver: ReleaseTargetResolver,
-    private val entryStore: ReleaseEntryStore,
+    private val usage: DeploymentUsage,
 ) : CommandHandler<GenerateDocumentBatch, BatchKey> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocumentBatch): BatchKey {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
-        // Every item renders a release, resolved once per (named release, environment, catalog) for the
-        // whole batch: the release it names, the one its environment serves, or the catalog's latest. A release
-        // cut or deployed while the batch is being accepted does not split it across releases.
-        val releases = command.items
+        // Every item renders a release, resolved once per (version selector, environment, catalog) for
+        // the whole batch: the highest candidate satisfying the selector, among the releases its
+        // environment serves or, without one, every release that kept its content. A release cut or
+        // deployed while the batch is being accepted does not split it across releases.
+        val selections = command.items
             .map { Triple(it.releaseVersion, it.environmentId, it.catalogKey) }
             .distinct()
-            .associateWith { (named, environment, catalog) ->
-                if (named != null) {
-                    releaseTargetResolver.namedRelease(command.tenantId, catalog, named)
-                } else if (environment != null) {
-                    releaseTargetResolver.deployedRelease(command.tenantId, environment, catalog)
-                } else {
-                    jdbi.withHandle<String?, Exception> { handle -> entryStore.latestRetainedRelease(handle, command.tenantId, catalog) }
-                        ?: throw CatalogNotReleasedException(command.tenantId, catalog)
-                }
+            .associateWith { (selector, environment, catalog) ->
+                releaseTargetResolver.select(command.tenantId, catalog, environment, selector)
             }
         val targets = command.items.map { item ->
             releaseTargetResolver.resolveIn(
                 command.tenantId,
-                ReleaseRef(item.catalogKey, releases.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey))),
+                item.catalogKey,
+                selections.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey)),
                 item.templateId,
                 item.variantId,
                 item.variantSelectionCriteria,
@@ -185,11 +179,17 @@ class GenerateDocumentBatchHandler(
             val batch = handle.prepareBatch(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
-                    release_version, data, filename, correlation_id, routing_key, document_key, status
+                    id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key,
+                    environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
-                VALUES (:id, :batchId, :tenantId, :catalogKey, :templateId, :variantId, NULL, :environmentId,
-                        :releaseVersion, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
+                VALUES (:id, :batchId, :tenantId, :catalogKey,
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        :templateId, :variantId, NULL, :environmentId,
+                        :releaseVersion, :draftId, :draftLabel,
+                        COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+                         WHERE c.tenant_key = :tenantId AND c.catalog_key = :catalogKey AND r.version = :releaseVersion)),
+                        :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )
 
@@ -204,7 +204,10 @@ class GenerateDocumentBatchHandler(
                     .bind("templateId", item.templateId)
                     .bind("variantId", targets[index].variantKey)
                     .bind("environmentId", item.environmentId)
-                    .bind("releaseVersion", targets[index].release.version)
+                    .bind("releaseVersion", targets[index].releaseVersion)
+                    .bind("draftId", targets[index].draft?.draftId)
+                    .bind("draftLabel", targets[index].draft?.label)
+                    .bind("templateResourceId", targets[index].templateResourceId)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)
@@ -218,6 +221,13 @@ class GenerateDocumentBatchHandler(
 
             // Requests stay in PENDING status - the JobPoller drains them on its next poll.
             batchId
+        }.also {
+            // How much each deployed version is used, for deciding when to undeploy it.
+            command.items.indices
+                .mapNotNull { i -> command.items[i].environmentId?.let { env -> targets[i].releaseVersion?.let { Triple(env, command.items[i].catalogKey, it) } } }
+                .groupingBy { it }
+                .eachCount()
+                .forEach { (key, count) -> usage.record(command.tenantId, key.first, key.second, key.third, count) }
         }
     }
 }

@@ -4,20 +4,30 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
+import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SystemInternal
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -31,7 +41,8 @@ import java.time.OffsetDateTime
  * Generation renders releases, so a subscribed catalog needs one: its publisher's release arrives
  * as an installed mirror, and this is what turns the mirror into a release that can be rendered.
  * The release carries the publisher's version and fingerprint, not a recomputation over the mirror,
- * so it is recognisably the publisher's release.
+ * so it is recognisably the publisher's release; only a legacy fingerprint, which names no algorithm,
+ * is replaced by the qualified one of the installed content.
  *
  * Idempotent: a release already recorded for the installed version is left alone. Does nothing for
  * an authored catalog, which releases itself, or one with no installed version.
@@ -44,8 +55,24 @@ import java.time.OffsetDateTime
 data class RecordInstalledRelease(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
+    /**
+     * The release's content as its archive carries it, when the caller has the archive: retained
+     * instead of a rebuild from the installed rows, so the release exports with its publisher's
+     * fingerprint. Null rebuilds it from what is installed (an upgrade from 1.x, the system catalog's
+     * seeded fonts).
+     */
+    val published: CatalogContent? = null,
+    /**
+     * A release recorded beside the installed one, with [published] as its content (a release
+     * installed below the highest): its number and its publisher's fingerprint. Null records the
+     * installed release.
+     */
+    val release: RecordedRelease? = null,
 ) : Command<String?>,
     SystemInternal
+
+/** A release's number and its publisher's fingerprint, when the archive carries one. */
+data class RecordedRelease(val version: String, val fingerprint: String?)
 
 /**
  * Lets the bundled-catalog bootstrap record a catalog's release itself, after seeding what its
@@ -67,6 +94,8 @@ class RecordInstalledReleaseHandler(
     private val revisionStore: ResourceRevisionStore,
     private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
+    private val rows: CatalogImportRows,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -74,10 +103,11 @@ class RecordInstalledReleaseHandler(
     override fun handle(command: RecordInstalledRelease): String? {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: return null
         if (catalog.type != CatalogType.SUBSCRIBED) return null
-        val version = catalog.installedReleaseVersion ?: return null
+        val version = command.release?.version ?: catalog.installedReleaseVersion ?: return null
+        check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_key = :c AND version = :v)")
+            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
                 .bind("v", version)
@@ -86,11 +116,21 @@ class RecordInstalledReleaseHandler(
         }
         if (exists) return version
 
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
-        val fingerprint = catalog.installedFingerprint ?: fingerprintService.fingerprint(content)
+        // The installed version carries the archive's theme settings (contract ADR 0007), so its
+        // release, rebuilt or not, renders with its default theme.
+        if (command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
+        val content = command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey)
+        // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
+        // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
+        // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
+        // (contract ADR 0003), so such a release records the qualified fingerprint of what it holds.
+        val publisherFingerprint = if (command.release != null) command.release.fingerprint else catalog.installedFingerprint
+        val fingerprint = publisherFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
+            ?: fingerprintService.fingerprint(content)
         // The publisher's per-resource digests where the install recorded them; a resource the
         // manifest does not carry (the system catalog's seeded fonts) gets its own.
-        val resourceFingerprints = fingerprintService.perResourceFingerprints(content) + catalog.installedResourceFingerprints.orEmpty()
+        val resourceFingerprints = fingerprintService.perResourceFingerprints(content) +
+            (if (command.release == null) catalog.installedResourceFingerprints.orEmpty() else emptyMap())
 
         jdbi.useTransaction<Exception> { handle ->
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
@@ -98,9 +138,9 @@ class RecordInstalledReleaseHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              content_retained, rendering_defaults_version)
-                VALUES (:t, :c, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, TRUE, :renderingDefaults)
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
+                                              rendering_defaults_version)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -113,11 +153,90 @@ class RecordInstalledReleaseHandler(
                 .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
 
-            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
+            // The publisher's pins, as installed: a subscribed catalog's declarations are its archive's.
+            dependencyStore.recordRelease(
+                handle,
+                command.tenantKey,
+                command.catalogKey,
+                version,
+                content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
+            )
+            val revisionDigests = revisionStore.retain(handle, command.tenantKey, withBundledFaces(handle, command.tenantKey, command.catalogKey, content))
             releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
+}
+
+/**
+ * [content] with the bundled faces of its fonts, for retaining it.
+ *
+ * The wire form carries only asset-backed faces, so content built from the installed rows lists a
+ * seeded font (the system catalog's) without any. A release keeps them by hash instead: rendering
+ * reads the face from the retained revision and its bytes from the classpath, checked against that
+ * hash (`ReleaseContentAssembler.readBinary`). Without them a release renders the font as Helvetica.
+ */
+internal fun withBundledFaces(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent): CatalogContent {
+    data class BundledFace(val slug: String, val weight: Int, val italic: Boolean, val location: String, val contentHash: String)
+    val faces = handle.createQuery(
+        """
+        SELECT f.slug, v.weight, v.italic, v.classpath_location, v.content_hash
+        FROM font_variants v
+        JOIN fonts f ON f.tenant_key = v.tenant_key AND f.version_id = v.version_id AND f.resource_id = v.font_resource_id
+        WHERE v.tenant_key = :t AND v.version_id = ${versionAt("t", "c")}
+          AND v.source = 'CLASSPATH' AND v.content_hash IS NOT NULL
+        ORDER BY f.slug, v.italic, v.weight
+        """,
+    )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .map { rs, _ -> BundledFace(rs.getString("slug"), rs.getInt("weight"), rs.getBoolean("italic"), rs.getString("classpath_location"), rs.getString("content_hash")) }
+        .list()
+        .groupBy { it.slug }
+    if (faces.isEmpty()) return content
+
+    val details = content.resourceDetails.mapValues { (_, detail) ->
+        val font = detail.resource as? FontResource ?: return@mapValues detail
+        val bundled = faces[font.key].orEmpty().filter { face -> font.variants.none { it.weight == face.weight && it.italic == face.italic } }
+        if (bundled.isEmpty()) return@mapValues detail
+        val added = bundled.map { face ->
+            val mediaType = if (face.location.endsWith(".otf", ignoreCase = true)) AssetMediaType.OTF else AssetMediaType.TTF
+            FontVariantEntry(weight = face.weight, italic = face.italic, mediaType = mediaType.mimeType, contentHash = face.contentHash)
+        }
+        detail.copy(resource = font.copy(variants = font.variants + added))
+    }
+    return content.copy(resourceDetails = details)
+}
+
+/**
+ * A release's content as its publisher released it: [manifest], every resource as the archive binds
+ * it ([bound], by `type/key`), and the binaries it carries ([binaries], by archive path). A rebuild
+ * from the rows an install mirrors it into writes every default out (an absent list as empty, an
+ * absent sort order as 0): the same content, but no longer the publisher's fingerprint.
+ */
+internal fun publishedContent(
+    manifest: app.epistola.catalog.protocol.CatalogManifest,
+    bound: Map<String, app.epistola.catalog.protocol.CatalogResource>,
+    binaries: Map<String, ByteArray>,
+): CatalogContent {
+    val details = bound.mapValues { (_, resource) -> app.epistola.catalog.protocol.ResourceDetail(app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION, resource) }
+    val paths = details.values.flatMap { detail ->
+        when (val resource = detail.resource) {
+            is app.epistola.catalog.protocol.ImageResource -> listOf(resource.contentPath())
+            is app.epistola.catalog.protocol.FontResource -> resource.variants.map { it.contentPath() }
+            else -> emptyList()
+        }
+    }
+    val byPath = binaries.mapKeys { it.key.removePrefix("./") }
+    return CatalogContent(
+        catalog = manifest.catalog,
+        resourceEntries = manifest.resources,
+        resourceDetails = details,
+        dependencies = manifest.dependencies,
+        catalogDependencies = manifest.catalogDependencies,
+        assetContents = paths.distinct().mapNotNull { path -> byPath[path]?.let { path to it } }.toMap(),
+        publisher = manifest.publisher,
+    )
 }

@@ -45,6 +45,16 @@ data class GenerationResultRow(
     val versionId: VersionKey?,
     /** The catalog release rendered; null for results of requests accepted before 2.0. */
     val releaseVersion: String? = null,
+    /** The draft rendered, live, through an environment that follows it; null for a release. */
+    val draftId: String? = null,
+    /** The draft's name when it was rendered. */
+    val draftLabel: String? = null,
+    /** The catalog of the template rendered, copied from the request; null for results emitted before it was stored. */
+    val registry: String? = null,
+    val namespace: String? = null,
+    val catalogKey: String? = null,
+    /** The id of the catalog version rendered, a release's or a draft's (contract `versionId`). */
+    val catalogVersionId: String? = null,
     val filename: String?,
     val contentType: String?,
     val sizeBytes: Long?,

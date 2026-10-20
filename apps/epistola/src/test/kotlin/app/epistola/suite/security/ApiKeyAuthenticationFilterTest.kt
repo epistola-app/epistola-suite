@@ -70,7 +70,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
 
         @Test
         fun `passes through when header is blank`(): Unit = withMediator {
-            request.addHeader("X-API-Key", "  ")
+            request.addHeader("Authorization", "  ")
 
             filter.doFilter(request, response, filterChain)
 
@@ -223,7 +223,7 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `authenticates legacy X-API-Key header`() = fixture {
+        fun `ignores the X-API-Key header, which contract 2_0 dropped`() = fixture {
             lateinit var plaintextKey: String
             lateinit var tenant: Tenant
 
@@ -238,31 +238,8 @@ class ApiKeyAuthenticationFilterTest : BaseIntegrationTest() {
             }
 
             then {
+                // A valid key in the old header authenticates nothing; the chain decides (401 there).
                 assertThat(filterChainCalled).isTrue()
-                assertThat(SecurityContextHolder.getContext().authentication).isInstanceOf(ApiKeyAuthenticationToken::class.java)
-            }
-        }
-
-        @Test
-        fun `authorization API-key wins over legacy header when both are present`() = fixture {
-            lateinit var plaintextKey: String
-            lateinit var tenant: Tenant
-
-            given {
-                tenant = tenant("Filter Dual Header")
-                plaintextKey = CreateApiKey(tenantId = tenant.id, name = "Legacy Would Work").execute().plaintextKey
-            }
-
-            whenever {
-                request.addHeader("Authorization", "ApiKey epk_unknown_key_that_doesnt_exist")
-                request.addHeader("X-API-Key", plaintextKey)
-                filter.doFilter(request, response, filterChain)
-            }
-
-            then {
-                assertThat(response.status).isEqualTo(401)
-                assertThat(filterChainCalled).isFalse()
-                assertThat(response.contentAsString).contains("Invalid API key")
                 assertThat(SecurityContextHolder.getContext().authentication).isNull()
             }
         }

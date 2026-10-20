@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "stencil",
-    "slug": "letter-shell",
+    "key": "letter-shell",
     "name": "Letter Shell",
     "version": 1,
-    "description": "A simple letter shell with a body placeholder that templates fill. Demonstrates the placeholder default/fill pattern.",
+    "description": "A letter shell built from the Letterhead stencil, with a body that templates fill. Its company name reaches the letterhead and, through the body placeholder, the template's fill.",
     "tags": ["layout", "letter"],
     "content": {
       "modelVersion": 1,
@@ -19,14 +19,15 @@
           "type": "root",
           "slots": ["s-root-children"]
         },
-        "n-ph-body": {
-          "id": "n-ph-body",
-          "type": "placeholder",
-          "slots": ["s-ph-body-default", "s-ph-body-fill"],
+        "n-letterhead": {
+          "id": "n-letterhead",
+          "type": "stencil",
+          "slots": ["s-letterhead-children"],
           "props": {
-            "name": "body",
-            "description": "Body content",
-            "kind": "block"
+            "stencilKey": "letterhead",
+            "parameterBindings": {
+              "companyName": "params.companyName"
+            }
           }
         },
         "n-ph-body-default-text": {
@@ -49,6 +50,17 @@
               ]
             }
           }
+        },
+        "n-ph-body": {
+          "id": "n-ph-body",
+          "type": "placeholder",
+          "slots": ["s-ph-body-default", "s-ph-body-fill"],
+          "props": {
+            "name": "body",
+            "description": "Body content",
+            "kind": "block",
+            "passParameters": true
+          }
         }
       },
       "slots": {
@@ -56,7 +68,13 @@
           "id": "s-root-children",
           "nodeId": "n-root",
           "name": "children",
-          "children": ["n-ph-body"]
+          "children": ["n-letterhead", "n-ph-body"]
+        },
+        "s-letterhead-children": {
+          "id": "s-letterhead-children",
+          "nodeId": "n-letterhead",
+          "name": "children",
+          "children": []
         },
         "s-ph-body-default": {
           "id": "s-ph-body-default",
@@ -71,6 +89,17 @@
           "children": []
         }
       }
+    },
+    "parameterSchema": {
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Company name shown in the letterhead and passed to the body",
+          "default": "Acme Corporation"
+        }
+      },
+      "required": ["companyName"]
     }
   }
 }

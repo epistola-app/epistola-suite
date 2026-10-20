@@ -32,7 +32,7 @@ class PaginationTest {
         val meta = Pagination.pageMeta(1, 10, 25)
         assertThat(meta.number).isEqualTo(1)
         assertThat(meta.propertySize).isEqualTo(10)
-        assertThat(meta.totalElements).isEqualTo(25)
+        assertThat(meta.total).isEqualTo(25)
         assertThat(meta.totalPages).isEqualTo(3)
     }
 
@@ -42,7 +42,7 @@ class PaginationTest {
 
         val first = Pagination.paginate(all, page = 0, size = 2)
         assertThat(first.items).containsExactly(1, 2)
-        assertThat(first.page.totalElements).isEqualTo(5)
+        assertThat(first.page.total).isEqualTo(5)
         assertThat(first.page.totalPages).isEqualTo(3)
 
         val last = Pagination.paginate(all, page = 2, size = 2)
@@ -51,14 +51,14 @@ class PaginationTest {
         // A page past the end yields no items but still the true total.
         val beyond = Pagination.paginate(all, page = 9, size = 2)
         assertThat(beyond.items).isEmpty()
-        assertThat(beyond.page.totalElements).isEqualTo(5)
+        assertThat(beyond.page.total).isEqualTo(5)
     }
 
     @Test
     fun `paginate on an empty list yields no items and zero pages`() {
         val slice = Pagination.paginate(emptyList<Int>(), page = 0, size = 20)
         assertThat(slice.items).isEmpty()
-        assertThat(slice.page.totalElements).isEqualTo(0)
+        assertThat(slice.page.total).isEqualTo(0)
         assertThat(slice.page.totalPages).isEqualTo(0)
     }
 }

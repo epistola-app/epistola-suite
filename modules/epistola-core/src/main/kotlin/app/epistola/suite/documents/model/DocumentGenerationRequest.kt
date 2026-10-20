@@ -56,17 +56,31 @@ data class DocumentGenerationRequest(
     val id: GenerationRequestKey,
     val batchId: BatchKey?,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val versionKey: VersionKey?,
     val environmentKey: EnvironmentKey?,
+    /**
+     * The registry and namespace of [catalogKey] when the request was accepted (stored with it).
+     * Defaulted, like [releaseVersion], so a SELECT that does not ask for them still maps.
+     */
+    val registry: String? = null,
+    val namespace: String? = null,
     /**
      * The catalog release this request renders, bound when it was accepted. Null for requests
      * accepted before 2.0, which name a [versionKey] or an [environmentKey] instead. Defaulted, like
      * [routingKey], so a SELECT that does not ask for `release_version` still maps.
      */
     val releaseVersion: String? = null,
+    /** The draft this request renders, live, when its environment follows one; null for a release. */
+    val draftId: String? = null,
+    /** The draft's name when the request was accepted. */
+    val draftLabel: String? = null,
+    /** The id of the catalog version rendered, a release's or a draft's (contract `versionId`); null before 2.0. */
+    val catalogVersionId: String? = null,
+    /** Times it was taken back from a node that stopped while rendering it (stale-job recovery). */
+    val recoveries: Int = 0,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
@@ -87,7 +101,7 @@ data class DocumentGenerationRequest(
     val expiresAt: OffsetDateTime?,
 ) {
     init {
-        require(versionKey != null || environmentKey != null || releaseVersion != null) {
+        require(versionKey != null || environmentKey != null || releaseVersion != null || draftId != null) {
             "A request renders a release, an environment's deployment, or (before 2.0) a version"
         }
     }

@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "demo-invoice",
+    "key": "demo-invoice",
     "name": "Invoice Template",
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -164,6 +164,7 @@
     },
     "dataExamples": [
       {
+        "key": "standard-invoice-multiple-items",
         "name": "Standard Invoice - Multiple Items",
         "data": {
           "invoiceNumber": "INV-2024-001",
@@ -216,6 +217,7 @@
         }
       },
       {
+        "key": "simple-invoice-single-item",
         "name": "Simple Invoice - Single Item",
         "data": {
           "invoiceNumber": "INV-2024-002",
@@ -255,6 +257,7 @@
         }
       },
       {
+        "key": "large-invoice-many-items",
         "name": "Large Invoice - Many Items",
         "data": {
           "invoiceNumber": "INV-2024-003",
@@ -337,7 +340,7 @@
       },
       "documentStylesOverride": {
         "fontFamily": {
-          "slug": "inter",
+          "key": "inter",
           "catalogKey": "system"
         },
         "fontSize": "10pt",
@@ -386,7 +389,7 @@
             "marginBottom": "1.5sp"
           },
           "props": {
-            "assetId": "01966a00-0000-7000-8000-000000000001",
+            "imageKey": "01966a00-0000-7000-8000-000000000001",
             "alt": "Vendor Logo",
             "width": "90pt"
           }
@@ -1589,7 +1592,7 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       }
     ]
   }

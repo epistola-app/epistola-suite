@@ -120,9 +120,4 @@ data class ApiKeyProperties(
      * Whether API key authentication is enabled.
      */
     val enabled: Boolean = true,
-
-    /**
-     * HTTP header name for API key authentication.
-     */
-    val headerName: String = "X-API-Key",
 )

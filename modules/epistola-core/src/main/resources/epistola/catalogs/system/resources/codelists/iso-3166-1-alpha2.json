@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "codeList",
-    "slug": "iso-3166-1-alpha2",
+    "key": "iso-3166-1-alpha2",
     "name": "ISO 3166-1 Countries (alpha-2)",
     "description": "Two-letter country codes from ISO 3166-1.",
     "entries": [

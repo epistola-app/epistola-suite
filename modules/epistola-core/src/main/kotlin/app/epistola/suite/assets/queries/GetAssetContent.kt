@@ -7,6 +7,10 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,7 +40,10 @@ data class GetAssetContent(
     val tenantId: TenantKey,
     val assetId: AssetKey,
     val catalogKey: CatalogKey? = null,
-) : Query<AssetContent?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<AssetContent?>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId
@@ -86,11 +93,12 @@ private data class AssetMeta(
 
 private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalogKey: CatalogKey?): AssetMeta? = createQuery(
     """
-    SELECT id, tenant_key, catalog_key, media_type, content_hash, sensitive
-    FROM assets
-    WHERE id = :assetId
-      AND tenant_key = :tenantId
-      ${if (catalogKey != null) "AND catalog_key = :catalogKey" else ""}
+    SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.media_type, a.content_hash, a.sensitive
+    FROM assets a
+    JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+    WHERE a.id = :assetId
+      AND a.tenant_key = :tenantId
+      ${if (catalogKey != null) "AND a.version_id = ${versionAt("tenantId", "catalogKey")}" else "AND ${inCurrentVersion("a")}"}
     """,
 )
     .bind("assetId", assetId.value)

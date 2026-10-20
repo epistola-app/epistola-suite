@@ -28,7 +28,7 @@ import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -84,7 +84,7 @@ class LoadTestHandler(
         // If no template selected, return empty fragment for HTMX or full page for non-HTMX
         if (templateKey == null) {
             return request.htmx {
-                onNonHtmx {
+                onFullPage {
                     page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
                         "tenantId" to tenantKey
@@ -100,8 +100,8 @@ class LoadTestHandler(
 
         // Template selected - prepare cascade data
         val variants = ListVariants(templateId = templateId).query()
-        val contractVersion = GetLatestContractVersion(templateId = templateId).query()
-        val dataExamples = contractVersion?.dataExamples ?: DataExamples.EMPTY
+        val dataContract = GetDataContract(templateId = templateId).query()
+        val dataExamples = dataContract?.dataExamples ?: DataExamples.EMPTY
         val environments = ListEnvironments(tenantId = tenantId).query()
 
         val triggerName = request.htmxTriggerName
@@ -132,7 +132,7 @@ class LoadTestHandler(
         }
 
         return request.htmx {
-            onNonHtmx {
+            onFullPage {
                 page("loadtest/new") {
                     "pageTitle" to "Start Load Test - Epistola"
                     "tenantId" to tenantKey
@@ -175,7 +175,7 @@ class LoadTestHandler(
             val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
-                onNonHtmx {
+                onFullPage {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
@@ -222,7 +222,10 @@ class LoadTestHandler(
 
             val url = "/tenants/$tenantKey/load-tests/${run.id}"
             return if (request.isHtmx) {
-                ServerResponse.ok().header("HX-Redirect", url).build()
+                request.htmx {
+                    dialogRedirect(url)
+                    onFullPage { redirect(url) }
+                }
             } else {
                 redirect(url)
             }
@@ -231,7 +234,7 @@ class LoadTestHandler(
 
             return request.htmx {
                 globalFormError("start-load-test-error", errorMessage)
-                onNonHtmx {
+                onFullPage {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     page(422, "loadtest/new") {
@@ -283,7 +286,7 @@ class LoadTestHandler(
             fragment("loadtest/detail", "metrics-section") {
                 "run" to run
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/load-tests/$runId") }
+            onFullPage { redirect("/tenants/$tenantKey/load-tests/$runId") }
         }
     }
 

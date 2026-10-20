@@ -10,12 +10,19 @@ import app.epistola.catalog.protocol.CatalogLicense
 import app.epistola.catalog.protocol.CatalogPresentation
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.crypto.Secret
+import org.jdbi.v3.core.mapper.reflect.ColumnName
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
 data class Catalog(
+    /** The catalog's key within its namespace; column `catalog_key`. */
+    @ColumnName("catalog_key")
     val id: CatalogKey,
     val tenantKey: TenantKey,
+    /** The registry the catalog is named on (contract ADR 0003). */
+    val registry: String,
+    /** The catalog's namespace on [registry] (contract ADR 0003). */
+    val namespace: String,
     val name: String,
     val description: String? = null,
     val type: CatalogType,
@@ -52,6 +59,22 @@ data class Catalog(
     val updatedAt: OffsetDateTime,
 )
 
+/** This catalog's full name. */
+val Catalog.catalogName: CatalogName get() = CatalogName(registry, namespace, id)
+
+/**
+ * A catalog's full name (contract ADR 0003): its key means nothing on its own, since two publishers
+ * can each have a catalog called `letters`. Messages and logs name a catalog by this.
+ */
+data class CatalogName(
+    val registry: String,
+    val namespace: String,
+    val key: CatalogKey,
+) {
+    /** The canonical name, `registry/namespace/key` (contract ADR 0004). */
+    override fun toString(): String = "$registry/$namespace/${key.value}"
+}
+
 /** Catalog metadata that is part of the portable catalog manifest. */
 data class CatalogMetadata(
     val attributes: List<AttributeAssignment> = emptyList(),
@@ -64,25 +87,29 @@ data class CatalogMetadata(
         name: String,
         description: String?,
         availableAssetSlugs: Set<String>? = null,
+        namespace: String? = null,
+        registry: String? = null,
     ): CatalogInfo {
         val effectivePresentation = if (availableAssetSlugs == null) {
             presentation
         } else {
             presentation?.let {
                 CatalogPresentation(
-                    iconAssetSlug = it.iconAssetSlug?.takeIf(availableAssetSlugs::contains),
-                    imageAssetSlugs = it.imageAssetSlugs.filter(availableAssetSlugs::contains),
+                    iconImageKey = it.iconImageKey?.takeIf(availableAssetSlugs::contains),
+                    imageKeys = it.imageKeys.filter(availableAssetSlugs::contains),
                 )
             }
         }
         return CatalogInfo.create(
-            slug = slug,
+            key = slug,
             name = name,
             description = description,
             attributes = attributes,
             keywords = keywords,
             presentation = effectivePresentation,
             license = license,
+            namespace = namespace,
+            registry = registry,
         )
     }
 

@@ -37,10 +37,9 @@ import tools.jackson.databind.ObjectMapper
  * up the SecurityContext with an [ApiKeyAuthenticationToken]. If the key is
  * invalid or expired, a 401 JSON response is returned immediately.
  *
- * The deprecated `X-API-Key` header remains accepted for existing integrations.
- * A configured legacy header name is accepted as an additional alias, not as a
- * replacement for `X-API-Key`. Non-API-key `Authorization` schemes pass through
- * to the next filter (e.g., OAuth2 resource server).
+ * That is the only way in for an API key (contract 2.0 dropped the `X-API-Key`
+ * header). Non-API-key `Authorization` schemes pass through to the next filter
+ * (e.g., OAuth2 resource server).
  *
  * Persistence operations are dispatched via the mediator using `SystemInternal`
  * messages ([LookupApiKeyByHash], [RecordApiKeyUsage]) — `MediatorFilter` runs
@@ -62,7 +61,6 @@ import tools.jackson.databind.ObjectMapper
 class ApiKeyAuthenticationFilter(
     private val apiKeyService: ApiKeyService,
     private val meterRegistry: MeterRegistry,
-    private val headerName: String = DEFAULT_HEADER_NAME,
     private val objectMapper: ObjectMapper,
     private val enabled: Boolean = true,
     // Last with a default so unit tests can omit it; production wires the shared
@@ -181,15 +179,7 @@ class ApiKeyAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 
-    private fun resolveCredential(request: HttpServletRequest): ApiKeyCredential? {
-        parseAuthorizationHeader(request.getHeader(HttpHeaders.AUTHORIZATION))?.let { return it }
-
-        return legacyHeaderNames()
-            .asSequence()
-            .mapNotNull { header -> request.getHeader(header)?.trim()?.takeIf { it.isNotBlank() } }
-            .firstOrNull()
-            ?.let { ApiKeyCredential(it) }
-    }
+    private fun resolveCredential(request: HttpServletRequest): ApiKeyCredential? = parseAuthorizationHeader(request.getHeader(HttpHeaders.AUTHORIZATION))
 
     private fun parseAuthorizationHeader(value: String?): ApiKeyCredential? {
         val trimmed = value?.trim()?.takeIf { it.isNotBlank() } ?: return null
@@ -208,10 +198,6 @@ class ApiKeyAuthenticationFilter(
         return ApiKeyCredential(trimmed.substring(separator + 1).trim())
     }
 
-    private fun legacyHeaderNames(): List<String> = listOf(headerName, DEFAULT_HEADER_NAME)
-        .filter { it.isNotBlank() }
-        .distinctBy { it.lowercase() }
-
     private fun writeUnauthorized(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -223,7 +209,6 @@ class ApiKeyAuthenticationFilter(
     }
 
     companion object {
-        const val DEFAULT_HEADER_NAME = "X-API-Key"
         const val AUTHORIZATION_SCHEME_API_KEY = "ApiKey"
 
         /**

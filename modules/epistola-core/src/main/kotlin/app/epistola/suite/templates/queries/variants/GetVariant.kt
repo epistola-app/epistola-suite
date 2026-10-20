@@ -4,6 +4,9 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -21,7 +24,10 @@ import org.springframework.stereotype.Component
 
 data class GetVariant(
     val variantId: VariantId,
-) : Query<TemplateVariant?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<TemplateVariant?>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = variantId.tenantKey
@@ -34,11 +40,12 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by
+                SELECT tv.id, tv.tenant_key, c.catalog_key, template.id AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.updated_at, tv.created_by, tv.updated_by, tv.revision
                 FROM template_variants tv
                 ${templateJoin("tv")}
+                JOIN catalogs c ON c.tenant_key = template.tenant_key AND c.catalog_id = template.catalog_id
                 WHERE tv.id = :variantId
-                  AND tv.tenant_key = :tenantId
+                  AND tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
@@ -54,7 +61,10 @@ class GetVariantHandler(
 
 data class GetVariantSummaries(
     val templateId: TemplateId,
-) : Query<List<VariantSummary>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<VariantSummary>>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = templateId.tenantKey
@@ -72,15 +82,14 @@ class GetVariantSummariesHandler(
                     tv.title,
                     tv.attributes,
                     tv.is_default,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
-                    COALESCE(
-                        (SELECT jsonb_agg(ver.id ORDER BY ver.id)
-                         FROM template_versions ver
-                         WHERE ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id AND ver.status = 'published'),
-                        '[]'::jsonb
-                    ) as published_versions
+                    EXISTS (
+                        SELECT 1 FROM resource_ready_marks m
+                        JOIN resource_content_digests d ON d.tenant_key = m.tenant_key AND d.version_id = m.version_id
+                                                         AND d.resource_id = m.resource_id AND d.part = m.part
+                        WHERE m.tenant_key = tv.tenant_key AND m.version_id = tv.version_id AND m.resource_id = tv.template_resource_id AND m.part = tv.id AND m.digest = d.digest
+                    ) as ready
                 FROM template_variants tv
-                WHERE tv.tenant_key = :tenantId
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
                   AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,

@@ -23,26 +23,26 @@ Every edge records:
 - semantics: `runtime`, `authoring`, or `provenance`;
 - qualification: an explicit catalog, a catalog-relative reference, or a tenant-global lookup;
 - resolution: `resolved`, `missing`, or `ambiguous`;
-- evidence: the owning variant or stencil version, lifecycle status, version, JSON location, and a
-  pinned stencil version where applicable.
+- evidence: the owning variant or stencil and the JSON location.
 
-Draft and published versions make up the live graph. Archived template and stencil versions are
-available through **Include archived history** and their evidence is marked historical. Published
-theme snapshots contribute their pinned font-family references as provenance.
+The graph is built from the working copy: each template variant's working model and each stencil's
+working copy. Since 2.0 there are no template or stencil versions, so every reference is live; what a
+release holds is that release's own history, not part of this graph. The **Include archived
+history** option no longer adds anything.
 
 The following references are currently extracted:
 
-| Source    | Target                      | Meaning                                    |
-| --------- | --------------------------- | ------------------------------------------ |
-| Template  | Theme                       | Default and per-document override          |
-| Template  | Stencil                     | Inserted/pinned stencil provenance         |
-| Template  | Asset                       | Image used during rendering                |
-| Template  | Font                        | Inline styles and published snapshot fonts |
-| Template  | Attribute                   | Variant authoring and validation           |
-| Stencil   | Stencil, asset, font, theme | References embedded in versioned content   |
-| Theme     | Font                        | Document styles and block style presets    |
-| Attribute | Code list                   | Allowed-value binding                      |
-| Font      | Asset                       | Uploaded font-face binary                  |
+| Source    | Target                      | Meaning                                 |
+| --------- | --------------------------- | --------------------------------------- |
+| Template  | Theme                       | Default and per-document override       |
+| Template  | Stencil                     | Stencil instance                        |
+| Template  | Asset                       | Image used during rendering             |
+| Template  | Font                        | Inline styles                           |
+| Template  | Attribute                   | Variant authoring and validation        |
+| Stencil   | Stencil, asset, font, theme | References in the stencil's content     |
+| Theme     | Font                        | Document styles and block style presets |
+| Attribute | Code list                   | Allowed-value binding                   |
+| Font      | Asset                       | Uploaded font-face binary               |
 
 Assets and code lists have no outgoing catalog-resource references. A tenant's default-theme
 setting is configuration rather than a catalog resource, so it is not represented as a node or
@@ -58,9 +58,9 @@ is ambiguous. The UI keeps unresolved references visible rather than silently dr
 ## Architecture and API boundary
 
 `GetTenantResourceGraph` in `epistola-core` builds a consistent snapshot on demand inside one read
-transaction. It reads authoritative relational columns and versioned JSON; no derived graph table,
-database migration, or cache is involved. `TenantResourceGraph.traverse` supplies the bounded BFS
-used by the UI.
+transaction. It reads authoritative relational columns and the stored JSON content; no derived graph
+table, database migration, or cache is involved. `TenantResourceGraph.traverse` supplies the bounded
+BFS used by the UI.
 
 `ResourceReferenceSites` (`catalog/graph/ResourceReferenceSites.kt`) is the single authority for
 which JSON shapes count as a catalog-resource reference, and for whether an unqualified one resolves
@@ -70,9 +70,6 @@ references traverses through it — the graph itself, catalog relocation
 (`catalog/CatalogContentBuilder.kt`). A new embedded reference shape is added as a
 `ReferenceSiteKind`, never as another walker; the shared traversal is what keeps discovery,
 rewriting, and export from disagreeing about what a reference is.
-
-The published-theme font snapshot (`resolvedTheme.fontFingerprints`) is read separately because it
-keys fonts as `catalog/slug` strings rather than as node-embedded references.
 
 The explorer uses internal UI handlers only:
 

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.validate
@@ -34,7 +35,7 @@ internal fun requireDistinctAttributeSet(
         """
         SELECT id FROM template_variants
         WHERE tenant_key = :tenantId
-          AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+          AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
           AND id <> :variantId
           AND attributes = :attributes::jsonb
         ORDER BY id

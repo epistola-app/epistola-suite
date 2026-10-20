@@ -95,24 +95,36 @@ fun resolveVariantAttributes(
  * iterate it via simple bean access (`variant.entries`) instead of looking
  * the map up by a key whose type (the inline-class `VariantKey`) may not
  * round-trip cleanly through Thymeleaf's expression parser.
+ *
+ * @property markReadyAllowed whether the viewer may mark variants of this template ready here: they
+ *   hold `TEMPLATE_EDIT` and the template's catalog is editable.
  */
 data class VariantWithEntries(
     val summary: app.epistola.suite.templates.model.VariantSummary,
     val entries: List<ResolvedAttributeEntry>,
+    private val markReadyAllowed: Boolean = false,
 ) {
     val id get() = summary.id
     val title get() = summary.title
     val isDefault get() = summary.isDefault
-    val hasDraft get() = summary.hasDraft
-    val publishedVersions get() = summary.publishedVersions
     val attributes get() = summary.attributes
+
+    /** Whether the variant's working model is marked ready as it is now. */
+    val ready get() = summary.ready
+
+    /**
+     * Whether to offer "Mark ready" on this variant: the viewer may, and there is something to mark.
+     * A ready variant shows its badge instead, so the absent button never leaves the reader guessing.
+     */
+    val offerMarkReady: Boolean get() = markReadyAllowed && !summary.ready
 }
 
 fun decorateVariants(
     variants: List<app.epistola.suite.templates.model.VariantSummary>,
     descriptors: List<AttributeDescriptor>,
+    markReadyAllowed: Boolean = false,
 ): List<VariantWithEntries> = variants.map { v ->
-    VariantWithEntries(summary = v, entries = resolveVariantAttributes(v.attributes, descriptors))
+    VariantWithEntries(summary = v, entries = resolveVariantAttributes(v.attributes, descriptors), markReadyAllowed = markReadyAllowed)
 }
 
 /**

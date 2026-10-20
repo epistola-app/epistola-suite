@@ -7,19 +7,30 @@ package app.epistola.suite.api.v1
 import app.epistola.api.ImagesApi
 import app.epistola.api.model.ImageDto
 import app.epistola.api.model.ImageListResponse
+import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
+import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
+import app.epistola.suite.api.v1.shared.tenantKey
+import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toImageDto
 import app.epistola.suite.assets.AssetMediaCategory
+import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetNotFoundException
 import app.epistola.suite.assets.AssetTypeCatalog
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListImagePage
+import app.epistola.suite.catalog.versions.GetReleasedBinary
 import app.epistola.suite.common.ids.AssetKey
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -47,6 +58,8 @@ import javax.imageio.ImageIO
  *
  * The rows are the same either way: images and font faces share one content-addressed store,
  * which is a storage concern rather than something a caller should have to know about.
+ *
+ * A draft reads and changes the working copy; a released version reads the images the release holds.
  */
 @RestController
 @RequestMapping("/api")
@@ -55,37 +68,57 @@ class EpistolaImagesApi(
 ) : ImagesApi {
 
     override fun listImages(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         search: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<ImageListResponse> {
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            val images = at.releasedResources<ImageResource>("image").filter { search.isNullOrBlank() || it.name.contains(search, ignoreCase = true) }
+            val slice = Pagination.pageOfRelease(images, page, size)
+            return ResponseEntity.ok(
+                ImageListResponse(
+                    items = slice.items.map { it.toDto(at, sizeBytes = releasedBytes(at.tenantKey, it).size.toLong()) },
+                    page = slice.page,
+                ),
+            )
+        }
         // Paged in the database. A tenant's image count is unbounded, so the page a caller asked
         // for should cost the page rather than the whole catalog.
         val result = ListImagePage(
-            tenantKey = TenantKey.of(tenantId),
-            catalogKey = CatalogKey.of(catalogId),
+            tenantKey = at.tenantKey,
+            catalogKey = at.catalogKey,
             searchTerm = search,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
+            catalogVersion = at.ref,
         ).query()
         return ResponseEntity.ok(
             ImageListResponse(
-                items = result.items.map { it.toImageDto() },
+                items = result.items.map { it.toImageDto(at.catalog) },
                 page = Pagination.pageMeta(page, size, result.totalElements),
             ),
         )
     }
 
     override fun uploadImage(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         file: MultipartFile,
         name: String?,
         mediaType: String?,
         sensitive: Boolean,
     ): ResponseEntity<ImageDto> {
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val content = file.bytes
         val resolvedMediaType = assetTypeCatalog.require(
             mediaType?.takeIf { it.isNotBlank() } ?: file.contentType ?: MediaType.APPLICATION_OCTET_STREAM_VALUE,
@@ -101,61 +134,73 @@ class EpistolaImagesApi(
         }
         val dimensions = if (resolvedMediaType.mimeType != "image/svg+xml") imageDimensions(content) else null
         val image = UploadAsset(
-            tenantId = TenantKey.of(tenantId),
+            tenantId = draft.tenantKey,
             name = name?.takeIf { it.isNotBlank() } ?: file.originalFilename ?: "unnamed",
             mediaType = resolvedMediaType,
             content = content,
             width = dimensions?.first,
             height = dimensions?.second,
-            catalogKey = CatalogKey.of(catalogId),
+            catalogKey = draft.catalogKey,
             sensitive = sensitive,
+            catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(image.toImageDto())
+        return image.toImageDto(draft.catalog).let { created(it.key, it) }
     }
 
     override fun downloadImageContent(
-        tenantId: String,
-        catalogId: String,
-        imageSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        imageKey: String,
     ): ResponseEntity<Resource> {
-        val slug = AssetKey.of(imageSlug)
-        val content = GetAssetContent(
-            tenantId = TenantKey.of(tenantId),
-            catalogKey = CatalogKey.of(catalogId),
-            assetId = slug,
-        ).query() ?: throw AssetNotFoundException(TenantKey.of(tenantId), slug)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = AssetKey.of(imageKey)
+        val (mediaType, bytes) = if (at.isDraft) {
+            GetAssetContent(tenantId = at.tenantKey, catalogKey = at.catalogKey, assetId = key, catalogVersion = at.ref).query()
+                ?.let { it.mediaType to it.content }
+        } else {
+            at.releasedResource<ImageResource>("image", imageKey)
+                ?.let { AssetMediaType(it.mediaType) to releasedBytes(at.tenantKey, it) }
+        } ?: throw AssetNotFoundException(at.tenantKey, key)
 
         return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(content.mediaType.mimeType))
-            .header(HttpHeaders.CONTENT_LENGTH, content.content.size.toString())
+            .contentType(MediaType.parseMediaType(mediaType.mimeType))
+            .header(HttpHeaders.CONTENT_LENGTH, bytes.size.toString())
             .headers { headers ->
                 // Opened directly, an SVG is a document in our origin: keep it inert.
-                if (SvgContentPolicy.isSvg(content.mediaType)) {
+                if (SvgContentPolicy.isSvg(mediaType)) {
                     headers.set("X-Content-Type-Options", "nosniff")
                     headers.set("Content-Security-Policy", SvgContentPolicy.SERVING_CONTENT_SECURITY_POLICY)
                 }
             }
-            .body(ByteArrayResource(content.content))
+            .body(ByteArrayResource(bytes))
     }
 
     override fun deleteImage(
-        tenantId: String,
-        catalogId: String,
-        imageSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        imageKey: String,
         force: Boolean,
     ): ResponseEntity<Unit> {
-        val slug = AssetKey.of(imageSlug)
-        val tenantKey = TenantKey.of(tenantId)
-        val catalogKey = CatalogKey.of(catalogId)
-        val image = GetAsset(tenantId = tenantKey, assetId = slug).query()
-        if (image?.catalogKey != catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
-            throw AssetNotFoundException(tenantKey, slug)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val key = AssetKey.of(imageKey)
+        val image = GetAsset(tenantId = draft.tenantKey, assetId = key, catalogVersion = draft.ref).query()
+        if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
+            throw AssetNotFoundException(draft.tenantKey, key)
         }
-        DeleteAsset(tenantId = tenantKey, assetId = slug, force = force).execute()
+        DeleteAsset(tenantId = draft.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
         return ResponseEntity.noContent().build()
     }
 
-    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = runCatching {
-        ImageIO.read(content.inputStream())?.let { it.width to it.height }
-    }.getOrNull()
+    /** The bytes a release holds for [image]; a release that names bytes it does not hold is not served. */
+    private fun releasedBytes(tenantKey: TenantKey, image: ImageResource): ByteArray = GetReleasedBinary(tenantKey, image.contentHash).query()
+        ?: throw AssetNotFoundException(tenantKey, AssetKey.of(image.key))
+
+    // From the header only: decoding a file that declares a huge size would take the node's memory.
+    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = ImagePixelPolicy.dimensions(content)
 }

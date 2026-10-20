@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.CatalogDeployment
+import app.epistola.suite.environments.DeploymentRows
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -17,8 +18,9 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * The releases a tenant's environments serve, optionally for one catalog or one environment. Ordered
- * by environment, then catalog, in the database.
+ * The catalog versions a tenant's environments serve, optionally for one catalog or one environment:
+ * any number of releases of a catalog, and at most one draft. Ordered by environment, then catalog,
+ * then the draft and the releases highest first (the order generation picks in), in the database.
  */
 data class ListDeployments(
     override val tenantKey: TenantKey,
@@ -36,12 +38,13 @@ class ListDeploymentsHandler(
     override fun handle(query: ListDeployments): List<CatalogDeployment> = jdbi.withHandle<List<CatalogDeployment>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT environment_key, catalog_key, version, deployed_at, deployed_by
-            FROM environment_catalog_deployments
-            WHERE tenant_key = :t
-              AND (CAST(:c AS TEXT) IS NULL OR catalog_key = :c)
-              AND (CAST(:e AS TEXT) IS NULL OR environment_key = :e)
-            ORDER BY environment_key, catalog_key
+            ${DeploymentRows.FROM}
+            WHERE d.tenant_key = :t
+              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_key = :c)
+              AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
+            ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL),
+                     r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
+                     r.version_patch DESC NULLS LAST, r.released_at DESC
             """,
         )
             .bind("t", query.tenantKey)

@@ -91,9 +91,8 @@ function createPublishedStencilWithEmptyFill(): {
           type: 'stencil',
           slots: [stencilSlotId],
           props: {
-            stencilId: 'outer',
+            stencilKey: 'outer',
             catalogKey: 'local',
-            version: 1,
           },
         },
         [placeholderNodeId]: {
@@ -141,7 +140,7 @@ beforeEach(() => {
 });
 
 describe('EpistolaEditor contextual block insertion', () => {
-  it('inserts a selected stencil into an empty published-stencil fill', async () => {
+  it('inserts a selected stencil into an empty fill of a used stencil', async () => {
     const { doc, fillSlotId } = createPublishedStencilWithEmptyFill();
     const registry = createDefaultRegistry();
     registry.register(createStencilDefinition({ callbacks: null }));
@@ -153,9 +152,8 @@ describe('EpistolaEditor contextual block insertion', () => {
       onBeforeInsert: async (_engine, context) => {
         if (context?.targetSlotId) insertionTargets.push(context.targetSlotId);
         return {
-          stencilId: 'inner',
+          stencilKey: 'inner',
           catalogKey: 'local',
-          version: 1,
         };
       },
     });
@@ -185,7 +183,7 @@ describe('EpistolaEditor contextual block insertion', () => {
     expect(insertionTargets).toEqual([fillSlotId]);
     const fillChildren = editorAny._engine.doc.slots[fillSlotId].children;
     expect(fillChildren).toHaveLength(1);
-    expect(editorAny._engine.doc.nodes[fillChildren[0]].props?.stencilId).toBe('inner');
+    expect(editorAny._engine.doc.nodes[fillChildren[0]].props?.stencilKey).toBe('inner');
     expect(editorAny._insertDialogOpen).toBe(false);
   });
 

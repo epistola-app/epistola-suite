@@ -21,9 +21,8 @@ data class DeployableRelease(
 )
 
 /**
- * Every release of the tenant's catalogs that can be deployed: the ones that kept their content, the
- * same predicate [app.epistola.suite.environments.commands.DeployRelease] enforces. Ordered by catalog
- * name, then newest release first, in the database.
+ * Every release of the tenant's catalogs, each of which can be deployed. Ordered by catalog name,
+ * then newest release first, in the database.
  */
 data class ListDeployableReleases(
     override val tenantKey: TenantKey,
@@ -39,11 +38,11 @@ class ListDeployableReleasesHandler(
     override fun handle(query: ListDeployableReleases): List<DeployableRelease> = jdbi.withHandle<List<DeployableRelease>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.catalog_key, c.name AS catalog_name, r.version
+            SELECT c.catalog_key AS catalog_key, c.name AS catalog_name, r.version
             FROM catalog_releases r
-            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.id = r.catalog_key
-            WHERE r.tenant_key = :t AND r.content_retained
-            ORDER BY c.name, r.catalog_key,
+            JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+            WHERE r.tenant_key = :t
+            ORDER BY c.name, c.catalog_key,
                      r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
                      r.version_patch DESC NULLS LAST, r.released_at DESC
             """,

@@ -291,7 +291,7 @@ In `valtimo-epistola-plugin`:
 
    ```bash
    curl -X GET http://localhost:4000/api/tenants/demo/consumers/me \
-     -H "X-API-Key: ..." \
+     -H "Authorization: ApiKey ..." \
      -H "User-Agent: epistola-contract/0.4.x probe" \
      -H "X-EP-Node-Id: probe"
    ```

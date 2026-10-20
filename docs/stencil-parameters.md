@@ -1,42 +1,38 @@
-# Stencil Parameters — Design
+# Stencil Parameters
 
-> **Status:** Stable — parameters are an intrinsic property of every stencil (the
-> parameter set is simply sometimes empty), so the authoring UI is always
-> available; there is no feature toggle.
-> Decision record: [`adr/0002-stencil-parameters.md`](./adr/0002-stencil-parameters.md)
-
-This document specifies the stencil-parameters feature shipped in
-`feature/stencil-with-parameters`. The alternatives considered and the
-rationale for the design decisions live in the ADR linked above. Read that
-first if you want to know _why_; this file focuses on _what_ and _how_.
+Decision records: [`adr/0002-stencil-parameters.md`](./adr/0002-stencil-parameters.md) (parameters)
+and contract
+[ADR 0006](https://github.com/epistola-app/epistola-contract/blob/feature/v2/docs/adr/0006-stencil-instances-by-reference.md)
+(instances by reference, lexical scope, isolation). Parameters are an intrinsic property of every
+stencil — the set is sometimes empty — so there is no feature toggle.
 
 ## 1. Summary
 
-A stencil version can declare typed **input parameters** (a JSON Schema
-`{type:"object", properties:{...}, required:[...]}` stored on
-`StencilVersion.parameter_schema`). When a template embeds a stencil, the
-consumer **binds** each parameter to a JSONata expression evaluated against
-the available context — the template's data model, surrounding `for-each`
-iteration variables, and engine-provided values like `sys.pages.current`.
+A stencil can declare typed **input parameters**: a JSON Schema
+`{type:"object", properties:{...}, required:[...]}` stored on the stencil
+(`stencils.parameter_schema`). A template that uses the stencil **binds** each parameter to a
+JSONata expression evaluated where the instance sits — the template's data, surrounding loop
+variables, and engine-provided values like `sys.pages.current`.
 
-At render time the bindings evaluate **lazily**: the renderer pushes a
-`params` map onto the render context, and expressions inside the stencil's
-content read `params.<name>` the same way they'd read `customer.name` or
-`item.price`.
+Inside the stencil's content, expressions read `params.<name>` the same way they would read
+`customer.name` or `item.price`.
 
-Parameters are orthogonal to placeholders. A stencil can have both:
-placeholders are content slots filled by the consumer; parameters are
-typed scalars/lists fed in by JSONata expressions.
+Parameters are orthogonal to [placeholders](stencil-placeholders.md): placeholders are content
+slots the template fills; parameters are typed values fed in by expressions. A stencil can have
+both.
 
 ## 2. Document model
 
-### 2.1 Schema on the stencil version
+### 2.1 Schema on the stencil
 
-A new column `stencil_versions.parameter_schema` (JSONB, nullable) stores
-the parameters as a JSON Schema. NULL means "no parameters" — semantically
-identical to `{"type":"object","properties":{}}`.
+`stencils.parameter_schema` (JSONB, nullable) holds the parameters. NULL means "no parameters" —
+semantically identical to `{"type":"object","properties":{}}`, and a schema declaring no parameters
+is stored as NULL, so "no parameters" has one form. It is part of the stencil's working copy (set
+with `CreateStencil` / `UpdateStencil`; removed by sending such an empty schema, or with
+`UpdateStencil.clearParameterSchema`; an update leaving it out keeps it) and is released with the
+catalog like the stencil's content.
 
-V1 supports only the primitives users actually need:
+The supported shape:
 
 ```jsonc
 {
@@ -51,266 +47,183 @@ V1 supports only the primitives users actually need:
 }
 ```
 
-Type rules (`ParameterSchemaValidator`):
+Type rules (`ParameterSchemaValidator`, run by `CreateStencil` and `UpdateStencil`):
 
-- Property names match `^[a-z][a-zA-Z0-9_]{0,63}$` (camelCase allowed,
-  because they surface as `params.recipientName`). Reserved names rejected:
-  `params`, `item`, `sys`, `index`, and anything ending in
-  `_index|_first|_last`.
-- Each property's `type` is one of `string` / `number` / `integer` /
-  `boolean`, optionally with `format: "date"` or `"date-time"`, **or**
-  `array` whose `items.type` is one of those primitives.
+- Property names match `^[a-z][a-zA-Z0-9_]{0,63}$` (camelCase allowed, because they surface as
+  `params.recipientName`). Reserved names are rejected: `params`, `item`, `sys`, `index`, and
+  anything ending in `_index|_first|_last`.
+- Each property's `type` is one of `string` / `number` / `integer` / `boolean`, optionally with
+  `format: "date"` or `"date-time"`, **or** `array` whose `items.type` is one of those primitives.
 - Defaults must match the declared type.
-- Anything else (nested objects, `oneOf`, enums, …) is rejected; the
-  storage stays canonical JSON Schema, so v2 can lift these without a
-  migration.
+- Anything else (nested objects, `oneOf`, enums, …) is rejected; the storage stays canonical JSON
+  Schema, so these can be lifted later without a migration.
 
-### 2.2 Per-instance prop keys on the consumer node
+### 2.2 Bindings on the instance
 
-When a template embeds a stencil, three props on the **stencil node**
-carry parameter state:
+A template's `stencil` node carries the bindings:
 
 ```jsonc
 {
   "id": "<NodeId>",
   "type": "stencil",
   "props": {
-    "stencilId": "letter",
-    "version": 3,
+    "stencilKey": "letter",
     "parameterBindings": {
       "recipientName": "customer.name",
       "tags": "['vip', 'priority']",
     },
     "paramsAlias": "params", // optional; defaults to "params"
-    "parameterSchemaSnapshot": {/* copy of the source version's parameter_schema */},
   },
 }
 ```
 
-Prop key ownership:
-
-- `parameterBindings` and `paramsAlias` are **component-agnostic** and live
-  in `templates.model.NodeParameterKeys`. Any future parametrised component
-  type uses the same keys.
-- `parameterSchemaSnapshot` is **stencil-specific** and lives in
-  `stencils.StencilNodeKeys`. Stencils are dynamic components — each
-  version has its own schema — so the snapshot is the only way to make the
-  schema available to the renderer / editor scope provider without a DB
-  lookup. A future _static-parametrised_ component (e.g. a hypothetical
-  "snippet") would supply a literal schema from its `ComponentDefinition`
-  instead and not need the snapshot.
+- `parameterBindings` and `paramsAlias` are **component-agnostic** and live in
+  `templates.model.NodeParameterKeys`; any future parametrised component uses the same keys.
+- The schema is **not** stored on the node. When an instance is expanded from its stencil (see
+  [stencils.md](stencils.md#collapse-and-expand)), the stencil's schema is set on it as the
+  transient prop `parameterSchemaSnapshot` (`stencils.StencilNodeKeys`), which the schema provider
+  (`StencilNodeParameterSchemaProviderConfig`) hands to validation and rendering. Every template
+  write drops it again, so the schema always comes from the stencil as it is in the working copy or
+  the release being rendered.
 
 ### 2.3 The `params` namespace
 
-At render time, every parametrised node pushes a named scope onto
-`RenderContext.parameterScopes` — a map keyed by alias. The default alias
-is `params`, configurable via `paramsAlias`. `effectiveData` exposes each
-named scope as a top-level key:
+At render time, a parametrised node pushes a named scope onto `RenderContext.parameterScopes` — a map
+keyed by alias. The default alias is `params`, configurable with `paramsAlias`. `effectiveData`
+exposes each named scope as a top-level key next to the data and `sys`.
 
-```kotlin
-val effectiveData: Map<String, Any?>
-    get() {
-        var result = data
-        if (systemParams.isNotEmpty()) result = result + ("sys" to systemParams)
-        for ((alias, values) in parameterScopes) result = result + (alias to values)
-        return result
-    }
-```
+What a stencil's content sees is **isolated** and **lexical**:
 
-Nested parametrised nodes with **different** aliases coexist:
+- By default a stencil's content sees only its own parameters and `sys` — not the template's data,
+  loop variables, or an outer stencil's parameters. Everything it needs comes in through a
+  parameter.
+- A stencil that declares `readsTemplateData` also sees what is in scope where the instance sits:
+  the template's data and loop variables, and, inside another stencil, what that stencil's content
+  sees.
+- The bindings themselves are evaluated where the instance sits, so a binding inside an outer
+  stencil can read the outer stencil's `params`:
 
 ```
 template
-  └─ stencil "letter" (paramsAlias: "letter")
-        └─ ...content with `letter.title`...
-              └─ stencil "footer" (paramsAlias: "params" — default)
-                    └─ ...content can read both `letter.title` and `params.year`
+  └─ stencil "letter"                       (content reads params.title)
+        └─ stencil "footer"                 (binding year: "params.year" reads letter's params)
+              └─ ...content reads params.year — footer's own params
 ```
 
-Same-alias nesting **intentionally shadows**, mirroring how
-`for-each.itemAlias` works.
+Because each stencil sees only its own scope, nested stencils no longer need distinct aliases;
+`paramsAlias` stays supported (it must not be `sys`, `item` or `index`).
 
-## 3. Validation pipeline
+A placeholder's fill reads the scope where it was written, not the stencil's `params`, unless the
+placeholder passes them — see
+[stencil-placeholders.md](stencil-placeholders.md#4-passing-parameters-to-a-fill).
 
-Three validators run on every content-mutating command:
+## 3. Validation
 
-1. **`ParameterSchemaValidator`** — schema-shape rules (Section 2.1). Runs
-   from `Create`/`UpdateStencilDraft`/`PublishStencilVersion`.
+**On every write** of a template or stencil document (`TemplateDocumentValidator`, delegating to the
+portable catalog validator), the binding shape is checked: `parameterBindings` is a map of valid
+parameter names to non-blank strings (`NODE_PARAMETER_BINDINGS_INVALID_SHAPE`,
+`NODE_PARAMETER_BINDING_NAME_INVALID`, `NODE_PARAMETER_BINDING_EMPTY`), each value is syntactically
+valid JSONata (`NODE_PARAMETER_BINDING_SYNTAX_INVALID`), and `paramsAlias` is a string that is not a
+reserved name (`NODE_PARAMS_ALIAS_RESERVED`).
 
-2. **`PlaceholderValidator.validateStencilBindingShape`** — local check
-   that `parameterBindings` is `Map<String, String>` with valid name slugs
-   and non-blank values, and `paramsAlias` is a string. Runs from
-   `validateAsStencilDefinition` and `validateAsTemplate`.
+**Against the stencil**, when the instance is expanded:
 
-3. **`NodeParameterBindingValidator`** — cross-document check that every
-   binding key references a declared parameter, every required parameter
-   either has a binding or a `default`, and every bound expression is
-   syntactically valid JSONata (`NODE_PARAMETER_BINDING_SYNTAX_INVALID`).
-   Resolves the schema via `NodeParameterSchemaProviderRegistry`, which
-   dispatches by node type to a provider Spring-bean. Runs from
-   `UpdateDraft` and `UpdateStencilInTemplate`. Blank/empty/non-string
-   binding values are skipped here (validator #2 rejects them first via
-   `NODE_PARAMETER_BINDING_EMPTY`), so a blank **required** binding reports
-   the precise `NODE_PARAMETER_BINDING_MISSING_REQUIRED` rather than a
-   misleading syntax error.
+- a required parameter with neither binding nor `default` blocks marking the variant ready and
+  releasing the catalog (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`); the template may be saved with
+  it;
+- a binding for a parameter the stencil does not declare is ignored when rendering; it blocks only
+  next to a declared parameter left unbound (a probable rename);
+- a binding whose type is certain and differs from the parameter's blocks too.
 
-Each failure carries a first-class machine code (`ValidationException.code`,
-a `ValidationCode` enum value) — no longer a `SCREAMING_CODE:` prefix inside
-the message. A single mapper (`ValidationException.toValidationErrorResponse()`)
-emits the same `{ code, message, errors[] }` body on both the REST
-`ApiExceptionHandler` and the UI draft-save route, and the editor switches on
-`code` (never regex-parsing the message). That mapper is the seam for the
-planned RFC 9457 `application/problem+json` migration.
+The fit is checked against the stencil as it is now, so a stencil change that adds a required
+parameter or removes one shows up there, and on the stencil's usage page; see
+[stencils.md](stencils.md#when-a-template-no-longer-fits).
 
-> **Dual-parser note.** The backend parses JSONata with `com.dashjoin:jsonata`
-> (Java) while the editor uses the `jsonata` npm package. The two grammars can
-> disagree on edge cases; the backend is authoritative and surfaces any
-> mismatch inline at save time. This divergence is a known, accepted trade-off
-> of the SSR + client-editor split.
+Each failure carries a first-class machine code (`ValidationException.code`, a `ValidationCode`
+value). A single mapper emits the same `{ code, message, errors[] }` body on the REST
+`ApiExceptionHandler` and the UI routes, and the editor switches on `code`, never on the message.
+
+> **Dual-parser note.** The backend parses JSONata with `com.dashjoin:jsonata` (Java) while the
+> editor uses the `jsonata` npm package. The two grammars can disagree on edge cases; the backend is
+> authoritative and surfaces any mismatch at save time.
 
 ## 4. Render-time evaluation
 
-`StencilNodeRenderer.render` does three things in order:
+`StencilNodeRenderer.render`, on an expanded instance:
 
-1. Recursion guard — push the stencil's `stencilId` onto
-   `ancestorStencilIds`, check it isn't already there.
-2. Resolve the schema via `RenderContext.parameterSchemaProvider(node, doc)`
-   — production-wired through `NodeParameterSchemaProviderRegistry` (Spring),
-   which dispatches by node type.
-3. `ParameterScope.push(node, schema, context)` — evaluates each binding via
-   `CompositeExpressionEvaluator` (= JSONata), applies defaults, returns a
-   context whose `parameterScopes[alias]` is the new map. Required params
-   without binding nor default throw in `STRICT` mode and render a `<name>`
-   placeholder in `PREVIEW` mode.
+1. Guards against recursion and nesting deeper than the limit.
+2. Resolves the schema through `RenderContext.parameterSchemaProvider(node, doc)` — in production
+   `NodeParameterSchemaProviderRegistry`, which dispatches by node type and, for a stencil, reads
+   the expanded `parameterSchemaSnapshot`.
+3. `ParameterScope.push(node, schema, context)` evaluates each binding with the expression evaluator
+   (JSONata) in the scope the instance sits in, applies defaults, and adds the result under the
+   alias. A required parameter without binding or default throws in `STRICT` mode and renders a
+   `<name>` placeholder in `PREVIEW` mode.
+4. Isolates the content: unless the stencil reads the template's data, the data, loop variables and
+   other parameter scopes are cleared, leaving its own parameters and `sys`. It records the outer
+   scope for the placeholders' fills.
 
-A parameter that ends up with no value — its binding finds nothing in the data,
-or it is optional, unbound and has no default — is **absent** from `params`, so
-`$exists(params.medewerker)` is false for it, just as `$exists(medewerker)` is
-for template data. Test for a given value with `$exists(params.x)`, or for a
-non-empty one with `params.x` alone. Versions published before rendering
-defaults V5 keep the old behaviour, where every declared parameter is present
-(as null) and `$exists(params.x)` is always true.
+A parameter that ends up with no value — its binding finds nothing in the data, or it is optional,
+unbound and has no default — is **absent** from `params`, so `$exists(params.medewerker)` is false
+for it, just as `$exists(medewerker)` is for template data. Test for a given value with
+`$exists(params.x)`, or for a non-empty one with `params.x` alone. Releases cut against rendering
+defaults before V5 keep the old behaviour, where every declared parameter is present (as null) and
+`$exists(params.x)` is always true.
 
-`ParameterScope.push` is **component-agnostic**: the same one-liner adds
-parameter support to any future renderer.
+`ParameterScope.push` is component-agnostic: the same call adds parameter support to any future
+renderer.
 
 ## 5. Two-pass detection
 
-`TwoPassAnalyzer.collectExpressions` walks every node's expression-bearing
-props (`condition`, `expression`, `value`), inline ProseMirror content, **and**
-`parameterBindings`. A binding to `sys.pages.total` correctly triggers
-two-pass rendering even when the stencil's own content doesn't reference
+`TwoPassAnalyzer.collectExpressions` walks every node's expression-bearing props (`condition`,
+`expression`, `value`), inline ProseMirror content, **and** `parameterBindings`. A binding to
+`sys.pages.total` triggers two-pass rendering even when the stencil's own content doesn't reference
 `sys.*` directly.
 
-## 6. Upgrade semantics
+## 6. Changing a stencil's parameters
 
-`StencilContentReplacer.upgradeStencilInstances` preserves bindings whose
-parameter names still exist in the new version's schema:
+There is no upgrade step: a template reads the stencil's schema whenever it is expanded, so a schema
+change applies to every template that uses the stencil at once.
 
-- **Preserved bindings** stay on the stencil node's `parameterBindings`.
-- **Dropped bindings** (param removed from the new schema) are reported
-  per stencil node id in `UpgradeResult.droppedBindings` so the UI can
-  surface them.
-- **Newly required, unbound params** without a default are reported in
-  `UpgradeResult.unboundRequired`. The user must bind them before
-  rendering produces sensible output.
+- A **renamed or removed** parameter leaves the old binding in place; it is ignored. A renamed
+  parameter is unbound until the template binds the new name, and an old binding next to an
+  unbound parameter is reported as a probable rename, which blocks marking ready and releasing,
+  required or not. Saving **Configure parameters…** drops bindings the stencil no longer declares.
+- A **changed type** is checked where the binding's type is certain: a literal, or a path the
+  template's data contract types. A string bound to a `number` parameter, say, blocks marking ready
+  and releasing; an expression whose type the contract cannot tell is not judged.
+- A **new required** parameter without a default blocks marking ready, and releasing, every
+  template that does not bind it.
+- A **new default** applies to every instance that does not bind the parameter.
 
-The `parameterSchemaSnapshot` prop is refreshed to the new version's
-schema (or removed entirely if the new version has no schema).
+In the editor, an instance's **Configure parameters…** binds them; while the author edits the stencil
+in place, **Define parameters…** changes the schema, which **Save Stencil** writes with the content
+(see [stencils.md](stencils.md#in-the-template-editor)).
 
-## 7. Editor flows
+## 7. Critical files
 
-### Flow A — Stencil author defines parameters
+| Concern                     | Path                                                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| DB column                   | `modules/epistola-core/src/main/resources/db/migration/core/V20261018200400__core_stencil_working_copy.sql` |
+| Generic prop keys           | `modules/epistola-core/src/main/kotlin/.../templates/model/NodeParameterKeys.kt`                            |
+| Transient schema key        | `modules/epistola-core/src/main/kotlin/.../stencils/StencilNodeKeys.kt`                                     |
+| Expansion and fit           | `modules/epistola-core/src/main/kotlin/.../stencils/model/StencilInstances.kt`                              |
+| Schema validator            | `modules/epistola-core/src/main/kotlin/.../templates/validation/ParameterSchemaValidator.kt`                |
+| Document validator          | `modules/epistola-core/src/main/kotlin/.../templates/validation/TemplateDocumentValidator.kt`               |
+| Schema provider registry    | `modules/epistola-core/src/main/kotlin/.../templates/validation/NodeParameterSchemaProvider.kt`             |
+| Stencil schema provider     | `modules/epistola-core/src/main/kotlin/.../stencils/validation/StencilNodeParameterSchemaProviderConfig.kt` |
+| Render-time scope push      | `modules/generation/src/main/kotlin/.../pdf/ParameterScope.kt`                                              |
+| Stencil renderer, isolation | `modules/generation/src/main/kotlin/.../pdf/StencilNodeRenderer.kt`                                         |
+| Render context              | `modules/generation/src/main/kotlin/.../pdf/RenderContext.kt`                                               |
+| Two-pass detection          | `modules/generation/src/main/kotlin/.../pdf/TwoPassAnalyzer.kt`                                             |
+| Catalog wire field          | `StencilResource.parameterSchema` in `epistola-catalog` (`app.epistola.catalog.protocol`)                   |
+| Catalog import              | `modules/epistola-core/src/main/kotlin/.../catalog/commands/ImportStencil.kt`                               |
 
-In the stencil editor (draft mode), the inspector shows a
-**"Define parameters… (N)"** button. Clicking it opens a modal
-(`openParameterDefinitionsDialog`) hosting `<stencil-parameter-definitions-panel>`
-— a two-panel layout matching the data-contract editor:
+## 8. Known limitations
 
-- **Left** — compact list of parameters: name + type chip, required dot.
-- **Right** — detail form: name input, type dropdown, "list" toggle,
-  required toggle, description textarea, default-value input with
-  type-aware placeholder.
-
-Saving emits `parameter-schema-change` with the canonical JSON Schema. The
-inspector writes it to `node.props.parameterSchemaSnapshot` so subsequent
-render walks see it; `saveDraft` (in `stencil-actions.ts`) forwards the
-snapshot to `PUT /draft` for persistence on `StencilVersion.parameter_schema`.
-
-### Flow B — Template author binds parameters
-
-When inserting a stencil whose chosen version has parameters, the picker
-dialog gains a **fourth step** (`stencil-step-bindings`) showing one row
-per declared parameter (`renderBindingRow` in `binding-row.ts`):
-
-- Name + type/required badge, description if present.
-- A JSONata input pre-populated from any prior binding.
-- A "…" button that opens the full `openExpressionDialog` (builder + code
-  modes, live preview, custom functions) with autocomplete sourced from
-  the available `fieldPaths` at the insertion point and a type-aware
-  filter.
-
-Required parameters block confirmation when their expression is empty.
-
-### Flow C — Re-edit bindings post-insert
-
-The stencil node's inspector shows a **"Configure parameters…"** button
-that opens `openParameterBindingsDialog`. Same per-row UX as the picker's
-step 4 (sharing `renderBindingRow`), plus an alias input at the top so
-nested parametrised nodes can be disambiguated.
-
-### Editor canvas preview
-
-`buildParameterScope` (the editor's scope provider) populates the `params`
-namespace synchronously with one of:
-
-1. **Cached value** — populated by an async JSONata evaluation
-   (`evaluateExpression`) keyed on `(stencilNodeId, alias, name, expression)`.
-2. **Schema default** — when the cache is still empty.
-3. **Synthetic `<paramName>` placeholder** — last resort, so authors editing
-   a stencil draft (where no bindings exist yet) see something useful.
-
-When the async evaluation resolves, `ExpressionNodeView.refreshAll()` fires,
-every `{{...}}` chip re-evaluates against the now-populated context, and
-the canvas converges to the resolved value. The cache invalidates on
-`example:change` and structural `doc:change` events.
-
-## 8. Critical files
-
-| Concern                       | Path                                                                                                        |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| DB column                     | `modules/epistola-core/src/main/resources/db/migration/core/V20260515091400__core_stencils.sql`             |
-| Generic prop keys             | `modules/epistola-core/src/main/kotlin/.../templates/model/NodeParameterKeys.kt`                            |
-| Stencil-specific snapshot key | `modules/epistola-core/src/main/kotlin/.../stencils/StencilNodeKeys.kt`                                     |
-| Schema validator              | `modules/epistola-core/src/main/kotlin/.../templates/validation/ParameterSchemaValidator.kt`                |
-| Binding validator             | `modules/epistola-core/src/main/kotlin/.../templates/validation/NodeParameterBindingValidator.kt`           |
-| Schema provider registry      | `modules/epistola-core/src/main/kotlin/.../templates/validation/NodeParameterSchemaProvider.kt`             |
-| Stencil schema provider       | `modules/epistola-core/src/main/kotlin/.../stencils/validation/StencilNodeParameterSchemaProviderConfig.kt` |
-| Upgrade preservation          | `modules/epistola-core/src/main/kotlin/.../stencils/model/StencilContentReplacer.kt`                        |
-| Render-time scope push        | `modules/generation/src/main/kotlin/.../pdf/ParameterScope.kt`                                              |
-| Stencil renderer wiring       | `modules/generation/src/main/kotlin/.../pdf/StencilNodeRenderer.kt`                                         |
-| Render context                | `modules/generation/src/main/kotlin/.../pdf/RenderContext.kt`                                               |
-| Two-pass detection            | `modules/generation/src/main/kotlin/.../pdf/TwoPassAnalyzer.kt`                                             |
-| Editor scope provider         | `modules/editor/src/main/typescript/engine/parameter-scope.ts`                                              |
-| Async eval cache              | `modules/editor/src/main/typescript/engine/parameter-evaluation-cache.ts`                                   |
-| Author panel (Lit)            | `modules/editor/src/main/typescript/components/stencil/StencilParameterDefinitionsPanel.ts`                 |
-| Definitions dialog            | `modules/editor/src/main/typescript/components/stencil/parameter-definitions-dialog.ts`                     |
-| Bindings dialog               | `modules/editor/src/main/typescript/components/stencil/parameter-bindings-dialog.ts`                        |
-| Shared row helper             | `modules/editor/src/main/typescript/components/stencil/binding-row.ts`                                      |
-| Picker dialog (step 4)        | `modules/editor/src/main/typescript/components/stencil/stencil-picker-dialog.ts`                            |
-| Inspector                     | `modules/editor/src/main/typescript/components/stencil/StencilInspector.ts`                                 |
-| Catalog wire field            | `StencilResource.parameterSchema` in `epistola-catalog` (`app.epistola.catalog.protocol.ResourceDetail`)    |
-| Catalog export                | `modules/epistola-core/src/main/kotlin/.../catalog/queries/ExportResources.kt` (`ExportStencilsHandler`)    |
-| Catalog import                | `modules/epistola-core/src/main/kotlin/.../catalog/commands/ImportStencil.kt`                               |
-
-## 9. Known limitations (future work)
-
-- **Alias collision warnings** — the validator hard-rejects reserved
-  aliases (`sys`, `item`, `index`), but doesn't warn when a chosen alias
-  collides with a visible ancestor scope's alias (e.g. picking `letter`
-  inside another `letter`-aliased stencil silently shadows).
-- **Snapshot drift in draft mode** — when an author edits a stencil
-  draft, the snapshot on the consuming node carries the _old_ schema
-  until the draft is published and the consuming template upgrades.
-- **Nested-object parameters** — v1 rejects `{type:"object"}` properties.
-  v2 can lift this without a migration.
+- **Alias collision warnings** — reserved aliases are rejected, but a `paramsAlias` or `parametersAs`
+  that hides a template data field of the same name is not warned about.
+- **Unknown bindings are silent** — a binding the stencil does not declare is never refused and
+  not shown on the usage page; expansion records it only as a non-blocking finding.
+- **Nested-object parameters** — `{type:"object"}` properties are rejected; this can be lifted
+  without a migration.

@@ -194,6 +194,28 @@ describe('SaveService', () => {
     service.dispose();
   });
 
+  it('says in a sentence what went wrong when the server answered with a web page', async () => {
+    // A login page after the session ended, or a proxy's error page: never shown as markup.
+    const states: SaveState[] = [];
+    const failingFn: SaveFn = async () => {
+      await Promise.resolve();
+      throw new Error(
+        '<!DOCTYPE html><html><head><title>Sign in</title></head><body>...</body></html>',
+      );
+    };
+    const service = new SaveService(failingFn, (s) => states.push({ ...s }), 0);
+
+    service.markDirty();
+    service.forceSave(DOC);
+    await vi.runAllTimersAsync();
+
+    const error = states.find((s) => s.status === 'error') as { message: string };
+    expect(error.message).not.toContain('<');
+    expect(error.message).toContain('Your changes are still here');
+
+    service.dispose();
+  });
+
   it('carries structured type/field from the thrown error into the error state', async () => {
     const states: SaveState[] = [];
     const failingFn: SaveFn = async () => {

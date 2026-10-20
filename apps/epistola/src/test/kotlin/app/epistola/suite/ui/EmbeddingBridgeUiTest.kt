@@ -71,7 +71,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
     private fun latestMessageOfType(type: String): Map<String, Any?>? = capturedMessages().lastOrNull { (it["message"] as? Map<*, *>)?.get("type") == type }
 
     private fun createTemplateViaUi(tenant: Tenant, name: String, slug: String) {
-        gotoAndReady("/tenants/${tenant.id}/templates/new")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/new")
         page.locator("#name").fill(name)
         page.locator("#slug").fill(slug)
         page.locator("[data-testid='create-form-submit']").click()
@@ -83,7 +83,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         val tenant = createTestTenant()
         installMessageCapture()
 
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         assertThat(page.locator("main")).isVisible()
 
         val navigated = latestMessageOfType("navigated")
@@ -102,7 +102,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // The search box is only offered for a list with something in it
         // (.agents/rules/ui-affordances.md), so give the tenant a template to search among.
         createTemplateViaUi(tenant, "Search Subject", "search-subject")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         page.locator("[data-testid='search-input']").fill("private search text")
         // The search box is debounced, so htmxSettle() can return during the gap
         // before the request fires. Wait for the end state — the bridge message —
@@ -141,7 +141,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Boosted Row", "boosted-row")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
 
         // The row link is a plain <a href>, boosted only via the shell's
         // hx-boost="true" — no hx-get of its own, unlike search/sort/
@@ -150,6 +150,15 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // produce a navigation of their own.
         page.locator("a[title='View template']").click()
         assertThat(page.locator("#page-title-text")).containsText("Boosted Row")
+        // The title is swapped in before htmx pushes the new address, and the bridge reports the
+        // address it is at: its `navigated` message follows the title by a few milliseconds (T1, where
+        // reading the messages at once sometimes still saw the list's). Wait for the message itself.
+        page.waitForFunction(
+            """
+            () => (window.__epistolaMessages || []).some((entry) =>
+                entry.message && entry.message.type === 'navigated' && String(entry.message.path).endsWith('/boosted-row'))
+            """,
+        )
 
         val navigated = latestMessageOfType("navigated")
         checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }
@@ -199,7 +208,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Rename Source", "rename-source")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/rename-source/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/rename-source/settings")
         val input = page.locator("[data-template-name-input]")
         input.fill("Renamed Via Embed Test")
         input.press("Enter")
@@ -222,7 +231,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Delete Source", "delete-source")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/delete-source/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/delete-source/settings")
         page.locator("[data-testid='delete-action']").click()
         page.locator("[data-testid='confirm-dialog-confirm']").click()
 
@@ -252,13 +261,13 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
 
         createTemplateViaUi(tenant, "Editor Bridge", "editor-bridge")
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/editor-bridge")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/editor-bridge")
         page.locator("[data-testid='template-tab'][data-tab-name='variants']").click()
         page.htmxSettle()
         // The editor is a standalone full page outside the shell
         // (hx-boost="false"), so this is a real reload — the init script
         // reinstalls the capture and only the editor page's messages remain.
-        page.locator("a[title='Open editor']").click()
+        page.getByTestId("variant-open-editor").click()
         assertThat(page.locator("#editor-container")).isVisible()
 
         val navigated = latestMessageOfType("navigated")
@@ -277,7 +286,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         installMessageCapture()
 
         createTemplateViaUi(tenant, "Navigate Target", "navigate-target")
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
 
         page.evaluate(
             """
@@ -299,6 +308,6 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         page.htmxSettle()
 
         assertThat(page.locator("#page-title-text")).containsText("Navigate Target")
-        assertThat(page).hasURL(Pattern.compile(".*/templates/default/navigate-target$"))
+        assertThat(page).hasURL(Pattern.compile(".*/catalogs/default/templates/navigate-target$"))
     }
 }

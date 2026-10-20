@@ -206,6 +206,10 @@ epistola:
     # Refuse a plaintext Exchange. Only a local checkout should ever turn this on.
     allow-http: false
   catalog:
+    identity:
+      # The registry a catalog is named on when it does not say (ADR 0003 in epistola-contract): what
+      # `~` stands for in an API path, and the registry given to a catalog from before wire v8.
+      default-registry: exchange.epistola.app
     # Where catalog and code-list sources may be read from (docs/exchange/README.md, "Catalog and
     # code-list sources"). Plaintext http:// sources are refused; only a local setup should allow them.
     allow-http: false
@@ -239,7 +243,6 @@ epistola:
     ai-chat: false
     catalog-publishing: false
     catalog-installing: false
-    catalog-context: false
     resource-graph: false
     resource-relocation: false
   generation:
@@ -425,6 +428,12 @@ epistola:
     description: ""
 
 management:
+  # The actuator (health details, info, Prometheus metrics, which carry tenant and template keys)
+  # serves on its own port in every profile, so exposing the application port through an ingress
+  # never publishes it. In-cluster Prometheus scrapes this port; probes stay on the application port
+  # at /livez and /readyz (add-additional-paths below).
+  server:
+    port: 4040
   endpoints:
     web:
       exposure:
@@ -434,8 +443,8 @@ management:
       probes:
         enabled: true
         # Expose liveness/readiness ALSO at /livez and /readyz on the MAIN
-        # application port. In production the actuator endpoints move to a
-        # separate management port (see application-prod.yaml); Kubernetes
+        # application port, since the actuator endpoints serve on the separate
+        # management port (management.server.port above); Kubernetes
         # probes must stay on the main port because the management context can
         # report healthy even when the main app is not. Always-on (not just
         # prod) so the Helm probe paths work in every profile.

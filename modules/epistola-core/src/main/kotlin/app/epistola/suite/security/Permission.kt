@@ -17,11 +17,9 @@ package app.epistola.suite.security
 enum class Permission {
     TEMPLATE_VIEW,
     TEMPLATE_EDIT,
-    TEMPLATE_PUBLISH,
 
     STENCIL_VIEW,
     STENCIL_EDIT,
-    STENCIL_PUBLISH,
 
     DOCUMENT_VIEW,
     DOCUMENT_GENERATE,
@@ -38,9 +36,18 @@ enum class Permission {
     CATALOG_MANAGE,
 
     /**
+     * Cut a release of a catalog version, and discard a draft (contract `releaseCatalogVersion`,
+     * `deleteCatalogVersion`). Marking content ready is part of editing it.
+     */
+    CATALOG_RELEASE,
+
+    /** Choose which releases an environment serves (contract `deployRelease`, `undeployRelease`). */
+    ENVIRONMENT_DEPLOY,
+
+    /**
      * Publish a catalog release to Epistola Exchange, and decide the namespace it publishes into.
      *
-     * Deliberately separate from [TEMPLATE_PUBLISH], which cuts an immutable release inside this
+     * Deliberately separate from [CATALOG_RELEASE], which cuts an immutable release inside this
      * installation. Sending one to Exchange leaves the building and cannot be taken back, so being
      * trusted to release is not the same as being trusted to publish.
      */
@@ -100,8 +107,8 @@ fun TenantRole.permissions(): Set<Permission> = when (this) {
     )
 
     TenantRole.CONTENT_PUBLISHER -> setOf(
-        Permission.TEMPLATE_PUBLISH,
-        Permission.STENCIL_PUBLISH,
+        Permission.CATALOG_RELEASE,
+        Permission.ENVIRONMENT_DEPLOY,
         Permission.CATALOG_PUBLISH,
     )
 

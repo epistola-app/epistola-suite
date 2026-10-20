@@ -5,7 +5,10 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.AuditDetailed
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
@@ -138,6 +141,7 @@ class PreviewCatalogResourceMoveHandler(
 class MoveCatalogResourcesHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
+    private val declarer: MissingDependencyDeclarer,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
         handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:tenantKey, 0))")
@@ -151,52 +155,31 @@ class MoveCatalogResourcesHandler(
         }
         if (!plan.preview.executable) throw CatalogResourceMoveBlockedException(plan.preview.blockers)
 
-        // A rewrite may target a published version -- only ever the pin of a moving resource's own
-        // relative references, never a re-pointing (see CatalogResourceMovePlanner.rewriteContent).
-        // The expected-bytes guard is what makes touching one safe.
+        // The expected-bytes guard makes every rewrite safe against a concurrent edit.
         for (rewrite in plan.rewrites) {
             val changed = when (rewrite) {
-                is JsonRewrite.TemplateVersion -> handle.createUpdate(
+                is JsonRewrite.VariantModel -> handle.createUpdate(
                     """
-                    UPDATE template_versions SET template_model = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
+                    UPDATE template_variants SET template_model = :replacement::jsonb
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND template_model = :expected::jsonb
                     """,
                 )
                     .bind("templateKey", rewrite.ownerKey)
                     .bind("variantKey", rewrite.variantKey)
-                    .bind("version", rewrite.version)
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
-                is JsonRewrite.StencilVersion -> handle.createUpdate(
+                is JsonRewrite.StencilContent -> handle.createUpdate(
                     """
-                    UPDATE stencil_versions SET content = :replacement::jsonb
+                    UPDATE stencils SET content = :replacement::jsonb
                     WHERE tenant_key = :tenantKey
-                      AND stencil_resource_id = (SELECT resource_id FROM stencils
-                                                  WHERE tenant_key = :tenantKey
-                                                    AND catalog_key = :catalogKey AND id = :stencilKey)
-                      AND id = :version
+                      AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :stencilKey
                       AND content = :expected::jsonb
                     """,
                 )
                     .bind("stencilKey", rewrite.ownerKey)
-                    .bind("version", rewrite.version)
-                    .bindRewrite(command.tenantKey, rewrite)
-                    .execute()
-
-                is JsonRewrite.TemplateVersionSnapshot -> handle.createUpdate(
-                    """
-                    UPDATE template_versions SET resolved_theme = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND id = :version
-                      AND resolved_theme = :expected::jsonb
-                    """,
-                )
-                    .bind("templateKey", rewrite.ownerKey)
-                    .bind("variantKey", rewrite.variantKey)
-                    .bind("version", rewrite.version)
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
@@ -205,7 +188,7 @@ class MoveCatalogResourcesHandler(
                     UPDATE themes
                     SET document_styles = :replacementDocumentStyles::jsonb,
                         block_style_presets = :replacementPresets::jsonb
-                    WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND id = :themeKey
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :themeKey
                       AND document_styles = :expectedDocumentStyles::jsonb
                       AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
                     """,
@@ -222,7 +205,7 @@ class MoveCatalogResourcesHandler(
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
                     UPDATE template_variants SET attributes = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
+                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                       AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
                       AND attributes = :expected::jsonb
                     """,
@@ -242,13 +225,16 @@ class MoveCatalogResourcesHandler(
             val moved = handle.createUpdate(
                 """
                 UPDATE ${movable.table}
-                SET catalog_key = :targetCatalogKey,
+                SET catalog_id = ${catalogAt("tenantKey", "targetCatalogKey")},
+                    -- Into the destination's current version; children follow by trigger.
+                    version_id = ${versionAt("tenantKey", "targetCatalogKey")},
                     ${movable.keyColumn} = ${movable.keyColumnType?.let { "CAST(:targetKey AS $it)" } ?: ":targetKey"}
-                WHERE tenant_key = :tenantKey AND resource_id = :resourceId
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "sourceCatalogKey")} AND resource_id = :resourceId
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("resourceId", resourceId)
+                .bind("sourceCatalogKey", relocation.source.catalogKey)
                 .bind("targetCatalogKey", relocation.target.catalogKey)
                 .bind("targetKey", relocation.target.key)
                 .execute()
@@ -257,6 +243,11 @@ class MoveCatalogResourcesHandler(
             // every dependant names that, so nothing else refers to the address being changed --
             // owned hierarchies included, and a rename no differently from a move.
         }
+
+        // A reference that now crosses into another catalog makes its catalog depend on that one
+        // (contract ADR 0003). The move implies it, so it is declared here rather than left for the
+        // next release to refuse.
+        declarer.declareMissingInTenant(command.tenantKey)
 
         plan.preview
     }

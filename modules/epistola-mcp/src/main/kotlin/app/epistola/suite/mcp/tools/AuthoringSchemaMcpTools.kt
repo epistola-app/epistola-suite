@@ -35,7 +35,7 @@ class AuthoringSchemaMcpTools(
     @McpTool(
         name = "get_authoring_schemas",
         description = "JSON Schemas for what the write tools accept: `templateDocument` (the `content` of " +
-            "`update_template_draft`, `create_stencil` and `update_stencil_draft`), `theme` (the styling " +
+            "`update_variant_content`, `create_stencil` and `update_stencil`), `theme` (the styling " +
             "arguments of `create_theme` and `update_theme`), `shared` (the definitions both refer to as " +
             "`template-shared.schema.json`), and `styleRegistry` (every style key, its type and allowed " +
             "units, e.g. `fontSize` in `pt` or `sp`). Use it with `list_component_types`, which describes " +

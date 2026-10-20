@@ -8,8 +8,11 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -21,7 +24,10 @@ import org.springframework.stereotype.Component
 data class BrowseCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<BrowseResult>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<BrowseResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
@@ -54,7 +60,7 @@ class BrowseCatalogHandler(
 
     override fun handle(query: BrowseCatalog): BrowseResult {
         val catalog = jdbi.withHandle<Catalog, Exception> { handle ->
-            handle.findByTenantAndId<Catalog>("catalogs", query.tenantKey, query.catalogKey.value)
+            handle.findCatalog(query.tenantKey, query.catalogKey)
                 ?: throw IllegalArgumentException("Catalog not found: ${query.catalogKey}")
         }
 
@@ -73,19 +79,19 @@ class BrowseCatalogHandler(
     private fun installedResources(query: BrowseCatalog): List<BrowseResource> = jdbi.withHandle<List<BrowseResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' as type, id as slug, name, NULL as description FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'template' as type, id as slug, name, NULL as description FROM document_templates WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'theme', id, name, description FROM themes WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'theme', id, name, description FROM themes WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'stencil', id, name, description FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'stencil', id, name, description FROM stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'attribute', id, display_name, NULL FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'attribute', id, display_name, NULL FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'image', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'image', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'codeList', slug::text, display_name, description FROM code_lists WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'codeList', slug::text, display_name, description FROM code_lists WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'font', slug::text, name, NULL FROM fonts WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+            SELECT 'font', slug::text, name, NULL FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -131,19 +137,19 @@ class BrowseCatalogHandler(
         val installedKeys = jdbi.withHandle<Set<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT 'template:' || id FROM document_templates WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'template:' || id FROM document_templates WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'theme:' || id FROM themes WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'theme:' || id FROM themes WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'stencil:' || id FROM stencils WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'stencil:' || id FROM stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'attribute:' || id FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'attribute:' || id FROM variant_attribute_definitions WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'image:' || id FROM assets WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'image:' || id FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'codeList:' || slug FROM code_lists WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'codeList:' || slug FROM code_lists WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'font:' || slug FROM fonts WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                SELECT 'font:' || slug FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", query.tenantKey)
@@ -155,10 +161,10 @@ class BrowseCatalogHandler(
         val resources = manifest.resources.map { entry ->
             BrowseResource(
                 type = entry.type,
-                slug = entry.slug,
+                slug = entry.key,
                 name = entry.name,
                 description = entry.description,
-                status = if ("${entry.type}:${entry.slug}" in installedKeys) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
+                status = if ("${entry.type}:${entry.key}" in installedKeys) ResourceStatus.INSTALLED else ResourceStatus.AVAILABLE,
             )
         }
 

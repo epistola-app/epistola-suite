@@ -30,7 +30,7 @@ class ParameterScopeTest {
         bindings: Map<String, Any?>? = null,
         alias: String? = null,
     ): Node {
-        val props = mutableMapOf<String, Any?>("stencilId" to "x", "version" to 1)
+        val props = mutableMapOf<String, Any?>("stencilKey" to "x", "version" to 1)
         if (bindings != null) props["parameterBindings"] = bindings
         if (alias != null) props["paramsAlias"] = alias
         return Node(id = "n1", type = "stencil", props = props)

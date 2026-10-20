@@ -72,7 +72,7 @@
             <dt>Name</dt>
             <dd th:text="${apiKey.name}" data-testid="api-key-name"></dd>
             <dt>Created</dt>
-            <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+            <dd th:text="${#temporals.format(apiKey.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${apiKey.createdAt}"></dd>
             <dt th:if="${apiKey.expiresAt != null}">Expires</dt>
             <dd th:if="${apiKey.expiresAt != null}"
                 th:text="${#temporals.format(apiKey.expiresAt, 'yyyy-MM-dd')}"></dd>

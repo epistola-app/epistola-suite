@@ -26,7 +26,7 @@ class CatalogFingerprintEquivalenceTest {
 
     private val om = jsonMapper { addModule(kotlinModule()) }
     private val canon = CatalogCanonicalizer(om)
-    private val catalog = CatalogInfo(slug = "demo", name = "Demo", description = "d")
+    private val catalog = CatalogInfo(key = "demo", name = "Demo", description = "d")
 
     @Test
     fun `typed path equals recompute-from-serialized-wire (float and double bearing)`() {
@@ -34,7 +34,7 @@ class CatalogFingerprintEquivalenceTest {
             "theme/corporate" to ResourceDetail(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
                 resource = ThemeResource(
-                    slug = "corporate",
+                    key = "corporate",
                     name = "Corporate",
                     spacingUnit = 4.5f,
                     documentStyles = mapOf("fontSize" to 12.0, "lineHeight" to 1.15),
@@ -42,17 +42,17 @@ class CatalogFingerprintEquivalenceTest {
             ),
             "asset/logo" to ResourceDetail(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
-                resource = ImageResource(slug = "logo", name = "Logo", mediaType = "image/png", contentUrl = "./resources/asset/logo", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
+                resource = ImageResource(key = "logo", name = "Logo", mediaType = "image/png", contentUrl = "./resources/asset/logo", contentHash = "0000000000000000000000000000000000000000000000000000000000000000"),
             ),
         )
         val assets = { contentUrl: String -> if (contentUrl.endsWith("logo")) "PNGBYTES".toByteArray() else null }
 
-        val stamped = canon.fingerprint(catalog, details, null, assets)
+        val stamped = canon.fingerprint(catalog, details, null, assetBytes = assets)
         val recomputedFromWire = canon.fingerprintFromSerializedDetails(
             catalog,
             details.mapValues { (_, d) -> om.writeValueAsBytes(d) },
             null,
-            assets,
+            assetBytes = assets,
         )
 
         assertEquals(recomputedFromWire, stamped, "stamped fingerprint must equal recompute-from-wire")

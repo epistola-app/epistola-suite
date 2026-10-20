@@ -13,6 +13,7 @@ import app.epistola.suite.exchange.GetExchangeSettings
 import app.epistola.suite.exchange.SetExchangeDefaultNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -43,7 +44,7 @@ class ExchangeHandler {
         requirePermission(tenantKey, Permission.TENANT_SETTINGS)
         return onSettingsPage(tenantKey) {
             val authorizationUri = StartExchangeConnection(tenantKey, callbackUri(request)).execute()
-            ServerResponse.status(303).header("Location", authorizationUri).build()
+            redirect(authorizationUri)
         }
     }
 
@@ -138,7 +139,5 @@ class ExchangeHandler {
             throw ValidationException(name, "The Exchange callback's '$name' is not a valid identifier.", ValidationCode.EXCHANGE_AUTHORIZATION_INVALID)
         }
 
-    private fun redirect(tenant: String): ServerResponse = ServerResponse.status(303)
-        .header("Location", "/tenants/$tenant/exchange")
-        .build()
+    private fun redirect(tenant: String): ServerResponse = redirect("/tenants/$tenant/exchange")
 }

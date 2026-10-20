@@ -5,188 +5,120 @@
 package app.epistola.suite.stencils.queries
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilReferences
+import app.epistola.suite.stencils.StencilResolvers
+import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.stencils.model.StencilUsageDetail
 import app.epistola.suite.stencils.model.StencilUsagePage
-import app.epistola.suite.stencils.stencilAtAddress
+import app.epistola.suite.stencils.model.describe
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-
-const val USAGE_FILTER_BOTH = "both"
-const val USAGE_FILTER_UPGRADABLE = "upgradable"
-const val USAGE_FILTER_NOT_UPGRADABLE = "not-upgradable"
+import tools.jackson.databind.ObjectMapper
 
 private const val USAGE_PAGE_SIZE = 100
 
 /**
- * A filtered, paginated page of the templates using a stencil, for the bulk-upgrade
- * table. The per-variant `upgradable` flag and block reason, the filter, the
- * pagination and the counts are all computed in SQL — the full usage set is never
- * loaded into memory.
- *
- * Upgrade always lands in a variant's draft (created from its latest published
- * version when none exists), so exactly one row per variant is upgradable: its
- * draft if it has one, otherwise its latest published version. Subscribed catalogs
- * are never upgradable.
+ * A page of the template variants that use a stencil, each with whether its working model still
+ * fits the stencil's working copy. Pagination is in SQL; the fit is checked for the page.
+ * [page] is 1-based and clamped to the pages there are; [pageSize] is at most [USAGE_PAGE_SIZE].
  */
 data class GetStencilUsagePage(
     val stencilId: StencilId,
-    val filter: String = USAGE_FILTER_BOTH,
     val page: Int = 1,
-) : Query<StencilUsagePage>,
+    val pageSize: Int = USAGE_PAGE_SIZE,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<StencilUsagePage>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = stencilId.tenantKey
+
+    init {
+        validate("pageSize", pageSize in 1..USAGE_PAGE_SIZE) { "Page size must be between 1 and $USAGE_PAGE_SIZE" }
+    }
 }
 
-/**
- * Shared CTEs: `latest_stencil` (the stencil's latest published version),
- * `usage` (one row per template-version/stencil-version with an instance count),
- * `flagged` (adds the per-variant candidate flag), and `reasoned` (adds the
- * `upgradable` flag and the block reason for non-upgradable rows).
- *
- * A candidate row is only `upgradable` when it pins a version other than the
- * stencil's latest published version — a row already on the latest version has
- * nothing to upgrade to and is reported as `UP_TO_DATE`, not upgradable.
- */
-private val USAGE_CTES = """
-    WITH latest_stencil AS (
-        SELECT COALESCE(MAX(id), 0) AS latest_published_version
-        FROM stencil_versions
-        WHERE tenant_key = :tenantId AND stencil_resource_id = ${stencilAtAddress("tenantId", "catalogKey", "stencilId")} AND status = 'published'
-    ),
-    usage AS (
-        SELECT dt.id AS template_key, dt.catalog_key, c.type AS catalog_type, dt.name AS template_name,
-               tv.variant_key, tv.id AS version_id, tv.status AS version_status,
-               COALESCE((node.value -> 'props' ->> 'version')::int, 0) AS stencil_version,
+private val USAGE_CTE = """
+    WITH usage AS (
+        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name AS template_name,
+               tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
-        FROM template_versions tv
-        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
-        JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
+        FROM template_variants tv
+        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+                                  AND dt.resource_id = tv.template_resource_id
+        JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
+          AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, dt.catalog_key, c.type, dt.name, tv.variant_key, tv.id, tv.status,
-                 COALESCE((node.value -> 'props' ->> 'version')::int, 0)
-    ),
-    flagged AS (
-        SELECT u.*,
-               (u.catalog_type = 'AUTHORED' AND u.version_status IN ('draft', 'published')) AS is_candidate,
-               bool_or(u.catalog_type = 'AUTHORED' AND u.version_status = 'draft')
-                   OVER (PARTITION BY u.catalog_key, u.template_key, u.variant_key) AS variant_has_draft,
-               ROW_NUMBER() OVER (
-                   PARTITION BY u.catalog_key, u.template_key, u.variant_key
-                   ORDER BY (u.catalog_type = 'AUTHORED' AND u.version_status IN ('draft', 'published')) DESC,
-                            (u.version_status = 'draft') DESC,
-                            u.version_id DESC
-               ) AS rn
-        FROM usage u
-    ),
-    reasoned AS (
-        SELECT f.*,
-               (f.is_candidate AND f.rn = 1 AND f.stencil_version <> ls.latest_published_version) AS upgradable,
-               CASE
-                   WHEN f.is_candidate AND f.rn = 1 AND f.stencil_version <> ls.latest_published_version THEN NULL
-                   WHEN f.catalog_type <> 'AUTHORED' THEN 'SUBSCRIBED'
-                   WHEN f.is_candidate AND f.rn = 1 THEN 'UP_TO_DATE'
-                   WHEN f.variant_has_draft THEN 'HAS_DRAFT'
-                   ELSE 'SUPERSEDED'
-               END AS block_reason
-        FROM flagged f
-        CROSS JOIN latest_stencil ls
+        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text, dt.data_model::text
     )
 """
 
 @Component
 class GetStencilUsagePageHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
+    private val stencilResolvers: StencilResolvers,
 ) : QueryHandler<GetStencilUsagePage, StencilUsagePage> {
     override fun handle(query: GetStencilUsagePage): StencilUsagePage = jdbi.withHandle<StencilUsagePage, Exception> { handle ->
-        val filter = when (query.filter) {
-            USAGE_FILTER_UPGRADABLE, USAGE_FILTER_NOT_UPGRADABLE -> query.filter
-            else -> USAGE_FILTER_BOTH
-        }
-
-        // Counts over the full (unfiltered) set — one row, always present.
-        val counts = handle.createQuery(
-            "$USAGE_CTES SELECT COUNT(*) AS total_all, COUNT(*) FILTER (WHERE upgradable) AS upgradable_count FROM reasoned",
-        )
+        val total = handle.createQuery("$USAGE_CTE SELECT COUNT(*) FROM usage")
             .bind("tenantId", query.stencilId.tenantKey)
-            .bind("catalogKey", query.stencilId.catalogKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
             .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
-            .bind("stencilId", query.stencilId.key.value)
-            .map { rs, _ -> rs.getInt("total_all") to rs.getInt("upgradable_count") }
+            .mapTo(Int::class.java)
             .one()
-        val totalAll = counts.first
-        val upgradableCount = counts.second
-
-        val total = when (filter) {
-            USAGE_FILTER_UPGRADABLE -> upgradableCount
-            USAGE_FILTER_NOT_UPGRADABLE -> totalAll - upgradableCount
-            else -> totalAll
-        }
-        val totalPages = if (total == 0) 1 else (total + USAGE_PAGE_SIZE - 1) / USAGE_PAGE_SIZE
+        val totalPages = if (total == 0) 1 else (total + query.pageSize - 1) / query.pageSize
         val current = query.page.coerceIn(1, totalPages)
-        val offset = (current - 1) * USAGE_PAGE_SIZE
+        val resolver = stencilResolvers.workingCopies(query.stencilId.tenantKey)
 
         val items = handle.createQuery(
             """
-            $USAGE_CTES
-            SELECT template_key, catalog_key, catalog_type, template_name, variant_key, version_id,
-                   version_status, stencil_version, instance_count, upgradable, block_reason
-            FROM reasoned
-            WHERE (:filter = 'both'
-                OR (:filter = 'upgradable' AND upgradable)
-                OR (:filter = 'not-upgradable' AND NOT upgradable))
-            ORDER BY (CASE WHEN catalog_type = 'AUTHORED' THEN 0 ELSE 1 END), catalog_key, template_name, variant_key, version_id DESC
+            $USAGE_CTE
+            SELECT * FROM usage
+            ORDER BY (CASE WHEN catalog_type = 'AUTHORED' THEN 0 ELSE 1 END), catalog_key, template_name, variant_key
             LIMIT :limit OFFSET :offset
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
-            .bind("catalogKey", query.stencilId.catalogKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
             .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
-            .bind("stencilId", query.stencilId.key.value)
-            .bind("filter", filter)
-            .bind("limit", USAGE_PAGE_SIZE)
-            .bind("offset", offset)
+            .bind("limit", query.pageSize)
+            .bind("offset", (current - 1) * query.pageSize)
             .map { rs, _ ->
+                val catalogKey = rs.getString("catalog_key")
+                val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)
+                val dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
+                val problems = StencilInstances.expand(document, catalogKey, resolver, dataModel).findings
+                    .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey == query.stencilId.catalogKey.value && it.blocking }
+                    .map { it.describe() }
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),
-                    catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+                    catalogKey = CatalogKey.of(catalogKey),
                     catalogType = CatalogType.valueOf(rs.getString("catalog_type")),
                     templateName = rs.getString("template_name"),
                     variantId = VariantKey.of(rs.getString("variant_key")),
-                    versionId = VersionKey.of(rs.getInt("version_id")),
-                    versionStatus = rs.getString("version_status"),
-                    stencilVersion = rs.getInt("stencil_version"),
                     instanceCount = rs.getInt("instance_count"),
-                    upgradable = rs.getBoolean("upgradable"),
-                    upgradeBlockReason = rs.getString("block_reason")
-                        ?.let { StencilUsageDetail.UpgradeBlockReason.valueOf(it) },
+                    problems = problems,
                 )
             }
             .list()
 
-        StencilUsagePage(
-            items = items,
-            page = current,
-            totalPages = totalPages,
-            total = total,
-            totalAll = totalAll,
-            upgradableCount = upgradableCount,
-            filter = filter,
-        )
+        StencilUsagePage(items = items, page = current, totalPages = totalPages, total = total)
     }
 }

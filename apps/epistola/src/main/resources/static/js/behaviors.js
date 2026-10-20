@@ -206,12 +206,18 @@ document.addEventListener('htmx:load', function (event) {
 // Capture the full list URL when a mount-dialog trigger is clicked so the close
 // listener below can put that query back when it restores the list URL.
 let dialogReturnUrl = null;
+// A create dialog opened in place, from a page that is not its list (the catalog page's "New
+// template"), pushes no URL, so closing it must leave the address bar alone: restoring the list
+// URL would put /templates in the bar over the catalog page.
+let dialogOpenedInPlace = false;
 document.addEventListener(
   'click',
   function (event) {
-    const trigger =
-      event.target.closest && event.target.closest('[hx-target="#dialog-mount"][hx-push-url]');
-    if (trigger) dialogReturnUrl = window.location.href;
+    if (!event.target.closest) return;
+    const trigger = event.target.closest('[hx-target="#dialog-mount"]');
+    if (!trigger) return;
+    dialogOpenedInPlace = !trigger.hasAttribute('hx-push-url');
+    if (!dialogOpenedInPlace) dialogReturnUrl = window.location.href;
   },
   true,
 );
@@ -223,7 +229,7 @@ document.addEventListener(
     if (!dialog || !dialog.matches || !dialog.matches('dialog')) return;
     if (!dialog.closest('[data-dialog-mount]')) return;
     const closeUrl = dialog.getAttribute('data-close-url');
-    if (closeUrl) {
+    if (closeUrl && !dialogOpenedInPlace) {
       const target = new URL(closeUrl, window.location.origin);
       // data-close-url is the bare list path; the list's query string lives only in
       // the URL we captured at open time. Restore it when it's for the same path so
@@ -240,6 +246,7 @@ document.addEventListener(
       }
     }
     dialogReturnUrl = null;
+    dialogOpenedInPlace = false;
     dialog.remove();
   },
   true,
@@ -273,23 +280,7 @@ document.addEventListener('click', function (event) {
   if (trigger) window.openConfirmDialog(trigger);
 });
 
-// ── Catalog filter navigation on list pages ─────────────────────────────────
-// Usage: <select data-catalog-filter-base="/tenants/acme/templates">
-document.addEventListener('change', function (event) {
-  const select = event.target.closest && event.target.closest('select[data-catalog-filter-base]');
-  if (!select) return;
-  const base = select.getAttribute('data-catalog-filter-base') || '';
-  // Only navigate to a same-origin absolute path. Resolving through the URL API
-  // against the current origin guarantees an http(s) URL; a base that isn't a
-  // rooted path (e.g. a "javascript:"/"data:" scheme) is rejected before it can
-  // reach the navigation sink.
-  if (!base.startsWith('/')) return;
-  const url = new URL(base, window.location.origin);
-  if (select.value) url.searchParams.set('catalog', select.value);
-  window.location.assign(url.href);
-});
-
-// ── Confirm-then-submit for plain (non-HTMX) forms ──────────────────────────
+// ── Confirm-then-submit ─────────────────────────────────────────────────────
 // Usage: <button data-confirm-submit[="form-id"] data-confirm-submit-message="…"
 //                data-confirm-submit-title="…" data-confirm-submit-label="Delete"
 //                [data-confirm-submit-class="ep-btn-destructive"]>
@@ -307,7 +298,9 @@ document.addEventListener('click', function (event) {
       confirmClass: button.getAttribute('data-confirm-submit-class') || 'ep-btn-destructive',
     })
     .then(function (ok) {
-      if (ok) form.submit();
+      // requestSubmit, not submit(): it fires the submit event, so an HTMX form (hx-post) or a boosted
+      // one goes through HTMX with its CSRF header and swap; submit() would post natively past both.
+      if (ok) form.requestSubmit();
     });
 });
 
@@ -349,4 +342,48 @@ document.addEventListener('click', function (event) {
     input.setAttribute('readonly', 'readonly');
     done(ok);
   }
+});
+
+// ── Times in the reader's time zone ─────────────────────────────────────────
+// Usage: <td th:text="${#temporals.format(t, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${t}">
+// The server writes the time in UTC; this rewrites it in the browser's time zone, in the same
+// shape (seconds when the server wrote them), and keeps the UTC time in the title. A value without
+// a zone is left alone: it names no instant, so there is nothing to convert.
+function padTime(value) {
+  return String(value).padStart(2, '0');
+}
+
+function localizeTimes(root) {
+  const elements = [];
+  if (root.matches && root.matches('[data-local-time]')) elements.push(root);
+  if (root.querySelectorAll)
+    root.querySelectorAll('[data-local-time]').forEach(function (element) {
+      elements.push(element);
+    });
+  elements.forEach(function (element) {
+    if (element.dataset.localTimeShown) return;
+    const value = element.dataset.localTime;
+    if (!/(Z|[+-]\d{2}:?\d{2})$/.test(value)) return;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return;
+    const utc = element.textContent.trim();
+    let local =
+      date.getFullYear() +
+      '-' +
+      padTime(date.getMonth() + 1) +
+      '-' +
+      padTime(date.getDate()) +
+      ' ' +
+      padTime(date.getHours()) +
+      ':' +
+      padTime(date.getMinutes());
+    if ((utc.match(/:/g) || []).length >= 2) local += ':' + padTime(date.getSeconds());
+    element.textContent = local;
+    if (!element.title || element.title === utc) element.title = utc + ' UTC';
+    element.dataset.localTimeShown = 'true';
+  });
+}
+
+document.addEventListener('htmx:load', function (event) {
+  localizeTimes(event.target);
 });

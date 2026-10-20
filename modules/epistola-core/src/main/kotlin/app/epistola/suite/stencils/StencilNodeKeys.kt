@@ -19,7 +19,7 @@ package app.epistola.suite.stencils
 object StencilNodeKeys {
     const val NODE_TYPE = "stencil"
     const val SLOT_CHILDREN = "children"
-    const val PROP_STENCIL_ID = "stencilId"
+    const val PROP_STENCIL_KEY = "stencilKey"
     const val PROP_CATALOG_KEY = "catalogKey"
     const val PROP_VERSION = "version"
     const val PROP_DRAFT_VERSION = "draftVersion"
@@ -36,6 +36,13 @@ object StencilNodeKeys {
      * [app.epistola.suite.templates.model.NodeParameterKeys.PROP_PARAMETER_BINDINGS].
      */
     const val PROP_PARAMETER_SCHEMA_SNAPSHOT = "parameterSchemaSnapshot"
+
+    /**
+     * The stencil reads the template's data (ADR 0006 part 5); without it the renderer shows the
+     * stencil's content only its parameters and `sys`. A property of the stencil, carried on an
+     * instance only while it is expanded.
+     */
+    const val PROP_READS_TEMPLATE_DATA = "readsTemplateData"
 }
 
 /**
@@ -49,4 +56,16 @@ object PlaceholderNodeKeys {
     const val SLOT_FILL = "fill"
     const val PROP_NAME = "name"
     const val PROP_DESCRIPTION = "description"
+
+    /** The stencil author lets this placeholder pass the stencil's parameters to its fill (ADR 0006). */
+    const val PROP_PASS_PARAMETERS = "passParameters"
+
+    /**
+     * The name passed parameters appear under: on a stencil's placeholder, the author's default; on a
+     * fill a template stores, the using side's choice, which wins.
+     */
+    const val PROP_PARAMETERS_AS = "parametersAs"
+
+    /** The using side's [PROP_PARAMETERS_AS], carried on the stencil's placeholder while expanded. */
+    const val PROP_FILL_PARAMETERS_AS = "fillParametersAs"
 }

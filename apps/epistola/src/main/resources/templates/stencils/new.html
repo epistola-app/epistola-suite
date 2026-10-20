@@ -10,15 +10,14 @@
         #create-stencil-form), so the form swaps in place with inline errors and
         preserved values, leaving the <dialog> untouched.
 
-    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
-    distinct key from the list's own `catalogs` filter var), and on error
+    Model it needs: `tenantId` (URLs), `draftSegment` (the catalog it creates in, from the path), and on error
     re-render `formData`/`errors`.
     -->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-stencil-dialog',
             title='New Stencil',
-            closeUrl=@{/tenants/{tenantId}/stencils(tenantId=${tenantId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::stencil-form})}"></div>
     </th:block>
 
@@ -31,21 +30,10 @@
     the progressive-enhancement fallback.
     -->
     <form th:fragment="stencil-form" id="create-stencil-form"
-          th:hx-post="@{/tenants/{tenantId}/stencils(tenantId=${tenantId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-stencil-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-stencil-error')}"></div>
         <div class="ep-dialog-body">
-            <div th:if="${authoredCatalogs != null and !authoredCatalogs.isEmpty()}" class="form-group"
-                 th:classappend="${errors?.containsKey('catalog')} ? 'error' : ''">
-                <label class="ep-label" for="catalog">Catalog</label>
-                <select id="catalog" name="catalog" class="ep-select">
-                    <option th:each="cat : ${authoredCatalogs}"
-                            th:value="${cat.id}"
-                            th:text="${cat.name}"
-                            th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
-                </select>
-                <span class="form-error" th:if="${errors?.containsKey('catalog')}" th:text="${errors.catalog}"></span>
-            </div>
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                 <label class="ep-label" for="name">Name</label>
                 <input type="text" id="name" name="name" class="ep-input"
@@ -65,7 +53,7 @@
             </div>
             <div class="form-group">
                 <label class="ep-label" for="description">Description (optional)</label>
-                <textarea id="description" name="description" class="ep-textarea" rows="2"
+                <textarea maxlength="1000" id="description" name="description" class="ep-textarea" rows="2"
                           placeholder="Stencil description"
                           th:text="${formData?.description}"></textarea>
             </div>

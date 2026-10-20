@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
-    "slug": "officiele-snelheidsbekeuring",
-    "name": "Officiële Snelheidsbekeuring",
-    "themeId": null,
+    "key": "officiele-snelheidsbekeuring",
+    "name": "Verkeersboete",
+    "themeKey": null,
     "themeCatalogKey": null,
     "dataModel": {
       "type": "object",
@@ -126,6 +126,7 @@
     },
     "dataExamples": [
       {
+        "key": "example",
         "name": "example",
         "data": {
           "person": {
@@ -1073,7 +1074,7 @@
     },
     "variants": [
       {
-        "slug": "notice-of-speeding-violation",
+        "key": "notice-of-speeding-violation",
         "title": "Engels",
         "attributes": {
           "system.locale": "en-GB"
@@ -1947,7 +1948,7 @@
         "isDefault": false
       },
       {
-        "slug": "officiele-snelheidsbekeuring-default",
+        "key": "officiele-snelheidsbekeuring-default",
         "title": "Nederlands",
         "attributes": {
           "system.locale": "nl-NL"

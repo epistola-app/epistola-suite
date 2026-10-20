@@ -56,7 +56,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/images",
+                "/tenants/${testTenant.id}/catalogs/default/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )
@@ -101,7 +101,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/images/default/municipality-mark/content",
+                "/tenants/${testTenant.id}/catalogs/default/images/municipality-mark/content",
                 ByteArray::class.java,
             )
         }
@@ -143,7 +143,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/images",
+                "/tenants/${testTenant.id}/catalogs/default/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )
@@ -186,7 +186,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             payload.add("catalog", "default")
 
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/images",
+                "/tenants/${testTenant.id}/catalogs/default/images",
                 HttpEntity(payload, headers),
                 String::class.java,
             )

@@ -6,12 +6,15 @@ package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.AssetTypeCatalog
+import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.ImageInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -46,11 +49,14 @@ class ImageMcpTools(
         catalogId: String?,
         @McpToolParam(description = "Case-insensitive image-name search. Omit for all images.", required = false)
         search: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<ImageInfo> = mediator.query(
         ListAssets(
             tenantId = mcpTenantKey(),
             searchTerm = search?.takeIf { it.isNotBlank() },
             catalogKey = catalogFilter(catalogId),
+            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ),
     )
         .asSequence()
@@ -69,12 +75,15 @@ class ImageMcpTools(
         catalogId: String,
         @McpToolParam(description = "Image UUID referenced by the template or stencil.")
         imageId: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): ImageInfo? {
         val key = AssetKey.of(imageId)
         return mediator.query(
             ListAssets(
                 tenantId = mcpTenantKey(),
                 catalogKey = CatalogKey.of(catalogId),
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ),
         )
             .firstOrNull { it.id == key && it.mediaType.category == AssetMediaCategory.IMAGE }
@@ -107,6 +116,8 @@ class ImageMcpTools(
             required = false,
         )
         imageId: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): ImageInfo {
         val decoded = decodeBase64Argument("content", content)
         val declared = mediaType?.takeIf { it.isNotBlank() } ?: decoded.declaredMediaType
@@ -130,11 +141,11 @@ class ImageMcpTools(
                 height = dimensions?.second,
                 catalogKey = CatalogKey.of(catalogId),
                 id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ).execute(),
         )
     }
 
-    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = runCatching {
-        ImageIO.read(content.inputStream())?.let { it.width to it.height }
-    }.getOrNull()
+    // From the header only: decoding a file that declares a huge size would take the node's memory.
+    private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = ImagePixelPolicy.dimensions(content)
 }

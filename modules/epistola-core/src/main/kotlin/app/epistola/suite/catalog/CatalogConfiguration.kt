@@ -4,10 +4,12 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundHttpFetcher
 import app.epistola.suite.catalog.outbound.OutboundSourceReader
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
+import app.epistola.suite.common.ids.TenantKey
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -17,7 +19,7 @@ import org.springframework.util.unit.DataSize
 import java.time.Duration
 
 @Configuration
-@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class)
+@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class, CatalogIdentityProperties::class)
 class CatalogConfiguration {
 
     /**
@@ -51,6 +53,36 @@ data class CatalogSizeLimits(
     val maxZipSize: DataSize = DataSize.ofMegabytes(10),
     val maxDecompressedSize: DataSize = DataSize.ofMegabytes(20),
 )
+
+/**
+ * How this installation names catalogs (ADR 0003 in the contract repo).
+ *
+ * A catalog is identified by registry, namespace and key. [defaultRegistry] is the registry `~` stands
+ * for, and the registry given to a catalog that arrives from before wire v8, which names none.
+ *
+ * ```yaml
+ * epistola:
+ *   catalog:
+ *     identity:
+ *       default-registry: exchange.epistola.app
+ * ```
+ */
+@ConfigurationProperties(prefix = "epistola.catalog.identity")
+data class CatalogIdentityProperties(
+    val defaultRegistry: String = "exchange.epistola.app",
+) {
+    companion object {
+        /** The namespace of the catalogs Epistola ships (system, demo) on the default registry. */
+        const val BUNDLED_NAMESPACE = "epistola"
+
+        /**
+         * The namespace an authored catalog gets unless it is given one: its tenant's key, padded with
+         * `0` to the length a namespace needs, as the contract pads a short key. The 2.0 migration
+         * names existing catalogs the same way.
+         */
+        fun defaultNamespace(tenantKey: TenantKey): String = tenantKey.value.padEnd(CatalogNamespaces.MIN_LENGTH, '0')
+    }
+}
 
 /**
  * How often a subscribed catalog's source is asked whether it has published anything newer.

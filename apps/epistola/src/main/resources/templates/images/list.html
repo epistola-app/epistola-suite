@@ -11,16 +11,8 @@
             actions=~{::asset-list-actions}
         )}"></div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
-                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/images(tenantId=${tenantId})}">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+
 
         <!-- Outer OOB region: a successful upload OOB-refreshes the whole grid
              via dialogSuccess (id + hx-swap-oob). Search and delete keep
@@ -48,8 +40,8 @@
                     </div>
                     <div class="empty-state-title">No images yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
-                    <button type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                            th:hx-get="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}"
+                    <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="image-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
@@ -60,7 +52,7 @@
                 <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
                     <div th:each="asset : ${assets}" class="ep-panel asset-card">
                         <div class="asset-card-preview">
-                            <img th:src="@{/tenants/{tenantId}/images/{catalogId}/{assetId}/content(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id})}"
+                            <img th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id})}"
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
@@ -79,7 +71,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
                                         data-confirm-title="Delete Image"
-                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/images/{catalogId}/{assetId}/delete(tenantId=${tenantId},catalogId=${asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -97,18 +89,19 @@
              openDialog=true, embedding the dialog for the same JS to open on
              load. The openDialog guard MUST wrap the th:replace on an OUTER
              element (th:replace precedence 100 runs before th:if 300). -->
+        <div th:replace="~{fragments/from-other-catalogs :: section(${fromOtherCatalogs}, 'images')}"></div>
+
         <div id="dialog-mount" data-dialog-mount>
             <th:block th:if="${openDialog}">
                 <th:block th:replace="~{images/new :: dialog}"></th:block>
             </th:block>
         </div>
 
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
     </th:block>
     <th:block th:fragment="asset-list-actions">
-        <button type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/images/new(tenantId=${tenantId})}"
+        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="image-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />

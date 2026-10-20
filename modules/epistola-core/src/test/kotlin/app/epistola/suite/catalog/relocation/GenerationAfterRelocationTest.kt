@@ -21,7 +21,6 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
@@ -50,19 +49,17 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
 
     @Autowired private lateinit var meterRegistry: MeterRegistry
 
-    @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired private lateinit var fontByteCache: FontByteCache
-
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
     @Autowired
     private lateinit var releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource
 
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
+
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }

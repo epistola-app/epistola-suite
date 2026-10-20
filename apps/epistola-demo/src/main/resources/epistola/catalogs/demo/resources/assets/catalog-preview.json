@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "image",
-    "slug": "catalog-preview",
+    "key": "catalog-preview",
     "name": "Epistola Catalog Preview",
     "mediaType": "image/svg+xml",
     "width": null,

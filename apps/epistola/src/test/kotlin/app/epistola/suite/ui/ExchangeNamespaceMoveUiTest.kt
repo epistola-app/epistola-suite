@@ -5,12 +5,13 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
-import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -24,9 +25,9 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 
 /**
- * Moving a published catalog to another namespace has consequences worth stating, but only for
- * someone who is actually moving it. Opening the same dialog to change the release policy should
- * not confront them with a warning about something they are not doing.
+ * A catalog's namespace is part of its name on Exchange, so once Exchange accepted a release under it
+ * there is no moving it (`CatalogNamespaceFixedException`). The publication dialog says so instead
+ * of offering a picker that could only be refused.
  */
 class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
 
@@ -34,7 +35,7 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
     private lateinit var worker: CatalogPublicationWorker
 
     @Test
-    fun `the move warning appears only once the namespace is actually changed`() {
+    fun `once Exchange accepted a release the namespace is shown as fixed, with nothing to change it`() {
         val tenant = createTenant("Move Warning")
         val catalogKey = CatalogKey.of("invoices")
         withMediator {
@@ -48,32 +49,23 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
                 exchange.baseUrl,
             ).execute()
             CreateCatalog(tenant.id, catalogKey, "Invoices").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Exchange *accepting* a release is what makes the namespace consequential to change:
             // a submission it takes and then rejects has published nothing.
             worker.run()
         }
 
-        gotoAndReady("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse")
+        // Exchange publication is on the catalog's Settings page.
+        gotoAndReady("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings")
         val dialog = page.openDialogByTrigger(
             page.locator("button[hx-get*='section=publication'], button[data-hx-get*='section=publication']").first(),
             "#catalog-metadata-dialog",
         )
 
-        val warning = dialog.locator(".alert-warning")
-        val acknowledgement = dialog.locator("input[name='acknowledgeAlreadyPublished']")
-
-        // Opened to change the policy: nothing is being moved, so nothing warns.
-        assertThat(warning).isHidden()
-
-        dialog.locator("select[name='chosenNamespace']").selectOption("internal-forms")
-        assertThat(warning).isVisible()
-        assertThat(acknowledgement).isVisible()
-
-        // Put it back and the warning goes with it.
-        dialog.locator("select[name='chosenNamespace']").selectOption("public-services")
-        assertThat(warning).isHidden()
+        assertThat(dialog.getByTestId("catalog-namespace-fixed")).containsText("public-services")
+        assertThat(dialog.locator("select[name='chosenNamespace']")).hasCount(0)
     }
 
     companion object {

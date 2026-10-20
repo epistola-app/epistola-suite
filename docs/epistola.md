@@ -22,10 +22,10 @@ Templates are the central concept. Each template defines:
   examples for testing. Editor-created schemas use Draft 7; schemas without an explicit dialect
   default to Draft 2020-12. See [Data Contracts](data-contracts.md) for editing and support details.
 - **Variants** — Presentation variations of the same template, tagged by language, brand, or audience (e.g. `en`, `nl`, `corporate`).
-- **Versions** — Each variant has immutable, numbered versions (1–200) with a three-state lifecycle:
-  - `DRAFT` — Editable work-in-progress (at most one per variant).
-  - `PUBLISHED` — Frozen snapshot ready for use.
-  - `ARCHIVED` — Retired version, preserved for audit.
+- **Ready marks and releases** — Each variant has one working model, edited in place. Marking a
+  variant (or a whole template, or the catalog) ready records that its current content is reviewed;
+  releasing the catalog captures every resource as it is, and a release is what documents are
+  generated from. See [Catalog versioning](catalog-versioning.md#ready-marks).
 
 ### Visual Template Editor
 
@@ -78,7 +78,7 @@ Server-side rendering via **iText Core 9.5.0** — direct PDF construction from 
 | Simple (text + table)                     | 10–50 ms            |
 | Complex (loops, conditionals, multi-page) | 50–200 ms           |
 
-The rendering pipeline: load template version → evaluate expressions against input data → traverse node/slot graph → map each node type to an iText element (Paragraph, Table, Div, AreaBreak, etc.) → apply resolved styles → write PDF bytes.
+The rendering pipeline: load the template variant from a catalog release → evaluate expressions against input data → traverse node/slot graph → map each node type to an iText element (Paragraph, Table, Div, AreaBreak, etc.) → apply resolved styles → write PDF bytes.
 
 Page headers and footers are rendered via iText event handlers so they repeat on every page automatically.
 
@@ -94,14 +94,26 @@ Themes are reusable style definitions that can be shared across templates. A the
 
 1. Theme document styles
 2. Template document style overrides
-3. Block style preset (from theme)
+3. Block style preset (its styles come from the theme)
 4. Block inline styles
 
-**Theme selection cascade** (highest → lowest priority):
+**Theme selection cascade** (highest → lowest priority; contract ADR 0007):
 
 1. Variant-level theme override (`themeRef` in the template document)
 2. Template-level default theme
-3. Tenant default theme
+3. The catalog's default theme, which each catalog version carries (a published version renders with
+   the one it was published with)
+4. None: the rendering defaults alone
+
+The tenant's **house theme** is a starting value only: a new catalog starts with it as its default
+theme, and "apply house theme to all catalogs" sets it on every authored catalog. No render reads it.
+
+**Presets.** A catalog declares the block style presets its content may use (key, name, description);
+each theme gives them their styles. Its available presets are its own plus those of the catalogs it
+depends on; the editor offers exactly those, a block naming another one is refused once the catalog
+declares any, and the quality ledger reports a block whose preset its theme does not style. Both
+settings are on the catalog's Themes page, over REST on a catalog version, and over MCP
+(`get_catalog_theme_settings`, `set_catalog_theme_settings`, `apply_house_theme`).
 
 ### Multi-Tenancy
 
@@ -111,17 +123,33 @@ Supports both SaaS multi-tenant deployment and self-hosted single-tenant deploym
 
 ### Environment Management
 
-Environments represent deployment stages (e.g. `staging`, `production`). Each environment serves one release per catalog, enabling:
+Environments represent deployment stages (e.g. `staging`, `production`). An environment serves any
+number of releases of each catalog; deploying adds one beside the others, undeploying removes one.
+Undeploying is never refused because another served release renders with that release: it keeps
+using it implicitly, and a release used only implicitly has no deployment to remove.
+This enables:
 
 - Testing a new release in staging before promoting it to production.
-- Rolling back by deploying an earlier release.
+- Rolling back by undeploying the newer release, which moves generation back to the next one served.
+- Serving an older release beside a newer one, for callers that select it.
 - Running different releases in different environments simultaneously.
 
-Generation that names an environment renders the release it serves for the template's catalog, bound
-when the request is accepted.
+Generation that names an environment renders the highest release of the template's catalog it
+serves, or the highest that satisfies the request's `version` selector (npm range grammar, an exact
+version included), bound when the request is accepted. Without an environment the candidates are
+every release that kept its content. No candidate satisfying the selector refuses the request.
 
-Each environment has a page listing what it serves and its history: every deploy and undeploy, with
-the release it replaced and who made the change, recorded in the same transaction as the change.
+A release renders with the releases of other catalogs it was cut with (its pinned dependencies,
+direct and transitive), from the tenant's copy whatever the environment serves. Deploying it makes
+the environment use them implicitly: they are not deployed, and the environment's page lists them
+under "Comes along". Deploying them as well is a choice: deploy that catalog, or ask for them
+(`includeDependencies`), which deploys the ones not served yet in the same transaction. Only a
+pinned release nothing could render from refuses the deployment (`release-dependencies-missing`,
+409): one the tenant does not have (`UNAVAILABLE`; it is not fetched from its registry). A pin that recorded no release (a release imported from
+catalog wire v7) cannot be checked and is skipped.
+
+Each environment has a page listing every release it serves and its history: every deploy and
+undeploy, naming the release and who made the change, recorded in the same transaction as the change.
 
 ### REST API
 
@@ -195,7 +223,7 @@ modules/
 
 Business logic is organised around **commands** (mutations) and **queries** (reads), dispatched through a central `Mediator` interface. Each domain (templates, themes, environments, documents) defines its own command/query handlers. This decouples the UI/API layer from business logic and makes operations independently testable.
 
-Examples: `CreateDocumentTemplate`, `PublishVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`, `ListVersions`.
+Examples: `CreateDocumentTemplate`, `MarkVariantReady`, `ReleaseCatalogVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`.
 
 ### UI Handlers vs REST API
 

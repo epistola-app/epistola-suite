@@ -90,11 +90,11 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.stageOf(KnownFeatures.EDITOR_WALKTHROUGH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
     }
 
-    /** Default off, resolved by its own [FeatureDefaults.isEnabled] branch rather than the `else`. */
+    /** Default on, resolved by its own [FeatureDefaults.isEnabled] branch rather than the `else`. */
     @Test
-    fun `editor walkthrough default is off and resolved by its own branch`() {
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isFalse()
-        assertThat(FeatureDefaults(editorWalkthrough = true).isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isTrue()
+    fun `editor walkthrough default is on and resolved by its own branch`() {
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).`as`("on by default").isTrue()
+        assertThat(FeatureDefaults(editorWalkthrough = false).isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isFalse()
     }
 
     @Test
@@ -130,17 +130,6 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.CATALOG_INSTALLING)
         assertThat(FeatureDefaults().isEnabled(KnownFeatures.CATALOG_INSTALLING)).isFalse()
         assertThat(FeatureDefaults(catalogInstalling = true).isEnabled(KnownFeatures.CATALOG_INSTALLING)).isTrue()
-    }
-
-    @Test
-    fun `catalog context is toggle-only alpha and defaults off`() {
-        assertThat(KnownFeatures.stageOf(KnownFeatures.CATALOG_CONTEXT)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
-        // It reads state the installation already has and talks to no hub, so a key in SUPPORT_TIER
-        // would be permanently unavailable wherever the support tier is on.
-        assertThat(KnownFeatures.SUPPORT_TIER).doesNotContain(KnownFeatures.CATALOG_CONTEXT)
-        assertThat(KnownFeatures.HUB_ONLY).doesNotContain(KnownFeatures.CATALOG_CONTEXT)
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.CATALOG_CONTEXT)).isFalse()
-        assertThat(FeatureDefaults(catalogContext = true).isEnabled(KnownFeatures.CATALOG_CONTEXT)).isTrue()
     }
 
     @Test

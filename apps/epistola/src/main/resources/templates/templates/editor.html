@@ -26,10 +26,10 @@
             border-bottom: 1px solid var(--ep-border-color);
             display: flex;
             align-items: center;
-            padding: 0 var(--ep-space-6);
+            padding: 0 var(--ep-space-4);
             background: var(--ep-white);
             flex-shrink: 0;
-            gap: var(--ep-space-3);
+            gap: var(--ep-space-2);
             /* Establish a stacking context above the bubble menu (--ep-z-dropdown)
                so the nav occludes it when a selection scrolls up under the bar. */
             position: relative;
@@ -57,17 +57,42 @@
         .editor-nav-variant {
             font-size: var(--ep-text-xs);
             color: var(--ep-muted-foreground);
+            white-space: nowrap;
+        }
+        .editor-nav .ws-crumbs {
+            flex: 1;
+        }
+        .editor-nav-right {
+            margin-left: auto;
         }
     </style>
 </head>
 <body class="editor-page">
-    <nav class="editor-nav">
-        <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${catalogId},id=${templateId})}" class="editor-nav-back">
+    <!--/* The context bar, slimmed to one line so the editor keeps the screen (docs/workspace-shell.md):
+           where this is, which version it changes, what is not published yet, and Publish. Side work
+           is marked as in the full bar. */-->
+    <nav class="editor-nav" th:classappend="${editorScope.sideWork} ? 'ws-bar-side' : ''"
+         th:with="scope=${editorScope}, bar=${editorScope.bar}">
+        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
+           class="editor-nav-back" data-testid="editor-back" th:title="'Back to ' + ${templateName}">
             <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
-            <span th:text="${templateName}">Template Name</span>
         </a>
-        <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
+        <div class="ws-crumbs" role="navigation" aria-label="Where you are">
+            <a class="ws-crumb" th:href="${scope.sections[0][0].href}" data-testid="editor-crumb-catalog" th:text="${scope.name}">Letters</a>
+            <span class="ws-crumb-sep" aria-hidden="true">/</span>
+            <span class="ws-crumb ws-crumb-version ws-crumb-here" th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
+                  data-testid="editor-crumb-version" th:text="${scope.versionLabel}">Next version</span>
+            <span class="ws-crumb-sep" aria-hidden="true">/</span>
+            <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
+               th:text="${templateName}">Template Name</a>
+            <span class="editor-nav-variant" th:text="${variantId}"></span>
+        </div>
+        <div class="ws-bar-right editor-nav-right">
+            <div th:if="${scope.statusHref != null}" class="ws-status" data-testid="ws-status"
+                 th:hx-get="${scope.statusHref}" hx-trigger="load" hx-swap="innerHTML"></div>
+        </div>
     </nav>
+    <div id="release-dialog-container" data-open-dialog-on-swap="release-dialog"></div>
     <!-- data-leader-timing is a test-only seam (issue #418): present only when
          the ?leaderTiming= query param is supplied; omitted in production. -->
     <div id="editor-container" data-testid="editor-container" class="editor-container"
@@ -82,10 +107,13 @@
     {
         "editorModuleUrl": [[@{/editor/template-editor.js}]],
         "templateModel": [[${templateModel}]],
+        "variantRevision": [[${variantRevision}]],
         "theme": [[${editorTheme}]],
+        "availablePresets": [[${availablePresets}]],
         "templateId": [[${templateId}]],
         "tenantId": [[${tenantId}]],
         "catalogId": [[${catalogId}]],
+        "catalogSegment": [[${catalogSegment}]],
         "variantId": [[${variantId}]],
         "dataExamples": [[${dataExamples}]],
         "dataModel": [[${dataModel}]],
@@ -104,8 +132,8 @@
                 "feature": "quality",
                 "factoryExport": "createQualityEditorPlugin",
                 "config": {
-                    "findingsUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]],
-                    "checkUrl": [[@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogId},id=${templateId},variantId=${variantId})}]]
+                    "findingsUrl": [[@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]],
+                    "checkUrl": [[@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]]
                 }
             },
             {

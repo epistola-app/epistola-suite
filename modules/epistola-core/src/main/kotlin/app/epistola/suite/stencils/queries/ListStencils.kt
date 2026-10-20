@@ -4,6 +4,9 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -11,7 +14,10 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.STENCIL_COLUMNS
+import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -23,7 +29,10 @@ data class ListStencils(
     val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<Stencil>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<Stencil>>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
@@ -35,9 +44,9 @@ class ListStencilsHandler(
 ) : QueryHandler<ListStencils, List<Stencil>> {
     override fun handle(query: ListStencils): List<Stencil> = jdbi.withHandle<List<Stencil>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT s.id, s.tenant_key, s.catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, s.created_at, s.updated_at, s.created_by, s.updated_by FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.id = s.catalog_key WHERE s.tenant_key = :tenantId")
+            append("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND s.catalog_key = :catalogKey")
+                append(" AND s.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND (s.name ILIKE :searchTerm OR s.description ILIKE :searchTerm)")
@@ -64,6 +73,7 @@ class ListStencilsHandler(
             .bind("limit", query.limit)
             .bind("offset", query.offset)
             .mapTo<Stencil>()
+            .map(Stencil::withAbsentSchemaAsNull)
             .list()
     }
 }

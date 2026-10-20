@@ -3,6 +3,9 @@
 > **Status:** Proposed. A statement of direction and phasing, not a
 > commitment or a description of what is built. Dates and ordering change.
 
+> Superseded on template versions by contract ADR 0002 (2.0): variants have one working model and
+> ready marks, and the catalog release is the only version; see [catalog versioning](catalog-versioning.md).
+
 This document provides a high-level overview of planned features and development phases.
 
 ## Vision

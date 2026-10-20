@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 /**
- * What an environment served over time, newest first: every deploy and undeploy, with the release it
- * replaced. Limited in the database.
+ * What an environment served over time, newest first: every deploy and undeploy, each naming the
+ * release it was about. Limited in the database.
  */
 data class ListDeploymentHistory(
     val environmentId: EnvironmentId,
@@ -51,7 +51,7 @@ class ListDeploymentHistoryHandler(
     override fun handle(query: ListDeploymentHistory): List<DeploymentLogEntry> = jdbi.withHandle<List<DeploymentLogEntry>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT l.environment_key, l.catalog_key, l.action, l.version, l.previous_version, l.changed_at,
+            SELECT l.environment_key, l.catalog_key, l.registry, l.namespace, l.action, l.version, l.previous_version, l.draft_label, l.changed_at,
                    u.display_name
             FROM environment_deployment_log l
             LEFT JOIN users u ON u.id = l.changed_by
@@ -73,6 +73,9 @@ class ListDeploymentHistoryHandler(
                     previousVersion = rs.getString("previous_version"),
                     changedAt = rs.getObject("changed_at", OffsetDateTime::class.java),
                     changedByName = rs.getString("display_name"),
+                    registry = rs.getString("registry"),
+                    namespace = rs.getString("namespace"),
+                    draftLabel = rs.getString("draft_label"),
                 )
             }
             .list()

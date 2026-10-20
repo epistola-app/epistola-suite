@@ -26,7 +26,7 @@
             <section class="ep-panel form-section">
                 <h2>Create New Tenant</h2>
                 <form id="create-tenant-form" th:action="@{/tenants}" method="post"
-                      hx-post="/tenants"
+                      th:hx-post="@{/tenants}"
                       hx-target="#tenant-rows"
                       hx-swap="innerHTML"
                       data-reset-on-success>
@@ -88,7 +88,7 @@
                             <td th:title="${tenant.name}">
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}"></a>
                             </td>
-                            <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${tenant.createdAt}" th:title="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Open tenant">
@@ -115,7 +115,6 @@
             </div>
         </section>
 
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />

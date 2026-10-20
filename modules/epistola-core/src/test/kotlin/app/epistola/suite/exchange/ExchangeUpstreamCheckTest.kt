@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.UpstreamAvailability
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
@@ -23,6 +24,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -126,11 +128,11 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
 
     @Test
     fun `a withdrawn installed release is reported rather than acted on`() {
-        val tenant = installed("check-withdrawn")
+        val tenant = installed("check-withdrawn", version = "1.1.0")
         // The publisher pulls the release this tenant is running and offers an older one instead.
         exchange.hostedCatalogs.clear()
-        exchange.publish("acme", "invoices", releaseArchive("0.9.0"), version = "0.9.0")
-        exchange.publish("acme", "invoices", releaseArchive("1.0.0"), version = "1.0.0", availability = "WITHDRAWN")
+        exchange.publish("acme", "invoices", releaseArchive("1.0.0"), version = "1.0.0")
+        exchange.publish("acme", "invoices", releaseArchive("1.1.0"), version = "1.1.0", availability = "WITHDRAWN")
         makeDue(tenant)
 
         worker.run()
@@ -138,7 +140,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         val state = store.stateFor(tenant, catalogKey)!!
         assertThat(state.installedAvailability).isEqualTo(UpstreamAvailability.WITHDRAWN)
         // The way forward is the newest release still offered, even though it is older.
-        assertThat(state.availableVersion).isEqualTo("0.9.0")
+        assertThat(state.availableVersion).isEqualTo("1.0.0")
     }
 
     @Test
@@ -153,9 +155,9 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
     }
 
     /** A connected tenant with `acme/invoices` 1.0.0 installed. */
-    private fun installed(name: String): TenantKey {
+    private fun installed(name: String, version: String = "1.0.0"): TenantKey {
         val tenant = createTenant(name).id
-        exchange.publish("acme", "invoices", releaseArchive("1.0.0"), version = "1.0.0")
+        exchange.publish("acme", "invoices", releaseArchive(version), version = version)
         withMediator {
             SaveFeatureToggle(tenant, KnownFeatures.CATALOG_INSTALLING, true).execute()
             SaveFeatureToggle(tenant, KnownFeatures.CATALOG_PUBLISHING, true).execute()
@@ -194,8 +196,9 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
                 name = "Theme $version",
             ).execute()
+            MarkCatalogReady(publisher, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }
 

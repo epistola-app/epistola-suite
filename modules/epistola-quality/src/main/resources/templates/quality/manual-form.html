@@ -24,6 +24,7 @@
         <form th:hx-post="@{/tenants/{tenantId}/quality(tenantId=${tenantId})}"
               hx-swap="none"
               data-testid="quality-manual-form">
+            <div th:replace="~{epistola-web/form-error :: form-error(id='quality-manual-error')}"></div>
             <div class="ep-dialog-body ep-stack ep-gap-4">
                 <p class="text-muted" style="margin: 0; font-size: var(--ep-text-sm);">
                     For something a check cannot see — tone, factual errors, a review remark.
@@ -58,7 +59,7 @@
                     <label class="ep-label" for="manual-severity">Severity</label>
                     <select id="manual-severity" name="severity" class="ep-select" required
                             data-testid="quality-manual-severity">
-                        <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
+                        <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                                 th:selected="${s.name() == 'WARNING'}">WARNING</option>
                     </select>
                 </div>

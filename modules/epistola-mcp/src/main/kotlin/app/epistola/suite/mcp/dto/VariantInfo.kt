@@ -23,6 +23,8 @@ data class VariantInfo(
     val isDefault: Boolean,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
+    /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
+    val revision: Long? = null,
 ) {
     companion object {
         fun from(variant: TemplateVariant): VariantInfo = VariantInfo(
@@ -34,6 +36,7 @@ data class VariantInfo(
             isDefault = variant.isDefault,
             createdAt = variant.createdAt,
             updatedAt = variant.updatedAt,
+            revision = variant.revision,
         )
     }
 }

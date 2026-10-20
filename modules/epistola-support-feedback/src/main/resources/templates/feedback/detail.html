@@ -16,8 +16,8 @@
                     <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
                     <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
-                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
-                          th:text="'Submitted ' + ${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}">Submitted 2026-01-01</span>
+                    <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">Submitted
+                          <span th:text="${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${feedback.createdAt}">2026-01-01</span></span>
                 </div>
 
                 <!-- Description -->
@@ -87,7 +87,7 @@
                                         <span th:if="${comment.source.name() == 'GITHUB'}" class="badge badge-outline" style="margin-left: var(--ep-space-2);">GitHub</span>
                                     </span>
                                     <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
-                                          th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>
+                                          th:text="${#temporals.format(comment.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${comment.createdAt}">2026-01-01</span>
                                 </div>
                                 <div style="white-space: pre-wrap;" th:text="${comment.body}">Comment text</div>
                             </div>
@@ -120,10 +120,10 @@
               class="ep-row">
             <div th:replace="~{epistola-web/form-error :: form-error(id='update-status-error')}"></div>
             <select name="status" class="ep-select ep-select-sm form-control-auto">
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
             </select>
-            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Update Status</button>
+            <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>
         </form>
     </th:block>
 

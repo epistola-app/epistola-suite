@@ -27,18 +27,18 @@ export interface ImageOptions {
 
 /**
  * Build the content URL for an image, substituting both the catalog and the
- * asset id. A cross-catalog image carries its own `catalogKey`; legacy nodes
- * without one fall back to the template's [defaultCatalogKey].
+ * image key. A cross-catalog image carries its own `catalogKey`; a node
+ * without one falls back to the template's [defaultCatalogKey].
  */
 export function resolveContentUrl(
   pattern: string | undefined,
-  assetId: string,
+  imageKey: string,
   catalogKey: string | undefined,
   defaultCatalogKey: string | undefined,
 ): string {
-  return (pattern ?? '/images/{assetId}')
+  return (pattern ?? '/images/{imageKey}')
     .replace('{catalogId}', catalogKey ?? defaultCatalogKey ?? '')
-    .replace('{assetId}', assetId);
+    .replace('{imageKey}', imageKey);
 }
 
 /**
@@ -115,7 +115,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       { key: 'aspectRatioLocked', label: 'Lock Aspect Ratio', type: 'boolean', defaultValue: true },
     ],
     defaultProps: {
-      assetId: null,
+      imageKey: null,
       catalogKey: null,
       alt: '',
       decorative: false,
@@ -153,7 +153,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       {
         name: 'placeholder',
         description:
-          'An empty image node with no assigned asset. The assetId is null, so the renderer shows a placeholder. Set assetId to a valid asset reference and width/height to render the actual image.',
+          'An empty image node with no assigned image. The imageKey is null, so the renderer shows a placeholder. Set imageKey to the key of an image resource and width/height to render the actual image.',
         fragment: {
           rootNodeId: 'n-image-placeholder',
           nodes: {
@@ -162,7 +162,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
               type: 'image',
               slots: [],
               props: {
-                assetId: null,
+                imageKey: null,
                 alt: '',
                 width: '',
                 height: '',
@@ -176,7 +176,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       {
         name: 'with-asset',
         description:
-          'An image node referencing a real asset (the Epistola logo from the demo catalog: slug 01966a00-0000-7000-8000-000000000001). The catalogKey records which catalog the asset lives in, so the reference works across catalogs. Width and height are set in points — the renderer fetches the asset binary when producing the PDF.',
+          "An image node referencing a real image (the Epistola logo from the demo catalog: key 01966a00-0000-7000-8000-000000000001). The imageKey is the image resource's key within its catalog, and the catalogKey records which catalog the image lives in, so the reference works across catalogs. Width and height are set in points — the renderer fetches the image binary when producing the PDF.",
         fragment: {
           rootNodeId: 'n-image-logo',
           nodes: {
@@ -185,7 +185,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
               type: 'image',
               slots: [],
               props: {
-                assetId: '01966a00-0000-7000-8000-000000000001',
+                imageKey: '01966a00-0000-7000-8000-000000000001',
                 catalogKey: 'epistola-demo',
                 alt: 'Epistola Logo',
                 width: '80pt',
@@ -212,7 +212,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           nodeId: node.id,
           props: {
             ...node.props,
-            assetId: asset.id,
+            imageKey: asset.id,
             catalogKey: crossCatalogKey(asset.catalogKey, defaultCatalogKey),
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',
@@ -221,8 +221,8 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
         });
       };
 
-      const assetId = node.props?.assetId as string | null;
-      if (!assetId) {
+      const imageKey = node.props?.imageKey as string | null;
+      if (!imageKey) {
         if (hasPicker) {
           return html`<div
             class="canvas-image-placeholder"
@@ -244,7 +244,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
       }
 
       const nodeCatalogKey = node.props?.catalogKey as string | undefined;
-      const src = resolveContentUrl(contentUrlPattern, assetId, nodeCatalogKey, defaultCatalogKey);
+      const src = resolveContentUrl(contentUrlPattern, imageKey, nodeCatalogKey, defaultCatalogKey);
       const alt = (node.props?.alt as string) || '';
       const spacingUnit = engine.theme?.spacingUnit ?? DEFAULT_SPACING_UNIT_PT;
       const width = resolveCanvasDimension(node.props?.width as string | undefined, spacingUnit);
@@ -276,7 +276,7 @@ export function createImageDefinition(options?: ImageOptions): ComponentDefiniti
           if (!asset) return null;
 
           return {
-            assetId: asset.id,
+            imageKey: asset.id,
             catalogKey: crossCatalogKey(asset.catalogKey, defaultCatalogKey),
             alt: asset.name,
             width: asset.width ? `${pxToPt(asset.width)}pt` : '',

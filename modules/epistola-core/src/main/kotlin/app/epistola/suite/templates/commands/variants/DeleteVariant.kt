@@ -5,6 +5,9 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -18,7 +21,10 @@ import org.springframework.stereotype.Component
 
 data class DeleteVariant(
     val variantId: VariantId,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = variantId.tenantKey
@@ -36,7 +42,7 @@ class DeleteVariantHandler(
             val isDefault = handle.createQuery(
                 """
                 SELECT is_default FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
@@ -54,7 +60,7 @@ class DeleteVariantHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)

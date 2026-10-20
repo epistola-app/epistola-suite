@@ -36,8 +36,8 @@ class DependencyResolver(
         credential: String?,
         catalog: app.epistola.suite.catalog.migrations.CatalogMigrationContext,
     ): List<ResourceEntry> {
-        val allByKey = manifest.resources.associateBy { "${it.type}:${it.slug}" }
-        val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.slug}" }
+        val allByKey = manifest.resources.associateBy { "${it.type}:${it.key}" }
+        val result = selected.associateByTo(mutableMapOf()) { "${it.type}:${it.key}" }
         val scanned = mutableSetOf<String>()
         val missing = mutableSetOf<String>()
 
@@ -54,7 +54,7 @@ class DependencyResolver(
             val deps = mutableListOf<DependencyScanner.Dependencies>()
 
             for (entry in toScan) {
-                val key = "${entry.type}:${entry.slug}"
+                val key = "${entry.type}:${entry.key}"
                 if (key in scanned) continue
                 scanned += key
 
@@ -62,8 +62,8 @@ class DependencyResolver(
                 when (val resource = detail.resource) {
                     is TemplateResource -> {
                         // Resource-level theme reference (themeId field)
-                        if (resource.themeId != null) {
-                            deps += DependencyScanner.Dependencies(themeRefs = setOf(resource.themeId!!))
+                        if (resource.themeKey != null) {
+                            deps += DependencyScanner.Dependencies(themeRefs = setOf(resource.themeKey!!))
                         }
                         // Variant attribute keys may be catalog-qualified
                         // (`"<catalogKey>.<slug>"`). Bare slugs resolve
@@ -89,7 +89,7 @@ class DependencyResolver(
                         // at install-time, not pulled in here.
                         val binding = resource.codeListBinding
                         if (binding != null && binding.catalogKey == null) {
-                            deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.slug))
+                            deps += DependencyScanner.Dependencies(codeListRefs = setOf(binding.key))
                         }
                     }
 
@@ -102,7 +102,7 @@ class DependencyResolver(
                         val sameCatalogFonts = DependencyScanner
                             .themeFontRefs(resource.documentStyles, resource.blockStylePresets)
                             .filter { it.catalogKey == null }
-                            .mapTo(mutableSetOf()) { it.slug }
+                            .mapTo(mutableSetOf()) { it.key }
                         if (sameCatalogFonts.isNotEmpty()) {
                             deps += DependencyScanner.Dependencies(fontRefs = sameCatalogFonts)
                         }
@@ -154,7 +154,7 @@ class DependencyResolver(
         }
 
         if (result.size > selected.size) {
-            val added = result.keys - selected.map { "${it.type}:${it.slug}" }.toSet()
+            val added = result.keys - selected.map { "${it.type}:${it.key}" }.toSet()
             logger.info("Auto-including {} dependencies: {}", added.size, added)
         }
 

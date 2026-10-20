@@ -10,20 +10,17 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
@@ -42,25 +39,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
-
 /**
- * Regression cover for the stencil detail HTMX fragment flow.
- *
- * The `versions` and `usage` fragments were rendered via [StencilHandler.versionListFragment]
- * and [StencilHandler.usageDetails] with a nullable `GetStencil(...).query()` value passed
- * straight into the model DSL. The DSL's `infix fun String.to(value: Any)` could not accept
- * nullable values, so Kotlin silently resolved to `kotlin.to` (the Pair extension), the
- * pair was discarded, and `stencil` never reached the model — yielding `EL1007E` on
- * `stencil.catalogType.name()` in `stencils/detail.html`. The fragment tests below
- * would have returned HTTP 500 before that fix.
- *
- * The upgrade tests cover a second, pre-existing defect (shipped in #305): the
- * `applyUpgrade()` script in `stencils/detail.html` never sent `catalogKey`, so
- * `StencilHandler.upgradeInTemplate` rejected every request with HTTP 400
- * `{"error":"catalogKey is required"}` — the whole "upgrade stencil in template"
- * feature was non-functional and had no test. These assert the endpoint contract
- * the fixed client now relies on, plus that the usage fragment emits the
- * `data-catalog-key` attribute the client reads.
+ * The stencil pages and the editor's stencil routes, on the 2.0 model: a stencil has one working
+ * copy (no versions), the editor reads and saves it as JSON (`/content`), the detail page marks it
+ * ready and toggles whether it reads the template's data, and the usage list says per variant
+ * whether it still fits the stencil as it is.
  */
 class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
@@ -68,120 +51,15 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `HTMX POST createVersion renders versions fragment with stencil model attribute`() = fixture {
+    fun `JSON GET content returns the working copy`() = fixture {
         lateinit var seeded: Seeded
 
-        given {
-            seeded = seedStencilWithoutDraft("Versions Fragment Create")
-        }
+        given { seeded = seedStencil("Content Read", content = stencilV1()) }
 
         whenever {
-            postHtmx("/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions")
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // Versions table is the proof the fragment rendered to completion.
-            // If `stencil` were null, Thymeleaf would have thrown EL1007E before reaching the table.
-            assertThat(response.body).contains("ep-table")
-            assertThat(response.body).contains("v1")
-        }
-    }
-
-    @Test
-    fun `JSON POST createVersion returns the exact draft content and status`() = fixture {
-        lateinit var seeded: Seeded
-
-        given {
-            seeded = seedStencilWithoutDraft("Exact Draft Create")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-                accept = listOf(MediaType.APPLICATION_JSON)
-            }
-            restTemplate.postForEntity(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions",
-                HttpEntity("{}", headers),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("\"version\":1")
-            assertThat(response.body).contains("\"status\":\"draft\"")
-            assertThat(response.body).contains("\"content\"")
-        }
-    }
-
-    @Test
-    fun `JSON PUT updates only the exact draft version in the URL`() = fixture {
-        lateinit var seeded: Seeded
-
-        given {
-            seeded = seedStencilWithDraft("Exact Draft Update")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-                accept = listOf(MediaType.APPLICATION_JSON)
-            }
+            val headers = HttpHeaders().apply { accept = listOf(MediaType.APPLICATION_JSON) }
             restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions/1",
-                HttpMethod.PUT,
-                HttpEntity(mapOf("content" to stencilV1()), headers),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("\"version\":1")
-        }
-    }
-
-    @Test
-    fun `HTMX POST publishVersion renders versions fragment with stencil model attribute`() = fixture {
-        lateinit var seeded: Seeded
-
-        given {
-            seeded = seedStencilWithDraft("Versions Fragment Publish")
-        }
-
-        whenever {
-            postHtmx(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/versions/1/publish",
-            )
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // After publish, the row badge reads "published" — this only renders when
-            // both `versions` and `stencil` are populated (the Publish/Archive button
-            // visibility hinges on `stencil.catalogType.name()`).
-            assertThat(response.body).contains("published")
-        }
-    }
-
-    @Test
-    fun `HTMX GET usage details renders usage fragment with stencil and catalogId`() = fixture {
-        lateinit var seeded: Seeded
-
-        given {
-            seeded = seedStencilWithPublished("Usage Fragment")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply { set("HX-Request", "true") }
-            restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.catalogKey}/${seeded.stencilKey}/usage",
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/content",
                 HttpMethod.GET,
                 HttpEntity<Void>(headers),
                 String::class.java,
@@ -191,84 +69,188 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // The upgrade picker is the visible proof; it requires `versions` AND the
-            // surrounding markup uses `stencil` for the `AUTHORED` gate.
-            assertThat(response.body).contains("upgrade-version-select")
+            assertThat(response.body).contains("\"stencilId\":\"${seeded.stencilKey}\"")
+            assertThat(response.body).contains("\"editable\":true")
+            assertThat(response.body).contains("ph-body")
         }
     }
 
     @Test
-    fun `POST upgrade with the template catalogKey upgrades the stencil in the template draft`() = fixture {
-        lateinit var seeded: SeededUsage
+    fun `JSON PUT content saves the working copy`() = fixture {
+        lateinit var seeded: Seeded
 
-        given {
-            seeded = seedStencilUsedByTemplateDraft("Upgrade With Catalog Key")
-        }
+        given { seeded = seedStencil("Content Save") }
 
         whenever {
-            postJson(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/upgrade",
-                """{"templateId":"${seeded.templateKey}","variantId":"${seeded.variantKey}","catalogKey":"${seeded.templateCatalogKey}","newVersion":2}""",
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+                accept = listOf(MediaType.APPLICATION_JSON)
+            }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/content",
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV2()), headers),
+                String::class.java,
             )
         }
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // `upgraded` is the count field StencilHandler.upgradeInTemplate returns
-            // on success; its presence proves the request got past the catalogKey gate.
-            assertThat(response.body).contains("\"upgraded\"")
-            assertThat(response.body).doesNotContain("catalogKey is required")
+            val stored = withMediator { GetStencil(seeded.stencilId).query() }!!
+            assertThat(stored.content.nodes).containsKey("ph-main")
         }
     }
 
     @Test
-    fun `POST upgrade against a published template creates a draft and upgrades it`() = fixture {
-        lateinit var seeded: SeededUsage
+    fun `JSON PUT content with clearParameterSchema removes the stored parameters`() = fixture {
+        lateinit var seeded: Seeded
+        val url = { s: Seeded -> "/tenants/${s.tenantId.key}/catalogs/${s.catalogKey}/stencils/${s.stencilKey}/content" }
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+            accept = listOf(MediaType.APPLICATION_JSON)
+        }
 
         given {
-            seeded = seedStencilUsedByPublishedTemplate("Upgrade Published Template")
+            seeded = seedStencil("Content Clear Schema", content = stencilV1())
+            val schema = mapOf("type" to "object", "properties" to mapOf("who" to mapOf("type" to "string")))
+            restTemplate.exchange(
+                url(seeded),
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV1(), "parameterSchema" to schema), headers),
+                String::class.java,
+            )
+            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNotNull()
         }
 
         whenever {
-            postJson(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/upgrade",
-                """{"templateId":"${seeded.templateKey}","variantId":"${seeded.variantKey}","catalogKey":"${seeded.templateCatalogKey}","newVersion":2}""",
+            restTemplate.exchange(
+                url(seeded),
+                HttpMethod.PUT,
+                HttpEntity(mapOf("content" to stencilV1(), "clearParameterSchema" to true), headers),
+                String::class.java,
             )
         }
 
         then {
-            // Previously this returned 400 "No draft version found" — a published
-            // template with no open draft could not be bulk-upgraded. Now the command
-            // creates a draft seeded from the published version and upgrades there.
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("\"upgraded\"")
-            assertThat(response.body).doesNotContain("No draft version found")
+            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.parameterSchema).isNull()
         }
     }
 
     @Test
-    fun `POST upgrade without catalogKey is rejected with the documented error`() = fixture {
-        lateinit var seeded: SeededUsage
+    fun `detail page offers Mark ready for a stencil that is not ready`() = fixture {
+        lateinit var seeded: Seeded
 
-        given {
-            seeded = seedStencilUsedByTemplateDraft("Upgrade Missing Catalog Key")
-        }
+        given { seeded = seedStencil("Detail Not Ready") }
 
         whenever {
-            postJson(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/upgrade",
-                """{"templateId":"${seeded.templateKey}","variantId":"${seeded.variantKey}","newVersion":2}""",
+            restTemplate.getForEntity(
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}",
+                String::class.java,
             )
         }
 
         then {
-            // Locks the contract: the omission the old client shipped must stay a
-            // hard 400, not silently resolve to the stencil's own catalog.
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
-            assertThat(response.body).contains("catalogKey is required")
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("data-testid=\"stencil-not-ready\"")
+            assertThat(response.body).contains("data-testid=\"stencil-mark-ready\"")
+            // Optional: publishing checks and marks it, so it is not presented as a required step.
+            assertThat(response.body).contains("Publishing checks it and marks it ready")
+            assertThat(response.body).doesNotContain("cannot be released until it is marked ready").doesNotContain(">Not ready<")
+            // No versions, no publishing on the page itself; the catalog's nav beside it has Versions.
+            val page = response.body!!.substringAfter("id=\"main-content\"")
+            assertThat(page).doesNotContain("Versions")
+            assertThat(page).doesNotContain("/publish")
+        }
+    }
+
+    @Test
+    fun `HTMX POST ready marks the stencil ready and withdraws the action`() = fixture {
+        lateinit var seeded: Seeded
+
+        given { seeded = seedStencil("Mark Ready", content = stencilV1()) }
+
+        whenever {
+            postHtmx("/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/ready")
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("data-testid=\"stencil-ready\"")
+            assertThat(response.body).doesNotContain("data-testid=\"stencil-mark-ready\"")
+        }
+    }
+
+    @Test
+    fun `JSON POST ready answers the editor with JSON`() = fixture {
+        lateinit var seeded: Seeded
+
+        given { seeded = seedStencil("Mark Ready JSON", content = stencilV1()) }
+
+        whenever {
+            postJson("/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/ready", "{}")
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("\"ready\":true")
+        }
+    }
+
+    @Test
+    fun `HTMX POST settings toggles whether the stencil reads the template's data`() = fixture {
+        lateinit var seeded: Seeded
+
+        given { seeded = seedStencil("Reads Template Data") }
+
+        whenever {
+            restTemplate.postForEntity(
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.catalogKey}/stencils/${seeded.stencilKey}/settings",
+                HttpEntity<MultiValueMap<String, String>>(LinkedMultiValueMap(mapOf("readsTemplateData" to listOf("true"))), htmxFormHeaders()),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(withMediator { GetStencil(seeded.stencilId).query() }!!.readsTemplateData).isTrue()
+            assertThat(response.body).contains("data-testid=\"stencil-reads-template-data\"")
+        }
+    }
+
+    @Test
+    fun `HTMX GET usage lists each variant and whether it still fits`() = fixture {
+        lateinit var seeded: SeededUsage
+
+        given {
+            seeded = seedStencilUsedByTemplate("Usage Fits")
+            // The stencil drops the placeholder the template fills, so the template no longer fits.
+            withMediator { UpdateStencil(id = seeded.stencilId, content = stencilV2()).execute() }
+        }
+
+        whenever {
+            val headers = HttpHeaders().apply { set("HX-Request", "true") }
+            restTemplate.exchange(
+                "/tenants/${seeded.tenantId.key}/catalogs/${seeded.stencilCatalogKey}/stencils/${seeded.stencilKey}/usage",
+                HttpMethod.GET,
+                HttpEntity<Void>(headers),
+                String::class.java,
+            )
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("data-testid=\"stencil-usage-row\"")
+            assertThat(response.body).contains(seeded.variantKey)
+            assertThat(response.body).contains("Does not fit")
+            assertThat(response.body).doesNotContain("upgrade")
         }
     }
 
@@ -318,116 +300,6 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    @Test
-    fun `HTMX GET usage details renders selectable rows carrying data-catalog-key`() = fixture {
-        lateinit var seeded: SeededUsage
-
-        given {
-            seeded = seedStencilUsedByTemplateDraft("Usage Data Catalog Key")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply { set("HX-Request", "true") }
-            restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage",
-                HttpMethod.GET,
-                HttpEntity<Void>(headers),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // The selectable checkbox must carry the template's own catalog so
-            // applyUpgrade() can put it in the request body. Without this attribute
-            // the upgrade POST 400s with "catalogKey is required".
-            assertThat(response.body).contains("data-catalog-key=\"${seeded.templateCatalogKey}\"")
-        }
-    }
-
-    @Test
-    fun `HTMX GET usage details with filter=upgradable shows only upgradable rows`() = fixture {
-        lateinit var seeded: SeededUsage
-
-        given {
-            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Upgradable")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply { set("HX-Request", "true") }
-            restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=upgradable",
-                HttpMethod.GET,
-                HttpEntity<Void>(headers),
-                String::class.java,
-            )
-        }
-
-        then {
-            // The variant has a published (non-upgradable, "has draft") row and a draft
-            // (upgradable) row. filter=upgradable shows just the draft.
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("1 of 2 upgradable")
-            assertThat(response.body).contains("usage-select") // the draft row's checkbox
-            // The filtered-out published row's block reason must not appear.
-            assertThat(response.body).doesNotContain("already has an open draft")
-        }
-    }
-
-    @Test
-    fun `HTMX GET usage details with filter=not-upgradable shows only blocked rows`() = fixture {
-        lateinit var seeded: SeededUsage
-
-        given {
-            seeded = seedStencilUsedByPublishedAndDraftTemplate("Usage Filter Blocked")
-        }
-
-        whenever {
-            val headers = HttpHeaders().apply { set("HX-Request", "true") }
-            restTemplate.exchange(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}/usage?filter=not-upgradable",
-                HttpMethod.GET,
-                HttpEntity<Void>(headers),
-                String::class.java,
-            )
-        }
-
-        then {
-            // filter=not-upgradable shows just the blocked published row (its reason),
-            // and no selectable checkbox.
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("already has an open draft")
-            assertThat(response.body).doesNotContain("usage-select")
-        }
-    }
-
-    @Test
-    fun `stencil detail page shows a per-version Uses column`() = fixture {
-        lateinit var seeded: SeededUsage
-
-        given {
-            seeded = seedStencilUsedByTemplateDraft("Version Usage Counts")
-        }
-
-        whenever {
-            restTemplate.getForEntity(
-                "/tenants/${seeded.tenantId.key}/stencils/${seeded.stencilCatalogKey}/${seeded.stencilKey}",
-                String::class.java,
-            )
-        }
-
-        then {
-            // The versions table renders a Uses column (count of embedded instances
-            // across draft/published templates). v1 is embedded once by the seed.
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Uses")
-        }
-    }
-
     // ── Create dialog (URL-addressable server-sent dialog) ──────────────────
     //
     // The New Stencil create form is a server-sent, URL-addressable dialog
@@ -453,7 +325,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/stencils/new",
+                "/tenants/${testTenant.id}/catalogs/default/stencils/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -468,9 +340,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("ep-dialog")
             assertThat(response.body).contains("""id="create-stencil-form"""")
             // The catalog <select> populated from authored catalogs.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Marketing")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/stencils\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="name"""")
             assertThat(response.body).contains("""name="slug"""")
             assertThat(response.body).contains("""name="description"""")
@@ -493,7 +364,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
             form.add("tags", "header, corporate")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -517,8 +388,8 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // The tags field is declared, so its value survives the error re-render.
             assertThat(response.body).contains("value=\"header, corporate\"")
             // authoredCatalogs prefill survived → the <select> is still populated.
-            assertThat(response.body).contains("""name="catalog"""")
-            assertThat(response.body).contains("Default")
+            // Opened in a catalog, it creates there: no catalog to choose.
+            assertThat(response.body).contains("/catalogs/default/stencils\"").doesNotContain("<select id=\"catalog\"")
         }
     }
 
@@ -536,7 +407,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             form.add("description", "Our house header")
             form.add("tags", "header, corporate")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -549,7 +420,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/stencils/default/corporate-header")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/stencils/corporate-header")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
@@ -564,7 +435,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // A tab left open from before this branch converted the stencil form
             // submits the old plain method=post form as an hx-boosted POST
             // (HX-Request + HX-Boosted). build() routes boosted requests to the
-            // non-HTMX branch; without an onNonHtmx fallback that branch threw
+            // non-HTMX branch; without an onFullPage fallback that branch threw
             // IllegalStateException → 500 even for a valid create.
             val form: MultiValueMap<String, String> = LinkedMultiValueMap()
             form.add("catalog", "default")
@@ -576,7 +447,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 contentType = MediaType.APPLICATION_FORM_URLENCODED
             }
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(form, headers),
                 String::class.java,
             )
@@ -584,7 +455,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            // Pre-fix: 500 (IllegalStateException). The onNonHtmx { redirect(...) }
+            // Pre-fix: 500 (IllegalStateException). The onFullPage { redirect(...) }
             // fallback now keeps a valid boosted create out of the 5xx range.
             assertThat(response.statusCode.value()).isLessThan(500)
         }
@@ -598,7 +469,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 String::class.java,
             )
         }
@@ -629,7 +500,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/stencils",
+                "/tenants/${testTenant.id}/catalogs/default/stencils",
                 HttpEntity(
                     """{"id":"json-created","name":"JSON Created","catalogKey":"default"}""",
                     headers,
@@ -656,155 +527,47 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
 
     private data class Seeded(
         val tenantId: TenantId,
-        val catalogKey: String,
-        val stencilKey: String,
-    )
+        val stencilId: StencilId,
+    ) {
+        val catalogKey: String get() = stencilId.catalogKey.value
+        val stencilKey: String get() = stencilId.key.value
+    }
 
     private data class SeededUsage(
         val tenantId: TenantId,
-        val stencilCatalogKey: String,
-        val stencilKey: String,
+        val stencilId: StencilId,
         val templateKey: String,
         val variantKey: String,
-        val templateCatalogKey: String,
-    )
+    ) {
+        val stencilCatalogKey: String get() = stencilId.catalogKey.value
+        val stencilKey: String get() = stencilId.key.value
+    }
 
-    private fun seedStencilWithoutDraft(name: String): Seeded = withMediator {
+    private fun seedStencil(name: String, content: TemplateDocument? = null): Seeded = withMediator {
         val tenant: Tenant = createTenant(name)
         val tenantId = TenantId(tenant.id)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name).execute()
-        Seeded(tenantId, stencilId.catalogKey.value, stencilId.key.value)
+        CreateStencil(id = stencilId, name = name, content = content).execute()
+        Seeded(tenantId, stencilId)
     }
 
-    private fun seedStencilWithDraft(name: String): Seeded = withMediator {
-        val tenant: Tenant = createTenant(name)
-        val tenantId = TenantId(tenant.id)
-        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name).execute()
-        CreateStencilVersion(stencilId = stencilId).execute()
-        Seeded(tenantId, stencilId.catalogKey.value, stencilId.key.value)
-    }
-
-    private fun seedStencilWithPublished(name: String): Seeded = withMediator {
-        val tenant: Tenant = createTenant(name)
-        val tenantId = TenantId(tenant.id)
-        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name).execute()
-        CreateStencilVersion(stencilId = stencilId).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-        Seeded(tenantId, stencilId.catalogKey.value, stencilId.key.value)
-    }
-
-    /**
-     * Stencil v1 published, embedded into a template's default draft variant, with a
-     * v2 published and ready to upgrade to. Mirrors the seed recipe proven by
-     * `StencilPlaceholderIntegrationTest`. Stencil and template share the default
-     * catalog, so `stencilCatalogKey == templateCatalogKey` here — the test still
-     * exercises the wire path that was broken (client must send the catalog at all).
-     */
-    private fun seedStencilUsedByTemplateDraft(name: String): SeededUsage = withMediator {
+    /** A stencil embedded in a template's default variant, both in the default catalog. */
+    private fun seedStencilUsedByTemplate(name: String): SeededUsage = withMediator {
         val tenant: Tenant = createTenant(name)
         val tenantId = TenantId(tenant.id)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
         CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "Letter $name").execute()
         val variantKey = VariantKey.INITIAL
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = VariantId(variantKey, templateId),
             templateModel = templateEmbedding(stencilId.key.value),
         ).execute()
 
-        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        SeededUsage(
-            tenantId = tenantId,
-            // Same default catalog for both; captured separately to keep the wire
-            // contract explicit (the bug was the client omitting the template catalog).
-            stencilCatalogKey = stencilId.catalogKey.value,
-            stencilKey = stencilId.key.value,
-            templateKey = templateKey.value,
-            variantKey = variantKey.value,
-            templateCatalogKey = stencilId.catalogKey.value,
-        )
-    }
-
-    /**
-     * Same as [seedStencilUsedByTemplateDraft], but the template version is
-     * published — leaving NO open draft. Exercises the published-template upgrade
-     * path (issue #598): the command must create a draft to upgrade into.
-     */
-    private fun seedStencilUsedByPublishedTemplate(name: String): SeededUsage = withMediator {
-        val tenant: Tenant = createTenant(name)
-        val tenantId = TenantId(tenant.id)
-        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
-        val variantKey = VariantKey.INITIAL
-        val variantId = VariantId(variantKey, templateId)
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateEmbedding(stencilId.key.value),
-        ).execute()
-        // Publish the template version — now there is no draft to upgrade.
-        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-
-        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        SeededUsage(
-            tenantId = tenantId,
-            stencilCatalogKey = stencilId.catalogKey.value,
-            stencilKey = stencilId.key.value,
-            templateKey = templateKey.value,
-            variantKey = variantKey.value,
-            templateCatalogKey = stencilId.catalogKey.value,
-        )
-    }
-
-    /**
-     * A variant that has BOTH a published version and an open draft embedding the
-     * stencil — so its usage yields one non-upgradable row (the published, blocked
-     * by HAS_DRAFT) and one upgradable row (the draft). Used to exercise the
-     * "show only upgradable" filter.
-     */
-    private fun seedStencilUsedByPublishedAndDraftTemplate(name: String): SeededUsage = withMediator {
-        val tenant: Tenant = createTenant(name)
-        val tenantId = TenantId(tenant.id)
-        val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
-        CreateStencil(id = stencilId, name = name, content = stencilV1()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter $name").execute().withRequiredDataExample()
-        val variantKey = VariantKey.INITIAL
-        val variantId = VariantId(variantKey, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
-        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-        // Re-open a draft → the variant now has a published v1 AND a draft v2.
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
-
-        CreateStencilVersion(stencilId = stencilId, content = stencilV2()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        SeededUsage(
-            tenantId = tenantId,
-            stencilCatalogKey = stencilId.catalogKey.value,
-            stencilKey = stencilId.key.value,
-            templateKey = templateKey.value,
-            variantKey = variantKey.value,
-            templateCatalogKey = stencilId.catalogKey.value,
-        )
+        SeededUsage(tenantId = tenantId, stencilId = stencilId, templateKey = templateKey.value, variantKey = variantKey.value)
     }
 
     /** Stencil v1: a placeholder named "body" with default text. */
@@ -833,7 +596,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         themeRef = ThemeRef.Inherit,
     )
 
-    /** Stencil v2: placeholder renamed "body" → "main" (forces a dropped fill on upgrade). */
+    /** Stencil v2: placeholder renamed "body" → "main", so a template filling "body" no longer fits. */
     private fun stencilV2(): TemplateDocument = TemplateDocument(
         modelVersion = 1,
         root = "root",
@@ -863,7 +626,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilKey" to stencilKey, "version" to 1),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",
@@ -891,7 +654,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
         return restTemplate.postForEntity(url, HttpEntity<Void>(headers), String::class.java)
     }
 
-    /** Mirrors the browser's `applyUpgrade()` fetch: a plain JSON POST (no HX-Request). */
+    /** Mirrors the editor's fetch: a plain JSON POST (no HX-Request). */
     private fun postJson(url: String, body: String): org.springframework.http.ResponseEntity<String> {
         val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
         return restTemplate.postForEntity(url, HttpEntity(body, headers), String::class.java)

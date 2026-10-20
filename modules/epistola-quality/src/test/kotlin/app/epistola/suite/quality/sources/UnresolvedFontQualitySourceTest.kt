@@ -46,7 +46,7 @@ class UnresolvedFontQualitySourceTest {
     )
 
     private fun fontValue(ref: FontRef): Map<String, String> = buildMap {
-        put("slug", ref.slug)
+        put("slug", ref.key)
         ref.catalogKey?.let { put("catalogKey", it) }
     }
 
@@ -76,7 +76,7 @@ class UnresolvedFontQualitySourceTest {
 
     @Test
     fun `an unresolved node font is reported`() {
-        val missing = FontRef(catalogKey = "system", slug = "missing-sans")
+        val missing = FontRef(catalogKey = "system", key = "missing-sans")
         val findings = source.check(inputFor(textNode("text-1", missing), fonts = mapOf(missing to false)))
 
         assertThat(findings).singleElement().satisfies({
@@ -91,21 +91,21 @@ class UnresolvedFontQualitySourceTest {
 
     @Test
     fun `a resolved font is not reported`() {
-        val inter = FontRef(catalogKey = "system", slug = "inter")
+        val inter = FontRef(catalogKey = "system", key = "inter")
 
         assertThat(source.check(inputFor(textNode("text-1", inter), fonts = mapOf(inter to true)))).isEmpty()
     }
 
     @Test
     fun `a font absent from dependency resolution is treated as unknown`() {
-        val missing = FontRef(catalogKey = "system", slug = "missing-sans")
+        val missing = FontRef(catalogKey = "system", key = "missing-sans")
 
         assertThat(source.check(inputFor(textNode("text-1", missing)))).isEmpty()
     }
 
     @Test
     fun `a document level unresolved font has no node marker`() {
-        val missing = FontRef(catalogKey = null, slug = "missing-sans")
+        val missing = FontRef(catalogKey = null, key = "missing-sans")
         val findings = source.check(inputFor(documentFont = missing, fonts = mapOf(missing to false)))
 
         assertThat(findings).singleElement().satisfies({
@@ -116,7 +116,7 @@ class UnresolvedFontQualitySourceTest {
 
     @Test
     fun `the same unresolved font fingerprints identically across runs`() {
-        val missing = FontRef(catalogKey = "system", slug = "missing-sans")
+        val missing = FontRef(catalogKey = "system", key = "missing-sans")
         val input = inputFor(textNode("text-1", missing), fonts = mapOf(missing to false))
 
         val first = source.check(input).single().fingerprint
@@ -127,7 +127,7 @@ class UnresolvedFontQualitySourceTest {
 
     @Test
     fun `different anchors fingerprint differently`() {
-        val missing = FontRef(catalogKey = "system", slug = "missing-sans")
+        val missing = FontRef(catalogKey = "system", key = "missing-sans")
         val findings = source.check(
             inputFor(
                 textNode("text-1", missing),

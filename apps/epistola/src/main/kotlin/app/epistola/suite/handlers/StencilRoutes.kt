@@ -14,27 +14,25 @@ import org.springframework.web.servlet.function.router
 class StencilRoutes(private val handler: StencilHandler) {
     @Bean
     fun stencilRouterFunction(): RouterFunction<ServerResponse> = router {
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/stencils", handler::list)
         "/tenants/{tenantId}/stencils".nest {
-            GET("", handler::list)
             GET("/search", handler::search)
+        }
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/stencils".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
-
-            "/{catalogId}/{stencilId}".nest {
+            "/{stencilId}".nest {
                 GET("", handler::detail)
                 PATCH("", handler::update)
                 POST("/delete", handler::delete)
                 GET("/usage", handler::usageDetails)
-                POST("/upgrade", handler::upgradeInTemplate)
-
-                "/versions".nest {
-                    GET("", handler::listVersions)
-                    POST("", handler::createVersion)
-                    GET("/{versionId}", handler::getVersion)
-                    PUT("/{versionId}", handler::updateDraft)
-                    POST("/{versionId}/publish", handler::publishVersion)
-                    POST("/{versionId}/archive", handler::archiveVersion)
-                }
+                POST("/settings", handler::updateSettings)
+                POST("/ready", handler::markReady)
+                // The working copy, read and saved by the template editor (JSON)
+                GET("/content", handler::getContent)
+                PUT("/content", handler::updateContent)
             }
         }
     }

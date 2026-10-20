@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -13,12 +14,13 @@ import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -43,11 +45,11 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = (1..3).map { i ->
@@ -57,6 +59,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
         }
 
@@ -68,7 +71,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
         val requests = jdbi.withHandle<List<app.epistola.suite.documents.model.DocumentGenerationRequest>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key, release_version,
+                SELECT id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key, release_version,
                        data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
@@ -97,11 +100,11 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val items = listOf(
@@ -111,6 +114,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc-1.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
@@ -118,6 +122,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -139,17 +144,18 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `validates item releaseVersion and environmentId are mutually exclusive`() {
-        assertThatThrownBy {
+    fun `an item version selector combines with an environment`() {
+        // Contract 2.0: the selector picks among the releases the environment serves.
+        assertThatCode {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 releaseVersion = "1.0.0",
-                environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
+                environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Cannot specify both")
+        }.doesNotThrowAnyException()
     }
 }

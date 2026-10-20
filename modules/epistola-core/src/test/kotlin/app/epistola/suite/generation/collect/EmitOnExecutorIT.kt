@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.collect
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -64,6 +65,7 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                     data = data,
                     filename = "x.pdf",
                     routingKey = "order-9999",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -115,6 +117,7 @@ class EmitOnExecutorIT : IntegrationTestBase() {
                     data = data,
                     filename = "y.pdf",
                     routingKey = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

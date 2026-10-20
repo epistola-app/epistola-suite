@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "sectioned-letter",
+    "key": "sectioned-letter",
     "name": "Sectioned Letter",
     "pdfaEnabled": false,
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "type": "object",
       "properties": {
@@ -46,6 +46,7 @@
     },
     "dataExamples": [
       {
+        "key": "default",
         "name": "Default",
         "data": {
           "companyName": "Globex Corporation",
@@ -103,6 +104,7 @@
         }
       },
       {
+        "key": "not-confidential",
         "name": "Not confidential",
         "data": {
           "companyName": "Globex Corporation",
@@ -271,9 +273,8 @@
             "s-letterhead-children"
           ],
           "props": {
-            "stencilId": "letterhead",
+            "stencilKey": "letterhead",
             "catalogKey": "epistola-demo",
-            "version": 1,
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"
@@ -917,7 +918,7 @@
     },
     "variants": [
       {
-        "slug": "default",
+        "key": "default",
         "title": "Default",
         "attributes": {},
         "templateModel": null,

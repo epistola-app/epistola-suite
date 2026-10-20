@@ -8,7 +8,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /**
- * Two distinct consumers (i.e. two different X-API-Keys) on the same tenant
+ * Two distinct consumers (i.e. two different API keys) on the same tenant
  * each see EVERY result, with independent cursor state. Use case: a tenant
  * with two unrelated downstream systems both pulling generations.
  *

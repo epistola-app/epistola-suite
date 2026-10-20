@@ -132,7 +132,7 @@ on `sourceUrl`), and again on every refresh. A failed refresh stores a generic
   when the most recent refresh errored.
 - **`/tenants/{id}/code-lists/new`** — create form. The source-type radio
   switches between an inline entries editor (`INLINE`) and a URL field (`URL`).
-- **`/tenants/{id}/code-lists/{catalog}/{slug}`** — detail page. Entries
+- **`/tenants/{id}/catalogs/{catalog}/code-lists/{slug}`** — detail page. Entries
   table with a per-row "Hide / Unhide" toggle (HTMX `PATCH`); "Show hidden"
   toggle; "Refresh from source" button for URL-sourced lists; "Delete" guarded
   by the in-use check.

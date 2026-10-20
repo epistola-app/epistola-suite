@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -28,6 +29,7 @@ import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -75,21 +77,22 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
 
         val zip = withMediator {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xfont Source").execute()
+            declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateTheme(
                 id = ThemeId(ThemeKey.of("branded"), CatalogId(source, TenantId(tenant.id))),
                 name = "Branded",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
+                    "fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
                 ),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         // The cross-catalog font binding is declared on the manifest as a
         // DependencyRef.Font(catalogKey = "system", slug = "inter").
         val deps = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, slug = "inter"))
+        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter", namespace = "epistola", registry = "exchange.epistola.app"))
 
         // Re-import into a SECOND fresh tenant. createTenant auto-installs the
         // system catalog (incl. system/inter), so the cross-catalog font
@@ -155,16 +158,16 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("own-theme"), CatalogId(authored, tenantId)),
                 name = "Own Theme",
                 documentStyles = mapOf(
-                    "fontFamily" to mapOf("slug" to "acme-sans", "catalogKey" to authored.value),
+                    "fontFamily" to mapOf("key" to "acme-sans", "catalogKey" to authored.value),
                 ),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = authored).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(authored, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         val manifest = manifestOf(zip.zipBytes)
         // The font IS an own resource of this catalog...
-        assertThat(manifest.resources.map { it.type to it.slug }).contains("font" to "acme-sans")
+        assertThat(manifest.resources.map { it.type to it.key }).contains("font" to "acme-sans")
         // ...but it is NOT a cross-catalog dependency.
         assertThat(manifest.dependencies.orEmpty().filterIsInstance<DependencyRef.Font>()).isEmpty()
     }

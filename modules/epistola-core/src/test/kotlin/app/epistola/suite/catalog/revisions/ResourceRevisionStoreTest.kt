@@ -9,6 +9,7 @@ import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -28,12 +29,12 @@ import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.ContentReaper
 import app.epistola.suite.storage.backdateAssetBlob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -69,6 +70,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
 
             assertThat(revisionCount(catalog.tenantKey)).isZero()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -82,6 +84,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
         val afterFirst = revisionCount(catalog.tenantKey)
@@ -89,12 +92,14 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
 
         withMediator {
             // Identical content: content-addressed, so there is nothing new to store.
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.1").execute()
         }
         assertThat(revisionCount(catalog.tenantKey)).isEqualTo(afterFirst)
 
         withMediator {
             UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.1.0").execute()
         }
         assertThat(revisionCount(catalog.tenantKey))
@@ -110,6 +115,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         for (catalog in listOf(first, second)) {
             withMediator {
                 CreateTheme(id = ThemeId(ThemeKey.of("shared"), catalog), name = "Shared").execute()
+                MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
                 ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
             }
         }
@@ -126,9 +132,10 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         withMediator {
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, emptyTemplate()).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            UpdateVariantContent(variant, emptyTemplate()).execute()
+            MarkVariantReady(variant).execute()
 
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -154,6 +161,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
                 height = 1,
                 catalogKey = catalog.key,
             ).execute().id
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
             id
         }
@@ -187,6 +195,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
                 height = 1,
                 catalogKey = catalog.key,
             ).execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -221,27 +230,27 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
     // Every tenant installs the bundled system catalog, and installing records its release, so
     // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenant: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system')")
+        handle.createQuery("SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenant).mapTo(Int::class.java).one()
     }
 
     private fun revisionKinds(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT kind FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') ORDER BY kind")
+        handle.createQuery("SELECT kind FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY kind")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 
     private fun digests(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT digest FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') ORDER BY digest")
+        handle.createQuery("SELECT digest FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY digest")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 
     private fun templatePayload(tenant: TenantKey): String = jdbi.withHandle<String, Exception> { handle ->
-        handle.createQuery("SELECT payload::text FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system') AND kind = 'template'")
+        handle.createQuery("SELECT payload::text FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND kind = 'template'")
             .bind("t", tenant).mapTo(String::class.java).one()
     }
 
     private fun binaryHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT content_hash FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_key = 'system')")
+        handle.createQuery("SELECT content_hash FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 }

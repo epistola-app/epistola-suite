@@ -29,7 +29,7 @@ class CodeListDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Code List Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/code-lists/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/code-lists/new$")
 
     /**
      * Opens the create dialog off the always-present page-header action via keyboard
@@ -48,7 +48,7 @@ class CodeListDialogUiTest : BasePlaywrightTest() {
     fun `dialog is not open on initial load of the code-lists list`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists")
         page.htmxSettle()
 
         // The create dialog is only attached when the form is embedded/opened
@@ -64,7 +64,7 @@ class CodeListDialogUiTest : BasePlaywrightTest() {
     fun `activating the New Code List trigger opens the dialog and pushes the new-form URL`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists")
         page.htmxSettle()
 
         openCreateDialog()
@@ -78,7 +78,7 @@ class CodeListDialogUiTest : BasePlaywrightTest() {
     fun `selecting the URL source reveals the source-url pane inside the dialog`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/code-lists")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/code-lists")
         page.htmxSettle()
 
         val dialog = openCreateDialog()

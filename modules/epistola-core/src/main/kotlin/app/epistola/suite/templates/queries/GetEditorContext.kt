@@ -4,6 +4,11 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -12,6 +17,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.template.model.TemplateDocument
@@ -28,9 +34,15 @@ data class EditorContext(
     val templateThemeKey: ThemeKey?,
     val templateThemeCatalogKey: CatalogKey?,
     val variantAttributes: Map<String, String>,
+    /**
+     * The variant's document with its stencil instances expanded from the stencils' working copies
+     * (contract ADR 0006), as the author sees it. Saving it stores the reference form again.
+     */
     val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
+    /** The variant's revision as read with [templateModel]: what saving the model names, so a save over someone else's is refused. */
+    val variantRevision: Long = 1,
 )
 
 /**
@@ -39,7 +51,10 @@ data class EditorContext(
  */
 data class GetEditorContext(
     val variantId: VariantId,
-) : Query<EditorContext?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<EditorContext?>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = variantId.tenantKey
@@ -49,6 +64,8 @@ data class GetEditorContext(
 class GetEditorContextHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val stencilResolvers: StencilResolvers,
+    private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<GetEditorContext, EditorContext?> {
     override fun handle(query: GetEditorContext): EditorContext? = jdbi.withHandle<EditorContext?, Exception> { handle ->
         val row = handle.createQuery(
@@ -56,27 +73,19 @@ class GetEditorContextHandler(
             SELECT
                 dt.name as template_name,
                 th.id AS theme_key,
-                th.catalog_key AS theme_catalog_key,
-                cv.data_model,
-                cv.data_examples,
+                th_cat.catalog_key AS theme_catalog_key,
+                dt.data_model,
+                dt.data_examples,
                 tv.attributes as variant_attributes,
-                COALESCE(draft.template_model, published.template_model) as draft_template_model
+                tv.template_model as draft_template_model,
+                tv.revision AS variant_revision
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            -- The theme is in the template's own version, or the current version of another catalog.
             LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            LEFT JOIN template_versions draft ON draft.tenant_key = tv.tenant_key AND draft.template_resource_id = tv.template_resource_id AND draft.variant_key = tv.id AND draft.status = 'draft'
-            LEFT JOIN LATERAL (
-                SELECT template_model FROM template_versions
-                WHERE tenant_key = tv.tenant_key AND template_resource_id = tv.template_resource_id AND variant_key = tv.id AND status = 'published'
-                ORDER BY id DESC LIMIT 1
-            ) published ON draft.template_model IS NULL
-            LEFT JOIN LATERAL (
-                SELECT data_model, data_examples FROM contract_versions
-                WHERE tenant_key = dt.tenant_key AND template_resource_id = dt.resource_id
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-            ) cv ON TRUE
-            WHERE tv.tenant_key = :tenantId
+                AND (th.version_id = dt.version_id OR (th.catalog_id <> dt.catalog_id AND ${inCurrentVersion("th")}))
+            LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
+            WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
               AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
               AND tv.id = :variantId
             """,
@@ -127,14 +136,15 @@ class GetEditorContextHandler(
             } else {
                 null
             }
-        } ?: error("Variant ${query.variantId} has no draft or published version with templateModel")
+        } ?: error("Variant ${query.variantId} has no templateModel")
 
         EditorContext(
             templateName = row["template_name"] as String,
             templateThemeKey = (row["theme_key"] as String?)?.let(ThemeKey::of),
             templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
             variantAttributes = variantAttributes,
-            templateModel = templateModel,
+            variantRevision = (row["variant_revision"] as Number).toLong(),
+            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel, dependencyViews.of(query.variantId.tenantKey, query.variantId.catalogKey)),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->
                 val json = raw.toString()

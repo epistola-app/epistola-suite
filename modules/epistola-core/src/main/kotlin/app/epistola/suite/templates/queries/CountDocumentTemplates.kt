@@ -4,6 +4,10 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -23,7 +27,10 @@ data class CountDocumentTemplates(
     val tenantId: TenantId,
     val searchTerm: String? = null,
     val catalogKey: CatalogKey? = null,
-) : Query<Long>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<Long>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
@@ -35,9 +42,10 @@ class CountDocumentTemplatesHandler(
 ) : QueryHandler<CountDocumentTemplates, Long> {
     override fun handle(query: CountDocumentTemplates): Long = jdbi.withHandle<Long, Exception> { handle ->
         val sql = buildString {
-            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId")
+            // Each catalog counts once, in its current version.
+            append("SELECT COUNT(*) FROM document_templates dt WHERE dt.tenant_key = :tenantId AND ${inCurrentVersion("dt")}")
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
+                append(" AND dt.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm")

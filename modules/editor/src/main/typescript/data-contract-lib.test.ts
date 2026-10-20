@@ -46,7 +46,7 @@ describe('mountDataContractEditor save controls', () => {
     await editor.updateComplete;
 
     expect(saveControlsContainer.textContent).toContain('All changes saved');
-    expect(saveControlsContainer.textContent).toContain('Save draft');
+    expect(saveControlsContainer.textContent).toContain('Save');
     expect(container.querySelector('.dc-contract-save-controls')).toBeNull();
   });
 
@@ -59,7 +59,7 @@ describe('mountDataContractEditor save controls', () => {
     editor.contractState?.updateDraftExample('example-1', { name: 'Updated example' });
     await editor.updateComplete;
 
-    expect(saveControlsContainer.textContent).toContain('Unsaved draft changes');
+    expect(saveControlsContainer.textContent).toContain('Unsaved changes');
     expect(saveControlsContainer.textContent).toContain('Examples');
   });
 
@@ -69,7 +69,7 @@ describe('mountDataContractEditor save controls', () => {
     const { editor, instance } = mount(saveControlsContainer);
     await editor.updateComplete;
 
-    expect(saveControlsContainer.textContent).toContain('Save draft');
+    expect(saveControlsContainer.textContent).toContain('Save');
 
     instance.unmount();
     expect(saveControlsContainer.querySelector('.dc-contract-save-controls')).toBeNull();

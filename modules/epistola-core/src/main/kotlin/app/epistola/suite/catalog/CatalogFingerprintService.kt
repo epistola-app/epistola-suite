@@ -59,6 +59,8 @@ class CatalogFingerprintService(
 
     fun requirePublishable(content: CatalogContent) = canonicalizer.requirePublishable(content)
 
+    fun publishability(content: CatalogContent) = canonicalizer.publishability(content)
+
     /**
      * Fingerprint of a catalog fetched from a source URL. Used to verify the
      * committed fingerprint of bundled catalogs has not drifted.
@@ -93,7 +95,7 @@ class CatalogFingerprintService(
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val detailBytes = LinkedHashMap<String, ByteArray>()
         for (entry in manifest.resources) {
-            detailBytes["${entry.type}/${entry.slug}"] =
+            detailBytes["${entry.type}/${entry.key}"] =
                 catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
         }
         return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytes) { contentUrl ->

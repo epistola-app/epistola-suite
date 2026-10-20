@@ -4,6 +4,7 @@
 
 package app.epistola.suite.assets.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -45,6 +46,7 @@ class ResolveAssetKeysByContentHashHandler(
                 SELECT DISTINCT ON (content_hash) content_hash, id::text AS asset_key
                 FROM assets
                 WHERE tenant_key = :tenantKey AND content_hash IN (<hashes>)
+                  AND ${inCurrentVersion("assets")}
                 ORDER BY content_hash, created_at
                 """,
             )

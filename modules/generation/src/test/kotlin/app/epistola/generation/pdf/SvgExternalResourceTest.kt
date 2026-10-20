@@ -264,7 +264,7 @@ class SvgExternalResourceTest {
         root = "root",
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "image" to Node(id = "image", type = "image", props = mapOf("assetId" to "svg")),
+            "image" to Node(id = "image", type = "image", props = mapOf("imageKey" to "svg")),
         ),
         slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("image"))),
     )
@@ -274,7 +274,7 @@ class SvgExternalResourceTest {
         nodes = mapOf(
             "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
             "header" to Node(id = "header", type = "pageheader", slots = listOf("header-slot"), props = mapOf("height" to "60pt")),
-            "image" to Node(id = "image", type = "image", props = mapOf("assetId" to "svg")),
+            "image" to Node(id = "image", type = "image", props = mapOf("imageKey" to "svg")),
         ),
         slots = mapOf(
             "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("header")),

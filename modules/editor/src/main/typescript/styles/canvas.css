@@ -93,13 +93,6 @@
     }
   }
 
-  .canvas-block-id {
-    color: var(--ep-stone-400);
-    margin-left: auto;
-    font-family: var(--ep-font-mono);
-    font-size: 10px;
-  }
-
   .canvas-block-delete {
     display: flex;
     align-items: center;

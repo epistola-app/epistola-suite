@@ -5,6 +5,10 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -28,8 +32,7 @@ data class TemplateSummary(
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
-    val hasDraft: Boolean,
-    val publishedVersionCount: Int,
+    val ready: Boolean,
 )
 
 /**
@@ -56,7 +59,7 @@ enum class TemplateSort(
     val defaultDescending: Boolean,
 ) {
     NAME("name", "dt.name", false),
-    CATALOG("catalog", "dt.catalog_key", false),
+    CATALOG("catalog", "c.catalog_key", false),
     VARIANTS("variants", "variant_count", true),
     UPDATED("updated", "dt.updated_at", true),
     ;
@@ -74,7 +77,10 @@ data class ListTemplateSummaries(
     val descending: Boolean = true,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<TemplateSummaryPage>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<TemplateSummaryPage>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
@@ -90,36 +96,34 @@ class ListTemplateSummariesHandler(
                 """
                 SELECT
                     dt.id,
-                    dt.catalog_key,
+                    c.catalog_key AS catalog_key,
                     c.type AS catalog_type,
                     dt.name,
                     dt.updated_at,
-                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
-                    COALESCE((SELECT bool_or(ver.status = 'draft')
-                              FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id), false) as has_draft,
-                    COALESCE((SELECT COUNT(*)
-                              FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_resource_id = tv.template_resource_id AND ver.variant_key = tv.id
-                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_resource_id = dt.resource_id AND ver.status = 'published'), 0)::int as published_version_count,
+                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.version_id = dt.version_id AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
+                    -- Ready when every variant's content is marked ready as it is now.
+                    COALESCE((SELECT bool_and(m.digest IS NOT NULL AND m.digest = d.digest)
+                              FROM resource_content_digests d
+                              LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.version_id = d.version_id
+                                                                AND m.resource_id = d.resource_id AND m.part = d.part
+                              WHERE d.tenant_key = dt.tenant_key AND d.version_id = dt.version_id AND d.resource_id = dt.resource_id), false) as ready,
                     -- Total matching rows before LIMIT/OFFSET; Postgres evaluates the
                     -- window over the full filtered set, so it cannot drift from the page.
                     COUNT(*) OVER()::int AS total_count
                 FROM document_templates dt
-                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
-                WHERE dt.tenant_key = :tenantId
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
+                WHERE dt.tenant_key = :tenantId AND ${inCurrentVersion("dt")}
                 """.trimIndent(),
             )
             if (query.catalogKey != null) {
-                append(" AND dt.catalog_key = :catalogKey")
+                append(" AND dt.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
             // ORDER BY column comes from the TemplateSort whitelist, never raw input.
             val direction = if (query.descending) "DESC" else "ASC"
-            append(" ORDER BY ${query.sort.column} $direction, dt.catalog_key ASC, dt.id ASC")
+            append(" ORDER BY ${query.sort.column} $direction, c.catalog_key ASC, dt.id ASC")
             append(" LIMIT :limit OFFSET :offset")
         }
 
@@ -158,8 +162,7 @@ private data class TemplateSummaryRow(
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
-    val hasDraft: Boolean,
-    val publishedVersionCount: Int,
+    val ready: Boolean,
     val totalCount: Int,
 ) {
     fun toSummary() = TemplateSummary(
@@ -169,7 +172,6 @@ private data class TemplateSummaryRow(
         name = name,
         updatedAt = updatedAt,
         variantCount = variantCount,
-        hasDraft = hasDraft,
-        publishedVersionCount = publishedVersionCount,
+        ready = ready,
     )
 }

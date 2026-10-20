@@ -46,6 +46,14 @@ class ClusterScheduledTaskScheduleCalculatorTest {
     }
 
     @Test
+    fun `fixed delay with an initial delay is first due after it`() {
+        val now = OffsetDateTime.parse("2026-06-10T15:30:00Z")
+
+        assertThat(calculator.initialDueAt(definition(ClusterScheduledTaskSchedule.FixedDelay(60_000, initialDelayMs = 0)), now = now)).isEqualTo(now)
+        assertThat(calculator.initialDueAt(definition(ClusterScheduledTaskSchedule.FixedDelay(60_000, initialDelayMs = 5_000)), now = now)).isEqualTo(now.plusSeconds(5))
+    }
+
+    @Test
     fun `fixed delay next-after-success measures from now, not the previous due time`() {
         val nextDueAt = OffsetDateTime.parse("2026-06-10T12:00:00Z")
         val now = OffsetDateTime.parse("2026-06-10T12:00:05Z") // handler took 5s

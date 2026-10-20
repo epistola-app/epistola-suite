@@ -101,7 +101,7 @@ class TwoPassAnalyzerTest {
                 id = "stencil1",
                 type = "stencil",
                 props = mapOf(
-                    "stencilId" to "letter",
+                    "stencilKey" to "letter",
                     "version" to 1,
                     "parameterBindings" to mapOf("totalPages" to "sys.pages.total"),
                 ),
@@ -117,7 +117,7 @@ class TwoPassAnalyzerTest {
                 id = "stencil1",
                 type = "stencil",
                 props = mapOf(
-                    "stencilId" to "letter",
+                    "stencilKey" to "letter",
                     "version" to 1,
                     "parameterBindings" to mapOf("name" to "customer.name"),
                 ),

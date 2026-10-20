@@ -9,6 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -105,16 +106,16 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
             ).execute()
         }
 
-        val body = get("/api/tenants/${tenantKey.value}/catalogs/default/images", key)
-        val slugs: List<String> = JsonPath.read(body, "$.items[*].slug")
+        val body = get("${versionPath(tenantKey, "default")}/images", key)
+        val slugs: List<String> = JsonPath.read(body, "$.items[*].key")
         assertThat(slugs).containsExactly("municipality-mark")
-        assertThat(JsonPath.read<Int>(body, "$.page.totalElements")).isEqualTo(1)
+        assertThat(JsonPath.read<Int>(body, "$.page.total")).isEqualTo(1)
     }
 
     @Test
     fun `upload, download and delete round-trip by slug`() {
         val (tenantKey, key) = seedTenantAndKey()
-        val base = "/api/tenants/${tenantKey.value}/catalogs/default/images"
+        val base = "${versionPath(tenantKey, "default")}/images"
 
         val parts = LinkedMultiValueMap<String, Any>().apply {
             add(
@@ -128,7 +129,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val uploadHeaders = baseHeaders(key).apply { contentType = MediaType.MULTIPART_FORM_DATA }
         val uploaded = restTemplate.exchange(base, HttpMethod.POST, HttpEntity(parts, uploadHeaders), String::class.java)
         assertThat(uploaded.statusCode).isEqualTo(HttpStatus.CREATED)
-        val slug = JsonPath.read<String>(uploaded.body!!, "$.slug")
+        val slug = JsonPath.read<String>(uploaded.body!!, "$.key")
 
         // The content endpoint answers with the image's own media type, so a JSON-only Accept
         // would be a 406 before the handler is ever reached.
@@ -177,7 +178,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val headers = baseHeaders(key).apply { contentType = MediaType.MULTIPART_FORM_DATA }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/images",
+            "${versionPath(tenantKey, "default")}/images",
             HttpMethod.POST,
             HttpEntity(parts, headers),
             String::class.java,
@@ -205,7 +206,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val headers = baseHeaders(key).apply { contentType = MediaType.MULTIPART_FORM_DATA }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/images",
+            "${versionPath(tenantKey, "default")}/images",
             HttpMethod.POST,
             HttpEntity(parts, headers),
             String::class.java,
@@ -234,7 +235,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/images/svg-mark/content",
+            "${versionPath(tenantKey, "default")}/images/svg-mark/content",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key).apply { accept = listOf(MediaType.ALL) }),
             ByteArray::class.java,
@@ -261,10 +262,11 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 catalogKey = CatalogKey.DEFAULT,
                 id = app.epistola.suite.common.ids.AssetKey.of("elsewhere-mark"),
             ).execute()
+            CreateCatalog(tenantKey, CatalogKey.of("other"), "Other").execute()
         }
 
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/images/elsewhere-mark",
+            "${versionPath(tenantKey, "other")}/images/elsewhere-mark",
             HttpMethod.DELETE,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -285,12 +287,15 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/1.3.0 images-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
+
+    /** The catalog version an address names: the open draft of an authored catalog. */
+    private fun versionPath(tenantKey: TenantKey, catalogKey: String): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey) }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("im-${UUID.randomUUID().toString().take(8)}")

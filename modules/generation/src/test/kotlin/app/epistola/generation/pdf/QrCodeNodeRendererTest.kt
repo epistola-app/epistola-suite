@@ -167,6 +167,23 @@ class QrCodeNodeRendererTest {
     }
 
     @Test
+    fun `a huge size does not allocate an image of that many pixels`() {
+        // A size far beyond any page: rendering it at one pixel per point would need terabytes,
+        // and a template is authored by anyone who may edit one.
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "url", "language" to "jsonata"),
+                "size" to "100000pt",
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("url" to "https://example.com"), output)
+
+        assertTrue(output.toByteArray().decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
     fun `skips gracefully when expression resolves to object`() {
         val document = documentWithQrCodeNode(
             mapOf(

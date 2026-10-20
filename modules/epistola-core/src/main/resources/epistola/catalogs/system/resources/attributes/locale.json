@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "attribute",
-    "slug": "locale",
+    "key": "locale",
     "name": "Locale",
     "codeListBinding": {
-      "slug": "bcp-47"
+      "key": "bcp-47"
     }
   }
 }

@@ -232,15 +232,18 @@ class DataPreservationMigrationIT {
 
             // Hierarchy rows name the template's identity now, so every lookup resolves the
             // seeded address through document_templates rather than filtering on a copy of it.
+            // A catalog is named by its key until 2.0 identities it (V20261018200100): resources
+            // name the catalog's opaque catalog_id, so lookups resolve the seeded key to it.
+            fun catalogId(key: String) = "(SELECT catalog_id FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = '$key')"
             val ofInvoice =
                 "template_resource_id = (SELECT resource_id FROM document_templates " +
-                    "WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'invoice')"
+                    "WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice')"
 
             assertThat(one("SELECT name FROM tenants WHERE id = '$TENANT'"))
                 .isEqualTo("Preservation Tenant")
             assertThat(one("SELECT default_locale FROM tenants WHERE id = '$TENANT'"))
                 .isEqualTo("nl-NL")
-            assertThat(one("SELECT type FROM catalogs WHERE tenant_key = '$TENANT' AND id = 'default'"))
+            assertThat(one("SELECT type FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = 'default'"))
                 .isEqualTo("AUTHORED")
             assertThat(one("SELECT document_styles::text FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
                 .isEqualTo(one("SELECT '$THEME_STYLES'::jsonb::text"))
@@ -274,7 +277,7 @@ class DataPreservationMigrationIT {
                     SELECT count(*)::text FROM code_list_entries entries
                     JOIN code_lists list ON list.tenant_key = entries.tenant_key
                                         AND list.resource_id = entries.code_list_resource_id
-                    WHERE list.tenant_key = '$TENANT' AND list.catalog_key = 'shared' AND list.slug = 'countries'
+                    WHERE list.tenant_key = '$TENANT' AND list.catalog_id = ${catalogId("shared")} AND list.slug = 'countries'
                     """,
                 ),
             )
@@ -309,20 +312,29 @@ class DataPreservationMigrationIT {
             )
                 .describedAs("a CLASSPATH face has no binary, and the backfill must not invent one")
                 .isEqualTo("epistola/fonts/brand/brand-Bold.ttf")
-            assertThat(one("SELECT status FROM contract_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 1"))
-                .isEqualTo("published")
+            // 2.0 drops the 1.x versions (V20261018201400), keeping what the first release is cut from
+            // and a summary of the rest.
+            fun history(list: String, filter: String) = one(
+                "SELECT jsonb_agg(v ORDER BY v->>'version')::text FROM app_metadata, jsonb_array_elements(value->'$list') v " +
+                    "WHERE key = 'upgrade-1x-history' AND v->>'tenant' = '$TENANT' AND $filter",
+            )
+            assertThat(history("contractVersions", "v->>'template' = 'invoice'")).contains("\"status\": \"published\"")
+            assertThat(history("stencilVersions", "v->>'stencil' = 'header'"))
+                .describedAs("both versions of a stencil are in the summary, under the stencil's key")
+                .contains("\"version\": 1").contains("\"version\": 2")
             assertThat(
                 one(
                     """
-                    SELECT count(*)::text FROM stencil_versions versions
-                    JOIN stencils stencil ON stencil.tenant_key = versions.tenant_key
-                                         AND stencil.resource_id = versions.stencil_resource_id
-                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id = 'header'
+                    SELECT count(*)::text FROM catalog_upgrade_published p
+                    JOIN stencils stencil ON stencil.tenant_key = p.tenant_key AND stencil.resource_id = p.resource_id
+                    WHERE stencil.tenant_key = '$TENANT' AND stencil.id IN ('header', 'draft-only') AND p.kind = 'stencil'
                     """,
                 ),
             )
-                .describedAs("both versions of a stencil must have followed it onto its identity")
-                .isEqualTo("2")
+                .describedAs("the published stencil is kept for the first release; the draft-only one has nothing published")
+                .isEqualTo("1")
+            assertThat(one("SELECT count(*)::text FROM information_schema.tables WHERE table_name IN ('template_versions', 'contract_versions', 'stencil_versions', 'environment_activations')"))
+                .isEqualTo("0")
             assertThat(
                 one(
                     "SELECT status FROM document_generation_requests " +
@@ -339,22 +351,26 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'blanktitle'"))
                 .describedAs("blank-title variant must be backfilled with its own slug")
                 .isEqualTo("blanktitle")
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
+            assertThat(
+                one(
+                    """
+                    SELECT (p.payload->'templateModel')::text FROM catalog_upgrade_published p
+                    JOIN document_templates dt ON dt.tenant_key = p.tenant_key AND dt.resource_id = p.resource_id
+                    WHERE dt.tenant_key = '$TENANT' AND dt.id = 'invoice' AND p.kind = 'variant' AND p.part = 'main'
+                    """,
+                ),
+            )
+                .describedAs("the variant's last published model is what its first release is cut from")
                 .isEqualTo(one("SELECT '$TEMPLATE_MODEL'::jsonb::text"))
-            assertThat(one("SELECT status FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
-                .isEqualTo("published")
-            assertThat(one("SELECT referenced_paths::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 1"))
-                .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
-            assertThat(one("SELECT template_model::text FROM template_versions WHERE tenant_key = '$TENANT' AND $ofInvoice AND variant_key = 'main' AND id = 2"))
-                .describedAs("draft stencil references must retain their published base and gain exact draft provenance")
-                .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
+            assertThat(history("templateVersions", "v->>'template' = 'invoice' AND v->>'variant' = 'main'"))
+                .contains("\"status\": \"published\"").contains("\"status\": \"draft\"")
 
             // Relocation re-keyed attributes onto their identity (V20260905090100) and dropped the
             // generation-history foreign keys into the template hierarchy (V20260905090200).
-            assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_key = 'default' AND id = 'language'"))
+            assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'language'"))
                 .describedAs("attribute must survive its primary key moving onto resource_id")
                 .isEqualTo("Language")
-            assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_key = 'default' AND resource_key = 'language'"))
+            assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_id = ${catalogId("default")} AND resource_key = 'language'"))
                 .describedAs("RC1-era attribute must be registered with a stable identity")
                 .isEqualTo("1")
             assertThat(one("SELECT (count(*) > 0 AND bool_and(substring(resource_id::text, 15, 1) = '7'))::text FROM catalog_resources WHERE tenant_key = '$TENANT'"))
@@ -369,6 +385,54 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT count(*) FROM template_variants WHERE tenant_key = '$TENANT' AND template_resource_id IS NULL"))
                 .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
                 .isEqualTo("0")
+
+            // 2.0 names every catalog (V20261018200100): an authored catalog on the default
+            // registry, in the tenant's namespace.
+            assertThat(one("SELECT registry || '~' || namespace FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = 'shared'"))
+                .isEqualTo("exchange.epistola.app~$TENANT")
+
+            // 2.0 keeps one working copy (V20261018200400, V20261018200600): what each author was
+            // working on, the draft where there is one, else the published version.
+            assertThat(one("SELECT template_model::text FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
+                .describedAs("a variant's working model is its draft")
+                .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
+            assertThat(one("SELECT referenced_paths::text FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
+                .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
+            assertThat(one("SELECT template_model->>'root' FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
+                .describedAs("a variant that never had a version starts from the empty document")
+                .isEqualTo("root")
+            assertThat(one("SELECT data_model::text FROM document_templates WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice'"))
+                .describedAs("the template's data contract is its published one")
+                .isEqualTo(one("""SELECT '{"type":"object"}'::jsonb::text"""))
+            assertThat(one("SELECT content::text FROM stencils WHERE tenant_key = '$TENANT' AND id = 'header'"))
+                .describedAs("a stencil's working copy is its draft")
+                .isEqualTo(one("SELECT '$STENCIL_CONTENT'::jsonb::text"))
+
+            // What was publishable is ready; a variant or stencil with unfinished draft work is not.
+            fun ready(resource: String, part: String) = one(
+                """
+                SELECT (m.digest IS NOT DISTINCT FROM d.digest)::text
+                FROM resource_content_digests d
+                LEFT JOIN resource_ready_marks m ON m.tenant_key = d.tenant_key AND m.resource_id = d.resource_id AND m.part = d.part
+                WHERE d.tenant_key = '$TENANT' AND d.resource_id = ($resource) AND d.part = '$part'
+                """,
+            )
+            val invoice = "SELECT resource_id FROM document_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"
+            assertThat(ready(invoice, "main")).describedAs("a variant with a draft that differs from its published version").isEqualTo("false")
+            assertThat(ready(invoice, "legacy")).describedAs("a variant without a draft").isEqualTo("true")
+            assertThat(ready("SELECT resource_id FROM stencils WHERE tenant_key = '$TENANT' AND id = 'header'", ""))
+                .describedAs("a stencil with a draft").isEqualTo("false")
+            assertThat(ready("SELECT resource_id FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
+                .describedAs("a resource that had no drafts").isEqualTo("true")
+
+            // Every authored catalog has the draft it works in, its next version, which has no number
+            // until it is released (V20261018200900).
+            assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.is_next THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.kind = 'draft'"))
+                .isEqualTo("default@next,shared@next")
+
+            // Every authored 1.x catalog is queued for its declarations and first release (V20261018201400).
+            assertThat(one("SELECT string_agg(c.catalog_key, ',' ORDER BY c.catalog_key) FROM catalog_upgrade_queue q JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id WHERE q.tenant_key = '$TENANT'"))
+                .isEqualTo("default,shared")
 
             // Intentional scoped cleanup (V20260708110402, issue #668): the retired
             // stencil-parameters toggle's orphaned rows are gone, unrelated toggles survive.
@@ -419,7 +483,12 @@ class DataPreservationMigrationIT {
             """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}}, "slots": {}}"""
         private const val DRAFT_TEMPLATE_MODEL =
             """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": [], "props": {"stencilId": "header", "version": 1, "isDraft": true}}, "new": {"id": "new", "type": "stencil", "slots": [], "props": {"stencilId": "draft-only", "version": 1, "isDraft": true}}}, "slots": {}, "marker": "catalog-v5"}"""
+
+        /**
+         * The draft as wire v8 stores it (V20261018200500): a stencil instance is a reference by key
+         * with a `children` slot for its fills, and pins no version (contract ADR 0006).
+         */
         private const val MIGRATED_DRAFT_TEMPLATE_MODEL =
-            """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": [], "props": {"stencilId": "header", "version": 1, "draftVersion": 2}}, "new": {"id": "new", "type": "stencil", "slots": [], "props": {"stencilId": "draft-only", "draftVersion": 1}}}, "slots": {}, "marker": "catalog-v5"}"""
+            """{"root": "root", "nodes": {"root": {"id": "root", "type": "root", "slots": []}, "linked": {"id": "linked", "type": "stencil", "slots": ["linked:children"], "props": {"stencilKey": "header"}}, "new": {"id": "new", "type": "stencil", "slots": ["new:children"], "props": {"stencilKey": "draft-only"}}}, "slots": {"linked:children": {"id": "linked:children", "name": "children", "nodeId": "linked", "children": []}, "new:children": {"id": "new:children", "name": "children", "nodeId": "new", "children": []}}, "marker": "catalog-v5"}"""
     }
 }

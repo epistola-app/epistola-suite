@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.validation
 
+import app.epistola.catalog.validation.CatalogResourceReference
 import app.epistola.catalog.validation.TemplateDocumentKind
 import app.epistola.catalog.validation.TemplateValidationCodes
 import app.epistola.catalog.validation.TemplateValidationContext
@@ -37,7 +38,7 @@ class TemplateDocumentValidator(
     }
 
     fun validateTemplatePublishable(doc: TemplateDocument) {
-        validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE, allowDraftStencilReferences = false)
+        validateAt(TEMPLATE_FIELD, doc, TemplateDocumentKind.TEMPLATE)
     }
 
     /**
@@ -54,28 +55,14 @@ class TemplateDocumentValidator(
         )
     }
 
-    fun validateStencil(doc: TemplateDocument) {
-        rejectUnsupportedNestedStencilAuthoring(doc)
-        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL)
-    }
-
-    fun validateStencilPublishable(doc: TemplateDocument) {
-        rejectUnsupportedNestedStencilAuthoring(doc)
-        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL, allowDraftStencilReferences = false)
-    }
-
-    private fun rejectUnsupportedNestedStencilAuthoring(document: TemplateDocument) {
-        val stencilNodeIds = document.nodes.values
-            .filter { it.type == "stencil" }
-            .map(Node::id)
-            .sorted()
-        if (stencilNodeIds.isNotEmpty()) {
-            throw ValidationException(
-                field = STENCIL_FIELD,
-                message = "Stencil content cannot contain nested stencil components. " +
-                    "Stencil nodes found: ${stencilNodeIds.joinToString(", ")}",
-            )
-        }
+    /**
+     * A stencil's content; it may contain stencil instances of its own (contract ADR 0006). Given
+     * the stencil it belongs to ([stencilKey] in [catalogKey]), an instance of that stencil in its own
+     * content is refused here; a cycle through another stencil only shows when instances expand, on
+     * publish and release.
+     */
+    fun validateStencil(doc: TemplateDocument, stencilKey: String? = null, catalogKey: String? = null) {
+        validateAt(STENCIL_FIELD, doc, TemplateDocumentKind.STENCIL, owner = stencilKey?.let { it to catalogKey })
     }
 
     /**
@@ -98,10 +85,10 @@ class TemplateDocumentValidator(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
         ignoredCodes: Set<String> = emptySet(),
-        allowDraftStencilReferences: Boolean = true,
+        owner: Pair<String, String?>? = null,
     ) {
         rejectJavaScriptExpressions(requestField, document)
-        validate(document, kind, allowDraftStencilReferences)
+        validate(document, kind, owner)
             .filterNot { it.code in ignoredCodes }
             .minWithOrNull(compareBy({ LEGACY_CODE_PRIORITY.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }, { it.path }))
             ?.let { throw it.asSuiteException(requestField, document) }
@@ -125,12 +112,15 @@ class TemplateDocumentValidator(
     private fun validate(
         document: TemplateDocument,
         kind: TemplateDocumentKind,
-        allowDraftStencilReferences: Boolean = true,
+        owner: Pair<String, String?>? = null,
     ): List<TemplateValidationFinding> = TemplateValidator.validate(
         document,
         object : TemplateValidationContext {
             override val documentKind: TemplateDocumentKind = kind
-            override val allowDraftStencilReferences: Boolean = allowDraftStencilReferences
+            override val currentCatalogKey: String? = owner?.second
+            override val containingStencil: CatalogResourceReference? = owner?.let { (key, catalog) ->
+                CatalogResourceReference("stencil", key, catalog, null, null)
+            }
 
             override fun resolveParameterSchema(
                 node: Node,
@@ -147,7 +137,7 @@ class TemplateDocumentValidator(
             val nodeId = path.substringAfter("nodes.").substringBefore(".props.parameterBindings.")
             val parameter = path.substringAfterLast('.')
             val node = document.nodes[nodeId]
-            val stencilId = node?.props?.get("stencilId") as? String
+            val stencilId = node?.props?.get("stencilKey") as? String
             val component = if (stencilId.isNullOrBlank()) {
                 "Component '$nodeId' (${node?.type ?: "unknown"})"
             } else {

@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ReferenceResolution
@@ -23,7 +24,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,17 +36,16 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariant
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -70,7 +69,6 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         setup = { tenant ->
             val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
         },
         model = { catalog -> templateEmbedding("header", catalog.value) },
     )
@@ -86,14 +84,14 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     fun `a moved image is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.IMAGE, letters, "logo"),
         setup = { tenant -> uploadPng(tenant, letters, "logo", renderablePng()) },
-        model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("assetId" to "logo", "catalogKey" to catalog.value))) },
+        model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to catalog.value))) },
     )
 
     @Test
     fun `a moved font is exported at its new address and installs elsewhere`() = roundTrip(
         moved = address(CatalogResourceType.FONT, letters, "acme"),
         setup = { tenant -> importFont(tenant, letters, "acme") },
-        model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("slug" to "acme", "catalogKey" to catalog.value)))) },
+        model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("key" to "acme", "catalogKey" to catalog.value)))) },
     )
 
     /**
@@ -148,7 +146,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         publishTemplate(tenant, letters, textModel())
         move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
-        assertThat(unzipText(withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
+        assertThat(unzipText(withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
         val fresh = installBoth(tenant, "template")
 
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared))).query() }).isNotNull()
@@ -156,8 +154,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
     /** Exports `shared` and `letters` from [tenant] and installs them, in that order, in a fresh tenant. */
     private fun installBoth(tenant: TenantKey, what: String): TenantKey {
-        val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
-        val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
         val fresh = createTenant("Installs $what move").id
         withMediator {
             ImportCatalogZip(fresh, sharedZip, CatalogType.AUTHORED).execute()
@@ -179,18 +177,19 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         withMediator {
             setup(tenant)
             CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(variant, model(letters)).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            UpdateVariantContent(variant, model(letters)).execute()
+            MarkVariantReady(variant).execute()
         }
         move(tenant, moved.movedTo(shared))
         withMediator {
-            CreateVersion(variant).execute()
-            UpdateDraft(variant, model(shared)).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            // The republished invoice names shared itself, which letters then depends on.
+            declareDependency(tenant, letters, on = shared)
+            UpdateVariantContent(variant, model(shared)).execute()
+            MarkVariantReady(variant).execute()
         }
 
-        val sharedZip = withMediator { ExportCatalogZip(tenant, shared).execute() }.zipBytes
-        val lettersZip = withMediator { ExportCatalogZip(tenant, letters).execute() }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
         val lettersEntries = unzipText(lettersZip)
         assertThat(lettersEntries.getValue("resources/template/invoice.json"))
             .describedAs("the invoice names the %s where it lives now", moved.type.wireName)

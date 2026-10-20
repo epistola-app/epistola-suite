@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -133,7 +134,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                 FROM font_variants faces
                 JOIN fonts family ON family.tenant_key = faces.tenant_key
                                  AND family.resource_id = faces.font_resource_id
-                WHERE family.tenant_key = :tenantKey AND family.catalog_key = :catalogKey
+                WHERE family.tenant_key = :tenantKey AND family.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", tenant.id.value)
@@ -176,13 +177,14 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         given {
             val tenant = tenant("Fonts Render Tenant")
             val tenantId = TenantId(tenant.id)
-            // Point the tenant at the bundled `system/default` theme (Inter font).
-            // Themes are optional — without a default the render path falls back
-            // to engine defaults (Helvetica), which would not embed Inter.
-            app.epistola.suite.tenants.commands.SetTenantDefaultTheme(
-                tenantId = tenant.id,
-                themeId = ThemeKey.of("default"),
-                catalogKey = SYSTEM_CATALOG_KEY,
+            // Point the catalog at the bundled `system/default` theme (Inter font), as its default
+            // theme (contract ADR 0007; the tenant's house theme is not rendered with). Themes are
+            // optional — without one the render falls back to engine defaults (Helvetica), which
+            // would not embed Inter.
+            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+                tenant.id,
+                CatalogId.default(tenantId).key,
+                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("default"), SYSTEM_CATALOG_KEY),
             ).execute()
             val template = template(tenant.id, "Fonts Render Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
@@ -224,7 +226,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             val version = version(compositeVariantId, templateModel)
 
             app.epistola.suite.templates.contracts.commands
-                .UpdateContractVersion(
+                .UpdateDataContract(
                     templateId = compositeTemplateId,
                     dataModel = objectMapper.readValue(
                         """

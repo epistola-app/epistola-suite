@@ -6,9 +6,11 @@ package app.epistola.suite.catalog.migrations
 
 import app.epistola.catalog.migration.CatalogMigrationCodes
 import app.epistola.catalog.migration.CatalogMigrationFinding
+import app.epistola.catalog.migration.CatalogMigrationOptions
 import app.epistola.catalog.migration.CatalogWireSchema
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ResourceDetail
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 import app.epistola.catalog.migration.CatalogMigrationContext as PortableMigrationContext
@@ -16,9 +18,19 @@ import app.epistola.catalog.migration.CatalogSchemaMigrator as PortableSchemaMig
 
 /** Suite exception adapter for epistola-catalog's portable schema migrator. */
 @Component
-class CatalogSchemaMigrator {
-    fun migrateAndBindManifest(rawManifest: ByteArray): MigratedManifest {
-        val result = PortableSchemaMigrator.migrateManifest(ByteArrayInputStream(rawManifest))
+class CatalogSchemaMigrator(
+    private val identity: CatalogIdentityProperties = CatalogIdentityProperties(),
+) {
+    /**
+     * [namespace] is what a catalog from before wire v8 gets as its namespace, since it names none:
+     * the importing tenant's key, or [CatalogIdentityProperties.BUNDLED_NAMESPACE] for a catalog
+     * Epistola ships. Null refuses such a catalog. Its registry is the configured default.
+     */
+    fun migrateAndBindManifest(rawManifest: ByteArray, namespace: String?): MigratedManifest {
+        val result = PortableSchemaMigrator.migrateManifest(
+            ByteArrayInputStream(rawManifest),
+            CatalogMigrationOptions(namespace = namespace, registry = identity.defaultRegistry),
+        )
         val manifest = result.value ?: throw result.findings.first().asSuiteException()
         val sourceVersion = requireNotNull(result.sourceVersion)
         return MigratedManifest(

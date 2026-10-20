@@ -11,8 +11,10 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -20,18 +22,15 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
-import app.epistola.suite.templates.contracts.queries.GetLatestContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
+import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -54,11 +53,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
     /**
-     * Inserts a draft contract version with the given data model and/or examples.
+     * Sets the template's data contract through the command, as an author would. `forceUpdate`
+     * because some tests seed examples that do not satisfy the schema on purpose; an empty
+     * example list keeps the examples the template has, or gives it an empty one.
      */
     private fun insertDraftContract(
         tenantKey: String,
@@ -66,28 +64,23 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         dataModel: String? = null,
         dataExamples: String = "[]",
     ) {
-        jdbi.withHandle<Unit, Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, created_at)
-                VALUES (1, :tenantKey, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :dataModel::jsonb, :dataExamples::jsonb, 'draft', NOW())
-                ON CONFLICT (tenant_key, template_resource_id) WHERE status = 'draft'
-                DO UPDATE SET data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", "default")
-                .bind("templateKey", templateKey)
-                .bind("dataModel", dataModel)
-                .bind("dataExamples", dataExamples)
-                .execute()
+        val examples = objectMapper.readValue(dataExamples, Array<DataExample>::class.java).toList()
+        withMediator {
+            val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId.default(TenantId(TenantKey.of(tenantKey))))
+            // A contract needs an example; a test that gives none gets an empty one.
+            val current = GetDataContract(templateId).query()?.dataExamples.orEmpty()
+            UpdateDataContract(
+                templateId = templateId,
+                dataModel = dataModel?.let { objectMapper.readValue(it, tools.jackson.databind.node.ObjectNode::class.java) },
+                dataExamples = examples.ifEmpty { current.ifEmpty { listOf(DataExample("example-1", "Example 1", objectMapper.createObjectNode())) } },
+                forceUpdate = true,
+            ).execute()
         }
     }
 
     private fun createDraftContractWithExample(tenant: Tenant, template: DocumentTemplate) = withMediator {
         val templateId = TemplateId(template.id, CatalogId.default(TenantId(tenant.id)))
-        CreateContractVersion(templateId = templateId).execute()
-        UpdateContractVersion(
+        UpdateDataContract(
             templateId = templateId,
             dataExamples = listOf(
                 DataExample(
@@ -115,7 +108,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -137,7 +130,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -160,7 +153,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/marketing/templates", String::class.java)
         }
 
         then {
@@ -215,7 +208,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=name&dir=asc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=name&dir=asc", String::class.java)
         }
 
         then {
@@ -278,7 +271,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -304,7 +297,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=3", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=3", String::class.java)
         }
 
         then {
@@ -327,7 +320,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         whenever {
             // (page - 1) * PAGE_SIZE would overflow Int to a negative OFFSET if
             // the page were not capped; must clamp to the last page, not 500.
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=2147483647", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=2147483647", String::class.java)
         }
 
         then {
@@ -348,7 +341,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?page=99", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?page=99", String::class.java)
         }
 
         then {
@@ -392,7 +385,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Cherry"))
             // All 4 sortable columns always carry exactly one chevron (no layout
             // shift); the active column (name, asc) is the only up-chevron.
-            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(3)
             assertThat(body.split("icon-chevron-up").size - 1).isEqualTo(1)
         }
     }
@@ -428,7 +421,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body.indexOf("Banana")).isLessThan(body.indexOf("Apple"))
             // All 4 sortable columns always carry exactly one chevron (no layout
             // shift); sorting descending means none point up.
-            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(4)
+            assertThat(body.split("ep-sort-icon").size - 1).isEqualTo(3)
             assertThat(body).doesNotContain("icon-chevron-up")
         }
     }
@@ -443,7 +436,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates", String::class.java)
         }
 
         then {
@@ -454,7 +447,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             // Variants/Last Modified are naturally descending, Name/Catalog ascending.
             assertThat(body).contains("sort=variants&amp;dir=desc")
             assertThat(body).contains("sort=name&amp;dir=asc")
-            assertThat(body).contains("sort=catalog&amp;dir=asc")
         }
     }
 
@@ -468,7 +460,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=not-a-column", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=not-a-column", String::class.java)
         }
 
         then {
@@ -496,7 +488,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=variants&dir=desc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=variants&dir=desc", String::class.java)
         }
 
         then {
@@ -505,39 +497,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(body.indexOf("ManyVariants")).isLessThan(body.indexOf("SomeVariants"))
             assertThat(body.indexOf("SomeVariants")).isLessThan(body.indexOf("FewVariants"))
-        }
-    }
-
-    @Test
-    fun `GET templates sorts by catalog ascending`() = fixture {
-        lateinit var testTenant: Tenant
-
-        given {
-            testTenant = tenant("Test Tenant")
-            val tenantId = TenantId(testTenant.id)
-            // Default catalog template created first (older); marketing second.
-            // Under sort=updated the marketing row would lead, so an asserted
-            // default-before-marketing order proves the catalog sort is applied.
-            template(testTenant, "DefaultCatalogTemplate")
-            withMediator {
-                CreateCatalog(tenantKey = testTenant.id, id = CatalogKey.of("marketing"), name = "Marketing").execute()
-                CreateDocumentTemplate(
-                    id = TemplateId(TemplateKey.of("mkt-tpl"), CatalogId(CatalogKey.of("marketing"), tenantId)),
-                    name = "MarketingCatalogTemplate",
-                ).execute()
-            }
-        }
-
-        whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=catalog&dir=asc", String::class.java)
-        }
-
-        then {
-            val response = result<org.springframework.http.ResponseEntity<String>>()
-            val body = response.body!!
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            // catalog asc: "default" precedes "marketing".
-            assertThat(body.indexOf("DefaultCatalogTemplate")).isLessThan(body.indexOf("MarketingCatalogTemplate"))
         }
     }
 
@@ -561,7 +520,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?sort=updated&dir=desc", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/templates?sort=updated&dir=desc", String::class.java)
         }
 
         then {
@@ -593,7 +552,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/templates?catalog=marketing&page=2", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/marketing/templates?page=2", String::class.java)
         }
 
         then {
@@ -605,7 +564,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(body).contains("Page 2 of 2")
             assertThat(rowCount(body)).isEqualTo(2)
             assertThat(body).doesNotContain("Default Catalog Only")
-            assertThat(body).contains("catalog=marketing")
+            assertThat(body).contains("/catalogs/marketing/templates")
         }
     }
 
@@ -625,7 +584,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "New Template")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -656,7 +615,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "HTMX Template")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -689,7 +648,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -724,7 +683,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "   ")
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -755,7 +714,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "a".repeat(101))
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -785,7 +744,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             formData.add("name", "a".repeat(256))
             formData.add("catalog", "default")
             val request = HttpEntity(formData, headers)
-            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/catalogs/default/templates", request, String::class.java)
         }
 
         then {
@@ -816,7 +775,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -862,7 +821,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -906,7 +865,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"count": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -936,7 +895,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -982,7 +941,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/validate-schema",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -1036,7 +995,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated Example", "data": {"name": "Updated John"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1051,10 +1010,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Updated John")
 
                 // Verify the other example is unchanged via contract version
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(contractVersion).isNotNull
-                assertThat(contractVersion!!.dataExamples).hasSize(2)
-                assertThat(contractVersion.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contract).isNotNull
+                assertThat(contract!!.dataExamples).hasSize(2)
+                assertThat(contract.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
             }
         }
 
@@ -1088,7 +1047,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "New Name"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1119,7 +1078,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/non-existent",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1147,7 +1106,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1192,7 +1151,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1236,7 +1195,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}, "forceUpdate": true}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -1281,7 +1240,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1293,59 +1252,10 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
-                assertThat(contractVersion).isNotNull
-                assertThat(contractVersion!!.dataExamples).hasSize(1)
-                assertThat(contractVersion.dataExamples[0].id).isEqualTo("example-2")
-            }
-        }
-
-        @Test
-        fun `DELETE data-example creates a draft from the published contract before deleting`() = fixture {
-            lateinit var testTenant: Tenant
-            lateinit var template: DocumentTemplate
-            lateinit var templateId: TemplateId
-
-            given {
-                testTenant = tenant("Test Tenant")
-                template = template(testTenant, "Test Template")
-                templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))
-
-                CreateContractVersion(templateId = templateId).execute()
-                UpdateContractVersion(
-                    templateId = templateId,
-                    dataExamples = listOf(
-                        DataExample(
-                            id = "example-1",
-                            name = "Example 1",
-                            data = objectMapper.createObjectNode(),
-                        ),
-                        DataExample(
-                            id = "example-2",
-                            name = "Example 2",
-                            data = objectMapper.createObjectNode(),
-                        ),
-                    ),
-                ).execute()
-                PublishContractVersion(templateId = templateId, confirmed = true).execute()
-            }
-
-            whenever {
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
-                    HttpMethod.DELETE,
-                    null,
-                    String::class.java,
-                )
-            }
-
-            then {
-                val response = result<org.springframework.http.ResponseEntity<String>>()
-                assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
-
-                val contractVersion = mediator.query(GetLatestContractVersion(templateId = templateId))
-                assertThat(contractVersion!!.status.name).isEqualTo("DRAFT")
-                assertThat(contractVersion.dataExamples.map { it.id }).containsExactly("example-2")
+                val contract = mediator.query(GetDataContract(templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))
+                assertThat(contract).isNotNull
+                assertThat(contract!!.dataExamples).hasSize(1)
+                assertThat(contract.dataExamples[0].id).isEqualTo("example-2")
             }
         }
 
@@ -1374,7 +1284,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1388,12 +1298,12 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("/data-example-required")
                 assertThat(response.body).contains("At least one data example is required")
 
-                val contractVersion = mediator.query(
-                    GetLatestContractVersion(
+                val contract = mediator.query(
+                    GetDataContract(
                         templateId = TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))),
                     ),
                 )
-                assertThat(contractVersion!!.dataExamples).hasSize(1)
+                assertThat(contract!!.dataExamples).hasSize(1)
             }
         }
 
@@ -1422,7 +1332,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-examples/non-existent",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-examples/non-existent",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1446,7 +1356,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/data-examples/example-1",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -1476,7 +1386,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/data-contract?edit=true",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true",
                     String::class.java,
                 )
             }
@@ -1487,28 +1397,23 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("class=\"contract-status-bar\"")
                 assertThat(response.body).contains("id=\"contract-save-controls\"")
                 assertThat(response.body).contains("Done editing")
-                assertThat(response.body).contains("contract/status-bar?edit=true")
             }
         }
 
         @Test
-        fun `GET contract status bar preserves edit mode during HTMX refresh`() = fixture {
+        fun `GET data contract view mode offers Edit and no publishing or history`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
 
             given {
-                testTenant = tenant("Status Bar Edit Tenant")
-                template = template(testTenant, "Status Bar Edit Template")
+                testTenant = tenant("Data Contract View Tenant")
+                template = template(testTenant, "Data Contract View Template")
                 createDraftContractWithExample(testTenant, template)
             }
 
             whenever {
-                val headers = HttpHeaders()
-                headers.set("HX-Request", "true")
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar?edit=true",
-                    HttpMethod.GET,
-                    HttpEntity<Unit>(headers),
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/data-contract",
                     String::class.java,
                 )
             }
@@ -1516,42 +1421,72 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("id=\"contract-save-controls\"")
-                assertThat(response.body).contains("Done editing")
-                assertThat(response.body).doesNotContain(">Publish</button>")
-                assertThat(response.body).doesNotContain(">Edit</a>")
-            }
-        }
-
-        @Test
-        fun `GET contract status bar keeps publish and edit actions in view mode`() = fixture {
-            lateinit var testTenant: Tenant
-            lateinit var template: DocumentTemplate
-
-            given {
-                testTenant = tenant("Status Bar View Tenant")
-                template = template(testTenant, "Status Bar View Template")
-                createDraftContractWithExample(testTenant, template)
-            }
-
-            whenever {
-                val headers = HttpHeaders()
-                headers.set("HX-Request", "true")
-                restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/contract/status-bar",
-                    HttpMethod.GET,
-                    HttpEntity<Unit>(headers),
-                    String::class.java,
-                )
-            }
-
-            then {
-                val response = result<org.springframework.http.ResponseEntity<String>>()
-                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("Publish")
-                assertThat(response.body).contains("Edit")
+                assertThat(response.body).contains(">Edit")
+                assertThat(response.body).doesNotContain("contract/publish")
+                assertThat(response.body).doesNotContain("History")
                 assertThat(response.body).doesNotContain("id=\"contract-save-controls\"")
-                assertThat(response.body).doesNotContain("Done editing")
+            }
+        }
+
+        @Test
+        fun `PATCH contract updates the schema and examples in place`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Contract Patch Tenant")
+                template = template(testTenant, "Contract Patch Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+                val body = """{"dataModel": {"type": "object", "properties": {"name": {"type": "string"}}},
+                    "dataExamples": [{"id": "ex-1", "name": "Example", "data": {"name": "Ada"}}]}"""
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/contract",
+                    HttpMethod.PATCH,
+                    HttpEntity(body, headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("\"success\":true")
+                val contract = mediator.query(GetDataContract(TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))!!
+                assertThat(contract.dataModel?.get("properties")?.has("name")).isTrue()
+                assertThat(contract.dataExamples.map { it.id }).containsExactly("ex-1")
+            }
+        }
+
+        @Test
+        fun `PATCH contract refuses examples that break the schema unless forced, then warns`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON }
+            val body = { force: Boolean ->
+                """{"dataModel": {"type": "object", "properties": {"age": {"type": "integer"}}},
+                    "dataExamples": [{"id": "ex-1", "name": "Example", "data": {"age": "old"}}], "forceUpdate": $force}"""
+            }
+
+            given {
+                testTenant = tenant("Contract Force Tenant")
+                template = template(testTenant, "Contract Force Template")
+            }
+
+            whenever {
+                val url = "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/contract"
+                restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(false), headers), String::class.java) to
+                    restTemplate.exchange(url, HttpMethod.PATCH, HttpEntity(body(true), headers), String::class.java)
+            }
+
+            then {
+                val (refused, forced) = result<Pair<org.springframework.http.ResponseEntity<String>, org.springframework.http.ResponseEntity<String>>>()
+                assertThat(refused.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(refused.body).contains("Example data does not match the schema")
+                assertThat(forced.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(forced.body).contains("\"warnings\"")
             }
         }
     }
@@ -1573,7 +1508,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1586,8 +1521,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"features\": {")
                 assertThat(response.body).contains("\"aiChat\":{\"enabled\":false")
                 assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
-                // The walkthrough is off by default (ALPHA). Assert the value, not just
-                // the key, so a default-on regression fails.
+                // The walkthrough is off in the test profile (application-test.yaml), so the
+                // flag the editor gets follows the configuration; its default is KnownFeaturesTest's.
                 assertThat(response.body).contains("\"editorWalkthrough\":{\"enabled\":false")
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/ai-plugin-")
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/walkthrough-plugin-")
@@ -1625,7 +1560,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1654,7 +1589,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.getForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/editor",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor",
                     String::class.java,
                 )
             }
@@ -1704,6 +1639,33 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     inner class PreviewEndpointTest {
 
         @Test
+        fun `POST preview for a variant that is gone says so in a sentence`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/gone/preview",
+                    HttpEntity("""{"data": {}}""", headers),
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+                assertThat(response.body).contains("could not be found").contains("Reload the page")
+            }
+        }
+
+        @Test
         fun `POST preview returns 400 with structured errors when data validation fails`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
@@ -1730,7 +1692,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1771,7 +1733,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {"count": "not-a-number"}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1812,7 +1774,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                             "type" to "stencil",
                             "slots" to emptyList<String>(),
                             "props" to mapOf(
-                                "stencilId" to "address-block",
+                                "stencilKey" to "address-block",
                                 "version" to 2,
                                 "draftVersion" to 2,
                                 "parameterSchemaSnapshot" to mapOf(
@@ -1846,7 +1808,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     headers,
                 )
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1886,7 +1848,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1914,7 +1876,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1966,7 +1928,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -2028,7 +1990,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                     }"""
                     return requireNotNull(
                         restTemplate.postForEntity(
-                            "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                            "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                             HttpEntity(body, headers),
                             ByteArray::class.java,
                         ).body,
@@ -2080,7 +2042,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/preview",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/preview",
                     request,
                     ByteArray::class.java,
                 )
@@ -2097,8 +2059,52 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     @Nested
     inner class DraftSaveEndpointTest {
 
+        /** The editor names the revision it last read or saved; a save over someone else's is refused. */
         @Test
-        fun `PUT draft returns validation error message for invalid stencil parameter binding`() = fixture {
+        fun `PUT content against a stale revision is refused with resource-modified, and answers the new revision otherwise`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantKey? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            then {
+                val url = "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/content"
+                val opened = withMediator {
+                    GetVariant(VariantId(variantId!!, TemplateId(template.id, CatalogId.default(TenantId(testTenant.id))))).query()!!.revision
+                }
+                fun save(text: String, revision: Long?) = restTemplate.exchange(
+                    url,
+                    HttpMethod.PUT,
+                    HttpEntity(
+                        """{"expectedRevision": ${revision ?: "null"}, "templateModel": {"modelVersion": 1, "root": "root-1",
+                            "nodes": {"root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]},
+                                      "t-1": {"id": "t-1", "type": "text", "slots": [], "props": {"content": {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "$text"}]}]}}}},
+                            "slots": {"slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": ["t-1"]}},
+                            "themeRef": {"type": "inherit"}}}""",
+                        HttpHeaders().apply { contentType = MediaType.APPLICATION_JSON },
+                    ),
+                    String::class.java,
+                )
+
+                val mine = save("mine", opened)
+                assertThat(mine.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(mine.body).contains("\"revision\":${opened + 1}")
+
+                val theirs = save("theirs", opened)
+                assertThat(theirs.statusCode).isEqualTo(HttpStatus.PRECONDITION_FAILED)
+                assertThat(theirs.body).contains("resource-modified")
+
+                assertThat(save("overwrite", null).statusCode).`as`("without a revision the save goes through").isEqualTo(HttpStatus.OK)
+            }
+        }
+
+        @Test
+        fun `PUT content returns validation error message for invalid stencil parameter binding`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
             var variantId: VariantKey? = null
@@ -2123,7 +2129,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                                 "type": "stencil",
                                 "slots": [],
                                 "props": {
-                                    "stencilId": "letter",
+                                    "stencilKey": "letter",
                                     "version": 1,
                                     "parameterSchemaSnapshot": {
                                         "type": "object",
@@ -2142,7 +2148,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 }"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/default/${template.id}/variants/$variantId/draft",
+                    "/tenants/${testTenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/content",
                     HttpMethod.PUT,
                     request,
                     String::class.java,

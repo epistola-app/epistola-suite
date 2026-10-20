@@ -7,64 +7,71 @@ package app.epistola.suite.api.v1
 import app.epistola.api.StencilsApi
 import app.epistola.api.model.CreateStencilRequest
 import app.epistola.api.model.MarkStencilReadyResponse
-import app.epistola.api.model.ResourceStatus
 import app.epistola.api.model.StencilContentDto
 import app.epistola.api.model.StencilDto
 import app.epistola.api.model.StencilListResponse
 import app.epistola.api.model.StencilUsageListResponse
 import app.epistola.api.model.UpdateStencilContentRequest
 import app.epistola.api.model.UpdateStencilRequest
+import app.epistola.catalog.protocol.StencilResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
-import app.epistola.suite.api.v1.shared.WorkingCopyStatus
+import app.epistola.suite.api.v1.shared.ResourceStatuses
+import app.epistola.suite.api.v1.shared.catalogId
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
+import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
 import app.epistola.suite.api.v1.shared.toUsageDto
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.StencilNotFoundException
-import app.epistola.suite.stencils.StencilVersionNotFoundException
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.stencils.commands.MarkStencilReady
 import app.epistola.suite.stencils.commands.UpdateStencil
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.model.StencilVersion
-import app.epistola.suite.stencils.model.StencilVersionStatus
+import app.epistola.suite.stencils.queries.CountStencils
 import app.epistola.suite.stencils.queries.GetStencil
-import app.epistola.suite.stencils.queries.GetStencilVersion
-import app.epistola.suite.stencils.queries.ListStencilInstances
-import app.epistola.suite.stencils.queries.ListStencilSummaries
-import app.epistola.suite.stencils.queries.ListStencilVersions
+import app.epistola.suite.stencils.queries.GetStencilUsagePage
+import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.ObjectMapper
 
+/**
+ * Stencils of a catalog version. A stencil has one working copy, in the draft; its status is against
+ * the version's base and its ready mark (contract ADR 0002). A released version reads the stencils
+ * the release holds.
+ */
 @RestController
 @RequestMapping("/api")
-class EpistolaStencilApi : StencilsApi {
+class EpistolaStencilApi(
+    private val objectMapper: ObjectMapper,
+) : StencilsApi {
 
     // ==================== Stencil CRUD ====================
 
     override fun listStencils(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         q: String?,
         tag: String?,
         page: Int,
@@ -74,201 +81,235 @@ class EpistolaStencilApi : StencilsApi {
     ): ResponseEntity<StencilListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencils = ListStencilSummaries(
-            tenantId = tenantIdComposite,
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            val stencils = at.releasedResources<StencilResource>("stencil").filter { stencil ->
+                (q.isNullOrBlank() || stencil.name.contains(q, ignoreCase = true) || stencil.description?.contains(q, ignoreCase = true) == true) &&
+                    (tag.isNullOrBlank() || tag in stencil.tags)
+            }
+            val slice = Pagination.pageOfRelease(stencils, page, size)
+            return ResponseEntity.ok(StencilListResponse(items = slice.items.map { it.toSummaryDto(at) }, page = slice.page))
+        }
+        val tenantId = TenantId(at.catalog.tenantKey)
+        val stencils = ListStencils(
+            tenantId = tenantId,
             searchTerm = q,
             tag = tag,
-            catalogKey = CatalogKey.of(catalogId),
+            catalogKey = at.catalogKey,
+            limit = Pagination.limitOf(size),
+            offset = Pagination.offsetOf(page, size),
+            catalogVersion = at.ref,
         ).query()
-        val slice = Pagination.paginate(stencils, page, size)
-        val status = WorkingCopyStatus.of(tenantIdComposite.key, CatalogKey.of(catalogId))
-
+        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalogKey = at.catalogKey, catalogVersion = at.ref).query()
+        val statuses = ResourceStatuses.of(at)
         return ResponseEntity.ok(
             StencilListResponse(
-                items = slice.items.map { summary ->
-                    summary.toSummaryDto(
-                        status.of(
-                            "stencil",
-                            summary.id.value,
-                            hasDraft = summary.latestVersion != null && summary.latestVersion != summary.latestPublishedVersion,
-                            hasPublished = summary.latestPublishedVersion != null,
-                        ),
-                    )
-                },
-                page = slice.page,
+                items = stencils.map { it.toSummaryDto(statuses.of(STENCIL, it.id.value)) },
+                page = Pagination.pageMeta(page, size, total),
             ),
         )
     }
 
     override fun createStencil(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         createStencilRequest: CreateStencilRequest,
     ): ResponseEntity<StencilDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilId = StencilId(StencilKey.of(createStencilRequest.id), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val stencil = CreateStencil(
-            id = stencilId,
+            id = StencilId(StencilKey.of(createStencilRequest.key), draft.catalogId),
             name = createStencilRequest.name,
             description = createStencilRequest.description,
             tags = createStencilRequest.tags ?: emptyList(),
             content = createStencilRequest.content,
             parameterSchema = createStencilRequest.parameterSchema,
+            catalogVersion = draft.ref,
         ).execute()
 
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(stencil.toDto(statusOf(stencilId)))
+        return stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)).let { created(it.key, it) }
     }
 
     override fun getStencil(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
     ): ResponseEntity<StencilDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-
-        val stencil = GetStencil(id = stencilIdComposite).query()
-            ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
-
-        return ResponseEntity.ok(stencil.toDto(statusOf(stencilIdComposite)))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toDto(at))
+        val stencil = workingCopy(at, stencilKey)
+        return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
 
     override fun updateStencil(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
         updateStencilRequest: UpdateStencilRequest,
+        ifMatch: String?,
     ): ResponseEntity<StencilDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.stencilId(stencilKey)
         val stencil = UpdateStencil(
-            id = stencilIdComposite,
+            id = id,
             name = updateStencilRequest.name,
             description = updateStencilRequest.description,
             tags = updateStencilRequest.tags,
-        ).execute() ?: throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
+            catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
+        ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
 
-        return ResponseEntity.ok(stencil.toDto(statusOf(stencilIdComposite)))
+        return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
     }
 
     override fun deleteStencil(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
     ): ResponseEntity<Unit> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val stencilIdComposite = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), tenantIdComposite))
-        val deleted = DeleteStencil(id = stencilIdComposite).execute()
-
-        return if (deleted) {
-            ResponseEntity.noContent().build()
-        } else {
-            throw StencilNotFoundException(tenantIdComposite.key, stencilIdComposite.key)
-        }
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.stencilId(stencilKey)
+        if (!DeleteStencil(id = id, catalogVersion = draft.ref).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
+        return ResponseEntity.noContent().build()
     }
 
-    // ==================== Working copy ====================
-    //
-    // Interim, until stencils lose their versions (WP4): the working copy is the stencil's draft
-    // version when it has one, otherwise its latest published version, and marking it ready publishes
-    // the draft, which is what a release reads.
+    // ==================== Content ====================
 
     override fun getStencilContent(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
     ): ResponseEntity<StencilContentDto> {
-        val id = stencilIdOf(tenantId, catalogId, stencilId)
-        val (version, status) = workingCopy(id)
-        return ResponseEntity.ok(version.toContentDto(status))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toContentDto(at, objectMapper))
+        val stencil = workingCopy(at, stencilKey)
+        return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
 
+    /** A full replacement: a parameter schema left out is cleared, as the contract says. */
     override fun updateStencilContent(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
         updateStencilContentRequest: UpdateStencilContentRequest,
+        ifMatch: String?,
     ): ResponseEntity<StencilContentDto> {
-        val id = stencilIdOf(tenantId, catalogId, stencilId)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.stencilId(stencilKey)
         val content = updateStencilContentRequest.content
             ?: throw ValidationException(field = "content", message = "Stencil content is required")
-        val draftKey = draftOf(id)?.id
-            ?: (CreateStencilVersion(stencilId = id, inheritParameterSchemaFromSource = false).execute()?.id)
-            ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        UpdateStencilDraft(
-            versionId = StencilVersionId(draftKey, id),
+        val parameterSchema = updateStencilContentRequest.parameterSchema
+        val stencil = UpdateStencil(
+            id = id,
             content = content,
-            parameterSchema = updateStencilContentRequest.parameterSchema,
-        ).execute()
-        val (version, status) = workingCopy(id)
-        return ResponseEntity.ok(version.toContentDto(status))
+            // Left out keeps the schema; an empty one (`{}`) removes it (UpdateStencil).
+            parameterSchema = parameterSchema,
+            catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
+        ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+        return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
     }
 
+    /**
+     * Marks the stencil's content ready. Templates use a stencil by reference, so every instance sees
+     * the new content; the instances it no longer fits are named, and a release refuses until they do.
+     */
     override fun markStencilReady(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
     ): ResponseEntity<MarkStencilReadyResponse> {
-        val id = stencilIdOf(tenantId, catalogId, stencilId)
-        draftOf(id)?.let { PublishStencilVersion(versionId = StencilVersionId(it.id, id)).execute() }
-        val (version, status) = workingCopy(id)
-        val heldBack = generateSequence(0) { it + HELD_BACK_PAGE }
-            .map { offset -> ListStencilInstances(id, offset = offset, limit = HELD_BACK_PAGE).query() }
-            .takeWhile { it.items.isNotEmpty() }
-            .flatMap { page -> page.items.asSequence() }
-            .filter { it.heldBack }
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.stencilId(stencilKey)
+        workingCopy(draft, stencilKey)
+        MarkStencilReady(stencilId = id, catalogVersion = draft.ref).execute()
+        val stencil = workingCopy(draft, stencilKey)
+        val notFitting = generateSequence(1) { it + 1 }
+            .map { GetStencilUsagePage(id, page = it, catalogVersion = draft.ref).query() }
+            .takeWhileInclusive { it.page < it.totalPages }
+            .flatMap { it.items.asSequence() }
             .map { it.toUsageDto() }
+            .filterNot { it.fits }
             .toList()
-        return ResponseEntity.ok(MarkStencilReadyResponse(stencil = version.toContentDto(status), heldBack = heldBack))
+        return ResponseEntity.ok(
+            MarkStencilReadyResponse(
+                stencil = stencil.toContentDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)),
+                notFitting = notFitting,
+            ),
+        )
     }
 
     // ==================== Usage ====================
 
+    /** The variants that use the stencil, paged in SQL. */
     override fun listStencilUsage(
-        tenantId: String,
-        catalogId: String,
-        stencilId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        stencilKey: String,
         page: Int,
         size: Int,
     ): ResponseEntity<StencilUsageListResponse> {
-        val id = stencilIdOf(tenantId, catalogId, stencilId)
-        GetStencil(id = id).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        val instances = ListStencilInstances(id, offset = Pagination.offsetOf(page, size), limit = Pagination.limitOf(size)).query()
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        // The usage scan reads the working copy's templates; nothing scans what a release holds yet.
+        if (!at.isDraft) throw ApiOperationNotImplementedException("listStencilUsage on a released version")
+        val id = at.stencilId(stencilKey)
+        workingCopy(at, stencilKey)
+
+        val usage = GetStencilUsagePage(id, page = page.coerceAtLeast(0) + 1, pageSize = Pagination.limitOf(size), catalogVersion = at.ref).query()
+        // The usage query answers a page past the end with its last page; the contract with none.
+        val inRange = usage.page == page.coerceAtLeast(0) + 1
         return ResponseEntity.ok(
             StencilUsageListResponse(
-                items = instances.items.map { it.toUsageDto() },
-                page = Pagination.pageMeta(page, size, instances.total),
+                items = if (inRange) usage.items.map { it.toUsageDto() } else emptyList(),
+                page = Pagination.pageMeta(page, size, usage.total.toLong()),
             ),
         )
     }
 
     // ==================== Helpers ====================
 
-    private fun stencilIdOf(tenantId: String, catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId))))
+    private fun ResolvedCatalogVersion.stencilId(key: String) = StencilId(StencilKey.of(key), catalogId)
 
-    private fun statusOf(id: StencilId): ResourceStatus = workingCopy(id).second
+    private fun workingCopy(at: ResolvedCatalogVersion, key: String): Stencil {
+        val id = at.stencilId(key)
+        return GetStencil(id = id, catalogVersion = at.ref).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+    }
 
-    private fun draftOf(id: StencilId) = ListStencilVersions(stencilId = id, status = StencilVersionStatus.DRAFT).query().firstOrNull()
+    private fun released(at: ResolvedCatalogVersion, key: String): StencilResource = at.releasedResource<StencilResource>(STENCIL, key)
+        ?: throw StencilNotFoundException(at.catalog.tenantKey, StencilKey.of(key))
 
-    /** The working copy and its status: the draft if there is one, else the latest published version. */
-    private fun workingCopy(id: StencilId): Pair<StencilVersion, ResourceStatus> {
-        GetStencil(id = id).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        val draft = draftOf(id)
-        val latestPublished = ListStencilVersions(stencilId = id, status = StencilVersionStatus.PUBLISHED).query().maxByOrNull { it.id.value }
-        val shownKey = draft?.id ?: latestPublished?.id ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        val version = GetStencilVersion(versionId = StencilVersionId(shownKey, id)).query()
-            ?: throw StencilNotFoundException(id.tenantKey, id.key)
-        val status = WorkingCopyStatus.of(id.tenantKey, id.catalogKey)
-            .of("stencil", id.key.value, hasDraft = draft != null, hasPublished = latestPublished != null)
-        return version to status
+    private fun <T> Sequence<T>.takeWhileInclusive(predicate: (T) -> Boolean): Sequence<T> = sequence {
+        for (item in this@takeWhileInclusive) {
+            yield(item)
+            if (!predicate(item)) break
+        }
     }
 
     private companion object {
-        const val HELD_BACK_PAGE = 200
+        const val STENCIL = "stencil"
     }
 }

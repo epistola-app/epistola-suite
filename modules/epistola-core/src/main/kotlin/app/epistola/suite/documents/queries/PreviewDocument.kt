@@ -5,6 +5,9 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -16,6 +19,8 @@ import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.preview.ReleasePreviewResolver
 import app.epistola.suite.generation.DocumentPreviewRenderer
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.generation.release.CatalogSelection
+import app.epistola.suite.generation.release.ReleaseTargetResolver
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
@@ -50,8 +55,10 @@ import java.io.ByteArrayOutputStream
  * @property data JSON data to populate the template
  * @property variantId Explicit variant (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant
- * @property releaseVersion Release of the catalog to render (mutually exclusive with environmentId)
- * @property environmentId Environment whose deployed release is rendered (mutually exclusive with releaseVersion)
+ * @property releaseVersion A version selector (npm range grammar, an exact version included): the
+ *   highest candidate release satisfying it is rendered. Despite the name it need not be a release.
+ * @property environmentId Environment whose releases are the candidates; without it, every release
+ *   of the catalog that kept its content is. With neither, the highest candidate is rendered.
  */
 data class PreviewDocument(
     val tenantId: TenantKey,
@@ -67,7 +74,10 @@ data class PreviewDocument(
      * Generation never does this; a preview may, so an author can see unreleased work.
      */
     val workingCopy: Boolean = false,
-) : Query<ByteArray>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ByteArray>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
@@ -75,9 +85,6 @@ data class PreviewDocument(
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
-        }
-        require(!(releaseVersion != null && environmentId != null)) {
-            "Cannot specify both releaseVersion and environmentId"
         }
         require(!workingCopy || (releaseVersion == null && environmentId == null)) {
             "The working copy is not a release: it cannot be combined with releaseVersion or environmentId"
@@ -95,9 +102,30 @@ class PreviewDocumentHandler(
     private val generationService: GenerationService,
     private val variantResolver: VariantResolver,
     private val objectMapper: ObjectMapper,
+    private val targetResolver: ReleaseTargetResolver,
 ) : QueryHandler<PreviewDocument, ByteArray> {
 
-    override fun handle(query: PreviewDocument): ByteArray = if (query.workingCopy) previewWorkingCopy(query) else previewRelease(query)
+    override fun handle(query: PreviewDocument): ByteArray {
+        if (query.workingCopy) return previewWorkingCopy(query)
+        // Through an environment that follows a draft, the preview is that draft, as generation renders it.
+        val selection = query.environmentId?.let { targetResolver.select(query.tenantId, query.catalogKey, it, query.releaseVersion) }
+        if (selection is CatalogSelection.Draft) return previewDraft(query, selection)
+        return previewRelease(query)
+    }
+
+    private fun previewDraft(query: PreviewDocument, selection: CatalogSelection.Draft): ByteArray {
+        val target = targetResolver.resolveIn(query.tenantId, query.catalogKey, selection, query.templateId, query.variantId, query.variantSelectionCriteria)
+        return mediator.query(
+            PreviewVariant(
+                tenantId = query.tenantId,
+                catalogKey = query.catalogKey,
+                templateId = query.templateId,
+                variantId = target.variantKey,
+                data = query.data,
+                catalogVersion = CatalogVersionRef(query.tenantId, query.catalogKey, DraftRef.Id(selection.source.draftId)),
+            ),
+        )
+    }
 
     /**
      * The release the environment serves, or the catalog's latest without one, exactly as generation

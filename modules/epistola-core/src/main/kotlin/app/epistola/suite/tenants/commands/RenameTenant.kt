@@ -5,6 +5,7 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -26,8 +27,10 @@ import org.springframework.transaction.annotation.Transactional
  * [tenantId] exists (so the caller can distinguish not-found from success).
  */
 data class RenameTenant(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val name: String,
+    /** The revision the caller read ([Tenant.revision]); null: no check, last write wins. */
+    val expectedRevision: Long? = null,
 ) : Command<Tenant?>,
     TenantScoped,
     EntityIdentifiable,
@@ -51,12 +54,17 @@ class RenameTenantHandler(
     @Transactional
     override fun handle(command: RenameTenant): Tenant? = jdbi.withHandle<Tenant?, Exception> { handle ->
         handle.createQuery(
-            updateTenantReturningTenant("name = :name", "id = :tenantId"),
+            updateTenantReturningTenant("name = :name", "id = :tenantId AND ${Revisions.MATCHES}"),
         )
             .bind("tenantId", command.tenantId)
             .bind("name", command.name)
+            .bind("expectedRevision", command.expectedRevision)
             .mapTo<Tenant>()
             .findOne()
             .orElse(null)
+            ?: null.also {
+                val current = handle.createQuery("SELECT revision FROM tenants WHERE id = :tenantId").bind("tenantId", command.tenantId).mapTo(Long::class.java).findOne().orElse(null)
+                Revisions.refuse("Tenant '${command.tenantId.value}'", command.expectedRevision, current)
+            }
     }
 }

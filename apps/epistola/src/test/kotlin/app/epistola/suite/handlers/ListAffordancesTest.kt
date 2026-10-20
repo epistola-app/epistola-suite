@@ -37,6 +37,13 @@ class ListAffordancesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    /** A dialog body, fetched the way its trigger does (`hx-get`). */
+    private fun dialog(path: String): String {
+        val response = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }), String::class.java)
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
+    }
+
     private fun get(path: String): String {
         val response = restTemplate.getForEntity(path, String::class.java)
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -111,7 +118,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
      * on the list — and a template then gets created in the wrong catalog.
      */
     @Test
-    fun `the new-template dialog opens on the catalog the list is filtered to`() {
+    fun `the new-template dialog opened inside a catalog creates there, with no catalog to choose`() {
         val tenant = createTenant("New Template Catalog")
         // "zzz-last" sorts after the auto-created Default catalog, so preselecting it cannot
         // pass by accident on the browser's first-option fallback.
@@ -119,7 +126,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         withMediator { CreateCatalog(tenant.id, filtered, "ZZZ Last").execute() }
 
         val body = restTemplate.exchange(
-            "/tenants/${tenant.id.value}/templates/new?catalog=${filtered.value}",
+            "/tenants/${tenant.id.value}/catalogs/${filtered.value}/templates/new",
             HttpMethod.GET,
             HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
             String::class.java,
@@ -128,31 +135,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             requireNotNull(it.body)
         }
 
-        assertThat(selectedOption(body)).isEqualTo(filtered.value)
-    }
-
-    @Test
-    fun `the new-template dialog falls back to the first catalog when the list is unfiltered`() {
-        val tenant = createTenant("New Template Unfiltered")
-        withMediator { CreateCatalog(tenant.id, CatalogKey.of("zzz-last"), "ZZZ Last").execute() }
-
-        val body = restTemplate.exchange(
-            "/tenants/${tenant.id.value}/templates/new?catalog=",
-            HttpMethod.GET,
-            HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
-            String::class.java,
-        ).let { requireNotNull(it.body) }
-
-        // Nothing marked selected: the browser takes the first option, which is correct when the
-        // reader has expressed no preference.
-        assertThat(selectedOption(body)).isNull()
-    }
-
-    /** The value of the catalog `<option>` carrying `selected`, or null if none does. */
-    private fun selectedOption(body: String): String? {
-        val select = body.substringAfter("""name="catalog"""", "").substringBefore("</select>")
-        return Regex("""<option[^>]*value="([^"]*)"[^>]*\bselected\b""").find(select)?.groupValues?.get(1)
-            ?: Regex("""<option[^>]*\bselected\b[^>]*value="([^"]*)"""").find(select)?.groupValues?.get(1)
+        assertThat(body).contains("/catalogs/${filtered.value}/templates\"").doesNotContain("<select id=\"catalog\"")
     }
 
     @Test
@@ -161,7 +144,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of("presentation-empty")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation empty").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
+        val body = dialog("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("""name="imageAssetSlugs"""")
@@ -185,28 +168,28 @@ class ListAffordancesTest : BaseIntegrationTest() {
             ).execute()
         }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
+        val body = dialog("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=presentation")
 
         assertThat(body).doesNotContain("This catalog has no images yet")
         assertThat(body).contains("""name="imageAssetSlugs"""")
         assertThat(body).contains("""name="iconAssetSlug"""")
     }
 
-    /** The catalog page withholds the button that opens that dialog, and says where images come from. */
+    /** The next version's page withholds the button that opens that dialog, and says where images come from. */
     @Test
-    fun `the catalog page withholds the presentation control until there is an image`() {
+    fun `the next version's page withholds the presentation control until there is an image`() {
         val tenant = createTenant("Presentation Card")
         val catalogKey = CatalogKey.of("presentation-card")
         withMediator { CreateCatalog(tenant.id, catalogKey, "Presentation card").execute() }
 
-        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse")
+        val body = get("/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings")
 
         assertThat(body).contains("This catalog has no images yet")
         assertThat(body).doesNotContain("section='presentation'")
     }
 
     @Test
-    fun `the catalog page and the edit dialog agree on keyword order`() {
+    fun `the next version's page and the edit dialog agree on keyword order`() {
         val tenant = createTenant("Keyword Order")
         val catalogKey = CatalogKey.of("keyword-order")
         withMediator {
@@ -222,10 +205,10 @@ class ListAffordancesTest : BaseIntegrationTest() {
         val base = "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}"
 
         val onPage = Regex("""badge badge-outline"[^>]*>([^<]+)<""")
-            .findAll(get("$base/browse"))
+            .findAll(get("$base/settings").substringAfter("id=\"catalog-metadata\""))
             .map { it.groupValues[1] }
             .toList()
-        val inDialog = get("$base/metadata?section=keywords")
+        val inDialog = dialog("$base/metadata?section=keywords")
             .substringAfter("name=\"keywords\"")
             .substringAfter(">")
             .substringBefore("</textarea>")

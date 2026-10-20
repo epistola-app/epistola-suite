@@ -21,6 +21,8 @@ import org.springframework.stereotype.Component
 data class CreateEnvironment(
     val id: EnvironmentId,
     val name: String,
+    /** Serves only published versions (see [Environment.production]). */
+    val production: Boolean = false,
 ) : Command<Environment>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -42,14 +44,15 @@ class CreateEnvironmentHandler(
             jdbi.withHandle<Environment, Exception> { handle ->
                 handle.createQuery(
                     """
-                INSERT INTO environments (id, tenant_key, name, created_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :name, NOW(), :createdBy, :updatedBy)
+                INSERT INTO environments (id, tenant_key, name, production, created_at, created_by, updated_by)
+                VALUES (:id, :tenantId, :name, :production, NOW(), :createdBy, :updatedBy)
                 RETURNING *
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("name", command.name)
+                    .bind("production", command.production)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .mapTo<Environment>()
                     .one()

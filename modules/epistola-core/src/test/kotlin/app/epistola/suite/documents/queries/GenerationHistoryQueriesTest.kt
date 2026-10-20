@@ -15,9 +15,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.TemplateVariant
-import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -34,7 +33,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val tenant: Tenant,
         val template: DocumentTemplate,
         val variant: TemplateVariant,
-        val version: TemplateVersion,
+        val releaseVersion: String,
     )
 
     private fun createTemplateSetup(tenantName: String, templateName: String): TemplateSetup = withAuthentication {
@@ -45,9 +44,9 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = templateName)
-        mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
-        val version = mediator.publishAndRelease(variantId)
-        TemplateSetup(tenant, template, variant, version)
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
+        val releaseVersion = mediator.publishAndRelease(variantId)
+        TemplateSetup(tenant, template, variant, releaseVersion)
     }
 
     private fun generateRequest(setup: TemplateSetup, filename: String) = withAuthentication {
@@ -106,7 +105,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Less Popular")
-            mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
@@ -152,7 +151,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
             val templateModel = TestTemplateBuilder.buildMinimal(name = "Template B")
-            mediator.send(UpdateDraft(variantId = variantId, templateModel = templateModel))!!
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = templateModel))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(setup1.tenant, template, variant, version)
         }
@@ -180,7 +179,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
             val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
-            mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))!!
+            mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice")))
             val version = mediator.publishAndRelease(variantId)
             TemplateSetup(inDefault.tenant, template, variant, version)
         }

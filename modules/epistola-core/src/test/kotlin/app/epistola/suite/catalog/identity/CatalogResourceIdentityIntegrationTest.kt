@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.identity
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -58,10 +59,11 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         val resources = jdbi.withHandle<List<IdentityRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT resource_id, resource_type, catalog_key::text, resource_key
-                FROM catalog_resources
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
-                ORDER BY resource_type
+                SELECT r.resource_id, r.resource_type, cat.catalog_key::text AS catalog_key, r.resource_key
+                FROM catalog_resources r
+                JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
+                WHERE r.tenant_key = :tenantKey AND r.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                ORDER BY r.resource_type
                 """,
             )
                 .bind("tenantKey", tenant.id)
@@ -93,7 +95,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
                     SELECT 1 FROM catalog_resources
                     WHERE tenant_key = :tenantKey
                       AND resource_type = 'stencil'
-                      AND catalog_key = :catalogKey
+                      AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                       AND resource_key = 'header'
                 )
                 """,
@@ -131,7 +133,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT resource_id FROM catalog_resources
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND resource_type = 'template'
+                WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_type = 'template'
                 ORDER BY resource_key
                 """,
             )
@@ -268,7 +270,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
             handle
                 .createQuery(
                     "SELECT count(*) FROM catalog_resources WHERE tenant_key = :t " +
-                        "AND resource_type = 'theme' AND catalog_key = :c AND resource_key = 'brand'",
+                        "AND resource_type = 'theme' AND catalog_id = ${catalogAt("t", "c")} AND resource_key = 'brand'",
                 )
                 .bind("t", tenant.id)
                 .bind("c", catalogKey)

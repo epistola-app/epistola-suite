@@ -6,20 +6,34 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.ApplyHouseTheme
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.handlers.CatalogPages
+import app.epistola.suite.handlers.FromOtherCatalog
+import app.epistola.suite.handlers.FromOtherCatalogs
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.themeId
 import app.epistola.suite.mediator.execute
@@ -37,6 +51,7 @@ import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.GetThemeUsagePage
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.themes.queries.ThemeUsagePage
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -59,61 +74,59 @@ data class UpdateThemeRequest(
     val clearBlockStylePresets: Boolean = false,
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
+    /** The theme's revision as the editor last read or saved it; a save over someone else's is refused. */
+    val expectedRevision: Long? = null,
 )
 
 @Component
 class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
-    fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val tenant = GetTenant(id = tenantId.key).query()
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("themes/list") {
-            "pageTitle" to "Themes - Epistola"
-            "tenantId" to tenantId.key
-            "tenant" to tenant
-            "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "themes" to themes
-        }
-    }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("themes/list") { themePageModel(request) }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val segment = request.catalogParam()
+        val catalogFilter = segment?.key
         val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, catalogVersion = segment?.ref(tenantId.key)).query()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
                 "tenant" to tenant
                 "themes" to themes
+                "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
                 // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
     /**
-     * The full-page list model, used by the newForm / create non-HTMX branches so
-     * the list renders behind the embedded create dialog. `authoredCatalogs` (the
-     * dialog's catalog `<select>` source) is threaded separately — the list puts
-     * *all* `catalogs` in the model for its filter, so the dialog uses a distinct
-     * key to avoid rendering the wrong (non-authored) options.
+     * The catalog's themes as the list page shows them: the page itself, and behind the create dialog
+     * when `/new` is opened directly or a create is refused without HTMX. The segment may name a draft
+     * (`letters@<draft>`); its rows are then the draft's.
      */
-    private fun ModelBuilder.themePageModel(tenantId: TenantId, catalogs: List<Catalog>) {
+    private fun ModelBuilder.themePageModel(request: ServerRequest) {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val bar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/catalogs/${it.value}/themes" }
         "pageTitle" to "Themes - Epistola"
         "tenantId" to tenantId.key
         "tenant" to GetTenant(id = tenantId.key).query()
-        "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "themes" to ListThemes(tenantId = tenantId).query()
+        "catalogs" to ListCatalogs(tenantId.key).query()
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
+        "houseThemeApplied" to request.param("houseThemeApplied").orElse(null)
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/themes/${t.id.value}", n) }
+        "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -128,13 +141,17 @@ class ThemeHandler(
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("themes/new", "dialog") {
                 "tenantId" to tenantId.key
+                // Opened from a list filtered to a draft, the dialog creates in that draft.
+                // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
+                // creates there, rather than in whichever catalog sorts first.
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("themes/list") {
-                    themePageModel(tenantId, allCatalogs)
+                    themePageModel(request)
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -147,13 +164,6 @@ class ThemeHandler(
         requirePermission(tenantId.key, Permission.THEME_EDIT)
 
         val form = request.form {
-            // Validated like any other field so a missing or malformed catalog
-            // lands in the dialog's error path rather than a bodyless 400 (which
-            // HTMX does not swap) or a CatalogKey.of throw (a 500).
-            field("catalog") {
-                required()
-                asCatalogId()
-            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -182,13 +192,15 @@ class ThemeHandler(
             form
         } else {
             form.executeOrFormError {
+                val segment = request.catalogSegment()
                 CreateTheme(
                     id = ThemeId(
                         ThemeKey.validateOrNull(form["slug"])!!,
-                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                        CatalogId(segment.key, tenantId),
                     ),
                     name = form["name"],
                     description = description,
+                    catalogVersion = segment.ref(tenantId.key),
                 ).execute()
             }
         }
@@ -209,11 +221,12 @@ class ThemeHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "themes/list") {
-                        themePageModel(tenantId, allCatalogs)
+                        themePageModel(request)
                         "openDialog" to true
                         "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
@@ -230,21 +243,23 @@ class ThemeHandler(
         // HX-Redirect; trying the soft path to drop the full-page reload.)
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val themeKey = ThemeKey.validateOrNull(form["slug"])!!
-        val catalogKey = CatalogKey.of(form["catalog"])
-        val destination = "/tenants/${tenantId.key}/themes/$catalogKey/$themeKey"
+        val catalogKey = request.catalogSegment().value
+        val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/themes/$themeKey"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
+        val segment = request.catalogSegment()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
+        val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
 
-        val theme = GetTheme(id = themeId).query()
+        val theme = GetTheme(id = themeId, catalogVersion = draftBar.ref).query()
             ?: return ServerResponse.notFound().build()
 
         // Serialize theme data as JSON for the Lit component
@@ -256,6 +271,7 @@ class ThemeHandler(
             "pageSettings" to theme.pageSettings,
             "blockStylePresets" to (theme.blockStylePresets ?: emptyMap()),
             "spacingUnit" to theme.spacingUnit,
+            "revision" to theme.revision,
         )
 
         val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
@@ -264,7 +280,8 @@ class ThemeHandler(
             "pageTitle" to "${theme.name} - Epistola"
             "tenantId" to tenantId.key
             "catalogId" to catalogId.value
-            "catalogContext" to GetCatalogContext(tenantId.key, catalogId).query()
+            "catalogSegment" to segment.value
+            "draftBar" to draftBar
             "theme" to theme
             "themeJson" to themeJson
             "editable" to editable
@@ -275,7 +292,8 @@ class ThemeHandler(
         val tenantId = request.tenantId()
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val theme = GetTheme(id = themeId).query()
+        val version = request.catalogVersion()
+        val theme = GetTheme(id = themeId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
         val pageParam = request.param("page").orElse(null)
@@ -284,18 +302,21 @@ class ThemeHandler(
             themeId = themeId,
             limit = THEME_USAGE_PAGE_SIZE,
             offset = (page - 1) * THEME_USAGE_PAGE_SIZE,
+            catalogVersion = version,
         ).query()
 
         return request.htmx {
             fragment("themes/usage", if (pageParam == null) "dialog" else "usage") {
                 "tenantId" to tenantId.key
                 "catalogId" to themeId.catalogKey.value
+                "catalogSegment" to request.catalogSegment().value
+                "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
                 "theme" to theme
                 themeUsageModel(usagePage, page)
             }
-            onNonHtmx {
+            onFullPage {
                 redirect(
-                    "/tenants/${tenantId.key}/themes/${themeId.catalogKey}/${themeId.key}",
+                    "/tenants/${tenantId.key}/catalogs/${themeId.catalogKey}/themes/${themeId.key}",
                 )
             }
         }
@@ -316,20 +337,27 @@ class ThemeHandler(
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateThemeRequest::class.java)
 
-        val theme = UpdateTheme(
-            id = themeId,
-            name = updateRequest.name,
-            description = updateRequest.description,
-            clearDescription = updateRequest.clearDescription,
-            documentStyles = updateRequest.documentStyles,
-            pageSettings = updateRequest.pageSettings,
-            clearPageSettings = updateRequest.clearPageSettings,
-            blockStylePresets = updateRequest.blockStylePresets,
-            clearBlockStylePresets = updateRequest.clearBlockStylePresets,
-            spacingUnit = updateRequest.spacingUnit,
-            clearSpacingUnit = updateRequest.clearSpacingUnit,
-        ).execute()
-            ?: return ServerResponse.notFound().build()
+        val theme = try {
+            UpdateTheme(
+                id = themeId,
+                name = updateRequest.name,
+                description = updateRequest.description,
+                clearDescription = updateRequest.clearDescription,
+                documentStyles = updateRequest.documentStyles,
+                pageSettings = updateRequest.pageSettings,
+                clearPageSettings = updateRequest.clearPageSettings,
+                blockStylePresets = updateRequest.blockStylePresets,
+                clearBlockStylePresets = updateRequest.clearBlockStylePresets,
+                spacingUnit = updateRequest.spacingUnit,
+                clearSpacingUnit = updateRequest.clearSpacingUnit,
+                catalogVersion = request.catalogVersion(),
+                expectedRevision = updateRequest.expectedRevision,
+            ).execute()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Someone else saved this theme after you opened it."))
+        } ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
@@ -343,6 +371,7 @@ class ThemeHandler(
                     "blockStylePresets" to theme.blockStylePresets,
                     "spacingUnit" to theme.spacingUnit,
                     "updatedAt" to theme.updatedAt,
+                    "revision" to theme.revision,
                 ),
             )
     }
@@ -352,24 +381,39 @@ class ThemeHandler(
         val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
+        // The detail page's Delete: a refusal shows in its form, and done, the list it came from.
+        val fromDetail = request.param("from").orElse("") == "detail"
         try {
-            DeleteTheme(id = themeId).execute()
+            DeleteTheme(id = themeId, catalogVersion = request.catalogVersion()).execute()
         } catch (e: ThemeInUseException) {
+            if (fromDetail) {
+                return request.htmx {
+                    globalFormError("delete-theme-error", e.message ?: "The theme is in use.")
+                    onFullPage { redirect(request.path().removeSuffix("/delete")) }
+                }
+            }
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to e.message))
         }
+        if (fromDetail) {
+            val list = CatalogPages.list(request, tenantId.key, "themes")
+            return request.htmx {
+                dialogLocation(list)
+                onFullPage { redirect(list) }
+            }
+        }
 
-        // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId).query()
+        // The catalog's rows, refreshed in place.
+        val segment = request.catalogSegment()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
-                "tenant" to tenant
-                "themes" to themes
+                "tenant" to GetTenant(id = tenantId.key).query()
+                "draftSegment" to segment
+                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
@@ -396,16 +440,58 @@ class ThemeHandler(
             return ServerResponse.notFound().build()
         }
 
-        // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId).query()
+        // The rows of the list it was set from: the chosen theme's catalog (`catalog`, the list's segment).
+        val segment = request.catalogParam() ?: catalogKey?.let { CatalogSegment(it) }
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
-                "tenant" to tenant
-                "themes" to themes
+                "tenant" to GetTenant(id = tenantId.key).query()
+                "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
+                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
+    }
+
+    /** The default theme of the catalog version a themes list shows (contract ADR 0007); null for none. */
+    private fun catalogDefaultOf(tenantKey: TenantKey, segment: CatalogSegment?): CatalogDefaultTheme? = segment?.let { GetCatalogThemeSettings(tenantKey, it.key, catalogVersion = it.ref(tenantKey)).query().defaultTheme }
+
+    /**
+     * Makes a theme the default theme of the catalog version the list shows (contract ADR 0007): the
+     * theme its templates that name none render with. An empty `themeId` clears it.
+     */
+    fun setCatalogDefault(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val themeKey = request.params().getFirst("themeId")?.takeIf { it.isNotBlank() }?.let { ThemeKey.validateOrNull(it) ?: return ServerResponse.badRequest().build() }
+        val themeCatalog = request.params().getFirst("themeCatalogKey")?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) } ?: segment.key
+        SetCatalogDefaultTheme(
+            tenantKey = tenantId.key,
+            catalogKey = segment.key,
+            theme = themeKey?.let { CatalogDefaultTheme(it, themeCatalog) },
+            catalogVersion = segment.ref(tenantId.key),
+        ).execute()
+        return request.htmx {
+            fragment("themes/list", "rows") {
+                "tenantId" to tenantId.key
+                "tenant" to GetTenant(id = tenantId.key).query()
+                "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
+                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+            }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
+        }
+    }
+
+    /**
+     * Gives every catalog the tenant authors the house theme as its default theme (contract ADR 0007,
+     * 1a), then returns to the list it was asked from, saying how many took it.
+     */
+    fun applyHouseTheme(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val result = ApplyHouseTheme(tenantId.key).execute()
+        val back = request.param("catalog").orElse(null)?.let { "/tenants/${tenantId.key}/catalogs/$it/themes" } ?: "/tenants/${tenantId.key}/catalogs"
+        return redirect("$back?houseThemeApplied=${result.applied.size}")
     }
 }

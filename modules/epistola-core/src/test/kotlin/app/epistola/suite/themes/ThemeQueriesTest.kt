@@ -21,9 +21,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.ArchiveVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.ThemeRefOverride
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
@@ -67,19 +66,19 @@ class ThemeQueriesTest : IntegrationTestBase() {
             themeStyleResolver.resolveTheme(
                 tenantId = tenant.id,
                 templateDefaultThemeId = null,
-                tenantDefaultThemeId = tenantTheme.key,
+                catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
-                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
             )?.name,
         ).isEqualTo("Tenant")
         assertThat(
             themeStyleResolver.resolveTheme(
                 tenantId = tenant.id,
                 templateDefaultThemeId = templateTheme.key,
-                tenantDefaultThemeId = tenantTheme.key,
+                catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
                 templateCatalogKey = templateTheme.catalogKey,
-                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
             )?.name,
         ).isEqualTo("Template")
 
@@ -90,18 +89,18 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val rawTheme = themeStyleResolver.resolveTheme(
             tenantId = tenant.id,
             templateDefaultThemeId = templateTheme.key,
-            tenantDefaultThemeId = tenantTheme.key,
+            catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
             templateCatalogKey = templateTheme.catalogKey,
-            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
         )
         val mergedStyles = themeStyleResolver.resolveStyles(
             tenantId = tenant.id,
             templateDefaultThemeId = templateTheme.key,
-            tenantDefaultThemeId = tenantTheme.key,
+            catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
             templateCatalogKey = templateTheme.catalogKey,
-            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
         )
 
         assertThat(rawTheme?.name).isEqualTo("Variant")
@@ -281,7 +280,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `theme usage resolves every cascade source and excludes archived versions`(): Unit = withMediator {
+    fun `theme usage resolves every cascade source`(): Unit = withMediator {
         val tenant = createTenant("Theme Usage Cascade")
         val tenantId = TenantId(tenant.id)
         val catalogId = CatalogId.default(tenantId)
@@ -289,10 +288,15 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val otherTheme = ThemeId(ThemeKey.of("other"), catalogId)
         CreateTheme(id = targetTheme, name = "Brand").execute()
         CreateTheme(id = otherTheme, name = "Other").execute()
-        SetTenantDefaultTheme(tenant.id, targetTheme.key, targetTheme.catalogKey).execute()
+        // A template that names no theme uses its catalog's default theme (contract ADR 0007).
+        app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+            tenant.id,
+            catalogId.key,
+            app.epistola.suite.catalog.versions.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogKey),
+        ).execute()
 
-        val tenantTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
-        CreateDocumentTemplate(tenantTemplateId, "Tenant Default").execute().withRequiredDataExample()
+        val catalogDefaultTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
+        CreateDocumentTemplate(catalogDefaultTemplateId, "Catalog Default").execute().withRequiredDataExample()
 
         val templateDefaultId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
         CreateDocumentTemplate(templateDefaultId, "Template Default").execute().withRequiredDataExample()
@@ -309,42 +313,26 @@ class ThemeQueriesTest : IntegrationTestBase() {
             themeId = otherTheme.key,
             themeCatalogKey = otherTheme.catalogKey,
         ).execute()
-        val overrideVersionId = VersionId(
-            VersionKey.of(1),
+        UpdateVariantContent(
             VariantId(VariantKey.INITIAL, overrideTemplateId),
-        )
-        UpdateVersion(
-            overrideVersionId,
             createDefaultTemplateModel(VariantKey.INITIAL).copy(
                 themeRef = ThemeRefOverride(
-                    themeId = targetTheme.key.value,
+                    themeKey = targetTheme.key.value,
                     catalogKey = targetTheme.catalogKey.value,
                 ),
             ),
         ).execute()
-        PublishVersion(overrideVersionId).execute()
-
-        val archivedVariant = VariantId(VariantKey.of("archive"), templateDefaultId)
-        CreateVariant(
-            id = archivedVariant,
-            title = "Archived",
-            description = null,
-        ).execute()
-        val archivedVersionId = VersionId(VersionKey.of(1), archivedVariant)
-        PublishVersion(archivedVersionId).execute()
-        ArchiveVersion(archivedVersionId).execute()
 
         val usages = GetThemeUsagePage(targetTheme, limit = 20).query()
 
         assertThat(usages.items)
-            .extracting<String> { "${it.templateName}:${it.source}:${it.versionStatus}:${it.frozenSnapshot}" }
+            .extracting<String> { "${it.templateName}:${it.source}" }
             .containsExactlyInAnyOrder(
-                "Tenant Default:TENANT_DEFAULT:DRAFT:false",
-                "Template Default:TEMPLATE_DEFAULT:DRAFT:false",
-                "Variant Override:VARIANT_OVERRIDE:PUBLISHED:true",
+                "Catalog Default:CATALOG_DEFAULT",
+                "Template Default:TEMPLATE_DEFAULT",
+                "Variant Override:VARIANT_OVERRIDE",
             )
         assertThat(usages.total).isEqualTo(3)
-        assertThat(usages.items).noneMatch { it.variantKey == archivedVariant.key }
     }
 
     @Test

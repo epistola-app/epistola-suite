@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.EnsureCatalogStatus
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
+import app.epistola.suite.catalog.commands.InstalledCatalogCheck
 import app.epistola.suite.catalog.commands.InstalledReleaseRecording
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.common.ids.TenantKey
@@ -87,7 +88,9 @@ private val SYSTEM_INSTALL_PRINCIPAL = EpistolaPrincipal(
 )
 
 @Component
-class InstallSystemCatalogHandler : CommandHandler<InstallSystemCatalog, InstallSystemCatalogResult> {
+class InstallSystemCatalogHandler(
+    private val installedCatalogCheck: InstalledCatalogCheck,
+) : CommandHandler<InstallSystemCatalog, InstallSystemCatalogResult> {
 
     override fun handle(command: InstallSystemCatalog): InstallSystemCatalogResult = SecurityContext.runWithPrincipal(SYSTEM_INSTALL_PRINCIPAL) {
         // The release is recorded after the fonts are seeded, not by the install steps: the manifest
@@ -108,6 +111,8 @@ class InstallSystemCatalogHandler : CommandHandler<InstallSystemCatalog, Install
         // so a newly bundled font is picked up on the next boot even when the
         // catalog content didn't move, mirroring the asset/code-list payload.
         EnsureSystemFonts(tenantKey = command.tenantKey).execute()
+        // Checked now that its content is complete; the install deferred it with the release.
+        installedCatalogCheck.requireValid(command.tenantKey, result.catalogKey)
         RecordInstalledRelease(command.tenantKey, result.catalogKey).execute()
 
         InstallSystemCatalogResult(

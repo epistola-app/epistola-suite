@@ -237,8 +237,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0
       '@epistola.app/epistola-catalog':
-        specifier: 1.4.0
-        version: 1.4.0
+        specifier: file:/Users/sdegroot/scm/epistola/epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz
+        version: file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -574,8 +574,9 @@ packages:
     engines: {node: '>=24'}
     hasBin: true
 
-  '@epistola.app/epistola-catalog@1.4.0':
-    resolution: {integrity: sha512-v8jBN3rMCFrC3YdeYLGX2Sdj93i1gGHQTK/6yHEhBZwSrV1nJreUmhu2AatdqUaEiaSUkTsxA5NE+WJCvc7e7w==}
+  '@epistola.app/epistola-catalog@file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz':
+    resolution: {integrity: sha512-z6qrOot024tk6TppV6TfgsDOwTz8yZtIKIuvXgEiHl7FeVfwkg2o2G1Fg+ry3bPgQJxc1MrbAfLH6gF3ycaQxQ==, tarball: file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz}
+    version: 2.0.0-SNAPSHOT
 
   '@faker-js/faker@10.6.0':
     resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
@@ -4248,7 +4249,7 @@ snapshots:
       - '@cfworker/json-schema'
       - supports-color
 
-  '@epistola.app/epistola-catalog@1.4.0': {}
+  '@epistola.app/epistola-catalog@file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz': {}
 
   '@faker-js/faker@10.6.0': {}
 

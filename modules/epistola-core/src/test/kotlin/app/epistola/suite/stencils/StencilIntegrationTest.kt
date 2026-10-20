@@ -6,87 +6,85 @@ package app.epistola.suite.stencils
 
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.stencils.commands.ArchiveStencilVersion
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.stencils.commands.UpdateStencil
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
-import app.epistola.suite.stencils.model.StencilUsageDetail
-import app.epistola.suite.stencils.model.StencilVersionStatus
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
-import app.epistola.suite.stencils.queries.GetStencilVersion
-import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.model.VersionStatus
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.withRequiredDataExample
-import app.epistola.suite.validation.ValidationException
-import app.epistola.template.model.Node
-import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
-import app.epistola.template.model.ThemeRef
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfReader
+import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
+import java.io.ByteArrayInputStream
 
+/**
+ * A stencil is one working copy that every template uses by reference (contract ADR 0006): editing
+ * it changes what each template renders, and which templates still fit it is computed, not upgraded.
+ */
 class StencilIntegrationTest : IntegrationTestBase() {
-
-    @Autowired
-    private lateinit var jdbi: Jdbi
 
     /** Wrapper that ensures withMediator returns Unit (JUnit requires void test methods). */
     private fun test(block: () -> Unit) = withMediator(block)
 
-    private fun createTestContent(): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-            "text1" to Node(id = "text1", type = "text", slots = emptyList(), props = mapOf("content" to richText("Hello"))),
-        ),
-        slots = mapOf(
-            "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text1")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
     private fun stencilId(tenantId: TenantId) = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
 
-    private fun parameterSchema(): ObjectNode = ObjectMapper().readValue(
-        """{"type":"object","properties":{"recipientName":{"type":"string"}},"required":["recipientName"]}""",
-        ObjectNode::class.java,
-    )
+    /** A letterhead: a logo line, then a `body` placeholder. */
+    private fun letterhead(logo: String = "ACME LOGO", placeholderName: String = "body") = stencilDocument {
+        text("logo", logo)
+        placeholder("body", placeholderName)
+        build("logo", "body")
+    }
+
+    private fun templateFilling(stencil: StencilId, placeholderName: String = "body") = stencilDocument {
+        text("my-body", "Dear customer")
+        placeholder("fill", placeholderName, fill = listOf("my-body"))
+        stencil("inst", stencil.key.value, listOf("fill"))
+        build("inst")
+    }
+
+    private fun draftUsing(tenantId: TenantId, model: TemplateDocument): VariantId {
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
+        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        UpdateVariantContent(variantId = variantId, templateModel = model).execute()
+        return variantId
+    }
+
+    private fun previewText(variantId: VariantId): String {
+        val pdf = PreviewVariant(
+            tenantId = variantId.tenantKey,
+            catalogKey = variantId.templateId.catalogId.key,
+            templateId = variantId.templateId.key,
+            variantId = variantId.key,
+            data = ObjectMapper().createObjectNode(),
+        ).query()
+        return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { document ->
+            (1..document.numberOfPages).joinToString("\n") { PdfTextExtractor.getTextFromPage(document.getPage(it)) }
+        }
+    }
 
     // ── CRUD ──
 
     @Test
     fun `create and retrieve stencil`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
 
         val stencil = CreateStencil(
             id = id,
@@ -98,567 +96,161 @@ class StencilIntegrationTest : IntegrationTestBase() {
         assertThat(stencil.name).isEqualTo("Corporate Header")
         assertThat(stencil.description).isEqualTo("Standard header")
         assertThat(stencil.tags).containsExactly("header", "corporate")
-
-        val retrieved = GetStencil(id = id).query()
-        assertThat(retrieved).isNotNull
-        assertThat(retrieved!!.name).isEqualTo("Corporate Header")
+        assertThat(GetStencil(id = id).query()!!.name).isEqualTo("Corporate Header")
     }
 
     @Test
-    fun `create stencil with initial content creates draft version`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
+    fun `create stencil with initial content stores it as the working copy`() = test {
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
 
-        CreateStencil(
-            id = id,
-            name = "With Content",
-            content = createTestContent(),
-        ).execute()
+        CreateStencil(id = id, name = "With Content", content = letterhead()).execute()
 
-        val versions = ListStencilVersions(stencilId = id).query()
-        assertThat(versions).hasSize(1)
-        assertThat(versions[0].status).isEqualTo(StencilVersionStatus.DRAFT)
-        assertThat(versions[0].id.value).isEqualTo(1)
+        val stored = GetStencil(id = id).query()!!
+        assertThat(stored.content.texts()).containsExactly("ACME LOGO")
+        assertThat(stored.parameterSchema).isNull()
+        assertThat(stored.readsTemplateData).isFalse()
     }
 
     @Test
     fun `list stencils with search`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
+        val tenantId = TenantId(createTenant("Test Tenant").id)
 
         CreateStencil(id = stencilId(tenantId), name = "Corporate Header").execute()
         CreateStencil(id = stencilId(tenantId), name = "Invoice Footer").execute()
 
-        val all = ListStencils(tenantId = tenantId).query()
-        assertThat(all).hasSize(2)
-
+        assertThat(ListStencils(tenantId = tenantId).query()).hasSize(2)
         val searched = ListStencils(tenantId = tenantId, searchTerm = "Header").query()
-        assertThat(searched).hasSize(1)
-        assertThat(searched[0].name).isEqualTo("Corporate Header")
+        assertThat(searched.map { it.name }).containsExactly("Corporate Header")
     }
 
     @Test
     fun `update stencil metadata`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
         CreateStencil(id = id, name = "Old Name").execute()
 
         val updated = UpdateStencil(id = id, name = "New Name", tags = listOf("updated")).execute()
-        assertThat(updated).isNotNull
+
         assertThat(updated!!.name).isEqualTo("New Name")
         assertThat(updated.tags).containsExactly("updated")
     }
 
     @Test
-    fun `delete stencil cascades to versions`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
+    fun `update replaces the content, the parameter schema and whether it reads the template's data`() = test {
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
+        CreateStencil(id = id, name = "Header", content = letterhead()).execute()
+        val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""")
 
-        CreateStencil(id = id, name = "To Delete", content = createTestContent()).execute()
-        assertThat(ListStencilVersions(stencilId = id).query()).hasSize(1)
+        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO"), parameterSchema = schema, readsTemplateData = true).execute()
 
-        val deleted = DeleteStencil(id = id).execute()
-        assertThat(deleted).isTrue()
+        val stored = GetStencil(id = id).query()!!
+        assertThat(stored.content.texts()).containsExactly("NEW LOGO")
+        assertThat(stored.parameterSchema).isEqualTo(schema)
+        assertThat(stored.readsTemplateData).isTrue()
+
+        UpdateStencil(id = id, clearParameterSchema = true).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).isNull()
+    }
+
+    @Test
+    fun `an empty parameter schema is stored as none`() = test {
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
+        val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+        CreateStencil(id = id, name = "Header", content = letterhead(), parameterSchema = ObjectMapper().readTree("{}")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("created with an empty schema").isNull()
+
+        UpdateStencil(id = id, parameterSchema = schema).execute()
+        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("an update leaving it out keeps it").isEqualTo(schema)
+
+        UpdateStencil(id = id, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{}}""")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("a schema without properties clears it").isNull()
+    }
+
+    @Test
+    fun `a stencil may contain another stencil`() = test {
+        val tenantId = TenantId(createTenant("Test Tenant").id)
+        val inner = stencilId(tenantId)
+        CreateStencil(id = inner, name = "Inner", content = letterhead()).execute()
+        val outer = stencilId(tenantId)
+
+        CreateStencil(id = outer, name = "Outer", content = templateFilling(inner)).execute()
+
+        assertThat(GetStencil(id = outer).query()!!.content.nodes.values.map { it.type }).contains("stencil")
+    }
+
+    @Test
+    fun `delete stencil`() = test {
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
+        CreateStencil(id = id, name = "To Delete", content = letterhead()).execute()
+
+        assertThat(DeleteStencil(id = id).execute()).isTrue()
 
         assertThat(GetStencil(id = id).query()).isNull()
     }
 
-    // ── Version lifecycle ──
-
-    @Test
-    fun `version lifecycle - draft to published to archived`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        CreateStencil(id = id, name = "Lifecycle Test", content = createTestContent()).execute()
-        val versionId = StencilVersionId(VersionKey.of(1), id)
-
-        // Draft
-        val draft = GetStencilVersion(versionId = versionId).query()
-        assertThat(draft).isNotNull
-        assertThat(draft!!.status).isEqualTo(StencilVersionStatus.DRAFT)
-        assertThat(draft.publishedAt).isNull()
-
-        // Publish
-        val published = PublishStencilVersion(versionId = versionId).execute()
-        assertThat(published).isNotNull
-        assertThat(published.status).isEqualTo(StencilVersionStatus.PUBLISHED)
-        assertThat(published.publishedAt).isNotNull()
-
-        // Archive
-        val archived = ArchiveStencilVersion(versionId = versionId).execute()
-        assertThat(archived).isNotNull
-        assertThat(archived.status).isEqualTo(StencilVersionStatus.ARCHIVED)
-        assertThat(archived.archivedAt).isNotNull()
-    }
-
-    @Test
-    fun `create version is idempotent - returns existing draft`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        CreateStencil(id = id, name = "Idempotent Test", content = createTestContent()).execute()
-
-        val draft1 = CreateStencilVersion(stencilId = id).execute()
-        val draft2 = CreateStencilVersion(stencilId = id).execute()
-
-        assertThat(draft1!!.id).isEqualTo(draft2!!.id)
-    }
-
-    @Test
-    fun `create version copies from the latest archived version when none is published`() = test {
-        val tenant = createTenant("All Archived")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        CreateStencil(id = id, name = "Header", content = createTestContent()).execute()
-        val v1 = StencilVersionId(VersionKey.of(1), id)
-        PublishStencilVersion(versionId = v1).execute()
-        ArchiveStencilVersion(versionId = v1).execute()
-
-        // No published or draft remains. Reopening for editing must copy the
-        // archived content rather than failing (archiving is non-destructive).
-        val draft = CreateStencilVersion(stencilId = id).execute()
-        assertThat(draft).isNotNull
-        assertThat(draft!!.status).isEqualTo(StencilVersionStatus.DRAFT)
-        assertThat(draft.id.value).isEqualTo(2)
-
-        val retrieved = GetStencilVersion(versionId = StencilVersionId(VersionKey.of(2), id)).query()
-        assertThat(retrieved!!.content.nodes).containsKey("text1")
-    }
-
-    @Test
-    fun `create version inherits source parameter schema by default`() = test {
-        val tenant = createTenant("Schema Copy")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-        val schema = parameterSchema()
-
-        CreateStencil(id = id, name = "Param Header", content = createTestContent(), parameterSchema = schema).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), id)).execute()
-
-        val draft = CreateStencilVersion(stencilId = id).execute()
-        assertThat(draft).isNotNull
-        assertThat(draft!!.id.value).isEqualTo(2)
-        assertThat(draft.parameterSchema).isEqualTo(schema)
-    }
-
-    @Test
-    fun `create version rejects invalid legacy content copied from storage`() = test {
-        val tenant = createTenant("Invalid Stencil Copy")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        CreateStencil(id = id, name = "Legacy Stencil", content = createTestContent()).execute()
-        val versionId = StencilVersionId(VersionKey.of(1), id)
-        PublishStencilVersion(versionId = versionId).execute()
-        jdbi.withHandle<Int, Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE stencil_versions
-                SET content = jsonb_set(content, '{root}', '"missing-root"'::jsonb)
-                WHERE tenant_key = :tenantKey
-                  AND stencil_resource_id = (SELECT resource_id FROM stencils
-                                              WHERE tenant_key = :tenantKey
-                                                AND catalog_key = :catalogKey AND id = :stencilKey)
-                  AND id = 1
-                """,
-            )
-                .bind("tenantKey", id.tenantKey)
-                .bind("catalogKey", id.catalogKey)
-                .bind("stencilKey", id.key)
-                .execute()
-        }
-
-        assertThatThrownBy {
-            CreateStencilVersion(stencilId = id).execute()
-        }
-            .isInstanceOfSatisfying(ValidationException::class.java) {
-                assertThat(it.field).isEqualTo("content.root")
-            }
-    }
-
-    @Test
-    fun `update draft content`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        CreateStencil(id = id, name = "Update Test", content = createTestContent()).execute()
-        val versionId = StencilVersionId(VersionKey.of(1), id)
-
-        val newContent = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-                "text-updated" to Node(
-                    id = "text-updated",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("Updated")),
-                ),
-            ),
-            slots = mapOf(
-                "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-updated")),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        val updated = UpdateStencilDraft(versionId = versionId, content = newContent).execute()
-        assertThat(updated).isNotNull
-
-        val retrieved = GetStencilVersion(versionId = versionId).query()
-        assertThat(retrieved!!.content.nodes).containsKey("text-updated")
-    }
-
-    // ── Publish validation ──
-
-    @Test
-    fun `create rejects stencil with nested stencil nodes`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val id = stencilId(tenantId)
-
-        val contentWithNestedStencil = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-                "nested-stencil" to Node(
-                    id = "nested-stencil",
-                    type = "stencil",
-                    slots = listOf("slot-nested-stencil"),
-                    props = mapOf("stencilId" to "other", "version" to 1),
-                ),
-            ),
-            slots = mapOf(
-                "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("nested-stencil")),
-                "slot-nested-stencil" to Slot(
-                    id = "slot-nested-stencil",
-                    nodeId = "nested-stencil",
-                    name = "children",
-                    children = emptyList(),
-                ),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        assertThatThrownBy {
-            CreateStencil(id = id, name = "Nested Test", content = contentWithNestedStencil).execute()
-        }.isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("stencil")
-    }
-
-    // ── Tenant isolation ──
-
     @Test
     fun `tenant isolation - cannot see other tenant stencils`() = test {
-        val tenant1 = createTenant("Tenant 1")
-        val tenant2 = createTenant("Tenant 2")
-        val tenantId1 = TenantId(tenant1.id)
-        val tenantId2 = TenantId(tenant2.id)
+        val tenantId1 = TenantId(createTenant("Tenant 1").id)
+        val tenantId2 = TenantId(createTenant("Tenant 2").id)
 
-        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId1)), name = "T1 Stencil").execute()
-        CreateStencil(id = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId2)), name = "T2 Stencil").execute()
+        CreateStencil(id = stencilId(tenantId1), name = "T1 Stencil").execute()
+        CreateStencil(id = stencilId(tenantId2), name = "T2 Stencil").execute()
 
-        val t1Stencils = ListStencils(tenantId = tenantId1).query()
-        val t2Stencils = ListStencils(tenantId = tenantId2).query()
-
-        assertThat(t1Stencils).hasSize(1)
-        assertThat(t1Stencils[0].name).isEqualTo("T1 Stencil")
-        assertThat(t2Stencils).hasSize(1)
-        assertThat(t2Stencils[0].name).isEqualTo("T2 Stencil")
+        assertThat(ListStencils(tenantId = tenantId1).query().map { it.name }).containsExactly("T1 Stencil")
+        assertThat(ListStencils(tenantId = tenantId2).query().map { it.name }).containsExactly("T2 Stencil")
     }
 
-    // ── Upgrade stencil in template ──
+    // ── By reference ──
 
     @Test
-    fun `upgrade stencil in template - no draft returns null`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
+    fun `a template renders the stencil as it is now`() = test {
+        val tenantId = TenantId(createTenant("Render By Reference").id)
+        val stencil = stencilId(tenantId)
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "OLD LOGO")).execute()
+        val variant = draftUsing(tenantId, templateFilling(stencil))
 
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+        assertThat(previewText(variant)).contains("OLD LOGO", "Dear customer")
 
-        // Use a non-existent template
-        val fakeTemplateId = TemplateId(TemplateKey.of("non-existent"), CatalogId.default(tenantId))
-        val fakeVariantId = VariantId(VariantKey.of("non-existent"), fakeTemplateId)
+        UpdateStencil(id = stencil, content = letterhead(logo = "NEW LOGO")).execute()
 
-        val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
-            variantId = fakeVariantId,
-            stencilId = stencilId,
-            newVersion = 1,
-        ).execute()
-
-        assertThat(result).isNull()
+        assertThat(previewText(variant)).contains("NEW LOGO", "Dear customer").doesNotContain("OLD LOGO")
     }
 
     @Test
-    fun `upgrade stencil in template - no stencil instances returns zero`() = test {
-        val tenant = createTenant("Test Tenant")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
+    fun `the editor and quality checks see the stencil inlined, with its parameter schema`() = test {
+        val tenantId = TenantId(createTenant("Editor Context").id)
+        val stencil = stencilId(tenantId)
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead(logo = "EDITOR LOGO")).execute()
+        val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}""")
+        UpdateStencil(id = stencil, parameterSchema = schema).execute()
+        val variant = draftUsing(tenantId, templateFilling(stencil))
 
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+        val context = GetEditorContext(variant).query()!!
 
-        // Create a template WITHOUT stencil nodes
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(
-            id = templateId,
-            name = "Test Template",
-        ).execute()
-
-        val variantKey = VariantKey.INITIAL
-        val variantId = VariantId(variantKey, templateId)
-
-        val result = app.epistola.suite.stencils.commands.UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = stencilId,
-            newVersion = 1,
-        ).execute()
-
-        assertThat(result?.upgradedCount).isEqualTo(0)
+        assertThat(context.templateModel.texts()).containsExactlyInAnyOrder("EDITOR LOGO", "Dear customer")
+        // Quality sources read the instance's schema snapshot, which only the expanded form carries.
+        assertThat(context.templateModel.nodes.getValue("inst").props!![StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT])
+            .isEqualTo(mapOf("type" to "object", "properties" to mapOf("name" to mapOf("type" to "string")), "required" to listOf("name")))
     }
 
     @Test
-    fun `a template built on a stencil draft publishes once its instances are upgraded`() = test {
-        val tenant = createTenant("Stencil Draft Relink")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
+    fun `the usage page lists the templates using the stencil and whether each still fits`() = test {
+        val tenantId = TenantId(createTenant("Usage").id)
+        val stencil = stencilId(tenantId)
+        CreateStencil(id = stencil, name = "Letterhead", content = letterhead()).execute()
+        draftUsing(tenantId, templateFilling(stencil))
+        draftUsing(tenantId, stencilDocument { build() })
 
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value, "draftVersion" to 1)).execute()
-        val draft = VersionId(VersionKey.of(1), variantId)
+        val before = GetStencilUsagePage(stencil).query()
+        assertThat(before.total).isEqualTo(1)
+        assertThat(before.items.single().instanceCount).isEqualTo(1)
+        assertThat(before.items.single().fits).isTrue()
 
-        // A draft reference blocks publishing.
-        assertThatThrownBy { PublishVersion(versionId = draft).execute() }
-            .hasMessageContaining("cannot reference draft stencil versions")
+        // The stencil renames its placeholder: the template's fill no longer has a place.
+        UpdateStencil(id = stencil, content = letterhead(placeholderName = "content")).execute()
 
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 1).execute()
-
-        assertThat(PublishVersion(versionId = draft).execute()?.status).isEqualTo(VersionStatus.PUBLISHED)
+        val after = GetStencilUsagePage(stencil).query().items.single()
+        assertThat(after.fits).isFalse()
+        assertThat(after.problems.single()).contains("'body'")
     }
-
-    @Test
-    fun `upgrading a template to an unpublished stencil version is refused`() = test {
-        val tenant = createTenant("Stencil Upgrade To Draft")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
-
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value, "draftVersion" to 1)).execute()
-
-        assertThatThrownBy { UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 1).execute() }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("not published")
-    }
-
-    @Test
-    fun `upgrade stencil in template synchronizes referenced paths`() = test {
-        val tenant = createTenant("Stencil Upgrade Paths")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-        CreateStencilVersion(stencilId = stencilId, content = contentWithPath("recipient.name")).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
-
-        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 2).execute()
-
-        val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT referenced_paths::text
-                FROM template_versions
-                WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey AND status = 'draft'
-                """,
-            )
-                .bind("tenantKey", templateId.tenantKey)
-                .bind("catalogKey", templateId.catalogKey)
-                .bind("templateKey", templateId.key)
-                .bind("variantKey", variantId.key)
-                .mapTo(String::class.java)
-                .one()
-        }
-        assertThat(referencedPaths).isEqualTo("""["recipient.name"]""")
-    }
-
-    @Test
-    fun `upgrade stencil in a published template creates a new draft and upgrades there`() = test {
-        val tenant = createTenant("Published Upgrade")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
-
-        // Stencil v1 and v2, both published.
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-        CreateStencilVersion(stencilId = stencilId, content = createTestContent()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        // Template embedding stencil v1, then published — leaving NO open draft.
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
-        val variantKey = VariantKey.INITIAL
-        val variantId = VariantId(variantKey, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
-        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-
-        // Precondition: the only version is the published v1 (no draft to upgrade),
-        // and with no draft the published row is the variant's upgrade target.
-        val before = ListStencilVersions(stencilId = stencilId).query()
-        assertThat(before).isNotEmpty
-        val usageBefore = GetStencilUsagePage(stencilId = stencilId).query().items
-        assertThat(usageBefore).noneMatch { it.versionStatus == "draft" && it.templateId == templateKey }
-        assertThat(usageBefore.single { it.templateId == templateKey }.upgradable).isTrue()
-
-        // Upgrade the published template — should create a fresh draft and upgrade it.
-        val result = UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = stencilId,
-            newVersion = 2,
-        ).execute()
-
-        assertThat(result).isNotNull
-        assertThat(result!!.upgradedCount).isEqualTo(1)
-
-        // A new draft now exists pinned to stencil v2, while the published version
-        // is left untouched on stencil v1.
-        val pageAfter = GetStencilUsagePage(stencilId = stencilId).query()
-        // Counts come from SQL: 2 usage rows (published v1 + draft v2). The draft now
-        // pins the latest stencil version (v2), so nothing is left to upgrade.
-        assertThat(pageAfter.totalAll).isEqualTo(2)
-        assertThat(pageAfter.upgradableCount).isEqualTo(0)
-        assertThat(pageAfter.page).isEqualTo(1)
-        assertThat(pageAfter.totalPages).isEqualTo(1)
-        val usageAfter = pageAfter.items
-        val draftRow = usageAfter.firstOrNull { it.versionStatus == "draft" && it.templateId == templateKey }
-        assertThat(draftRow).isNotNull
-        assertThat(draftRow!!.stencilVersion).isEqualTo(2)
-
-        val publishedRow = usageAfter.firstOrNull { it.versionStatus == "published" && it.templateId == templateKey }
-        assertThat(publishedRow).isNotNull
-        assertThat(publishedRow!!.stencilVersion).isEqualTo(1)
-
-        // The draft now pins the latest stencil version (v2), so it is up to date —
-        // no longer a pending upgrade target. The published row remains superseded by
-        // the draft. Each carries the reason the UI explains on hover.
-        assertThat(draftRow.upgradable).isFalse()
-        assertThat(draftRow.upgradeBlockReason)
-            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.UP_TO_DATE)
-        assertThat(publishedRow.upgradable).isFalse()
-        assertThat(publishedRow.upgradeBlockReason)
-            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.HAS_DRAFT)
-    }
-
-    @Test
-    fun `a template already pinned to the latest stencil version is not upgradable`() = test {
-        val tenant = createTenant("Already Latest")
-        val tenantId = TenantId(tenant.id)
-        val stencilId = stencilId(tenantId)
-
-        // Stencil v1 and v2, both published.
-        CreateStencil(id = stencilId, name = "Header", content = createTestContent()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
-        CreateStencilVersion(stencilId = stencilId, content = createTestContent()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), stencilId)).execute()
-
-        // Template embedding the stencil, upgraded to v2 (the latest) and published —
-        // so its only (published) version already pins the latest stencil version.
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(variantId = variantId, templateModel = templateEmbedding(stencilId.key.value)).execute()
-        UpdateStencilInTemplate(variantId = variantId, stencilId = stencilId, newVersion = 2).execute()
-        PublishVersion(versionId = VersionId(VersionKey.of(1), variantId)).execute()
-
-        val page = GetStencilUsagePage(stencilId = stencilId).query()
-        val row = page.items.single { it.templateId == templateKey }
-        assertThat(row.stencilVersion).isEqualTo(2)
-        assertThat(row.upgradable).isFalse()
-        assertThat(row.upgradeBlockReason)
-            .isEqualTo(StencilUsageDetail.UpgradeBlockReason.UP_TO_DATE)
-        assertThat(page.upgradableCount).isEqualTo(0)
-    }
-
-    /** A template body embedding [stencilKey] v1 once (with a children slot so the upgrade can rewrite it). */
-    private fun templateEmbedding(stencilKey: String, ref: Pair<String, Int> = "version" to 1): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "stencil-instance" to Node(
-                id = "stencil-instance",
-                type = "stencil",
-                slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, ref),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
-            "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = emptyList()),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    private fun contentWithPath(path: String): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("slot-root")),
-            "text-path" to Node(
-                id = "text-path",
-                type = "text",
-                props = mapOf(
-                    "content" to mapOf(
-                        "type" to "doc",
-                        "content" to listOf(
-                            mapOf(
-                                "type" to "paragraph",
-                                "content" to listOf(
-                                    mapOf("type" to "expression", "attrs" to mapOf("expression" to path)),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        slots = mapOf(
-            "slot-root" to Slot(id = "slot-root", nodeId = "root", name = "children", children = listOf("text-path")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    private fun richText(text: String): Map<String, Any?> = mapOf(
-        "type" to "doc",
-        "content" to listOf(
-            mapOf(
-                "type" to "paragraph",
-                "content" to listOf(mapOf("type" to "text", "text" to text)),
-            ),
-        ),
-    )
 }

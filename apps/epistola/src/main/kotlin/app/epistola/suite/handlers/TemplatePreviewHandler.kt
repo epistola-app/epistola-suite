@@ -6,19 +6,19 @@ package app.epistola.suite.templates
 
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
-import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.validation.ValidationException
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -30,13 +30,14 @@ import tools.jackson.databind.node.ObjectNode
  * Request body for PDF preview generation.
  *
  * @property data The data context for expression evaluation
- * @property templateModel Optional live template model from the editor (overrides stored version)
- * @property versionId Optional version to render; when absent, renders the current draft
+ * @property templateModel Optional live template model from the editor (overrides the working model)
+ * @property releaseVersion Optional catalog release to render the variant as released; when absent,
+ *   renders the variant's working model
  */
 data class PreviewRequest(
     val data: ObjectNode? = null,
     val templateModel: Map<String, Any?>? = null,
-    val versionId: Int? = null,
+    val releaseVersion: String? = null,
     val theme: EditorThemeConfig? = null,
 )
 
@@ -44,15 +45,17 @@ data class PreviewRequest(
  * Handles PDF preview generation for document templates.
  *
  * Single endpoint for all preview scenarios:
- * - `versionId` set → render that stored version (draft, published, or archived)
- * - `templateModel` set → render live editor content (ignores versionId)
- * - Neither → render the current draft
+ * - `releaseVersion` set → render the variant as that catalog release holds it
+ * - `templateModel` set → render live editor content (ignores releaseVersion)
+ * - Neither → render the variant's working model
  */
 @Component
 class TemplatePreviewHandler(
     private val objectMapper: ObjectMapper,
     private val generationService: GenerationService,
 ) {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -72,22 +75,17 @@ class TemplatePreviewHandler(
         val dataNode = previewRequest.data ?: objectMapper.createObjectNode()
 
         val pdfBytes = try {
-            if (previewRequest.versionId != null && previewRequest.templateModel == null) {
-                // A stored version's model, previewed in the working copy (live theme and resources).
-                // Generation no longer renders template versions; this keeps the version comparison
-                // page useful until version pages are replaced by release history.
-                val version = GetVersion(VersionId(VersionKey.of(previewRequest.versionId), variantId)).query()
-                    ?: return ServerResponse.notFound().build()
-                PreviewVariant(
+            if (previewRequest.releaseVersion != null && previewRequest.templateModel == null) {
+                PreviewDocument(
                     tenantId = tenantId.key,
                     catalogKey = catalogId,
                     templateId = templateId.key,
                     variantId = variantId.key,
                     data = dataNode,
-                    templateModel = version.templateModel,
+                    releaseVersion = previewRequest.releaseVersion,
                 ).query()
             } else {
-                // Render draft, optionally with live template model from editor
+                // Render the working model, optionally with live template model from editor
                 val liveTemplateModel = previewRequest.templateModel?.let {
                     generationService.convertTemplateModel(it)
                 }
@@ -98,6 +96,7 @@ class TemplatePreviewHandler(
                     variantId = variantId.key,
                     data = dataNode,
                     templateModel = liveTemplateModel,
+                    catalogVersion = request.catalogVersion(),
                     resolvedTheme = previewRequest.theme?.let { theme ->
                         ResolvedTheme(
                             documentStyles = theme.documentStyles,
@@ -137,8 +136,19 @@ class TemplatePreviewHandler(
                         ),
                     ),
                 )
-        } catch (_: IllegalStateException) {
-            return ServerResponse.notFound().build()
+        } catch (e: IllegalStateException) {
+            // The variant, its template or the tenant is gone (deleted meanwhile, or in another
+            // version than the one open). Said in a sentence the editor shows, not a bare 404.
+            logger.info("Preview of {}/{} refused: {}", templateId, variantId, e.message)
+            return ServerResponse.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "errors" to listOf(
+                            mapOf("path" to "", "message" to "This variant could not be found: it may have been deleted, or belong to another version. Reload the page."),
+                        ),
+                    ),
+                )
         }
 
         return ServerResponse.ok()

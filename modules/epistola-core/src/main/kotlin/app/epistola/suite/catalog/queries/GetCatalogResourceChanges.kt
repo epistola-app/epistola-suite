@@ -9,8 +9,13 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.versions.CatalogDrafts
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -35,7 +40,10 @@ import org.springframework.stereotype.Component
 data class GetCatalogResourceChanges(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<CatalogResourceChanges>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<CatalogResourceChanges>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
@@ -53,9 +61,6 @@ enum class CatalogResourceState {
 
     /** In the last release and no longer in the working copy. */
     REMOVED,
-
-    /** Changed or not — the last release recorded no per-resource baseline to compare against. */
-    UNKNOWN,
 }
 
 data class CatalogResourceChange(
@@ -64,17 +69,23 @@ data class CatalogResourceChange(
     /** As the working copy names it, or as the last release did for a resource dropped since. */
     val name: String?,
     val state: CatalogResourceState,
-)
+    /**
+     * Whether its content is marked ready as it is now (contract ADR 0002). Only a changed resource
+     * needs it; a removed one has no content to mark.
+     */
+    val ready: Boolean = false,
+) {
+    /** Whether releasing waits on this resource: it changed and is not ready. */
+    val blocksRelease: Boolean get() = state in CHANGED && !ready
+
+    private companion object {
+        val CHANGED = setOf(CatalogResourceState.NEW, CatalogResourceState.MODIFIED)
+    }
+}
 
 data class CatalogResourceChanges(
     val catalogKey: CatalogKey,
     val latestVersion: String?,
-    /**
-     * False when the catalog has drifted from a release cut before releases recorded their
-     * resources (V20260923201010), which cannot be reconstructed. Every resource is then
-     * [CatalogResourceState.UNKNOWN]; the next release restores the detail.
-     */
-    val baselineAvailable: Boolean,
     /** Ordered by type then slug, the order the manifest lists them in. */
     val resources: List<CatalogResourceChange>,
 ) {
@@ -85,6 +96,9 @@ data class CatalogResourceChanges(
 
     val hasUnreleasedChanges: Boolean get() = resources.any { it.state != CatalogResourceState.RELEASED }
 
+    /** The changed resources not marked ready, which a release refuses. */
+    val notReady: List<CatalogResourceChange> get() = resources.filter { it.blocksRelease }
+
     private fun inState(state: CatalogResourceState) = resources.filter { it.state == state }
 }
 
@@ -94,6 +108,8 @@ class GetCatalogResourceChangesHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
     private val releaseEntryStore: ReleaseEntryStore,
+    private val readyMarks: ReadyMarks,
+    private val drafts: CatalogDrafts,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -105,23 +121,21 @@ class GetCatalogResourceChangesHandler(
 
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
         val working = fingerprintService.perResourceFingerprints(content)
-        val release = loadLatestRelease(query.tenantKey, query.catalogKey)
+        val release = loadBaseRelease(query.tenantKey, query.catalogKey)
         val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
-        val retainedVersions = release?.let {
-            jdbi.withHandle<List<String>, Exception> { handle ->
-                releaseEntryStore.retainedVersions(handle, query.tenantKey, query.catalogKey)
-            }
-        }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
-        val names = content.resourceEntries.associate { "${it.type}/${it.slug}" to it.name } +
+        val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
+
+        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.tenantKey, query.catalogKey) }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
             slug = key.substringAfter('/'),
             name = names[key],
             state = state,
+            ready = readiness[key] == true,
         )
 
         // Nothing released yet: every resource is new, and that is a complete answer.
@@ -129,25 +143,11 @@ class GetCatalogResourceChangesHandler(
             return CatalogResourceChanges(
                 catalogKey = query.catalogKey,
                 latestVersion = null,
-                baselineAvailable = true,
                 resources = working.keys.sorted().map { change(it, CatalogResourceState.NEW) },
             )
         }
 
-        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }.takeIf { retainedVersions.contains(release.version) }
-            // A release cut before V20260923201010 recorded no resources. When the working copy
-            // still matches its fingerprint the content is identical by definition, so the working
-            // digests *are* that release's digests and the answer is exact without them.
-            ?: if (fingerprintService.matchesFingerprint(content, release.fingerprint)) {
-                working
-            } else {
-                return CatalogResourceChanges(
-                    catalogKey = query.catalogKey,
-                    latestVersion = release.version,
-                    baselineAvailable = false,
-                    resources = working.keys.sorted().map { change(it, CatalogResourceState.UNKNOWN) },
-                )
-            }
+        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }
 
         val resources = (working.keys + baseline.keys).sorted().map { key ->
             val state = when {
@@ -162,28 +162,35 @@ class GetCatalogResourceChangesHandler(
         return CatalogResourceChanges(
             catalogKey = query.catalogKey,
             latestVersion = release.version,
-            baselineAvailable = true,
             resources = resources,
         )
     }
 
     private data class ReleaseRow(val version: String, val fingerprint: String)
 
-    private fun loadLatestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
-        handle.createQuery(
+    /**
+     * What the draft the caller means is compared against (contract ADR 0002): its base, the release it
+     * started from, or, when it records none that the catalog still has, the highest release below its
+     * number. Without a draft, the latest release.
+     */
+    private fun loadBaseRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
+        val releases = handle.createQuery(
             """
             SELECT version, fingerprint
             FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
-            LIMIT 1
             """,
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
             .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
-            .findOne()
-            .orElse(null)
+            .list()
+        val draft = drafts.draft(handle, tenantKey, catalogKey) ?: return@withHandle releases.firstOrNull()
+        // A draft that recorded no base (opened before drafts did) is measured against the latest release.
+        val base = draft.base?.takeIf { base -> releases.any { it.version == base } }
+            ?: CatalogDrafts.latest(releases.map { it.version })
+        releases.firstOrNull { it.version == base }
     }
 
     private fun entriesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) = jdbi

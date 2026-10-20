@@ -39,7 +39,7 @@ class StencilParameterQualitySourceTest {
         bindings: Map<String, String> = emptyMap(),
     ): Node {
         val props = mutableMapOf<String, Any?>(
-            StencilNodeKeys.PROP_STENCIL_ID to "greeting",
+            StencilNodeKeys.PROP_STENCIL_KEY to "greeting",
             StencilNodeKeys.PROP_VERSION to 2,
         )
         if (schema != null) props[StencilNodeKeys.PROP_PARAMETER_SCHEMA_SNAPSHOT] = schema

@@ -18,13 +18,13 @@ class TemplateDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Template Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/templates/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/templates/new$")
 
     @Test
     fun `dialog is not open on initial load of the templates list`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         page.htmxSettle()
 
         // On the plain list route the mount is empty, so the create dialog must
@@ -39,12 +39,12 @@ class TemplateDialogUiTest : BasePlaywrightTest() {
     fun `clicking the New Template trigger opens the create dialog and pushes the new-form URL`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/templates")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates")
         page.htmxSettle()
 
         // The page-header action is the canonical trigger. The empty state repeats it as
         // onboarding, which is deliberate — both issue the same hx-get into #dialog-mount.
-        assertThat(page.locator("[data-testid='template-create-open']")).isVisible()
+        assertThat(page.locator("[data-testid='template-create-open-filtered']")).isVisible()
 
         // Drive the header action directly. It is reachable because html carries
         // scroll-padding-top: var(--ep-sticky-offset), so scrollIntoViewIfNeeded leaves it

@@ -8,11 +8,10 @@
                below says what you are editing in it. Kept apart deliberately — see
                catalogs/bar.html. The bar also says read-only for a subscribed catalog, which is why
                no separate notice does. */-->
-        <div th:replace="~{catalogs/bar :: catalog-bar(context=${catalogContext})}"></div>
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${theme.name},
-            backLinkHref=@{/tenants/{tenantId}/themes(tenantId=${tenantId})},
+            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             backLinkLabel='Themes',
             actions=~{::theme-detail-actions}
         )}"></div>
@@ -22,7 +21,7 @@
                 <div>
                     <h2>Theme configuration</h2>
                     <span class="theme-panel-subtitle">
-                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}"></span>
                     </span>
                 </div>
                 <!--/* No catalog badge: the bar above names it, links to it and says where it
@@ -41,26 +40,31 @@
             "theme": [[${themeJson}]],
             "tenantId": [[${tenantId}]],
             "catalogId": [[${catalogId}]],
+            "catalogSegment": [[${catalogSegment}]],
             "themeId": [[${theme.id}]],
             "editable": [[${editable}]]
         }
         </script>
         <script type="module" th:src="@{/js/theme-editor-boot.js}"></script>
 
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
     </th:block>
     <th:block th:fragment="theme-detail-actions">
-        <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+        <button type="button" class="ep-btn ep-btn-outline"
                 data-testid="theme-usage-open-action"
-                th:hx-get="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML">
             View usage
         </button>
+        <!--/* Through HTMX: a refusal (the tenant's default theme) shows in the form; done, the list. */-->
         <form th:if="${editable}" id="delete-theme-form"
-              th:action="@{/tenants/{tenantId}/themes/{catalogId}/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogId},themeId=${theme.id})}"
+              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id})}"
+              hx-swap="none"
               method="post">
-            <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="delete-action"
+            <input type="hidden" name="from" value="detail" />
+            <div th:replace="~{epistola-web/form-error :: form-error(id='delete-theme-error')}"></div>
+            <button type="button" class="ep-btn ep-btn-destructive" data-testid="delete-action"
                     data-confirm-submit="delete-theme-form"
                     data-confirm-submit-message="Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles."
                     data-confirm-submit-title="Delete Theme"

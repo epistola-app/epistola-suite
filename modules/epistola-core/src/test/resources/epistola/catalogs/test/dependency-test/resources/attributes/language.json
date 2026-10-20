@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "attribute",
-    "slug": "language",
+    "key": "language",
     "name": "Language",
     "allowedValues": ["nl", "en"]
   }

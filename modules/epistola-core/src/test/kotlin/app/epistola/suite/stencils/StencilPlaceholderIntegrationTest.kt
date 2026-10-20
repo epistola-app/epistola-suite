@@ -7,20 +7,18 @@ package app.epistola.suite.stencils
 import app.epistola.catalog.validation.TemplateValidationLimits
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
-import app.epistola.suite.common.ids.StencilVersionId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
+import app.epistola.suite.stencils.commands.UpdateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -36,381 +34,61 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 /**
- * End-to-end integration test for the stencil placeholders feature.
- *
- * Exercises the full path through the mediator with a real Postgres:
- * `PlaceholderValidator` wiring on the four commands, `StencilContentReplacer`
- * fill preservation, and `UpdateStencilInTemplate` returning `droppedFills`.
- *
- * Wiring this layer matters because the per-class unit tests cannot detect
- * regressions where a validator is not actually invoked or a command's return
- * type is not threaded through to the JSONB store correctly.
+ * Placeholders and nesting with stencils used by reference (contract ADR 0006), through the mediator
+ * with a real Postgres: what the structural validators refuse on write, and what only the stencils
+ * as they are can tell, which publishing refuses.
  */
 class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
 
-    /**
-     * Force Unit return so JUnit 5 actually discovers the method. `withMediator`
-     * is generic — without this wrapper, a lambda whose last expression is an
-     * AssertJ assertion would make the test method's return type non-void and
-     * Jupiter would silently skip it.
-     */
+    /** Forces a Unit return so JUnit discovers the method. */
     private fun test(block: () -> Unit) = withMediator(block)
 
-    private fun stencilId(tenantId: TenantId) = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
+    private fun stencilId(tenantId: TenantId, key: String? = null) = StencilId(key?.let(StencilKey::of) ?: TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
 
-    /** Stencil v1: declares a placeholder named "body" with a default text. */
-    private fun stencilV1WithBodyPlaceholder(): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "ph-body" to Node(
-                id = "ph-body",
-                type = "placeholder",
-                slots = listOf("ph-body-fill"),
-                props = mapOf("name" to "body", "kind" to "block"),
-            ),
-            "default-text" to Node(
-                id = "default-text",
-                type = "text",
-                slots = emptyList(),
-                props = mapOf("content" to richText("Default body content")),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("ph-body")),
-            "ph-body-fill" to Slot(id = "ph-body-fill", nodeId = "ph-body", name = "fill", children = listOf("default-text")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    /** Stencil v2: placeholder renamed from "body" to "main". */
-    private fun stencilV2RenamedPlaceholder(): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "ph-main" to Node(
-                id = "ph-main",
-                type = "placeholder",
-                slots = listOf("ph-main-fill"),
-                props = mapOf("name" to "main", "kind" to "block"),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("ph-main")),
-            "ph-main-fill" to Slot(id = "ph-main-fill", nodeId = "ph-main", name = "fill", children = emptyList()),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    /**
-     * Build a template body that embeds [stencilKey] once. The embedded subtree
-     * mirrors what the editor would produce: the stencil node's slot contains
-     * a placeholder named "body" whose fill carries one user-authored text node.
-     */
-    private fun templateEmbeddingStencilWithFilledPlaceholder(stencilKey: String): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "stencil-instance" to Node(
-                id = "stencil-instance",
-                type = "stencil",
-                slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
-            ),
-            "embedded-ph" to Node(
-                id = "embedded-ph",
-                type = "placeholder",
-                slots = listOf("embedded-ph-fill"),
-                props = mapOf("name" to "body", "kind" to "block"),
-            ),
-            "user-fill-text" to Node(
-                id = "user-fill-text",
-                type = "text",
-                slots = emptyList(),
-                props = mapOf("content" to richText("User-authored body")),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("stencil-instance")),
-            "stencil-children" to Slot(id = "stencil-children", nodeId = "stencil-instance", name = "children", children = listOf("embedded-ph")),
-            "embedded-ph-fill" to Slot(id = "embedded-ph-fill", nodeId = "embedded-ph", name = "fill", children = listOf("user-fill-text")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
-
-    // ---------------------------------------------------------------------------
-    // Happy path — fill preservation across stencil version upgrade
-    // ---------------------------------------------------------------------------
-
-    @Test
-    fun `stencil with placeholder publishes, embeds, fills, and the fill is preserved across rename upgrade`() = test {
-        val tenant = createTenant("placeholder-flow")
-        val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
-
-        // 1. Create stencil v1 with a placeholder; publish
-        CreateStencil(id = sId, name = "Letter Body", content = stencilV1WithBodyPlaceholder()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), sId)).execute()
-
-        // 2. Create a template that embeds the stencil with a user fill
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateEmbeddingStencilWithFilledPlaceholder(sId.key.value),
-        ).execute()
-
-        // 3. Author a v2 of the stencil that renames the placeholder; publish
-        app.epistola.suite.stencils.commands.CreateStencilVersion(
-            stencilId = sId,
-            content = stencilV2RenamedPlaceholder(),
-        ).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), sId)).execute()
-
-        // 4. Upgrade the embedded stencil instance to v2
-        val result = UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = sId,
-            newVersion = 2,
-        ).execute()
-
-        // 5. The renamed placeholder did not match — fill is reported as dropped.
-        assertThat(result).isNotNull
-        assertThat(result!!.upgradedCount).isEqualTo(1)
-        assertThat(result.droppedFills).hasSize(1)
-        val dropped = result.droppedFills["stencil-instance"]
-        assertThat(dropped).isNotNull
-        assertThat(dropped!!).hasSize(1)
-        assertThat(dropped[0].name).isEqualTo("body")
-        assertThat(dropped[0].contentSummary).contains("User-authored body")
-    }
-
-    @Test
-    fun `same-name placeholder preserves the user fill across upgrade`() = test {
-        val tenant = createTenant("placeholder-preserve")
-        val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
-
-        // v1 and v2 both declare placeholder "body" — only the default content changes.
-        val v2SameName = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "ph-body" to Node(
-                    id = "ph-body",
-                    type = "placeholder",
-                    slots = listOf("ph-body-fill"),
-                    props = mapOf("name" to "body", "kind" to "block"),
-                ),
-                "v2-default-text" to Node(
-                    id = "v2-default-text",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("v2 default")),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("ph-body")),
-                "ph-body-fill" to Slot(id = "ph-body-fill", nodeId = "ph-body", name = "fill", children = listOf("v2-default-text")),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        CreateStencil(id = sId, name = "Header", content = stencilV1WithBodyPlaceholder()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), sId)).execute()
-
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        UpdateDraft(
-            variantId = variantId,
-            templateModel = templateEmbeddingStencilWithFilledPlaceholder(sId.key.value),
-        ).execute()
-
-        app.epistola.suite.stencils.commands.CreateStencilVersion(stencilId = sId, content = v2SameName).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), sId)).execute()
-
-        val result = UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = sId,
-            newVersion = 2,
-        ).execute()
-
-        assertThat(result).isNotNull
-        assertThat(result!!.upgradedCount).isEqualTo(1)
-        // Same placeholder name → user fill preserved → no dropped fills.
-        assertThat(result.droppedFills).isEmpty()
-    }
-
-    // ---------------------------------------------------------------------------
-    // Validation wiring — server-side rejection
-    // ---------------------------------------------------------------------------
-
-    @Test
-    fun `published template retains distinct nested stencil content`() = test {
-        val tenant = createTenant("placeholder-non-recursive-nesting")
-        val tenantId = TenantId(tenant.id)
-        val outerStencilId = stencilId(tenantId)
-        val innerStencilId = stencilId(tenantId)
-
-        CreateStencil(
-            id = outerStencilId,
-            name = "Outer letter",
-            content = stencilV1WithBodyPlaceholder(),
-        ).execute()
-        PublishStencilVersion(StencilVersionId(VersionKey.of(1), outerStencilId)).execute()
-        CreateStencil(
-            id = innerStencilId,
-            name = "Inner address",
-            content = textStencil("Nested address content"),
-        ).execute()
-        PublishStencilVersion(StencilVersionId(VersionKey.of(1), innerStencilId)).execute()
-
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Nested stencils").execute().withRequiredDataExample()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val nested = templateWithNestedStencilFill(
-            outerStencilId.key.value,
-            innerStencilId.key.value,
-        )
-
-        val draft = UpdateDraft(
-            variantId = variantId,
-            templateModel = nested,
-        ).execute()!!
-        val published = PublishVersion(VersionId(draft.id, variantId)).execute()!!
-
-        assertThat(published.templateModel.slots["outer-fill"]!!.children)
-            .containsExactly("inner-stencil")
-        assertThat(published.templateModel.nodes["inner-stencil"]!!.props!!["stencilId"])
-            .isEqualTo(innerStencilId.key.value)
-        assertThat(published.templateModel.nodes["nested-text"]!!.props!!["content"])
-            .isEqualTo(richText("Nested address content"))
-    }
-
-    @Test
-    fun `UpdateDraft rejects a recursive stencil document`() = test {
-        val tenant = createTenant("placeholder-recursion")
-        val tenantId = TenantId(tenant.id)
-
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Recursive").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-
-        // header → address → header repeats an ancestor stencil id.
-        val recursive = nestedStencilTemplate("header", "address", "header")
-
-        assertThatThrownBy {
-            UpdateDraft(variantId = variantId, templateModel = recursive).execute()
-        }.isInstanceOf(ValidationException::class.java)
-            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
-    }
-
-    @Test
-    fun `UpdateDraft rejects the sixth nested stencil level`() = test {
-        val tenant = createTenant("placeholder-depth")
-        val tenantId = TenantId(tenant.id)
+    private fun template(tenantId: TenantId, name: String): VariantId {
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Too deeply nested").execute()
-        val slugs = Array(TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1) { "stencil-$it" }
-
-        assertThatThrownBy {
-            UpdateDraft(
-                variantId = VariantId(VariantKey.INITIAL, templateId),
-                templateModel = nestedStencilTemplate(*slugs),
-            ).execute()
-        }.isInstanceOf(ValidationException::class.java)
-            .hasValidationCode(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
+        CreateDocumentTemplate(id = templateId, name = name).execute().withRequiredDataExample()
+        return VariantId(VariantKey.INITIAL, templateId)
     }
+
+    private fun publish(variantId: VariantId, model: TemplateDocument) = UpdateVariantContent(variantId, model).execute().templateModel.also { MarkVariantReady(variantId).execute() }
+
+    private fun using(key: String) = stencilDocument {
+        stencil("inst", key)
+        build("inst")
+    }
+
+    // ── Refused on write ──
 
     @Test
     fun `UpdateDraft rejects a placeholder without stencil ancestor`() = test {
-        val tenant = createTenant("placeholder-bare")
-        val tenantId = TenantId(tenant.id)
+        val variantId = template(TenantId(createTenant("placeholder-bare").id), "Bare placeholder")
 
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Bare placeholder").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
+        val invalid = stencilDocument {
+            placeholder("ph", "body")
+            build("ph")
+        }
 
-        // root → placeholder (illegal at template level — must be inside a stencil).
-        val invalid = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "ph" to Node(
-                    id = "ph",
-                    type = "placeholder",
-                    slots = listOf("ph-fill"),
-                    props = mapOf("name" to "body", "kind" to "block"),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("ph")),
-                "ph-fill" to Slot(id = "ph-fill", nodeId = "ph", name = "fill", children = emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        assertThatThrownBy {
-            UpdateDraft(variantId = variantId, templateModel = invalid).execute()
-        }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = invalid).execute() }
+            .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_OUTSIDE_STENCIL)
     }
 
     @Test
     fun `CreateStencil rejects content with duplicate placeholder names`() = test {
-        val tenant = createTenant("placeholder-dup")
-        val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
+        val duplicate = stencilDocument {
+            placeholder("ph1", "body")
+            placeholder("ph2", "body")
+            build("ph1", "ph2")
+        }
 
-        val duplicate = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "ph1" to Node(
-                    id = "ph1",
-                    type = "placeholder",
-                    slots = listOf("ph1-fill"),
-                    props = mapOf("name" to "body"),
-                ),
-                "ph2" to Node(
-                    id = "ph2",
-                    type = "placeholder",
-                    slots = listOf("ph2-fill"),
-                    props = mapOf("name" to "body"),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("ph1", "ph2")),
-                "ph1-fill" to Slot(id = "ph1-fill", nodeId = "ph1", name = "fill", children = emptyList()),
-                "ph2-fill" to Slot(id = "ph2-fill", nodeId = "ph2", name = "fill", children = emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        assertThatThrownBy {
-            CreateStencil(id = sId, name = "Dup", content = duplicate).execute()
-        }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("placeholder-dup").id)), name = "Dup", content = duplicate).execute() }
+            .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.PLACEHOLDER_NAME_DUPLICATE)
     }
 
     @Test
     fun `CreateStencil rejects initial content without synthetic root node`() = test {
-        val tenant = createTenant("stencil-graph-root")
-        val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
         val invalid = TemplateDocument(
             modelVersion = 1,
             root = "text-root",
@@ -419,283 +97,137 @@ class StencilPlaceholderIntegrationTest : IntegrationTestBase() {
             themeRef = ThemeRef.Inherit,
         )
 
-        assertThatThrownBy {
-            CreateStencil(id = sId, name = "Invalid root", content = invalid).execute()
-        }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { CreateStencil(id = stencilId(TenantId(createTenant("stencil-graph-root").id)), name = "Invalid root", content = invalid).execute() }
+            .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.TEMPLATE_GRAPH_INVALID)
     }
 
     @Test
-    fun `template override in fill slot survives a stencil-edit-and-publish cycle`() = test {
-        // Two-slot model: stencil v1 has placeholder with default in `default`
-        // slot. Template embeds it and the user puts an override in `fill`.
-        // We then create v2 with a *different* default and run the upgrade
-        // (the same path Publish triggers from the inspector). The user's
-        // fill override must survive; the new default must be installed.
-        val tenant = createTenant("override-preserve")
-        val tenantId = TenantId(tenant.id)
-        val sId = stencilId(tenantId)
-
-        val v1 = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "ph" to Node(
-                    id = "ph",
-                    type = "placeholder",
-                    slots = listOf("ph-default", "ph-fill"),
-                    props = mapOf("name" to "body", "kind" to "block"),
-                ),
-                "v1-default" to Node(
-                    id = "v1-default",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("v1 default")),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot("root-slot", "root", "children", listOf("ph")),
-                "ph-default" to Slot("ph-default", "ph", "default", listOf("v1-default")),
-                "ph-fill" to Slot("ph-fill", "ph", "fill", emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-
-        CreateStencil(id = sId, name = "Letter Body", content = v1).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), sId)).execute()
-
-        // Template embeds the stencil and overrides the fill.
-        val templateKey = TestIdHelpers.nextTemplateId()
-        val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Letter").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-
-        val templateBody = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "stencil-instance" to Node(
-                    id = "stencil-instance",
-                    type = "stencil",
-                    slots = listOf("stencil-children"),
-                    props = mapOf("stencilId" to sId.key.value, "version" to 1),
-                ),
-                "embedded-ph" to Node(
-                    id = "embedded-ph",
-                    type = "placeholder",
-                    slots = listOf("embedded-ph-default", "embedded-ph-fill"),
-                    props = mapOf("name" to "body", "kind" to "block"),
-                ),
-                "embedded-default" to Node(
-                    id = "embedded-default",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("v1 default")),
-                ),
-                "user-override" to Node(
-                    id = "user-override",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("user override")),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot("root-slot", "root", "children", listOf("stencil-instance")),
-                "stencil-children" to Slot(
-                    "stencil-children",
-                    "stencil-instance",
-                    "children",
-                    listOf("embedded-ph"),
-                ),
-                "embedded-ph-default" to Slot("embedded-ph-default", "embedded-ph", "default", listOf("embedded-default")),
-                "embedded-ph-fill" to Slot("embedded-ph-fill", "embedded-ph", "fill", listOf("user-override")),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-        UpdateDraft(variantId = variantId, templateModel = templateBody).execute()
-
-        // Stencil author publishes v2 with a different default.
-        val v2 = TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf(
-                "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "ph" to Node(
-                    id = "ph",
-                    type = "placeholder",
-                    slots = listOf("ph-default", "ph-fill"),
-                    props = mapOf("name" to "body", "kind" to "block"),
-                ),
-                "v2-default" to Node(
-                    id = "v2-default",
-                    type = "text",
-                    slots = emptyList(),
-                    props = mapOf("content" to richText("v2 default")),
-                ),
-            ),
-            slots = mapOf(
-                "root-slot" to Slot("root-slot", "root", "children", listOf("ph")),
-                "ph-default" to Slot("ph-default", "ph", "default", listOf("v2-default")),
-                "ph-fill" to Slot("ph-fill", "ph", "fill", emptyList()),
-            ),
-            themeRef = ThemeRef.Inherit,
-        )
-        app.epistola.suite.stencils.commands.CreateStencilVersion(
-            stencilId = sId,
-            content = v2,
-        ).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(2), sId)).execute()
-
-        val result = UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = sId,
-            newVersion = 2,
-        ).execute()
-
-        assertThat(result).isNotNull
-        assertThat(result!!.upgradedCount).isEqualTo(1)
-        // Same placeholder name → user fill preserved → no dropped fills.
-        assertThat(result.droppedFills).isEmpty()
-    }
-
-    @Test
     fun `UpdateDraft rejects malformed parameterBindings prop`() = test {
-        val tenant = createTenant("placeholder-binding-shape")
-        val tenantId = TenantId(tenant.id)
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
-        CreateDocumentTemplate(id = templateId, name = "Malformed binding").execute()
-        val variantId = VariantId(VariantKey.INITIAL, templateId)
-
-        // parameterBindings as a non-map → caught by NODE_PARAMETER_BINDINGS_INVALID_SHAPE.
+        val variantId = template(TenantId(createTenant("placeholder-binding-shape").id), "Malformed binding")
         val malformed = TemplateDocument(
             modelVersion = 1,
             root = "root",
             nodes = mapOf(
                 "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-                "nested" to Node(
-                    id = "nested",
-                    type = "stencil",
-                    slots = emptyList(),
-                    props = mapOf(
-                        "stencilId" to "other",
-                        "version" to 1,
-                        "parameterBindings" to "not-a-map",
-                    ),
-                ),
+                "nested" to Node(id = "nested", type = "stencil", slots = emptyList(), props = mapOf("stencilKey" to "other", "parameterBindings" to "not-a-map")),
             ),
-            slots = mapOf(
-                "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("nested")),
-            ),
+            slots = mapOf("root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("nested"))),
             themeRef = ThemeRef.Inherit,
         )
 
-        assertThatThrownBy {
-            UpdateDraft(variantId = variantId, templateModel = malformed).execute()
-        }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { UpdateVariantContent(variantId = variantId, templateModel = malformed).execute() }
+            .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.NODE_PARAMETER_BINDINGS_INVALID_SHAPE)
     }
 
-    private fun richText(text: String): Map<String, Any?> = mapOf(
-        "type" to "doc",
-        "content" to listOf(
-            mapOf(
-                "type" to "paragraph",
-                "content" to listOf(mapOf("type" to "text", "text" to text)),
-            ),
-        ),
-    )
+    // ── Refused on publish: only the stencils as they are can tell ──
 
-    private fun nestedStencilTemplate(vararg stencilIds: String): TemplateDocument {
-        val stencils = stencilIds.mapIndexed { index, stencilId ->
-            Node(
-                id = "stencil-$index",
-                type = "stencil",
-                slots = listOf("stencil-$index-children"),
-                props = mapOf("stencilId" to stencilId, "version" to 1),
-            )
+    @Test
+    fun `saving a stencil whose own content uses it is refused, also inside a fill`() = test {
+        val tenantId = TenantId(createTenant("placeholder-self").id)
+        val box = stencilId(tenantId, "box")
+        CreateStencil(id = box, name = "Box").execute()
+        // Inside the stencil's own content, a fill is still the stencil's: box(fill: box) is box in box.
+        val selfInFill = stencilDocument {
+            stencil("inner", "box")
+            placeholder("fill", "inside", fill = listOf("inner"))
+            stencil("frame", "frame", listOf("fill"))
+            build("frame")
         }
-        return TemplateDocument(
-            modelVersion = 1,
-            root = "root",
-            nodes = mapOf("root" to Node("root", "root", listOf("root-slot"))) +
-                stencils.associateBy(Node::id),
-            slots = mapOf(
-                "root-slot" to Slot("root-slot", "root", "children", listOf(stencils.first().id)),
-            ) + stencils.mapIndexed { index, stencil ->
-                "stencil-$index-children" to Slot(
-                    "stencil-$index-children",
-                    stencil.id,
-                    "children",
-                    stencils.getOrNull(index + 1)?.let { listOf(it.id) }.orEmpty(),
-                )
-            },
-            themeRef = ThemeRef.Inherit,
-        )
+
+        assertThatThrownBy { UpdateStencil(id = box, content = using("box")).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+        assertThatThrownBy { UpdateStencil(id = box, content = selfInFill).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+        assertThatThrownBy { CreateStencil(id = stencilId(tenantId, "loop"), name = "Loop", content = using("loop")).execute() }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
     }
 
-    private fun textStencil(text: String): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node("root", "root", listOf("root-children")),
-            "text" to Node(
-                id = "text",
-                type = "text",
-                props = mapOf("content" to richText(text)),
-            ),
-        ),
-        slots = mapOf(
-            "root-children" to Slot("root-children", "root", "children", listOf("text")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
+    @Test
+    fun `publishing refuses a stencil that contains itself through another`() = test {
+        val tenantId = TenantId(createTenant("placeholder-recursion").id)
+        CreateStencil(id = stencilId(tenantId, "header"), name = "Header").execute()
+        CreateStencil(id = stencilId(tenantId, "address"), name = "Address", content = using("header")).execute()
+        // header → address → header: only the second write closes the cycle.
+        UpdateStencil(id = stencilId(tenantId, "header"), content = using("address")).execute()
 
-    private fun templateWithNestedStencilFill(
-        outerStencilId: String,
-        innerStencilId: String,
-    ): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node("root", "root", listOf("root-children")),
-            "outer-stencil" to Node(
-                id = "outer-stencil",
-                type = "stencil",
-                slots = listOf("outer-children"),
-                props = mapOf("stencilId" to outerStencilId, "version" to 1),
-            ),
-            "outer-placeholder" to Node(
-                id = "outer-placeholder",
-                type = "placeholder",
-                slots = listOf("outer-default", "outer-fill"),
-                props = mapOf("name" to "body", "kind" to "block"),
-            ),
-            "inner-stencil" to Node(
-                id = "inner-stencil",
-                type = "stencil",
-                slots = listOf("inner-children"),
-                props = mapOf("stencilId" to innerStencilId, "version" to 1),
-            ),
-            "nested-text" to Node(
-                id = "nested-text",
-                type = "text",
-                props = mapOf("content" to richText("Nested address content")),
-            ),
-        ),
-        slots = mapOf(
-            "root-children" to Slot("root-children", "root", "children", listOf("outer-stencil")),
-            "outer-children" to Slot(
-                "outer-children",
-                "outer-stencil",
-                "children",
-                listOf("outer-placeholder"),
-            ),
-            "outer-default" to Slot("outer-default", "outer-placeholder", "default"),
-            "outer-fill" to Slot("outer-fill", "outer-placeholder", "fill", listOf("inner-stencil")),
-            "inner-children" to Slot("inner-children", "inner-stencil", "children", listOf("nested-text")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
+        assertThatThrownBy { publish(template(tenantId, "Recursive"), using("header")) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_RECURSION)
+    }
+
+    @Test
+    fun `publishing refuses stencils nested deeper than the limit`() = test {
+        val tenantId = TenantId(createTenant("placeholder-depth").id)
+        val depth = TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH + 1
+        // stencil-0 uses stencil-1 uses … stencil-(depth-1), which is plain.
+        (depth - 1 downTo 0).forEach { level ->
+            val content = if (level == depth - 1) stencilDocument { build() } else using("stencil-${level + 1}")
+            CreateStencil(id = stencilId(tenantId, "stencil-$level"), name = "Level $level", content = content).execute()
+        }
+
+        assertThatThrownBy { publish(template(tenantId, "Too deeply nested"), using("stencil-0")) }
+            .isInstanceOf(ValidationException::class.java)
+            .hasValidationCode(ValidationCode.STENCIL_NESTING_DEPTH_EXCEEDED)
+    }
+
+    @Test
+    fun `a fill may use the same stencil it fills, which is not recursion`() = test {
+        val tenantId = TenantId(createTenant("placeholder-fill-reuse").id)
+        CreateStencil(
+            id = stencilId(tenantId, "box"),
+            name = "Box",
+            content = stencilDocument {
+                placeholder("inside", "inside")
+                build("inside")
+            },
+        ).execute()
+
+        val boxInBox = stencilDocument {
+            stencil("inner", "box")
+            placeholder("fill", "inside", fill = listOf("inner"))
+            stencil("outer", "box", listOf("fill"))
+            build("outer")
+        }
+
+        assertThat(publish(template(tenantId, "Box in a box"), boxInBox)).isNotNull
+    }
+
+    @Test
+    fun `a published template stores nested instances by reference`() = test {
+        val tenantId = TenantId(createTenant("placeholder-nesting").id)
+        CreateStencil(
+            id = stencilId(tenantId, "letter"),
+            name = "Letter",
+            content = stencilDocument {
+                text("letter-text", "Letter content")
+                placeholder("body", "body")
+                build("letter-text", "body")
+            },
+        ).execute()
+        CreateStencil(
+            id = stencilId(tenantId, "address"),
+            name = "Address",
+            content = stencilDocument {
+                text("address-text", "Nested address content")
+                build("address-text")
+            },
+        ).execute()
+
+        val nested = stencilDocument {
+            stencil("inner", "address")
+            placeholder("fill", "body", fill = listOf("inner"))
+            stencil("outer", "letter", listOf("fill"))
+            build("outer")
+        }
+        val published = publish(template(tenantId, "Nested stencils"), nested)
+
+        assertThat(published.nodes.values.filter { it.type == "stencil" }.map { it.props!!["stencilKey"] })
+            .containsExactlyInAnyOrder("letter", "address")
+        assertThat(published.texts()).isEmpty()
+    }
 }

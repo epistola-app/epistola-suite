@@ -9,15 +9,21 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
+import org.springframework.boot.test.web.server.LocalManagementPort
 import org.springframework.http.HttpStatus
 
 class PrometheusEndpointTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    @LocalManagementPort
+    private var managementPort: Int = 0
+
+    private fun actuator(path: String) = restTemplate.getForEntity("http://localhost:$managementPort/actuator/$path", String::class.java)
+
     @Test
     fun `prometheus endpoint returns metrics`() {
-        val response = restTemplate.getForEntity("/actuator/prometheus", String::class.java)
+        val response = actuator("prometheus")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers.contentType.toString()).startsWith("text/plain")
@@ -42,16 +48,20 @@ class PrometheusEndpointTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the actuator is not served on the application port`() {
+        assertThat(restTemplate.getForEntity("/actuator/prometheus", String::class.java).statusCode).isNotEqualTo(HttpStatus.OK)
+    }
+
+    @Test
     fun `liveness and readiness are exposed on the main port via add-additional-paths`() {
-        // In production the actuator health endpoints move to the separate
-        // management port; Kubernetes probes rely on these main-port aliases.
+        // The actuator serves on its own port; Kubernetes probes rely on these main-port aliases.
         assertThat(restTemplate.getForEntity("/livez", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
         assertThat(restTemplate.getForEntity("/readyz", String::class.java).statusCode).isEqualTo(HttpStatus.OK)
     }
 
     @Test
     fun `health endpoint wires the custom storage and job-poller indicators and is UP`() {
-        val response = restTemplate.getForEntity("/actuator/health", String::class.java)
+        val response = actuator("health")
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!

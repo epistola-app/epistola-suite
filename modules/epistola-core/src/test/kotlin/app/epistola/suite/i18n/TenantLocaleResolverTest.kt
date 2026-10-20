@@ -83,6 +83,7 @@ class TenantLocaleResolverTest {
     private fun tenant(defaultLocale: String?) = Tenant(
         id = TenantKey.of("tenant-1"),
         name = "Tenant One",
+        defaultThemeCatalogKey = null,
         defaultThemeKey = null,
         defaultLocale = defaultLocale,
         createdAt = OffsetDateTime.now(),

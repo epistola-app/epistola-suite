@@ -10,6 +10,8 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
@@ -21,12 +23,13 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.StencilInUseException
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -42,7 +45,25 @@ import org.junit.jupiter.api.Test
 class CatalogDeletionTest : IntegrationTestBase() {
 
     @Nested
-    inner class UnregisterCatalogTests {
+    inner class DeleteCatalogTests {
+
+        @Test
+        fun `the default catalog is deleted like any other once nothing uses it`() {
+            val tenant = createTenant("Delete Default")
+
+            withMediator { DeleteCatalog(tenant.id, CatalogKey.of("default")).execute() }
+
+            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("default")).query() }).isNull()
+        }
+
+        @Test
+        fun `the system catalog cannot be deleted, not even forced`() {
+            val tenant = createTenant("Delete System")
+
+            assertThatThrownBy { withMediator { DeleteCatalog(tenant.id, SYSTEM_CATALOG_KEY, force = true).execute() } }
+                .hasMessageContaining("The system catalog cannot be deleted")
+            assertThat(withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query() }).isNotNull
+        }
 
         @Test
         fun `unregister with force=false and cross-references throws CatalogInUseException`() {
@@ -85,7 +106,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
                 // Attempt unregister without force — should throw
                 assertThatThrownBy {
-                    UnregisterCatalog(
+                    DeleteCatalog(
                         tenantKey = tenant.id,
                         catalogKey = catalogKeyA,
                         force = false,
@@ -135,7 +156,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 ).execute()
 
                 // Force unregister — should succeed
-                val deleted = UnregisterCatalog(
+                val deleted = DeleteCatalog(
                     tenantKey = tenant.id,
                     catalogKey = catalogKeyA,
                     force = true,
@@ -174,7 +195,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Stencil Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithStencil(stencilKey),
                 ).execute()
@@ -212,7 +233,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Force Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithStencil(stencilKey),
                 ).execute()
@@ -250,7 +271,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Asset Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithAsset(asset.id),
                 ).execute()
@@ -285,7 +306,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 CreateDocumentTemplate(id = templateId, name = "Force Asset Consumer").execute()
                 val variantKey = VariantKey.INITIAL
                 val variantId = VariantId(variantKey, templateId)
-                UpdateDraft(
+                UpdateVariantContent(
                     variantId = variantId,
                     templateModel = buildTemplateModelWithAsset(asset.id),
                 ).execute()
@@ -315,8 +336,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                     id = stencilNodeId,
                     type = "stencil",
                     props = mapOf(
-                        "stencilId" to stencilKey.value,
-                        "version" to 1,
+                        "stencilKey" to stencilKey.value,
                     ),
                 ),
             ),
@@ -348,7 +368,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value),
+                    props = mapOf("imageKey" to assetId.value),
                 ),
             ),
             slots = mapOf(

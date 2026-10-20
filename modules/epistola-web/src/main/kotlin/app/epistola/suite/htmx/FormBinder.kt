@@ -363,8 +363,9 @@ class FormBuilder {
                         }
                     }
 
+                    // A catalog, or one of its drafts as `key@version` ([CatalogSegment]).
                     spec.asCatalogId -> {
-                        if (CatalogKey.validateOrNull(value) == null) {
+                        if (CatalogSegment.parseOrNull(value) == null) {
                             errors[fieldName] = "Invalid catalog ID format"
                         }
                     }

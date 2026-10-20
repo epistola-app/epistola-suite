@@ -5,6 +5,8 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -52,9 +54,10 @@ class ExportAssetsHandler(
                 // the font-face binaries sharing this table are not exported as resources -- a face
                 // carries its own bytes inside its font. Matches `ListImagePage`, which the
                 // `/images` surface uses for the same reason.
-                append("SELECT id::text, name, media_type, width, height, content_hash FROM assets WHERE tenant_key = :tenantKey")
+                // Each catalog's current version; the named catalog's when one is given.
+                append("SELECT id::text, name, media_type, width, height, content_hash FROM assets WHERE tenant_key = :tenantKey AND ${inCurrentVersion("assets")}")
                 append(" AND media_type LIKE 'image/%'")
-                if (query.catalogKey != null) append(" AND catalog_key = :catalogKey")
+                if (query.catalogKey != null) append(" AND version_id = ${versionAt("tenantKey", "catalogKey")}")
                 if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
             }
             val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
@@ -74,7 +77,7 @@ class ExportAssetsHandler(
 
         return rows.map { row ->
             ImageResource(
-                slug = row.id,
+                key = row.id,
                 name = row.name,
                 mediaType = row.mediaType,
                 width = row.width,

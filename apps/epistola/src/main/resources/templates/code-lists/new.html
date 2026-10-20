@@ -12,36 +12,26 @@
         cascade + the inline-entries editor both keep working in the swapped-in form
         (their listeners are delegated on document — pages/asset-forms.js).
 
-    Model it needs: `tenantId` (URLs), `authoredCatalogs` (catalog <select> — a
-    distinct key from the list's own `catalogs` filter var), and on error
+    Model it needs: `tenantId` (URLs), `draftSegment` (the catalog it creates in, from the path), and on error
     re-render `formData`/`errors`.
     -->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-code-list-dialog',
             title='New code list',
-            closeUrl=@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::code-list-form})}"></div>
     </th:block>
 
     <!-- data-radio-panes: the sourceType radios toggle the matching
          [data-source-pane] visibility (pages/asset-forms.js). -->
     <form th:fragment="code-list-form" id="create-code-list-form"
-          method="post" th:action="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
-          th:hx-post="@{/tenants/{tenantId}/code-lists(tenantId=${tenantId})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-code-list-form" hx-swap="outerHTML"
           data-radio-panes="sourceType" data-pane-attr="data-source-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-code-list-error')}"></div>
         <div class="ep-dialog-body">
-            <div th:if="${authoredCatalogs != null && !authoredCatalogs.isEmpty()}" class="form-group">
-                <label class="ep-label" for="catalog">Catalog</label>
-                <select id="catalog" name="catalog" class="ep-select" required>
-                    <option th:each="cat : ${authoredCatalogs}"
-                            th:value="${cat.id}"
-                            th:text="${cat.name}"
-                            th:selected="${#strings.equals(formData?.catalog, cat.id)}"></option>
-                </select>
-            </div>
 
             <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
                 <label class="ep-label" for="displayName">Display Name</label>
@@ -64,7 +54,7 @@
 
             <div class="form-group">
                 <label class="ep-label" for="description">Description (optional)</label>
-                <textarea id="description" name="description" class="ep-textarea" rows="2"
+                <textarea maxlength="2000" id="description" name="description" class="ep-textarea" rows="2"
                           th:text="${formData?.description}"></textarea>
             </div>
 
@@ -113,7 +103,7 @@
             <div class="form-group source-pane" data-source-pane="URL" hidden
                  th:classappend="${errors?.containsKey('sourceUrl')} ? 'error' : ''">
                 <label class="ep-label" for="sourceUrl">Source URL</label>
-                <input type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
+                <input maxlength="2000" type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
                        placeholder="https://example.com/regions.json"
                        th:value="${formData?.sourceUrl}">
                 <span class="form-hint">Expected payload: JSON array of {code, label, sortOrder?, hidden?} objects.</span>

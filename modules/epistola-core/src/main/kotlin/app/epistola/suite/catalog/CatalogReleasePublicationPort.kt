@@ -44,6 +44,24 @@ interface CatalogReleasePublicationPort {
      * inert, and the copy Exchange holds is Exchange's to keep.
      */
     fun isSendInFlight(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean
+
+    /**
+     * True once a release of the catalog has been published under its namespace, which then can no
+     * longer change: what the integration published stays under those coordinates.
+     */
+    fun isNamespaceFixed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean
+
+    /**
+     * The namespace a catalog under [catalogKey] was published under, which outlives the catalog:
+     * one recreated under the same key returns to it. Null when nothing was published under the key.
+     */
+    fun publishedNamespace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String?
+
+    /** The namespace the integration suggests for a new catalog of [tenantKey], or null for none. */
+    fun preferredNamespace(handle: Handle, tenantKey: TenantKey): String?
+
+    /** The catalog's namespace changed: work queued for it and not yet sent goes there instead. */
+    fun namespaceChanged(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String)
 }
 
 /**

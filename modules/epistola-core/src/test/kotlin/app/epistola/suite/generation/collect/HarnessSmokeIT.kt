@@ -5,6 +5,7 @@
 package app.epistola.suite.generation.collect
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -70,6 +71,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     data = objectMapper.createObjectNode().put("x", 1),
                     filename = "doc.pdf",
                     routingKey = "smoke-key",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -112,6 +114,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -147,6 +150,7 @@ class HarnessSmokeIT : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

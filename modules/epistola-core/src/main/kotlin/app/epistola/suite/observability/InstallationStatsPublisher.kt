@@ -4,6 +4,7 @@
 
 package app.epistola.suite.observability
 
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -96,7 +97,9 @@ class InstallationStatsPublisher(
                 return@useTransaction
             }
             ENTITIES.forEach { entity ->
-                val count = handle.createQuery("SELECT count(*) FROM ${entity.table}")
+                // Catalog content counts each catalog's current version once, not every draft's copy.
+                val inCurrent = if (entity.versioned) " t WHERE ${inCurrentVersion("t")}" else ""
+                val count = handle.createQuery("SELECT count(*) FROM ${entity.table}$inCurrent")
                     .mapTo(Long::class.java)
                     .one()
                 values.getValue(entity).set(count.toDouble())
@@ -106,13 +109,13 @@ class InstallationStatsPublisher(
     }
 
     /** Bounded design-time entity tables. `table` is a hardcoded literal — never user input. */
-    internal enum class Entity(val metric: String, val table: String) {
+    internal enum class Entity(val metric: String, val table: String, val versioned: Boolean = false) {
         TENANTS("tenants", "tenants"),
-        TEMPLATES("templates", "document_templates"),
-        THEMES("themes", "themes"),
+        TEMPLATES("templates", "document_templates", versioned = true),
+        THEMES("themes", "themes", versioned = true),
         CATALOGS("catalogs", "catalogs"),
-        STENCILS("stencils", "stencils"),
-        FONTS("fonts", "fonts"),
+        STENCILS("stencils", "stencils", versioned = true),
+        FONTS("fonts", "fonts", versioned = true),
         ENVIRONMENTS("environments", "environments"),
     }
 

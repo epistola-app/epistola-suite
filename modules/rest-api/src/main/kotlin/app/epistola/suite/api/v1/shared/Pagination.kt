@@ -41,7 +41,7 @@ object Pagination {
         return PageMeta(
             number = page.coerceAtLeast(0),
             propertySize = safeSize,
-            totalElements = totalElements,
+            total = totalElements,
             totalPages = totalPages,
         )
     }
@@ -60,4 +60,11 @@ object Pagination {
         val to = (from.toLong() + safeSize).coerceAtMost(all.size.toLong()).toInt()
         return Slice(all.subList(from, to), pageMeta(page, size, all.size.toLong()))
     }
+
+    /**
+     * One page of what a released catalog version holds, sliced in application code. Not the
+     * deprecated in-memory paging of working-copy lists: release content is assembled whole to be
+     * read at all, and is bounded by the size of the catalog, so there is no query to push a limit into.
+     */
+    fun <T> pageOfRelease(all: List<T>, page: Int, size: Int): Slice<T> = paginate(all, page, size)
 }

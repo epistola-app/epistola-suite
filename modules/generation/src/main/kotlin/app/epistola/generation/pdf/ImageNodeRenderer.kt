@@ -54,7 +54,7 @@ class ImageNodeRenderer(
         registry: NodeRendererRegistry,
     ): List<IElement> {
         val props = node.props
-        val assetId = props?.get("assetId") as? String
+        val assetId = props?.get("imageKey") as? String
         if (assetId.isNullOrBlank()) {
             logger.debug("Image node {} has no assetId, skipping", node.id)
             return emptyList()

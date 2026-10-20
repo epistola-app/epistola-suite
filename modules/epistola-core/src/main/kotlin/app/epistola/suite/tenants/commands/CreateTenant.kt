@@ -4,8 +4,11 @@
 
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.system.InstallSystemCatalog
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -41,6 +44,8 @@ data class CreateTenant(
 @Component
 class CreateTenantHandler(
     private val jdbi: Jdbi,
+    private val identity: CatalogIdentityProperties,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
@@ -65,12 +70,16 @@ class CreateTenantHandler(
             // Create the tenant's default catalog so authored resources have a home.
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, created_at, updated_at)
-                VALUES ('default', :tenantKey, 'Default', 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (catalog_id, catalog_key, tenant_key, registry, namespace, name, type, created_at, updated_at)
+                VALUES (epistola_uuidv7(), 'default', :tenantKey, :registry, :namespace, 'Default', 'AUTHORED', NOW(), NOW())
                 """,
             )
                 .bind("tenantKey", command.id)
+                .bind("registry", identity.defaultRegistry)
+                .bind("namespace", CatalogIdentityProperties.defaultNamespace(command.id))
                 .execute()
+            // Its working copy is its first draft (contract ADR 0002), as for any authored catalog.
+            drafts.open(handle, command.id, CatalogKey.DEFAULT, base = null)
 
             inserted
         }

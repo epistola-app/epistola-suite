@@ -61,7 +61,7 @@ class TenantApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo(tenantKey.value)
+        assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo(tenantKey.value)
         assertThat(JsonPath.read<String>(body, "$.name")).isEqualTo("Renamed Tenant")
 
         // Read-your-write: a subsequent GET reflects the new name.
@@ -167,7 +167,7 @@ class TenantApiIT : IntegrationTestBase() {
         val response = restTemplate.exchange(
             "/api/tenants",
             HttpMethod.POST,
-            HttpEntity("""{"id":"over-long-name-tenant","name":"$overLongName"}""", baseHeaders(apiKey)),
+            HttpEntity("""{"key":"over-long-name-tenant","name":"$overLongName"}""", baseHeaders(apiKey)),
             String::class.java,
         )
 
@@ -327,11 +327,11 @@ class TenantApiIT : IntegrationTestBase() {
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.4.0-SNAPSHOT tenant-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

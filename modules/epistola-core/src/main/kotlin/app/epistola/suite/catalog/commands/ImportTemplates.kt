@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.ready.ReadyMarks
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
@@ -40,18 +43,8 @@ import tools.jackson.databind.node.ObjectNode
 
 data class ImportTemplates(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templates: List<ImportTemplateInput>,
-    /**
-     * Renumber map applied to stencil-node `props.version` during import.
-     * Keyed by stencil slug, value is the (source→target) version pair.
-     * Populated by [ImportCatalogZip] only when a `RENUMBER`-mode import
-     * resolved a stencil-version conflict — `ImportStencil` installed the
-     * conflicting source version at a fresh number, and these templates
-     * (riding the same ZIP) must follow so their pins still resolve.
-     * Cross-catalog stencil refs are not in the map and are left alone.
-     */
-    val stencilRenumbers: Map<StencilKey, StencilRenumber> = emptyMap(),
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -122,28 +115,15 @@ class ImportTemplatesHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
+    private val readyMarks: ReadyMarks,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
-            val rewritten = if (command.stencilRenumbers.isEmpty()) {
-                input
-            } else {
-                input.copy(
-                    templateModel = rewriteStencilPins(input.templateModel, command.stencilRenumbers, command.catalogKey),
-                    variants = input.variants.map { variant ->
-                        variant.copy(
-                            templateModel = variant.templateModel?.let {
-                                rewriteStencilPins(it, command.stencilRenumbers, command.catalogKey)
-                            },
-                        )
-                    },
-                )
-            }
-            validateTemplateModels(rewritten)
-            importSingleTemplate(command.tenantId, command.catalogKey, rewritten)
+            validateTemplateModels(input)
+            importSingleTemplate(command.tenantId, command.catalogKey, input)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
             ImportTemplateResult(
@@ -158,37 +138,6 @@ class ImportTemplatesHandler(
     private fun validateTemplateModels(input: ImportTemplateInput) {
         templateDocumentValidator.validateTemplatePublishable(input.templateModel)
         input.variants.mapNotNull { it.templateModel }.forEach(templateDocumentValidator::validateTemplate)
-    }
-
-    /**
-     * Walks a [TemplateDocument]'s nodes and rewrites the `props.version` of
-     * any stencil node whose `stencilId` is in [renumbers] AND whose source
-     * pin equals the renumber map's `sourceVersion`. Cross-catalog stencil
-     * refs (with a `props.catalogKey` that is not [ownCatalog]) are left
-     * alone — they target a different catalog's stencil and that catalog's
-     * versioning is independent.
-     */
-    private fun rewriteStencilPins(
-        document: TemplateDocument,
-        renumbers: Map<StencilKey, StencilRenumber>,
-        ownCatalog: CatalogKey,
-    ): TemplateDocument {
-        val rewrittenNodes = document.nodes.mapValues { (_, node) ->
-            if (node.type != StencilNodeKeys.NODE_TYPE) return@mapValues node
-            val props = node.props ?: return@mapValues node
-            val stencilSlug = props[StencilNodeKeys.PROP_STENCIL_ID] as? String
-                ?: return@mapValues node
-            val refCatalog = props[StencilNodeKeys.PROP_CATALOG_KEY] as? String
-            // Only own-catalog stencil refs participate. A ref with explicit
-            // catalogKey pointing elsewhere is a cross-catalog dependency.
-            if (refCatalog != null && refCatalog != ownCatalog.value) return@mapValues node
-            val pinned = (props[StencilNodeKeys.PROP_VERSION] as? Number)?.toInt()
-                ?: return@mapValues node
-            val mapping = renumbers[StencilKey.of(stencilSlug)] ?: return@mapValues node
-            if (pinned != mapping.sourceVersion) return@mapValues node
-            node.copy(props = props + (StencilNodeKeys.PROP_VERSION to mapping.assignedVersion))
-        }
-        return document.copy(nodes = rewrittenNodes)
     }
 
     private fun importSingleTemplate(tenantId: TenantId, catalogKey: CatalogKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
@@ -216,7 +165,7 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
         )
             .bind("id", templateId)
@@ -229,9 +178,9 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, :catalogKey, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
+                    INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
+                    ON CONFLICT (tenant_key, version_id, id) DO UPDATE
                     SET name = :name, theme_resource_id = EXCLUDED.theme_resource_id,
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
@@ -252,7 +201,7 @@ class ImportTemplatesHandler(
                     UPDATE document_templates
                     SET name = :name, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
-                    WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                    WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                     """,
             )
                 .bind("id", templateId)
@@ -267,85 +216,25 @@ class ImportTemplatesHandler(
             ImportStatus.UPDATED
         }
 
-        // 2b. Upsert contract version (data model + examples) into contract_versions
-        // Every template must have a contract version — always create one on import.
-        run {
-            // Delete existing drafts — import supersedes local edits. Draft
-            // versions first: they FK-reference the draft contract
-            // (fk_template_versions_contract_version), so deleting the
-            // contract first aborts the import on any template that was
-            // never published (e.g. an API-created shell with only drafts).
-            handle.createUpdate(
-                """
-                    DELETE FROM template_versions
-                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'draft'
-                    """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .execute()
-
-            // Delete existing draft contract — import supersedes local edits
-            handle.createUpdate(
-                """
-                    DELETE FROM contract_versions
-                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'draft'
-                    """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .execute()
-
-            val nextContractVersionId = handle.createQuery(
-                """
-                    SELECT COALESCE(MAX(id), 0) + 1
-                    FROM contract_versions
-                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                    """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .mapTo(Int::class.java)
-                .one()
-
-            handle.createUpdate(
-                """
-                    INSERT INTO contract_versions (id, tenant_key, template_resource_id, data_model, data_examples, status, published_at, created_at, created_by)
-                    VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :dataModel::jsonb, :dataExamples::jsonb, 'published', NOW(), NOW(), :createdBy)
-                    """,
-            )
-                .bind("id", nextContractVersionId)
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .bind("dataModel", dataModelJson)
-                .bind("dataExamples", dataExamplesJson)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
-
-            // Link all existing template versions to the new contract version
-            handle.createUpdate(
-                """
-                    UPDATE template_versions
-                    SET contract_version = :contractVersion
-                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                    """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .bind("contractVersion", nextContractVersionId)
-                .execute()
-        }
+        // 2b. The data contract: import supersedes local edits.
+        handle.createUpdate(
+            """
+                UPDATE document_templates SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB)
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                """,
+        )
+            .bind("tenantId", tenantId.key)
+            .bind("catalogKey", catalogKey)
+            .bind("templateId", templateId)
+            .bind("dataModel", dataModelJson)
+            .bind("dataExamples", dataExamplesJson)
+            .execute()
 
         // 3. Clear existing default flag to avoid unique partial index conflict during upserts
         handle.createUpdate(
             """
                 UPDATE template_variants SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
             .bind("tenantId", tenantId.key)
@@ -360,15 +249,22 @@ class ImportTemplatesHandler(
             importedVariantIds.add(variantId)
 
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
+            // The variant's own model, else the template's; import supersedes local edits.
+            val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalogKey)
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_key, template_resource_id, title, attributes, is_default, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, template_resource_id, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, updated_at = NOW(), updated_by = :updatedBy
+                    INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
+                                                   created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault,
+                            :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                    ON CONFLICT (tenant_key, version_id, template_resource_id, id) DO UPDATE
+                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault,
+                        template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
+                .bind("templateModel", prepared.templateModelJson)
+                .bind("referencedPaths", prepared.referencedPathsJson)
                 .bind("id", variantId)
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
@@ -379,33 +275,13 @@ class ImportTemplatesHandler(
                 .bind("isDefault", variantInput.isDefault)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
-
-            // Upsert a published version with the variant-specific or top-level templateModel
-            val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            // Resolve latest contract version to link to new template versions
-            val latestContractVersion = handle.createQuery(
-                """
-                    SELECT id FROM contract_versions
-                    WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND status = 'published'
-                    ORDER BY id DESC LIMIT 1
-                    """,
-            )
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
-                .bind("templateId", templateId)
-                .mapTo(Int::class.java)
-                .findOne()
-                .orElseThrow {
-                    IllegalStateException("No published contract version found for template '$templateId' during import")
-                }
-            upsertPublishedVersion(handle, tenantId, catalogKey, templateId, variantId, variantTemplateModel, latestContractVersion, auditUser)
         }
 
         // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
         handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                   AND id NOT IN (<variantIds>)
                 """,
         )
@@ -415,64 +291,20 @@ class ImportTemplatesHandler(
             .bindList("variantIds", importedVariantIds.toList())
             .execute()
 
+        // What a catalog brings is released content: imported, it is ready as it is.
+        handle.createQuery("SELECT ${templateAtAddress("tenantId", "catalogKey", "templateId")}")
+            .bind("tenantId", tenantId.key)
+            .bind("catalogKey", catalogKey)
+            .bind("templateId", templateId)
+            .mapTo(java.util.UUID::class.java)
+            .one()
+            .let { readyMarks.mark(handle, tenantId.key, it) }
+
         ImportTemplateResult(
             slug = input.slug,
             status = status,
             version = input.version,
             errorMessage = null,
         )
-    }
-
-    /**
-     * Creates a published version for the given variant.
-     * Always creates a new version with the next available version ID and status 'published'.
-     * Deletes any existing draft first — re-importing a catalog supersedes local edits.
-     */
-    private fun upsertPublishedVersion(handle: Handle, tenantId: TenantId, catalogKey: CatalogKey, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument, contractVersionId: Int, auditUser: java.util.UUID?) {
-        // Delete existing draft — import supersedes local edits
-        handle.createUpdate(
-            """
-                DELETE FROM template_versions
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId AND status = 'draft'
-                """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .execute()
-
-        val prepared = templateDocumentPreparation.prepare(templateModel, catalogKey)
-
-        val nextVersionId = handle.createQuery(
-            """
-                SELECT COALESCE(MAX(id), 0) + 1
-                FROM template_versions
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND variant_key = :variantId
-                """,
-        )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .mapTo(Int::class.java)
-            .one()
-
-        handle.createUpdate(
-            """
-                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, published_at, created_at, created_by)
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'published', :contractVersion, :referencedPaths::jsonb, NOW(), NOW(), :createdBy)
-                """,
-        )
-            .bind("id", VersionKey.of(nextVersionId))
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
-            .bind("templateId", templateId)
-            .bind("variantId", variantId)
-            .bind("templateModel", prepared.templateModelJson)
-            .bind("contractVersion", contractVersionId)
-            .bind("referencedPaths", prepared.referencedPathsJson)
-            .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-            .execute()
     }
 }

@@ -1,10 +1,10 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "resource": {
     "type": "template",
-    "slug": "advanced-data-contract",
+    "key": "advanced-data-contract",
     "name": "Advanced Data Contract",
-    "themeId": "corporate",
+    "themeKey": "corporate",
     "dataModel": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -158,6 +158,7 @@
     },
     "dataExamples": [
       {
+        "key": "mixed-nested-structures",
         "name": "Mixed nested structures",
         "data": {
           "caseReference": "ZAAK-2026-843",
@@ -233,6 +234,7 @@
         }
       },
       {
+        "key": "nullable-correspondence",
         "name": "Nullable correspondence",
         "data": {
           "caseReference": "ZAAK-2026-844",
@@ -469,7 +471,7 @@
         "attributes": {},
         "templateModel": null,
         "isDefault": true,
-        "slug": "default"
+        "key": "default"
       }
     ]
   }

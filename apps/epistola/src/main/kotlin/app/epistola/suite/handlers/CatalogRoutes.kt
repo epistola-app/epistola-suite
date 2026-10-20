@@ -15,6 +15,9 @@ class CatalogRoutes(
     private val handler: CatalogHandler,
     private val exchange: ExchangeCatalogHandler,
     private val organise: CatalogOrganiseHandler,
+    private val nextRelease: CatalogReleaseHandler,
+    private val drafts: CatalogDraftHandler,
+    private val themeSettings: CatalogThemeSettingsHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -23,6 +26,7 @@ class CatalogRoutes(
             // Registered before the {catalogId} routes below. `exchange` is a legal catalog slug,
             // and while every per-catalog route carries a verb suffix that keeps these unambiguous
             // today, relying on that is one route away from an ambush.
+            GET("/graph", handler::graph)
             GET("/exchange", exchange::browse)
             GET("/exchange/search", exchange::search)
             GET("/exchange/{namespace}/{catalogKey}", exchange::detail)
@@ -33,17 +37,43 @@ class CatalogRoutes(
             POST("/create", handler::createCatalog)
             GET("/import", handler::importForm)
             POST("/import", handler::importZip)
-            POST("/{catalogId}/delete", handler::unregister)
+            POST("/{catalogId}/delete", handler::deleteCatalog)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)
+            // A catalog's drafts (contract ADR 0002, amendment 2). `{catalogId}` may name parallel
+            // work as `key@<draft id>`, on these routes and every other per-catalog and per-resource route.
+            GET("/{catalogId}/drafts/new", drafts::createForm)
+            POST("/{catalogId}/drafts", drafts::create)
+            POST("/{catalogId}/drafts/discard", drafts::discard)
+            // Another version, at the page someone was on.
+            GET("/{catalogId}/switch", drafts::switchVersion)
+            // A draft tried on an environment, which follows it live.
+            GET("/{catalogId}/follow", drafts::followForm)
+            POST("/{catalogId}/follow", drafts::follow)
+            POST("/{catalogId}/unfollow", drafts::unfollow)
+            // Parallel work becomes the next version when it is ready.
+            // Preparing the next release: readiness, declared dependencies
+            POST("/{catalogId}/ready", nextRelease::markReady)
+            GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
+            POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
+            POST("/{catalogId}/dependencies/upgrade", nextRelease::upgradeDependencies)
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)
             GET("/{catalogId}/browse", handler::browse)
+            // A draft's own page: the next version at a plain segment, another draft at key@version.
+            GET("/{catalogId}/draft", handler::draftPage)
+            GET("/{catalogId}/versions", handler::versionsPage)
+            GET("/{catalogId}/deployments", handler::deploymentsPage)
+            GET("/{catalogId}/dependencies", handler::dependenciesPage)
+            GET("/{catalogId}/settings", handler::settingsPage)
+            GET("/{catalogId}/theme-settings", themeSettings::show)
+            POST("/{catalogId}/theme-settings", themeSettings::save)
+            GET("/{catalogId}/bar-status", handler::barStatus)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
-            POST("/{catalogId}/releases/{version}/forget", handler::forgetReleaseContent)
             POST("/{catalogId}/releases/{version}/delete", handler::deleteRelease)
             POST("/{catalogId}/deployments", handler::deploy)
             POST("/{catalogId}/deployments/{environmentId}/undeploy", handler::undeploy)
+            POST("/{catalogId}/deployments/{environmentId}/unfollow", handler::unfollow)
             // Reorganising is its own page: a browser across catalogs that allows moving. Deep
             // linkable via ?resource=<type>:<catalog>/<key>, repeatable.
             GET("/organise", organise::page)

@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -14,7 +15,6 @@ import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
@@ -70,11 +70,9 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var meterRegistry: MeterRegistry
 
-    @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired private lateinit var fontByteCache: FontByteCache
-
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
+
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
 
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
@@ -167,6 +165,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
                 environmentId = null,
                 data = ObjectMapper().createObjectNode(),
                 filename = filename,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
         return tenant.id to request.id
@@ -202,7 +201,7 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
             jdbi = jdbi,
             jobExecutor = GatedExecutor(
                 gate, executor, jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-                meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+                meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             ),
             properties = pollerProperties,
             batchSizer = AdaptiveBatchSizer(pollerProperties, registry),
@@ -230,13 +229,12 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         schemaValidator: JsonSchemaValidator,
         contentStore: DocumentContentStore,
         meterRegistry: MeterRegistry,
-        fontSnapshotVerifier: FontSnapshotVerifier,
-        fontByteCache: FontByteCache,
         localeResolver: TenantLocaleResolver,
         releaseRenderSource: ReleaseRenderSource,
+        draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer,
     ) : DocumentGenerationExecutor(
         jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore, meterRegistry,
-        fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource, retentionDays = 7, maxDocumentSizeMb = 50,
+        localeResolver, releaseRenderSource, draftRenderer, retentionDays = 7, maxDocumentSizeMb = 50,
     ) {
         /** [interruptible] false models a CPU-bound render that does not stop on interrupt. */
         class Gate(val interruptible: Boolean) {

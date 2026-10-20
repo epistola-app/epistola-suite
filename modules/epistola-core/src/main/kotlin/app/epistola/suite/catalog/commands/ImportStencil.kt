@@ -4,18 +4,18 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
-import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
@@ -26,34 +26,23 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Installs one stencil-version row carried in a catalog ZIP. The stencil's
- * `version` is taken from the wire format (no longer renumbered to `MAX+1`)
- * so that templates pinning a specific version survive a round-trip.
+ * Installs one stencil carried in a catalog archive as the stencil's working copy.
  *
- * Idempotency / conflict semantics:
- *  - target has no row for (slug, version) → insert at the given version
- *  - target has (slug, version) and content is **byte-identical** (JSONB `=`)
- *    → no-op, returns `SKIPPED` with `assignedVersion = version`
- *  - target has (slug, version) but content **differs** → behaviour depends on
- *    [ImportStencil.onConflict]:
- *      - `FAIL` (default) — throws [StencilVersionConflictException]; the
- *        orchestrator collects all conflicts in one pass
- *      - `RENUMBER` — inserts as `MAX(version)+1`, returns the new number;
- *        the orchestrator uses this to rewrite stencil-node pins in the
- *        templates from the same ZIP
+ * A stencil has no versions (contract ADR 0002, ADR 0006): importing replaces its content,
+ * parameter schema and whether it reads the template's data. An import whose content and schema
+ * equal what is stored is `SKIPPED`; otherwise the stencil is `INSTALLED` or `UPDATED`.
  */
 data class ImportStencil(
     val tenantId: TenantId,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val slug: String,
-    val version: Int,
     val name: String,
     val description: String? = null,
     val tags: List<String> = emptyList(),
     val content: TemplateDocument,
     val parameterSchema: Map<String, Any?>? = null,
-    val onConflict: OnStencilConflict = OnStencilConflict.FAIL,
-) : Command<ImportStencilResult>,
+    val readsTemplateData: Boolean = false,
+) : Command<InstallStatus>,
     RequiresPermission {
     override val permission get() = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
@@ -64,176 +53,73 @@ data class ImportStencil(
     }
 }
 
-/**
- * Outcome of a single [ImportStencil] invocation. [assignedVersion] is the
- * version actually written to the target — equal to [ImportStencil.version]
- * on the happy path, set to a fresh `MAX+1` only when [OnStencilConflict.RENUMBER]
- * resolved a content conflict.
- */
-data class ImportStencilResult(
-    val status: InstallStatus,
-    val assignedVersion: Int,
-    val wasRenumbered: Boolean,
-)
-
 @Component
 class ImportStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val templateDocumentValidator: TemplateDocumentValidator,
-) : CommandHandler<ImportStencil, ImportStencilResult> {
+) : CommandHandler<ImportStencil, InstallStatus> {
 
-    override fun handle(command: ImportStencil): ImportStencilResult {
-        templateDocumentValidator.validateStencilPublishable(command.content)
-        val stencilKey = StencilKey.of(command.slug)
-        val tagsJson = objectMapper.writeValueAsString(command.tags)
-        // Wire content is relative to the catalog it lands in, so qualify against the target.
-        // Computed once: the same JSON backs both the idempotency comparison below and the insert,
-        // so a re-import still compares equal to what was stored.
+    override fun handle(command: ImportStencil): InstallStatus {
+        templateDocumentValidator.validateStencil(command.content, command.slug, command.catalogKey.value)
+        // Wire content is relative to the catalog it lands in, so qualify against the target. The
+        // same JSON backs the comparison and the write, so a re-import still compares equal.
         val contentJson = objectMapper.valueToTree<JsonNode>(command.content)
             .also { ResourceReferenceSites.qualifyRelative(it, command.catalogKey.value) }
             .let(objectMapper::writeValueAsString)
         val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
         val auditUser = currentUserIdOrNull()?.value
 
-        return jdbi.inTransaction<ImportStencilResult, Exception> { handle ->
-            val stencilRowExisted = handle.createQuery("SELECT COUNT(*) > 0 FROM stencils WHERE id = :id AND tenant_key = :tenantKey")
-                .bind("id", stencilKey)
-                .bind("tenantKey", command.tenantKey)
-                .mapTo(Boolean::class.java)
-                .one()
-
-            // Upsert stencil row (name/description/tags). Versions are handled
-            // separately below.
-            handle.createUpdate(
+        return jdbi.inTransaction<InstallStatus, Exception> { handle ->
+            // Compared by value: Postgres normalises JSONB whitespace and key order.
+            val unchanged = handle.createQuery(
                 """
-                INSERT INTO stencils (id, tenant_key, catalog_key, name, description, tags, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, :catalogKey, :name, :description, :tags::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, catalog_key, id) DO UPDATE
-                SET name = :name, description = :description, tags = :tags::jsonb, updated_at = NOW(), updated_by = :updatedBy
-                """,
-            )
-                .bind("id", stencilKey)
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .bind("name", command.name)
-                .bind("description", command.description)
-                .bind("tags", tagsJson)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
-
-            // Drop any draft for this stencil — imports supersede local
-            // work-in-progress regardless of which version we end up writing.
-            handle.createUpdate(
-                """
-                DELETE FROM stencil_versions
-                WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")} AND status = 'draft'
+                SELECT content = :content::jsonb
+                       AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb
+                       AND reads_template_data = :readsTemplateData
+                FROM stencils
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("catalogKey", command.catalogKey)
-                .bind("stencilKey", stencilKey)
-                .execute()
-
-            // Is there already a published row for the requested (stencil, version)?
-            // Compare JSONB by value, not text — postgres normalises whitespace and
-            // object-key order so semantic equality is the right call. The parameter
-            // schema is part of the version's identity, so a row that matches the
-            // content but carries a different schema is a genuine conflict, not an
-            // idempotent re-import (`IS NOT DISTINCT FROM` treats NULL = NULL).
-            val existingMatchOrNull = handle.createQuery(
-                """
-                SELECT (content = :content::jsonb
-                        AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb) AS matches
-                FROM stencil_versions
-                WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}
-                  AND id = :version
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .bind("stencilKey", stencilKey)
-                .bind("version", VersionKey.of(command.version))
+                .bind("id", StencilKey.of(command.slug))
                 .bind("content", contentJson)
                 .bind("parameterSchema", parameterSchemaJson)
+                .bind("readsTemplateData", command.readsTemplateData)
                 .mapTo(Boolean::class.java)
                 .findOne()
                 .orElse(null)
 
-            when {
-                existingMatchOrNull == null -> {
-                    // No row at this (slug, version) — install at the requested version.
-                    insertVersion(handle, command, stencilKey, command.version, contentJson, parameterSchemaJson, auditUser)
-                    ImportStencilResult(
-                        status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
-                        assignedVersion = command.version,
-                        wasRenumbered = false,
-                    )
-                }
+            handle.createUpdate(
+                """
+                INSERT INTO stencils (id, tenant_key, catalog_id, version_id, name, description, tags, content, parameter_schema, reads_template_data,
+                                      created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
+                        :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
+                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
+                SET name = :name, description = :description, tags = :tags::jsonb, content = :content::jsonb,
+                    parameter_schema = :parameterSchema::jsonb, reads_template_data = :readsTemplateData,
+                    updated_at = NOW(), updated_by = :updatedBy
+                """,
+            )
+                .bind("id", StencilKey.of(command.slug))
+                .bind("tenantKey", command.tenantKey)
+                .bind("catalogKey", command.catalogKey)
+                .bind("name", command.name)
+                .bind("description", command.description)
+                .bind("tags", objectMapper.writeValueAsString(command.tags))
+                .bind("content", contentJson)
+                .bind("parameterSchema", parameterSchemaJson)
+                .bind("readsTemplateData", command.readsTemplateData)
+                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                .execute()
 
-                existingMatchOrNull -> {
-                    // Idempotent re-import — same (slug, version) with identical
-                    // content. Stencil row metadata was already upserted above.
-                    ImportStencilResult(
-                        status = InstallStatus.SKIPPED,
-                        assignedVersion = command.version,
-                        wasRenumbered = false,
-                    )
-                }
-
-                else -> when (command.onConflict) {
-                    OnStencilConflict.FAIL -> throw StencilVersionConflictException(
-                        catalogKey = command.catalogKey,
-                        stencilKey = stencilKey,
-                        version = command.version,
-                    )
-
-                    OnStencilConflict.RENUMBER -> {
-                        val newVersion = handle.createQuery(
-                            "SELECT COALESCE(MAX(id), 0) + 1 FROM stencil_versions WHERE tenant_key = :tenantKey AND stencil_resource_id = ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")}",
-                        )
-                            .bind("tenantKey", command.tenantKey)
-                            .bind("catalogKey", command.catalogKey)
-                            .bind("stencilKey", stencilKey)
-                            .mapTo(Int::class.java)
-                            .one()
-                        insertVersion(handle, command, stencilKey, newVersion, contentJson, parameterSchemaJson, auditUser)
-                        ImportStencilResult(
-                            status = if (stencilRowExisted) InstallStatus.UPDATED else InstallStatus.INSTALLED,
-                            assignedVersion = newVersion,
-                            wasRenumbered = true,
-                        )
-                    }
-                }
+            when (unchanged) {
+                null -> InstallStatus.INSTALLED
+                true -> InstallStatus.SKIPPED
+                false -> InstallStatus.UPDATED
             }
         }
-    }
-
-    private fun insertVersion(
-        handle: org.jdbi.v3.core.Handle,
-        command: ImportStencil,
-        stencilKey: StencilKey,
-        version: Int,
-        contentJson: String,
-        parameterSchemaJson: String?,
-        auditUser: java.util.UUID?,
-    ) {
-        handle.createUpdate(
-            """
-            INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, published_at, created_at, created_by)
-            VALUES (
-                :id, :tenantKey, ${stencilAtAddress("tenantKey", "catalogKey", "stencilKey")},
-                :content::jsonb, :parameterSchema::jsonb, 'published', NOW(), NOW(), :createdBy
-            )
-            """,
-        )
-            .bind("id", VersionKey.of(version))
-            .bind("tenantKey", command.tenantKey)
-            .bind("catalogKey", command.catalogKey)
-            .bind("stencilKey", stencilKey)
-            .bind("content", contentJson)
-            .bind("parameterSchema", parameterSchemaJson)
-            .bind("createdBy", auditUser)
-            .execute()
     }
 }

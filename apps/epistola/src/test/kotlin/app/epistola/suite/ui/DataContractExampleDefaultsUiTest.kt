@@ -10,8 +10,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -33,8 +32,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
             ).execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(id = templateId, name = "Example Defaults UI Template").execute()
-            CreateContractVersion(templateId = templateId).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = objectMapper.readValue(
                     """
@@ -52,7 +50,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         val country = page.locator("#dc-field-country")
         assertThat(country).hasAttribute("placeholder", "Netherlands (default)")

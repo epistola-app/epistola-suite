@@ -143,7 +143,7 @@ class FetchGenerationResultsHandlerIT : IntegrationTestBase() {
 
     @Test
     fun `multi-consumer isolation - two consumers see the same rows but track cursors independently`() {
-        // Different X-API-Keys polling the same tenant: both see all rows the
+        // Different API keys polling the same tenant: both see all rows the
         // first time, and ack independently. Pinned in plan-suite.md as the
         // expected behavior for the rare multi-consumer-per-tenant case.
         val tenant = tenant()

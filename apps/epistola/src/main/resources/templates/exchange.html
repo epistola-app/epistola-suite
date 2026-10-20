@@ -35,6 +35,7 @@
                 <h2>Tenant connection</h2>
                 <div class="ep-row ep-gap-4">
                     <span th:class="${'badge ' + settings.status.badgeClass}" th:text="${settings.status.label}">Connected</span>
+                    <!--/* Not boosted: connecting ends at Exchange's authorization page, another origin HTMX cannot follow. */-->
                     <form th:if="${settings.connected && settings.featureEnabled}"
                           th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                         <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm">Reauthorize</button>
@@ -102,6 +103,7 @@
                         catalog policy says so.
                     </p>
                     <div class="form-actions" th:if="${settings.featureEnabled}">
+                        <!--/* Not boosted: connecting ends at Exchange's authorization page, another origin HTMX cannot follow. */-->
                         <form th:action="@{/tenants/{tenantId}/exchange/connect(tenantId=${tenantId})}" method="post" hx-boost="false">
                             <button type="submit" class="ep-btn ep-btn-primary"
                                     th:text="${settings.needsReauthorization} ? 'Recover Exchange connection' : 'Connect to Exchange'">
@@ -162,7 +164,7 @@
                         <div class="alert-title">Publications are not progressing.</div>
                         <p style="margin: var(--ep-space-1) 0 0;">
                             The oldest unfinished publication has been queued since
-                            <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
+                            <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${activity.oldestActiveSince}">2026-08-24 09:00</span>.
                             Check that this tenant's connection is active and that a namespace is available.
                         </p>
                     </div>
@@ -193,7 +195,7 @@
                             <div th:if="${entry.failure?.message != null}" class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
-                        <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                        <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${entry.updatedAt}">2026-08-24 09:00</td>
                     </tr>
                     </tbody>
                 </table>

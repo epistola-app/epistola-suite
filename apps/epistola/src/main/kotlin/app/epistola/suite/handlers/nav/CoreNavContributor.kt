@@ -19,29 +19,29 @@ import app.epistola.suite.security.Permission
 import org.springframework.stereotype.Component
 
 /**
- * The host app's own navigation: the always-present groups (Authoring, Resources, Operations,
- * Settings). Support-tier groups/items are contributed by the support modules.
+ * The host app's own navigation outside a catalog: the tenant's side nav (docs/workspace-shell.md).
+ * Templates, stencils, themes and the other parts are not here: they live in a catalog, and the
+ * catalog's own nav ([CatalogNav][app.epistola.suite.handlers.CatalogNav]) lists them.
+ * The shell puts the catalogs themselves at the top of the Catalogs group.
  *
  * Items are gated by permission here; the aggregator drops any group left with no visible items
  * (so Operations disappears for users with none of its permissions, and Settings for non-managers).
+ * Support-tier groups and items are contributed by the support modules.
  */
 @Component
 class CoreNavContributor : NavContributor {
 
     override fun groups(context: UiRequestContext): List<NavGroup> = listOf(
-        NavGroup(key = "authoring", label = "Authoring", order = 10, testId = "nav-dropdown-authoring"),
-        NavGroup(key = "resources", label = "Resources", order = 20, testId = "nav-dropdown-resources"),
-        NavGroup(key = "operations", label = "Operations", order = 30, testId = "nav-dropdown-operations"),
-        NavGroup(key = "settings", label = "Settings", order = 90, testId = "nav-dropdown-settings"),
+        NavGroup(key = "authoring", label = "Catalogs", order = 10, testId = "nav-group-catalogs"),
+        NavGroup(key = "documents", label = "Documents", order = 20, testId = "nav-group-documents"),
+        NavGroup(key = "operations", label = "Operations", order = 30, testId = "nav-group-operations"),
+        NavGroup(key = "settings", label = "Settings", order = 90, testId = "nav-group-settings"),
     )
 
     override fun items(context: UiRequestContext): List<NavItem> = buildList {
-        // Authoring
-        add(NavItem("authoring", "templates", "Templates", "templates", 10))
-        add(NavItem("authoring", "themes", "Themes", "themes", 20))
-        add(NavItem("authoring", "stencils", "Stencils", "stencils", 30))
+        // Catalogs: the shell lists each catalog above these.
         if (context.hasPermission(Permission.CATALOG_VIEW)) {
-            add(NavItem("authoring", "catalogs", "Catalogs", "catalogs", 40, indicator = catalogUpdates(context)))
+            add(NavItem("authoring", "catalogs", "All catalogs", "catalogs", 40, indicator = catalogUpdates(context)))
             // Its own page rather than a tab under Catalogs, so it is linkable and the Catalogs
             // list stays about the catalogs themselves. The longer path suffix wins the
             // active-section match, so browsing here does not light up Catalogs instead.
@@ -57,39 +57,30 @@ class CoreNavContributor : NavContributor {
                     ),
                 )
             }
+            if (ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_GRAPH] == true) {
+                add(
+                    NavItem(
+                        "authoring",
+                        "resource-graph",
+                        "Resource graph",
+                        "resource-graph",
+                        60,
+                        stage = KnownFeatures.metadata[KnownFeatures.RESOURCE_GRAPH]?.stage ?: FeatureStage.STABLE,
+                    ),
+                )
+            }
         }
 
-        // Resources
-        add(NavItem("resources", "environments", "Environments", "environments", 10))
-        add(NavItem("resources", "images", "Images", "images", 20))
-        if (context.hasPermission(Permission.REFERENCE_VIEW)) {
-            add(NavItem("resources", "fonts", "Fonts", "fonts", 30))
-            add(NavItem("resources", "attributes", "Attributes", "attributes", 40))
-            add(NavItem("resources", "code-lists", "Code lists", "code-lists", 50))
+        // Documents: where applications get them, and what was made.
+        add(NavItem("documents", "environments", "Environments", "environments", 10))
+        if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
+            add(NavItem("documents", "generation-history", "Generation", "generation-history", 20))
         }
-        if (
-            context.hasPermission(Permission.CATALOG_VIEW) &&
-            ResolveFeatureToggles(context.tenantKey).query()[KnownFeatures.RESOURCE_GRAPH] == true
-        ) {
-            add(
-                NavItem(
-                    "resources",
-                    "resource-graph",
-                    "Resource graph",
-                    "resource-graph",
-                    60,
-                    stage = KnownFeatures.metadata[KnownFeatures.RESOURCE_GRAPH]?.stage ?: FeatureStage.STABLE,
-                ),
-            )
+        if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
+            add(NavItem("documents", "load-tests", "Load Tests", "load-tests", 30))
         }
 
         // Operations — per-item permissions
-        if (context.hasPermission(Permission.DOCUMENT_VIEW)) {
-            add(NavItem("operations", "generation-history", "Generation", "generation-history", 10))
-        }
-        if (context.hasPermission(Permission.DOCUMENT_GENERATE)) {
-            add(NavItem("operations", "load-tests", "Load Tests", "load-tests", 20))
-        }
         if (context.hasPermission(Permission.DIAGNOSTICS_VIEW)) {
             add(NavItem("operations", "consumers", "Consumers", "consumers", 30))
             add(NavItem("operations", "cluster", "Cluster", "cluster", 35))

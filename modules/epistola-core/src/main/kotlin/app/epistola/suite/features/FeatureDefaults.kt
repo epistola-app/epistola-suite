@@ -32,10 +32,11 @@ data class FeatureDefaults(
     val aiChat: Boolean = false,
     /**
      * Editor walkthrough. Not hub-gated (purely client-side onboarding), so its default lives here
-     * rather than following `epistola.support.enabled`. Off while the feature is ALPHA; stated
-     * explicitly rather than riding the `else` branch below, so enabling it later is a deliberate edit.
+     * rather than following `epistola.support.enabled`. On: it helps exactly the people who would
+     * never find the switch, and it never starts by itself (a first visit only points at the Guide
+     * button, once).
      */
-    val editorWalkthrough: Boolean = false,
+    val editorWalkthrough: Boolean = true,
     /** Tenant-wide catalog resource-reference explorer. Off while the feature is ALPHA. */
     val resourceGraph: Boolean = false,
     /** Moving resources between authored catalogs. Off while the feature is ALPHA. */
@@ -44,8 +45,6 @@ data class FeatureDefaults(
     val catalogPublishing: Boolean = false,
     /** Browsing Exchange and installing catalogs from it. Off while the feature is ALPHA. */
     val catalogInstalling: Boolean = false,
-    /** Catalog context and its release action on resource pages. Off while the feature is ALPHA. */
-    val catalogContext: Boolean = false,
 ) {
     fun isEnabled(featureKey: FeatureKey): Boolean = when (featureKey) {
         KnownFeatures.SUPPORT_FEEDBACK -> supportFeedback
@@ -56,7 +55,6 @@ data class FeatureDefaults(
         KnownFeatures.RESOURCE_RELOCATION -> resourceRelocation
         KnownFeatures.CATALOG_PUBLISHING -> catalogPublishing
         KnownFeatures.CATALOG_INSTALLING -> catalogInstalling
-        KnownFeatures.CATALOG_CONTEXT -> catalogContext
         else -> false
     }
 }

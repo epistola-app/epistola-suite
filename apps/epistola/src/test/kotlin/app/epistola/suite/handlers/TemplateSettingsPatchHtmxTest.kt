@@ -71,7 +71,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/theme",
                 "themeId" to "default/brand-theme",
             )
         }
@@ -123,7 +123,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/theme",
                 "themeId" to "",
             )
         }
@@ -166,7 +166,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             // The select only ever emits "catalogKey/themeKey" — a slashless
             // value can only come from a tampered request.
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/theme",
                 "themeId" to "brand-theme",
             )
         }
@@ -214,7 +214,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/theme",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/theme",
                 "themeId" to "default/deleted-theme",
             )
         }
@@ -258,7 +258,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/name",
                 "name" to "Quarterly Invoice",
             )
         }
@@ -303,7 +303,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/name",
                 "name" to "   ",
             )
         }
@@ -344,7 +344,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/pdfa",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/pdfa",
                 "pdfaEnabled" to "on",
             )
         }
@@ -390,7 +390,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             // An unchecked checkbox submits no param at all — the request body is empty.
-            patchForm("/tenants/${tenant.id}/templates/default/$templateKey/pdfa")
+            patchForm("/tenants/${tenant.id}/catalogs/default/templates/$templateKey/pdfa")
         }
 
         then {
@@ -434,7 +434,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             // The hidden-false-companion convention: the param present with the
             // literal value "false" must read as disable, not as presence=enable.
             patchForm(
-                "/tenants/${tenant.id}/templates/default/$templateKey/pdfa",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/pdfa",
                 "pdfaEnabled" to "false",
             )
         }
@@ -465,7 +465,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
 
         whenever {
             patchForm(
-                "/tenants/${tenant.id}/templates/default/no-such-template/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/no-such-template/name",
                 "name" to "Anything",
             )
         }
@@ -500,7 +500,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             // A template key that exists — but in another tenant. Resolution is
             // tenant-scoped, so this must be indistinguishable from not-found.
             patchForm(
-                "/tenants/${tenantA.id}/templates/default/$templateKeyB/name",
+                "/tenants/${tenantA.id}/catalogs/default/templates/$templateKeyB/name",
                 "name" to "Hijacked",
             )
         }
@@ -536,7 +536,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             val form = LinkedMultiValueMap<String, String>()
             form.add("name", "Renamed Without Htmx")
             restTemplate.exchange(
-                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/name",
                 HttpMethod.PATCH,
                 HttpEntity(form, headers),
                 String::class.java,
@@ -550,7 +550,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             // itself or the followed 200 — never an error.
             if (response.statusCode.is3xxRedirection) {
                 assertThat(response.headers.location?.path)
-                    .endsWith("/templates/default/$templateKey")
+                    .endsWith("/catalogs/default/templates/$templateKey")
             } else {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             }
@@ -579,7 +579,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
         whenever {
             patchFormAsRoles(
                 "CONTENT_VIEWER",
-                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/name",
                 "name" to "Renamed By A Viewer",
             )
         }
@@ -606,7 +606,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
             // command whose permission check would reject it.
             patchFormAsRoles(
                 "CONTENT_VIEWER",
-                "/tenants/${tenant.id}/templates/default/$templateKey/name",
+                "/tenants/${tenant.id}/catalogs/default/templates/$templateKey/name",
                 "name" to "",
             )
         }

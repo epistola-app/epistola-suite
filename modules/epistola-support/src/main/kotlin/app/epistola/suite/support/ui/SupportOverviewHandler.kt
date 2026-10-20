@@ -5,7 +5,9 @@
 package app.epistola.suite.support.ui
 
 import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -68,7 +70,10 @@ class SupportOverviewHandler(
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         // No-op when the support tier is off (no sync bean) — the page just reloads.
         entitlementSync.ifAvailable?.refresh()
-        return ServerResponse.ok().header("HX-Redirect", "/tenants/${tenantId.key.value}/support").build()
+        return request.htmx {
+            dialogRedirect("/tenants/${tenantId.key.value}/support")
+            onFullPage { redirect("/tenants/${tenantId.key.value}/support") }
+        }
     }
 
     private fun StoredEntitlement.toView(): EntitlementRowView = EntitlementRowView(

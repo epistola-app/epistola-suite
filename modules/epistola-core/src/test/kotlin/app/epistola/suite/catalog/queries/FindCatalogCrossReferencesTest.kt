@@ -22,7 +22,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
@@ -124,7 +124,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Stencil User Template").execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithStencil(stencilKey, catalogKeyA),
             ).execute()
@@ -179,7 +179,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "Asset User Template").execute()
             val variantKey = VariantKey.INITIAL
             val variantId = VariantId(variantKey, templateId)
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = buildTemplateModelWithAsset(asset.id),
             ).execute()
@@ -276,9 +276,8 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                     id = stencilNodeId,
                     type = "stencil",
                     props = mapOf(
-                        "stencilId" to stencilKey.value,
+                        "stencilKey" to stencilKey.value,
                         "catalogKey" to catalogKey.value,
-                        "version" to 1,
                     ),
                 ),
             ),
@@ -310,7 +309,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
                 imageNodeId to Node(
                     id = imageNodeId,
                     type = "image",
-                    props = mapOf("assetId" to assetId.value),
+                    props = mapOf("imageKey" to assetId.value),
                 ),
             ),
             slots = mapOf(

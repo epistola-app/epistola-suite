@@ -63,6 +63,18 @@ describe('openParameterBindingsDialog', () => {
     expect(saveButton(dialog).disabled).toBe(true);
   });
 
+  it('drops, on save, a binding for a parameter the stencil no longer declares', async () => {
+    const result = openParameterBindingsDialog({
+      schema,
+      initialBindings: { param1: "'kept'", renamedAway: 'customer.name' },
+    });
+    const dialog = document.querySelector<HTMLDialogElement>('dialog')!;
+
+    saveButton(dialog).click();
+
+    expect((await result)?.bindings).toEqual({ param1: "'kept'" });
+  });
+
   it('allows a required parameter to rely on its schema default', () => {
     const defaultedSchema = {
       type: 'object',

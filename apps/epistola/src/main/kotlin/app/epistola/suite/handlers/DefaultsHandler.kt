@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.execute
@@ -82,9 +83,7 @@ class DefaultsHandler(
             }
         }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key.value}/defaults?saved=true")
-            .build()
+        return redirect("/tenants/${tenantId.key.value}/defaults?saved=true")
     }
 
     fun updateCatalogPublishing(request: ServerRequest): ServerResponse {
@@ -94,9 +93,7 @@ class DefaultsHandler(
             tenantId = tenantId.key,
             publishByDefault = request.params().getFirst("publishByDefault") == "true",
         ).execute()
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key.value}/defaults?saved=true")
-            .build()
+        return redirect("/tenants/${tenantId.key.value}/defaults?saved=true")
     }
 
     private fun listBcp47Entries(tenantKey: TenantKey) = ListCodeListEntries(

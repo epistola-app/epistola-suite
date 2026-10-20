@@ -1,7 +1,9 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "catalog": {
-    "slug": "system",
+    "key": "system",
+    "registry": "exchange.epistola.app",
+    "namespace": "epistola",
     "name": "System",
     "description": "Reserved attributes and canonical code lists shipped with Epistola. Every tenant gets this catalog at creation."
   },
@@ -10,63 +12,63 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "1.3.0",
-    "releasedAt": "2026-07-29T00:00:00Z",
-    "fingerprint": "74c0b2d145c4a970830b5ccbeb092b20abe7c8e9559f1d6b368147bac4bc09ba"
+    "version": "2.0.0",
+    "releasedAt": "2026-10-17T00:00:00Z",
+    "fingerprint": "v5:1f73863389e0b2085d5bd3ccd0965993197105eaf69f4eb56f95ba065e102004"
   },
   "resources": [
     {
       "type": "image",
-      "slug": "01966a00-0000-7000-8000-000000000010",
+      "key": "01966a00-0000-7000-8000-000000000010",
       "name": "System Badge",
       "description": "A small shared badge image that any catalog's templates can embed.",
       "detailUrl": "./resources/assets/system-badge.json"
     },
     {
       "type": "theme",
-      "slug": "default",
+      "key": "default",
       "name": "Default",
       "description": "Minimal default theme shipped with Epistola. Sensible defaults for A4 documents.",
       "detailUrl": "./resources/themes/default.json"
     },
     {
       "type": "codeList",
-      "slug": "bcp-47",
+      "key": "bcp-47",
       "name": "BCP-47 Language Tags",
       "description": "Curated subset of common BCP-47 language + region tags.",
       "detailUrl": "./resources/codelists/bcp-47.json"
     },
     {
       "type": "codeList",
-      "slug": "iso-639-1",
+      "key": "iso-639-1",
       "name": "ISO 639-1 Languages",
       "description": "Two-letter language codes from ISO 639-1.",
       "detailUrl": "./resources/codelists/iso-639-1.json"
     },
     {
       "type": "codeList",
-      "slug": "iso-3166-1-alpha2",
+      "key": "iso-3166-1-alpha2",
       "name": "ISO 3166-1 Countries (alpha-2)",
       "description": "Two-letter country codes from ISO 3166-1 alpha-2.",
       "detailUrl": "./resources/codelists/iso-3166-1-alpha2.json"
     },
     {
       "type": "attribute",
-      "slug": "locale",
+      "key": "locale",
       "name": "Locale",
       "description": "BCP-47 language + region tag (e.g. en-US, nl-NL).",
       "detailUrl": "./resources/attributes/locale.json"
     },
     {
       "type": "attribute",
-      "slug": "language",
+      "key": "language",
       "name": "Language",
       "description": "ISO 639-1 two-letter language code (e.g. en, nl).",
       "detailUrl": "./resources/attributes/language.json"
     },
     {
       "type": "attribute",
-      "slug": "country",
+      "key": "country",
       "name": "Country",
       "description": "ISO 3166-1 alpha-2 country code (e.g. US, NL).",
       "detailUrl": "./resources/attributes/country.json"

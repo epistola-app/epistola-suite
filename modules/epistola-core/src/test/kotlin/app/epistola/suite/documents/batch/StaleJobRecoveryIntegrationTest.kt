@@ -5,11 +5,14 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
+import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -42,6 +45,29 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
+    @Autowired private lateinit var contentStore: app.epistola.suite.storage.DocumentContentStore
+
+    @Autowired private lateinit var meterRegistry: io.micrometer.core.instrument.MeterRegistry
+
+    @Autowired private lateinit var generationService: app.epistola.suite.generation.GenerationService
+
+    @Autowired private lateinit var schemaValidator: app.epistola.suite.templates.validation.JsonSchemaValidator
+
+    @Autowired private lateinit var localeResolver: app.epistola.suite.i18n.TenantLocaleResolver
+
+    @Autowired private lateinit var releaseRenderSource: app.epistola.suite.generation.release.ReleaseRenderSource
+
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
+
+    // Integration tests wire a fake executor that never renders, so run the production one.
+    private val realExecutor by lazy {
+        DocumentGenerationExecutor(
+            jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
+            retentionDays = 7, maxDocumentSizeMb = 50,
+        )
+    }
+
     @Test
     fun `resets a stale in-progress request but leaves a freshly-claimed one`() = scenario {
         given {
@@ -61,6 +87,7 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 
@@ -75,6 +102,35 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
         }.then { _, (staleStatus, freshStatus) ->
             assertThat(staleStatus).isEqualTo("PENDING")
             assertThat(freshStatus).isEqualTo("IN_PROGRESS")
+        }
+    }
+
+    @Test
+    fun `a request whose render keeps stopping its node fails with the reason instead of going round forever`() = scenario {
+        given {
+            val tenant = tenant("Stale Recovery Limit")
+            val tenantId = TenantId(tenant.id)
+            val template = template(tenant.id, "Crashing Template")
+            val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
+            val variant = variant(compositeTemplateId, "Default")
+            released(VariantId(variant.id, compositeTemplateId), TestTemplateBuilder.buildMinimal(name = "Crashing Template"))
+            val request = execute(
+                GenerateDocument(tenantId = tenant.id, templateId = template.id, variantId = variant.id, environmentId = null, data = objectMapper.createObjectNode(), filename = null, catalogKey = CatalogKey.DEFAULT),
+            )
+            // Three nodes in turn stop while rendering it.
+            repeat(3) {
+                markInProgress(request.id, ageMinutes = 20)
+                staleJobRecovery.recoverStaleJobs()
+            }
+            request
+        }.whenever { request ->
+            val recovered = mediator.query(GetGenerationJob(request.tenantKey, request.id))!!.request
+            realExecutor.execute(recovered)
+            recovered to mediator.query(GetGenerationJob(request.tenantKey, request.id))!!.request
+        }.then { _, (recovered, after) ->
+            assertThat(recovered.recoveries).isEqualTo(3)
+            assertThat(after.status).isEqualTo(RequestStatus.FAILED)
+            assertThat(after.errorMessage).contains("stopped 3 times").contains("not tried again")
         }
     }
 

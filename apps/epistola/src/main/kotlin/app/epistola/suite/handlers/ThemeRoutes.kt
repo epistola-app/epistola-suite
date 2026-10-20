@@ -16,17 +16,22 @@ class ThemeRoutes(private val handler: ThemeHandler) {
     fun themeRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}".nest {
             POST("/default-theme", handler::setDefault)
+            POST("/house-theme/apply", handler::applyHouseTheme)
+            POST("/catalogs/{catalogId}/default-theme", handler::setCatalogDefault)
 
+            // A list belongs to a catalog; there is none across the tenant.
+            GET("/catalogs/{catalogId}/themes", handler::list)
             "/themes".nest {
-                GET("", handler::list)
                 GET("/search", handler::search)
+            }
+            // A resource's pages and actions are its catalog's, like its list.
+            "/catalogs/{catalogId}/themes".nest {
                 GET("/new", handler::newForm)
                 POST("", handler::create)
-
-                GET("/{catalogId}/{themeId}", handler::detail)
-                GET("/{catalogId}/{themeId}/usage", handler::usage)
-                PATCH("/{catalogId}/{themeId}", handler::update)
-                POST("/{catalogId}/{themeId}/delete", handler::delete)
+                GET("/{themeId}", handler::detail)
+                GET("/{themeId}/usage", handler::usage)
+                PATCH("/{themeId}", handler::update)
+                POST("/{themeId}/delete", handler::delete)
             }
         }
     }

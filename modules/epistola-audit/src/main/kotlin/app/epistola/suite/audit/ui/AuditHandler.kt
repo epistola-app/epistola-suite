@@ -70,7 +70,7 @@ class AuditHandler {
                 "tenantId" to filters.tenantKey
                 applyResultsModel(page)
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/audit") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/audit") }
         }
     }
 
@@ -84,7 +84,7 @@ class AuditHandler {
                 "tenantId" to filters.tenantKey
                 applyResultsModel(page)
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/audit") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/audit") }
         }
     }
 
@@ -101,7 +101,7 @@ class AuditHandler {
                 "newerCursorId" to (page.newerCursorId ?: cursor.id.toString())
                 "entries" to page.entries
             }
-            onNonHtmx { redirect("/tenants/${filters.tenantKey}/audit") }
+            onFullPage { redirect("/tenants/${filters.tenantKey}/audit") }
         }
     }
 

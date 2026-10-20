@@ -35,33 +35,32 @@ class DriftRatchetTest {
     private val handlerClass = Regex("""class\s+[A-Za-z0-9]*Handler\b""")
 
     private val counters = listOf(
-        Counter("onNonHtmx {} call sites outside epistola-web", 106, "onFullPage {}") {
-            mainLines(Regex("""\bonNonHtmx\b""")) { !it.startsWith("modules/epistola-web/") }
-        },
-        Counter("raw ServerResponse.ok().render(", 39, "page() or htmx { fragment() }") {
+        Counter("raw ServerResponse.ok().render(", 20, "page() or htmx { fragment() }") {
             mainLines(Regex("""ServerResponse\.ok\(\)\.render\("""))
         },
-        Counter("val tenantId: TenantKey", 71, "val tenantKey: TenantKey") {
+        Counter("val tenantId: TenantKey", 62, "val tenantKey: TenantKey") {
             mainLines(Regex("""\bval tenantId: TenantKey\b"""))
         },
-        Counter("handler files using require(", 27, "validate(...) with a ValidationCode") {
+        Counter("handler files using require(", 23, "validate(...) with a ValidationCode") {
             handlerFiles(Regex("""\brequire\("""))
         },
         Counter("handler files annotated @Transactional", 9, "the mediator's transaction") {
             handlerFiles(Regex("""@Transactional"""))
         },
-        Counter("mediator.send/query in epistola-mcp", 26, "execute() / query() extensions") {
+        Counter("mediator.send/query in epistola-mcp", 22, "execute() / query() extensions") {
             mainLines(Regex("""\bmediator\.(send|query)\(""")) { it.startsWith("modules/epistola-mcp/") }
         },
-        Counter("INSERT INTO in test sources", 68, "commands or the fixture DSL") {
-            RepoSources.testKotlinFiles().sumOf { path ->
+        // Migration tests are left out: they seed the schema as it was before the migration under
+        // test, which no command of today can write.
+        Counter("INSERT INTO in test sources outside migration tests", 44, "commands or the fixture DSL") {
+            RepoSources.testKotlinFiles().filterNot { "/migration/" in RepoSources.relativize(it) }.sumOf { path ->
                 Files.readString(path).lineSequence().count { "INSERT INTO" in it }
             }
         },
-        Counter("UUID.randomUUID() in main", 9, "UUIDv7.generate()") {
+        Counter("UUID.randomUUID() in main", 8, "UUIDv7.generate()") {
             mainLines(Regex("""UUID\.randomUUID\(\)"""))
         },
-        Counter("files importing the catalog.CatalogKey typealias", 39, "common.ids.CatalogKey") {
+        Counter("files importing the catalog.CatalogKey typealias", 34, "common.ids.CatalogKey") {
             RepoSources.mainKotlinFiles().count { path ->
                 "import app.epistola.suite.catalog.CatalogKey" in Files.readString(path)
             }
@@ -69,7 +68,7 @@ class DriftRatchetTest {
         Counter("Pagination.paginate( in rest-api", 9, "database LIMIT/OFFSET") {
             mainLines(Regex("""Pagination\.paginate\(""")) { it.startsWith("modules/rest-api/") }
         },
-        Counter("handlers/*.kt declaring another package", 24, "directory matches package") {
+        Counter("handlers/*.kt declaring another package", 21, "directory matches package") {
             RepoSources.mainKotlinFiles().count { path ->
                 val relative = RepoSources.relativize(path)
                 // Appendix F scopes this to the host app, where the flat handlers package lives.

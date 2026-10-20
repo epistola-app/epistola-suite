@@ -66,7 +66,7 @@ class EnsureSubscribedCatalogHandler(
         // The manifest's content fingerprint and complete resource set decide
         // install / reconcile / no-op (version is for humans).
         val manifest = catalogClient.fetchManifest(command.sourceUrl, command.authType, command.authCredential)
-        val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
         val bundledVersion = manifest.release.version
         val bundledFingerprint = manifest.release.fingerprint
 
@@ -108,7 +108,7 @@ class EnsureSubscribedCatalogHandler(
             existing.installedReleaseVersion == bundledVersion
         }
         val installedResources = upgradeAnalyzer.installedResources(command.tenantKey, catalogKey)
-        val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.slug) in installedResources }
+        val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.key) in installedResources }
         val alreadyCurrent = contentCurrent && allResourcesInstalled
         if (alreadyCurrent) {
             // Installed before releases were recorded for subscribed catalogs: record it now.

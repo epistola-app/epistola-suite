@@ -201,7 +201,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
     fun `creating a variant adds a card`() {
         val (tenant, template) = withMediator { createTenantAndTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}")
 
         val dialog = page.openDialogByTrigger(
             page.locator("button:has-text('New Variant')"),

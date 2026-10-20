@@ -8,12 +8,15 @@ and modifying rendering behavior in Epistola Suite.
 Epistola uses a three-layer defense for deterministic PDF rendering:
 
 1. **Versioned Rendering Defaults** — All rendering constants (font sizes, margins, spacing, borders)
-   are centralized in `RenderingDefaults`. Each published template version records which defaults
-   version was in effect. Old versions keep rendering with their original defaults forever.
+   are centralized in `RenderingDefaults`. Each catalog release records which defaults version was
+   in effect when it was cut (`catalog_releases.rendering_defaults_version`). A release keeps
+   rendering with its original defaults forever; one cut before that column existed renders with
+   the current defaults.
 
-2. **Theme Snapshot at Publish Time** — When a template version is published, the full resolved
-   theme cascade is frozen as a `ResolvedThemeSnapshot` alongside the version. Published documents
-   always render with the theme as it existed at publish time, regardless of subsequent theme edits.
+2. **Releases hold their own content** — Generation renders catalog releases only. A release holds
+   its theme, stencils, fonts and images as they were when it was cut, so later edits to the working
+   copy never change what an existing release renders (see
+   [catalog versioning](catalog-versioning.md)).
 
 3. **Visual Regression Tests** — Canonical templates are rendered with `RenderingDefaults.V1` and
    compared against stored text baselines. Any change in text content or layout positioning is
@@ -116,8 +119,8 @@ change table border width):
 5. **Run all tests** — existing baselines test against `V1` so they should still pass.
    Add new baselines for `V2` if needed.
 
-6. **After deployment**, newly published template versions will use `V2`. Previously
-   published versions continue to use `V1` (or whatever version they were published with).
+6. **After deployment**, newly cut catalog releases use `V2`. Existing releases continue to use
+   `V1` (or whatever version they were cut with); previews of the working copy use `CURRENT`.
 
 ### Version history
 
@@ -159,8 +162,7 @@ val engineVersion = document.documentInfo.getMoreInfo("EngineVersion")
 | Component                    | Location                                                        | Purpose                              |
 | ---------------------------- | --------------------------------------------------------------- | ------------------------------------ |
 | `RenderingDefaults`          | `modules/generation/.../pdf/RenderingDefaults.kt`               | Versioned rendering constants        |
-| `ResolvedThemeSnapshot`      | `modules/epistola-core/.../themes/ResolvedThemeSnapshot.kt`     | Frozen theme at publish time         |
+| `ReleaseRenderSource`        | `modules/epistola-core/.../generation/release/`                 | Render inputs read from a release    |
 | `PdfContentExtractor`        | `modules/generation/src/test/.../PdfContentExtractor.kt`        | Text extraction for regression tests |
 | `PdfRenderingRegressionTest` | `modules/generation/src/test/.../PdfRenderingRegressionTest.kt` | Canonical template baselines         |
 | Baselines                    | `modules/generation/src/test/resources/baselines/`              | Stored expected output               |
-| Migration V16                | `apps/epistola/src/main/resources/db/migration/V16__*.sql`      | Schema for snapshot columns          |

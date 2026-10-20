@@ -39,7 +39,10 @@ class CatalogUpgradeAnalyzer(
 
     private companion object {
         val STALE_PRUNED_RESOURCE_TYPES = RESOURCE_INSTALL_ORDER.keys
-        const val FONT_REFERENCE_JSON_PATH = "\$.** ? (@.slug == \$slug && @.catalogKey == \$catalogKey)"
+
+        // A `fontFamily` reference names its font by `key` from wire v8; content stored before 2.0
+        // says `slug` until the upgrade rewrites it, and still uses the font.
+        const val FONT_REFERENCE_JSON_PATH = "\$.**.fontFamily ? ((@.key == \$slug || @.slug == \$slug) && @.catalogKey == \$catalogKey)"
     }
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -48,13 +51,13 @@ class CatalogUpgradeAnalyzer(
     fun installedResources(tenantKey: TenantKey, catalogKey: CatalogKey): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'theme', id::text FROM themes WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'codeList', slug::text FROM code_lists WHERE tenant_key = :t AND catalog_key = :c
-            UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND catalog_key = :c
+            SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'theme', id::text FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'codeList', slug::text FROM code_lists WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             """,
         )
             .bind("t", tenantKey)
@@ -112,9 +115,11 @@ class CatalogUpgradeAnalyzer(
     private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT dt.name, dt.catalog_key FROM document_templates dt
+            SELECT dt.name, dc.catalog_key AS catalog_key FROM document_templates dt
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            WHERE dt.tenant_key = :t AND th.catalog_key = :c AND th.id = :slug AND dt.catalog_key != :c
+            WHERE dt.tenant_key = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
+              AND ${inCurrentVersion("dt")}
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
@@ -124,7 +129,7 @@ class CatalogUpgradeAnalyzer(
             """
             SELECT t.id FROM tenants t
             JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
-            WHERE t.id = :t AND th.catalog_key = :c AND th.id = :slug
+            WHERE t.id = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .mapTo(String::class.java).findOne().ifPresent {
@@ -135,15 +140,15 @@ class CatalogUpgradeAnalyzer(
     private fun findStencilConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
-            FROM template_versions tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.resource_id = tv.template_resource_id
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
+            FROM template_variants tv
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
-            WHERE tv.tenant_key = :t AND dt.catalog_key != :c
-              AND tv.status IN ('draft', 'published')
+            WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :cStr
-              AND n.value -> 'props' ->> 'stencilId' = :slug
+              AND n.value -> 'props' ->> 'stencilKey' = :slug
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
             .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
@@ -154,10 +159,11 @@ class CatalogUpgradeAnalyzer(
         val attribute = AttributeId(AttributeKey.of(slug), CatalogId(catalogKey, TenantId(tenantKey)))
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
             FROM template_variants v
-            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.resource_id = v.template_resource_id
-            WHERE v.tenant_key = :t AND dt.catalog_key != :c
+            JOIN document_templates dt ON dt.tenant_key = v.tenant_key AND dt.version_id = v.version_id AND dt.resource_id = v.template_resource_id
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
+            WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
               AND ${AttributeReferences.uses("v")}
             """,
         ).bind("t", tenantKey).bind("c", catalogKey)
@@ -176,12 +182,14 @@ class CatalogUpgradeAnalyzer(
     ) {
         handle.createQuery(
             """
-            SELECT display_name, catalog_key
-            FROM variant_attribute_definitions
-            WHERE tenant_key = :t
-              AND catalog_key != :c
-              AND code_list_resource_id = (SELECT resource_id FROM code_lists
-                                            WHERE tenant_key = :t AND catalog_key = :c AND slug = :slug)
+            SELECT vad.display_name, vc.catalog_key AS catalog_key
+            FROM variant_attribute_definitions vad
+            JOIN catalogs vc ON vc.tenant_key = vad.tenant_key AND vc.catalog_id = vad.catalog_id
+            WHERE vad.tenant_key = :t
+              AND vad.catalog_id != ${catalogAt("t", "c")}
+              AND ${inCurrentVersion("vad")}
+              AND vad.code_list_resource_id = (SELECT resource_id FROM code_lists
+                                            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND slug = :slug)
             """,
         ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
             .map { rs, _ ->
@@ -202,12 +210,14 @@ class CatalogUpgradeAnalyzer(
 
         handle.createQuery(
             """
-            SELECT name, catalog_key
-            FROM themes
-            WHERE tenant_key = :t
+            SELECT th.name, tc.catalog_key AS catalog_key
+            FROM themes th
+            JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
+            WHERE th.tenant_key = :t
+              AND ${inCurrentVersion("th")}
               AND (
-                jsonb_path_exists(document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
-                OR jsonb_path_exists(COALESCE(block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+                jsonb_path_exists(th.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+                OR jsonb_path_exists(COALESCE(th.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
               )
             """,
         ).bind("t", tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
@@ -226,13 +236,15 @@ class CatalogUpgradeAnalyzer(
 
         handle.createQuery(
             """
-            SELECT DISTINCT dt.name, dt.catalog_key
-            FROM template_versions ver
+            SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
+            FROM template_variants ver
             JOIN document_templates dt
               ON dt.tenant_key = ver.tenant_key
+             AND dt.version_id = ver.version_id
              AND dt.resource_id = ver.template_resource_id
+            JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             WHERE ver.tenant_key = :t
-              AND ver.status IN ('draft', 'published')
+              AND ${inCurrentVersion("dt")}
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             """,
         ).bind("t", tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
@@ -293,7 +305,7 @@ class CatalogUpgradeAnalyzer(
         jdbi.useHandle<Exception> { handle ->
             for (resource in ordered) {
                 val target = tableByType[resource.type] ?: continue
-                handle.createUpdate("DELETE FROM ${target.table} WHERE tenant_key = :t AND catalog_key = :c AND ${target.keyColumn} = :id")
+                handle.createUpdate("DELETE FROM ${target.table} WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND ${target.keyColumn} = :id")
                     .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
                 removed.add(RemovedResource(resource.type, resource.slug))
                 logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)

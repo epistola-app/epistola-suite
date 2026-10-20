@@ -68,9 +68,12 @@ abstract class BasePlaywrightTest : BaseIntegrationTest() {
         playwright.close()
     }
 
+    /** The browser context a test runs in; override to set, for instance, a time zone. */
+    protected open fun contextOptions(): Browser.NewContextOptions = Browser.NewContextOptions()
+
     @BeforeEach
     fun createPage() {
-        context = browser.newContext()
+        context = browser.newContext(contextOptions())
         context.tracing().start(
             Tracing.StartOptions()
                 .setScreenshots(true)

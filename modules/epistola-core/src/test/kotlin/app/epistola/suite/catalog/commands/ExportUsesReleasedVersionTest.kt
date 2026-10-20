@@ -6,6 +6,9 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -14,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
@@ -38,7 +42,7 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `export version reflects release state and fingerprint matches bytes`() {
+    fun `an export is a release, none before the first and then the highest, whatever the draft has since`() {
         val tenant = createTenant("Export Version Test")
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
@@ -49,22 +53,32 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Exp Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th").execute()
 
-            // 1. Never released -> 0.0.0-dev, fingerprint present
-            val pre = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
-            assertThat(pre.release.version).isEqualTo("0.0.0-dev")
-            assertThat(pre.release.fingerprint).isNotNull().hasSize(64)
+            // 1. Never released: there is nothing to export (contract 2.0 exports releases only).
+            assertThatThrownBy { ExportCatalogZip(tenantKey, catalogKey).execute() }
+                .isInstanceOf(CatalogVersionNotFoundException::class.java)
 
-            // 2. Released, no edits -> clean version, fingerprint == released fingerprint
+            // 2. Released: that release, with its fingerprint.
+            MarkCatalogReady(tenantKey, catalogKey).execute()
             val released = ReleaseCatalogVersion(tenantKey, catalogKey, "1.0.0").execute()
             val clean = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
             assertThat(clean.release.version).isEqualTo("1.0.0")
-            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint)
+            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v5:[0-9a-f]{64}")
 
-            // 3. Edit after release -> <version>-dev, fingerprint differs from released
+            // 3. Edited since: still the release, not the edits.
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "Th2").execute()
-            val drifted = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
-            assertThat(drifted.release.version).isEqualTo("1.0.0-dev")
-            assertThat(drifted.release.fingerprint).isNotEqualTo(released.fingerprint)
+            val after = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
+            assertThat(after.release.version).isEqualTo("1.0.0")
+            assertThat(after.release.fingerprint).isEqualTo(released.fingerprint)
+            assertThat(after.resources.map { it.key }).doesNotContain("th2")
         }
+    }
+
+    @Test
+    fun `the system catalog is not exported, and says why`() {
+        val tenantKey = createTenant("Export System Test").id
+
+        assertThatThrownBy { withMediator { ExportCatalogZip(tenantKey, SYSTEM_CATALOG_KEY).execute() } }
+            .isInstanceOf(SystemCatalogNotExportableException::class.java)
+            .hasMessageContaining("every installation has it")
     }
 }

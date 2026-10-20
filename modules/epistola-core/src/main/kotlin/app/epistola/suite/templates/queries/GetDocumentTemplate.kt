@@ -4,6 +4,10 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -17,7 +21,10 @@ import org.springframework.stereotype.Component
 
 data class GetDocumentTemplate(
     val id: TemplateId,
-) : Query<DocumentTemplate?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<DocumentTemplate?>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = id.tenantKey
@@ -30,11 +37,13 @@ class GetDocumentTemplateHandler(
     override fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT dt.id, dt.tenant_key, dt.catalog_key, c.type AS catalog_type, dt.name, th.id AS theme_key, th.catalog_key AS theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by
+                SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, dt.pdfa_enabled, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by, dt.revision
                 FROM document_templates dt
-                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.id = dt.catalog_key
+                JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.catalog_key = :catalogKey
+                    AND (th.version_id = dt.version_id OR (th.catalog_id <> dt.catalog_id AND ${inCurrentVersion("th")}))
+                LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
+                WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
         )
             .bind("id", query.id.key)

@@ -145,7 +145,7 @@ Instead of providing `variantId`, supply `attributes` in the generation request:
 
 ```http
 POST /api/v1/tenants/acme-corp/generation/generate
-Content-Type: application/vnd.epistola.v1+json
+Content-Type: application/vnd.epistola.v2+json
 
 {
   "templateId": "invoice",

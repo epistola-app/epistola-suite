@@ -24,6 +24,7 @@ import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackComments
 import app.epistola.suite.feedback.queries.ListFeedback
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.feedbackId
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -105,7 +106,7 @@ class FeedbackHandler(
                     "tenantId" to tenantId.key
                     "feedbackItems" to feedbackItems
                 }
-                onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+                onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
             }
         }
 
@@ -114,7 +115,7 @@ class FeedbackHandler(
                 "tenantId" to tenantId.key
                 "feedbackItems" to feedbackItems
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 
@@ -158,13 +159,20 @@ class FeedbackHandler(
         }
 
         if (form.hasErrors()) {
-            return ServerResponse.ok().page("feedback/submit-form") {
-                "tenantId" to tenantId.key
-                "formData" to form.formData
-                "errors" to form.errors
-                "categories" to FeedbackCategory.entries
-                "priorities" to FeedbackPriority.entries
-                "appVersion" to (buildProperties?.version ?: "dev")
+            // The form again, into the dialog it came from, with the errors by their fields; a 422
+            // that names its swap, so HTMX swaps it (a whole page here would nest the app in the dialog).
+            return request.htmx {
+                fragment("feedback/submit-form", "content") {
+                    "tenantId" to tenantId.key
+                    "formData" to form.formData
+                    "errors" to form.errors
+                    "categories" to FeedbackCategory.entries
+                    "priorities" to FeedbackPriority.entries
+                    "appVersion" to (buildProperties?.version ?: "dev")
+                }
+                reswap(HxSwap.INNER_HTML)
+                status(422)
+                onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
             }
         }
 
@@ -204,7 +212,7 @@ class FeedbackHandler(
 
         return request.htmx {
             fragment("feedback/submit-success") {}
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 
@@ -244,7 +252,7 @@ class FeedbackHandler(
                 "statuses" to FeedbackStatus.entries
                 "isManager" to principal.isManager(tenantId.key)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
     }
 
@@ -256,7 +264,7 @@ class FeedbackHandler(
             field("body") { required() }
         }
 
-        if (form.hasErrors()) return ServerResponse.badRequest().build()
+        if (form.hasErrors()) return request.htmx { globalFormError("add-comment-error", "Write a comment first.") }
 
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
 
@@ -284,7 +292,7 @@ class FeedbackHandler(
                 "comments" to comments
                 "isManager" to principal.isManager(tenantId.key)
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
     }
 
@@ -298,7 +306,7 @@ class FeedbackHandler(
                 "priorities" to FeedbackPriority.entries
                 "appVersion" to (buildProperties?.version ?: "dev")
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            onFullPage { redirect("/tenants/${tenantId.key}/feedback") }
         }
     }
 

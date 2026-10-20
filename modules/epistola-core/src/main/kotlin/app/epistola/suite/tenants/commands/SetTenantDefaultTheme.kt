@@ -4,6 +4,7 @@
 
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.CatalogKey
@@ -18,6 +19,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.themes.updateTenantReturningTenant
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -28,11 +30,11 @@ import org.springframework.transaction.annotation.Transactional
  *
  * - `themeId = null` clears the tenant default — templates without a theme will
  *   then render with engine defaults.
- * - When `themeId != null`, the theme must exist within `catalogKey` for this
- *   tenant.
+ * - When `themeId != null`, `catalogKey` names the catalog the theme lives in
+ *   (required) and the theme must exist there for this tenant.
  */
 data class SetTenantDefaultTheme(
-    override val tenantId: TenantKey,
+    val tenantId: TenantKey,
     val themeId: ThemeKey?,
     val catalogKey: CatalogKey? = null,
 ) : Command<Tenant>,
@@ -44,6 +46,10 @@ data class SetTenantDefaultTheme(
     override val tenantKey: TenantKey get() = tenantId
     override val entityId: String get() = tenantId.value
     override val routingKey: String get() = tenantId.value
+
+    init {
+        validate("catalogKey", themeId == null || catalogKey != null) { "A default theme needs the catalog it lives in" }
+    }
 }
 
 @Component
@@ -61,12 +67,12 @@ class SetTenantDefaultThemeHandler(
                 .one()
         }
 
-        val catalogKey = command.catalogKey ?: CatalogKey.DEFAULT
+        val catalogKey = checkNotNull(command.catalogKey) { "validated in init" }
 
         val themeExists = handle.createQuery(
             """
             SELECT COUNT(*) FROM themes
-            WHERE id = :themeId AND tenant_key = :tenantId AND catalog_key = :catalogKey
+            WHERE id = :themeId AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
             """,
         )
             .bind("themeId", command.themeId)

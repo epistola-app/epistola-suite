@@ -213,7 +213,7 @@ describe('ep-catalog-organise', () => {
     const assign = vi.fn();
     vi.stubGlobal('location', {
       ...window.location,
-      pathname: '/tenants/acme/templates/letters/invoice/settings',
+      pathname: '/tenants/acme/catalogs/letters/templates/invoice/settings',
       assign,
     });
     const dialog = document.createElement('dialog');
@@ -231,7 +231,7 @@ describe('ep-catalog-organise', () => {
     await click(element, /^\s*Move 1 resource/);
 
     // No alias is left behind, so reloading the old address would be a 404.
-    expect(assign).toHaveBeenCalledWith('/tenants/acme/templates/shared/invoice/settings');
+    expect(assign).toHaveBeenCalledWith('/tenants/acme/catalogs/shared/templates/invoice/settings');
   });
 });
 
@@ -242,13 +242,13 @@ describe('pathAfterMove', () => {
   };
 
   it('replaces the catalog and key segments, keeping the rest of the path', () => {
-    expect(pathAfterMove('/tenants/acme/templates/letters/invoice/settings', plan)).toBe(
-      '/tenants/acme/templates/shared/bill/settings',
+    expect(pathAfterMove('/tenants/acme/catalogs/letters/templates/invoice/settings', plan)).toBe(
+      '/tenants/acme/catalogs/shared/templates/bill/settings',
     );
   });
 
   it('matches whole segments only', () => {
-    const path = '/tenants/acme/templates/letters/invoice-2/settings';
+    const path = '/tenants/acme/catalogs/letters/templates/invoice-2/settings';
     expect(pathAfterMove(path, plan)).toBe(path);
   });
 });

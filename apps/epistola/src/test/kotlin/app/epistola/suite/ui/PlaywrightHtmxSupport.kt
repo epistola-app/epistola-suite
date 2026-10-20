@@ -31,8 +31,8 @@ object PlaywrightHtmxSupport {
      * every navigation/swap). HTMX events bubble to `document`, so a single
      * document-level listener observes all requests.
      *
-     * Tracks the number of in-flight requests and the timestamp of the last HTMX
-     * activity (request start/end or settle). [htmxSettle] waits for *quiescence*:
+     * Tracks the number of in-flight requests, each from its send to its end, and
+     * the timestamp of the last HTMX activity (request start/end or settle). [htmxSettle] waits for *quiescence*:
      * zero in-flight requests AND a short quiet window with no new activity. The
      * quiet window is a debounce, not a wall-clock race against application
      * timing — it only absorbs the gap between `afterRequest` and the
@@ -46,12 +46,21 @@ object PlaywrightHtmxSupport {
             window.__htmxPending = 0;
             window.__htmxIdleSince = (performance && performance.now) ? performance.now() : Date.now();
             const now = () => ((performance && performance.now) ? performance.now() : Date.now());
-            document.addEventListener('htmx:beforeRequest', () => {
+            // Counted by the request itself, from its send to its end (loaded, failed or aborted),
+            // not by htmx:afterRequest: a swap that replaces an element while its request is in
+            // flight cleans the element up, and htmx never reports that request's end
+            // (HtmxSettleUiTest; the embedding bridge's whole-body navigate, T1).
+            document.addEventListener('htmx:beforeSend', (event) => {
+                const xhr = event.detail && event.detail.xhr;
+                if (!xhr) return;
                 window.__htmxPending++;
                 window.__htmxIdleSince = now();
+                xhr.addEventListener('loadend', () => {
+                    window.__htmxPending = Math.max(0, window.__htmxPending - 1);
+                    window.__htmxIdleSince = now();
+                }, { once: true });
             });
             document.addEventListener('htmx:afterRequest', () => {
-                window.__htmxPending = Math.max(0, window.__htmxPending - 1);
                 window.__htmxIdleSince = now();
             });
             document.addEventListener('htmx:afterSettle', () => {

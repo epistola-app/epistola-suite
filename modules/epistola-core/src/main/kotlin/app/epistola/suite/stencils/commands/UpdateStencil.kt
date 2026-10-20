@@ -4,7 +4,16 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.contentRevision
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.PresetUse
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -12,16 +21,25 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.STENCIL_COLUMNS
+import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.declaresNoParameters
+import app.epistola.suite.stencils.withAbsentSchemaAsNull
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.templates.validation.ParameterSchemaValidator
+import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Updates a stencil's metadata (name, description, tags).
+ * Updates a stencil: its metadata (name, description, tags) and its working copy (content,
+ * parameter schema, whether it reads the template's data). Each is changed only when given.
  * Returns null if the stencil doesn't exist.
  */
 data class UpdateStencil(
@@ -30,7 +48,16 @@ data class UpdateStencil(
     val description: String? = null,
     val tags: List<String>? = null,
     val clearDescription: Boolean = false,
-) : Command<Stencil?>,
+    val content: TemplateDocument? = null,
+    val parameterSchema: JsonNode? = null,
+    val clearParameterSchema: Boolean = false,
+    val readsTemplateData: Boolean? = null,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+    /** The stencil's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
+) : CatalogVersionScoped,
+    Command<Stencil?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey
@@ -63,9 +90,23 @@ data class UpdateStencil(
 class UpdateStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val templateDocumentValidator: TemplateDocumentValidator,
+    private val parameterSchemaValidator: ParameterSchemaValidator,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<UpdateStencil, Stencil?> {
     override fun handle(command: UpdateStencil): Stencil? {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        if (saved != null) command.content?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        return saved
+    }
+
+    private fun save(command: UpdateStencil): Stencil? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
+        command.content?.let { PresetUse.requireAvailable(command.id.tenantKey, command.id.catalogKey, it) }
+        val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
+        if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->
             val setClauses = mutableListOf<String>()
             val bindings = mutableMapOf<String, Any?>()
@@ -88,38 +129,68 @@ class UpdateStencilHandler(
                 setClauses.add("tags = :tags::jsonb")
                 bindings["tags"] = objectMapper.writeValueAsString(it)
             }
+            command.content?.let { content ->
+                // Stored references name the catalog they resolve against (ResourceReferenceSites).
+                setClauses.add("content = :content::jsonb")
+                bindings["content"] = objectMapper.valueToTree<JsonNode>(content)
+                    .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
+                    .let(objectMapper::writeValueAsString)
+            }
+            if (clearsParameterSchema) {
+                setClauses.add("parameter_schema = NULL")
+            } else {
+                command.parameterSchema?.let {
+                    setClauses.add("parameter_schema = :parameterSchema::jsonb")
+                    bindings["parameterSchema"] = objectMapper.writeValueAsString(it)
+                }
+            }
+            command.readsTemplateData?.let {
+                setClauses.add("reads_template_data = :readsTemplateData")
+                bindings["readsTemplateData"] = it
+            }
 
             if (setClauses.isEmpty()) {
                 // Nothing to update, just return current state
                 return@inTransaction handle.createQuery(
-                    "SELECT * FROM stencils WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id",
+                    "SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id",
                 )
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("id", command.id.key)
                     .mapTo<Stencil>()
+                    .map(Stencil::withAbsentSchemaAsNull)
                     .findOne()
                     .orElse(null)
+                    ?.also { Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, it.revision) }
             }
 
             setClauses.add("updated_at = NOW()")
             setClauses.add("updated_by = :updatedBy")
             bindings["updatedBy"] = currentUserIdOrNull()?.value
 
-            val sql = """
-            UPDATE stencils SET ${setClauses.joinToString(", ")}
-            WHERE tenant_key = :tenantId AND catalog_key = :catalogKey AND id = :id
-            RETURNING *
-        """
-
-            val query = handle.createQuery(sql)
+            val update = handle.createUpdate(
+                """
+                UPDATE stencils SET ${setClauses.joinToString(", ")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
+                  AND ${Revisions.MATCHES}
+                """,
+            )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("catalogKey", command.id.catalogKey)
                 .bind("id", command.id.key)
+                .bind("expectedRevision", command.expectedRevision)
+            bindings.forEach { (key, value) -> update.bind(key, value) }
+            if (update.execute() == 0) {
+                Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("stencils", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                return@inTransaction null
+            }
 
-            bindings.forEach { (key, value) -> query.bind(key, value) }
-
-            query.mapTo<Stencil>()
+            handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
+                .bind("tenantId", command.id.tenantKey)
+                .bind("catalogKey", command.id.catalogKey)
+                .bind("id", command.id.key)
+                .mapTo<Stencil>()
+                .map(Stencil::withAbsentSchemaAsNull)
                 .findOne()
                 .orElse(null)
         }

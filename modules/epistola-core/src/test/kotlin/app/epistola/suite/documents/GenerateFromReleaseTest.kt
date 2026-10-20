@@ -16,15 +16,12 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.FontSnapshotVerifier
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.storage.DocumentContentStore
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -61,18 +58,16 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
 
     @Autowired private lateinit var schemaValidator: JsonSchemaValidator
 
-    @Autowired private lateinit var fontSnapshotVerifier: FontSnapshotVerifier
-
-    @Autowired private lateinit var fontByteCache: FontByteCache
-
     @Autowired private lateinit var localeResolver: TenantLocaleResolver
 
     @Autowired private lateinit var releaseRenderSource: ReleaseRenderSource
 
+    @Autowired private lateinit var draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer
+
     private val realExecutor by lazy {
         DocumentGenerationExecutor(
             jdbi, generationService, mediator, objectMapper, schemaValidator, contentStore,
-            meterRegistry, fontSnapshotVerifier, fontByteCache, localeResolver, releaseRenderSource,
+            meterRegistry, localeResolver, releaseRenderSource, draftRenderer,
             retentionDays = 7, maxDocumentSizeMb = 50,
         )
     }
@@ -90,7 +85,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             val variant = VariantId(variant(templateId, "Default").id, templateId)
 
             // 1.0.0 requires `name`.
-            execute(UpdateContractVersion(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada")))))
+            execute(UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("name", "Ada")))))
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
@@ -101,19 +96,20 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     variantId = variant.key,
                     data = objectMapper.createObjectNode().put("name", "Ada"),
                     filename = "letter.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
-            // 1.0.1 requires a field the accepted request does not carry. Rendering 1.0.1 would fail
-            // validation; rendering the release the request was accepted against succeeds.
-            // A new contract draft (the last one was published with 1.0.0), published even though it breaks.
-            execute(CreateContractVersion(templateId, dataModel = contract("reference"), dataExamples = DataExamples(listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))))))
-            execute(PublishContractVersion(templateId, confirmed = true))
-            execute(UpdateDraft(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
+            // 2.0.0 requires a field the accepted request does not carry: a breaking change, so the
+            // next major. Rendering 2.0.0 would fail validation; rendering the release the request was
+            // accepted against succeeds.
+            // A new contract (the last one was released with 1.0.0), saved even though it breaks.
+            execute(UpdateDataContract(templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", objectMapper.createObjectNode().put("reference", "R-1"))), forceUpdate = true))
+            execute(UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")))
             mediator.publishAndRelease(variant)
             accepted
         }.then { _, accepted ->
             // The premise: the release cut after acceptance really does require the other field.
-            val laterContract = releaseAssembler.readResource(accepted.tenantKey, accepted.catalogKey, "1.0.1", "template", accepted.templateKey.value)
+            val laterContract = releaseAssembler.readResource(accepted.tenantKey, accepted.catalogKey, "2.0.0", "template", accepted.templateKey.value)
                 as app.epistola.catalog.protocol.TemplateResource
             assertThat(laterContract.dataModel?.get("required")).isEqualTo(listOf("reference"))
 
@@ -128,6 +124,39 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             val document = mediator.query(GetDocument(accepted.tenantKey, job.items.single().documentKey!!))!!
             assertThat(document.releaseVersion).isEqualTo("1.0.0")
             assertThat(document.versionKey).isNull()
+        }
+    }
+
+    @Test
+    fun `a template deleted from the next version still generates from the release that has it`(): Unit = scenario {
+        given {
+            val tenant = tenant("Template gone from next")
+            val templateId = TemplateId(template(tenant.id, "Letter").id, CatalogId.default(TenantId(tenant.id)))
+            val variant = VariantId(variant(templateId, "Default").id, templateId)
+            released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
+            val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
+            execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogVersion(production, CatalogKey.DEFAULT, "1.0.0"))
+            // The next version drops the letter; production still serves the release that has it.
+            execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId))
+            Triple(tenant, templateId, variant)
+        }.whenever { (tenant, templateId, variant) ->
+            execute(
+                GenerateDocument(
+                    tenantId = tenant.id,
+                    templateId = templateId.key,
+                    variantId = variant.key,
+                    environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
+                    data = objectMapper.createObjectNode(),
+                    filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
+                ),
+            )
+        }.then { _, accepted ->
+            assertThat(accepted.releaseVersion).isEqualTo("1.0.0")
+            realExecutor.execute(accepted)
+            val job = mediator.query(GetGenerationJob(accepted.tenantKey, accepted.id))!!
+            assertThat(job.request.status).`as`(job.request.errorMessage ?: "").isEqualTo(RequestStatus.COMPLETED)
         }
     }
 
@@ -148,6 +177,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     variantId = variant.key,
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -164,7 +194,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
-            execute(app.epistola.suite.environments.commands.DeployRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogVersion(production, CatalogKey.DEFAULT, "1.0.0"))
             // A newer release exists, but production has not been moved to it.
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)
@@ -177,6 +207,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -203,6 +234,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                     releaseVersion = "1.0.0",
                     data = objectMapper.createObjectNode(),
                     filename = null,
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -235,6 +267,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                             environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                             data = objectMapper.createObjectNode(),
                             filename = null,
+                            catalogKey = CatalogKey.DEFAULT,
                         ),
                     )
                 }.isInstanceOf(NoReleaseDeployedException::class.java)

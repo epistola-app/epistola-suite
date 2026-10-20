@@ -4,7 +4,9 @@
 
 package app.epistola.suite.fonts.commands
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.ResourceIdentity
@@ -76,14 +78,14 @@ class FontCatalogWriter {
         val tenantKey = tenantId.key
         val keyed = fonts.map { it to FontKey.of(it.slug) }
         val tuples = keyed.indices.joinToString(",\n") { i ->
-            "(:slug$i, :tenantKey, :catalogKey, :name$i, :kind$i, NOW(), NOW())"
+            "(:slug$i, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name$i, :kind$i, NOW(), NOW())"
         }
         val upsert = handle.createQuery(
             """
-            INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind, created_at, updated_at)
+            INSERT INTO fonts (slug, tenant_key, catalog_id, version_id, name, kind, created_at, updated_at)
             VALUES
             $tuples
-            ON CONFLICT (tenant_key, catalog_key, slug) DO UPDATE
+            ON CONFLICT (tenant_key, version_id, slug) DO UPDATE
             SET name       = EXCLUDED.name,
                 kind       = EXCLUDED.kind,
                 updated_at = NOW()
@@ -104,16 +106,17 @@ class FontCatalogWriter {
             .toMap()
         val inserted = upserted.mapValues { (_, row) -> row.second }
         handle.createUpdate(
-            "DELETE FROM font_variants WHERE tenant_key = :tenantKey AND font_resource_id IN (<families>)",
+            "DELETE FROM font_variants WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND font_resource_id IN (<families>)",
         )
             .bind("tenantKey", tenantKey)
+            .bind("catalogKey", catalogKey)
             .bindList("families", keyed.map { upserted.getValue(it.second.value).first })
             .execute()
         val batch = handle.prepareBatch(
             """
             INSERT INTO font_variants
-                (tenant_key, font_resource_id, weight, italic, source, asset_resource_id, classpath_location, content_hash)
-            VALUES (:tenantKey, :fontResourceId, :weight, :italic, :source,
+                (tenant_key, version_id, font_resource_id, weight, italic, source, asset_resource_id, classpath_location, content_hash)
+            VALUES (:tenantKey, ${versionAt("tenantKey", "catalogKey")}, :fontResourceId, :weight, :italic, :source,
                     ${assetAtAddress("tenantKey", "catalogKey", "assetKey")}, :classpathLocation, :contentHash)
             """,
         )

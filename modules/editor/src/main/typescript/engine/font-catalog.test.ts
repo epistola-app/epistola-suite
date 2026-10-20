@@ -30,12 +30,12 @@ function makeFont(slug: string, name: string, kind: string, catalogKey = 'system
         {
           weight: 400,
           italic: false,
-          url: `/tenants/t/fonts/${catalogKey}/${slug}/400/false/content`,
+          url: `/tenants/t/catalogs/${catalogKey}/fonts/${slug}/400/false/content`,
         },
         {
           weight: 700,
           italic: false,
-          url: `/tenants/t/fonts/${catalogKey}/${slug}/700/false/content`,
+          url: `/tenants/t/catalogs/${catalogKey}/fonts/${slug}/700/false/content`,
         },
       ],
     },

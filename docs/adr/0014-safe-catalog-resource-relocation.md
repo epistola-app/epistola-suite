@@ -1,6 +1,8 @@
 # ADR 0014: Safe relocation of authored catalog resources
 
 - **Status:** Accepted — superseded in part by [ADR 0025](0025-relocation-without-aliases.md)
+- **Superseded on template versions** by contract ADR 0002 (2.0): there are no template versions or
+  theme snapshots to pin; see [catalog resource relocation](../catalog-resource-relocation.md).
 - **Date:** 2026-08-26
 - **Discussants:** Epistola team
 - **Tags:** catalog, resources, references, relocation, versioning

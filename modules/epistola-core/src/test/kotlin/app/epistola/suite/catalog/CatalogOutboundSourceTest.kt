@@ -8,6 +8,7 @@ import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -82,24 +83,29 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
         }
     }
 
+    // From wire v8 a resource detail may only name its content by a path relative to the manifest,
+    // so a detail that turns into an absolute or non-http location is refused by the wire format
+    // itself: the whole install is rejected, as any detail that fails the wire gate is.
+
     @Test
     fun `an image whose content turns into a local file fails to install and stores nothing`() {
-        assertInstallRefused("file:///etc/passwd", "Outbound File Install")
+        assertInstallRejected("file:///etc/passwd", "Outbound File Install")
     }
 
     @Test
     fun `an image whose content turns into a link-local address fails to install and stores nothing`() {
-        assertInstallRefused("http://169.254.169.254/latest/meta-data/iam/security-credentials/", "Outbound Metadata Install")
+        assertInstallRejected("http://169.254.169.254/latest/meta-data/iam/security-credentials/", "Outbound Metadata Install")
     }
 
+    /** A relative path the wire format accepts, served by a redirect the outbound rules refuse. */
     @Test
     fun `an image whose content redirects to a link-local address fails to install and stores nothing`() {
-        assertInstallRefused("$baseUrl/redirect-to-metadata.svg", "Outbound Redirect Install")
+        assertInstallRefused("./redirect-to-metadata.svg", "Outbound Redirect Install")
     }
 
     @Test
     fun `an image whose content turns into a classpath resource fails to install and stores nothing`() {
-        assertInstallRefused("classpath:epistola/catalogs/system/catalog.json", "Outbound Classpath Install")
+        assertInstallRejected("classpath:epistola/catalogs/system/catalog.json", "Outbound Classpath Install")
     }
 
     @Test
@@ -153,12 +159,32 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * Register while the catalog is benign, then make the image point at [contentUrl], which the
+     * wire format refuses: the install throws and nothing is stored.
+     */
+    private fun assertInstallRejected(contentUrl: String, tenantName: String) {
+        val tenant = createTenant(tenantName)
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
+            imageContentUrl = contentUrl
+
+            assertThatThrownBy {
+                InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).execute()
+            }
+                .isInstanceOf(CatalogSchemaUnknownException::class.java)
+                .hasMessageContaining("must be a relative path below the manifest's directory")
+            assertThat(ListAssets(tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).query()).isEmpty()
+        }
+    }
+
     private fun imageDetail(contentUrl: String) = """
         {
           "schemaVersion": $CATALOG_SCHEMA_VERSION,
           "resource": {
             "type": "image",
-            "slug": "$IMAGE_SLUG",
+            "key": "$IMAGE_SLUG",
             "name": "Logo",
             "mediaType": "image/svg+xml",
             "width": null,
@@ -176,11 +202,11 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
         val MANIFEST = """
             {
               "schemaVersion": $CATALOG_SCHEMA_VERSION,
-              "catalog": { "slug": "$CATALOG_SLUG", "name": "Outbound Test Catalog" },
+              "catalog": { "key": "$CATALOG_SLUG", "registry": "exchange.epistola.app", "namespace": "outbound-test", "name": "Outbound Test Catalog" },
               "publisher": { "name": "Test" },
-              "release": { "version": "1.0.0", "fingerprint": "${"0".repeat(64)}" },
+              "release": { "version": "1.0.0" },
               "resources": [
-                { "type": "image", "slug": "$IMAGE_SLUG", "name": "Logo", "detailUrl": "./resources/logo.json" }
+                { "type": "image", "key": "$IMAGE_SLUG", "name": "Logo", "detailUrl": "./resources/logo.json" }
               ]
             }
         """.trimIndent()

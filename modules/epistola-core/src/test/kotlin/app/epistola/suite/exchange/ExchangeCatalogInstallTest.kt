@@ -8,12 +8,18 @@ import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.sources.InstallCatalogRelease
+import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
+import app.epistola.suite.catalog.sources.ResourceChangeKind
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -24,6 +30,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -130,6 +137,33 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         }
     }
 
+    @Test
+    fun `the source's releases it lacks are listed and installed beside the others, a fix to an older line too`() {
+        val consumer = connectedTenant("install-side-by-side")
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
+        val invoices = CatalogKey.of("invoices")
+        withMediator { InstallExchangeCatalog(consumer, "acme", "invoices").execute() }
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "2.0.0"), version = "2.0.0")
+        withMediator { InstallCatalogRelease(consumer, invoices, "2.0.0").execute() }
+        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.1"), version = "1.0.1")
+
+        val available = withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }
+
+        assertThat(available.available.map { it.releaseVersion to it.comparedTo }).`as`("the fix, against the release below it")
+            .containsExactly("1.0.1" to "1.0.0")
+        assertThat(available.available.single().changes.map { it.type to it.change }).containsExactly("theme" to ResourceChangeKind.MODIFIED)
+
+        val installed = withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }
+
+        assertThat(installed.newlyInstalled).isTrue()
+        assertThat(withMediator { ListCatalogReleases(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
+        assertThat(withMediator { GetCatalog(consumer, invoices).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
+        assertThat(withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
+        assertThat(withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }.available).isEmpty()
+        assertThatThrownBy { withMediator { InstallCatalogRelease(consumer, invoices, "9.9.9").execute() } }
+            .isInstanceOf(app.epistola.suite.catalog.versions.CatalogVersionNotFoundException::class.java)
+    }
+
     /**
      * The regression that matters most.
      *
@@ -142,7 +176,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a second catalog with the same key from another namespace is refused, not merged`() {
         val consumer = connectedTenant("install-collision")
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
-        exchange.publish("globex", "invoices", releaseArchive("invoices", "9.0.0"), version = "9.0.0")
+        exchange.publish("globex", "invoices", releaseArchive("invoices", "9.0.0", namespace = "globex"), version = "9.0.0")
 
         withMediator {
             InstallExchangeCatalog(consumer, "acme", "invoices").execute()
@@ -236,7 +270,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
 
         // Relocation mints a resource identity from a database trigger on every resource insert,
         // so a rollback that only removed the catalog would leave the registry describing
-        // resources that no longer exist. UnregisterCatalog cascades them; this is what says so.
+        // resources that no longer exist. DeleteCatalog cascades them; this is what says so.
         assertThat(registeredResourceIdentities(consumer, "broken")).isZero()
     }
 
@@ -328,30 +362,32 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     /**
-     * A real exported catalog archive, released at [version] — the same bytes a publisher submits.
+     * Release [version] of catalog [slug] in exchange namespace [namespace], as its publisher exports
+     * it — the same bytes a publisher submits.
      *
      * Built in a throwaway tenant of its own so the publisher's copy can never be mistaken for the
      * consumer's, and so a second call for a later version starts from a clean catalog.
      */
-    private fun releaseArchive(slug: String, version: String): ByteArray {
+    private fun releaseArchive(slug: String, version: String, namespace: String = "acme"): ByteArray {
         val publisher = createTenant("publisher-$slug-$version").id
         lastPublisher = publisher
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
-            CreateCatalog(publisher, catalogKey, "Invoices").execute()
+            CreateCatalog(publisher, catalogKey, "Invoices", namespace = namespace).execute()
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
                 name = "Theme $version",
             ).execute()
+            MarkCatalogReady(publisher, catalogKey).execute()
             ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }
 
     /** The resource identities relocation's registry holds for one catalog. */
     private fun resourceIdentities(tenant: TenantKey, catalogKey: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
-            "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         ).bind("t", tenant).bind("c", catalogKey).mapTo(String::class.java).list()
     }
 
@@ -363,7 +399,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      */
     private fun registeredResourceIdentities(tenant: TenantKey, catalogKey: String): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         ).bind("t", tenant).bind("c", catalogKey).mapTo(Int::class.java).one()
     }
 
@@ -397,13 +433,10 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a catalog ZIP whose SVG references an external resource does not install it`() {
         val tenant = connectedTenant("zip-unsafe-svg")
 
-        val result = withMediator {
-            ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute()
-        }
-
-        val image = result.results.single { it.type == "image" }
-        assertThat(image.status).isEqualTo(InstallStatus.FAILED)
-        assertThat(image.errorMessage).contains("SVG not accepted")
+        // Installing a release is all or nothing: the image is refused, and so is the release.
+        assertThatThrownBy {
+            withMediator { ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute() }
+        }.hasMessageContaining("SVG not accepted")
         withMediator {
             assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
         }
@@ -415,17 +448,17 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     ): ByteArray {
         val svgContentHash = MessageDigest.getInstance("SHA-256").digest(svg.toByteArray()).joinToString("") { "%02x".format(it) }
         val manifest = """
-            {"schemaVersion":7,
-             "catalog":{"slug":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
+            {"schemaVersion":8,
+             "catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,"dependencies":[],
-             "resources":[{"type":"image","slug":"municipality-mark","name":"Municipality mark",
+             "resources":[{"type":"image","key":"municipality-mark","name":"Municipality mark",
                            "description":null,"updatedAt":null,
-                           "detailUrl":"./resources/image/municipality-mark.json","compatibility":null}]}
+                           "detailUrl":"./resources/image/municipality-mark.json"}]}
         """.trimIndent()
         val detail = """
-            {"schemaVersion":7,"resource":{"slug":"municipality-mark","name":"Municipality mark",
+            {"schemaVersion":8,"resource":{"key":"municipality-mark","name":"Municipality mark",
              "mediaType":"$mediaType","width":96,"height":96,
              "contentHash":"$svgContentHash","type":"image"}}
         """.trimIndent()

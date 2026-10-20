@@ -16,7 +16,7 @@ import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -83,6 +83,9 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("No template usage data")
             assertThat(response.body).contains("No generation jobs yet")
+            // Says where documents come from, and the statuses read as words, not enum names.
+            assertThat(response.body).contains("through the REST API").contains("href=\"/api-docs\"")
+            assertThat(response.body).contains(">In progress<").doesNotContain(">IN_PROGRESS<")
         }
     }
 
@@ -127,7 +130,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice").execute().id
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
-            UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()!!
+            UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Billing Invoice")).execute()
             // Generation renders billing's latest release.
             mediator.publishAndRelease(variantId)
             GenerateDocument(
@@ -149,7 +152,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
 
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body!!
-            val href = "href=\"/tenants/${tenant.id}/templates/${billing.value}/${templateKey.value}\""
+            val href = "href=\"/tenants/${tenant.id}/catalogs/${billing.value}/templates/${templateKey.value}\""
             // Once under "Most Used Templates", once under "Recent Jobs".
             assertThat(Regex(Regex.escape(href)).findAll(body).count()).isEqualTo(2)
         }

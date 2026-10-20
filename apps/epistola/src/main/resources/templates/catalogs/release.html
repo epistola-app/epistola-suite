@@ -3,18 +3,65 @@
 <body>
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
-            pageTitle='Release v' + ${release.version},
-            pageDescription=${release.catalog.name},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalogId})},
-            backLinkLabel='Back to catalog',
+            pageTitle='v' + ${release.version},
+            pageDescription=${release.catalog.name} + ' · published ' + ${#temporals.format(release.releasedAt, 'yyyy-MM-dd')},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/versions(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkLabel='Versions',
             actions=~{::release-actions}
         )}"></div>
 
         <th:block th:fragment="release-actions">
-            <a th:if="${release.retained}" class="ep-btn ep-btn-primary"
+            <a class="ep-btn ep-btn-outline"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                hx-boost="false" download>Export as ZIP</a>
+            <a class="ep-btn ep-btn-outline" data-testid="release-export-with-dependencies"
+               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
+               title="One file with the versions of the other catalogs it uses, to install where they are not"
+               hx-boost="false" download>Export with what it uses</a>
         </th:block>
+
+        <!--/* What a published version is for: where it is live, and what can still be done with it.
+               It never changes, so changing it means a draft that starts from it. */-->
+        <div class="ep-panel detail-section" data-testid="release-status"
+             th:with="bar=${draftBar}, canManage=${auth.has('CATALOG_MANAGE')}, version=${release.version}">
+            <div class="detail-section-body">
+                <p style="margin-top: 0;" data-testid="release-live">
+                    <th:block th:if="${liveIn.isEmpty()}">Not deployed anywhere.</th:block>
+                    <th:block th:unless="${liveIn.isEmpty()}">Deployed to <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a version or undeploy it</a>
+                    under Deployments.
+                </p>
+                <p class="form-hint">A published version does not change. Change the next version and publish that; for a large change that is not ready yet, start parallel work from this version.</p>
+
+                <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
+                    <button th:if="${bar.offerCreateDraft and bar.createFromOptions.contains(version)}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            data-testid="release-start-draft"
+                            th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
+                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this version</button>
+
+                    <!--/* Offered where it can be carried out: the catalog can publish at all, this
+                           release kept content to send, and it has not been sent already. */-->
+                    <form th:if="${releaseView != null and releaseView.publishable}" method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId})}">
+                        <input type="hidden" name="version" th:value="${version}">
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="release-exchange-publish">Send to Epistola Exchange</button>
+                    </form>
+                    <span th:if="${releaseView != null and releaseView.published}" class="badge badge-default"
+                          title="Already sent to Epistola Exchange">On Epistola Exchange</span>
+
+                    <!--/* The stronger of the two: the version leaves the list altogether. */-->
+                    <form th:if="${canManage}" method="post" style="display: inline;"
+                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-delete"
+                                data-confirm-submit
+                                data-confirm-submit-title="Delete this version"
+                                th:attr="data-confirm-submit-message='v' + ${version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.'"
+                                data-confirm-submit-label="Delete version"
+                                data-confirm-submit-class="ep-btn-destructive">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!--/* Everything here is what the release froze, never the live catalog. A catalog's
                details are version-dependent, so reading them from the working copy would be the
@@ -24,20 +71,19 @@
             <div class="detail-section-header catalog-detail-header">
                 <div>
                     <div class="catalog-detail-heading">
-                        <h2>As released</h2>
+                        <h2>As published</h2>
                         <span class="badge badge-info" th:text="'v' + ${release.version}">v1.0.0</span>
-                        <span th:unless="${release.retained}" class="badge badge-default">content not kept</span>
                     </div>
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">
-                        The catalog as this release carried it — not as it is now.
+                        The details and contents this version went out with — not as they are now.
                     </p>
                 </div>
             </div>
 
             <div class="catalog-detail-summary">
                 <div class="catalog-detail-summary-item">
-                    <span class="catalog-detail-label">Released</span>
-                    <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></p>
+                    <span class="catalog-detail-label">Published</span>
+                    <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${release.releasedAt}"></p>
                 </div>
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Fingerprint</span>
@@ -47,7 +93,7 @@
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Resources</span>
                     <p class="catalog-detail-value"
-                       th:text="${release.retained} ? ${release.resources.size()} : 'not kept'"></p>
+                       th:text="${release.resources.size()}"></p>
                 </div>
             </div>
 
@@ -74,8 +120,8 @@
                     <div class="catalog-detail-item-header"><h3>Discovery attributes</h3></div>
                     <div th:if="${!release.catalog.attributes.isEmpty()}" class="badge-list">
                         <span th:each="attribute : ${release.catalog.attributes}" class="badge badge-outline"
-                              th:text="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"
-                              th:title="${attribute.catalog + '.' + attribute.key + ': ' + attribute.value}"></span>
+                              th:text="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"
+                              th:title="${attribute.catalogKey + '.' + attribute.key + ': ' + attribute.value}"></span>
                     </div>
                     <p th:if="${release.catalog.attributes.isEmpty()}" class="text-muted text-sm" style="margin: 0;">No discovery attributes.</p>
                 </div>
@@ -91,7 +137,7 @@
                 </div>
 
                 <div th:if="${release.notes != null}" class="catalog-detail-item">
-                    <div class="catalog-detail-item-header"><h3>Release notes</h3></div>
+                    <div class="catalog-detail-item-header"><h3>Notes</h3></div>
                     <p class="text-muted text-sm" style="margin: 0;" th:text="${release.notes}"></p>
                 </div>
             </div>
@@ -99,17 +145,10 @@
 
         <div class="ep-panel detail-section">
             <div class="detail-section-header">
-                <h2>Resources</h2>
+                <h2>Contents</h2>
             </div>
             <div>
-                <!--/* A release that kept no content can still show its details -- the manifest
-                       snapshot was always stored -- but it cannot list what it contained, and an
-                       empty table would read as "this release was empty". */-->
-                <p th:if="${!release.retained}" class="text-muted">
-                    This release was cut before Epistola kept the content of a release, so what it
-                    contained cannot be listed. Its details above are what it was released with.
-                </p>
-                <div th:if="${release.retained}" class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
+                <div class="ep-table-scroll" role="region" aria-label="Released resources" tabindex="0">
                 <table class="ep-table">
                     <thead>
                         <tr><th>Type</th><th>Name</th><th>Address</th><th>Description</th></tr>

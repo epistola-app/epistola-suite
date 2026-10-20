@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -70,7 +71,7 @@ class GetLatestCatalogReleaseHandler(
                 """
                 SELECT version, fingerprint
                 FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 $LATEST_RELEASE_ORDER
                 LIMIT 1
                 """,

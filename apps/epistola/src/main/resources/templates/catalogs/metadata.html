@@ -9,7 +9,7 @@
           hx-target="#dialog-mount" hx-swap="innerHTML">
         <input type="hidden" name="section" th:value="${section}" />
         <div class="ep-dialog-body">
-            <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+            <div th:replace="~{epistola-web/form-error :: form-error(id='catalog-metadata-error')}"></div>
 
             <th:block th:if="${section == 'details'}">
                 <div class="form-group">
@@ -66,7 +66,7 @@
                 -->
                 <p th:if="${images.isEmpty()}" class="text-muted">
                     This catalog has no images yet. Add one under
-                    <a th:href="@{/tenants/{tenantId}/images(tenantId=${tenantId})}">Images</a>,
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId})}">Images</a>,
                     then choose an icon or build a gallery here.
                 </p>
             </div>
@@ -76,7 +76,7 @@
                 <select id="catalog-icon" class="ep-input" name="iconAssetSlug">
                     <option value="">No icon</option>
                     <option th:each="image : ${images}" th:value="${image.id}" th:text="${image.name}"
-                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconAssetSlug}"></option>
+                            th:selected="${catalog.catalogMetadata.presentation != null and image.id.toString() == catalog.catalogMetadata.presentation.iconImageKey}"></option>
                 </select>
 
                 <div style="margin-top: var(--ep-space-3);">
@@ -138,34 +138,21 @@
                         grants one, it can be chosen here.
                     </p>
                 </th:block>
-                <th:block th:if="${publication.canPublish && !publication.availableNamespaces.isEmpty()}">
-                    <label class="ep-label" for="catalog-exchange-namespace">Exchange namespace</label>
+                <th:block th:if="${publication.canPublish && !publication.namespaceLocked && !publication.availableNamespaces.isEmpty()}">
+                    <label class="ep-label" for="catalog-exchange-namespace">Namespace</label>
                     <select id="catalog-exchange-namespace" class="ep-select" name="chosenNamespace">
-                        <option value="" th:if="${publication.suggestedNamespace == null}">Not chosen yet</option>
                         <option th:each="option : ${publication.availableNamespaces}"
                                 th:value="${option}" th:text="${option}"
                                 th:selected="${option == publication.suggestedNamespace}">community</option>
                     </select>
-                    <div th:if="${publication.namespaceLocked}" class="alert alert-warning"
-                         data-shown-when-changed="chosenNamespace" hidden
-                         style="margin-top: var(--ep-space-3);">
-                        <div>
-                            <div class="alert-title">This catalog has already published</div>
-                            <p style="margin: var(--ep-space-1) 0 0;">
-                                Versions already on Exchange stay under
-                                <code th:text="${publication.boundNamespace}">namespace</code>. Moving changes only
-                                where future releases go, and anyone following the old namespace will not see them.
-                            </p>
-                            <label style="display: block; margin-top: var(--ep-space-3);">
-                                <input type="checkbox" name="acknowledgeAlreadyPublished" value="true">
-                                Move future releases to the namespace selected above
-                            </label>
-                        </div>
-                    </div>
-                    <p class="form-hint" th:unless="${publication.namespaceLocked}">
-                        Where this catalog publishes. It can still be changed until a release reaches Exchange.
+                    <p class="form-hint">
+                        The catalog's namespace, and where it publishes on Exchange. It can still be changed
+                        until a release reaches Exchange; then it is fixed.
                     </p>
                 </th:block>
+                <p th:if="${publication.namespaceLocked}" class="form-hint" data-testid="catalog-namespace-fixed">
+                    Namespace <code th:text="${publication.namespace}">namespace</code>, fixed: a release reached Exchange under it.
+                </p>
             </div>
         </div>
         <div class="ep-dialog-footer">

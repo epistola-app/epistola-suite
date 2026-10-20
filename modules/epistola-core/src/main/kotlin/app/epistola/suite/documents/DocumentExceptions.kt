@@ -66,33 +66,40 @@ class CatalogNotReleasedException(
     val catalogKey: CatalogKey,
 ) : RuntimeException("Catalog '${catalogKey.value}' has no release to generate from. Release the catalog first.")
 
-/** The release being generated from does not contain the requested template or variant. */
+/**
+ * The release being generated from does not contain the requested template or variant; or, with
+ * [draftLabel], the draft an environment uses does not ([releaseVersion] is then that label).
+ */
 class TemplateNotInReleaseException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val releaseVersion: String,
     val templateId: TemplateKey,
     val variantId: VariantKey?,
+    val draftLabel: String? = null,
 ) : RuntimeException(
-    if (variantId == null) {
-        "Release ${catalogKey.value}@$releaseVersion does not contain template '${templateId.value}'"
-    } else {
-        "Release ${catalogKey.value}@$releaseVersion has no variant '${variantId.value}' of template '${templateId.value}'"
-    },
+    (if (draftLabel != null) "'$draftLabel' of ${catalogKey.value}" else "Release ${catalogKey.value}@$releaseVersion") +
+        if (variantId == null) " does not contain template '${templateId.value}'" else " has no variant '${variantId.value}' of template '${templateId.value}'",
 )
 
-/** A request names a release of the template's catalog that does not exist or kept no content to render. */
+/** A request names a release of the template's catalog that does not exist. */
 class ReleaseNotFoundException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val releaseVersion: String,
 ) : RuntimeException("Catalog '${catalogKey.value}' has no release $releaseVersion that can be rendered.")
 
-/** A request names an environment that serves no release of the template's catalog. */
+/**
+ * A request names an environment that serves no release of the template's catalog, or, with
+ * [versionSelector], none that satisfies it.
+ */
 class NoReleaseDeployedException(
     val tenantKey: TenantKey,
     val environmentKey: EnvironmentKey,
     val catalogKey: CatalogKey,
+    val versionSelector: String? = null,
 ) : RuntimeException(
-    "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}'. Deploy a release there first.",
+    "Environment '${environmentKey.value}' serves no published version of catalog '${catalogKey.value}'" +
+        (versionSelector?.let { " matching $it" } ?: "") +
+        ". Deploy one there first: on the environment's page in Epistola, or with deployCatalogVersion.",
 )

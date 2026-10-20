@@ -18,13 +18,11 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Theme Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/themes/new$")
-
     @Test
     fun `dialog is not open on initial load of the themes list`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/themes")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes")
         page.htmxSettle()
 
         // On the plain list route the mount is empty, so the create dialog must
@@ -46,7 +44,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // intercept the pointer on the top-of-page header action. Both triggers
         // issue the same hx-get into #dialog-mount, so this exercises the identical
         // open path (and the pushed /…/new URL).
-        gotoAndReady("/tenants/${tenant.id}/themes?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes")
         page.htmxSettle()
 
         // The always-present page-header action is the canonical trigger.
@@ -58,15 +56,16 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         )
 
         assertThat(page.locator("dialog[open]#create-theme-dialog")).isVisible()
-        // Opening the dialog pushes the shareable /…/new URL via hx-push-url.
-        assertThat(page).hasURL(newFormUrlPattern)
+        // Opening the dialog pushes the shareable /…/new URL via hx-push-url, carrying the catalog
+        // the list shows, so the theme is made there.
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/default/themes/new$"))
     }
 
     @Test
     fun `submitting the create form soft-navigates to the new theme and boots the editor`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/themes?catalog=default")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/themes")
         page.htmxSettle()
 
         page.openDialogByTrigger(
@@ -83,7 +82,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // Success emits HX-Location: HTMX performs a boosted body-swap to the new
         // theme's detail page — a SOFT navigation, not a full reload. The address
         // bar lands on the created theme…
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/themes/default/corporate$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/default/themes/corporate$"))
         // …the dialog is gone with the swapped-out body…
         assertThat(page.locator("#create-theme-dialog")).hasCount(0)
         // …and the theme editor booted on htmx:load after the swap (proving the

@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -24,6 +25,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -82,13 +84,14 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         // Author a catalog containing one attribute bound across to `system`.
         val zip = withMediator {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xref Source").execute()
+            declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("locale-pref"), CatalogId(source, tenantId)),
                 displayName = "Locale preference",
                 codeListId = CodeListId(CodeListKey.of("bcp-47"), systemCatalog),
             ).execute()
 
-            ExportCatalogZip(tenantKey = tenant.id, catalogKey = source).execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
         }
 
         // Inspect the manifest + the attribute detail before re-import. The
@@ -101,7 +104,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
         val dependency = manifest["dependencies"].single()
         assertThat(dependency["type"].asString()).isEqualTo("codeList")
         assertThat(dependency["catalogKey"].asString()).isEqualTo("system")
-        assertThat(dependency["slug"].asString()).isEqualTo("bcp-47")
+        assertThat(dependency["key"].asString()).isEqualTo("bcp-47")
 
         val attributeDetail = mapper.readTree(readZipEntry(zip.zipBytes, "resources/attribute/locale-pref.json"))
         assertThat(attributeDetail["resource"]["codeListBinding"]["catalogKey"].asString()).isEqualTo("system")
@@ -132,7 +135,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     @Test
     fun `install from an HTTP catalog preserves cross-catalog code-list binding`() {
-        // Serve a v3 manifest over real HTTP, exercising `RestClient` — the
+        // Serve a current-version manifest over real HTTP, exercising `RestClient` — the
         // production transport. classpath/file shortcuts in `CatalogClient`
         // would otherwise mask any bug in the HTTP fetch path.
         val tenant = createTenant("CrossBind3")
@@ -196,9 +199,11 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
 
     private fun manifestJson(slug: String): String = """
         {
-          "schemaVersion": 5,
+          "schemaVersion": $CATALOG_SCHEMA_VERSION,
           "catalog": {
-            "slug": "$slug",
+            "registry": "exchange.epistola.app",
+            "namespace": "epistola-tests",
+            "key": "$slug",
             "name": "HTTP Served",
             "description": "Cross-catalog binding test catalog served over real HTTP"
           },
@@ -207,25 +212,41 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
           "resources": [
             {
               "type": "attribute",
-              "slug": "lang",
+              "key": "lang",
               "name": "Language",
               "detailUrl": "./resources/attributes/lang.json"
             }
           ],
           "dependencies": [
-            { "type": "codeList", "catalogKey": "system", "slug": "iso-639-1" }
+            {
+              "type": "codeList",
+              "registry": "exchange.epistola.app",
+              "namespace": "epistola",
+              "catalogKey": "system",
+              "key": "iso-639-1"
+            }
+          ],
+          "catalogDependencies": [
+            {
+              "registry": "exchange.epistola.app",
+              "namespace": "epistola",
+              "catalogKey": "system",
+              "version": "*",
+              "releaseVersion": null,
+              "releaseFingerprint": null
+            }
           ]
         }
     """.trimIndent()
 
     private fun attributeDetailJson(): String = """
         {
-          "schemaVersion": 5,
+          "schemaVersion": $CATALOG_SCHEMA_VERSION,
           "resource": {
             "type": "attribute",
-            "slug": "lang",
+            "key": "lang",
             "name": "Language",
-            "codeListBinding": { "catalogKey": "system", "slug": "iso-639-1" }
+            "codeListBinding": { "catalogKey": "system", "key": "iso-639-1" }
           }
         }
     """.trimIndent()

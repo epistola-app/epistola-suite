@@ -131,7 +131,7 @@ class NavMenuAggregatorTest {
     @Test
     fun `active section uses longest segment-boundary match`() {
         assertThat(activeFor("/tenants/acme/templates")).isEqualTo("templates")
-        assertThat(activeFor("/tenants/acme/templates/cat/123/settings")).isEqualTo("templates")
+        assertThat(activeFor("/tenants/acme/catalogs/cat/templates/123/settings")).isEqualTo("templates")
         assertThat(activeFor("/tenants/acme/code-lists")).isEqualTo("code-lists")
         // sectionKey may differ from the pathSuffix
         assertThat(activeFor("/tenants/acme/support")).isEqualTo("overview")

@@ -42,8 +42,10 @@ class ProfileHandlerHtmxTest : BaseIntegrationTest() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         // The test principal holds every tenant role as a global role plus the platform manager role.
-        assertThat(response.body).contains("Global roles").contains("CONTENT_VIEWER").contains("TENANT_ADMINISTRATOR")
-        assertThat(response.body).contains("Platform roles").contains("TENANT_MANAGER")
+        // Roles read as words, not as their constants' names.
+        assertThat(response.body).contains("Global roles").contains(">Content viewer<").contains(">Tenant administrator<")
+        assertThat(response.body).contains("Platform roles").contains(">Tenant manager<")
+        assertThat(response.body).doesNotContain(">CONTENT_VIEWER<").doesNotContain(">TENANT_MANAGER<")
     }
 
     @Test

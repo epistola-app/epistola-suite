@@ -20,12 +20,26 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.CatalogBundleException
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
+import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
+import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.versions.CatalogDraftInUseException
+import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
+import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionHeldException
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -39,24 +53,18 @@ import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.stencils.StencilNotFoundException
-import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
-import app.epistola.suite.stencils.StencilVersionNotPublishedException
-import app.epistola.suite.templates.DraftHasNoPublishedBaseException
-import app.epistola.suite.templates.DraftNotFoundException
 import app.epistola.suite.templates.TemplateNotFoundException
-import app.epistola.suite.templates.VersionArchivedException
-import app.epistola.suite.templates.VersionNotDraftException
-import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
-import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.templates.validation.DataModelValidationException
@@ -239,6 +247,20 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity(problemDetail(servletRequest, type, detail, extensions), headers, type.status)
     }
 
+    /**
+     * A catalog's source could not be asked (contract `catalog-source-unavailable`): 503, with
+     * `Retry-After` when the source gave one, when it could not be reached or did not answer in
+     * time; 502 when it answered badly.
+     */
+    @ExceptionHandler(CatalogSourceUnavailableException::class)
+    fun handleCatalogSourceUnavailable(ex: CatalogSourceUnavailableException, request: WebRequest): ResponseEntity<Any> {
+        log.warn("Catalog source unavailable: {}", ex.message)
+        val headers = HttpHeaders()
+        ex.retryAfterSeconds?.let { headers.set(HttpHeaders.RETRY_AFTER, it.toString()) }
+        val type = if (ex.badGateway) ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE.copy(status = HttpStatus.BAD_GATEWAY) else ApiProblemTypes.CATALOG_SOURCE_UNAVAILABLE
+        return problemEntity(request, headers, type, ex.message ?: "The catalog's source is unavailable")
+    }
+
     // ------------------------------------------------------------------
     // Mapped domain exceptions — dispatched via ApiExceptionMappings
     // ------------------------------------------------------------------
@@ -253,17 +275,10 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         TemplateNotFoundException::class,
         StencilNotFoundException::class,
         StencilVersionNotFoundException::class,
-        StencilVersionNotDraftException::class,
-        StencilVersionNotPublishedException::class,
         FontNotFoundException::class,
         GenerationJobNotFoundException::class,
         GenerationJobNotCancellableException::class,
         DocumentNotFoundException::class,
-        DraftNotFoundException::class,
-        DraftHasNoPublishedBaseException::class,
-        VersionNotDraftException::class,
-        VersionNotPublishedException::class,
-        VersionArchivedException::class,
         ThemeInUseException::class,
         DefaultVariantDeletionException::class,
         NoMatchingVariantException::class,
@@ -278,6 +293,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         NoReleaseDeployedException::class,
         ReleaseNotFoundException::class,
         ReleaseNotDeployableException::class,
+        ReleaseDependenciesMissingException::class,
         ReleaseInUseException::class,
         TemplateNotInReleaseException::class,
         DefaultVariantNotFoundException::class,
@@ -297,7 +313,20 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CodeListInUseException::class,
         CodeListNotRefreshableException::class,
         ApiOperationNotImplementedException::class,
-        ContractPublishConflictException::class,
+        CatalogVersionNotFoundException::class,
+        CatalogVersionReleasedException::class,
+        CatalogDraftNameInUseException::class,
+        CatalogBundleException::class,
+        CatalogDraftIsNextException::class,
+        CatalogImportConflictException::class,
+        CatalogImportDependenciesMissingException::class,
+        CatalogDraftInUseException::class,
+        CatalogDependenciesUnreleasedException::class,
+        EnvironmentDeploymentRefusedException::class,
+        CatalogHasNoSourceException::class,
+        ResourceModifiedException::class,
+        CatalogVersionBehindException::class,
+        CatalogVersionHeldException::class,
     )
     fun handleMappedApiException(
         ex: Throwable,

@@ -4,12 +4,17 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.catalog.protocol.FontResource
 import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
+import app.epistola.suite.catalog.dependencies.DraftDependencyView
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.ResolveFontFace
+import app.epistola.suite.fonts.queries.pickNearestFace
 import app.epistola.suite.mediator.query
 
 /**
@@ -31,18 +36,27 @@ import app.epistola.suite.mediator.query
 fun fontFamilyResolver(
     tenantKey: TenantKey,
     owningCatalogKey: CatalogKey,
-    cache: FontByteCache,
+    /** The catalog version the render reads, for a render outside the message that targets it. */
+    catalogVersion: CatalogVersionRef? = null,
+    /** Where a draft reads other catalogs' fonts: the release it pins, or the draft it names. */
+    dependencies: DraftDependencyView? = null,
 ): FontFamilyResolver = FontFamilyResolver { catalogKey, slug, weight, italic ->
     val fontKey = FontKey.validateOrNull(slug) ?: return@FontFamilyResolver null
     val effectiveCatalog = catalogKey?.let(CatalogKey::of) ?: owningCatalogKey
-    val key = "${tenantKey.value}|${effectiveCatalog.value}|${fontKey.value}|$weight|$italic"
-    cache.getOrResolve(key) {
-        ResolveFontFace(
-            tenantId = tenantKey,
-            catalogKey = effectiveCatalog,
-            slug = fontKey,
-            weight = weight,
-            italic = italic,
-        ).query()
-    }?.let { face -> FontFaceBytes(face.content, face.contentHash) }
+    if (dependencies?.releaseOf(effectiveCatalog) != null) {
+        val family = dependencies.released(effectiveCatalog, "font", fontKey.value) as? FontResource ?: return@FontFamilyResolver null
+        val face = pickNearestFace(family.variants, { it.weight }, { it.italic }, weight, italic) ?: return@FontFamilyResolver null
+        return@FontFamilyResolver dependencies.releasedBinary(face.contentHash)?.let { FontFaceBytes(it, face.contentHash) }
+    }
+    val namedDraft = dependencies?.draftOf(effectiveCatalog)?.let { CatalogVersionRef(tenantKey, effectiveCatalog, DraftRef.Id(it.key)) }
+    // Which face applies is decided in the version being rendered, every time; only the bytes are
+    // cached, by content hash ([ResolveFontFace]), so two versions never share a face by address.
+    ResolveFontFace(
+        tenantId = tenantKey,
+        catalogKey = effectiveCatalog,
+        slug = fontKey,
+        weight = weight,
+        italic = italic,
+        catalogVersion = namedDraft ?: catalogVersion,
+    ).query()?.let { face -> FontFaceBytes(face.content, face.contentHash) }
 }

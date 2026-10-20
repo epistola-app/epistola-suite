@@ -49,7 +49,7 @@ class ApiKeyHandler {
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("api-keys/list") {
                     apiKeyPageModel(tenantId)
                     "openDialog" to true
@@ -92,7 +92,7 @@ class ApiKeyHandler {
                     "roleOptions" to ROLE_OPTIONS
                     "selectedRoles" to selectedRoleNames
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "api-keys/list") {
                         apiKeyPageModel(tenantId)
                         "openDialog" to true
@@ -142,7 +142,7 @@ class ApiKeyHandler {
                 "roleLabels" to ROLE_LABELS
                 "oob" to true
             }
-            onNonHtmx {
+            onFullPage {
                 page("api-keys/created") {
                     "pageTitle" to "API key created - Epistola"
                     "tenantId" to tenantId.key
@@ -172,7 +172,7 @@ class ApiKeyHandler {
                 "apiKeys" to apiKeys
                 "roleLabels" to ROLE_LABELS
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/api-keys") }
+            onFullPage { redirect("/tenants/${tenantId.key}/api-keys") }
         }
     }
 
@@ -214,17 +214,17 @@ class ApiKeyHandler {
 
     companion object {
         // Order mirrors the privilege ladder. Viewer is pre-checked so the narrowest scope is the
-        // default; administration (settings/users/catalogs/backups/destructive restore) is offered
+        // default; administration (settings/users/catalogs/destructive restore) is offered
         // but never pre-selected, keeping keys least-privilege unless deliberately escalated.
         val ROLE_OPTIONS = listOf(
             RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access across the tenant.", defaultChecked = true),
             RoleOption(TenantRole.CONTENT_AUTHOR.name, "Author", "Create and edit templates, themes, stencils, and reference data.", defaultChecked = false),
             RoleOption(TenantRole.DOCUMENT_GENERATOR.name, "Generator", "Generate documents.", defaultChecked = false),
-            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish and archive template and stencil versions.", defaultChecked = false),
+            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish catalog versions and deploy them to environments.", defaultChecked = false),
             RoleOption(
                 TenantRole.TENANT_ADMINISTRATOR.name,
                 "Administrator",
-                "Tenant settings, users, catalogs, diagnostics, backups, and destructive restore.",
+                "Tenant settings, users, catalogs, diagnostics, and restoring snapshots, which replaces content.",
                 defaultChecked = false,
             ),
         )

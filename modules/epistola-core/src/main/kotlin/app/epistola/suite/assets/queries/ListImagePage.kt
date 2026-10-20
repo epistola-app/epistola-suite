@@ -7,6 +7,9 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -43,7 +46,10 @@ data class ListImagePage(
     val searchTerm: String? = null,
     val limit: Int,
     val offset: Int,
-) : Query<ImagePage>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<ImagePage>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
 }
@@ -56,13 +62,13 @@ class ListImagePageHandler(
     override fun handle(query: ListImagePage): ImagePage = jdbi.withHandle<ImagePage, Exception> { handle ->
         val rows = handle.createQuery(
             """
-            SELECT a.id, a.tenant_key, a.catalog_key, c.type AS catalog_type, a.name, a.media_type,
+            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, a.name, a.media_type,
                    a.size_bytes, a.width, a.height, a.created_at, a.created_by,
                    COUNT(*) OVER()::bigint AS total_count
             FROM assets a
-            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.id = a.catalog_key
+            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
             WHERE a.tenant_key = :tenantKey
-              AND a.catalog_key = :catalogKey
+              AND a.version_id = ${versionAt("tenantKey", "catalogKey")}
               AND a.media_type LIKE 'image/%'
               AND (CAST(:searchTerm AS text) IS NULL OR a.name ILIKE :searchTerm)
             ORDER BY a.created_at DESC, a.id

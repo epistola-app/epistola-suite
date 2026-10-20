@@ -8,96 +8,85 @@
  * The editor never calls endpoints directly — the hosting app provides
  * implementations via EditorOptions.stencilOptions, following the same
  * delegation pattern used for SaveFn, FetchPreviewFn, and AssetPickerCallbacks.
+ *
+ * A stencil has one working copy and no versions (contract ADRs 0002 and
+ * 0006): a template uses it by reference, the editor shows the working copy
+ * inlined, and editing a stencil saves its working copy, which every template
+ * using it then shows. Marking it ready lets the next catalog release capture it.
  */
 
-/** Uniquely identifies a stencil within a tenant. */
+import type { TemplateDocument } from '../../types/index.js';
+import type { JsonSchema } from '../../data-contract/types.js';
+
+/** Names a stencil within a tenant. */
 export interface StencilRef {
-  stencilId: string;
+  stencilKey: string;
   catalogKey: string;
 }
 
 /** Summary of a stencil for browse/search results. */
 export interface StencilSummary {
-  id: string;
-  catalogKey?: string;
+  stencilKey: string;
+  catalogKey: string;
   name: string;
   description?: string;
   tags: string[];
-  latestPublishedVersion: number | null;
-  /** Highest version number (any status). Used as fallback when no published version exists. */
-  latestVersion: number | null;
 }
 
-/** A specific stencil version with its content. */
-export interface StencilVersionInfo {
+/** A stencil's working copy, as an instance inlines it. */
+export interface StencilWorkingCopy {
   ref: StencilRef;
-  stencilName: string;
-  version: number;
-  status: 'draft' | 'published' | 'archived';
-  /** The template document fragment (nodes + slots) to embed. */
-  content: import('../../types/index.js').TemplateDocument;
+  name: string;
+  /** False for a stencil of a read-only (subscribed or imported) catalog. */
+  editable: boolean;
   /**
-   * Optional JSON Schema describing the parameters consumers must bind when
-   * inserting this version. Snapshotted onto the consuming stencil node's
-   * props at insert time so render-time / scope-provider lookups don't need
-   * a DB roundtrip. Absent for stencils with no declared parameters.
+   * The stencil's content in stored form: instances of other stencils in it
+   * name their stencil and carry their fills; the editor expands them.
    */
-  parameterSchema?: import('../../data-contract/types.js').JsonSchema;
+  content: TemplateDocument;
+  /** The parameters an instance binds; absent when the stencil takes none. */
+  parameterSchema?: JsonSchema;
+  /** The stencil's content also sees the using template's data (ADR 0006 part 5). */
+  readsTemplateData: boolean;
 }
 
-/** Version summary for the version picker. */
-export interface StencilVersionSummary {
-  version: number;
-  status: 'draft' | 'published' | 'archived';
-  createdAt: string;
-  publishedAt?: string;
+/** What saving a stencil's working copy writes. */
+export interface StencilContentUpdate {
+  /** The stencil's content in stored form (nested instances by reference). */
+  content: TemplateDocument;
+  /** The stencil's parameters; null when it takes none (clears a stored schema). */
+  parameterSchema: JsonSchema | null;
 }
 
 /** Search/browse available stencils. */
 export type SearchStencilsFn = (query: string) => Promise<StencilSummary[]>;
 
-/** List all versions for a stencil (for the version picker). */
-export type ListStencilVersionsFn = (ref: StencilRef) => Promise<StencilVersionSummary[]>;
+/** Read a stencil's working copy; null when there is no such stencil. */
+export type GetStencilFn = (ref: StencilRef) => Promise<StencilWorkingCopy | null>;
 
-/** Fetch a specific published stencil version's content. */
-export type GetStencilVersionFn = (
-  ref: StencilRef,
-  version: number,
-) => Promise<StencilVersionInfo | null>;
+/** Create a new stencil with an empty working copy, in the document's catalog. */
+export type CreateStencilFn = (stencilKey: string, name: string) => Promise<StencilRef>;
 
-/** Check which stencil instances in the document have newer versions available. */
-export type CheckStencilUpgradesFn = (
-  refs: Array<{ stencilId: string; version: number; catalogKey: string }>,
-) => Promise<Array<{ stencilId: string; currentVersion: number; latestVersion: number }>>;
+/** Save a stencil's working copy. */
+export type SaveStencilFn = (ref: StencilRef, update: StencilContentUpdate) => Promise<void>;
 
-/** Create a new stencil entity with an empty draft. */
-export type CreateStencilFn = (
-  slug: string,
-  name: string,
-) => Promise<{ ref: StencilRef; version: number }>;
-
-/** Push updated content back to a stencil as a new draft version. */
-export type UpdateStencilFn = (
-  ref: StencilRef,
-  draftVersion: number,
-  content: import('../../types/index.js').TemplateDocument,
-  parameterSchema?: import('../../data-contract/types.js').JsonSchema,
-) => Promise<{ version: number }>;
-
-/** Ensure a draft exists for a stencil (creates one if needed). */
-export type StartEditingFn = (ref: StencilRef) => Promise<StencilVersionInfo>;
-
-/** Publish a specific version. */
-export type PublishDraftFn = (ref: StencilRef, version: number) => Promise<{ version: number }>;
+/**
+ * Mark a stencil's working copy ready, so the next catalog release captures
+ * it. Rejects with an Error whose message says why when the stencil cannot be
+ * marked ready.
+ */
+export type MarkStencilReadyFn = (ref: StencilRef) => Promise<void>;
 
 /** All stencil-related callbacks provided by the hosting app. */
 export interface StencilCallbacks {
+  /**
+   * The catalog of the document being edited: what an instance without a
+   * `catalogKey` refers to, and where a new stencil is created.
+   */
+  catalogKey: string;
   searchStencils: SearchStencilsFn;
-  listVersions: ListStencilVersionsFn;
-  getStencilVersion: GetStencilVersionFn;
-  checkUpgrades?: CheckStencilUpgradesFn;
+  getStencil: GetStencilFn;
   createStencil?: CreateStencilFn;
-  updateStencil?: UpdateStencilFn;
-  startEditing?: StartEditingFn;
-  publishDraft?: PublishDraftFn;
+  saveStencil?: SaveStencilFn;
+  markStencilReady?: MarkStencilReadyFn;
 }

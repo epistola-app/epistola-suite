@@ -7,8 +7,8 @@
  *
  * A placeholder has two slots:
  *
- *  - `default` — the stencil author's default content (set in stencil-edit
- *    mode, frozen once the stencil is published).
+ *  - `default` — the stencil author's default content (set while the stencil is
+ *    edited, locked where the stencil is used).
  *  - `fill`    — the embedding template's override (set in template-fill
  *    mode; empty in newly-inserted stencils).
  *
@@ -29,7 +29,7 @@ import './PlaceholderInspector.js';
 function placeholderModeLabel(node: Node, engineUnknown: unknown): string {
   const engine = engineUnknown as EditorEngine | undefined;
   if (!engine) return 'default';
-  const context = placeholderContext(engine.doc, node.id, engine.indexes);
+  const context = placeholderContext(engine.doc, node.id, engine.indexes, engine.registry);
   if (context === 'stencil-author') return 'default';
   const slotsById = engine.doc.slots as Record<string, { name: string; children: NodeId[] }>;
   const fillSlotId = node.slots.find(
@@ -52,10 +52,10 @@ export function createPlaceholderDefinition(): ComponentDefinition {
     category: 'layout',
     slots: [
       // `default` inherits whatever lock the surrounding stencil has — the
-      // stencil author edits it (in draft mode) and the template author
-      // cannot (when published).
+      // stencil author edits it (while editing the stencil) and the template
+      // author cannot (where the stencil is used).
       { name: PLACEHOLDER_SLOT_DEFAULT },
-      // `fill` is always user-editable, even inside a published (locked)
+      // `fill` is always user-editable, even inside a used (locked)
       // stencil. This is what makes placeholders work in templates.
       { name: PLACEHOLDER_SLOT_FILL, editable: true },
     ],
@@ -184,9 +184,9 @@ export function createPlaceholderDefinition(): ComponentDefinition {
         : [];
       const fillChildren = fillSlotId ? (slotsById[fillSlotId as string]?.children ?? []) : [];
 
-      const context = placeholderContext(doc, node.id, engine.indexes);
+      const context = placeholderContext(doc, node.id, engine.indexes, engine.registry);
 
-      // Stencil-author / draft mode: render the `default` slot for editing.
+      // Stencil-author mode (editing the stencil): render the `default` slot for editing.
       // The fill slot is irrelevant in this context (filling is template-time).
       if (context === 'stencil-author') {
         return html`

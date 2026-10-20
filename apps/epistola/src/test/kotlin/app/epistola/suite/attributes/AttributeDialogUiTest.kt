@@ -32,7 +32,7 @@ class AttributeDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Attribute Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/attributes/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/attributes/new$")
 
     /**
      * Opens the create dialog off the always-present page-header action via keyboard
@@ -51,7 +51,7 @@ class AttributeDialogUiTest : BasePlaywrightTest() {
     fun `dialog is not open on initial load of the attributes list`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/attributes")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/attributes")
         page.htmxSettle()
 
         // The create dialog is only attached when the form is embedded/opened
@@ -67,7 +67,7 @@ class AttributeDialogUiTest : BasePlaywrightTest() {
     fun `activating the New Attribute trigger opens the dialog and pushes the new-form URL`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/attributes")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/attributes")
         page.htmxSettle()
 
         openCreateDialog()
@@ -81,7 +81,7 @@ class AttributeDialogUiTest : BasePlaywrightTest() {
     fun `selecting the inline constraint reveals the allowed-values pane inside the dialog`() {
         val tenant = createTestTenant()
 
-        gotoAndReady("/tenants/${tenant.id}/attributes")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/attributes")
         page.htmxSettle()
 
         val dialog = openCreateDialog()

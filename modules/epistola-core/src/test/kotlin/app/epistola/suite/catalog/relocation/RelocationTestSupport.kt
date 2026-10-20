@@ -11,7 +11,9 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.ids.AssetKey
@@ -42,13 +44,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
@@ -76,6 +78,9 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     @Autowired
     private lateinit var resourceLoader: ResourceLoader
+
+    @Autowired
+    private lateinit var dependencyDeclarer: MissingDependencyDeclarer
 
     protected val letters: CatalogKey = CatalogKey.of("letters")
     protected val shared: CatalogKey = CatalogKey.of("shared")
@@ -118,7 +123,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
             """
             SELECT resource_id FROM catalog_resources
             WHERE tenant_key = :tenantKey AND resource_type = :resourceType
-              AND catalog_key = :catalogKey AND resource_key = :resourceKey
+              AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND resource_key = :resourceKey
             """,
         )
             .bind("tenantKey", tenant)
@@ -209,8 +214,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
                     id = nodeId,
                     type = "stencil",
                     props = buildMap {
-                        put("stencilId", stencilKey)
-                        put("version", 1)
+                        put("stencilKey", stencilKey)
                         catalogKey?.let { put("catalogKey", it) }
                     },
                 )
@@ -223,8 +227,8 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun templateVariant(tenant: TenantKey, catalog: CatalogKey, key: String = "invoice") = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of(key), catalogId(tenant, catalog)))
 
     /**
-     * Creates template [key] in [catalog], runs [setup] with its id, then publishes [model] as its
-     * first version and returns that version.
+     * Creates template [key] in [catalog], runs [setup] with its id, then sets [model] as its
+     * content and marks the variant ready.
      */
     protected fun publishTemplate(
         tenant: TenantKey,
@@ -232,15 +236,13 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         model: TemplateDocument,
         key: String = "invoice",
         setup: (TemplateId) -> Unit = {},
-    ): VersionKey {
+    ) {
         val variant = templateVariant(tenant, catalog, key)
-        return withMediator {
+        withMediator {
             CreateDocumentTemplate(variant.templateId, "Template $key").execute().withRequiredDataExample()
             setup(variant.templateId)
-            UpdateDraft(variant, model).execute()
-            val draft = GetDraft(variant).query()!!.id
-            PublishVersion(VersionId(draft, variant)).execute()
-            draft
+            UpdateVariantContent(variant, model).execute()
+            MarkVariantReady(variant).execute()
         }
     }
 
@@ -264,9 +266,11 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     /**
      * Releases every catalog of [tenant], each after the catalogs it uses: a release pins the
-     * release of every other catalog it uses, so those must exist first.
+     * release of every other catalog it uses, so those must exist first. Each catalog first declares
+     * the catalogs its content uses, as its author would.
      */
     protected fun releaseAll(tenant: TenantKey, catalogs: List<CatalogKey>) {
+        withMediator { dependencyDeclarer.declareMissingInTenant(tenant) }
         val pending = catalogs.toMutableList()
         while (pending.isNotEmpty()) {
             val released = pending.filter { catalog ->
@@ -280,7 +284,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     /** Styles naming font [slug], in [catalog] or relatively when it is null. */
     protected fun fontStyle(slug: String, catalog: String?): Map<String, Any> = mapOf(
         "fontFamily" to buildMap {
-            put("slug", slug)
+            put("key", slug)
             catalog?.let { put("catalogKey", it) }
         },
     )
@@ -312,7 +316,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         root = "root",
         nodes = mapOf("root" to Node(id = "root", type = "root")),
         slots = emptyMap(),
-        themeRef = ThemeRefOverride(themeId = themeKey, catalogKey = catalogKey),
+        themeRef = ThemeRefOverride(themeKey = themeKey, catalogKey = catalogKey),
     )
 
     protected fun emptyTemplate(): TemplateDocument = TemplateDocument(

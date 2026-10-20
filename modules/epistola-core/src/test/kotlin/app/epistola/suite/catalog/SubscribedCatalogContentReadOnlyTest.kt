@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -18,9 +17,8 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.stencils.commands.ArchiveStencilVersion
-import app.epistola.suite.stencils.commands.PublishStencilVersion
-import app.epistola.suite.stencils.queries.ListStencilVersions
+import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
@@ -52,12 +50,7 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
 
     private fun firstVariant(tenantKey: TenantKey) = withMediator { ListVariants(simpleLetter(tenantKey)).query().first() }
 
-    /** The installed version of the fixture's `company-header` stencil, whatever number the release gave it. */
-    private fun companyHeaderVersion(tenantKey: TenantKey): StencilVersionId {
-        val stencil = StencilId(StencilKey.of("company-header"), CatalogId(installed, TenantId(tenantKey)))
-        val version = withMediator { ListStencilVersions(stencil).query().first() }
-        return StencilVersionId(version.id, stencil)
-    }
+    private fun companyHeader(tenantKey: TenantKey) = StencilId(StencilKey.of("company-header"), CatalogId(installed, TenantId(tenantKey)))
 
     @Test
     fun `UpdateVariant is refused and leaves the installed variant as it was`() {
@@ -82,21 +75,15 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `ArchiveStencilVersion is refused`() {
+    fun `UpdateStencil is refused and leaves the installed stencil as it was`() {
         val tenantKey = installFixture()
+        val before = withMediator { GetStencil(companyHeader(tenantKey)).query()!! }
 
         assertThatThrownBy {
-            withMediator { ArchiveStencilVersion(companyHeaderVersion(tenantKey)).execute() }
+            withMediator { UpdateStencil(companyHeader(tenantKey), name = "Renamed").execute() }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
-    }
 
-    @Test
-    fun `PublishStencilVersion is refused`() {
-        val tenantKey = installFixture()
-
-        assertThatThrownBy {
-            withMediator { PublishStencilVersion(companyHeaderVersion(tenantKey)).execute() }
-        }.isInstanceOf(CatalogReadOnlyException::class.java)
+        assertThat(withMediator { GetStencil(companyHeader(tenantKey)).query()!! }.name).isEqualTo(before.name)
     }
 
     @Test

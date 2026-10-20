@@ -281,16 +281,14 @@ ambiguous outcome. Suite needs no additional wire field for any of this.
 
 ## Namespace selection and immutable binding
 
-A catalog's namespace is always chosen **explicitly**. Nothing infers one from the tenant default at
-publish time: the choice becomes permanent the moment a release reaches Exchange, and a permanent
-decision should not be made by a fallback. The tenant default is only the value a namespace picker
-starts on.
-
-Until a catalog has a namespace, **no publication is created at all** — a release with nowhere to go
-is not queued and left waiting, it is simply not queued. The local release is unaffected either way.
-The release dialog and the catalog's publish action offer the granted namespaces to anyone holding
-`CATALOG_PUBLISH`, so choosing happens at the moment of publishing rather than on a settings page;
-once chosen, the same forms show where the release will go instead of asking again.
+A catalog publishes under **its own namespace** (`catalogs.namespace`, contract ADR 0003: the
+registry grants it), so there is one namespace, not a second Exchange setting. A new catalog starts
+on the tenant's Exchange default namespace when the connection names one, otherwise on the tenant's
+key. Publishing needs that namespace to be one the connection grants: the release dialog shows the
+full name it publishes as (`exchange.epistola.app/acme/letters`) and that it becomes permanent, and
+when the namespace is not granted it asks for a granted one (`ChangeCatalogNamespace`, under
+`CATALOG_PUBLISH`), which becomes the catalog's namespace. Until it is granted, **no publication is
+created at all**; the local release is unaffected either way.
 
 **When there is nowhere to publish, the release form does not offer to.** Publishing is shown as
 unavailable, with the reason and whose problem it is: the tenant is not connected to Exchange (fixed
@@ -301,7 +299,7 @@ asking to publish makes the namespace field required, and with nothing granted t
 options, so the form refuses to submit saying only that a selection is needed. Releasing locally is
 never blocked by any of this.
 
-Releasing and publishing are separate acts with separate permissions. `TEMPLATE_PUBLISH` cuts an
+Releasing and publishing are separate acts with separate permissions. `CATALOG_RELEASE` cuts an
 immutable release inside this installation; `CATALOG_PUBLISH` sends one to Exchange and decides the
 namespace it lands in. Someone can be trusted with the first and not the second.
 
@@ -316,32 +314,17 @@ since changed, can never be published. The catalog page says so and names the ve
 quietly withdrawing the action. The way forward is to release the current state as a new version and
 publish that.
 
-Exchange addresses a catalog by namespace, catalog key, and version. The
-namespace is recorded once in `catalog_exchange_bindings(tenant, catalog,
-namespace)` and never inferred: someone holding `CATALOG_PUBLISH` picks it, from
-the namespaces the connection grants. The tenant default supplies the value the
-picker starts on and nothing more.
+Exchange addresses a catalog by namespace, catalog key, and version. The namespace can change
+freely until a release of the catalog reaches Exchange; work queued and not yet sent follows it.
+From then on it is **fixed**: publishing the catalog under another namespace would make it another
+catalog (ADR 0003), so `ChangeCatalogNamespace` refuses (`CatalogNamespaceFixedException`). Versions
+already published stay where Exchange holds them.
 
-The binding is freely changeable until a release of that catalog reaches
-Exchange. After that it can still be **moved**, but only deliberately: the change
-must be acknowledged, because what it does is narrower than it looks. Versions
-already published stay exactly where they are — Exchange holds them under the old
-namespace and Suite neither can nor should move them — and only future releases
-go somewhere new. The cost falls downstream: anyone following the old namespace
-keeps the versions already there and never sees another one, with nothing telling
-them the catalog continued elsewhere.
-
-After a move the new namespace has published nothing, so the catalog is freely
-changeable again until it does.
-
-The binding is otherwise fixed from the moment a release reaches Exchange —
-recorded on the binding itself as `published_at`, so the fact survives the
-catalog being deleted, exactly as Exchange's copy of what was published does.
-"Reaches Exchange" means **accepted**, not submitted: Exchange taking a
-submission and then rejecting it leaves nothing published under those
-coordinates, so a rejected first attempt leaves the catalog freely movable
-rather than freezing coordinates it never occupied. A catalog recreated under the same key therefore returns to the
-same namespace instead of claiming a second one.
+That fact is recorded in `catalog_exchange_bindings(tenant, catalog, namespace, published_at)`, which
+deliberately outlives the local catalog, exactly as Exchange's copy of what was published does.
+"Reaches Exchange" means **accepted**, not submitted: Exchange taking a submission and then
+rejecting it leaves nothing published under those coordinates. A catalog recreated under the same
+key returns to that namespace (`CreateCatalog`), and asking for another is refused.
 
 A catalog with no namespace queues nothing. Its releases still succeed; they are
 simply not sent anywhere, and can be published later once a namespace is chosen —

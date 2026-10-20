@@ -6,6 +6,7 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.assets.AssetMediaCategory
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -21,7 +22,7 @@ import app.epistola.suite.mcp.tools.ImageMcpTools
 import app.epistola.suite.mcp.tools.StencilMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
 import app.epistola.suite.mcp.tools.ThemeMcpTools
-import app.epistola.suite.mcp.tools.VersionMcpTools
+import app.epistola.suite.mcp.tools.VariantContentMcpTools
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
@@ -48,7 +49,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var templateTools: TemplateMcpTools
 
-    @Autowired private lateinit var versionTools: VersionMcpTools
+    @Autowired private lateinit var contentTools: VariantContentMcpTools
 
     @Autowired private lateinit var contractTools: DataContractMcpTools
 
@@ -88,7 +89,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     private fun newTenant(): TenantId = TenantId(createTenant("MCP Write ${UUID.randomUUID()}").id)
 
     @Test
-    fun `create_template then update_template_draft stores the document in the default variant`() {
+    fun `create_template then update_variant_content stores the document in the default variant`() {
         val tenantId = newTenant()
 
         val template = runAsApiKey(tenantId) {
@@ -97,16 +98,15 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         assertThat(template.id).isEqualTo("welcome-letter")
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "welcome-letter") }.single()
 
-        val version = runAsApiKey(tenantId) {
-            versionTools.updateTemplateDraft("default", "welcome-letter", variant.id, documentJson("Dear {{name}}"))
+        val first = runAsApiKey(tenantId) {
+            contentTools.updateVariantContent("default", "welcome-letter", variant.id, documentJson("Dear {{name}}"), null)
         }
-        assertThat(version.status).isEqualTo("draft")
+        assertThat(first.variantId).isEqualTo(variant.id)
 
-        // Called again, the same draft is replaced rather than a second one created.
-        val again = runAsApiKey(tenantId) {
-            versionTools.updateTemplateDraft("default", "welcome-letter", variant.id, documentJson("Hello {{name}}"))
+        // Called again, the variant's one content is replaced.
+        runAsApiKey(tenantId) {
+            contentTools.updateVariantContent("default", "welcome-letter", variant.id, documentJson("Hello {{name}}"), null)
         }
-        assertThat(again.id).isEqualTo(version.id)
         val stored = runAsApiKey(tenantId) {
             GetEditorContext(variantId("default", tenantId, "welcome-letter", variant.id)).query()
         }!!
@@ -114,14 +114,14 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `update_template_draft returns the stored document on request, as get_template_content does`() {
+    fun `update_variant_content returns the stored document on request, as get_template_content does`() {
         val tenantId = newTenant()
         runAsApiKey(tenantId) { templateTools.createTemplate("default", "echo", "Echo", null, null, null) }
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "echo") }.single()
         val sent = documentJson("Dear {{name}}")
 
-        val summary = runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "echo", variant.id, sent) }
-        val echoed = runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "echo", variant.id, sent, returnContent = true) }
+        val summary = runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "echo", variant.id, sent, null) }
+        val echoed = runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "echo", variant.id, sent, returnContent = true) }
 
         assertThat(summary.templateModel).isNull()
         val mapper = tools.jackson.databind.json.JsonMapper.builder().build()
@@ -130,6 +130,22 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         assertThat(echoedTree).isEqualTo(mapper.valueToTree<tools.jackson.databind.JsonNode>(content.templateModel))
         // What the server stores differs from what was sent, which is why a client needs it back.
         assertThat(echoedTree).isNotEqualTo(mapper.readTree(sent))
+    }
+
+    /** An agent passes back the revision it read; an update over someone else's is refused and changes nothing. */
+    @Test
+    fun `update_variant_content refuses an expectedRevision someone else has moved on from`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) { templateTools.createTemplate("default", "locked", "Locked", null, null, null) }
+        val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "locked") }.single()
+        val read = runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "locked", variant.id) }!!.revision!!
+
+        val mine = runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "locked", variant.id, documentJson("Mine"), null, expectedRevision = read) }
+        assertThat(mine.revision).isEqualTo(read + 1)
+        assertThatThrownBy {
+            runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "locked", variant.id, documentJson("Theirs"), null, expectedRevision = read) }
+        }.isInstanceOf(ResourceModifiedException::class.java).hasMessageContaining("changed by someone else")
+        assertThat(runAsApiKey(tenantId) { templateTools.getTemplateContent("default", "locked", variant.id) }!!.revision).isEqualTo(mine.revision)
     }
 
     @Test
@@ -160,18 +176,18 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `update_template_draft reports a malformed document against the content argument`() {
+    fun `update_variant_content reports a malformed document against the content argument`() {
         val tenantId = newTenant()
         runAsApiKey(tenantId) { templateTools.createTemplate("default", "broken", "Broken", null, null, null) }
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "broken") }.single()
 
         assertThatThrownBy {
-            runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "broken", variant.id, """{"nodes": 12}""") }
+            runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "broken", variant.id, """{"nodes": 12}""", null) }
         }.hasMessageContaining("`content` is not a valid TemplateDocument")
     }
 
     @Test
-    fun `update_template_draft refuses a javascript expression`() {
+    fun `update_variant_content refuses a javascript expression`() {
         val tenantId = newTenant()
         runAsApiKey(tenantId) { templateTools.createTemplate("default", "scripted", "Scripted", null, null, null) }
         val variant = runAsApiKey(tenantId) { templateTools.listVariants("default", "scripted") }.single()
@@ -192,7 +208,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         """.trimIndent()
 
         assertThatThrownBy {
-            runAsApiKey(tenantId) { versionTools.updateTemplateDraft("default", "scripted", variant.id, document) }
+            runAsApiKey(tenantId) { contentTools.updateVariantContent("default", "scripted", variant.id, document, null) }
         }.hasMessageContaining("JavaScript expressions are no longer supported")
     }
 
@@ -354,7 +370,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         val contract = runAsApiKey(tenantId) {
             contractTools.updateDataContract("default", "letter", schema, """[{"name": "Jane", "data": {"name": "Jane"}}]""")
         }
-        assertThat(contract.status).isEqualTo("draft")
+        assertThat(contract.templateId).isEqualTo("letter")
         assertThat(contract.dataModel.toString()).contains("\"name\"")
         assertThat(contract.dataExamples.map { it.id to it.name }).containsExactly("example-1" to "Jane")
 
@@ -366,28 +382,30 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `create_stencil and update_stencil_draft keep one draft and carry its parameter schema over`() {
+    fun `create_stencil and update_stencil edit the stencil's one content and keep what is not given`() {
         val tenantId = newTenant()
         val parameters = """{"type": "object", "properties": {"title": {"type": "string"}}}"""
 
         val stencil = runAsApiKey(tenantId) {
-            stencilTools.createStencil("default", "letterhead", "Letterhead", null, listOf("header"), documentJson("ACME"), parameters)
+            stencilTools.createStencil("default", "letterhead", "Letterhead", null, listOf("header"), documentJson("ACME"), parameters, null)
         }
         assertThat(stencil.tags).containsExactly("header")
+        assertThat(stencil.parameterSchema.toString()).contains("title")
+        assertThat(stencil.readsTemplateData).isFalse()
 
-        val draft = runAsApiKey(tenantId) {
-            stencilTools.updateStencilDraft("default", "letterhead", documentJson("ACME Corp"), null)
+        val updated = runAsApiKey(tenantId) {
+            stencilTools.updateStencil("default", "letterhead", null, null, null, documentJson("ACME Corp"), null, null, true)
         }
-        assertThat(draft.status).isEqualTo("draft")
-        assertThat(draft.parameterSchema.toString()).contains("title")
-        val versions = runAsApiKey(tenantId) { stencilTools.listStencilVersions("default", "letterhead") }
-        assertThat(versions).hasSize(1)
-        val content = runAsApiKey(tenantId) { stencilTools.getStencilVersion("default", "letterhead", draft.version) }!!
-        assertThat(content.content!!.nodes["text1"]!!.props.toString()).contains("ACME Corp")
+        assertThat(updated.parameterSchema.toString()).contains("title")
+        assertThat(updated.readsTemplateData).isTrue()
+        val detail = runAsApiKey(tenantId) { stencilTools.getStencil("default", "letterhead") }!!
+        assertThat(detail.content.nodes["text1"]!!.props.toString()).contains("ACME Corp")
 
-        val renamed = runAsApiKey(tenantId) { stencilTools.updateStencil("default", "letterhead", "Header", null, null) }
+        val renamed = runAsApiKey(tenantId) { stencilTools.updateStencil("default", "letterhead", "Header", null, null, null, null, true, null) }
         assertThat(renamed.name).isEqualTo("Header")
         assertThat(renamed.tags).containsExactly("header")
+        assertThat(renamed.parameterSchema).isNull()
+        assertThat(renamed.readsTemplateData).isTrue()
     }
 
     @Test

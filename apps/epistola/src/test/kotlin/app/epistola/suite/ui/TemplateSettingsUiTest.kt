@@ -4,7 +4,10 @@
 
 package app.epistola.suite.ui
 
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -12,18 +15,12 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -52,9 +49,9 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
 
     @Test
     fun `escape reverts the rename input to the latest committed name`() {
-        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
+        val (tenant, template) = withMediator { createTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
 
         val input = page.locator("[data-template-name-input]")
 
@@ -74,9 +71,9 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
 
     @Test
     fun `a failed rename reverts the input to the persisted name`() {
-        val (tenant, template) = withMediator { createPublishedTemplateWithDraft() }
+        val (tenant, template) = withMediator { createTemplate() }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         failEveryRequestTo("**/templates/**/name")
 
         val input = page.locator("[data-template-name-input]")
@@ -92,7 +89,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     @Test
     fun `a failed PDF-A toggle reverts the checkbox`() {
         val (tenant, template) = withMediator {
-            val seeded = createPublishedTemplateWithDraft()
+            val seeded = createTemplate()
             // Pin the starting state instead of leaning on the create-time
             // default: the revert has to restore whatever the server holds.
             UpdateDocumentTemplate(
@@ -102,7 +99,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             seeded
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         failEveryRequestTo("**/templates/**/pdfa")
 
         val toggle = page.locator("#pdfa-toggle")
@@ -118,7 +115,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     @Test
     fun `a theme deleted after page load shows an error and the selector reverts`() {
         val (tenant, template, staleTheme) = withMediator {
-            val seeded = createPublishedTemplateWithDraft()
+            val seeded = createTemplate()
             val tenantId = TenantId(seeded.first.id)
             val catalogId = CatalogId.default(tenantId)
             val currentTheme = ThemeId(ThemeKey.of("current-theme"), catalogId)
@@ -133,7 +130,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             Triple(seeded.first, seeded.second, staleTheme)
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/settings")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         val select = page.locator("#theme-select")
         assertThat(select).hasValue("default/current-theme")
 
@@ -149,6 +146,27 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     }
 
     /** Makes the endpoint answer 500 so the control's error path runs. */
+    @Test
+    fun `an inline save refreshes what the bar says is not published`() {
+        val (tenant, template) = withMediator {
+            createTemplate().also { (tenant, _) ->
+                MarkCatalogReady(tenant.id, CatalogKey.DEFAULT).execute()
+                ReleaseCatalogVersion(tenant.id, CatalogKey.DEFAULT).execute()
+            }
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
+        val status = page.locator("[data-testid=ws-pending]")
+        assertThat(status).hasText("Everything is published")
+
+        val input = page.locator("[data-template-name-input]")
+        input.fill("Renamed After Publishing")
+        input.press("Enter")
+
+        // The rename is the change the bar now names, without reloading the page.
+        assertThat(status).hasText("1 change not published")
+    }
+
     private fun failEveryRequestTo(urlPattern: String) {
         page.route(urlPattern) { route ->
             route.fulfill(
@@ -160,7 +178,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         }
     }
 
-    private fun createPublishedTemplateWithDraft(): Pair<Tenant, DocumentTemplate> {
+    private fun createTemplate(): Pair<Tenant, DocumentTemplate> {
         val tenant = CreateTenant(
             id = TenantKey.of("settings-ui-${System.nanoTime()}"),
             name = "Settings UI Tenant",
@@ -175,10 +193,6 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             id = EnvironmentId(EnvironmentKey.of("prod"), tenantId),
             name = "Production",
         ).execute()
-        val variantId = VariantId(VariantKey.INITIAL, TemplateId(template.id, CatalogId.default(tenantId)))
-        val draft = GetDraft(variantId).query()!!
-        PublishVersion(versionId = VersionId(draft.id, variantId)).execute()
-        CreateVersion(variantId = variantId).execute()
         return tenant to template
     }
 }

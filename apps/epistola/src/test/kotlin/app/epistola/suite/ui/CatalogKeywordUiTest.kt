@@ -52,7 +52,7 @@ class CatalogKeywordUiTest : BasePlaywrightTest() {
             ).execute()
         }
 
-        gotoAndReady("/tenants/${tenant.id}/catalogs/${catalogKey.value}/browse")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/${catalogKey.value}/settings")
         page.htmxSettle()
 
         val overflow = page.evaluate(

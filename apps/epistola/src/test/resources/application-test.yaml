@@ -11,6 +11,10 @@ spring:
 
 # PrometheusEndpointTest reads these; setting them for every test lets it share the base context.
 management:
+  # The actuator keeps its own port in tests, as in every installation, but a random one: a fixed
+  # port would collide between test contexts.
+  server:
+    port: 0
   prometheus:
     metrics:
       export:
@@ -27,6 +31,11 @@ logging:
 # No OAuth2 configuration needed
 
 epistola:
+  features:
+    # The editor walkthrough is on by default, and its first-visit spotlight covers the editor until
+    # it is dismissed, which would stop every other editor test. Its own tests switch it on per tenant
+    # (EditorWalkthroughUiTest); the product default is KnownFeaturesTest's.
+    editor-walkthrough: false
   # Tests never reach the real product domain: `.invalid` never resolves (RFC 2606), so a test that
   # forgets to stub discovery fails fast onto the built-in fallbacks instead of calling epistola.app.
   product-domain: epistola.invalid

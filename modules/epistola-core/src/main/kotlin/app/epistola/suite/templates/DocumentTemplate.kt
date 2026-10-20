@@ -21,7 +21,7 @@ import java.time.OffsetDateTime
 data class DocumentTemplate(
     val id: TemplateKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val themeKey: ThemeKey? = null,
@@ -31,6 +31,8 @@ data class DocumentTemplate(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change to the template (its name, theme, PDF/A or data contract); see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )
 
 /**
@@ -39,7 +41,7 @@ data class DocumentTemplate(
 data class DocumentTemplateWithVariants(
     val id: TemplateKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val name: String,
     val themeKey: ThemeKey? = null,
     val pdfaEnabled: Boolean = true,

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* A catalog's details (docs/workspace-shell.md): its name, description and how it is shown to
+           people who install it, which go out with each version; its key; and where it publishes on
+           Epistola Exchange. Model: the catalog page's, at the version the page works in. */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Details',
+            pageDescription=${catalog.type.name() == 'AUTHORED'} ? 'Published with each version: change them here, and the next version you publish carries them.' : 'As its publisher describes it.'
+        )}"></div>
+        <div id="catalog-alert"></div>
+        <div th:replace="~{catalogs/content :: metadata-card}"></div>
+        <div th:replace="~{catalogs/browse :: identity-section}"></div>
+        <div th:replace="~{catalogs/browse :: exchange-section}"></div>
+
+        <!--/* Deleting the catalog, where its details are. The system catalog is the one that cannot go:
+               the suite installs it in every tenant. A refusal (still used, served or pinned) lands on
+               the catalog list with its reason (CatalogHandler.deleteCatalog). */-->
+        <div th:if="${auth.has('CATALOG_MANAGE')}" class="ep-panel detail-section danger-zone" data-testid="catalog-delete-section">
+            <div class="detail-section-header"><h3>Danger Zone</h3></div>
+            <div class="detail-section-body">
+                <p th:if="${catalog.id == 'system'}" class="text-muted" style="margin: 0;">
+                    The system catalog cannot be deleted: the suite installs it in every tenant.
+                </p>
+                <th:block th:unless="${catalog.id == 'system'}">
+                    <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);"
+                       th:text="${catalog.type.name() == 'AUTHORED'}
+                                ? 'Permanently delete this catalog with all its versions, templates, themes, stencils and other resources. It is refused while another catalog uses it or an environment serves one of its versions.'
+                                : 'Remove this catalog and every version of it installed here. It is refused while another catalog uses it or an environment serves one of its versions.'">
+                        Permanently delete this catalog.</p>
+                    <form th:action="@{/tenants/{t}/catalogs/{c}/delete(t=${tenantId},c=${catalog.id})}"
+                          method="post" hx-boost="false" data-testid="catalog-delete-form">
+                        <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="catalog-delete"
+                                data-confirm-submit
+                                th:attr="data-confirm-submit-title=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog' : 'Remove catalog',data-confirm-submit-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete ' + ${catalog.name} + ' and all its versions and resources? This cannot be undone.' : 'Remove ' + ${catalog.name} + ' and every version of it installed here? This cannot be undone.'"
+                                data-confirm-submit-label="Delete"
+                                th:text="${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog' : 'Remove catalog'">Delete catalog</button>
+                    </form>
+                </th:block>
+            </div>
+        </div>
+        <div id="dialog-mount" data-dialog-mount></div>
+    </th:block>
+</body>
+</html>

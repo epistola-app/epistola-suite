@@ -5,9 +5,11 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
@@ -30,7 +32,10 @@ data class CreateVariant(
     val title: String,
     val description: String?,
     val attributes: Map<String, String> = emptyMap(),
-) : Command<TemplateVariant?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<TemplateVariant?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey
@@ -62,7 +67,7 @@ class CreateVariantHandler(
                     """
                 SELECT 1
                 FROM document_templates
-                WHERE id = :templateId AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :templateId AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
                 )
                     .bind("templateId", command.id.templateKey)
@@ -80,7 +85,7 @@ class CreateVariantHandler(
                 val existingCount = handle.createQuery(
                     """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
                 )
                     .bind("tenantId", command.id.tenantKey)
@@ -90,11 +95,15 @@ class CreateVariantHandler(
                     .one()
                 val isDefault = existingCount == 0L
 
+                // A new variant starts with the empty document.
+                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_key, template_resource_id, title, description, attributes, is_default, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *, CAST(:templateId AS TEXT) AS template_key
+                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, description, attributes, is_default, template_model, referenced_paths,
+                                               created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault,
+                        :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
                 """,
                 )
                     .bind("id", command.id.key)
@@ -105,48 +114,11 @@ class CreateVariantHandler(
                     .bind("description", command.description)
                     .bind("attributes", attributesJson)
                     .bind("isDefault", isDefault)
+                    .bind("templateModel", prepared.templateModelJson)
+                    .bind("referencedPaths", prepared.referencedPathsJson)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .mapTo<TemplateVariant>()
                     .one()
-
-                // Create an initial draft version for the new variant with default template model (version ID = 1)
-                val versionId = VersionKey.of(1) // First version is always 1
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variant.id), command.id.catalogKey)
-
-                // Resolve contract version: prefer draft (user may be editing), fall back to published
-                val contractVersionId = handle.createQuery(
-                    """
-                SELECT id FROM contract_versions
-                WHERE tenant_key = :tenantKey AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
-                ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-                LIMIT 1
-                """,
-                )
-                    .bind("tenantKey", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
-                    .bind("templateKey", command.id.templateKey)
-                    .mapTo(Int::class.java)
-                    .findOne()
-                    .orElseThrow {
-                        IllegalStateException("No contract version found for template '${command.id.templateKey}'")
-                    }
-
-                handle.createUpdate(
-                    """
-                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status, contract_version, referenced_paths, created_at, created_by)
-                VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, :templateModel::jsonb, 'draft', :contractVersion, :referencedPaths::jsonb, NOW(), :createdBy)
-                """,
-                )
-                    .bind("id", versionId)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
-                    .bind("templateId", command.id.templateKey)
-                    .bind("variantId", command.id.key)
-                    .bind("templateModel", prepared.templateModelJson)
-                    .bind("contractVersion", contractVersionId)
-                    .bind("referencedPaths", prepared.referencedPathsJson)
-                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                    .execute()
 
                 variant
             }

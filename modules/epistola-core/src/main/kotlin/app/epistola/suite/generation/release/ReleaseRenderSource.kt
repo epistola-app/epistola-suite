@@ -7,6 +7,7 @@ package app.epistola.suite.generation.release
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.generation.pdf.AssetResolution
@@ -16,12 +17,16 @@ import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.generation.pdf.SpacingScale
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.pickNearestFace
+import app.epistola.suite.stencils.model.StencilInstances
 import app.epistola.suite.tenants.Tenant
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
@@ -66,7 +71,7 @@ data class ReleaseRenderInputs(
     val fontFamilyResolver: FontFamilyResolver,
 )
 
-/** A release cannot be rendered: something it needs is not in it, or it kept no content. */
+/** A release cannot be rendered: something it needs is not in it. */
 class ReleaseRenderException(message: String) : IllegalStateException(message)
 
 /**
@@ -88,6 +93,7 @@ class ReleaseRenderSource(
     private val assembler: ReleaseContentAssembler,
     private val entryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
+    private val dependencyStore: CatalogDependencyStore,
 ) {
 
     private val resources = Caffeine.newBuilder()
@@ -118,28 +124,16 @@ class ReleaseRenderSource(
 
         val template = read(scope.tenantKey, release, "template", templateKey) as? TemplateResource
             ?: throw ReleaseRenderException("Release ${release.label()} does not contain template '$templateKey'")
-        val variant = template.variants.firstOrNull { it.slug == variantKey }
+        val variant = template.variants.firstOrNull { it.key == variantKey }
             ?: throw ReleaseRenderException("Release ${release.label()} has no variant '$variantKey' of template '$templateKey'")
         // The wire form hoists the default variant's model onto the template and leaves it off the
         // variant entry, so the default variant's model is the template's.
-        val model = variant.templateModel ?: template.templateModel
+        val model = expandStencils(scope, variant.templateModel ?: template.templateModel)
 
         val (themeCatalog, theme) = resolveTheme(scope, tenant, template, model)
 
-        val templateResourceId = jdbi.withHandle<java.util.UUID, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT resource_id FROM release_entries
-                WHERE tenant_key = :t AND catalog_key = :c AND version = :version
-                  AND resource_type = 'template' AND resource_key = :key
-                """,
-            )
-                .bind("t", tenantKey)
-                .bind("c", release.catalogKey)
-                .bind("version", release.version)
-                .bind("key", templateKey)
-                .mapTo(java.util.UUID::class.java)
-                .one()
+        val templateResourceId = requireNotNull(templateResourceId(tenantKey, release, templateKey)) {
+            "Release ${release.label()} has no entry for template '$templateKey'"
         }
 
         return ReleaseRenderInputs(
@@ -159,16 +153,41 @@ class ReleaseRenderSource(
     }
 
     /**
+     * The template with its stencil instances expanded (contract ADR 0006): a stencil of this catalog
+     * comes from this release, one of another catalog from that catalog's release in [scope]. The
+     * release check keeps instances that do not fit out of a release, so a stencil that cannot be
+     * found or that contains itself is a broken release and refuses to render; a fill or binding
+     * that no longer fits renders as the expansion leaves it.
+     */
+    private fun expandStencils(scope: Scope, model: TemplateDocument): TemplateDocument {
+        val resolver = StencilInstances.Resolver { stencilKey, catalogKey ->
+            (read(scope.tenantKey, scope.releaseOf(CatalogKey.of(catalogKey)), "stencil", stencilKey) as? StencilResource)?.let {
+                StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData)
+            }
+        }
+        val expanded = StencilInstances.expand(model, scope.release.catalogKey.value, resolver)
+        expanded.findings.firstOrNull { it.problem in UNRENDERABLE }?.let { finding ->
+            throw ReleaseRenderException(
+                "Release ${scope.release.label()} uses stencil '${finding.stencilKey}' of catalog '${finding.catalogKey}', " +
+                    if (finding.problem == StencilInstances.Problem.STENCIL_NOT_FOUND) "which it cannot supply" else "which cannot be expanded (${finding.problem})",
+            )
+        }
+        return expanded.document
+    }
+
+    /**
      * The theme cascade, read from releases: the variant's own theme, then the template's, then the
-     * tenant default. Returns the theme's catalog alongside it, because unqualified font references
+     * default theme the release was published with (contract ADR 0007; the tenant's house theme is
+     * never read here). Returns the theme's catalog alongside it, because unqualified font references
      * resolve in the catalog of the theme that styles the document.
      */
     private fun resolveTheme(scope: Scope, tenant: Tenant, template: TemplateResource, model: TemplateDocument): Pair<CatalogKey?, ThemeResource?> {
         val ref = model.themeRef
+        val releaseDefault by lazy { assembler.readCatalogInfo(scope.tenantKey, scope.release.catalogKey, scope.release.version)?.defaultTheme }
         val (themeKey, themeCatalog) = when {
-            ref is ThemeRefOverride -> ref.themeId to ref.catalogKey?.let(CatalogKey::of)
-            template.themeId != null -> template.themeId!! to template.themeCatalogKey?.let(CatalogKey::of)
-            tenant.defaultThemeKey != null -> tenant.defaultThemeKey.value to tenant.defaultThemeCatalogKey
+            ref is ThemeRefOverride -> ref.themeKey to ref.catalogKey?.let(CatalogKey::of)
+            template.themeKey != null -> template.themeKey!! to template.themeCatalogKey?.let(CatalogKey::of)
+            releaseDefault != null -> releaseDefault!!.key to releaseDefault!!.catalogKey?.let(CatalogKey::of)
             else -> return null to null
         }
         val catalog = themeCatalog ?: scope.release.catalogKey
@@ -225,6 +244,24 @@ class ReleaseRenderSource(
         binary(scope.tenantKey, face.contentHash)?.let { FontFaceBytes(it, face.contentHash) }
     }
 
+    /** The identity of [templateKey] in [release], from its entries; null when the release has no such template. */
+    fun templateResourceId(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT resource_id FROM release_entries
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+              AND resource_type = 'template' AND resource_key = :key
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", release.catalogKey)
+            .bind("version", release.version)
+            .bind("key", templateKey)
+            .mapTo(java.util.UUID::class.java)
+            .findOne()
+            .orElse(null)
+    }
+
     /** [templateKey] as [release] holds it, from the same cache rendering reads, or null when it holds none. */
     fun template(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): TemplateResource? = read(tenantKey, release, "template", templateKey) as? TemplateResource
 
@@ -245,45 +282,101 @@ class ReleaseRenderSource(
     private fun loadRenderingDefaultsVersion(tenantKey: TenantKey, release: ReleaseRef): Int? = jdbi.withHandle<Int?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT content_retained, rendering_defaults_version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            SELECT rendering_defaults_version FROM catalog_releases
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", tenantKey)
             .bind("c", release.catalogKey)
             .bind("version", release.version)
-            .map { rs, _ -> rs.getBoolean("content_retained") to rs.getObject("rendering_defaults_version") as Int? }
+            .map { rs, _ -> listOf(rs.getObject("rendering_defaults_version") as Int?) }
             .findOne()
             .orElse(null) ?: throw ReleaseRenderException("Release ${release.label()} does not exist")
-        if (!row.first) throw ReleaseRenderException("Release ${release.label()} did not keep its content and cannot be rendered")
-        row.second
+        row.single()
     }
 
     /**
      * Where a catalog's resources come from while rendering one release: its own catalog from that
-     * release, every other catalog from the release [environment] deploys of it, else from its latest
-     * release that kept its content. Each catalog is looked up once, so one render reads one release
-     * of it however many references it follows.
+     * release, every other catalog from the release it is pinned to (contract ADR 0003). A pin is
+     * this release's own, else that of a release it pins, nearest first, for a catalog only a
+     * dependency depends on. A catalog no release pins, which only a release cut before 2.0 has,
+     * comes from the highest release [environment] serves of it, else from its latest release that kept its
+     * content. Each catalog is looked up once, so one render reads one release of it however many
+     * references it follows.
      */
     private inner class Scope(val tenantKey: TenantKey, val release: ReleaseRef, val environment: EnvironmentKey?) {
         private val latest = mutableMapOf<CatalogKey, ReleaseRef>()
+
+        private val pins: Map<CatalogKey, Pair<String, String>> by lazy {
+            jdbi.withHandle<Map<CatalogKey, Pair<String, String>>, Exception> { handle ->
+                val found = LinkedHashMap<CatalogKey, Pair<String, String>>()
+                val visited = mutableSetOf(release)
+                val queue = ArrayDeque(listOf(release))
+                while (queue.isNotEmpty()) {
+                    val from = queue.removeFirst()
+                    for (pin in dependencyStore.releasePins(handle, tenantKey, from.catalogKey, from.version)) {
+                        val version = pin.releaseVersion ?: continue
+                        // A dependency's key is its key in this tenant: a declaration names a catalog the tenant has.
+                        val catalog = CatalogKey.of(pin.catalogKey)
+                        if (catalog == release.catalogKey) continue
+                        found.putIfAbsent(catalog, version to pin.releaseFingerprint!!)
+                        ReleaseRef(catalog, version).takeIf(visited::add)?.let(queue::addLast)
+                    }
+                }
+                found
+            }
+        }
 
         fun releaseOf(catalog: CatalogKey): ReleaseRef = if (catalog == release.catalogKey) {
             release
         } else {
             latest.getOrPut(catalog) {
-                val version = jdbi.withHandle<String?, Exception> { handle ->
-                    environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRetainedRelease(handle, tenantKey, catalog)
-                }
-                    ?: throw ReleaseRenderException(
-                        "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
-                    )
-                ReleaseRef(catalog, version)
+                pins[catalog]?.let { (version, fingerprint) -> pinned(catalog, version, fingerprint) } ?: unpinned(catalog)
             }
         }
 
+        /** The pinned release, refused unless the tenant has it with the fingerprint the pin recorded. */
+        private fun pinned(catalog: CatalogKey, version: String, fingerprint: String): ReleaseRef {
+            val stored = jdbi.withHandle<String?, Exception> { handle ->
+                handle.createQuery(
+                    "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+                )
+                    .bind("t", tenantKey)
+                    .bind("c", catalog)
+                    .bind("v", version)
+                    .mapTo(String::class.java)
+                    .findOne()
+                    .orElse(null)
+            }
+            if (stored != fingerprint) {
+                throw ReleaseRenderException(
+                    "Release ${release.label()} is pinned to ${catalog.value}@$version ($fingerprint), " +
+                        if (stored == null) "which this tenant does not have with its content" else "but this tenant has that release as $stored",
+                )
+            }
+            return ReleaseRef(catalog, version)
+        }
+
+        private fun unpinned(catalog: CatalogKey): ReleaseRef {
+            val version = jdbi.withHandle<String?, Exception> { handle ->
+                environment?.let { deployedRelease(handle, it, catalog) } ?: entryStore.latestRelease(handle, tenantKey, catalog)
+            }
+                ?: throw ReleaseRenderException(
+                    "Release ${release.label()} uses catalog '${catalog.value}', which has no release that kept its content",
+                )
+            return ReleaseRef(catalog, version)
+        }
+
+        /** The highest release of [catalog] [environment] serves, as generation naming it would pick. */
         private fun deployedRelease(handle: Handle, environment: EnvironmentKey, catalog: CatalogKey): String? = handle
-            .createQuery("SELECT version FROM environment_catalog_deployments WHERE tenant_key = :t AND environment_key = :e AND catalog_key = :c")
+            .createQuery(
+                """
+                SELECT r.version FROM environment_catalog_deployments d
+                JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
+                WHERE d.tenant_key = :t AND d.environment_key = :e AND d.catalog_id = ${catalogAt("t", "c")}
+                $LATEST_RELEASE_ORDER LIMIT 1
+                """,
+            )
             .bind("t", tenantKey)
             .bind("e", environment)
             .bind("c", catalog)
@@ -291,16 +384,21 @@ class ReleaseRenderSource(
             .findOne()
             .orElse(null)
 
-        /** The latest release of every other catalog of the tenant, in catalog order. */
-        fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestRetainedReleases(handle, tenantKey) }
+        /** Every other catalog of the tenant, in catalog order: its pinned release, else its latest. */
+        fun otherCatalogs(): List<ReleaseRef> = jdbi.withHandle<Map<CatalogKey, String>, Exception> { handle -> entryStore.latestReleases(handle, tenantKey) }
             .filterKeys { it != release.catalogKey }
             .entries.sortedBy { it.key.value }
-            .map { (catalog, version) -> ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }
+            .map { (catalog, version) -> if (catalog in pins) releaseOf(catalog) else ReleaseRef(catalog, version).also { latest.putIfAbsent(catalog, it) } }
     }
 
     private companion object {
         const val MAX_RESOURCES = 2_000L
         const val MAX_BINARY_BYTES = 64L * 1024 * 1024
+        val UNRENDERABLE = setOf(
+            StencilInstances.Problem.STENCIL_NOT_FOUND,
+            StencilInstances.Problem.RECURSION,
+            StencilInstances.Problem.DEPTH_EXCEEDED,
+        )
     }
 }
 

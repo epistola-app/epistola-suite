@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -43,15 +44,8 @@ data class CatalogReleaseDetail(
     val fingerprint: String,
     /** The catalog's own details as this release carried them, not as the working copy has them now. */
     val catalog: CatalogInfo,
-    /**
-     * What the release contained, or empty when it kept no content.
-     *
-     * The distinction matters on the page: a release that kept nothing can still show its details,
-     * because the manifest snapshot has always been stored, but it cannot list its resources and
-     * must not pretend the catalog was empty.
-     */
+    /** What the release contained. */
     val resources: List<ReleaseEntry>,
-    val retained: Boolean,
 ) {
     val shortFingerprint: String get() = fingerprint.take(12)
 }
@@ -66,9 +60,9 @@ class GetCatalogReleaseHandler(
     override fun handle(query: GetCatalogRelease): CatalogReleaseDetail? = jdbi.withHandle<CatalogReleaseDetail?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT version, released_at, notes, fingerprint, content_retained, manifest_snapshot::text AS snapshot
+            SELECT version, released_at, notes, fingerprint, manifest_snapshot::text AS snapshot
             FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :version
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             """,
         )
             .bind("t", query.tenantKey)
@@ -82,7 +76,6 @@ class GetCatalogReleaseHandler(
                     fingerprint = rs.getString("fingerprint"),
                     catalog = objectMapper.readValue(rs.getString("snapshot"), CatalogManifest::class.java).catalog,
                     resources = emptyList(),
-                    retained = rs.getBoolean("content_retained"),
                 )
             }
             .findOne()

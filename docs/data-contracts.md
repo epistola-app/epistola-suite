@@ -3,14 +3,15 @@
 A data contract defines the JSON data a template accepts. It consists of:
 
 - a JSON Schema describing the shape and validation rules;
-- one or more named test data examples used while designing and previewing the template;
-- its own draft and published version history.
+- one or more named test data examples used while designing and previewing the template.
+
+It is part of the template, edited in place, and versioned only with the catalog release.
 
 The contract connects the complete document flow:
 
 ```text
-JSON Schema + examples -> template expressions -> contract draft -> published contract
-                                                                  -> API data validation -> document
+JSON Schema + examples -> template expressions -> ready mark -> catalog release
+                                                              -> API data validation -> document
 ```
 
 The schema is the source of truth. Examples help authors test a template, but they do not weaken or
@@ -141,8 +142,8 @@ two or three distinct items, while `minItems` and `maxItems` are respected. Gene
 deterministic, so the same example remains stable between runs. Autofill is one undoable example
 operation; it is intended only for test data.
 
-Schema changes and example changes have separate undo/redo histories. **Save draft** saves the
-current schema and all examples together as one contract draft. Publishing validates both again.
+Schema changes and example changes have separate undo/redo histories. Saving stores the
+current schema and all examples together as the template's contract.
 
 ## Template expressions
 
@@ -184,9 +185,9 @@ For compatibility, a field callers may omit — optional, or required with a def
 depend on. Adding a required field with a default, or making a field with a default required, is
 not a breaking change. Removing the default from a required field is.
 
-## Validation and publishing
+## Validation
 
-On save and publish, Epistola checks that:
+On save, Epistola checks that:
 
 1. the schema is valid for its declared dialect and has an object-shaped root;
 2. property names meet Epistola's naming rules;
@@ -197,15 +198,15 @@ On save and publish, Epistola checks that:
 6. every example validates against the schema, after defaults are filled in.
 
 Validation errors identify the example and failing JSON paths. The normal save flow blocks invalid
-examples. If **Save anyway** is offered after a validation failure, it can preserve the inconsistent
-work in a draft for later repair; an invalid draft still cannot be published. Publishing always
-performs authoritative backend validation. Real data is validated again when previewing or
-generating a document.
+examples. If **Save anyway** is offered after a validation failure, it stores the inconsistent work
+for later repair (`UpdateDataContract` with `forceUpdate`, the failures returned as warnings). Real
+data is validated again when previewing or generating a document.
 
-Contract versions are independent from visual template versions. Compatible changes can follow
-the normal publish flow, while breaking changes require explicit confirmation and may leave older
-template versions linked to an older contract. See [Contract Schema Versioning](schema-versioning.md)
-for the lifecycle, compatibility rules, and internal architecture.
+Since 2.0 a template has one contract, with no versions of its own. A variant's ready mark covers
+its template's contract, so editing the contract makes the template's variants stale until they are
+marked ready again (see [ready marks](catalog-versioning.md#ready-marks)). See
+[Data Contract Storage and Compatibility](schema-versioning.md) for storage, compatibility rules,
+and internal architecture.
 
 ## Missing and invalid data
 
@@ -241,6 +242,6 @@ without rendering (see [MCP](mcp.md)).
 ## Related documentation
 
 - [Epistola project overview](epistola.md)
-- [Contract Schema Versioning](schema-versioning.md)
+- [Data Contract Storage and Compatibility](schema-versioning.md)
 - [Template catalog exchange format](exchange/v5/template.md)
 - [MCP data-contract tools](mcp.md)

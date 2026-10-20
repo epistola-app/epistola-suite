@@ -51,44 +51,117 @@
             </div>
         </div>
 
-        <div class="dashboard-grid">
-            <div class="ep-auto-grid dashboard-stats">
-                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="ep-panel stat-card">
-                    <div class="stat-card-value" th:text="${templateCount}">0</div>
-                    <div class="stat-card-label">Templates</div>
-                </a>
-                <a th:href="@{/tenants/{id}/themes(id=${tenant.id})}" class="ep-panel stat-card">
-                    <div class="stat-card-value" th:text="${themeCount}">0</div>
-                    <div class="stat-card-label">Themes</div>
-                </a>
-                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="ep-panel stat-card">
-                    <div class="stat-card-value" th:text="${environmentCount}">0</div>
-                    <div class="stat-card-label">Environments</div>
-                </a>
-                <a th:href="@{/tenants/{id}/load-tests(id=${tenant.id})}" class="ep-panel stat-card">
-                    <div class="stat-card-value" th:text="${loadTestCount}">0</div>
-                    <div class="stat-card-label">Load Tests</div>
-                </a>
+        <!--/* Getting started (GetGettingStarted): the way from nothing to a document, a step at a time,
+               until the tenant has gone it once. A sequence, so the steps are numbered. */-->
+        <section th:if="${gettingStarted != null}" class="ep-panel detail-section" data-testid="getting-started">
+            <div class="detail-section-header">
+                <h2>Getting started</h2>
             </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">From a template to a document your application can request.</p>
+                <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-2);">
+                    <li th:attr="data-done=${gettingStarted.hasTemplate}">
+                        <th:block th:if="${startCatalog != null}">
+                            <a th:href="@{/tenants/{t}/catalogs/{c}/templates(t=${tenant.id},c=${startCatalog})}">Create a template</a>
+                            and design it in the editor.
+                        </th:block>
+                        <th:block th:if="${startCatalog == null}">
+                            <a th:href="@{/tenants/{t}/catalogs(t=${tenant.id})}">Create a catalog</a>, then a template in it.
+                        </th:block>
+                        <span th:if="${gettingStarted.hasTemplate}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasPublished}">
+                        <a th:if="${startCatalog != null}" th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${startCatalog})}">Publish a version</a>
+                        <span th:if="${startCatalog == null}">Publish a version</span>
+                        of its catalog, with Publish at the top of the catalog's pages.
+                        <span th:if="${gettingStarted.hasPublished}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasDeployed}">
+                        <a th:href="@{/tenants/{t}/environments(t=${tenant.id})}">Deploy it to an environment</a>,
+                        so documents can be made there.
+                        <span th:if="${gettingStarted.hasDeployed}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasDocument}">
+                        Make a document: try one on the environment's page, or
+                        <a th:href="@{/tenants/{t}/api-keys(t=${tenant.id})}">create an API key</a> for your application.
+                        <span th:if="${gettingStarted.hasDocument}" class="badge badge-success">Done</span>
+                    </li>
+                </ol>
+            </div>
+        </section>
 
+        <!--/* Where every catalog stands, so someone sees what is going on before choosing a catalog
+               version to work in (docs/catalog-workspace-navigation.md). Each draft and release
+               links into that version. */-->
+        <section th:if="${mayViewCatalogs}" class="home-catalogs" data-testid="catalog-overview">
+            <h2>Catalogs</h2>
+            <div class="ep-auto-grid home-catalogs-grid">
+                <div th:each="catalog : ${catalogs}" class="ep-panel catalog-tile" data-testid="catalog-overview-card"
+                     th:attr="data-catalog=${catalog.catalogKey}">
+                    <div class="catalog-tile-header">
+                        <div class="catalog-tile-title">
+                            <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}"
+                               th:text="${catalog.name}" data-testid="catalog-overview-name">Letters</a>
+                            <span class="badge" th:classappend="${catalog.authored} ? 'badge-info' : 'badge-default'"
+                                  th:text="${catalog.authored} ? 'Authored' : 'Subscribed'">Authored</span>
+                        </div>
+                        <div class="text-muted text-xs" th:text="${catalog.namespace} + '/' + ${catalog.catalogKey}">acme/letters</div>
+                    </div>
+                    <dl class="description-list catalog-tile-body">
+                        <th:block th:if="${catalog.authored}">
+                            <dt>Working on</dt>
+                            <dd>
+                                <div th:if="${catalog.next == null}" data-testid="catalog-overview-no-draft">
+                                    <span class="text-muted">Nothing in progress.</span>
+                                    <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}">Start the next version</a>
+                                </div>
+                                <div th:unless="${catalog.next == null}" data-testid="catalog-overview-work">
+                                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey})}">Next version</a>
+                                    <span th:if="${catalog.notReady != null and catalog.notReady > 0}" data-testid="catalog-overview-not-ready"
+                                          th:text="${catalog.notReady == 1} ? '· 1 change not published yet' : '· ' + ${catalog.notReady} + ' changes not published yet'">· 2 changes not published yet</span>
+                                    <span th:if="${catalog.notReady == null or catalog.notReady == 0}" class="text-muted">· everything published</span>
+                                    <div th:unless="${catalog.next.behind.isEmpty()}">
+                                        <span class="badge badge-warning" data-testid="catalog-overview-behind"
+                                              th:text="${catalog.next.behind.size() == 1} ? 'v' + ${catalog.next.behind[0]} + ' not in it yet' : ${catalog.next.behind.size()} + ' published versions not in it yet'">v1.4.1 not in it yet</span>
+                                    </div>
+                                </div>
+                                <!--/* Parallel work next to the next version, each by its name. */-->
+                                <div th:each="work : ${catalog.drafts}" th:unless="${work.isNext}" data-testid="catalog-overview-parallel">
+                                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey + '@' + work.draftId})}"
+                                       th:text="${work.label}">Redesign 2027</a>
+                                    <span class="text-muted">· parallel work</span>
+                                </div>
+                            </dd>
+                        </th:block>
+                        <dt>Published</dt>
+                        <dd data-testid="catalog-overview-release">
+                            <th:block th:if="${catalog.latestRelease != null}">
+                                <span th:text="'v' + ${catalog.latestRelease.version}">v1.0.0</span>
+                                <span th:if="${catalog.latestRelease.releasedAt != null}" class="text-muted"
+                                      th:text="'· ' + ${#temporals.format(catalog.latestRelease.releasedAt, 'd MMM yyyy')}">· 17 Oct 2026</span>
+                            </th:block>
+                            <span th:if="${catalog.latestRelease == null}" class="text-muted">Not yet</span>
+                        </dd>
+                        <dt>Deployed</dt>
+                        <dd data-testid="catalog-overview-served">
+                            <span th:if="${catalog.served.isEmpty()}" class="text-muted">Not deployed anywhere yet</span>
+                            <div th:each="entry : ${catalog.served}">
+                                <a th:href="@{/tenants/{t}/environments/{e}(t=${tenant.id},e=${entry.key})}" th:text="${entry.key}">production</a>
+                                <span class="text-muted" th:text="${#strings.listJoin(entry.value.![('v' + #this)], ', ')}">v1.0.0</span>
+                            </div>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </section>
+
+        <div class="dashboard-grid">
             <div class="dashboard-actions">
                 <h2>Quick Actions</h2>
                 <div class="quick-links">
-                    <a th:if="${auth.has('TEMPLATE_EDIT')}" th:href="@{/tenants/{id}/templates/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                        New Template
-                    </a>
-                    <a th:if="${auth.has('THEME_EDIT')}" th:href="@{/tenants/{id}/themes/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                        New Theme
-                    </a>
                     <a th:if="${auth.has('TENANT_SETTINGS')}" th:href="@{/tenants/{id}/environments/new(id=${tenant.id})}" class="ep-btn ep-btn-outline">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                         New Environment
-                    </a>
-                    <a th:href="@{/tenants/{id}/generate(id=${tenant.id})}" class="ep-btn ep-btn-primary">
-                        <th:block th:replace="~{epistola-web/icon :: icon(name='zap', class='ep-icon')}" />
-                        Generate Document
                     </a>
                 </div>
             </div>

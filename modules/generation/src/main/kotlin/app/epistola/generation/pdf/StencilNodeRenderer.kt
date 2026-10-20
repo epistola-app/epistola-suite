@@ -47,7 +47,7 @@ class StencilNodeRenderer(
             "Stencil nesting depth ${context.stencilNestingDepth + 1} exceeds maximum " +
                 TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH
         }
-        val stencilId = node.props?.get(StencilNodeKeys.PROP_STENCIL_ID) as? String
+        val stencilId = node.props?.get(StencilNodeKeys.PROP_STENCIL_KEY) as? String
         val afterRecursionGuard = if (stencilId != null) {
             check(stencilId !in context.ancestorStencilIds) {
                 "Stencil recursion detected: '$stencilId' would contain itself transitively"
@@ -61,7 +61,24 @@ class StencilNodeRenderer(
         }
 
         val schema = afterRecursionGuard.parameterSchemaProvider(node, document)
-        val nextContext = ParameterScope.push(node, schema, afterRecursionGuard)
+        // Fills are the embedding document's content, so they read the scope the instance sits in,
+        // with the stencils around the instance as their ancestors and not this one.
+        val fillScope = context.expressionScope()
+        val withParams = ParameterScope.push(node, schema, afterRecursionGuard)
+        val own = ParameterScope.aliasOf(node)
+        val parameters = if (withParams === afterRecursionGuard) emptyMap() else withParams.parameterScopes[own].orEmpty()
+        // A stencil sees only its parameters unless it declares it reads the template's data.
+        val isolated = if (node.props?.get(StencilNodeKeys.PROP_READS_TEMPLATE_DATA) == true) {
+            withParams
+        } else {
+            withParams.copy(
+                data = emptyMap(),
+                loopContext = emptyMap(),
+                // Only the scope this stencil pushed; a stencil without parameters pushes none.
+                parameterScopes = if (withParams === afterRecursionGuard) emptyMap() else withParams.parameterScopes.filterKeys { it == own },
+            )
+        }
+        val nextContext = isolated.copy(fillScope = fillScope, stencilParameters = parameters)
 
         return delegate.render(node, document, nextContext, registry)
     }

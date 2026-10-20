@@ -8,7 +8,7 @@
  * These are framework-agnostic and testable without DOM or DnD library dependencies.
  */
 
-import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
+import type { Node, NodeId, Slot, SlotId, TemplateDocument } from '../types/index.js';
 import { MAX_STENCIL_NESTING_DEPTH } from '@epistola.app/epistola-catalog';
 import type { DocumentIndexes } from '../engine/indexes.js';
 import type { ComponentRegistry } from '../engine/registry.js';
@@ -17,7 +17,7 @@ import { computeAncestorScope } from '../components/stencil/ancestry.js';
 import { isSlotLocked } from '../engine/locks.js';
 import { STENCIL_TYPE } from '../components/stencil/constants.js';
 import { PLACEHOLDER_TYPE } from '../components/placeholder/constants.js';
-import { stencilId as readStencilId } from '../components/stencil/node-types.js';
+import { checkStencilNesting, lexicalScopeAt } from '../components/stencil/instances.js';
 import type { DragData } from './types.js';
 
 export type Edge = 'top' | 'bottom';
@@ -144,36 +144,33 @@ export function canDropHere(
     if (isDescendant(targetSlot.nodeId, dragData.nodeId, indexes)) return false;
   }
 
-  // Stencil/placeholder structural rules. The same ancestor walk powers
-  // three checks; computed once here.
-  if (dragData.blockType === STENCIL_TYPE || dragData.blockType === PLACEHOLDER_TYPE) {
+  // Placeholder rule: a placeholder may only be dropped where a stencil is in
+  // the ancestor chain, and never inside another placeholder's slot (the only
+  // level a bare placeholder can be dropped at is the stencil's own content).
+  if (dragData.blockType === PLACEHOLDER_TYPE) {
     const scope = computeAncestorScope(doc, targetSlotId, indexes);
+    if (!scope.hasStencilAncestor) return false;
+    if (scope.hasPlaceholderAncestor) return false;
+  }
 
-    if (dragData.blockType === STENCIL_TYPE) {
-      const draggedDepth =
-        dragData.source === 'block' ? Math.max(1, stencilSubtreeDepth(doc, dragData.nodeId)) : 1;
-      if (scope.stencilDepth + draggedDepth > MAX_STENCIL_NESTING_DEPTH) {
-        return false;
-      }
-    }
-
-    // Rule 2: a placeholder may only be dropped where a stencil is in the
-    // ancestor chain, and never inside another placeholder's fill slot
-    // (rule 3 — at the stencil-definition level, which is the only level
-    // a bare placeholder can be dropped from the palette).
-    if (dragData.blockType === PLACEHOLDER_TYPE) {
-      if (!scope.hasStencilAncestor) return false;
-      if (scope.hasPlaceholderAncestor) return false;
-    }
-
-    // Rule 1: a stencil cannot be dropped where its own stencilId is already
-    // in the ancestor chain. For palette drags the stencilId is chosen later
-    // in the picker dialog (which has its own recursion guard); for block
-    // drags we have the dragged node, so we can check now.
-    if (dragData.blockType === STENCIL_TYPE && dragData.source === 'block') {
-      const sid = readStencilId(doc.nodes[dragData.nodeId]);
-      if (sid && scope.stencilIds.has(sid)) return false;
-    }
+  // Stencil rules, judged lexically (ADR 0006): a stencil may not contain
+  // itself — directly, through a stencil it uses, or in a fill written in its
+  // own content — and stencils nest at most MAX_STENCIL_NESTING_DEPTH deep.
+  // A palette drag has no stencil yet (the picker checks the one picked);
+  // a moved block brings its instances, expanded, so they can all be seen.
+  if (dragData.blockType === STENCIL_TYPE && dragData.source === 'palette') {
+    const scope = lexicalScopeAt(doc, targetSlotId, indexes);
+    if (scope.entries.length >= MAX_STENCIL_NESTING_DEPTH) return false;
+  }
+  if (dragData.source === 'block' && containsStencil(doc, dragData.nodeId)) {
+    const scope = lexicalScopeAt(doc, targetSlotId, indexes);
+    const problem = checkStencilNesting(
+      doc.nodes as Record<string, Node>,
+      doc.slots as Record<string, Slot>,
+      dragData.nodeId,
+      scope,
+    );
+    if (problem) return false;
   }
 
   return true;
@@ -197,25 +194,12 @@ function isDescendant(nodeId: NodeId, ancestorId: NodeId, indexes: DocumentIndex
   return false;
 }
 
-function stencilSubtreeDepth(
-  doc: TemplateDocument,
-  nodeId: NodeId,
-  visiting: Set<NodeId> = new Set(),
-): number {
-  if (!visiting.add(nodeId)) return 0;
+/** True when the subtree at [nodeId] holds a stencil instance. */
+function containsStencil(doc: TemplateDocument, nodeId: NodeId): boolean {
   const node = doc.nodes[nodeId];
-  if (!node) {
-    visiting.delete(nodeId);
-    return 0;
-  }
-  const childDepth = Math.max(
-    0,
-    ...node.slots
-      .map((slotId) => doc.slots[slotId])
-      .filter((slot) => slot !== undefined)
-      .flatMap((slot) => slot.children)
-      .map((childId) => stencilSubtreeDepth(doc, childId, visiting)),
+  if (!node) return false;
+  if (node.type === STENCIL_TYPE) return true;
+  return node.slots.some((slotId) =>
+    (doc.slots[slotId]?.children ?? []).some((childId) => containsStencil(doc, childId)),
   );
-  visiting.delete(nodeId);
-  return (node.type === STENCIL_TYPE ? 1 : 0) + childDepth;
 }

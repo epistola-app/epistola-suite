@@ -54,7 +54,7 @@ class SystemFontRenderingTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("families")
     fun `every region renders in the selected face, embedded under PDF A`(slug: String) {
-        val theme = ResolvedTheme(documentStyles = mapOf("fontFamily" to mapOf("slug" to slug, "catalogKey" to SYSTEM_CATALOG_KEY.value)))
+        val theme = ResolvedTheme(documentStyles = mapOf("fontFamily" to mapOf("key" to slug, "catalogKey" to SYSTEM_CATALOG_KEY.value)))
         val failures = mutableListOf<String>()
 
         for (face in faces.filter { it.slug == slug }) {

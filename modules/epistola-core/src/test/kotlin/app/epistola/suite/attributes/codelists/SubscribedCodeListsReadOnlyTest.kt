@@ -12,6 +12,8 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -130,8 +132,8 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, type, source_url, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, source_url, created_at, updated_at)
+                VALUES (:id, :tenantKey, 'exchange.epistola.app', :tenantKey, :name, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
                 .bind("id", subscribedCatalog)
@@ -153,8 +155,8 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO code_lists (slug, tenant_key, catalog_key, display_name, source_type, source_url, auth_type, created_at, updated_at)
-                VALUES (:slug, :tenantKey, :catalogKey, :displayName, :sourceType, :sourceUrl, 'NONE', NOW(), NOW())
+                INSERT INTO code_lists (slug, tenant_key, catalog_id, version_id, display_name, source_type, source_url, auth_type, created_at, updated_at)
+                VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :sourceType, :sourceUrl, 'NONE', NOW(), NOW())
                 """,
             )
                 .bind("slug", slug)
@@ -177,11 +179,12 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO code_list_entries (tenant_key, code_list_resource_id, code, label, sort_order, hidden)
+                INSERT INTO code_list_entries (tenant_key, version_id, code_list_resource_id, code, label, sort_order, hidden)
                 VALUES (
                     :tenantKey,
+                    ${versionAt("tenantKey", "catalogKey")},
                     (SELECT resource_id FROM code_lists
-                      WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug),
+                      WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug),
                     :code, :label, 0, FALSE
                 )
                 """,

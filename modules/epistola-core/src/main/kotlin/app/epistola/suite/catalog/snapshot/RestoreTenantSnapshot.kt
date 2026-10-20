@@ -12,7 +12,9 @@ import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
 import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
+import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.system.InstallSystemCatalog
+import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -22,6 +24,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
+import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -69,6 +72,9 @@ data class RestoreResult(
 class RestoreTenantSnapshotHandler(
     private val objectMapper: ObjectMapper,
     private val identityStore: TenantResourceIdentityStore,
+    private val jdbi: Jdbi,
+    private val schemaMigrator: CatalogSchemaMigrator,
+    private val drafts: CatalogDrafts,
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -91,6 +97,10 @@ class RestoreTenantSnapshotHandler(
         val prior = PurgeTenantCatalogs(command.tenantKey).execute()
         InstallSystemCatalog(command.tenantKey).execute()
 
+        // The catalogs first, named as their archives name them: a resource identity belongs to a
+        // catalog, so the identities can only be planted once their catalogs exist.
+        ordered.forEach { entry -> createCatalogRow(command.tenantKey, entry, innerZips.getValue(entry.zipPath)) }
+
         // Before the import, so the sync trigger adopts each recorded identity instead of minting a
         // fresh one. Restoring with new identities would dangle the template_resource_id on every
         // generation record (no foreign key protects it, so it just stops joining).
@@ -103,6 +113,7 @@ class RestoreTenantSnapshotHandler(
                 catalogType = CatalogType.valueOf(entry.type),
                 authoredMode = AuthoredImportMode.REPLACE,
                 validateCrossCatalogDeps = false,
+                restore = true,
             ).execute()
         }
 
@@ -110,6 +121,41 @@ class RestoreTenantSnapshotHandler(
 
         logger.info("Restored tenant {} from snapshot ({} catalogs)", command.tenantKey.value, ordered.size)
         RestoreResult(restoredCatalogKeys = ordered.map { it.catalogKey })
+    }
+
+    /**
+     * The catalog row for [entry], with the registry and namespace its archive records; the import
+     * that follows fills it. A catalog that already exists (the system catalog) is left alone.
+     */
+    private fun createCatalogRow(tenantKey: TenantKey, entry: SnapshotCatalogEntry, zip: ByteArray) {
+        val catalog = schemaMigrator.migrateAndBindManifest(catalogJson(zip), tenantKey.value).manifest.catalog
+        jdbi.useHandle<Exception> { handle ->
+            val inserted = handle.createUpdate(
+                """
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type)
+                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :type)
+                ON CONFLICT (tenant_key, catalog_key) DO NOTHING
+                """,
+            )
+                .bind("catalogKey", entry.catalogKey)
+                .bind("tenantKey", tenantKey)
+                .bind("registry", requireNotNull(catalog.registry) { "Snapshot catalog ${entry.catalogKey} names no registry" })
+                .bind("namespace", requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
+                .bind("name", entry.name)
+                .bind("type", entry.type)
+                .execute()
+            // A restore keeps no releases, so an authored catalog's next version starts again where a
+            // new catalog's does, on no release.
+            if (inserted > 0 && entry.type == CatalogType.AUTHORED.name) {
+                drafts.open(handle, tenantKey, CatalogKey.of(entry.catalogKey), base = null)
+            }
+        }
+    }
+
+    private fun catalogJson(zip: ByteArray): ByteArray = java.util.zip.ZipInputStream(zip.inputStream()).use { stream ->
+        generateSequence { stream.nextEntry }.firstOrNull { it.name == "catalog.json" }
+            ?: throw IllegalArgumentException("Snapshot catalog archive has no catalog.json")
+        stream.readAllBytes()
     }
 
     /** Re-point the tenant's default theme (cleared by the purge) if it exists in the restored catalogs. */

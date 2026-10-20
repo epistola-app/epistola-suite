@@ -175,7 +175,7 @@ class AuditRecorder(
      * (`RequiresPlatformRole`, `RequiresAuthentication`) have no tenant → null.
      */
     private fun tenantKeyOf(message: Any): String? = when (message) {
-        is TenantScoped -> message.tenantId.value
+        is TenantScoped -> message.tenantKey.value
         is RequiresPermission -> message.tenantKey.value
         else -> null
     }

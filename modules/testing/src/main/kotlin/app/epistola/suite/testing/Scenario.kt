@@ -19,10 +19,9 @@ import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVariant
-import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.time.EpistolaClock
@@ -197,34 +196,35 @@ class ScenarioBuilder(private val namespace: String) {
         }
 
         /**
-         * Updates a template version draft with a template model.
+         * Replaces a variant's working model.
          *
          * @param variantId the variant ID
          * @param templateModel the template model to set
-         * @return the updated [TemplateVersion]
+         * @return the model as stored
          */
         fun version(
             variantId: VariantId,
             templateModel: TemplateDocument,
-        ): TemplateVersion = capturedMediator.send(
-            UpdateDraft(
+        ): TemplateDocument = capturedMediator.send(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        ).templateModel
 
         /**
-         * Saves [templateModel] as the variant's draft, publishes it and releases its catalog, so
-         * generation can render it: from 2.0 generation renders a catalog release, never a draft.
+         * Saves [templateModel] as the variant's model, marks its catalog ready and releases it, so
+         * generation can render it: from 2.0 generation renders a catalog release, never a working copy.
          *
-         * @return the published [TemplateVersion]
+         * @return the model as stored
          */
         fun released(
             variantId: VariantId,
             templateModel: TemplateDocument,
-        ): TemplateVersion {
-            version(variantId, templateModel)
-            return capturedMediator.publishAndRelease(variantId)
+        ): TemplateDocument {
+            val stored = version(variantId, templateModel)
+            capturedMediator.publishAndRelease(variantId)
+            return stored
         }
     }
 }
@@ -331,5 +331,6 @@ data class DocumentSetup(
     val tenant: Tenant,
     val template: DocumentTemplate,
     val variant: TemplateVariant,
-    val version: TemplateVersion,
+    /** The variant's working model as stored. */
+    val model: TemplateDocument,
 )

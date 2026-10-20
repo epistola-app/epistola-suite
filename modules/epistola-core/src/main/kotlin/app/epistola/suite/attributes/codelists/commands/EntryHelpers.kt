@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_CODE_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_LABEL_LENGTH
@@ -30,8 +31,8 @@ internal fun insertEntries(handle: Handle, id: CodeListId, entries: List<CodeLis
     validateCodeListEntries(entries)
     val batch = handle.prepareBatch(
         """
-        INSERT INTO code_list_entries (tenant_key, code_list_resource_id, code, label, sort_order, hidden)
-        VALUES (:tenantKey, $CODE_LIST_AT_ADDRESS, :code, :label, :sortOrder, :hidden)
+        INSERT INTO code_list_entries (tenant_key, version_id, code_list_resource_id, code, label, sort_order, hidden)
+        VALUES (:tenantKey, ${versionAt("tenantKey", "catalogKey")}, $CODE_LIST_AT_ADDRESS, :code, :label, :sortOrder, :hidden)
         """,
     )
     for (entry in entries) {

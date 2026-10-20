@@ -15,6 +15,8 @@ forward, data-preserving migration. This is not negotiable for any feature matur
   table must timestamp **after** that core migration.
 - **Never edit a merged migration.** Add a new timestamped file. Folding `ALTER`s back into the
   original `CREATE` is no longer permitted; the RC1 consolidation was the last one.
+- **Except one that never reached `main`.** A migration only on a release line under development
+  (`release/2.0`) ran on no installation and may be rewritten; `checkMigrationVersions` allows it.
 - **No destructive migrations**: nothing that drops or resets user data.
 - **Removing a module keeps its migrations**: move each file byte for byte to the same
   `db/migration/<dir>/` path in another module. Flyway cannot tell, and `checkMigrationVersions`

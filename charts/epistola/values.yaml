@@ -261,9 +261,9 @@ observability:
   # Prometheus scrape annotations on pods.
   prometheus:
     enabled: false
-    # Scrape port. Blank → derived from config.profiles: the actuator serves on
-    # the management port 4040 under the `prod` profile, else on the main port
-    # 4000. Set explicitly to override (e.g. a non-standard management port).
+    # Scrape port. Blank → 4040, the management port the actuator serves on in
+    # every profile (app 2.0). Set explicitly to override (e.g. a non-standard
+    # management port).
     port: ""
     path: /actuator/prometheus
   # Grafana dashboards + alerts have moved to the separate `epistola-grafana`

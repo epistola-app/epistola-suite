@@ -72,7 +72,7 @@ trap 'rm -f "$init_headers" "$init_body"' EXIT
 http_status=$(
     curl -sS -o "$init_body" -D "$init_headers" -w "%{http_code}" \
         -X POST "$URL" \
-        -H "X-API-Key: $KEY" \
+        -H "Authorization: ApiKey $KEY" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
         -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"mcp-smoke","version":"1"}}}'
@@ -136,7 +136,7 @@ rpc() {
     local response
     response=$(
         curl -sS --no-buffer -X POST "$URL" \
-            -H "X-API-Key: $KEY" \
+            -H "Authorization: ApiKey $KEY" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json, text/event-stream" \
             -H "Mcp-Session-Id: $session" \
@@ -163,7 +163,7 @@ rpc() {
 # ---------------------------------------------------------------------------
 step "notifications/initialized"
 curl -sS -o /dev/null -X POST "$URL" \
-    -H "X-API-Key: $KEY" \
+    -H "Authorization: ApiKey $KEY" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json, text/event-stream" \
     -H "Mcp-Session-Id: $session" \
@@ -178,7 +178,7 @@ record "initialized" "${green}ok${reset}"
 step "tools/list"
 tools_response=$(
     curl -sS --no-buffer -X POST "$URL" \
-        -H "X-API-Key: $KEY" \
+        -H "Authorization: ApiKey $KEY" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
         -H "Mcp-Session-Id: $session" \
@@ -219,7 +219,7 @@ rpc 33 tools/call list_component_types '{"name":"list_component_types","argument
 step "tools/call preview_document (demo-invoice)"
 preview_response=$(
     curl -sS --no-buffer -X POST "$URL" \
-        -H "X-API-Key: $KEY" \
+        -H "Authorization: ApiKey $KEY" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
         -H "Mcp-Session-Id: $session" \

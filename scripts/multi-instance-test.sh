@@ -53,7 +53,7 @@ COMMON_ARGS=(
 mkdir -p "$WORK"
 
 psq() { PGPASSWORD=epistola psql -h 127.0.0.1 -p $PGPORT -U epistola -d epistola -tAc "$1"; }
-api() { curl -s -H "X-API-Key: $DEMO_KEY" -H "Content-Type: $VND" -H "Accept: $VND" "$@"; }
+api() { curl -s -H "Authorization: ApiKey $DEMO_KEY" -H "Content-Type: $VND" -H "Accept: $VND" "$@"; }
 die() { echo "FAIL: $*" >&2; exit 1; }
 ok() { echo "PASS: $*"; }
 
@@ -294,7 +294,7 @@ cmd_staleness() {
   key=$(grep -oE 'epk_[A-Za-z0-9_]+' "$WORK/key-created.html" | head -1)
   [ -n "$key" ] || die "could not scrape created key"
   for port in "${PORTS[@]}"; do
-    curl -s -H "X-API-Key: $key" -o /dev/null "http://127.0.0.1:$port/api/tenants/demo"
+    curl -s -H "Authorization: ApiKey $key" -o /dev/null "http://127.0.0.1:$port/api/tenants/demo"
   done
   kid=$(psq "SELECT id FROM api_keys WHERE name='cache-test' ORDER BY created_at DESC LIMIT 1")
   t0=$(date +%s)
@@ -303,7 +303,7 @@ cmd_staleness() {
   for port in "${PORTS[@]:1}"; do
     while :; do
       local code t
-      code=$(curl -s -H "X-API-Key: $key" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/api/tenants/demo")
+      code=$(curl -s -H "Authorization: ApiKey $key" -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/api/tenants/demo")
       t=$(( $(date +%s) - t0 ))
       if [ "$code" = "401" ] || [ "$t" -gt 120 ]; then echo "port $port -> $code after ${t}s"; break; fi
       sleep 1

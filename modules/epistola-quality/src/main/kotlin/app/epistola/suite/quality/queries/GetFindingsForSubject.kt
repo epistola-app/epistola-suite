@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -18,8 +19,8 @@ import app.epistola.suite.quality.QualitySubjectType
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
+import app.epistola.suite.templates.currentTemplateJoin
 import app.epistola.suite.templates.templateAtAddress
-import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -68,17 +69,14 @@ class GetFindingsForSubjectHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetFindingsForSubject, SubjectFindings> {
     override fun handle(query: GetFindingsForSubject): SubjectFindings = jdbi.withHandle<SubjectFindings, Exception> { handle ->
-        // Draft first, else newest published — the same document the editor is showing, and the same
-        // one SubmitQualityFindings hashes, so the two fingerprints are comparable by construction.
+        // The variant's working model — the document the editor is showing, and the same one
+        // SubmitQualityFindings hashes, so the two fingerprints are comparable by construction.
         val currentInputFingerprint = handle.createQuery(
             """
             SELECT md5(template_model::text)
-            FROM template_versions
-            WHERE tenant_key = :tenantKey
-              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
-              AND status IN ('draft', 'published')
-            ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-            LIMIT 1
+            FROM template_variants
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -99,7 +97,7 @@ class GetFindingsForSubjectHandler(
                    (f.source_id <> :manualSourceId) AS reconciled,
                    COALESCE(c.comment_count, 0)::int AS comment_count
             FROM quality_findings f
-            ${templateJoin("f")}
+            ${currentTemplateJoin("f")}
             -- The ignore is keyed on scope+fingerprint, never on the finding row, which is exactly
             -- why it survives a resolve/resurface cycle and a version publish.
             LEFT JOIN quality_finding_ignores i

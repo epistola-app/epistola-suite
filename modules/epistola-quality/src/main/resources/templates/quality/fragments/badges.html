@@ -9,7 +9,7 @@
     <!--/* ERROR reads as damage, WARNING as attention, INFO as a remark — not three shades of red. */-->
     <span th:fragment="severity-badge(severity)" class="badge"
           th:classappend="${severity.name() == 'ERROR'} ? 'badge-destructive' : (${severity.name() == 'WARNING'} ? 'badge-warning' : 'badge-outline')"
-          th:text="${severity.name()}">WARNING</span>
+          th:text="${#labels.of(severity)}">WARNING</span>
 
     <!--/*
       Effective status, never a stored one: IGNORED is derived from a live ignore row.
@@ -20,7 +20,7 @@
     */-->
     <span th:fragment="status-badge(status)" class="badge"
           th:classappend="${status.name() == 'OPEN'} ? 'badge-primary' : (${status.name() == 'RESOLVED'} ? 'badge-success' : 'badge-archived')"
-          th:text="${status.name()}">OPEN</span>
+          th:text="${#labels.of(status)}">OPEN</span>
 
     <!--/* Which source reported it. Always neutral — a source is not a severity. */-->
     <span th:fragment="source-badge(sourceId)" class="badge badge-outline"

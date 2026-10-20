@@ -10,6 +10,10 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.attributes.codelists.service.CodeListFetchException
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -33,7 +37,10 @@ import org.springframework.stereotype.Component
  */
 data class RefreshCodeList(
     val id: CodeListId,
-) : Command<CodeList?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<CodeList?>,
     RequiresPermission,
     // Fetches entries from the source URL mid-command, and a fetch error must be
     // recorded (committed) even though the refresh itself fails.
@@ -51,21 +58,26 @@ const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its 
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
+    private val targeting: CatalogVersionTargeting,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: RefreshCodeList): CodeList? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
 
-        val current = jdbi.withHandle<CodeList?, Exception> { handle ->
+        // Self-managed: each of its transactions takes the catalog version the command targets.
+        val current = jdbi.inTransaction<CodeList?, Exception> { handle ->
+            targeting.apply(handle)
             handle.createQuery(
                 """
-                SELECT slug, tenant_key, catalog_key, display_name, description,
+                SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                         WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                       display_name, description,
                        source_type, source_url, auth_type, credential,
                        last_refreshed_at, last_refresh_error,
                        created_at, updated_at
                 FROM code_lists
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
@@ -105,10 +117,11 @@ class RefreshCodeListHandler(
         }
 
         return jdbi.inTransaction<CodeList, Exception> { handle ->
+            targeting.apply(handle)
             handle.createUpdate(
                 """
                 DELETE FROM code_list_entries
-                WHERE tenant_key = :tenantKey AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
@@ -123,8 +136,10 @@ class RefreshCodeListHandler(
                 SET last_refreshed_at  = NOW(),
                     last_refresh_error = NULL,
                     updated_at      = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
-                RETURNING slug, tenant_key, catalog_key, display_name, description,
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
+                RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                          display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
                           created_at, updated_at
@@ -139,12 +154,13 @@ class RefreshCodeListHandler(
     }
 
     private fun recordRefreshError(id: CodeListId, message: String) {
-        jdbi.useHandle<Exception> { handle ->
+        jdbi.useTransaction<Exception> { handle ->
+            targeting.apply(handle)
             handle.createUpdate(
                 """
                 UPDATE code_lists
                 SET last_refresh_error = :error, updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 """,
             )
                 .bind("tenantKey", id.tenantKey)
@@ -155,15 +171,18 @@ class RefreshCodeListHandler(
         }
     }
 
-    private fun load(id: CodeListId): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
+    private fun load(id: CodeListId): CodeList? = jdbi.inTransaction<CodeList?, Exception> { handle ->
+        targeting.apply(handle)
         handle.createQuery(
             """
-            SELECT slug, tenant_key, catalog_key, display_name, description,
+            SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
+                     WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                   display_name, description,
                    source_type, source_url, auth_type, credential,
                    last_refreshed_at, last_refresh_error,
                    created_at, updated_at
             FROM code_lists
-            WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey AND slug = :slug
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
             """,
         )
             .bind("tenantKey", id.tenantKey)

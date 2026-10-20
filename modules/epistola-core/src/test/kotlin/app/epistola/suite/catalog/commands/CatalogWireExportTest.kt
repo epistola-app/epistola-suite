@@ -21,7 +21,6 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -37,18 +36,17 @@ import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.contracts.commands.PublishContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -126,17 +124,16 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 id = ThemeId(ThemeKey.of("house-style"), catalogId),
                 name = "House Style",
                 description = "The town hall's look",
-                documentStyles = mapOf("fontFamily" to mapOf("slug" to "inter", "catalogKey" to catalogKey.value)),
+                documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to catalogKey.value)),
             ).execute()
 
             val stencilId = StencilId(StencilKey.of("letterhead"), catalogId)
             CreateStencil(id = stencilId, name = "Letterhead", content = doc("letterhead-root")).execute()
-            PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
 
             val templateId = TemplateId(TemplateKey.of("decision-letter"), catalogId)
             CreateDocumentTemplate(id = templateId, name = "Decision Letter").execute()
             UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalogKey = catalogKey).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataModel = JsonMapper().readValue(
                     """{"type":"object","properties":{"recipient":{"type":"string"}},"required":["recipient"]}""",
@@ -144,10 +141,9 @@ class CatalogWireExportTest : IntegrationTestBase() {
                 ),
                 dataExamples = listOf(DataExample("nl", "Dutch", JsonMapper().createObjectNode().put("recipient", "Ada"))),
             ).execute()
-            PublishContractVersion(templateId = templateId).execute()
-            PublishVersion(versionId = VersionId(VersionKey.of(1), VariantId(VariantKey.INITIAL, templateId))).execute()
+            MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
-            val zip = ExportCatalogZip(tenantKey, catalogKey).execute()
+            val zip = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
             val entries = ZipInputStream(ByteArrayInputStream(zip.zipBytes)).use { z ->
                 generateSequence { z.nextEntry }.map { it.name }.toList()
             }

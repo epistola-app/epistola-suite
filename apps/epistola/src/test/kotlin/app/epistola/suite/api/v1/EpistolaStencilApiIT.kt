@@ -8,18 +8,15 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
@@ -68,30 +65,56 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `marking a changed stencil ready names the instances it holds back, and the usage listing agrees`() {
+    fun `a stencil edit that keeps its interface leaves every instance fitting`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val seed = seedStencilUsedByPublishedTemplate(tenantKey)
-        val stencilPath = "/api/tenants/${tenantKey.value}/catalogs/${seed.stencilCatalogKey}/stencils/${seed.stencilKey}"
+        val stencilPath = stencilPath(tenantKey, seed)
 
         val before = get("$stencilPath/usage", apiKey)
         assertThat(before.statusCode).describedAs(before.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<Boolean>>(before.body!!, "$.items[*].heldBack")).`as`("on the stencil's latest content").containsExactly(false)
+        assertThat(JsonPath.read<List<Boolean>>(before.body!!, "$.items[*].fits")).containsExactly(true)
 
-        val content = JsonPath.parse(get("$stencilPath/content", apiKey).body).read<Any>("$.content")
+        editContent(stencilPath, apiKey, "$.content.nodes['default-text'].props.content.content[0].content[0].text", "Changed body content")
+        val ready = markReady(stencilPath, apiKey)
+
+        assertThat(JsonPath.read<List<Any>>(ready.body!!, "$.notFitting")).isEmpty()
+        val after = get("$stencilPath/usage", apiKey)
+        assertThat(JsonPath.read<List<Boolean>>(after.body!!, "$.items[*].fits")).containsExactly(true)
+        assertThat(JsonPath.read<List<Any>>(after.body!!, "$.items[0].problems")).isEmpty()
+    }
+
+    @Test
+    fun `a stencil edit that drops a filled placeholder names the instance that no longer fits, and the usage listing agrees`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val seed = seedStencilUsedByPublishedTemplate(tenantKey)
+        val stencilPath = stencilPath(tenantKey, seed)
+
+        // The template fills placeholder 'body'; the stencil now calls it 'main'.
+        editContent(stencilPath, apiKey, "$.content.nodes['ph-body'].props.name", "main")
+        val ready = markReady(stencilPath, apiKey)
+
+        assertThat(JsonPath.read<List<String>>(ready.body!!, "$.notFitting[*].templateKey")).containsExactly(seed.templateKey)
+        assertThat(JsonPath.read<List<String>>(ready.body!!, "$.notFitting[*].variantKey")).containsExactly(seed.variantKey)
+        val after = get("$stencilPath/usage", apiKey)
+        assertThat(JsonPath.read<List<Boolean>>(after.body!!, "$.items[*].fits")).containsExactly(false)
+        assertThat(JsonPath.read<List<String>>(after.body!!, "$.items[0].problems")).singleElement().asString().contains("placeholder 'body'")
+        assertThat(JsonPath.read<Int>(after.body!!, "$.page.total")).isEqualTo(1)
+    }
+
+    private fun stencilPath(tenantKey: TenantKey, seed: SeededUsage): String = "${withMediator { CatalogApiPaths.version(tenantKey, seed.stencilCatalogKey) }}/stencils/${seed.stencilKey}"
+
+    /** Saves the stencil's content with the value at [path] replaced: a real change. */
+    private fun editContent(stencilPath: String, apiKey: String, path: String, value: String) {
+        val content = JsonPath.parse(get("$stencilPath/content", apiKey).body).set(path, value).read<Any>("$.content")
         val contentJson = com.jayway.jsonpath.Configuration.defaultConfiguration().jsonProvider().toJson(content)
         val edit = restTemplate.exchange("$stencilPath/content", HttpMethod.PUT, HttpEntity("""{"content":$contentJson}""", baseHeaders(apiKey)), String::class.java)
         assertThat(edit.statusCode).describedAs(edit.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(edit.body!!, "$.status")).isEqualTo("modified")
+    }
 
-        val ready = restTemplate.exchange("$stencilPath/mark-ready", HttpMethod.POST, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
-        assertThat(ready.statusCode).describedAs(ready.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(ready.body!!, "$.stencil.status")).isEqualTo("ready")
-        assertThat(JsonPath.read<List<String>>(ready.body!!, "$.heldBack[*].templateId")).containsExactly(seed.templateKey)
-        assertThat(JsonPath.read<List<String>>(ready.body!!, "$.heldBack[*].variantId")).containsExactly(seed.variantKey)
-
-        val after = get("$stencilPath/usage", apiKey)
-        assertThat(JsonPath.read<List<Boolean>>(after.body!!, "$.items[*].heldBack")).containsExactly(true)
-        assertThat(JsonPath.read<Int>(after.body!!, "$.page.totalElements")).isEqualTo(1)
+    private fun markReady(stencilPath: String, apiKey: String) = restTemplate.exchange("$stencilPath/mark-ready", HttpMethod.POST, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java).also {
+        assertThat(it.statusCode).describedAs(it.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(it.body!!, "$.stencil.status")).isEqualTo("ready")
     }
 
     private fun get(path: String, apiKey: String) = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
@@ -104,18 +127,17 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
         val templateCatalogKey: String,
     )
 
-    /** A published stencil, and a template whose published variant embeds it: what a release contains. */
+    /** A stencil, and a template whose variant embeds it, released: what a release contains. */
     private fun seedStencilUsedByPublishedTemplate(tenantKey: TenantKey): SeededUsage = withMediator {
         val tenantId = TenantId(tenantKey)
         val stencilId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
         CreateStencil(id = stencilId, name = "REST Upgrade Stencil", content = stencilV1()).execute()
-        PublishStencilVersion(versionId = StencilVersionId(VersionKey.of(1), stencilId)).execute()
 
         val templateKey = TestIdHelpers.nextTemplateId()
         val templateId = TemplateId(templateKey, CatalogId.default(tenantId))
         CreateDocumentTemplate(id = templateId, name = "REST Upgrade Template").execute().withRequiredDataExample()
         val variantKey = VariantKey.INITIAL
-        UpdateDraft(
+        UpdateVariantContent(
             variantId = VariantId(variantKey, templateId),
             templateModel = templateEmbedding(stencilId.key.value),
         ).execute()
@@ -164,7 +186,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
                 id = "stencil-instance",
                 type = "stencil",
                 slots = listOf("stencil-children"),
-                props = mapOf("stencilId" to stencilKey, "version" to 1),
+                props = mapOf("stencilKey" to stencilKey, "version" to 1),
             ),
             "embedded-ph" to Node(
                 id = "embedded-ph",
@@ -188,11 +210,11 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
     )
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.14.0 stencil-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

@@ -57,7 +57,7 @@ object BundledCatalogFingerprints {
         assertThat(actual)
             .describedAs(
                 "Bundled catalog '%s' content fingerprint drifted. Set release.fingerprint in %s to: %s",
-                manifest.catalog.slug,
+                manifest.catalog.key,
                 manifestUrl,
                 actual,
             )

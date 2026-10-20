@@ -10,10 +10,10 @@
  * placeholder named `body`; the namespace is per-stencil, mirroring the
  * server-side validator.
  *
- * Renders read-only in template-fill mode (placeholder is inside a published
- * stencil): the placeholder's identity is the stencil author's contract, so
+ * Renders read-only in template-fill mode (placeholder of a stencil the
+ * document uses, not being edited): the placeholder's identity is the stencil author's contract, so
  * editing it from a template would silently break the name-keyed link to the
- * stencil's default and to upgrade preservation. The CSS-level pointer-events
+ * stencil's default and to the fills of every template using it. The CSS-level pointer-events
  * lock prevents *canvas* selection of the placeholder; this read-only view
  * covers keyboard / programmatic / tree-view selections that bypass CSS.
  */
@@ -22,7 +22,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { Node } from '../../types/index.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
-import { nearestStencilAncestor, placeholderContext } from '../stencil/ancestry.js';
+import { owningStencilOf, placeholderContext } from '../stencil/ancestry.js';
 import { isPlaceholder } from './node-types.js';
 
 const SLUG_RE = /^[a-z][a-z0-9-]{0,63}$/;
@@ -47,7 +47,12 @@ export class PlaceholderInspector extends LitElement {
   }
 
   override render() {
-    const context = placeholderContext(this.engine.doc, this.node.id, this.engine.indexes);
+    const context = placeholderContext(
+      this.engine.doc,
+      this.node.id,
+      this.engine.indexes,
+      this.engine.registry,
+    );
     if (context === 'template-fill') {
       return this._renderReadOnly();
     }
@@ -147,13 +152,13 @@ export class PlaceholderInspector extends LitElement {
   private _validateName(value: string): string | null {
     if (!value) return 'Name is required';
     if (!SLUG_RE.test(value)) return 'Use kebab-case: lowercase letters, digits, and hyphens';
-    // Names are unique per nearest-stencil-ancestor scope. Two stencils may both
+    // Names are unique per owning stencil (lexical). Two stencils may both
     // declare `body`; placeholders without a stencil ancestor share the document
     // root scope (these are caught separately by PLACEHOLDER_OUTSIDE_STENCIL on save).
-    const ownScope = nearestStencilAncestor(this.engine.doc, this.node.id, this.engine.indexes);
+    const ownScope = owningStencilOf(this.engine.doc, this.node.id, this.engine.indexes);
     const duplicates = Object.values(this.engine.doc.nodes).filter((n) => {
       if (n.id === this.node.id || !isPlaceholder(n) || n.props.name !== value) return false;
-      const otherScope = nearestStencilAncestor(this.engine.doc, n.id, this.engine.indexes);
+      const otherScope = owningStencilOf(this.engine.doc, n.id, this.engine.indexes);
       return otherScope === ownScope;
     });
     if (duplicates.length > 0) return `Name '${value}' is already used in this stencil`;

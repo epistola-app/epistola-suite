@@ -113,13 +113,13 @@ class CatalogPublicationWorker(
         metrics.submissionOutcome(status, publication.remoteCall)
         if (status == CatalogPublicationStatus.ACCEPTED) {
             // Exchange now holds a release under these coordinates, and that outlives the local
-            // catalog — so the fact is recorded on the binding rather than inferred from rows that
+            // catalog — so the fact is recorded on its own rather than inferred from rows that
             // would disappear with it. Only acceptance means this: a submission Exchange takes and
             // then rejects has published nothing, and marking it here would freeze the namespace of
             // a catalog that never reached Exchange at all. Written before the row is updated, and
             // idempotent, so a crash in between re-marks on the next poll rather than losing it.
             jdbi.useHandle<Exception> { handle ->
-                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey)
+                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey, publication.namespace)
             }
         }
         store.applyRemoteState(

@@ -735,10 +735,17 @@ fun newForm(request: ServerRequest): ServerResponse {
 
 Without this split, boosted navigation or history restore can receive a fragment instead of the full page.
 
-### Create Forms: Prefer Plain Boosted Forms; Disinherit When You Must Target
+### Create Forms Are Dialogs; Mind Inherited Targets
 
-`hx-target` and `hx-swap` are **inherited** HTMX attributes. A form that scopes its swap to a
-sub-region leaks that target down to its descendant controls — including a boosted Cancel `<a>`:
+Create forms are URL-addressable dialogs (`…/catalogs/{catalog}/themes/new`), described in
+[`dialog-forms.md`](dialog-forms.md): the form posts with `hx-post` and targets itself; a refusal
+re-renders it with `dialogFieldErrors(...)` (422, field errors by their fields) or
+`globalFormError(...)` (422, one message in the form's error slot); success is `dialogLocation(url)`
+to the new resource's page or `dialogSuccess(...)` to stay on the list. The dialog's close button
+is a button, not a link.
+
+`hx-target` and `hx-swap` are **inherited** HTMX attributes, so a form that scopes its swap leaks it
+to descendant controls — including a boosted `<a>` inside it:
 
 ```html
 <form hx-post="/items" hx-target="#form-area" hx-swap="outerHTML">
@@ -748,34 +755,10 @@ sub-region leaks that target down to its descendant controls — including a boo
 </form>
 ```
 
-Because a boosted request renders the full `layout/shell` page (see above), that Cancel link
-swaps the **entire shell** into `#form-area` — a "nested shell".
-
-**The default: don't put HTMX attributes on a standalone create form at all.** Rely on the global
-`hx-boost`. Use a plain `<form th:action method="post">`; the handler renders the full page with
-errors on validation failure (`ServerResponse.ok().page("x/new") { "errors" to … }`) and `303`s on
-success. Cancel is a plain `<a th:href>`. This is what most create forms do (environments, themes,
-templates, attributes, stencils, api-keys, code-lists) — no inheritance, nothing to override.
-
-**When a form genuinely needs an in-page swap** (e.g. `loadtest/new.html`, whose cascading
-dropdowns load via `hx-get` and whose submit-error preserves in-progress state), keep `hx-post` +
-`hx-target`, and add `hx-disinherit` so descendant links/controls don't inherit it:
-
-```html
-<form
-  th:hx-post="@{…}"
-  hx-target="#form-error"
-  hx-swap="innerHTML"
-  hx-disinherit="hx-target hx-swap"
->
-  ...
-  <a th:href="@{…}">Cancel</a>
-  <!-- no longer inherits -->
-</form>
-```
-
-Do **not** reach for per-link `hx-target="body"` overrides — disinherit at the form is the
-idiomatic fix.
+A boosted request renders the full `layout/shell` page, so that link would swap the **entire
+shell** into `#form-area`. Keep links out of a targeted form, or add
+`hx-disinherit="hx-target hx-swap"` to the form so they do not inherit; do not override per link
+with `hx-target="body"`.
 
 ### Multi-Select Cascading Dropdowns
 
@@ -840,40 +823,30 @@ val selectedEnvironmentId = when (triggerName) {
 
 ### HTMX Form Submission with Redirect
 
-Using `hx-post` on a form requires special handling for success redirects. A standard 303 redirect is followed by HTMX as an AJAX request, causing the redirected page to be swapped into the target element (duplicating headers, breaking layout).
-
-Use the `HX-Redirect` response header instead — it tells HTMX to perform a full browser navigation:
+A plain `303` after an `hx-post` is followed by the XHR, and the page it leads to is swapped into the
+target. Navigate with the DSL instead, which sets the HTMX header and keeps a plain redirect for a
+form posted without HTMX:
 
 ```kotlin
 fun start(request: ServerRequest): ServerResponse {
-    try {
-        val result = doWork()
-        val url = "/items/${result.id}"
-        return if (request.isHtmx) {
-            ServerResponse.ok().header("HX-Redirect", url).build()
-        } else {
-            redirect(url)
-        }
-    } catch (e: Exception) {
-        // Return error fragment (must be 200 for HTMX to swap it)
-        return request.htmx {
-            fragment("mytemplate", "form-error") {
-                "error" to (e.message ?: "Something went wrong")
-            }
-            onFullPage {
-                ServerResponse.badRequest().render("layout/shell", mapOf("error" to e.message))
-            }
-        }
+    val form = request.form { field("name") { required(); maxLength(100) } }
+    if (form.hasErrors()) {
+        // 422 with HX-Reswap: shaped for HTMX, the error lands in the form's slot.
+        return request.htmx { globalFormError("start-error", form.errors.values.first()) }
+    }
+    val url = "/items/${doWork(form["name"]).id}"
+    return request.htmx {
+        dialogLocation(url) // or dialogRedirect(url) for a full reload
+        onFullPage { redirect(url) }
     }
 }
 ```
 
-```html
-<div id="form-error"><!-- error fragment swapped here --></div>
-<form hx-post="/items" hx-target="#form-error" hx-swap="innerHTML">...</form>
-```
-
-**Important:** HTMX does not swap content on non-2xx responses by default. Return 200 with error content for inline error display.
+HTMX does not swap an error status by default; `app-shell.js` lets it swap one that names its swap
+(`HX-Reswap`), which `globalFormError`, `dialogFieldErrors` and `reswap(...)` with `status(422)` all
+set. Do not answer a refusal with `200`: then nothing (`data-reset-on-success`, the embedding
+bridge) can tell it from success. An unshaped 4xx falls to the safety net, which shows a generic
+message in the form's `[data-form-error]` slot.
 
 ### Kotlin Inline Value Classes in Thymeleaf
 

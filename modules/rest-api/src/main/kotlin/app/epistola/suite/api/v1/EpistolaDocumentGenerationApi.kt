@@ -14,11 +14,17 @@ import app.epistola.api.model.GenerationJobListResponse
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.acceptedAsJob
+import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
 import app.epistola.suite.api.v1.shared.toQuery
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.versions.GetCatalogNames
+import app.epistola.suite.catalog.versions.ResolveCatalogVersion
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -30,6 +36,7 @@ import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.CountDocuments
 import app.epistola.suite.documents.queries.CountGenerationJobs
+import app.epistola.suite.documents.queries.DocumentCatalog
 import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
@@ -65,10 +72,16 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Preview ==================
 
     override fun previewDocument(
-        tenantId: String,
+        tenantKey: String,
         previewDocumentRequest: PreviewDocumentRequest,
     ): ResponseEntity<Resource> {
-        val pdfBytes = previewDocumentRequest.toQuery(tenantId).query()
+        val pdfBytes = previewDocumentRequest.toQuery(tenantKey, catalogsOf(tenantKey)) { catalog, version ->
+            // A preview of a draft names the draft; a released version is not one (use `version`).
+            val resolved = ResolveCatalogVersion(catalog.tenantKey, catalog.registry, catalog.namespace, catalog.id, version).query()
+            if (!resolved.isDraft) {
+                throw ValidationException(field = "draftVersion", message = "Version $version is released, not a draft; render it with 'version'")
+            }
+        }.query()
 
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_PDF)
@@ -80,39 +93,35 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Generation ==================
 
     override fun generateDocument(
-        tenantId: String,
+        tenantKey: String,
         generateDocumentRequest: GenerateDocumentRequest,
     ): ResponseEntity<GenerationJobResponse> {
-        val command = generateDocumentRequest.toCommand(tenantId, objectMapper)
+        val command = generateDocumentRequest.toCommand(tenantKey, catalogsOf(tenantKey))
         val request = command.execute()
 
-        return ResponseEntity
-            .status(HttpStatus.ACCEPTED)
-            .body(request.toJobResponse())
+        return request.toJobResponse().let { acceptedAsJob(it.requestId.toString(), it) }
     }
 
     override fun generateDocumentBatch(
-        tenantId: String,
+        tenantKey: String,
         generateBatchRequest: GenerateBatchRequest,
     ): ResponseEntity<GenerationJobResponse> {
-        val command = generateBatchRequest.toCommand(tenantId, objectMapper)
+        val command = generateBatchRequest.toCommand(tenantKey, catalogsOf(tenantKey))
         val request = command.execute()
 
-        return ResponseEntity
-            .status(HttpStatus.ACCEPTED)
-            .body(request.toJobResponse())
+        return request.toJobResponse().let { acceptedAsJob(it.requestId.toString(), it) }
     }
 
     // ================== Job Management ==================
 
     override fun listGenerationJobs(
-        tenantId: String,
+        tenantKey: String,
         status: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<GenerationJobListResponse> {
         val statusEnum = status?.let { RequestStatus.valueOf(it) }
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         val jobs = ListGenerationJobs(
             tenantId = typedTenantId,
             status = statusEnum,
@@ -130,22 +139,23 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun getGenerationJobStatus(
-        tenantId: String,
+        tenantKey: String,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         val typedRequestId = GenerationRequestKey.of(requestId)
         val jobResult = GetGenerationJob(typedTenantId, typedRequestId).query()
             ?: throw GenerationJobNotFoundException(typedTenantId, typedRequestId)
 
-        return ResponseEntity.ok(jobResult.toDto(objectMapper))
+        val catalogs = GetCatalogNames(typedTenantId, jobResult.items.map { it.catalogKey }).query()
+        return ResponseEntity.ok(jobResult.toDto(objectMapper, catalogs))
     }
 
     override fun cancelGenerationJob(
-        tenantId: String,
+        tenantKey: String,
         requestId: UUID,
     ): ResponseEntity<Unit> {
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         CancelGenerationJob(typedTenantId, GenerationRequestKey.of(requestId)).execute()
 
         return ResponseEntity.noContent().build()
@@ -154,10 +164,10 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Download ==================
 
     override fun downloadDocument(
-        tenantId: String,
+        tenantKey: String,
         documentId: UUID,
     ): ResponseEntity<Resource> {
-        val tid = TenantKey.of(tenantId)
+        val tid = TenantKey.of(tenantKey)
         val did = DocumentKey.of(documentId)
 
         val metadata = GetDocumentMetadata(tid, did).query()
@@ -175,10 +185,10 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun deleteDocument(
-        tenantId: String,
+        tenantKey: String,
         documentId: UUID,
     ): ResponseEntity<Unit> {
-        val typedTenantId = TenantKey.of(tenantId)
+        val typedTenantId = TenantKey.of(tenantKey)
         val typedDocumentId = DocumentKey.of(documentId)
         val deleted = DeleteDocument(typedTenantId, typedDocumentId).execute()
 
@@ -211,16 +221,16 @@ class EpistolaDocumentGenerationApi(
      * written to the response by the time we return.
      */
     override fun collectGenerationResults(
-        tenantId: String,
+        tenantKey: String,
         acceptEncoding: String,
         collectRequest: CollectRequest?,
     ): ResponseEntity<String> {
-        val tenantKey = TenantKey.of(tenantId)
+        val tenant = TenantKey.of(tenantKey)
         val principal = app.epistola.suite.security.SecurityContext.current()
-        if (principal.currentTenantId != null && principal.currentTenantId != tenantKey) {
+        if (principal.currentTenantId != null && principal.currentTenantId != tenant) {
             // Defense-in-depth: the api-key auth filter sets currentTenantId from
             // api_keys.tenantKey. The path tenant must match.
-            throw TenantAccessDeniedException(tenantKey, principal.email)
+            throw TenantAccessDeniedException(tenant, principal.email)
         }
         val consumerId = principal.userId.value.toString()
         val nodeId = currentRequest()?.getHeader(HEADER_NODE_ID)?.takeIf { it.isNotBlank() }
@@ -228,7 +238,7 @@ class EpistolaDocumentGenerationApi(
 
         // Touch returns this node's PartitionAssignment from the consistent hash ring.
         val assignment = app.epistola.suite.generation.collect.commands.TouchConsumerNode(
-            tenantId = tenantKey,
+            tenantId = tenant,
             consumerId = consumerId,
             nodeId = nodeId,
         ).execute()
@@ -238,7 +248,7 @@ class EpistolaDocumentGenerationApi(
         val ackUpTo = collectRequest?.acknowledgeUpTo
         if (ackUpTo != null && ackUpTo > 0L && partitions.isNotEmpty()) {
             app.epistola.suite.generation.collect.commands.AcknowledgeGenerationResults(
-                tenantId = tenantKey,
+                tenantId = tenant,
                 consumerId = consumerId,
                 partitions = partitions,
                 acknowledgeUpTo = ackUpTo,
@@ -254,7 +264,7 @@ class EpistolaDocumentGenerationApi(
             app.epistola.suite.generation.collect.queries.FetchResultsPage(emptyList(), hasMore = false, lastSequence = null)
         } else {
             app.epistola.suite.generation.collect.queries.FetchGenerationResults(
-                tenantId = tenantKey,
+                tenantId = tenant,
                 consumerId = consumerId,
                 partitions = partitions,
                 limit = limit,
@@ -282,6 +292,11 @@ class EpistolaDocumentGenerationApi(
         return ResponseEntity.status(HttpStatus.OK).build()
     }
 
+    /** Finds a catalog a request body names by its full name; one the tenant has none by is a 404. */
+    private fun catalogsOf(tenantKey: String): (String?, String, String) -> Catalog = { registry, namespace, catalogKey ->
+        catalogAt(tenantKey, registry, namespace, catalogKey)
+    }
+
     private fun currentRequest(): jakarta.servlet.http.HttpServletRequest? = (
         org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
             as? org.springframework.web.context.request.ServletRequestAttributes
@@ -294,25 +309,34 @@ class EpistolaDocumentGenerationApi(
 
     private companion object {
         const val HEADER_NODE_ID = "X-EP-Node-Id"
-        const val NDJSON_CONTENT_TYPE = "application/vnd.epistola.v1+ndjson"
+        const val NDJSON_CONTENT_TYPE = "application/vnd.epistola.v2+ndjson"
         const val DEFAULT_COLLECT_LIMIT = 100
     }
 
     // ================== Document Listing ==================
 
     override fun listDocuments(
-        tenantId: String,
-        templateId: String?,
+        tenantKey: String,
+        templateKey: String?,
         correlationId: String?,
         page: Int,
         size: Int,
+        registry: String?,
+        namespace: String?,
+        catalogKey: String?,
     ): ResponseEntity<DocumentListResponse> {
-        val typedTenantId = TenantKey.of(tenantId)
-        val typedTemplateId = templateId?.let { TemplateKey.of(it) }
+        val typedTenantId = TenantKey.of(tenantKey)
+        val typedTemplateId = templateKey?.let { TemplateKey.of(it) }
+        // A template key is unique only within its catalog, so a listing by template names it.
+        if (typedTemplateId != null && (namespace == null || catalogKey == null)) {
+            throw ValidationException("templateKey", "Listing documents by template needs the template's catalog: namespace and catalogKey")
+        }
+        val catalog = DocumentCatalog(registry = registry, namespace = namespace, catalogKey = catalogKey?.let { CatalogKey.of(it) })
         val documents = ListDocuments(
             tenantId = typedTenantId,
             templateId = typedTemplateId,
             correlationId = correlationId,
+            catalog = catalog,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
         ).query()
@@ -320,11 +344,13 @@ class EpistolaDocumentGenerationApi(
             tenantId = typedTenantId,
             templateId = typedTemplateId,
             correlationId = correlationId,
+            catalog = catalog,
         ).query()
 
+        val catalogs = GetCatalogNames(typedTenantId, documents.map { it.catalogKey }).query()
         return ResponseEntity.ok(
             DocumentListResponse(
-                items = documents.map { it.toDto() },
+                items = documents.map { it.toDto(catalogs[it.catalogKey]) },
                 page = Pagination.pageMeta(page, size, total),
             ),
         )

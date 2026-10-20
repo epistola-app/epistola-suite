@@ -26,6 +26,7 @@ charts/epistola/tests/availability-render.sh
 charts/epistola/tests/sharing-render.sh
 charts/epistola/tests/catalog-render.sh
 charts/epistola/tests/generation-render.sh
+charts/epistola/tests/observability-render.sh
 scripts/test-helm-chart.sh          # kind smoke test, needs Docker
 ```
 

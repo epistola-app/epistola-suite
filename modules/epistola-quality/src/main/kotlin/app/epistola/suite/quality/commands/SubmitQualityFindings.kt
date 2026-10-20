@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.commands
 
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -138,8 +139,8 @@ class SubmitQualityFindingsHandler(
      * JSON *it* fetched would produce a different string for the very same document, and every
      * finding it submitted would read as permanently stale — silently, forever.
      *
-     * Null for a subject with no template model (a contract-version subject, or a template with no
-     * versions yet); staleness then simply never fires, which is the right answer for a finding that
+     * Null for a subject with no template model (a subject that is not a variant); staleness then
+     * simply never fires, which is the right answer for a finding that
      * isn't about a document.
      */
     private fun currentInputFingerprint(
@@ -150,12 +151,9 @@ class SubmitQualityFindingsHandler(
         return handle.createQuery(
             """
             SELECT md5(template_model::text)
-            FROM template_versions
-            WHERE tenant_key = :tenantKey
-              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND variant_key = :variantKey
-              AND status IN ('draft', 'published')
-            ORDER BY CASE status WHEN 'draft' THEN 0 ELSE 1 END, id DESC
-            LIMIT 1
+            FROM template_variants
+            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )
             .bind("tenantKey", subject.tenantKey)

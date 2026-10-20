@@ -65,7 +65,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/fonts/new",
+                "/tenants/${testTenant.id}/catalogs/default/fonts/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -94,7 +94,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/fonts/new",
+                "/tenants/${testTenant.id}/catalogs/default/fonts/new",
                 String::class.java,
             )
         }
@@ -116,7 +116,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
         given { testTenant = tenant("Font Plain List") }
 
         whenever {
-            restTemplate.getForEntity("/tenants/${testTenant.id}/fonts", String::class.java)
+            restTemplate.getForEntity("/tenants/${testTenant.id}/catalogs/default/fonts", String::class.java)
         }
 
         then {
@@ -144,7 +144,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, htmxMultipartHeaders()),
                 String::class.java,
             )
@@ -173,14 +173,13 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
         given { testTenant = tenant("Font Multi Error") }
 
         whenever {
-            // Missing name AND missing catalog AND no face file → three errors in
-            // one response. The point of accumulating (vs first-error-wins): the
+            // Missing name AND no face file → two errors in one response. The point of accumulating (vs first-error-wins): the
             // user sees every problem at once.
             val payload = LinkedMultiValueMap<String, Any>()
             payload.add("slug", "acme-sans")
             payload.add("kind", "sans")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, htmxMultipartHeaders()),
                 String::class.java,
             )
@@ -190,48 +189,11 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
-            // All three messages arrive together, each in its own span.
+            // Both messages arrive together, each in its own span.
             assertThat(response.body).contains("""id="font-name-error"""")
             assertThat(response.body).contains("Display name is required")
-            assertThat(response.body).contains("""id="font-catalog-error"""")
-            assertThat(response.body).contains("Catalog is required")
             assertThat(response.body).contains("""id="font-faces-error"""")
             assertThat(response.body).contains("At least one face file is required")
-        }
-    }
-
-    @Test
-    fun `HTMX POST with malformed catalog OOB-swaps the catalog error span without re-rendering the form body`() = fixture {
-        lateinit var testTenant: Tenant
-
-        given { testTenant = tenant("Font Create Bad Catalog") }
-
-        whenever {
-            val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("slug", "acme-sans")
-            payload.add("name", "Acme Sans")
-            payload.add("kind", "sans")
-            payload.add("catalog", "Bad Catalog!")
-            payload.add("file", facePart("acme-sans-regular.ttf"))
-            payload.add("weight", "400")
-            payload.add("italic", "false")
-            restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
-                HttpEntity(payload, htmxMultipartHeaders()),
-                String::class.java,
-            )
-        }
-
-        then {
-            val response = result<ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
-            assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
-            assertThat(response.headers.getFirst("HX-Retarget")).isNull()
-            assertThat(response.headers.getFirst("HX-Trigger")).isNull()
-            assertThat(response.body).contains("""id="font-catalog-error"""")
-            assertThat(response.body).contains("Invalid catalog ID format")
-            assertThat(response.body).doesNotContain("""id="upload-font-form"""")
-            assertThat(response.body).doesNotContain("""type="file"""")
         }
     }
 
@@ -251,7 +213,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, htmxMultipartHeaders()),
                 String::class.java,
             )
@@ -264,7 +226,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
                 .isEqualTo("""{"closeDialog": null, "dialogSuccess": null}""")
             assertThat(response.headers.getFirst("HX-Reswap")).isEqualTo("none")
             assertThat(response.headers.getFirst("HX-Replace-Url"))
-                .isEqualTo("/tenants/${testTenant.id}/fonts")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/fonts")
             // The OOB grid fragment carries its id + hx-swap-oob and the new family.
             assertThat(response.body).contains("""id="font-grid-items"""")
             assertThat(response.body).contains("hx-swap-oob=\"outerHTML\"")

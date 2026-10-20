@@ -5,6 +5,7 @@
 package app.epistola.suite.versioncheck.sharing
 
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.springframework.context.annotation.Bean
@@ -40,6 +41,6 @@ class DataSharingHandler {
 
     fun check(request: ServerRequest): ServerResponse {
         RunDataSharingChecks().execute()
-        return ServerResponse.status(303).header("Location", "/platform/sharing?checked=true").build()
+        return redirect("/platform/sharing?checked=true")
     }
 }

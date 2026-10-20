@@ -1,0 +1,49 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.catalog.versions
+
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.RequiresAuthentication
+import org.jdbi.v3.core.Jdbi
+import org.springframework.stereotype.Component
+
+/**
+ * Resolves `…/catalogs/{registry}/{namespace}/{catalogKey}` (contract ADR 0003) to the tenant's
+ * catalog with that name, for the operations that address a catalog rather than one of its versions,
+ * and for a request body that names a catalog. [registry] null, or `~`, is the installation's default
+ * registry. A catalog whose key matches but whose name does not is another catalog, and not found.
+ *
+ * Any member of the tenant may resolve a name: the operation the name is resolved for checks its own
+ * permission, so a document generator can name the catalog it generates from without viewing catalogs.
+ */
+data class ResolveCatalog(
+    override val tenantKey: TenantKey,
+    val registry: String?,
+    val namespace: String,
+    val catalogKey: CatalogKey,
+) : Query<Catalog>,
+    RequiresAuthentication,
+    TenantScoped
+
+@Component
+class ResolveCatalogHandler(
+    private val jdbi: Jdbi,
+    private val identity: CatalogIdentityProperties,
+) : QueryHandler<ResolveCatalog, Catalog> {
+    override fun handle(query: ResolveCatalog): Catalog = jdbi.withHandle<Catalog, Exception> { handle ->
+        val registry = query.registry?.takeUnless { it == ResolveCatalogVersionHandler.DEFAULT_REGISTRY } ?: identity.defaultRegistry
+        handle.findCatalog(query.tenantKey, query.catalogKey)
+            ?.takeIf { it.registry == registry && it.namespace == query.namespace }
+            ?: throw CatalogNotFoundException(query.catalogKey)
+    }
+}

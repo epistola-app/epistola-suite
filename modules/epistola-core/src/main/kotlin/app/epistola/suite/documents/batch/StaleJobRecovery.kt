@@ -100,6 +100,7 @@ class StaleJobRecovery(
                     """
                 UPDATE document_generation_requests
                 SET status = 'PENDING',
+                    recoveries = recoveries + 1,
                     claimed_by = NULL,
                     claimed_at = NULL,
                     started_at = NULL

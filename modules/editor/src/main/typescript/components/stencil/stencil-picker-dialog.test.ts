@@ -4,31 +4,17 @@
 
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { openStencilPickerDialog } from './stencil-picker-dialog.js';
-import type {
-  StencilCallbacks,
-  StencilSummary,
-  StencilVersionInfo,
-  StencilVersionSummary,
-} from './types.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { openStencilPickerDialog, type PrepareStencilFn } from './stencil-picker-dialog.js';
+import type { StencilCallbacks, StencilSummary } from './types.js';
 import type { JsonSchema } from '../../data-contract/types.js';
-import { createTestDocument } from '../../engine/test-helpers.js';
+import { workingCopy, CATALOG, text } from './stencil-test-helpers.js';
 
 const SUMMARY: StencilSummary = {
-  id: 'greeting',
-  catalogKey: 'default',
+  stencilKey: 'greeting',
+  catalogKey: CATALOG,
   name: 'Greeting',
   tags: [],
-  latestPublishedVersion: 1,
-  latestVersion: 1,
-};
-
-const VERSION: StencilVersionSummary = {
-  version: 1,
-  status: 'published',
-  createdAt: '2026-01-01T00:00:00Z',
-  publishedAt: '2026-01-01T00:00:00Z',
 };
 
 const PARAM_SCHEMA: JsonSchema = {
@@ -37,22 +23,17 @@ const PARAM_SCHEMA: JsonSchema = {
   required: ['recipient'],
 };
 
-function versionInfo(parameterSchema?: JsonSchema): StencilVersionInfo {
+function callbacks(summaries: StencilSummary[] = [SUMMARY]): StencilCallbacks {
   return {
-    ref: { stencilId: 'greeting', catalogKey: 'default' },
-    stencilName: 'Greeting',
-    version: 1,
-    content: createTestDocument(),
-    parameterSchema,
+    catalogKey: CATALOG,
+    searchStencils: () => Promise.resolve(summaries),
+    getStencil: () => Promise.resolve(null),
   };
 }
 
-function callbacks(info: StencilVersionInfo): StencilCallbacks {
-  return {
-    searchStencils: () => Promise.resolve([SUMMARY]),
-    listVersions: () => Promise.resolve([VERSION]),
-    getStencilVersion: () => Promise.resolve(info),
-  };
+function prepareWith(parameterSchema?: JsonSchema): PrepareStencilFn {
+  const copy = workingCopy('greeting', [text('g')], { parameterSchema });
+  return () => Promise.resolve({ ok: true, prepared: { copy, fetched: new Map() } });
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -63,33 +44,43 @@ function pickerDialog(): HTMLDialogElement {
   return dialog;
 }
 
-/** Drive the dialog through: stencil list → version list → click Insert. */
+/** Drive the dialog through: stencil list → select → click Insert. */
 async function selectStencilAndInsert(): Promise<HTMLDialogElement> {
   await tick(); // searchStencils resolves → renderStencilList
   const dialog = pickerDialog();
   dialog.querySelector<HTMLElement>('#stencil-list .stencil-picker-card')!.click();
-  await tick(); // listVersions resolves → renderVersionList
-  dialog.querySelector<HTMLElement>('#stencil-version-list .stencil-picker-card')!.click();
   dialog.querySelector<HTMLButtonElement>('.insert')!.click();
-  await tick(); // getStencilVersion resolves → doInsert decides
+  await tick(); // prepare resolves → doInsert decides
   return dialog;
 }
 
-describe('openStencilPickerDialog parameter binding step', () => {
-  afterEach(() => {
-    document.querySelectorAll('dialog').forEach((dialog) => dialog.remove());
+afterEach(() => {
+  document.querySelectorAll('dialog').forEach((dialog) => dialog.remove());
+});
+
+describe('openStencilPickerDialog', () => {
+  it('offers no version choice: picking a stencil and Insert is enough', async () => {
+    const result = openStencilPickerDialog(callbacks(), { prepare: prepareWith(undefined) });
+    await selectStencilAndInsert();
+
+    await expect(result).resolves.toMatchObject({
+      action: 'use-existing',
+      prepared: { copy: { ref: { stencilKey: 'greeting' } } },
+      bindings: {},
+      paramsAlias: 'params',
+    });
+    expect(document.querySelector('#stencil-version-list')).toBeNull();
   });
 
-  // Parameters are intrinsic to a stencil (no feature toggle): inserting a version that
-  // declares any always routes through the binding step so the consumer can bind them.
-  it('advances to the binding step when the picked version declares parameters', async () => {
-    void openStencilPickerDialog(callbacks(versionInfo(PARAM_SCHEMA)));
+  it('advances to the binding step when the stencil declares parameters', async () => {
+    void openStencilPickerDialog(callbacks(), { prepare: prepareWith(PARAM_SCHEMA) });
     const dialog = await selectStencilAndInsert();
 
     const bindingStep = dialog.querySelector<HTMLElement>('#stencil-step-bindings')!;
     expect(bindingStep.style.display).not.toBe('none');
-    expect(dialog.querySelector('#stencil-binding-title')!.textContent).toContain('Greeting');
+    expect(dialog.querySelector('#stencil-binding-title')!.textContent).toContain('greeting');
     expect(dialog.querySelector('#stencil-binding-rows')!.children.length).toBeGreaterThan(0);
+    expect(dialog.querySelector<HTMLButtonElement>('button.insert')!.disabled).toBe(true);
   });
 
   it('allows a required parameter with a default to remain unbound', async () => {
@@ -98,22 +89,77 @@ describe('openStencilPickerDialog parameter binding step', () => {
       properties: { recipient: { type: 'string', default: 'Customer' } },
       required: ['recipient'],
     } as JsonSchema;
-    void openStencilPickerDialog(callbacks(versionInfo(schemaWithDefault)));
+    void openStencilPickerDialog(callbacks(), { prepare: prepareWith(schemaWithDefault) });
     const dialog = await selectStencilAndInsert();
 
     expect(dialog.querySelector<HTMLButtonElement>('button.insert')!.disabled).toBe(false);
   });
 
-  // The empty parameter set (the common case) skips binding and inserts straight away.
-  it('inserts immediately with empty bindings when the version declares no parameters', async () => {
-    const result = openStencilPickerDialog(callbacks(versionInfo(undefined)));
-    await selectStencilAndInsert();
-
-    await expect(result).resolves.toMatchObject({
-      action: 'use-existing',
-      bindings: {},
-      paramsAlias: 'params',
+  it('shows why a stencil cannot be inserted and stays open', async () => {
+    const prepare = vi.fn<PrepareStencilFn>().mockResolvedValue({
+      ok: false,
+      message: "'greeting' cannot go here: a stencil cannot contain itself.",
     });
+    const result = openStencilPickerDialog(callbacks(), { prepare });
+    const dialog = await selectStencilAndInsert();
+
+    const error = dialog.querySelector<HTMLElement>('[data-testid="stencil-picker-error"]')!;
+    expect(error.style.display).not.toBe('none');
+    expect(error.textContent).toContain('cannot contain itself');
+    expect(dialog.isConnected).toBe(true);
+    dialog.querySelector<HTMLElement>('.cancel')!.click();
+    await expect(result).resolves.toBeNull();
+  });
+
+  it('disables a stencil the insertion point is already the content of', async () => {
+    void openStencilPickerDialog(callbacks(), {
+      prepare: prepareWith(undefined),
+      disabledStencils: new Set([`${CATALOG}/greeting`]),
+    });
+    await tick();
+
+    const card = pickerDialog().querySelector<HTMLElement>('.stencil-picker-card')!;
+    expect(card.classList.contains('stencil-picker-card--disabled')).toBe(true);
+    card.click();
+    expect(pickerDialog().querySelector<HTMLButtonElement>('button.insert')!.disabled).toBe(true);
+  });
+
+  it('offers "Create New" only when stencils can be created', async () => {
+    void openStencilPickerDialog(callbacks(), { prepare: prepareWith(undefined) });
+    await tick();
+    expect(pickerDialog().querySelector('.create-new')).toBeNull();
+    pickerDialog().remove();
+
+    void openStencilPickerDialog(
+      {
+        ...callbacks(),
+        createStencil: () => Promise.resolve({ stencilKey: 'x', catalogKey: CATALOG }),
+      },
+      { prepare: prepareWith(undefined) },
+    );
+    await tick();
+    expect(pickerDialog().querySelector('.create-new')).not.toBeNull();
+  });
+
+  it('creates a new stencil and returns its reference', async () => {
+    const createStencil = vi.fn().mockResolvedValue({ stencilKey: 'new-one', catalogKey: CATALOG });
+    const result = openStencilPickerDialog(
+      { ...callbacks(), createStencil },
+      { prepare: prepareWith(undefined) },
+    );
+    await tick();
+    const dialog = pickerDialog();
+    dialog.querySelector<HTMLElement>('.create-new')!.click();
+    const name = dialog.querySelector<HTMLInputElement>('#create-stencil-name')!;
+    name.value = 'New One';
+    name.dispatchEvent(new Event('input'));
+    dialog.querySelector<HTMLButtonElement>('.create-confirm')!.click();
+
+    await expect(result).resolves.toEqual({
+      action: 'create-new',
+      ref: { stencilKey: 'new-one', catalogKey: CATALOG },
+    });
+    expect(createStencil).toHaveBeenCalledWith('new-one', 'New One');
   });
 });
 
@@ -121,25 +167,18 @@ describe('openStencilPickerDialog escapes author-controlled text', () => {
   const MALICIOUS = '"><img src=x onerror=window.__pwned=1>';
 
   afterEach(() => {
-    document.querySelectorAll('dialog').forEach((dialog) => dialog.remove());
     (window as unknown as { __pwned?: unknown }).__pwned = undefined;
   });
 
   it('renders a crafted stencil name, description, and tag as inert text', async () => {
     const evil: StencilSummary = {
-      id: 'evil',
-      catalogKey: 'default',
+      stencilKey: 'evil',
+      catalogKey: CATALOG,
       name: `Name ${MALICIOUS}`,
       description: `Desc ${MALICIOUS}`,
       tags: [`Tag ${MALICIOUS}`],
-      latestPublishedVersion: 1,
-      latestVersion: 1,
     };
-    void openStencilPickerDialog({
-      searchStencils: () => Promise.resolve([evil]),
-      listVersions: () => Promise.resolve([VERSION]),
-      getStencilVersion: () => Promise.resolve(versionInfo(undefined)),
-    });
+    void openStencilPickerDialog(callbacks([evil]), { prepare: prepareWith(undefined) });
     await tick();
 
     const card = pickerDialog().querySelector<HTMLElement>('#stencil-list .stencil-picker-card')!;

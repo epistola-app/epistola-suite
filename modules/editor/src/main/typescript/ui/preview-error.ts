@@ -27,6 +27,11 @@ export function formatPreviewErrorResponse(
   try {
     body = JSON.parse(responseText);
   } catch {
+    // A web page instead of an error (a sign-in page once the session ended, a proxy's error
+    // page) is said in a sentence, never shown as markup.
+    if (/^\s*</.test(responseText) || /<html|<body|<!doctype/i.test(responseText)) {
+      return 'The preview could not be made, perhaps because you were signed out. Sign in again in another tab, then try again.';
+    }
     return responseText;
   }
   if (!isRecord(body)) return fallback;

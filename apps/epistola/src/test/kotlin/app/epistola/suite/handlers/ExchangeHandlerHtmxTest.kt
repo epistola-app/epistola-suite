@@ -5,14 +5,16 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
 import app.epistola.suite.exchange.PublishCurrentCatalogRelease
-import app.epistola.suite.exchange.SetCatalogPublicationNamespace
 import app.epistola.suite.exchange.StartExchangeConnection
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
@@ -81,7 +84,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             listOf("activity-alpha", "activity-beta").forEach { slug ->
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
-                SetCatalogPublicationNamespace(tenant.id, key, "public-services").execute()
+                ChangeCatalogNamespace(tenant.id, key, "public-services").execute()
+                MarkCatalogReady(tenant.id, key).execute()
                 ReleaseCatalogVersion(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
         }
@@ -166,13 +170,14 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * twenty-four hours it takes to give up on a submission Exchange never decides.
      */
     @Test
-    fun `a release that has been waiting too long says so on the catalog page`() {
+    fun `a release that has been waiting too long says so on the catalog's Settings page`() {
         val tenant = createTenant("Exchange Stalled")
         val catalogKey = CatalogKey.of("stalled")
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Stalled").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
         }
 
@@ -191,7 +196,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     private fun catalogPage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings",
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -211,14 +216,15 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Deep link").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Only once Exchange has taken it does a page exist there to link to.
             worker.run()
         }
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings",
             String::class.java,
         )
 
@@ -230,7 +236,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `a rejected release says on the catalog page why Exchange refused it`() {
+    fun `a rejected release says on the catalog's Settings page why Exchange refused it`() {
         val tenant = createTenant("Exchange Refusal Reason")
         val catalogKey = CatalogKey.of("refusal-reason")
         exchange.submitResponse = {
@@ -247,7 +253,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Refusal reason").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
@@ -273,7 +280,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             // to null, and SpEL cannot convert null to boolean - so getting this wrong does not
             // hide a button, it returns 500 for every catalog page that has ever published.
             CreateCatalog(tenant.id, healthyKey, "Healthy").execute()
-            SetCatalogPublicationNamespace(tenant.id, healthyKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, healthyKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, healthyKey).execute()
             ReleaseCatalogVersion(tenant.id, healthyKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
@@ -289,13 +297,14 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
                 )
             }
             CreateCatalog(tenant.id, refusedKey, "Refused").execute()
-            SetCatalogPublicationNamespace(tenant.id, refusedKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, refusedKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, refusedKey).execute()
             ReleaseCatalogVersion(tenant.id, refusedKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
 
         val healthy = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${healthyKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${healthyKey.value}/settings",
             String::class.java,
         )
         assertThat(healthy.statusCode).isEqualTo(HttpStatus.OK)
@@ -305,7 +314,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(healthy.body).doesNotContain("Reappoint the publisher on Exchange")
 
         val refused = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${refusedKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${refusedKey.value}/settings",
             String::class.java,
         )
         assertThat(refused.statusCode).isEqualTo(HttpStatus.OK)
@@ -317,13 +326,14 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page still offers a release that kept its content after the catalog moves on`() {
+    fun `the catalog's Settings page still offers a release that kept its content after the catalog moves on`() {
         val tenant = createTenant("Exchange Drifted")
         val catalogKey = CatalogKey.of("drifted")
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Drifted").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(
                 tenantKey = tenant.id,
@@ -335,7 +345,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         }
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings",
             String::class.java,
         )
 
@@ -421,8 +431,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         val body = releaseDialog(tenant, catalogKey)
 
         assertThat(body).contains("""name="publishToExchange"""")
-        assertThat(body).contains("""name="chosenNamespace"""")
-        assertThat(body).contains("public-services")
+        assertThat(body).`as`("the catalog was created in the granted namespace, so it is shown, not asked")
+            .contains("Publishes as").contains("/public-services/publishable").doesNotContain("""name="chosenNamespace"""")
         assertThat(body).doesNotContain("not connected to Epistola Exchange")
     }
 
@@ -433,7 +443,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * offered the button and a required namespace select with no options in it.
      */
     @Test
-    fun `the catalog page does not offer publishing when the tenant is not connected`() {
+    fun `the catalog's Settings page does not offer publishing when the tenant is not connected`() {
         val tenant = createTenant("Browse No Connection")
         val catalogKey = CatalogKey.of("browse-no-connection")
         enablePublishing(tenant)
@@ -451,7 +461,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page does not offer publishing when the organization grants no namespace`() {
+    fun `the catalog's Settings page does not offer publishing when the organization grants no namespace`() {
         val tenant = createTenant("Browse No Namespace")
         val catalogKey = CatalogKey.of("browse-no-namespace")
         exchange.namespaces = emptyList()
@@ -470,7 +480,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     @Test
-    fun `the catalog page offers publishing once there is somewhere for it to go`() {
+    fun `the catalog's Settings page offers publishing once there is somewhere for it to go`() {
         val tenant = createTenant("Browse Publishable")
         val catalogKey = CatalogKey.of("browse-publishable")
         withMediator {
@@ -480,8 +490,8 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
         val body = browsePage(tenant, catalogKey)
 
-        assertThat(body).contains("""name="chosenNamespace"""")
-        assertThat(body).contains("public-services")
+        assertThat(body).`as`("created in the granted namespace, it shows where it publishes and asks nothing")
+            .contains("<code>public-services</code>").doesNotContain("""name="chosenNamespace"""")
         assertThat(body).doesNotContain("This catalog has nowhere to publish yet")
     }
 
@@ -496,8 +506,10 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         enablePublishing(tenant)
         withMediator { CreateCatalog(tenant.id, catalogKey, "Publication dialog").execute() }
 
-        val response = restTemplate.getForEntity(
+        val response = restTemplate.exchange(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/metadata?section=publication",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
             String::class.java,
         )
 
@@ -539,9 +551,18 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(body.substringAfter("<h3>Default namespace</h3>")).contains("""name="namespace"""")
     }
 
+    private fun releasePage(tenant: Tenant, catalogKey: CatalogKey, version: String): String {
+        val response = restTemplate.getForEntity(
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/releases/$version",
+            String::class.java,
+        )
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        return requireNotNull(response.body)
+    }
+
     private fun browsePage(tenant: Tenant, catalogKey: CatalogKey): String {
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/browse",
+            "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/settings",
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -549,8 +570,10 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
     }
 
     private fun releaseDialog(tenant: Tenant, catalogKey: CatalogKey): String {
-        val response = restTemplate.getForEntity(
+        val response = restTemplate.exchange(
             "/tenants/${tenant.id.value}/catalogs/${catalogKey.value}/release",
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -593,13 +616,13 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
      * handler, and every term was being taken on trust.
      */
     @Test
-    fun `a retained release is offered to Exchange from its row, and marked once sent`() {
+    fun `a retained release is offered to Exchange from its page, and marked once sent`() {
         val tenant = createTenant("Row Publish")
         val catalogKey = CatalogKey.of("row-publish")
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Row publish").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(
                 tenantKey = tenant.id,
                 catalogKey = catalogKey,
@@ -608,19 +631,19 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             ).execute()
         }
 
-        assertThat(browsePage(tenant, catalogKey))
+        assertThat(releasePage(tenant, catalogKey, "1.0.0"))
             .`as`("retained, somewhere to send it, not sent yet")
-            .contains("Publish v1.0.0 to Epistola Exchange")
+            .contains("data-testid=\"release-exchange-publish\"")
 
         withMediator { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
 
-        val afterSending = browsePage(tenant, catalogKey)
+        val afterSending = releasePage(tenant, catalogKey, "1.0.0")
         assertThat(afterSending)
-            .`as`("sent once is sent: the row says so")
-            .contains("Already sent to Epistola Exchange")
+            .`as`("sent once is sent: the page says so")
+            .contains("On Epistola Exchange")
         assertThat(afterSending)
             .`as`("and does not offer to send it again")
-            .doesNotContain("Publish v1.0.0 to Epistola Exchange")
+            .doesNotContain("data-testid=\"release-exchange-publish\"")
     }
 
     /**
@@ -636,9 +659,11 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Row version").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(tenant.id, catalogKey, name = "Row version edited", description = null).execute()
+            MarkCatalogReady(tenant.id, catalogKey).execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
         }
 
@@ -657,7 +682,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
 
     private fun queuedVersions(tenant: Tenant, catalogKey: CatalogKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_key = :c ORDER BY version",
+            "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version",
         )
             .bind("t", tenant.id)
             .bind("c", catalogKey)

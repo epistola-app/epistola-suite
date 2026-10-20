@@ -12,7 +12,7 @@
             <div class="ep-dialog-header">
                 <h3>Create Variant</h3>
             </div>
-            <form th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants(tenantId=${tenantId},catalogId=${catalogId},id=${template.id})}"
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                   hx-target="#variants-section"
                   hx-swap="outerHTML"
                   id="create-variant-form">
@@ -92,6 +92,12 @@
                     </select>
                 </div>
             </div>
+            <div th:if="${offerMarkAllReady}" style="margin-bottom: var(--ep-space-4);">
+                <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
+                      hx-target="#variants-section" hx-swap="outerHTML" style="display: inline;">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="template-mark-ready">Mark all variants ready</button>
+                </form>
+            </div>
             <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
                 <span th:text="${error}"></span>
             </div>
@@ -122,69 +128,58 @@
                                       th:text="${entry.slug + ' = ' + entry.value}"></span>
                             </span>
                         </div>
+                        <!--/* A ready variant is reviewed as it is now and may be released with its
+                               catalog; an edit makes the mark stale. */-->
                         <div class="badge-list">
-                            <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
-                            <span th:if="${!variant.publishedVersions.isEmpty()}" class="badge badge-published"
-                                  th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
-                            <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
-                                  class="text-muted" style="font-size: var(--ep-text-xs);">No versions</span>
+                            <span th:if="${variant.ready}" class="badge badge-success" data-testid="variant-ready">Ready</span>
+                            <!--/* Optional: publishing checks and marks it, so it is not shown as a warning. */-->
+                            <span th:unless="${variant.ready}" class="badge badge-outline" data-testid="variant-not-ready"
+                                  title="Publishing checks it and marks it ready. Marking it ready now checks it early.">Not checked yet</span>
                         </div>
                     </div>
                     <div class="variant-card-footer">
+                        <!--/* Not boosted: the editor is a full page with its own layout and scripts, outside the shell. */-->
                         <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
-                           th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Open editor">
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
+                           class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false" data-testid="variant-open-editor">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            <span>Open editor</span>
                         </a>
-                        <form th:if="${auth.has('TEMPLATE_PUBLISH') and editable and variant.hasDraft}"
-                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/publish(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                        <form th:if="${variant.offerMarkReady}"
+                              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section"
                               hx-swap="outerHTML"
                               style="display: inline;">
-                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm ep-btn-icon" title="Publish draft">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />
+                            <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm ep-btn-icon" title="Mark ready" data-testid="variant-mark-ready">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
-                        <form th:if="${auth.has('TEMPLATE_EDIT') and editable and variant.hasDraft and !variant.publishedVersions.isEmpty()}"
-                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/draft/discard(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                              hx-target="#variants-section"
-                              hx-swap="outerHTML"
-                              hx-confirm="Discard draft changes? The variant will revert to the last published version."
-                              style="display: inline;">
-                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Discard draft">
-                                <th:block th:replace="~{epistola-web/icon :: icon(name='undo-2', class='ep-icon ep-icon-sm')}" />
-                            </button>
-                        </form>
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogId}"
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
+                                th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogSegment ?: catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
                                 th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
-                                data-pdf-preview title="Preview latest version">
+                                data-pdf-preview data-testid="variant-preview">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
-                        </button>
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/versions(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
-                                hx-target="#version-history-dialog-body" hx-swap="innerHTML"
-                                data-open-dialog="version-history-dialog" title="Version history">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
+                            <span>Preview</span>
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                th:hx-get="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                                 hx-target="#edit-variant-dialog-body" hx-swap="innerHTML"
                                 data-open-dialog="edit-variant-dialog" title="Edit variant">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <form th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}"
-                              th:hx-post="@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                               hx-target="#variants-section" hx-swap="outerHTML" hx-confirm="Make this the default variant?">
-                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
+                            <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default"
+                                    data-testid="variant-set-default">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" th:unless="${variant.isDefault}" type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon" title="Delete variant"
                                 data-confirm-title="Delete Variant"
-                                th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogId},id=${template.id},variantId=${variant.id})}"
+                                th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
                                 data-confirm-target="#variants-section" data-confirm-swap="outerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>
@@ -206,9 +201,7 @@
             </div>
         </div>
 
-        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
         <dialog id="edit-variant-dialog" class="ep-dialog"><div id="edit-variant-dialog-body"></div></dialog>
-        <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide"><div id="version-history-dialog-body"></div></dialog>
 
         <!-- The "Add attribute" picker ([data-add-attr-button], works for both
              the create dialog and the HTMX-loaded edit dialog) and the variant

@@ -37,21 +37,21 @@ class AuditEntityLinksTest {
     fun `a variant labels template plus variant and links to the template editor`() {
         val link = links.resolve(entry("variant", "demo/default/invoice/nl"))
         assertThat(link.label).isEqualTo("template invoice › variant nl")
-        assertThat(link.href).isEqualTo("/tenants/demo/templates/default/invoice")
+        assertThat(link.href).isEqualTo("/tenants/demo/catalogs/default/templates/invoice")
     }
 
     @Test
     fun `a template links to its editor`() {
         val link = links.resolve(entry("template", "demo/default/invoice"))
         assertThat(link.label).isEqualTo("template invoice")
-        assertThat(link.href).isEqualTo("/tenants/demo/templates/default/invoice")
+        assertThat(link.href).isEqualTo("/tenants/demo/catalogs/default/templates/invoice")
     }
 
     @Test
     fun `a theme links to the catalog-scoped theme page`() {
         val link = links.resolve(entry("theme", "demo/default/corporate"))
         assertThat(link.label).isEqualTo("theme corporate")
-        assertThat(link.href).isEqualTo("/tenants/demo/themes/default/corporate")
+        assertThat(link.href).isEqualTo("/tenants/demo/catalogs/default/themes/corporate")
     }
 
     @Test
@@ -73,5 +73,11 @@ class AuditEntityLinksTest {
         val link = links.resolve(entry(null, "demo"))
         assertThat(link.label).isEqualTo("demo")
         assertThat(link.href).isNull()
+    }
+
+    @Test
+    fun `an attribute or a font, without a page of its own, links to its catalog's list`() {
+        assertThat(links.resolve(entry("attribute", "demo/default/brand")).href).isEqualTo("/tenants/demo/catalogs/default/attributes")
+        assertThat(links.resolve(entry("font", "demo/default/inter")).href).isEqualTo("/tenants/demo/catalogs/default/fonts")
     }
 }

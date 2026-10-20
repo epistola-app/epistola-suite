@@ -9,6 +9,8 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogId
@@ -23,6 +25,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.generation.collect.commands.EmitGenerationResult
@@ -32,11 +35,10 @@ import app.epistola.suite.generation.release.ReleaseRenderSource
 import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.versions.GetLatestPublishedVersion
-import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.time.EpistolaClock
@@ -51,6 +53,7 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.util.UUID
 
 /**
  * Executes document generation jobs.
@@ -68,14 +71,15 @@ class DocumentGenerationExecutor(
     private val schemaValidator: JsonSchemaValidator,
     private val contentStore: DocumentContentStore,
     private val meterRegistry: MeterRegistry,
-    private val fontSnapshotVerifier: app.epistola.suite.fonts.FontSnapshotVerifier,
-    private val fontByteCache: app.epistola.suite.fonts.FontByteCache,
     private val localeResolver: TenantLocaleResolver,
     private val releaseRenderSource: ReleaseRenderSource,
+    private val draftRenderer: app.epistola.suite.generation.DraftDocumentRenderer,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
     private val maxDocumentSizeMb: Long,
+    @Value("\${epistola.generation.polling.max-recoveries:3}")
+    private val maxRecoveries: Int = 3,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -107,6 +111,12 @@ class DocumentGenerationExecutor(
         var outcome = "success"
         var renderPath = "unknown"
         try {
+            // A render that keeps stopping its node (a template asking for more than a node has) is
+            // not handed to the next one again: it fails, with the reason, like any other failure.
+            check(request.recoveries < maxRecoveries) {
+                "Rendering this document stopped ${request.recoveries} times without finishing (the node rendering it " +
+                    "crashed or stopped responding), so it is not tried again. Check the template, then resubmit."
+            }
             // Generate the document
             val (document, pdfBytes, usedPath) = generateDocument(request)
             renderPath = usedPath
@@ -153,7 +163,7 @@ class DocumentGenerationExecutor(
             logger.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
         } catch (e: Exception) {
             outcome = "failure"
-            logger.error("Failed to process request {}: {}", request.id.value, e.message, e)
+            GenerationFailureLog.log(logger, request.id.value, e)
             val transitioned = markRequestFailed(request.id, e.message ?: "Unknown error")
 
             if (transitioned) {
@@ -223,172 +233,15 @@ class DocumentGenerationExecutor(
         )
 
         if (request.releaseVersion != null) return generateFromRelease(request, request.releaseVersion)
+        if (request.draftId != null) return generateFromDraft(request, request.draftId)
 
-        // Build composite IDs
-        val tenantId = TenantId(request.tenantKey)
-        val catalogId = CatalogId(request.catalogKey, tenantId)
-        val templateId = TemplateId(request.templateKey, catalogId)
-        val variantId = VariantId(request.variantKey, templateId)
-
-        // 1. Resolve template version
-        val version = if (request.versionKey != null) {
-            // Use explicit version
-            val versionId = VersionId(request.versionKey, variantId)
-            mediator.query(GetVersion(versionId))
-                ?: throw IllegalStateException("Version ${request.versionKey} not found")
-        } else if (request.environmentKey != null) {
-            // Accepted before 2.0 against an environment activation. Environments now serve catalog
-            // releases and activations are not carried over, so there is nothing to render it from.
-            throw IllegalStateException(
-                "Request ${request.id.value} was accepted against environment '${request.environmentKey.value}' before " +
-                    "environments deployed catalog releases; resubmit it",
-            )
-        } else {
-            // Fallback: latest published version (safety net — handler should have resolved this)
-            mediator.query(GetLatestPublishedVersion(variantId))
-                ?: throw IllegalStateException("No published version found for template ${request.templateKey} variant ${request.variantKey}. Import a catalog or publish a version first.")
-        }
-
-        // 2. Get template model
-        val templateModel = version.templateModel
-
-        // 3. Fetch template to get default theme
-        val template = mediator.query(GetDocumentTemplate(templateId))
-            ?: throw IllegalStateException("Template ${request.templateKey} not found")
-
-        // 4. Fetch tenant to get default theme (ultimate fallback)
-        val tenant = mediator.query(GetTenant(id = request.tenantKey))
-            ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
-
-        // 5. Validate data against contract schema (if defined)
-        val dataModel: ObjectNode? = version.contractVersion?.let { cv ->
-            val contractVersion = mediator.query(
-                app.epistola.suite.templates.contracts.queries.GetContractVersion(
-                    id = app.epistola.suite.common.ids.ContractVersionId(
-                        cv,
-                        app.epistola.suite.common.ids.TemplateId(
-                            request.templateKey,
-                            app.epistola.suite.common.ids.CatalogId(request.catalogKey, app.epistola.suite.common.ids.TenantId(request.tenantKey)),
-                        ),
-                    ),
-                ),
-            )
-            contractVersion?.dataModel
-        }
-        // A field the client omitted falls back to its schema `default`, applied
-        // before validation so a required-but-defaulted field doesn't fail as
-        // missing, and before rendering so the fallback actually reaches the PDF.
-        val effectiveData = if (dataModel != null) schemaValidator.applyDefaults(dataModel, request.data) else request.data
-        if (dataModel != null) {
-            val errors = schemaValidator.validate(dataModel, effectiveData)
-            if (errors.isNotEmpty()) {
-                val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
-                throw IllegalArgumentException("Data validation failed: $errorMessages")
-            }
-        }
-
-        // 6. Generate PDF
-        val outputStream = ByteArrayOutputStream()
-
-        @Suppress("UNCHECKED_CAST")
-        val dataMap = objectMapper.convertValue(effectiveData, Map::class.java) as Map<String, Any?>
-        val metadata = PdfMetadata(
-            title = template.name,
-            author = tenant.name,
+        // Accepted before 2.0, against a template version or an environment activation. The catalog
+        // release is the only version now, and neither is carried over, so there is nothing to
+        // render it from as it was asked.
+        throw RequestPredatesReleasesException(
+            "Request ${request.id.value} was accepted before documents were generated from catalog releases " +
+                "(${request.versionKey?.let { "template version ${it.value}" } ?: request.environmentKey?.let { "environment '${it.value}'" } ?: "no release"}); resubmit it",
         )
-        val assetResolver = AssetResolver { assetId, catalogKey ->
-            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId), catalogKey?.let { CatalogKey.of(it) }))
-                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
-        }
-        // Owning catalog for unqualified font refs: same cascade as theme
-        // resolution / asset binding (template theme catalog → tenant default
-        // theme catalog → the tenant's default catalog).
-        val owningCatalogKey =
-            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: CatalogKey.DEFAULT
-        val fontResolver = fontFamilyResolver(request.tenantKey, owningCatalogKey, fontByteCache)
-
-        // Resolve formatting culture via variant attribute → tenant default → app default
-        val culture = localeResolver.resolveCulture(tenant, variantId)
-
-        // Use frozen snapshot for published versions, live resolution for legacy versions
-        val resolvedTheme = version.resolvedTheme
-        val renderingDefaultsVersion = version.renderingDefaultsVersion
-        val renderPath: String
-        if (resolvedTheme != null && renderingDefaultsVersion != null) {
-            renderPath = "snapshot"
-            // Deterministic-or-nothing: a published version must render with the
-            // exact font bytes pinned at publish. Fail loudly on drift.
-            fontSnapshotVerifier.verify(request.tenantKey, owningCatalogKey, resolvedTheme)
-            // Deterministic path: use frozen theme + rendering defaults from publish time
-            val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
-            val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
-            generationService.renderPdfWithSnapshot(
-                templateModel,
-                dataMap,
-                outputStream,
-                resolvedTheme,
-                renderingDefaults,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                culture = culture,
-            )
-        } else {
-            renderPath = "legacy"
-            // Legacy path: live theme resolution (backward compatible for pre-V16 published versions)
-            val metadataWithEngine = metadata.copy(
-                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
-            )
-            generationService.renderPdf(
-                request.tenantKey,
-                templateModel,
-                dataMap,
-                outputStream,
-                template.themeKey,
-                tenant.defaultThemeKey,
-                metadataWithEngine,
-                pdfaCompliant = template.pdfaEnabled,
-                assetResolver = assetResolver,
-                fontFamilyResolver = fontResolver,
-                templateCatalogKey = template.themeCatalogKey,
-                tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
-                culture = culture,
-            )
-        }
-
-        val pdfBytes = outputStream.toByteArray()
-        val sizeBytes = pdfBytes.size.toLong()
-
-        // 7. Validate size
-        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
-        if (sizeBytes > maxSizeBytes) {
-            throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
-        }
-
-        // 8. Generate filename if not provided
-        val filename = request.filename ?: "document-${request.id.value}.pdf"
-
-        // 9. Create Document entity (metadata only — content stored separately)
-        val document = Document(
-            id = DocumentKey.generate(),
-            tenantKey = request.tenantKey,
-            catalogKey = request.catalogKey,
-            templateKey = request.templateKey,
-            variantKey = request.variantKey,
-            versionKey = version.id,
-            filename = filename,
-            correlationId = request.correlationId,
-            contentType = "application/pdf",
-            sizeBytes = sizeBytes,
-            createdAt = EpistolaClock.offsetDateTime(),
-            // Background generation runs under the JobPoller's SystemUser
-            // principal, which is a real seeded `users` row — so the creator is
-            // simply the bound principal (a real user for API-triggered
-            // generation, SystemUser for background jobs).
-            createdBy = currentUserIdOrNull(),
-        )
-        return Triple(document, pdfBytes, renderPath)
     }
 
     /**
@@ -455,6 +308,40 @@ class DocumentGenerationExecutor(
     }
 
     /**
+     * Renders a request bound to a draft its environment follows (an override): the draft as it is
+     * now, live, with the preview watermark ([app.epistola.suite.generation.DraftDocumentRenderer],
+     * which holds no database connection while it lays out the document). Its data is validated
+     * against the draft's contract. A draft discarded since the request was accepted fails it.
+     */
+    private fun generateFromDraft(request: DocumentGenerationRequest, draftId: String): Triple<Document, ByteArray, String> {
+        val rendered = draftRenderer.render(request.tenantKey, request.catalogKey, request.templateKey, request.variantKey, request.data, draftId)
+        val pdfBytes = rendered.pdf
+        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
+        if (pdfBytes.size > maxSizeBytes) {
+            throw IllegalStateException("Generated document size (${pdfBytes.size} bytes) exceeds maximum ($maxSizeBytes bytes)")
+        }
+        val templateResourceId = rendered.templateResourceId
+        val document = Document(
+            id = DocumentKey.generate(),
+            tenantKey = request.tenantKey,
+            catalogKey = request.catalogKey,
+            templateKey = request.templateKey,
+            variantKey = request.variantKey,
+            versionKey = null,
+            draftId = draftId,
+            draftLabel = request.draftLabel,
+            templateResourceId = templateResourceId,
+            filename = request.filename ?: "document-${request.id.value}.pdf",
+            correlationId = request.correlationId,
+            contentType = "application/pdf",
+            sizeBytes = pdfBytes.size.toLong(),
+            createdAt = EpistolaClock.offsetDateTime(),
+            createdBy = currentUserIdOrNull(),
+        )
+        return Triple(document, pdfBytes, "draft")
+    }
+
+    /**
      * Save the generated document and mark the request as completed.
      *
      * Marking `document_generation_requests.status='COMPLETED'` looks redundant
@@ -505,12 +392,16 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, catalog_key, template_key, variant_key, version_key, release_version,
+                    id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version, draft_id, draft_label, catalog_version_id,
                     template_resource_id, filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
-                    :id, :tenantId, :catalogKey, :templateId, :variantId, :versionId, :releaseVersion,
+                    :id, :tenantId, :catalogKey,
+                    (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                    (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                    :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
+                    (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId),
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
@@ -523,6 +414,9 @@ class DocumentGenerationExecutor(
                 .bind("variantId", document.variantKey)
                 .bind("versionId", document.versionKey)
                 .bind("releaseVersion", document.releaseVersion)
+                .bind("draftId", document.draftId)
+                .bind("draftLabel", document.draftLabel)
+                .bind("requestId", requestId)
                 .bind("templateResourceId", document.templateResourceId)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)

@@ -6,6 +6,9 @@ package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -24,7 +27,10 @@ import org.springframework.stereotype.Component
 data class ListCodeListEntries(
     val codeListId: CodeListId,
     val includeHidden: Boolean = false,
-) : Query<List<CodeListEntry>>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<List<CodeListEntry>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = codeListId.tenantKey
@@ -41,6 +47,7 @@ class ListCodeListEntriesHandler(
                 SELECT code, label, sort_order, hidden
                 FROM code_list_entries
                 WHERE tenant_key = :tenantKey
+                  AND version_id = ${versionAt("tenantKey", "catalogKey")}
                   AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
                 """,
             )

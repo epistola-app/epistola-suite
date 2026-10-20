@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -42,7 +43,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
         recordAvailable(tenant, "99.0.0")
 
         // Deliberately a page that has nothing to do with catalogs.
-        val response = restTemplate.getForEntity("/tenants/$tenant/templates", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("nav-indicator-catalogs")
@@ -53,7 +54,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
     fun `no count is shown when nothing is waiting`() {
         val tenant = subscribedTenant("nav-quiet")
 
-        val response = restTemplate.getForEntity("/tenants/$tenant/templates", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs", String::class.java)
 
         assertThat(response.body).doesNotContain("nav-indicator-catalogs")
     }
@@ -110,9 +111,9 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_upstream_checks (tenant_key, catalog_key, available_release_version, last_checked_at)
-                VALUES (:t, :c, :v, NOW())
-                ON CONFLICT (tenant_key, catalog_key) DO UPDATE SET available_release_version = :v
+                INSERT INTO catalog_upstream_checks (tenant_key, catalog_id, available_release_version, last_checked_at)
+                VALUES (:t, ${catalogAt("t", "c")}, :v, NOW())
+                ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET available_release_version = :v
                 """,
             ).bind("t", tenant).bind("c", CatalogKey.of("epistola-demo")).bind("v", version).execute()
         }
@@ -122,9 +123,9 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_upstream_checks (tenant_key, catalog_key, installed_availability, last_checked_at)
-                VALUES (:t, :c, 'WITHDRAWN', NOW())
-                ON CONFLICT (tenant_key, catalog_key) DO UPDATE SET installed_availability = 'WITHDRAWN'
+                INSERT INTO catalog_upstream_checks (tenant_key, catalog_id, installed_availability, last_checked_at)
+                VALUES (:t, ${catalogAt("t", "c")}, 'WITHDRAWN', NOW())
+                ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET installed_availability = 'WITHDRAWN'
                 """,
             ).bind("t", tenant).bind("c", CatalogKey.of("epistola-demo")).execute()
         }

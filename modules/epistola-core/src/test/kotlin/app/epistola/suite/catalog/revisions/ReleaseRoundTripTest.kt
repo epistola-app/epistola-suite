@@ -9,6 +9,7 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
@@ -24,13 +25,13 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -68,6 +69,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val released = withMediator {
             seedResources(catalog)
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -82,6 +84,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val (image, first) = withMediator {
             val seeded = seedResources(catalog)
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             seeded to ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
@@ -91,8 +94,9 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             UpdateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, revised").execute()
             DeleteAsset(catalog.tenantKey, image).execute()
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
-            UpdateDraft(variant, model("changed")).execute()
-            PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+            UpdateVariantContent(variant, model("changed")).execute()
+            MarkVariantReady(variant).execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "2.0.0").execute()
         }
 
@@ -103,21 +107,6 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val rebuiltSecond = assembler.assemble(catalog.tenantKey, catalog.key, "2.0.0")
         assertThat(fingerprintService.fingerprint(rebuiltSecond!!.content)).isEqualTo(second.fingerprint)
-    }
-
-    @Test
-    fun `a release that retained nothing rebuilds to nothing, rather than to the working copy`() {
-        val catalog = authoredCatalog("rt-none")
-
-        withMediator {
-            seedResources(catalog)
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        // A release cut before V20260923201010 has no entries and its content was never retained.
-        jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)
-
-        assertThat(assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")).isNull()
-        assertThat(assembler.assembleLatest(catalog.tenantKey, catalog.key)).isNull()
     }
 
     /** A theme, an image and a template with a published model — the shapes that can lose bytes. */
@@ -134,8 +123,8 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         ).execute().id
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateDraft(variant, model("original")).execute()
-        PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute()
+        UpdateVariantContent(variant, model("original")).execute()
+        MarkVariantReady(variant).execute()
         return image
     }
 

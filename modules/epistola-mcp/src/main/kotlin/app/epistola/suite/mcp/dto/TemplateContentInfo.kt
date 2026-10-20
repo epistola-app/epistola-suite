@@ -18,11 +18,13 @@ import app.epistola.suite.templates.queries.EditorContext
 data class TemplateContentInfo(
     val templateName: String,
     val variantAttributes: Map<String, String>,
-    /** TemplateDocument node/slot graph — the shape `update_template_draft` takes back. */
+    /** TemplateDocument node/slot graph — the shape `update_variant_content` takes back. */
     val templateModel: Any,
     val dataExamples: List<DataExampleInfo>,
     /** JSON Schema describing the template's input data. May be null for templates without a contract yet. */
     val dataModel: Any?,
+    /** The variant's revision: pass it back as `expectedRevision` to `update_variant_content`, which then refuses if someone changed the variant since. */
+    val revision: Long? = null,
 ) {
     companion object {
         fun from(context: EditorContext): TemplateContentInfo = TemplateContentInfo(
@@ -31,6 +33,7 @@ data class TemplateContentInfo(
             templateModel = context.templateModel,
             dataExamples = context.dataExamples.map { DataExampleInfo.from(it) },
             dataModel = context.dataModel,
+            revision = context.variantRevision,
         )
     }
 }

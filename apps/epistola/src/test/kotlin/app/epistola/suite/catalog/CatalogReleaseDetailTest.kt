@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.common.ids.CatalogId
@@ -53,7 +54,8 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                         keywords = setOf("frozen-keyword"),
                     ).execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
-                    ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0", notes = "the first").execute()
+                    MarkCatalogReady(tenant.id, catalogKey).execute()
+                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(
@@ -73,7 +75,9 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
             .body!!
 
         assertThat(body).contains("Named at release", "Described at release", "frozen-keyword", "the first")
-        assertThat(body)
+        // The context bar and side nav name the catalog as it is called today, which is where it is;
+        // the page itself shows what the release froze.
+        assertThat(body.substringAfter("id=\"main-content\""))
             .`as`("the live catalog has moved on and must not leak onto a release page")
             .doesNotContain("Renamed since", "Described differently since", "later-keyword")
         // The resources are the release's own, listed from what it retained.

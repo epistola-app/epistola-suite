@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -16,7 +17,7 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
-import app.epistola.suite.templates.templateJoin
+import app.epistola.suite.templates.currentTemplateJoin
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -92,7 +93,7 @@ class ListQualityFindingsHandler(
                            (f.source_id <> :manualSourceId) AS reconciled,
                            COALESCE(c.comment_count, 0)::int AS comment_count
                     FROM quality_findings f
-                    ${templateJoin("f")}
+                    ${currentTemplateJoin("f")}
                     LEFT JOIN quality_finding_ignores i
                            ON i.tenant_key       = f.tenant_key
                           AND i.ignore_scope_urn = f.ignore_scope_urn
@@ -108,7 +109,7 @@ class ListQualityFindingsHandler(
                     WHERE f.tenant_key = :tenantKey
                 """.trimIndent(),
             )
-            if (query.catalogKey != null) append(" AND template.catalog_key = :catalogKey")
+            if (query.catalogKey != null) append(" AND template.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.templateKey != null) append(" AND template.id = :templateKey")
             if (query.sourceId != null) append(" AND f.source_id = :sourceId")
             if (query.ruleId != null) append(" AND f.rule_id = :ruleId")

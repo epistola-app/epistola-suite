@@ -170,7 +170,7 @@ value class VariantKey(@JsonValue override val value: String) : SlugKey<VariantK
          * role-neutral provenance slug (the variant the template was created with) —
          * NOT the mutable `is_default` role, which can be reassigned to, or removed
          * from, any variant. Scoped per template by the variant PK
-         * `(tenant_key, catalog_key, template_key, id)`, so it never collides.
+         * `(tenant_key, template_resource_id, id)`, so it never collides.
          */
         val INITIAL = VariantKey("initial")
 

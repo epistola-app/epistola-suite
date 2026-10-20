@@ -4,7 +4,12 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
@@ -16,6 +21,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.themes.crossCatalogRefs
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -32,7 +38,10 @@ data class CreateTheme(
     val pageSettings: PageSettings? = null,
     val blockStylePresets: BlockStylePresets? = null,
     val spacingUnit: Float? = null,
-) : Command<Theme>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Theme>,
     RequiresPermission {
     override val permission = Permission.THEME_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey
@@ -47,17 +56,25 @@ data class CreateTheme(
 class CreateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateTheme, Theme> {
     override fun handle(command: CreateTheme): Theme {
+        val saved = save(command)
+        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, saved.crossCatalogRefs(objectMapper))
+        return saved
+    }
+
+    private fun save(command: CreateTheme): Theme {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
                 handle.createQuery(
                     """
-                INSERT INTO themes (id, tenant_key, catalog_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, :catalogKey, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *
+                INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
                 """,
                 )
                     .bind("id", command.id.key)

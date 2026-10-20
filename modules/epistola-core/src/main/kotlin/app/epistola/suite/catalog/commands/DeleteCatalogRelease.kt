@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -20,11 +21,9 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
 /**
- * Removes a release from a catalog's history, with its content.
- *
- * The stronger of the two ways to reclaim what releases hold — [ForgetReleaseContent] keeps the row
- * and its fingerprint as a record of what the version was; this removes the record too, for a
- * version that should not be part of the history at all.
+ * Removes a release from a catalog's history, with its content: the way to reclaim what a release
+ * holds, such as an image released by mistake. A release either exists with its content or not at
+ * all.
  *
  * **Already published is not a reason to refuse.** The copy on Epistola Exchange is Exchange's, it
  * stays there, and withdrawing it is a separate conversation with a separate authority. What goes
@@ -72,7 +71,7 @@ class DeleteCatalogReleaseHandler(
         val deleted = handle.createUpdate(
             """
             DELETE FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_key = :c AND version = :v
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
             """,
         )
             .bind("t", command.tenantKey)
@@ -131,12 +130,12 @@ class DeleteCatalogReleaseHandler(
             FROM (
                 SELECT r.version, r.fingerprint, r.released_at
                 FROM catalog_releases r
-                WHERE r.tenant_key = :t AND r.catalog_key = :c
+                WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
                 ORDER BY r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
                          r.version_patch DESC NULLS LAST, r.released_at DESC
                 LIMIT 1
             ) AS latest
-            WHERE c.tenant_key = :t AND c.id = :c
+            WHERE c.tenant_key = :t AND c.catalog_key = :c
             """,
         )
             .bind("t", command.tenantKey)
@@ -154,7 +153,7 @@ class DeleteCatalogReleaseHandler(
             """
             UPDATE catalogs
             SET released_version = NULL, released_fingerprint = NULL, released_at = NULL, updated_at = NOW()
-            WHERE tenant_key = :t AND id = :c
+            WHERE tenant_key = :t AND catalog_key = :c
             """,
         )
             .bind("t", command.tenantKey)

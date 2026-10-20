@@ -16,7 +16,7 @@
                     hx-include="[name='category']"
                     name="status">
                 <option value="">All Statuses</option>
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
             </select>
             <select class="ep-select ep-select-sm form-control-auto"
@@ -26,7 +26,7 @@
                     hx-include="[name='status']"
                     name="category">
                 <option value="">All Categories</option>
-                <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${c.name()}"
+                <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${#labels.of(c)}"
                         th:selected="${selectedCategory != null && selectedCategory.name() == c.name()}">CATEGORY</option>
             </select>
         </div>
@@ -71,7 +71,7 @@
                         <td><th:block th:insert="~{feedback/fragments/badges :: priority-badge(${item.priority})}" /></td>
                         <td th:text="${item.createdByName}">User</td>
                         <td th:text="${item.commentCount}">0</td>
-                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${item.createdAt}">2026-01-01</td>
                     </tr>
                 </th:block>
             </tbody>

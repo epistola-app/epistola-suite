@@ -100,7 +100,7 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         page.addInitScript(
             "try { localStorage.setItem('ep:walkthrough:template-editor:intro-seen', 'true'); } catch (e) {}",
         )
-        val path = "/tenants/${tenant.id}/templates/default/${template.id}/variants/$variantId/editor"
+        val path = "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/$variantId/editor"
         gotoAndReady(path)
         page.getByTestId("editor-container").waitFor()
         page.waitForSelector("epistola-editor")
@@ -112,10 +112,8 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         val tenant = CreateTenant(id = tenantKey, name = "Walkthrough UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
 
-        if (enabled) {
-            // Turn the alpha walkthrough feature on for this tenant (off by default).
-            SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = true).execute()
-        }
+        // Set per tenant either way, so neither case leans on a default (the test profile has it off).
+        SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = enabled).execute()
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Walkthrough Template").execute()

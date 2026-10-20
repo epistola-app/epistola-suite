@@ -34,13 +34,17 @@ import java.time.OffsetDateTime
 data class Document(
     val id: DocumentKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     /** The template version rendered, for documents generated before 2.0. Null from 2.0 on. */
     val versionKey: VersionKey?,
     /** The catalog release rendered, from 2.0 on. Null for documents generated before. */
     val releaseVersion: String? = null,
+    /** The draft rendered, live, through an environment that follows it; null for a release. */
+    val draftId: String? = null,
+    /** The draft's name when the document was rendered. */
+    val draftLabel: String? = null,
     /**
      * The template's identity, when the caller knows it. Null lets the database fill it from the
      * template's current address, which a document rendered from a release must not rely on: the

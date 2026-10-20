@@ -179,6 +179,28 @@ describe('EpistolaInspector generic presentation hook', () => {
     expect(updateCount).toBe(2);
   });
 
+  it("offers the catalog's available presets, marking one the theme does not style", () => {
+    const { engine, inspector, textNodeId } = setupInspector();
+    engine.setTheme({
+      blockStylePresets: { muted: { label: 'Muted (theme label)', styles: { color: '#666' } } },
+      availablePresets: [
+        { key: 'muted', name: 'Muted text' },
+        { key: 'accent', name: 'Accent' },
+      ],
+    });
+    inspector.doc = engine.doc;
+
+    const html = templateToHtml(
+      (
+        inspector as unknown as { _renderStylePresetSection: (node: unknown) => unknown }
+      )._renderStylePresetSection(engine.getNode(textNodeId)!),
+    );
+
+    expect(html).toContain('Muted text');
+    expect(html).toContain('Accent (not styled by this theme)');
+    expect(html).not.toContain('Muted (theme label)');
+  });
+
   it('uses the theme spacing unit when converting component unit properties', () => {
     const { engine, inspector, textNodeId } = setupInspector();
     const unitField = { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp'] } as const;

@@ -96,7 +96,7 @@ class BlockStylePresetsSerializer : ValueSerializer<BlockStylePresets>() {
 data class Theme(
     val id: ThemeKey,
     val tenantKey: TenantKey,
-    val catalogKey: CatalogKey = CatalogKey.DEFAULT,
+    val catalogKey: CatalogKey,
     val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val description: String?,
@@ -109,4 +109,6 @@ data class Theme(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
+    val revision: Long = 1,
 )

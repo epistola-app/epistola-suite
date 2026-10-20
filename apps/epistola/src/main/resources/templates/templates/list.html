@@ -7,7 +7,7 @@
                from the [data-search-param] hidden inputs in #template-table. */-->
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Templates',
-            pageDescription='All of your templates are here.',
+            pageDescription='The templates in this catalog.',
             searchPlaceholder='Search templates...',
             searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},catalog=${selectedCatalog})},
             searchTargetId='template-table',
@@ -15,16 +15,8 @@
             actions=~{::template-list-actions}
         )}"></div>
 
-        <div th:if="${catalogs != null && !catalogs.isEmpty()}" style="margin-bottom: var(--ep-space-4);">
-            <select id="catalog-filter" class="ep-select" style="max-width: 300px;"
-                    th:attr="data-catalog-filter-base=@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">
-                <option value="" th:selected="${selectedCatalog == ''}">All catalogs</option>
-                <option th:each="cat : ${catalogs}"
-                        th:value="${cat.id}"
-                        th:text="${cat.name}"
-                        th:selected="${#strings.equals(selectedCatalog, cat.id)}"></option>
-            </select>
-        </div>
+        <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
+
 
         <div id="template-table">
             <th:block th:fragment="table">
@@ -42,40 +34,18 @@
                         <div class="empty-state-title">No matching templates</div>
                         <div class="empty-state-description">No templates match your search.</div>
                     </th:block>
-                    <!--/* A catalog filter is active (no search): this catalog is empty, but
-                           the tenant may have templates in other catalogs — so don't show the
-                           "create your first" onboarding CTA, which would be misleading. */-->
-                    <th:block th:if="${searchTerm == '' and selectedCatalog != ''}">
+                    <!--/* No search: this catalog has no templates. */-->
+                    <th:block th:if="${searchTerm == ''}">
                         <div class="empty-state-icon">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
                         </div>
                         <div class="empty-state-title">No templates in this catalog</div>
-                        <div class="empty-state-description">This catalog has no templates. Choose another catalog or create one here.</div>
-                        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
+                        <div class="empty-state-description">This catalog has no templates yet. Create one here.</div>
+                        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="${selectedCatalog != ''}
-                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
-                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
-                            New Template
-                        </button>
-                    </th:block>
-                    <!--/* Genuinely empty tenant: first-run onboarding. */-->
-                    <th:block th:if="${searchTerm == '' and selectedCatalog == ''}">
-                        <div class="empty-state-icon">
-                            <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
-                        </div>
-                        <div class="empty-state-title">No templates yet</div>
-                        <div class="empty-state-description">Create your first document template to get started.</div>
-                        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button"
-                                class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="${selectedCatalog != ''}
-                                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
-                                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
-                                data-testid="template-create-open">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
                             New Template
                         </button>
@@ -87,17 +57,15 @@
                      data-testid="fixed-table-scroll">
                 <table class="ep-table ep-table-fixed">
                     <colgroup>
-                        <col style="width: 23%" /><!-- Name -->
-                        <col style="width: 13%" /><!-- Catalog -->
-                        <col style="width: 24%" /><!-- ID -->
-                        <col style="width: 11%" /><!-- Variants -->
-                        <col style="width: 15%" /><!-- Last Modified -->
-                        <col style="width: 14%" /><!-- Actions -->
+                        <col style="width: 30%" /><!-- Name -->
+                        <col style="width: 28%" /><!-- ID -->
+                        <col style="width: 12%" /><!-- Variants -->
+                        <col style="width: 18%" /><!-- Last Modified -->
+                        <col style="width: 12%" /><!-- Actions -->
                     </colgroup>
                     <thead>
                         <tr>
                             <th th:replace="~{templates/list :: sort-header('Name', 'name')}"></th>
-                            <th th:replace="~{templates/list :: sort-header('Catalog', 'catalog')}"></th>
                             <th>ID</th>
                             <th th:replace="~{templates/list :: sort-header('Variants', 'variants')}"></th>
                             <th th:replace="~{templates/list :: sort-header('Last Modified', 'updated')}"></th>
@@ -107,16 +75,15 @@
                     <tbody>
                         <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
                             <td th:title="${template.name}">
-                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
                                    th:text="${template.name}" style="font-weight: 500;"></a>
                             </td>
-                            <td th:title="${template.catalogKey}"><span class="badge badge-default" th:text="${template.catalogKey}"></span></td>
                             <td th:title="${template.id}"><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                             <td th:text="${template.variantCount}"></td>
-                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                                <a th:href="@{/tenants/{tenantId}/templates/{catalogId}/{id}(tenantId=${tenantId},catalogId=${template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -130,7 +97,7 @@
                     <a th:if="${hasPrev}"
                        class="ep-btn ep-btn-ghost ep-btn-sm"
                        data-testid="pagination-prev"
-                       th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
                        th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
                        hx-include="[name='q']"
                        hx-target="#template-table"
@@ -142,7 +109,7 @@
                     <a th:if="${hasNext}"
                        class="ep-btn ep-btn-ghost ep-btn-sm"
                        data-testid="pagination-next"
-                       th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
+                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
                        th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
                        hx-include="[name='q']"
                        hx-target="#template-table"
@@ -161,6 +128,8 @@
              element — th:replace (precedence 100) runs before th:if (300), so
              the two on the SAME element would include the dialog unconditionally.
              See docs/dialog-forms.md. -->
+        <div th:replace="~{fragments/from-other-catalogs :: section(${fromOtherCatalogs}, 'templates')}"></div>
+
         <div id="dialog-mount" data-dialog-mount>
             <th:block th:if="${openDialog}">
                 <th:block th:replace="~{templates/new :: dialog}"></th:block>
@@ -177,7 +146,7 @@
         <a class="ep-sort"
            th:classappend="${active} ? 'is-active' : ''"
            th:data-testid="'sort-' + ${col}"
-           th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId},sort=${col},dir=${nextDir},catalog=${selectedCatalog})}"
+           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},sort=${col},dir=${nextDir},catalogSeg=${selectedCatalog})}"
            th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},sort=${col},dir=${nextDir},catalog=${selectedCatalog})}"
            hx-include="[name='q']"
            hx-target="#template-table"
@@ -199,10 +168,8 @@
     </th>
 
     <th:block th:fragment="template-list-actions">
-        <button th:if="${auth.has('TEMPLATE_EDIT')}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="${selectedCatalog != ''}
-                    ? @{/tenants/{tenantId}/templates/new(tenantId=${tenantId},catalog=${selectedCatalog})}
-                    : @{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}"
+        <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

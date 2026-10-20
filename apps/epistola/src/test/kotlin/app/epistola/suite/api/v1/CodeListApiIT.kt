@@ -61,7 +61,7 @@ class CodeListApiIT : IntegrationTestBase() {
     fun `list code lists returns system catalog code lists with readOnly=true`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/code-lists",
+            "${versionPath(tenantKey, "system")}/code-lists",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -70,20 +70,20 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
         // Bundled system catalog ships three reserved code lists.
-        val slugs: List<String> = JsonPath.read(body, "$.items[*].slug")
+        val slugs: List<String> = JsonPath.read(body, "$.items[*].key")
         assertThat(slugs).contains("bcp-47", "iso-639-1", "iso-3166-1-alpha2")
         // All system catalog rows are read-only at the API layer.
         val readOnlyFlags: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
         assertThat(readOnlyFlags).allMatch { it }
         val catalogTypes: List<String> = JsonPath.read(body, "$.items[*].catalogType")
-        assertThat(catalogTypes).allMatch { it == "SUBSCRIBED" }
+        assertThat(catalogTypes).allMatch { it == "subscribed" }
     }
 
     @Test
     fun `get system code list returns full DTO with binding fields`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/code-lists/iso-639-1",
+            "${versionPath(tenantKey, "system")}/code-lists/iso-639-1",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -91,18 +91,18 @@ class CodeListApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo("iso-639-1")
-        assertThat(JsonPath.read<String>(body, "$.catalog")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("SUBSCRIBED")
+        assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("iso-639-1")
+        assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
+        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        assertThat(JsonPath.read<String>(body, "$.sourceType")).isEqualTo("INLINE")
+        assertThat(JsonPath.read<String>(body, "$.sourceType")).isEqualTo("inline")
     }
 
     @Test
     fun `list entries on a system code list returns ISO 639-1 codes`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/code-lists/iso-639-1/entries",
+            "${versionPath(tenantKey, "system")}/code-lists/iso-639-1/entries",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -120,29 +120,28 @@ class CodeListApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val body = """
             {
-              "slug": "should-not-stick",
+              "key": "should-not-stick",
               "displayName": "Won't land",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
         """.trimIndent()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/code-lists",
+            "${versionPath(tenantKey, "system")}/code-lists",
             HttpMethod.POST,
             HttpEntity(body, baseHeaders(key)),
             String::class.java,
         )
-        // SUBSCRIBED catalog → `requireCatalogEditable` throws
-        // `CatalogReadOnlyException`, surfaced as RFC 7807 problem details.
+        // A SUBSCRIBED catalog has no draft: its versions are the releases it installed, and a
+        // released version does not change, surfaced as RFC 9457 problem details.
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
-        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Read Only")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Version Released")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(409)
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
-        assertThat(JsonPath.read<String>(problem, "$.instance")).isEqualTo("/api/tenants/${tenantKey.value}/catalogs/system/code-lists")
-        assertThat(JsonPath.read<String>(problem, "$.detail")).contains("read-only catalog")
+        assertThat(JsonPath.read<String>(problem, "$.catalogKey")).isEqualTo("system")
+        assertThat(JsonPath.read<String>(problem, "$.instance")).isEqualTo("${versionPath(tenantKey, "system")}/code-lists")
     }
 
     @Test
@@ -150,14 +149,14 @@ class CodeListApiIT : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         val createBody = """
             {
-              "slug": "inline-refresh-test",
+              "key": "inline-refresh-test",
               "displayName": "Inline Refresh Test",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
         """.trimIndent()
         val createResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists",
+            "${versionPath(tenantKey, "default")}/code-lists",
             HttpMethod.POST,
             HttpEntity(createBody, baseHeaders(key)),
             String::class.java,
@@ -165,7 +164,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(createResp.statusCode).isEqualTo(HttpStatus.CREATED)
 
         val refreshResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/inline-refresh-test/refresh",
+            "${versionPath(tenantKey, "default")}/code-lists/inline-refresh-test/refresh",
             HttpMethod.POST,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -179,7 +178,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(400)
         assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/code-list-not-refreshable")
         assertThat(JsonPath.read<String>(problem, "$.instance"))
-            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/code-lists/inline-refresh-test/refresh")
+            .isEqualTo("${versionPath(tenantKey, "default")}/code-lists/inline-refresh-test/refresh")
         assertThat(JsonPath.read<String>(problem, "$.detail")).contains("not refreshed from a source")
         assertThat(problem).doesNotContain("\"details\":")
     }
@@ -188,7 +187,7 @@ class CodeListApiIT : IntegrationTestBase() {
     fun `get missing code list returns 404 problem details`() {
         val (tenantKey, key) = seedTenantAndKey()
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/missing-list",
+            "${versionPath(tenantKey, "default")}/code-lists/missing-list",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -205,7 +204,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(problem, "$.catalogId")).isEqualTo("default")
         assertThat(JsonPath.read<String>(problem, "$.codeListId")).isEqualTo("missing-list")
         assertThat(JsonPath.read<String>(problem, "$.instance"))
-            .isEqualTo("/api/tenants/${tenantKey.value}/catalogs/default/code-lists/missing-list")
+            .isEqualTo("${versionPath(tenantKey, "default")}/code-lists/missing-list")
     }
 
     @Test
@@ -215,9 +214,9 @@ class CodeListApiIT : IntegrationTestBase() {
         // Create
         val createBody = """
             {
-              "slug": "priorities",
+              "key": "priorities",
               "displayName": "Priorities",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [
                 { "code": "low", "label": "Low", "sortOrder": 1 },
                 { "code": "high", "label": "High", "sortOrder": 2 }
@@ -225,18 +224,18 @@ class CodeListApiIT : IntegrationTestBase() {
             }
         """.trimIndent()
         val createResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists",
+            "${versionPath(tenantKey, "default")}/code-lists",
             HttpMethod.POST,
             HttpEntity(createBody, baseHeaders(key)),
             String::class.java,
         )
         assertThat(createResp.statusCode).isEqualTo(HttpStatus.CREATED)
-        assertThat(JsonPath.read<String>(createResp.body!!, "$.slug")).isEqualTo("priorities")
+        assertThat(JsonPath.read<String>(createResp.body!!, "$.key")).isEqualTo("priorities")
         assertThat(JsonPath.read<Boolean>(createResp.body!!, "$.readOnly")).isFalse
 
         // Get
         val getResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/priorities",
+            "${versionPath(tenantKey, "default")}/code-lists/priorities",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -245,7 +244,7 @@ class CodeListApiIT : IntegrationTestBase() {
 
         // List entries
         val entriesResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/priorities/entries",
+            "${versionPath(tenantKey, "default")}/code-lists/priorities/entries",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -256,7 +255,7 @@ class CodeListApiIT : IntegrationTestBase() {
 
         // Delete
         val deleteResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/priorities",
+            "${versionPath(tenantKey, "default")}/code-lists/priorities",
             HttpMethod.DELETE,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -270,9 +269,9 @@ class CodeListApiIT : IntegrationTestBase() {
         val slug = "visibility-${UUID.randomUUID().toString().take(8)}"
         val createBody = """
             {
-              "slug": "$slug",
+              "key": "$slug",
               "displayName": "Visibility",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [
                 { "code": "shown", "label": "Shown", "sortOrder": 1 },
                 { "code": "legacy", "label": "Legacy", "sortOrder": 2 }
@@ -280,7 +279,7 @@ class CodeListApiIT : IntegrationTestBase() {
             }
         """.trimIndent()
         val createResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists",
+            "${versionPath(tenantKey, "default")}/code-lists",
             HttpMethod.POST,
             HttpEntity(createBody, baseHeaders(key)),
             String::class.java,
@@ -288,7 +287,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(createResp.statusCode).isEqualTo(HttpStatus.CREATED)
 
         val hideResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries/legacy/hidden",
+            "${versionPath(tenantKey, "default")}/code-lists/$slug/entries/legacy/hidden",
             HttpMethod.PATCH,
             HttpEntity("""{"hidden": true}""", baseHeaders(key)),
             String::class.java,
@@ -298,7 +297,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(hideResp.body!!, "$.hidden")).isTrue
 
         val visibleEntries = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries",
+            "${versionPath(tenantKey, "default")}/code-lists/$slug/entries",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -306,7 +305,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(visibleEntries.body!!, "$.items[*].code")).containsExactly("shown")
 
         val allEntries = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries?includeHidden=true",
+            "${versionPath(tenantKey, "default")}/code-lists/$slug/entries?includeHidden=true",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -314,7 +313,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(allEntries.body!!, "$.items[*].code")).containsExactly("shown", "legacy")
 
         val showResp = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries/legacy/hidden",
+            "${versionPath(tenantKey, "default")}/code-lists/$slug/entries/legacy/hidden",
             HttpMethod.PATCH,
             HttpEntity("""{"hidden": false}""", baseHeaders(key)),
             String::class.java,
@@ -324,7 +323,7 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(showResp.body!!, "$.hidden")).isFalse
 
         val visibleAgain = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/default/code-lists/$slug/entries",
+            "${versionPath(tenantKey, "default")}/code-lists/$slug/entries",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
@@ -338,28 +337,31 @@ class CodeListApiIT : IntegrationTestBase() {
         // `system.locale` is bound to `system/bcp-47` and lives in the SUBSCRIBED
         // catalog — exercises every new field on AttributeDto in one call.
         val response = restTemplate.exchange(
-            "/api/tenants/${tenantKey.value}/catalogs/system/attributes/locale",
+            "${versionPath(tenantKey, "system")}/attributes/locale",
             HttpMethod.GET,
             HttpEntity<String>(null, baseHeaders(key)),
             String::class.java,
         )
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.slug")).isEqualTo("locale")
-        assertThat(JsonPath.read<String>(body, "$.catalog")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("SUBSCRIBED")
+        assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("locale")
+        assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
+        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.catalog")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.slug")).isEqualTo("bcp-47")
+        assertThat(JsonPath.read<String>(body, "$.codeListBinding.catalogKey")).isEqualTo("system")
+        assertThat(JsonPath.read<String>(body, "$.codeListBinding.key")).isEqualTo("bcp-47")
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.4.0-SNAPSHOT codelist-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
+
+    /** The catalog version an address names: the open draft of an authored catalog, the installed release of a subscribed one. */
+    private fun versionPath(tenantKey: TenantKey, catalogKey: String): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey) }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("cl-${UUID.randomUUID().toString().take(8)}")

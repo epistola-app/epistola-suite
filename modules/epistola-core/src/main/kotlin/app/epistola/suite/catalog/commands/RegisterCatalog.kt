@@ -8,13 +8,16 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -55,6 +58,8 @@ class RegisterCatalogHandler(
     private val objectMapper: ObjectMapper,
     private val guard: OutboundUrlGuard,
     private val properties: CatalogSourceProperties,
+    private val identity: CatalogIdentityProperties,
+    private val dependencyStore: CatalogDependencyStore,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -72,7 +77,7 @@ class RegisterCatalogHandler(
             command.authCredential,
         )
 
-        val catalogKey = CatalogKey.of(manifest.catalog.slug)
+        val catalogKey = CatalogKey.of(manifest.catalog.key)
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before insert.
         validateCatalogNameLength(manifest.catalog.name)
 
@@ -92,10 +97,11 @@ class RegisterCatalogHandler(
         return jdbi.inTransaction<Catalog, Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
-                VALUES (:id, :tenantKey, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE
-                SET name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
+                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
+                ON CONFLICT (tenant_key, catalog_key) DO UPDATE
+                SET registry = :registry, namespace = :namespace,
+                    name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
                     source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
                     installed_fingerprint = :fingerprint, installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     catalog_metadata = :catalogMetadata::jsonb, installed_at = NOW(),
@@ -104,6 +110,9 @@ class RegisterCatalogHandler(
             )
                 .bind("id", catalogKey)
                 .bind("tenantKey", command.tenantKey)
+                // A subscribed catalog is named by its publisher (contract ADR 0003).
+                .bind("registry", manifest.catalog.registry ?: identity.defaultRegistry)
+                .bind("namespace", manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
                 .bind("name", manifest.catalog.name)
                 .bind("description", manifest.catalog.description)
                 .bind("sourceUrl", command.sourceUrl)
@@ -114,8 +123,10 @@ class RegisterCatalogHandler(
                 .bind("resourceFingerprints", resourceFingerprintsJson)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
+            // What the publisher's release declares and was cut with: the mirror renders with it.
+            dependencyStore.replace(handle, command.tenantKey, catalogKey, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
 
-            handle.findByTenantAndId<Catalog>("catalogs", command.tenantKey, catalogKey.value)!!
+            handle.findCatalog(command.tenantKey, catalogKey)!!
         }
     }
 }

@@ -5,6 +5,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -17,12 +18,13 @@ import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -52,11 +54,11 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
             name = "Test Template",
         )
         mediator.send(
-            UpdateDraft(
+            UpdateVariantContent(
                 variantId = variantId,
                 templateModel = templateModel,
             ),
-        )!!
+        )
         val version = mediator.publishAndRelease(variantId)
 
         val data = objectMapper.createObjectNode().put("test", "value")
@@ -69,6 +71,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = data,
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -89,6 +92,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     variantId = TestIdHelpers.nextVariantId(),
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(CatalogNotReleasedException::class.java)
@@ -102,7 +106,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         mediator.send(CreateDocumentTemplate(id = templateId, name = "Released"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
-        mediator.send(UpdateDraft(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
+        mediator.send(UpdateVariantContent(variantId = variantId, templateModel = TestTemplateBuilder.buildMinimal(name = "Released")))
         mediator.publishAndRelease(variantId)
 
         assertThatThrownBy {
@@ -112,6 +116,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     templateId = TestIdHelpers.nextTemplateId(),
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(TemplateNotInReleaseException::class.java)
@@ -130,6 +135,7 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
                     releaseVersion = "9.9.9",
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
+                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(ReleaseNotFoundException::class.java)
@@ -137,18 +143,19 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `validates releaseVersion and environmentId are mutually exclusive`() {
-        assertThatThrownBy {
+    fun `a version selector combines with an environment`() {
+        // Contract 2.0: the selector picks among the releases the environment serves.
+        assertThatCode {
             GenerateDocument(
                 tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 releaseVersion = "1.0.0",
-                environmentId = TestIdHelpers.nextEnvironmentId(), // Both set - should fail
+                environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
+                catalogKey = CatalogKey.DEFAULT,
             )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-            .hasMessageContaining("Cannot specify both")
+        }.doesNotThrowAnyException()
     }
 }

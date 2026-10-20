@@ -4,6 +4,9 @@
 
 package app.epistola.suite.htmx
 
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -27,6 +30,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import org.springframework.web.servlet.function.ServerRequest
+import java.util.UUID
 
 /*
  * Extension properties for detecting and reading HTMX request headers.
@@ -112,18 +116,85 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * Extract a [CatalogKey] from the `catalogId` path variable.
+ * A catalog in a UI route, optionally one of its drafts: `letters` for its next version, or
+ * `letters@<version id>` for another draft of `letters` (contract ADR 0002). A draft has no number
+ * until it is released, so its id (contract `CatalogVersionId`) names it.
+ *
+ * The draft travels in the catalog's own path segment (or `catalog` parameter) rather than in the
+ * session, so a link to a draft is shareable, and every link, HTMX request and editor call built from
+ * the segment stays on that draft. Without one the route works on the catalog's current version: its
+ * next version. `@` cannot occur in a catalog key, so the two never collide.
  */
-fun ServerRequest.catalogId(): CatalogKey = CatalogKey.of(pathVariable("catalogId"))
+data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
+    /** The segment as it appears in a URL. */
+    val value: String get() = draft?.let { "${key.value}@$it" } ?: key.value
+
+    /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
+    fun ref(tenantKey: TenantKey): CatalogVersionRef? = draft?.let { CatalogVersionRef(tenantKey, key, DraftRef.Id(it)) }
+
+    /** The same catalog at draft [draft], or at its current version when that is null. */
+    fun at(draft: String?): CatalogSegment = copy(draft = draft)
+
+    /**
+     * The segment to link a resource of catalog [catalogKey] with: this one when it is the same
+     * catalog, so a list filtered to a draft links its rows into the draft, else the plain key.
+     */
+    fun linkFor(catalogKey: Any?): String = catalogKey?.toString()?.takeIf { it != key.value } ?: value
+
+    override fun toString(): String = value
+
+    companion object {
+        /**
+         * Parses `key` or `key@<version id>`. Throws [IllegalArgumentException] for an invalid key, and
+         * [CatalogVersionNotFoundException] for a draft part that is not a version id: a link naming a
+         * release number (`letters@1.0.1`) is a draft that is not there, not a bad request.
+         */
+        fun parse(raw: String): CatalogSegment {
+            val at = raw.indexOf('@')
+            if (at < 0) return CatalogSegment(CatalogKey.of(raw))
+            val key = CatalogKey.of(raw.substring(0, at))
+            val draft = raw.substring(at + 1).trim()
+            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogVersionNotFoundException(key, draft)
+            return CatalogSegment(key, draft)
+        }
+
+        fun parseOrNull(raw: String?): CatalogSegment? = raw?.takeIf { it.isNotBlank() }?.let { runCatching { parse(it.trim()) }.getOrNull() }
+    }
+}
+
+/** The `catalogId` path variable: the catalog, and the draft it names if any. */
+fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId"))
+
+/**
+ * Extract a [CatalogKey] from the `catalogId` path variable (without the `@version` of a draft).
+ */
+fun ServerRequest.catalogId(): CatalogKey = catalogSegment().key
 
 /**
  * Extract a [CatalogKey] from the `catalogId` path variable, or null if not present.
  */
 fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
-    CatalogKey.of(pathVariable("catalogId"))
+    catalogSegment().key
 } catch (_: IllegalArgumentException) {
     null
+} catch (e: CatalogVersionNotFoundException) {
+    e.catalogKey
 }
+
+/**
+ * The draft the `catalogId` path variable names (`letters@<draft id>`), for a message's
+ * `catalogVersion`; null when it names none, which means the catalog's next version.
+ */
+fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(tenantId().key)
+
+/**
+ * The catalog a request is in: the `catalogId` path variable of a page or action under
+ * `/catalogs/{catalogId}/…`, else the `catalog` filter or form parameter of a tenant-level partial
+ * (an editor's picker search). Either may name a draft as `letters@<draft id>`; null when neither is
+ * there or it is blank.
+ */
+fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = pathVariables()["catalogId"]?.let { CatalogSegment.parse(it) }
+    ?: param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()) }
 
 /**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.
@@ -235,3 +306,9 @@ fun ServerRequest.queryParam(name: String, default: String): String = param(name
  * ```
  */
 fun ServerRequest.queryParamInt(name: String, default: Int): Int = param(name).orElse(null)?.toIntOrNull() ?: default
+
+/**
+ * The revision an edit form was opened at (its hidden `expectedRevision` field), for optimistic
+ * locking; null when the form sends none, so the write is last write wins.
+ */
+fun ServerRequest.expectedRevision(): Long? = param("expectedRevision").orElse(null)?.toLongOrNull()

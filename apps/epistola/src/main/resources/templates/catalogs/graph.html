@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--/*
+    The catalogs of a tenant and which uses which, drawn as SVG on the server (CatalogGraphView): what
+    everything builds on stands at the left, an arrow runs from a catalog to the catalogs it uses,
+    labelled with the version range it allows and the published version it is tied to. The `graph`
+    fragment is the drawing alone, so a catalog's Dependencies page shows the same drawing narrowed
+    to that catalog.
+*/-->
+<th:block th:fragment="content">
+    <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Catalog dependencies',
+            backLinkHref=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkLabel='Catalogs',
+            pageDescription='Which catalogs build on which. An arrow points from a catalog to a catalog it uses, with the versions it allows and the published version it is tied to. Select a catalog to open it.'
+        )}"></div>
+    <div class="ep-panel detail-section">
+        <div class="detail-section-body">
+            <div th:replace="~{catalogs/graph :: graph(view=${graph})}"></div>
+        </div>
+    </div>
+</th:block>
+
+<th:block th:fragment="graph(view)">
+    <p th:if="${view.isEmpty}" class="text-muted" style="margin: 0;" data-testid="catalog-graph-empty">
+        No catalog uses another yet.
+    </p>
+    <div th:unless="${view.isEmpty}" style="overflow-x: auto;" data-testid="catalog-graph">
+        <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Catalog dependency graph"
+             th:attr="viewBox='0 0 ' + ${view.width} + ' ' + ${view.height},width=${view.width},height=${view.height}"
+             style="max-width: none; font-family: inherit;">
+            <defs>
+                <marker id="catalog-graph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--ep-muted-foreground);"/>
+                </marker>
+            </defs>
+            <g th:each="arrow : ${view.edges}" data-testid="catalog-graph-edge">
+                <path th:attr="d=${arrow.path}" marker-end="url(#catalog-graph-arrow)"
+                      th:style="'fill: none; stroke: var(--ep-muted-foreground); stroke-width: 1.5;' + (${arrow.untied} ? ' stroke-dasharray: 4 3;' : '')"/>
+                <text th:attr="x=${arrow.labelX},y=${arrow.labelY}" text-anchor="middle"
+                      style="font-size: 11px; fill: var(--ep-muted-foreground); paint-order: stroke; stroke: var(--ep-card); stroke-width: 4px; stroke-linejoin: round;" th:text="${arrow.label}">^1.0.0 · v1.2.0</text>
+            </g>
+            <th:block th:each="box : ${view.nodes}">
+                <a th:if="${box.href != null}" th:attr="href=${box.href}" data-testid="catalog-graph-node" th:data-catalog="${box.key}">
+                    <rect th:attr="x=${box.x},y=${box.y},width=${box.width},height=${box.height}" rx="8"
+                          th:style="'fill: ' + (${box.focus} ? 'var(--ep-accent)' : 'var(--ep-card)') + '; stroke: ' + (${box.focus} ? 'var(--ep-primary)' : 'var(--ep-border-color)') + '; stroke-width: ' + (${box.focus} ? '2' : '1') + ';'"/>
+                    <text th:attr="x=${box.labelX},y=${box.y + 22}" style="font-size: 14px; font-weight: 600; fill: var(--ep-card-foreground);" th:text="${box.label}">Letters</text>
+                    <text th:attr="x=${box.labelX},y=${box.y + 40}" style="font-size: 12px; fill: var(--ep-muted-foreground);" th:text="${box.detail}">letters</text>
+                </a>
+                <g th:if="${box.href == null}" data-testid="catalog-graph-node" th:data-catalog="${box.key}">
+                    <rect th:attr="x=${box.x},y=${box.y},width=${box.width},height=${box.height}" rx="8"
+                          style="fill: none; stroke: var(--ep-border-color); stroke-dasharray: 5 4;"/>
+                    <text th:attr="x=${box.labelX},y=${box.y + 22}" style="font-size: 14px; font-weight: 600; fill: var(--ep-muted-foreground);" th:text="${box.label}">shared</text>
+                    <text th:attr="x=${box.labelX},y=${box.y + 40}" style="font-size: 11px; fill: var(--ep-muted-foreground);" th:text="${box.detail}">Not in this tenant</text>
+                </g>
+            </th:block>
+        </svg>
+    </div>
+</th:block>
+</body>
+</html>

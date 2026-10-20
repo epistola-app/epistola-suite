@@ -10,8 +10,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.contracts.commands.CreateContractVersion
-import app.epistola.suite.templates.contracts.commands.UpdateContractVersion
+import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
@@ -33,8 +32,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
                 id = templateId,
                 name = "Contract Save Bar UI Template",
             ).execute()
-            CreateContractVersion(templateId = templateId).execute()
-            UpdateContractVersion(
+            UpdateDataContract(
                 templateId = templateId,
                 dataExamples = listOf(
                     DataExample(
@@ -47,12 +45,12 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
             tenant to template
         }
 
-        gotoAndReady("/tenants/${tenant.id}/templates/default/${template.id}/data-contract?edit=true")
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/data-contract?edit=true")
 
         val statusBar = page.locator("#contract-status-bar")
         val saveButton = page.locator("#contract-save-controls .dc-save-btn")
         assertThat(statusBar).isVisible()
-        assertThat(saveButton).hasText("Save draft")
+        assertThat(saveButton).hasText("Save")
         assertThat(saveButton).isDisabled()
         org.assertj.core.api.Assertions.assertThat(
             statusBar.evaluate(
@@ -64,7 +62,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
         exampleName.fill("Updated example")
         exampleName.press("Tab")
         assertThat(saveButton).isEnabled()
-        assertThat(statusBar).containsText("Unsaved draft changes")
+        assertThat(statusBar).containsText("Unsaved changes")
         assertThat(statusBar).containsText("Examples")
         page.locator("#contract-save-controls").evaluate(
             "element => element.dataset.preservedIdentity = 'original-host'",
@@ -73,7 +71,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
         saveButton.click()
         page.htmxSettle()
 
-        assertThat(page.locator("#contract-status-bar .dc-status-success")).hasText("Draft saved")
+        assertThat(page.locator("#contract-status-bar .dc-status-success")).hasText("Saved")
         assertThat(page.locator("#contract-status-bar #contract-save-controls"))
             .hasAttribute("data-preserved-identity", "original-host")
         assertThat(page.locator("#contract-status-bar a[href$='/data-contract']")).isVisible()

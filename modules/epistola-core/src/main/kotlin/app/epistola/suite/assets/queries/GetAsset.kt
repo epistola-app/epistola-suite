@@ -6,6 +6,9 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -28,7 +31,10 @@ import java.util.UUID
 data class GetAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-) : Query<Asset?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Query<Asset?>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId
@@ -42,10 +48,12 @@ class GetAssetHandler(
     override fun handle(query: GetAsset): Asset? = jdbi.withHandle<Asset?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, name, media_type, size_bytes, width, height, created_at, created_by
-            FROM assets
-            WHERE id = :assetId
-              AND tenant_key = :tenantId
+            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.name, a.media_type, a.size_bytes, a.width, a.height, a.created_at, a.created_by
+            FROM assets a
+            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+            WHERE a.id = :assetId
+              AND a.tenant_key = :tenantId
+              AND ${inCurrentVersion("a")}
             """,
         )
             .bind("assetId", query.assetId.value)

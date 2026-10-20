@@ -106,7 +106,12 @@ export class EpistolaInspector extends LitElement {
         <!-- Node info -->
         <div class="inspector-node-info">
           <div class="inspector-node-label">${label}</div>
-          <div class="inspector-node-id">${node.id}</div>
+          <div
+            class="inspector-node-id"
+            title="The block's id, as the JSON view and support name it"
+          >
+            ID ${node.id}
+          </div>
         </div>
 
         <!-- Component-specific inspector (columns, table, etc.) -->
@@ -316,6 +321,38 @@ export class EpistolaInspector extends LitElement {
 
     const theme = this.engine.theme;
     const presets = theme?.blockStylePresets;
+
+    // The catalog declares its presets (contract ADR 0007): offer exactly those, by their names,
+    // saying which ones the theme leaves unstyled.
+    const available = theme?.availablePresets;
+    if (available && available.length > 0) {
+      return html`
+        <div class="inspector-section" data-editor-anchor=${EDITOR_UI_ANCHORS.stylePreset}>
+          <label class="inspector-field-label" for="style-preset-select">Style Preset</label>
+          <select
+            id="style-preset-select"
+            class="ep-select"
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLSelectElement).value;
+              this._handleStylePreset(value || undefined);
+            }}
+          >
+            <option value="" ?selected=${!node.stylePreset}>None</option>
+            ${available.map(
+              (preset) => html`
+                <option
+                  .value=${preset.key}
+                  title=${preset.description ?? ''}
+                  ?selected=${node.stylePreset === preset.key}
+                >
+                  ${presets?.[preset.key] ? preset.name : `${preset.name} (not styled by this theme)`}
+                </option>
+              `,
+            )}
+          </select>
+        </div>
+      `;
+    }
 
     // If there's a theme with presets, show a dropdown
     if (presets && Object.keys(presets).length > 0) {

@@ -32,7 +32,7 @@
                         <select id="fb-category" name="category" class="ep-select" required>
                             <option value="" disabled selected>Select...</option>
                             <option th:each="c : ${categories}" th:value="${c.name()}"
-                                    th:text="${c.name()}"
+                                    th:text="${#labels.of(c)}"
                                     th:selected="${formData?.category == c.name()}">CATEGORY</option>
                         </select>
                         <span class="form-error" th:if="${errors?.containsKey('category')}" th:text="${errors.category}"></span>
@@ -42,7 +42,7 @@
                         <label class="ep-label" for="fb-priority">Priority</label>
                         <select id="fb-priority" name="priority" class="ep-select" required>
                             <option th:each="p : ${priorities}" th:value="${p.name()}"
-                                    th:text="${p.name()}"
+                                    th:text="${#labels.of(p)}"
                                     th:selected="${formData?.priority == p.name() || (formData == null && p.name() == 'MEDIUM')}">PRIORITY</option>
                         </select>
                         <span class="form-error" th:if="${errors?.containsKey('priority')}" th:text="${errors.priority}"></span>

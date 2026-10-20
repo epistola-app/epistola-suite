@@ -164,22 +164,23 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     /**
      * The whole point of the re-keying: a resource is identified by what it is, not by where it
      * lives. If a primary key here ever reverts to the address, relocation silently goes back to
-     * rewriting every dependant.
+     * rewriting every dependant. Each catalog version holds its own row of a resource (contract ADR
+     * 0002), so the key is the identity within a version, and the address is unique per version.
      */
     @Test
-    fun `every catalog resource is keyed by its identity, with the address kept unique`() {
+    fun `every catalog resource is keyed by its identity per version, with the address kept unique`() {
         val keys = primaryKeyColumns()
         val uniques = uniqueConstraintColumns()
 
         resourceTables.forEach { table ->
             assertThat(keys[table])
                 .describedAs("$table primary key")
-                .isEqualTo(listOf("tenant_key", "resource_id"))
+                .isEqualTo(listOf("tenant_key", "version_id", "resource_id"))
 
             assertThat(uniques[table].orEmpty())
-                .describedAs("$table must still enforce its address, just not key on it")
+                .describedAs("$table must still enforce its address within a version, just not key on it")
                 .anySatisfy { columns ->
-                    assertThat(columns).startsWith("tenant_key", "catalog_key").hasSize(3)
+                    assertThat(columns).startsWith("tenant_key", "version_id").hasSize(3)
                 }
         }
     }
@@ -225,10 +226,6 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     fun `owned rows name their parent's identity and no longer copy its address`() {
         val ownership = mapOf(
             "template_variants" to "template_resource_id",
-            "template_versions" to "template_resource_id",
-            "contract_versions" to "template_resource_id",
-            "environment_activations" to "template_resource_id",
-            "stencil_versions" to "stencil_resource_id",
             "code_list_entries" to "code_list_resource_id",
             "font_variants" to "font_resource_id",
             "quality_findings" to "template_resource_id",
@@ -246,8 +243,8 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
                 .describedAs("$table must not keep a copy of its parent's address")
                 .doesNotContain("catalog_key")
 
-            // The three whose parent's address was also in their key.
-            if (table in setOf("template_variants", "template_versions", "contract_versions")) {
+            // The one whose parent's address was also in its key.
+            if (table == "template_variants") {
                 assertThat(keys[table])
                     .describedAs("$table primary key")
                     .contains(identity)
@@ -304,7 +301,7 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
         assertThat(columnsByTable().keys).describedAs("tables").doesNotContain("catalog_resource_aliases")
         assertThat(uniqueConstraintColumns()["catalog_resources"].orEmpty())
             .describedAs("catalog_resources unique constraints")
-            .containsExactly(listOf("tenant_key", "resource_type", "catalog_key", "resource_key"))
+            .containsExactly(listOf("tenant_key", "resource_type", "catalog_id", "resource_key"))
     }
 
     // ---------------------------------------------------------------- helpers

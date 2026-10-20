@@ -46,6 +46,19 @@
                     <button type="submit" class="ep-btn ep-btn-primary" style="width: 100%;">Sign In</button>
                 </form>
 
+                <!--/* Local development only (localAccountHints): the documented default accounts. */-->
+                <div th:unless="${#lists.isEmpty(localAccounts)}" class="alert alert-info" data-testid="login-local-accounts"
+                     style="margin-top: var(--ep-space-6);">
+                    <p style="margin: 0 0 var(--ep-space-2);">Local development accounts:</p>
+                    <ul style="margin: 0; padding-left: var(--ep-space-5);">
+                        <li th:each="account : ${localAccounts}">
+                            <code th:text="${account.username}">admin@local</code> /
+                            <code th:text="${account.password}">admin</code>
+                            <span class="text-muted" th:text="'(' + ${account.name} + ')'">(Local Admin)</span>
+                        </li>
+                    </ul>
+                </div>
+
             </div>
 
             <!-- Divider when both login methods are available -->

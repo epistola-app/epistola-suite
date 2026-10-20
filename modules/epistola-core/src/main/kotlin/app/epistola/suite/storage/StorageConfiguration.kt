@@ -60,9 +60,9 @@ class StorageConfiguration {
 
     /**
      * The pre-split shared content store. Retained through the #738 transition: the
-     * asset commands still use it until the CAS cutover, and the one-time
-     * `ContentBackfillRunner` reads legacy blobs through it. Removed once
-     * `content_store` is dropped.
+     * one-time `ContentBackfillRunner` and `LegacyBlobFallback` read 1.x blobs through it,
+     * which an installation upgrading from 1.x may not have backfilled yet. Removed once
+     * `content_store` is dropped (#742).
      */
     @Bean
     fun contentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): ContentStore {

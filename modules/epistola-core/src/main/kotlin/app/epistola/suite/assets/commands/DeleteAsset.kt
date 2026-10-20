@@ -6,7 +6,10 @@ package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.queries.FindAssetUsages
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -30,7 +33,10 @@ data class DeleteAsset(
     val tenantId: TenantKey,
     val assetId: AssetKey,
     val force: Boolean = false,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey get() = tenantId
@@ -46,7 +52,14 @@ class DeleteAssetHandler(
     override fun handle(command: DeleteAsset): Boolean {
         // Check catalog editability before proceeding
         val catalogKey = jdbi.withHandle<CatalogKey, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key FROM assets WHERE tenant_key = :tenantId AND id = :assetId")
+            handle.createQuery(
+                """
+                SELECT c.catalog_key FROM assets a
+                JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+                WHERE a.tenant_key = :tenantId AND a.id = :assetId
+                  AND ${inCurrentVersion("a")}
+                """,
+            )
                 .bind("tenantId", command.tenantId)
                 .bind("assetId", command.assetId)
                 .map { rs, _ -> CatalogKey(rs.getString("catalog_key")) }
@@ -70,6 +83,7 @@ class DeleteAssetHandler(
                 DELETE FROM assets
                 WHERE id = :assetId
                   AND tenant_key = :tenantId
+                  AND ${inCurrentVersion("assets")}
                 """,
             )
                 .bind("assetId", command.assetId.value)

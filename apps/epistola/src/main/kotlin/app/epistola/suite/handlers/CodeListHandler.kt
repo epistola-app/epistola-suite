@@ -17,16 +17,20 @@ import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.queries.GetCatalogContext
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.FormData
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.codeListId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -34,11 +38,13 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
+import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -53,19 +59,26 @@ class CodeListHandler(
 ) {
 
     fun list(request: ServerRequest): ServerResponse {
+        val tenant = GetTenant(request.tenantId().key).query() ?: return ServerResponse.notFound().build()
+        return ServerResponse.ok().page("code-lists/list") { listModel(request, tenant) }
+    }
+
+    /** The catalog's code lists, as the list page and its refresh after a delete show them. */
+    private fun ModelBuilder.listModel(request: ServerRequest, tenant: Tenant?) {
         val tenantId = request.tenantId()
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val codeLists = ListCodeLists(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("code-lists/list") {
-            "pageTitle" to "Code lists - Epistola"
-            "tenant" to tenant
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "codeLists" to codeLists
-        }
+        // The segment may name a draft (`letters@<draft>`); its rows are then the draft's.
+        val segment = request.catalogSegment()
+        val bar = CatalogDraftBar.of(tenantId.key, segment) { "/tenants/${tenantId.key}/catalogs/${it.value}/code-lists" }
+        "pageTitle" to "Code lists - Epistola"
+        "tenant" to tenant
+        "tenantId" to tenantId.key
+        "catalogs" to ListCatalogs(tenantId.key).query()
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/code-lists/${l.slug.value}", n) }
+        "codeLists" to ListCodeLists(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -80,13 +93,17 @@ class CodeListHandler(
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("code-lists/new", "dialog") {
                 "tenantId" to tenantId.key
+                // Opened from a list filtered to a draft, the dialog creates in that draft.
+                // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
+                // creates there, rather than in whichever catalog sorts first.
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("code-lists/list") {
-                    codeListPageModel(tenantId, allCatalogs)
+                    listModel(request, GetTenant(tenantId.key).query())
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -99,7 +116,6 @@ class CodeListHandler(
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
 
         val form = request.form {
-            field("catalog") { required() }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -125,11 +141,12 @@ class CodeListHandler(
             return renderCreateError(request, form, tenantId)
         }
 
-        val catalogKey = CatalogKey.validateOrNull(form["catalog"])
-            ?: return renderCreateError(request, FormData(form.formData, mapOf("catalog" to "Invalid catalog")), tenantId)
+        // The catalog the dialog was opened in, from the path.
+        val catalogSegment = request.catalogSegment()
         // Safe !!: asCodeListId already rejected an invalid non-blank slug, and
         // required() rejected a blank one, so a valid key is guaranteed here.
         val slug = CodeListKey.validateOrNull(form["slug"])!!
+        val catalogKey = catalogSegment.key
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
             ?: return renderCreateError(request, FormData(form.formData, mapOf("sourceType" to "Unknown source type")), tenantId)
 
@@ -148,6 +165,7 @@ class CodeListHandler(
                 sourceUrl = form.formData["sourceUrl"]?.ifBlank { null },
                 authType = AuthType.NONE,
                 entries = entries,
+                catalogVersion = catalogSegment.ref(tenantId.key),
             ).execute()
         }
 
@@ -158,10 +176,10 @@ class CodeListHandler(
         // Success: soft-navigate to the newly created code list's page via a
         // boosted body-swap (HX-Location) — no full-page reload. The dialog goes
         // with the swapped-out body; the list is not refreshed.
-        val destination = "/tenants/${tenantId.key}/code-lists/${catalogKey.value}/${slug.value}"
+        val destination = "/tenants/${tenantId.key}/catalogs/${catalogSegment.value}/code-lists/${slug.value}"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -188,11 +206,12 @@ class CodeListHandler(
                 formData = formData,
             ) {
                 "tenantId" to tenantId.key
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
-            onNonHtmx {
+            onFullPage {
                 page(422, "code-lists/list") {
-                    codeListPageModel(tenantId, allCatalogs)
+                    listModel(request, GetTenant(tenantId.key).query())
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                     "formData" to formData.formData
@@ -205,16 +224,20 @@ class CodeListHandler(
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
-        val codeList = GetCodeList(codeListId).query() ?: return ServerResponse.notFound().build()
+        val segment = request.catalogSegment()
+        val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
+        val version = draftBar.ref
+        val codeList = GetCodeList(codeListId, catalogVersion = version).query() ?: return ServerResponse.notFound().build()
         val includeHidden = request.queryParam("show") == "all"
-        val entries = ListCodeListEntries(codeListId, includeHidden = includeHidden).query()
+        val entries = ListCodeListEntries(codeListId, includeHidden = includeHidden, catalogVersion = version).query()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
         val editable = codeList.catalogType == CatalogType.AUTHORED
         return ServerResponse.ok().page("code-lists/detail") {
             "pageTitle" to "${codeList.displayName} - Code list"
             "tenant" to tenant
             "tenantId" to tenantId.key
-            "catalogContext" to GetCatalogContext(tenantId.key, codeListId.catalogKey).query()
+            "catalogSegment" to segment.value
+            "draftBar" to draftBar
             "codeList" to codeList
             "entries" to entries
             "editable" to editable
@@ -225,34 +248,20 @@ class CodeListHandler(
     fun refresh(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
-        RefreshCodeList(codeListId).execute()
-        return ServerResponse.status(303)
-            .header(
-                "Location",
-                "/tenants/${tenantId.key}/code-lists/${codeListId.catalogKey.value}/${codeListId.key.value}",
-            )
-            .build()
+        RefreshCodeList(codeListId, catalogVersion = request.catalogVersion()).execute()
+        return redirect("/tenants/${tenantId.key}/catalogs/${request.catalogSegment().value}/code-lists/${codeListId.key.value}")
     }
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val codeListId = request.codeListId(tenantId) ?: return ServerResponse.badRequest().build()
         return try {
-            DeleteCodeList(codeListId).execute()
+            DeleteCodeList(codeListId, catalogVersion = request.catalogVersion()).execute()
             val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
-            val catalogs = ListCatalogs(tenantId.key).query()
-            val codeLists = ListCodeLists(tenantId = tenantId).query()
             request.htmx {
-                fragment("code-lists/list", "content") {
-                    "pageTitle" to "Code lists - Epistola"
-                    "tenant" to tenant
-                    "tenantId" to tenantId.key
-                    "catalogs" to catalogs
-                    "selectedCatalog" to ""
-                    "codeLists" to codeLists
-                }
-                pushUrl("/tenants/${tenantId.key}/code-lists")
-                onNonHtmx { redirect("/tenants/${tenantId.key}/code-lists") }
+                fragment("code-lists/list", "content") { listModel(request, tenant) }
+                pushUrl(CatalogPages.list(request, tenantId.key, "code-lists"))
+                onFullPage { redirect(CatalogPages.list(request, tenantId.key, "code-lists")) }
             }
         } catch (e: CodeListInUseException) {
             if (request.isHtmx) {
@@ -260,7 +269,7 @@ class CodeListHandler(
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(mapOf("error" to (e.message ?: "Cannot delete")))
             } else {
-                val codeList = GetCodeList(codeListId).query()
+                val codeList = GetCodeList(codeListId, catalogVersion = request.catalogVersion()).query()
                     ?: return ServerResponse.notFound().build()
                 val tenant = GetTenant(tenantId.key).query()
                     ?: return ServerResponse.notFound().build()
@@ -268,9 +277,9 @@ class CodeListHandler(
                     "pageTitle" to "${codeList.displayName} - Code list"
                     "tenant" to tenant
                     "tenantId" to tenantId.key
-                    "catalogContext" to GetCatalogContext(tenantId.key, codeListId.catalogKey).query()
                     "codeList" to codeList
-                    "entries" to ListCodeListEntries(codeListId).query()
+                    "catalogSegment" to request.catalogSegment().value
+                    "entries" to ListCodeListEntries(codeListId, catalogVersion = request.catalogVersion()).query()
                     "editable" to (codeList.catalogType == CatalogType.AUTHORED)
                     "includeHidden" to false
                     "error" to (e.message ?: "Cannot delete")
@@ -285,41 +294,24 @@ class CodeListHandler(
         val code = request.pathVariable("code")
         val newHidden = request.param("hidden").orElse("false").equals("true", ignoreCase = true)
 
-        UpdateCodeListEntryHidden(codeListId, code, hidden = newHidden).execute()
+        val version = request.catalogVersion()
+        UpdateCodeListEntryHidden(codeListId, code, hidden = newHidden, catalogVersion = version).execute()
 
-        val codeList = GetCodeList(codeListId).query() ?: return ServerResponse.notFound().build()
-        val entry = ListCodeListEntries(codeListId, includeHidden = true).query()
+        val codeList = GetCodeList(codeListId, catalogVersion = version).query() ?: return ServerResponse.notFound().build()
+        val entry = ListCodeListEntries(codeListId, includeHidden = true, catalogVersion = version).query()
             .firstOrNull { it.code == code }
             ?: return ServerResponse.notFound().build()
 
         return request.htmx {
             fragment("code-lists/detail", "entry-row") {
                 "tenantId" to tenantId.key
+                "catalogSegment" to request.catalogSegment().value
                 "codeList" to codeList
                 "entry" to entry
                 "editable" to true
             }
             reswap(HxSwap.OUTER_HTML)
         }
-    }
-
-    /**
-     * The full-page list model, used by the newForm / create non-HTMX branches so
-     * the list renders behind the embedded create dialog. `authoredCatalogs` (the
-     * dialog's catalog `<select>` source) is threaded separately by the callers —
-     * the list already puts *all* `catalogs` in the model for its filter, so the
-     * dialog uses a distinct key to avoid rendering the wrong (non-authored) options.
-     */
-    private fun ModelBuilder.codeListPageModel(
-        tenantId: TenantId,
-        catalogs: List<Catalog>,
-    ) {
-        "pageTitle" to "Code lists - Epistola"
-        "tenant" to GetTenant(tenantId.key).query()
-        "tenantId" to tenantId.key
-        "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "codeLists" to ListCodeLists(tenantId = tenantId).query()
     }
 
     /**

@@ -20,6 +20,8 @@ import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mcp.dto.FontInfo
 import app.epistola.suite.mcp.dto.FontVariantInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mcp.support.parseArgument
@@ -64,14 +66,18 @@ class FontMcpTools(
             required = false,
         )
         catalogId: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): List<FontInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
-        return mediator.query(ListFonts(tenantId = tenantId, catalogKey = filter))
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        return mediator.query(ListFonts(tenantId = tenantId, catalogKey = filter, catalogVersion = version))
             .map { font ->
                 val variants = mediator.query(
                     GetFontVariants(
                         fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
+                        catalogVersion = version,
                     ),
                 ).map { FontVariantInfo(it.weight, it.italic) }
                 FontInfo.from(font, variants)
@@ -101,10 +107,13 @@ class FontMcpTools(
                 "Weight is 1-1000; each weight/italic pair at most once.",
         )
         faces: String,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): FontInfo {
         val tenantId = TenantId(mcpTenantKey())
         val catalogKey = CatalogKey.of(catalogId)
         val slug = FontKey.of(fontId)
+        val version = catalogVersionRef(catalogId, catalogVersion)
         val fontKind = try {
             FontKind.fromWire(kind)
         } catch (e: IllegalArgumentException) {
@@ -121,6 +130,7 @@ class FontMcpTools(
                 width = null,
                 height = null,
                 catalogKey = catalogKey,
+                catalogVersion = version,
             ).execute()
             ImportFontVariant(weight = face.weight, italic = face.italic, source = FontVariantSource.ASSET, assetKey = asset.id)
         }
@@ -131,9 +141,10 @@ class FontMcpTools(
             name = name,
             kind = fontKind.wire,
             variants = variants,
+            catalogVersion = version,
         ).execute()
-        val font = ListFonts(tenantId = tenantId, catalogKey = catalogKey).query().first { it.slug == slug }
-        val stored = GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId))).query()
+        val font = ListFonts(tenantId = tenantId, catalogKey = catalogKey, catalogVersion = version).query().first { it.slug == slug }
+        val stored = GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId)), catalogVersion = version).query()
             .map { FontVariantInfo(it.weight, it.italic) }
         return FontInfo.from(font, stored)
     }

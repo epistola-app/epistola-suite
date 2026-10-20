@@ -68,8 +68,8 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
         val stencilId = "param-create-${UUID.randomUUID().toString().take(8)}"
 
         val create = post(
-            "/api/tenants/${tenantKey.value}/catalogs/default/stencils",
-            """{"id":"$stencilId","name":"Param Stencil","parameterSchema":$schema}""",
+            "${versionPath(tenantKey)}/stencils",
+            """{"key":"$stencilId","name":"Param Stencil","parameterSchema":$schema}""",
             apiKey,
         )
         assertThat(create.statusCode).isEqualTo(HttpStatus.CREATED)
@@ -83,7 +83,7 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     fun `updating the working copy round-trips the parameterSchema, and marking ready keeps it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val stencilId = "param-update-${UUID.randomUUID().toString().take(8)}"
-        post("/api/tenants/${tenantKey.value}/catalogs/default/stencils", """{"id":"$stencilId","name":"Param Stencil"}""", apiKey)
+        post("${versionPath(tenantKey)}/stencils", """{"key":"$stencilId","name":"Param Stencil"}""", apiKey)
         val path = contentPath(tenantKey, stencilId)
 
         val updated = put(path, """{"content":${contentOf(path, apiKey)},"parameterSchema":$schema}""", apiKey)
@@ -97,40 +97,42 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `updating the working copy with an omitted or null parameterSchema clears it`() {
+    fun `updating the working copy keeps the parameterSchema when it is left out or null, and an empty one removes it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val stencilId = "param-clear-${UUID.randomUUID().toString().take(8)}"
         post(
-            "/api/tenants/${tenantKey.value}/catalogs/default/stencils",
-            """{"id":"$stencilId","name":"Param Stencil","parameterSchema":$schema}""",
+            "${versionPath(tenantKey)}/stencils",
+            """{"key":"$stencilId","name":"Param Stencil","parameterSchema":$schema}""",
             apiKey,
         )
         val path = contentPath(tenantKey, stencilId)
         val content = contentOf(path, apiKey)
 
+        // A client changing only the content must not drop the parameters every template binds.
         val omitted = put(path, """{"content":$content}""", apiKey)
         assertThat(omitted.statusCode).describedAs(omitted.body).isEqualTo(HttpStatus.OK)
-        assertNoSchema(omitted.body)
-
-        put(path, """{"content":$content,"parameterSchema":$schema}""", apiKey)
+        assertThat(JsonPath.read<List<String>>(omitted.body, "$.parameterSchema.required")).containsExactly("recipientName")
         val explicitNull = put(path, """{"content":$content,"parameterSchema":null}""", apiKey)
-        assertThat(explicitNull.statusCode).describedAs(explicitNull.body).isEqualTo(HttpStatus.OK)
-        assertNoSchema(explicitNull.body)
-        assertThat(JsonPath.read<String>(explicitNull.body, "$.content.root")).isEqualTo("root")
+        assertThat(JsonPath.read<List<String>>(explicitNull.body, "$.parameterSchema.required")).containsExactly("recipientName")
+
+        val emptied = put(path, """{"content":$content,"parameterSchema":{}}""", apiKey)
+        assertThat(emptied.statusCode).describedAs(emptied.body).isEqualTo(HttpStatus.OK)
+        assertNoSchema(emptied.body)
+        assertThat(JsonPath.read<String>(emptied.body, "$.content.root")).isEqualTo("root")
     }
 
     @Test
     fun `stencil without parameters reports no parameterSchema`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val stencilId = "no-param-${UUID.randomUUID().toString().take(8)}"
-        post("/api/tenants/${tenantKey.value}/catalogs/default/stencils", """{"id":"$stencilId","name":"Plain Stencil"}""", apiKey)
+        post("${versionPath(tenantKey)}/stencils", """{"key":"$stencilId","name":"Plain Stencil"}""", apiKey)
 
         val response = get(contentPath(tenantKey, stencilId), apiKey)
         assertThat(response.statusCode).describedAs(response.body).isEqualTo(HttpStatus.OK)
         assertNoSchema(response.body)
     }
 
-    private fun contentPath(tenantKey: TenantKey, stencilId: String) = "/api/tenants/${tenantKey.value}/catalogs/default/stencils/$stencilId/content"
+    private fun contentPath(tenantKey: TenantKey, stencilId: String) = "${versionPath(tenantKey)}/stencils/$stencilId/content"
 
     /** The server's own serialization of the working copy's content, so a PUT body carries valid content. */
     private fun contentOf(path: String, apiKey: String): String = Configuration.defaultConfiguration().jsonProvider().toJson(JsonPath.parse(get(path, apiKey).body).read<Any>("$.content"))
@@ -153,12 +155,15 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     private fun get(path: String, apiKey: String) = restTemplate.exchange(path, HttpMethod.GET, HttpEntity<String>(null, headers(apiKey)), String::class.java)
 
     private fun headers(apiKey: String): HttpHeaders = HttpHeaders().apply {
-        contentType = MediaType.parseMediaType("application/vnd.epistola.v1+json")
-        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v1+json"))
+        contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
+        accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.9.0 stencil-param-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
+
+    /** The default catalog's open draft. */
+    private fun versionPath(tenantKey: TenantKey): String = withMediator { CatalogApiPaths.version(tenantKey) }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("sp-${UUID.randomUUID().toString().take(8)}")

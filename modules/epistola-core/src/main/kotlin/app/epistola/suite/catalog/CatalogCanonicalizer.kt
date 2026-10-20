@@ -5,6 +5,8 @@
 package app.epistola.suite.catalog
 
 import app.epistola.catalog.archive.CatalogArchive
+import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
+import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.CatalogResource
@@ -16,6 +18,7 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.catalog.validation.CatalogValidationPolicy
+import app.epistola.catalog.validation.CatalogValidationReport
 import app.epistola.catalog.validation.CatalogValidator
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
@@ -28,63 +31,87 @@ import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCan
  * while canonicalization itself is owned by epistola-catalog.
  */
 class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
+    /**
+     * The V5 fingerprint of a catalog given as its manifest's parts and serialized details. The
+     * manifest's [resourceEntries] (each resource's type, key, name and description) and [publisher]
+     * are part of what V5 covers, so a caller that has them passes them.
+     */
     fun fingerprintFromSerializedDetails(
         catalog: CatalogInfo,
         serializedDetails: Map<String, ByteArray>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
+        resourceEntries: List<ResourceEntry> = emptyList(),
+        publisher: PublisherInfo = PublisherInfo("Epistola"),
         assetBytes: (contentUrl: String) -> ByteArray?,
-    ): String = archive(catalog, serializedDetails, dependencies, assetBytes = assetBytes).use {
-        PortableCatalogCanonicalizer.currentFingerprint(it).value
+    ): String = archive(catalog, serializedDetails, dependencies, catalogDependencies, resourceEntries, publisher = publisher, assetBytes = assetBytes).use {
+        PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString()
     }
 
     fun fingerprint(content: CatalogContent): String = archive(
         content.catalog,
         content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         content.dependencies,
+        content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
+        publisher = content.publisher,
     ) { contentPath ->
         content.assetContents[contentPath]
-    }.use { PortableCatalogCanonicalizer.currentFingerprint(it).value }
+    }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
 
     fun fingerprint(
         catalog: CatalogInfo,
         resourceDetails: Map<String, ResourceDetail>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): String = fingerprintFromSerializedDetails(
         catalog,
         resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         dependencies,
-        assetBytes,
+        catalogDependencies,
+        assetBytes = assetBytes,
     )
 
     fun matchesFingerprint(content: CatalogContent, expected: String): Boolean = archive(
         content.catalog,
         content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
         content.dependencies,
+        content.catalogDependencies,
         content.resourceEntries,
         includeSerializedDetails = false,
+        publisher = content.publisher,
     ) { contentPath ->
         content.assetContents[contentPath]
-    }.use { PortableCatalogCanonicalizer.matchesFingerprint(it, expected) }
+    }.use { archive ->
+        // Wire v8 names the algorithm (`v5:<hex>`) and is checked with exactly that one; a fingerprint
+        // recorded before 2.0 is bare hex, checked against the legacy forms.
+        if (QualifiedCatalogFingerprint.parse(expected) != null) {
+            PortableCatalogCanonicalizer.matchesQualifiedFingerprint(archive, expected)
+        } else {
+            PortableCatalogCanonicalizer.matchesFingerprint(archive, expected)
+        }
+    }
+
+    /** What the portable validator says of [content] as an archive, the fingerprint aside. */
+    fun publishability(content: CatalogContent): CatalogValidationReport = archive(
+        content.catalog,
+        content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
+        content.dependencies,
+        content.catalogDependencies,
+        content.resourceEntries,
+    ) { contentPath ->
+        content.assetContents[contentPath]
+    }.use { archive -> CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false)) }
 
     fun requirePublishable(content: CatalogContent) {
-        archive(
-            content.catalog,
-            content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
-            content.dependencies,
-            content.resourceEntries,
-        ) { contentPath ->
-            content.assetContents[contentPath]
-        }.use { archive ->
-            val report = CatalogValidator.validate(archive, CatalogValidationPolicy(verifyFingerprint = false))
-            require(report.valid) {
-                report.findings.joinToString(
-                    prefix = "Catalog contains non-publishable content: ",
-                    separator = "; ",
-                ) { "${it.path}: ${it.message}" }
-            }
+        val report = publishability(content)
+        require(report.valid) {
+            report.findings.joinToString(
+                prefix = "Catalog contains non-publishable content: ",
+                separator = "; ",
+            ) { "${it.path}: ${it.message}" }
         }
     }
 
@@ -114,13 +141,16 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
     ): String {
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val serializedDetails = manifest.resources.associate { entry ->
-            "${entry.type}/${entry.slug}" to
+            "${entry.type}/${entry.key}" to
                 catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
         }
         return fingerprintFromSerializedDetails(
             manifest.catalog,
             serializedDetails,
             manifest.dependencies,
+            manifest.catalogDependencies,
+            manifest.resources,
+            manifest.publisher,
         ) { contentUrl ->
             catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
         }
@@ -130,8 +160,10 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         catalog: CatalogInfo,
         serializedDetails: Map<String, ByteArray>,
         dependencies: List<DependencyRef>?,
+        catalogDependencies: List<CatalogDependency>? = null,
         resourceEntries: List<ResourceEntry> = emptyList(),
         includeSerializedDetails: Boolean = true,
+        publisher: PublisherInfo = PublisherInfo("Epistola"),
         assetBytes: (contentUrl: String) -> ByteArray?,
     ): CatalogArchive {
         val details = serializedDetails.mapValues { (_, bytes) ->
@@ -153,10 +185,11 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
             manifest = CatalogManifest(
                 schemaVersion = CATALOG_SCHEMA_VERSION,
                 catalog = catalog,
-                publisher = PublisherInfo("Epistola"),
+                publisher = publisher,
                 release = ReleaseInfo("0.0.0"),
                 resources = resourceEntries,
                 dependencies = dependencies,
+                catalogDependencies = catalogDependencies,
             ),
             resourceDetails = details,
             paths = content.keys,

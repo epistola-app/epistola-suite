@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.revisions.forgetRetainedContent
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -27,7 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired
 /**
  * [GetCatalogResourceChanges] localizes the catalog-level drift that
  * [GetCatalogReleaseStatus] reports to the resources that caused it, against the resources
- * [ReleaseCatalogVersion] records for each release (V20260923201010).
+ * [ReleaseCatalogVersion] records for each release (V20261018200200).
  */
 class GetCatalogResourceChangesTest : IntegrationTestBase() {
 
@@ -44,7 +44,6 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
 
             assertThat(changes.latestVersion).isNull()
-            assertThat(changes.baselineAvailable).isTrue()
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.resources).singleElement().satisfies({
                 assertThat(it.type).isEqualTo("theme")
@@ -62,6 +61,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
@@ -80,6 +80,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
@@ -101,6 +102,7 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("kept"), catalog), name = "Kept").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("dropped"), catalog), name = "Dropped").execute()
+            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
             ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
 
             DeleteTheme(id = ThemeId(ThemeKey.of("dropped"), catalog)).execute()
@@ -115,50 +117,6 @@ class GetCatalogResourceChangesTest : IntegrationTestBase() {
                 tuple("dropped", CatalogResourceState.REMOVED, "Dropped"),
                 tuple("kept", CatalogResourceState.RELEASED, "Kept"),
             )
-        }
-    }
-
-    @Test
-    fun `a release with no recorded baseline still reports released while the content matches`() {
-        val catalog = authoredCatalog("changes-legacy-clean")
-
-        withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
-
-        withMediator {
-            val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
-
-            // The fingerprint still matches, so the working digests are that release's digests.
-            assertThat(changes.baselineAvailable).isTrue()
-            assertThat(changes.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
-        }
-    }
-
-    @Test
-    fun `a release with no recorded baseline cannot attribute changes once the content differs`() {
-        val catalog = authoredCatalog("changes-legacy-dirty")
-
-        withMediator {
-            CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
-        }
-        assertThat(jdbi.forgetRetainedContent(catalog.tenantKey, catalog.key)).isPositive()
-
-        withMediator {
-            UpdateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1 edited").execute()
-
-            val changes = GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query()
-
-            assertThat(changes.baselineAvailable).isFalse()
-            assertThat(changes.hasUnreleasedChanges).isTrue()
-            assertThat(changes.resources.map { it.state }).containsOnly(CatalogResourceState.UNKNOWN)
-
-            // The next release records one, and the detail comes back.
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.1").execute()
-            assertThat(GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query().baselineAvailable).isTrue()
         }
     }
 

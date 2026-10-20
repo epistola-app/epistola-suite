@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -31,6 +32,10 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
+
+private const val EMPTY_MODEL = """{ "modelVersion": 1, "root": "n-root", "themeRef": { "type": "inherit" },
+  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
+  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } } }"""
 
 private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalog.json"
 
@@ -76,8 +81,8 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("upgrade-dialog")
-            assertThat(response.body).contains("Review catalog upgrade")
-            assertThat(response.body).containsIgnoringCase("already up to date")
+            assertThat(response.body).contains("Available releases")
+            assertThat(response.body).contains("data-testid=\"catalog-available-none\"")
         }
     }
 
@@ -91,7 +96,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
      * visibility must not.
      */
     @Test
-    fun `upgrade-preview names what is new, updated and removed`(@TempDir tmp: Path) = fixture {
+    fun `upgrade-preview lists the release the source offers, naming what it adds, changes and removes`(@TempDir tmp: Path) = fixture {
         lateinit var testTenant: Tenant
         given {
             writeDiffCatalog(tmp, version = "1.0.0", templateSlug = "old-letter", themeSize = "11pt")
@@ -121,14 +126,10 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val body = response.body!!
-            assertThat(body).contains("This upgrade will")
+            val release = body.substringAfter("data-version=\"1.1.0\"")
+            assertThat(release).contains("Install").contains("Against v1.0.0")
             // Named, not merely counted, for each of the three kinds.
-            assertThat(body).contains("template/new-letter")
-            assertThat(body).contains("template/old-letter")
-            assertThat(body).contains("theme/house")
-            // The opt-in list and its "not installed by default" caveat are gone.
-            assertThat(body).doesNotContain("newSlugs")
-            assertThat(body).doesNotContain("not installed by default")
+            assertThat(release).contains("Letter added").contains("Letter removed").contains("House modified")
         }
     }
 
@@ -140,13 +141,13 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("catalog.json").writeText(
             """
             {
-              "schemaVersion": 6,
-              "catalog": { "slug": "diff-test", "name": "Diff Test Catalog" },
+              "schemaVersion": 8,
+              "catalog": { "key": "diff-test", "registry": "exchange.epistola.app", "namespace": "tests", "name": "Diff Test Catalog" },
               "publisher": { "name": "Test" },
               "release": { "version": "$version", "fingerprint": "${"0".repeat(64)}" },
               "resources": [
-                { "type": "theme", "slug": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
-                { "type": "template", "slug": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }
+                { "type": "theme", "key": "house", "name": "House", "detailUrl": "./resources/themes/house.json" },
+                { "type": "template", "key": "$templateSlug", "name": "Letter", "detailUrl": "./resources/templates/$templateSlug.json" }
               ]
             }
             """.trimIndent(),
@@ -154,10 +155,10 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("resources/themes/house.json").writeText(
             """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "theme",
-                "slug": "house",
+                "key": "house",
                 "name": "House",
                 "documentStyles": { "fontSize": "$themeSize" }
               }
@@ -167,19 +168,14 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         dir.resolve("resources/templates/$templateSlug.json").writeText(
             """
             {
-              "schemaVersion": 6,
+              "schemaVersion": 8,
               "resource": {
                 "type": "template",
-                "slug": "$templateSlug",
+                "key": "$templateSlug",
                 "name": "Letter",
-                "templateModel": {
-                  "modelVersion": 1,
-                  "root": "n-root",
-                  "themeRef": { "type": "inherit" },
-                  "nodes": { "n-root": { "id": "n-root", "type": "root", "slots": ["s-root"] } },
-                  "slots": { "s-root": { "id": "s-root", "nodeId": "n-root", "name": "children", "children": [] } }
-                },
-                "variants": [ { "slug": "default", "title": "Default", "attributes": {}, "isDefault": true } ]
+                "dataExamples": [ { "key": "example-1", "name": "Example 1", "data": {} } ],
+                "templateModel": $EMPTY_MODEL,
+                "variants": [ { "key": "default", "title": "Default", "attributes": {}, "isDefault": true, "templateModel": $EMPTY_MODEL } ]
               }
             }
             """.trimIndent(),
@@ -187,7 +183,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `apply upgrade with no changes returns the done fragment and no error`() = fixture {
+    fun `installing the release already here returns the done fragment and no error`() = fixture {
         lateinit var testTenant: Tenant
         given {
             testTenant = tenant("Upgrade Apply Tenant")
@@ -200,7 +196,12 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         whenever {
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade",
-                HttpEntity(org.springframework.util.LinkedMultiValueMap<String, String>(), htmxForm()),
+                HttpEntity(
+                    org.springframework.util.LinkedMultiValueMap<String, String>().apply {
+                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
+                    },
+                    htmxForm(),
+                ),
                 String::class.java,
             )
         }
@@ -245,7 +246,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("upgrade-catalog-error")
             assertThat(response.body).contains("form-global-error")
             // No diff → no Apply button rendered.
-            assertThat(response.body).doesNotContain("Apply upgrade")
+            assertThat(response.body).doesNotContain("catalog-available-install")
         }
     }
 
@@ -298,7 +299,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("Up to date")
+            assertThat(response.body).`as`("said in words, not only as a tooltip").contains("· up to date<")
             assertThat(response.body).doesNotContain("catalog-upgrade-review")
         }
     }
@@ -314,7 +315,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val manifest = dir.resolve("catalog.json")
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
             )
             withMediator {
@@ -323,7 +324,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             }
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"moving-source","name":"Moving Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"moving-source","registry":"exchange.epistola.app","namespace":"tests","name":"Moving Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.1.0"},"resources":[]}""",
             )
         }
@@ -367,7 +368,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             val manifest = dir.resolve("catalog.json")
             Files.writeString(
                 manifest,
-                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"catalog":{"key":"new-source","registry":"exchange.epistola.app","namespace":"tests","name":"New Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"1.0.0"},"resources":[]}""",
             )
             withMediator {
@@ -376,7 +377,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             // Source advances to a wire schema newer than this instance supports.
             Files.writeString(
                 manifest,
-                """{"schemaVersion":99,"catalog":{"slug":"new-source","name":"New Source"},""" +
+                """{"schemaVersion":99,"catalog":{"key":"new-source","registry":"exchange.epistola.app","namespace":"tests","name":"New Source"},""" +
                     """"publisher":{"name":"P"},"release":{"version":"2.0.0"},"resources":[]}""",
             )
         }
@@ -501,7 +502,13 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             )
             restTemplate.postForEntity(
                 "/tenants/${testTenant.id}/catalogs/import",
-                HttpEntity(payload, HttpHeaders().apply { contentType = MediaType.MULTIPART_FORM_DATA }),
+                HttpEntity(
+                    payload,
+                    HttpHeaders().apply {
+                        contentType = MediaType.MULTIPART_FORM_DATA
+                        set("HX-Request", "true")
+                    },
+                ),
                 String::class.java,
             )
         }

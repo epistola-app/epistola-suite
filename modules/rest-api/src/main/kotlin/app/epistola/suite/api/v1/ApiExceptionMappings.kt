@@ -19,12 +19,25 @@ import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.commands.CatalogBundleException
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
+import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
+import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
+import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.versions.CatalogDraftInUseException
+import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
+import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.versions.CatalogVersionBehindException
+import app.epistola.suite.catalog.versions.CatalogVersionHeldException
+import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
 import app.epistola.suite.documents.DocumentNotFoundException
@@ -37,21 +50,15 @@ import app.epistola.suite.documents.ReleaseNotFoundException
 import app.epistola.suite.documents.TemplateNotInReleaseException
 import app.epistola.suite.documents.TemplateVariantNotFoundException
 import app.epistola.suite.documents.VersionNotFoundException
+import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.EnvironmentInUseException
+import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
 import app.epistola.suite.fonts.FontNotFoundException
 import app.epistola.suite.stencils.StencilNotFoundException
-import app.epistola.suite.stencils.StencilVersionNotDraftException
 import app.epistola.suite.stencils.StencilVersionNotFoundException
-import app.epistola.suite.stencils.StencilVersionNotPublishedException
-import app.epistola.suite.templates.DraftHasNoPublishedBaseException
-import app.epistola.suite.templates.DraftNotFoundException
 import app.epistola.suite.templates.TemplateNotFoundException
-import app.epistola.suite.templates.VersionArchivedException
-import app.epistola.suite.templates.VersionNotDraftException
-import app.epistola.suite.templates.VersionNotPublishedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
-import app.epistola.suite.templates.contracts.ContractPublishConflictException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
 import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.tenants.TenantNotFoundException
@@ -176,34 +183,6 @@ object ApiExceptionMappings {
             logMessage = { "Stencil version not found: tenant=${it.tenantId} catalog=${it.catalogId} stencil=${it.stencilId} version=${it.versionId}" },
         )
 
-        builder.register<StencilVersionNotDraftException>(
-            problemType = ApiProblemTypes.STENCIL_VERSION_NOT_DRAFT,
-            defaultDetail = "Stencil version is not a draft",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "stencilId" to it.stencilId.value,
-                    "versionId" to it.versionId.value,
-                )
-            },
-            logMessage = { "Stencil version not draft: tenant=${it.tenantId} catalog=${it.catalogId} stencil=${it.stencilId} version=${it.versionId}" },
-        )
-
-        builder.register<StencilVersionNotPublishedException>(
-            problemType = ApiProblemTypes.STENCIL_VERSION_NOT_PUBLISHED,
-            defaultDetail = "Stencil version is not published",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "catalogId" to it.catalogId.value,
-                    "stencilId" to it.stencilId.value,
-                    "versionId" to it.versionId.value,
-                )
-            },
-            logMessage = { "Stencil version not published: tenant=${it.tenantId} catalog=${it.catalogId} stencil=${it.stencilId} version=${it.versionId}" },
-        )
-
         builder.register<FontNotFoundException>(
             problemType = ApiProblemTypes.FONT_NOT_FOUND,
             defaultDetail = "Font not found",
@@ -251,66 +230,6 @@ object ApiExceptionMappings {
                 )
             },
             logMessage = { "Document not found: tenant=${it.tenantId} documentId=${it.documentId}" },
-        )
-
-        builder.register<DraftNotFoundException>(
-            problemType = ApiProblemTypes.DRAFT_NOT_FOUND,
-            defaultDetail = "Draft not found",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "variantId" to it.variantId.value,
-                )
-            },
-            logMessage = { "Draft not found: tenant=${it.tenantId} variant=${it.variantId}" },
-        )
-
-        builder.register<DraftHasNoPublishedBaseException>(
-            problemType = ApiProblemTypes.DRAFT_HAS_NO_PUBLISHED_BASE,
-            defaultDetail = "Draft cannot be discarded because the variant has no published version",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "variantId" to it.variantId.value,
-                )
-            },
-            logMessage = { "Draft has no published base: tenant=${it.tenantId} variant=${it.variantId}" },
-        )
-
-        builder.register<VersionNotDraftException>(
-            problemType = ApiProblemTypes.VERSION_NOT_DRAFT,
-            defaultDetail = "Version is not a draft",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "versionId" to it.versionId.value,
-                )
-            },
-            logMessage = { "Version not draft: tenant=${it.tenantId} version=${it.versionId}" },
-        )
-
-        builder.register<VersionNotPublishedException>(
-            problemType = ApiProblemTypes.VERSION_NOT_PUBLISHED,
-            defaultDetail = "Version is not published",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "versionId" to it.versionId.value,
-                )
-            },
-            logMessage = { "Version not published: tenant=${it.tenantId} version=${it.versionId}" },
-        )
-
-        builder.register<VersionArchivedException>(
-            problemType = ApiProblemTypes.VERSION_ARCHIVED,
-            defaultDetail = "Version is archived",
-            extensions = {
-                mapOf(
-                    "tenantId" to it.tenantId.value,
-                    "versionId" to it.versionId.value,
-                )
-            },
-            logMessage = { "Version archived: tenant=${it.tenantId} version=${it.versionId}" },
         )
 
         builder.register<ThemeInUseException>(
@@ -531,6 +450,76 @@ object ApiExceptionMappings {
             logMessage = { "Release not deployable: ${it.message}" },
         )
 
+        builder.register<ReleaseDependenciesMissingException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_MISSING,
+            defaultDetail = "The release renders with releases the environment does not serve",
+            extensions = {
+                mapOf(
+                    "missingDependencies" to it.missing.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "releaseVersion" to dependency.releaseVersion,
+                            // Contract 2.0 knows one reason: the release cannot be had.
+                            "reason" to "UNAVAILABLE",
+                        )
+                    },
+                )
+            },
+            logMessage = { "Release dependencies missing: ${it.message}" },
+        )
+
+        builder.register<CatalogImportDependenciesMissingException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_MISSING,
+            defaultDetail = "The release pins releases that cannot be had",
+            extensions = {
+                mapOf(
+                    "missingDependencies" to it.missing.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "releaseVersion" to dependency.releaseVersion,
+                            "reason" to "UNAVAILABLE",
+                        )
+                    },
+                )
+            },
+            logMessage = { "Import refused, dependency releases missing: ${it.message}" },
+        )
+
+        builder.register<CatalogImportConflictException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The import conflicts with what the tenant has",
+            logMessage = { "Import refused: ${it.message}" },
+        )
+
+        builder.register<CatalogDraftInUseException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "Another catalog's draft builds on this draft",
+            logMessage = { "Discarding a draft refused: ${it.message}" },
+        )
+
+        builder.register<CatalogDependenciesUnreleasedException>(
+            problemType = ApiProblemTypes.RELEASE_DEPENDENCIES_UNRELEASED,
+            defaultDetail = "The draft uses drafts of other catalogs",
+            extensions = {
+                mapOf(
+                    "unreleasedDependencies" to it.unreleased.map { dependency ->
+                        mapOf(
+                            "registry" to dependency.registry,
+                            "namespace" to dependency.namespace,
+                            "catalogKey" to dependency.catalogKey,
+                            "versionId" to dependency.versionId,
+                            "draftName" to dependency.draftName,
+                        )
+                    },
+                )
+            },
+            logMessage = { "Release refused, dependency drafts not released along: ${it.message}" },
+        )
+
         builder.register<ReleaseInUseException>(
             problemType = ApiProblemTypes.RELEASE_IN_USE,
             defaultDetail = "The release is in use",
@@ -539,6 +528,7 @@ object ApiExceptionMappings {
                     "catalogId" to it.catalogKey.value,
                     "releaseVersion" to it.version,
                     "environments" to it.environments,
+                    "pinnedBy" to it.pinnedBy,
                 )
             },
             logMessage = { "Release in use: ${it.message}" },
@@ -620,11 +610,72 @@ object ApiExceptionMappings {
             logMessage = { "API operation not implemented: ${it.operation}" },
         )
 
-        builder.register<ContractPublishConflictException>(
-            problemType = ApiProblemTypes.CONTRACT_PUBLISH_CONFLICT,
-            defaultDetail = "Schema change is backwards-incompatible; retry with forceUpdate=true to confirm",
-            extensions = { mapOf("breakingChanges" to it.breakingChanges) },
-            logMessage = { "Contract publish rejected as breaking: ${it.breakingChanges}" },
+        builder.register<CatalogVersionNotFoundException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_NOT_FOUND,
+            defaultDetail = "Catalog version not found",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
+            logMessage = { "Catalog version not found: catalog=${it.catalogKey} version=${it.version}" },
+        )
+
+        builder.register<CatalogVersionReleasedException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_RELEASED,
+            defaultDetail = "The catalog version is released and cannot change",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
+            logMessage = { "Write to a released catalog version refused: catalog=${it.catalogKey} version=${it.version}" },
+        )
+
+        builder.register<CatalogBundleException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The catalog bundle cannot be imported here as it is",
+            extensions = { emptyMap() },
+            logMessage = { "Catalog bundle refused: ${it.message}" },
+        )
+
+        builder.register<CatalogDraftNameInUseException>(
+            problemType = ApiProblemTypes.CATALOG_DRAFT_NAME_IN_USE,
+            defaultDetail = "Another draft of the catalog has this name",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "name" to it.name) },
+            logMessage = { "Draft name in use: catalog=${it.catalogKey} name=${it.name}" },
+        )
+
+        builder.register<CatalogDraftIsNextException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The next version has no name of its own",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value) },
+            logMessage = { "Draft operation refused for its kind: ${it.message}" },
+        )
+
+        builder.register<ResourceModifiedException>(
+            problemType = ApiProblemTypes.RESOURCE_MODIFIED,
+            defaultDetail = "The resource changed since it was read",
+            extensions = { mapOf("expectedRevision" to it.expected, "currentRevision" to it.current) },
+            logMessage = { "Stale write refused: ${it.message}" },
+        )
+
+        builder.register<EnvironmentDeploymentRefusedException>(
+            problemType = ApiProblemTypes.ENVIRONMENT_DEPLOYMENT_REFUSED,
+            defaultDetail = "The environment cannot serve that version",
+            logMessage = { "Environment deployment refused: ${it.message}" },
+        )
+
+        builder.register<CatalogHasNoSourceException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The catalog has no source",
+            logMessage = { "No catalog source: ${it.message}" },
+        )
+
+        builder.register<CatalogVersionBehindException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_BEHIND,
+            defaultDetail = "The draft is behind releases it does not contain",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "behind" to it.behind) },
+            logMessage = { "Release refused, behind not acknowledged: ${it.message}" },
+        )
+
+        builder.register<CatalogVersionHeldException>(
+            problemType = ApiProblemTypes.CATALOG_VERSION_HELD,
+            defaultDetail = "The draft alone holds resources something outside it still uses",
+            extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },
+            logMessage = { "Discarding a draft refused: ${it.message}" },
         )
 
         registry = builder.build()

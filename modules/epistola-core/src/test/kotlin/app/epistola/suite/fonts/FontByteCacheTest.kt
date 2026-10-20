@@ -4,7 +4,6 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.suite.fonts.queries.ResolvedFontFace
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,14 +16,14 @@ class FontByteCacheTest {
     fun `caches a non-null result so the loader runs once`() {
         val cache = FontByteCache()
         val calls = AtomicInteger(0)
-        val face = ResolvedFontFace(byteArrayOf(1, 2, 3), contentHash = null)
+        val face = byteArrayOf(1, 2, 3)
         val loader = {
             calls.incrementAndGet()
             face
         }
 
-        val first = cache.getOrResolve("k", loader)
-        val second = cache.getOrResolve("k", loader)
+        val first = cache.getOrLoad("k", loader)
+        val second = cache.getOrLoad("k", loader)
 
         assertSame(face, first)
         assertSame(first, second)
@@ -37,22 +36,22 @@ class FontByteCacheTest {
         val calls = AtomicInteger(0)
         val loader = {
             calls.incrementAndGet()
-            null as ResolvedFontFace?
+            null as ByteArray?
         }
 
-        assertNull(cache.getOrResolve("missing", loader))
-        assertNull(cache.getOrResolve("missing", loader))
+        assertNull(cache.getOrLoad("missing", loader))
+        assertNull(cache.getOrLoad("missing", loader))
         assertEquals(2, calls.get(), "a missing font must not be negatively cached")
     }
 
     @Test
     fun `distinct keys are isolated`() {
         val cache = FontByteCache()
-        val a = ResolvedFontFace(byteArrayOf(10), contentHash = null)
-        val b = ResolvedFontFace(byteArrayOf(20), contentHash = null)
+        val a = byteArrayOf(10)
+        val b = byteArrayOf(20)
 
-        assertSame(a, cache.getOrResolve("a") { a })
-        assertSame(b, cache.getOrResolve("b") { b })
-        assertSame(a, cache.getOrResolve("a") { error("should be cached") })
+        assertSame(a, cache.getOrLoad("a") { a })
+        assertSame(b, cache.getOrLoad("b") { b })
+        assertSame(a, cache.getOrLoad("a") { error("should be cached") })
     }
 }

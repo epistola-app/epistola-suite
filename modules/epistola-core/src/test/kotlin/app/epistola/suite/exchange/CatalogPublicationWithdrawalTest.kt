@@ -5,6 +5,8 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.commands.CatalogNamespaceFixedException
+import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
@@ -46,7 +48,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             // A namespace can only be chosen from what the connection grants, so this needs enrolling.
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw queued").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             CancelCatalogPublication(tenant.id, publication(tenant.id, catalogKey).id).execute()
@@ -74,7 +76,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw submitted").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
@@ -99,7 +101,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Recreate me").execute()
-            SetCatalogPublicationNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
@@ -108,14 +110,12 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             deleteCatalog(tenant, catalogKey)
             CreateCatalog(tenant.id, catalogKey, "Recreate me").execute()
 
-            // The binding outlived the catalog, so the recreated one cannot claim a second namespace.
+            // What reached Exchange outlived the catalog, so the recreated one returns to that namespace and cannot claim a second.
             val revived = state(tenant.id, catalogKey)
-            assertThat(revived.boundNamespace).isEqualTo("public-services")
+            assertThat(revived.namespace).isEqualTo("public-services")
             assertThat(revived.namespaceLocked).isTrue()
-            assertThatThrownBy { SetCatalogPublicationNamespace(tenant.id, catalogKey, "internal-forms").execute() }
-                .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_LOCKED)
-                }
+            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute() }
+                .isInstanceOf(CatalogNamespaceFixedException::class.java)
         }
     }
 
@@ -136,7 +136,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
      * about what survives it, not about the purge itself.
      */
     private fun deleteCatalog(tenant: Tenant, catalogKey: CatalogKey) = jdbi.useHandle<Exception> { handle ->
-        handle.createUpdate("DELETE FROM catalogs WHERE tenant_key = :tenantKey AND id = :catalogKey")
+        handle.createUpdate("DELETE FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey")
             .bind("tenantKey", tenant.id).bind("catalogKey", catalogKey).execute()
     }
 

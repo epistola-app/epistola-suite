@@ -19,19 +19,22 @@ import org.springframework.web.servlet.function.router
 class QualityRoutes(private val handler: QualityHandler) {
     @Bean
     fun qualityRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/quality".nest {
+        // The pages are a catalog's (like its lists); the partials and actions they call stay here.
+        "/tenants/{tenantId}/catalogs/{catalogId}/quality".nest {
             GET("", handler::list)
+            GET("/{findingId}", handler::detail)
+        }
+        "/tenants/{tenantId}/quality".nest {
             GET("/search", handler::search)
             GET("/manual-form", handler::manualForm)
             GET("/variants", handler::variantOptions)
             POST("", handler::createManual)
-            GET("/{findingId}", handler::detail)
             POST("/{findingId}/ignore", handler::ignore)
             POST("/{findingId}/unignore", handler::unignore)
             POST("/{findingId}/resolve", handler::resolve)
             POST("/{findingId}/comments", handler::addComment)
         }
-        "/tenants/{tenantId}/templates/{catalogId}/{id}/variants/{variantId}/quality".nest {
+        "/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality".nest {
             GET("", handler::editorFindings)
             POST("/check", handler::runEditorChecks)
         }

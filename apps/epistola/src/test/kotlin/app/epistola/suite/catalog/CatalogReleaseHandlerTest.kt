@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -59,6 +60,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         given {
             testTenant = tenant("Release Handler Tenant")
             seedAuthoredCatalog(testTenant, "rel-cat")
+            withMediator { MarkCatalogReady(testTenant.id, CatalogKey.of("rel-cat")).execute() }
         }
 
         whenever {
@@ -100,7 +102,8 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
-            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+            assertThat(response.headers.getFirst("HX-Reswap")).`as`("a refusal names its swap, so HTMX shows it").isEqualTo("innerHTML")
             assertThat(response.body).contains("release-dialog")
             assertThat(response.body).containsIgnoringCase("SemVer")
             val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("bad-cat")).query() }
@@ -116,7 +119,8 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             seedAuthoredCatalog(testTenant, "diff-cat")
             val catalogId = CatalogId(CatalogKey.of("diff-cat"), TenantId(testTenant.id))
             withMediator {
-                ReleaseCatalogVersion(tenantKey = testTenant.id, catalogKey = catalogId.key, version = "1.0.0").execute()
+                MarkCatalogReady(testTenant.id, catalogId.key).execute()
+                ReleaseCatalogVersion(testTenant.id, catalogId.key, version = "1.0.0").execute()
                 UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B").execute()
             }
@@ -133,10 +137,10 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
 
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body
-            assertThat(body).contains("This release will")
-            // Named, not just counted: the edited theme under "update", the added one under "add".
-            assertThat(body).contains("theme/tha")
-            assertThat(body).contains("theme/thb")
+            assertThat(body).contains("What changes")
+            // Named by the names people gave them: the edited theme as changed, the new one as added.
+            assertThat(body).contains("<strong>Th edited</strong>")
+            assertThat(body).contains("<strong>Th B</strong>")
         }
     }
 }

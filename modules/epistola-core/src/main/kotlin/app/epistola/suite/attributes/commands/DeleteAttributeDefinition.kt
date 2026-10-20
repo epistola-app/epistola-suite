@@ -5,7 +5,11 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -28,7 +32,10 @@ class AttributeInUseException(
 
 data class DeleteAttributeDefinition(
     val id: AttributeId,
-) : Command<Boolean>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+) : CatalogVersionScoped,
+    Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey get() = id.tenantKey
@@ -47,6 +54,7 @@ class DeleteAttributeDefinitionHandler(
                 SELECT COUNT(*) FROM template_variants variants
                 ${templateJoin("variants")}
                 WHERE variants.tenant_key = :tenantId
+                  AND ${inCurrentVersion("variants")}
                   AND ${AttributeReferences.uses("variants")}
                 """,
             )
@@ -63,7 +71,7 @@ class DeleteAttributeDefinitionHandler(
             val rowsAffected = handle.createUpdate(
                 """
                 DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_key = :tenantId AND catalog_key = :catalogKey
+                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("id", command.id.key)

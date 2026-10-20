@@ -12,7 +12,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.template.model.Node
@@ -51,8 +51,12 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
         val clipboardText = page.evaluate("() => navigator.clipboard.readText()") as String
         assertThatJ(clipboardText.withoutWhitespace()).contains("Before{{customer.name}}after")
 
-        // A normal click collapses the range and places the caret before the rich paste.
+        // A normal click collapses the range and places the caret before the rich paste. Wait for
+        // the collapse to land: ProseMirror takes the browser selection over from its
+        // selectionchange handling, and a paste that arrives first replaces the old range instead
+        // of inserting at the caret.
         selectionEnd.click()
+        page.waitForFunction("() => window.getSelection()?.isCollapsed === true")
         page.keyboard().press("End")
         page.keyboard().press("$shortcutModifier+V")
         assertThat(expressionChips).hasCount(2)
@@ -121,9 +125,9 @@ class ExpressionClipboardPlaywrightUiTest : BasePlaywrightTest() {
             ),
             themeRef = ThemeRef.Inherit,
         )
-        UpdateDraft(variantId = variantId, templateModel = body).execute()
+        UpdateVariantContent(variantId = variantId, templateModel = body).execute()
 
-        return "/tenants/${tenant.id}/templates/default/${template.id}/variants/${variant.id}/editor"
+        return "/tenants/${tenant.id}/catalogs/default/templates/${template.id}/variants/${variant.id}/editor"
     }
 
     private fun expressionDocument(): Map<String, Any> = mapOf(

@@ -4,12 +4,12 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -20,11 +20,10 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.versions.PublishVersion
-import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.commands.variants.MarkVariantReady
+import app.epistola.suite.templates.commands.variants.UpdateVariantContent
+import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -61,25 +60,13 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
     }
 
     @Test
-    fun `a version published after the preview makes the plan stale`() {
-        val tenant = tenantWith("Stale on publish")
-        val header = stencilReferencedByDraft(tenant)
-        val plan = preview(tenant, header.movedTo(shared))
-
-        // The draft the plan would rewrite is now an immutable version, which a move leaves as it is.
-        val variant = invoiceVariant(tenant)
-        withMediator { PublishVersion(VersionId(GetDraft(variant).query()!!.id, variant)).execute() }
-
-        assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
-    }
-
-    @Test
     fun `a release cut after the preview makes the plan stale, since its warning was never seen`() {
         val tenant = tenantWith("Stale on release")
         val header = stencilReferencedByDraft(tenant)
         val plan = preview(tenant, header.movedTo(shared))
         assertThat(plan.warnings).isEmpty()
 
+        withMediator { MarkCatalogReady(tenant, letters).execute() }
         withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
 
         assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
@@ -122,9 +109,9 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
             CreateStencil(StencilId(StencilKey.of("first"), catalogId(tenant, letters)), "First").execute()
             CreateStencil(StencilId(StencilKey.of("second"), catalogId(tenant, letters)), "Second").execute()
             CreateDocumentTemplate(template, "Invoice").execute()
-            UpdateDraft(variant, templateEmbedding(listOf(Triple("a", "first", letters.value), Triple("b", "second", letters.value)))).execute()
+            UpdateVariantContent(variant, templateEmbedding(listOf(Triple("a", "first", letters.value), Triple("b", "second", letters.value)))).execute()
         }
-        val draftBefore = withMediator { GetDraft(variant).query()!! }.templateModel
+        val draftBefore = withMediator { GetVariantContent(variant).query()!! }
         val batch = listOf(
             address(CatalogResourceType.STENCIL, letters, "first").movedTo(shared),
             address(CatalogResourceType.STENCIL, letters, "second").movedTo(shared),
@@ -137,7 +124,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
                 .hasMessageContaining("injected failure")
         }
 
-        assertThat(withMediator { GetDraft(variant).query()!! }.templateModel).isEqualTo(draftBefore)
+        assertThat(withMediator { GetVariantContent(variant).query()!! }).isEqualTo(draftBefore)
         batch.forEach {
             assertThat(identityAt(tenant, it.source)).isNotNull()
             assertThat(identityAt(tenant, it.target)).isNull()
@@ -277,9 +264,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         withMediator {
             CreateStencil(header, "Header").execute()
-            PublishStencilVersion(StencilVersionId(VersionKey.of(1), header)).execute()
             CreateDocumentTemplate(invoiceVariant(tenant).templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDraft(invoiceVariant(tenant), templateEmbedding("header", letters.value)).execute()
+            UpdateVariantContent(invoiceVariant(tenant), templateEmbedding("header", letters.value)).execute()
         }
     }
 

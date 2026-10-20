@@ -30,7 +30,8 @@
                 <span class="separator">|</span>
                 <a th:href="@{/profile}" th:text="${currentUserDisplayName}" title="Your profile">username</a>
                 <span class="separator">|</span>
-                <form th:action="@{/logout}" method="post" style="display: inline;">
+                <!--/* Not boosted: logging out may end at the identity provider, which HTMX cannot follow (LogoutNotBoostedTest). */-->
+                <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
                     <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Logout</button>
                 </form>
             </span>

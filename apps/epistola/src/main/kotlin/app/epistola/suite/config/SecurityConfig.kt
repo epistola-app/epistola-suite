@@ -114,7 +114,7 @@ class SecurityConfig(
      * Stateless, no CSRF, no form login. CSRF protection is safe to drop only because the chain
      * never authenticates from the browser session; ApiChainIgnoresSessionIT holds it to that.
      * Supports:
-     * - API key authentication via Authorization: ApiKey, with legacy X-API-Key support
+     * - API key authentication via Authorization: ApiKey
      * - JWT bearer tokens when OAuth2 is configured
      */
     @Bean
@@ -126,7 +126,6 @@ class SecurityConfig(
             apiKeyService = apiKeyService,
             apiKeyAuthCache = apiKeyAuthCache,
             meterRegistry = meterRegistry,
-            headerName = authProperties.apiKey.headerName,
             objectMapper = objectMapper,
             enabled = authProperties.apiKey.enabled,
         )

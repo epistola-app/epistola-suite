@@ -5,6 +5,7 @@
 package app.epistola.suite.loadtest.batch
 
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -91,6 +92,7 @@ class LoadTestPollerRecoveryIT : IntegrationTestBase() {
                 targetCount = 100,
                 concurrencyLevel = 1,
                 testData = objectMapper.createObjectNode() as ObjectNode,
+                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

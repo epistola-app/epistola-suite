@@ -5,6 +5,7 @@
 package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetUsage
+import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -38,15 +39,14 @@ class FindAssetUsagesHandler(
                 SELECT DISTINCT usage_name AS template_name, variant_title
                 FROM (
                     SELECT dt.name AS usage_name, tv.title AS variant_title
-                    FROM template_versions ver
-                    JOIN template_variants tv ON tv.tenant_key = ver.tenant_key
-                        AND tv.template_resource_id = ver.template_resource_id AND tv.id = ver.variant_key
+                    FROM template_variants tv
                     JOIN document_templates dt ON dt.tenant_key = tv.tenant_key
+                        AND dt.version_id = tv.version_id
                         AND dt.resource_id = tv.template_resource_id
-                    CROSS JOIN LATERAL jsonb_each(ver.template_model -> 'nodes') AS n(key, value)
-                    WHERE ver.tenant_key = :tenantId
-                      AND ver.status IN ('draft', 'published')
-                      AND n.value -> 'props' ->> 'assetId' = :assetId
+                    CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
+                    WHERE tv.tenant_key = :tenantId
+                      AND ${inCurrentVersion("tv")}
+                      AND n.value -> 'props' ->> 'imageKey' = :assetId
 
                     UNION ALL
 
@@ -54,9 +54,9 @@ class FindAssetUsagesHandler(
                     FROM catalogs c
                     WHERE c.tenant_key = :tenantId
                       AND (
-                          c.catalog_metadata #>> '{presentation,iconAssetSlug}' = :assetId
+                          c.catalog_metadata #>> '{presentation,iconImageKey}' = :assetId
                           OR jsonb_exists(
-                              COALESCE(c.catalog_metadata #> '{presentation,imageAssetSlugs}', '[]'::jsonb),
+                              COALESCE(c.catalog_metadata #> '{presentation,imageKeys}', '[]'::jsonb),
                               :assetId
                           )
                       )

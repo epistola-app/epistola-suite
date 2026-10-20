@@ -12,8 +12,19 @@ import app.epistola.api.model.CodeListListResponse
 import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListEntryHiddenRequest
 import app.epistola.api.model.UpdateCodeListRequest
+import app.epistola.catalog.protocol.CodeListResource
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogId
+import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
+import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.entryDtos
+import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.ref
+import app.epistola.suite.api.v1.shared.releasedResource
+import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
@@ -27,12 +38,10 @@ import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.common.ids.CatalogId
-import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.ValidationException
@@ -41,29 +50,17 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-/**
- * REST surface for tenant + catalog code lists.
- *
- * Maps directly onto the existing mediator commands / queries — no new
- * domain logic. Exception translation:
- *  - `CodeListInUseException` → 409 (an attribute still binds to the list)
- *  - `CatalogReadOnlyException` (SUBSCRIBED catalog) → 409
- *  - `DuplicateIdException` (slug collision) → 409
- *  - `CodeListNotRefreshableException` (refresh on INLINE) → 400
- *  - `ValidationException` → 400 (already mapped globally)
- *
- * Read-only flagging on the DTO (`readOnly: true` when the catalog is
- * SUBSCRIBED) is set in `CodeListDtoMappers.toDto`. The write commands
- * already throw `CatalogReadOnlyException` for SUBSCRIBED catalogs via
- * `requireCatalogEditable`, so we don't double-check here.
- */
+/** Code lists of a catalog version: a draft reads and changes the working copy, a release reads what it holds. */
 @RestController
 @RequestMapping("/api")
 class EpistolaCodeListApi : CodeListsApi {
 
     override fun listCodeLists(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -71,23 +68,28 @@ class EpistolaCodeListApi : CodeListsApi {
     ): ResponseEntity<CodeListListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogKey = CatalogKey.of(catalogId)
-        val codeLists = ListCodeLists(tenantId = tenantIdComposite, catalogKey = catalogKey).query()
-        val slice = Pagination.paginate(codeLists, page, size)
-        return ResponseEntity.ok(CodeListListResponse(items = slice.items.map { it.toDto() }, page = slice.page))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val items = if (at.isDraft) {
+            ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto(at.catalog) }
+        } else {
+            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
+            at.releasedResources<CodeListResource>("codeList").map { it.toDto(at) }
+        }
+        val slice = Pagination.paginate(items, page, size)
+        return ResponseEntity.ok(CodeListListResponse(items = slice.items, page = slice.page))
     }
 
     override fun createCodeList(
-        tenantId: String,
-        catalogId: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
         createCodeListRequest: CreateCodeListRequest,
     ): ResponseEntity<CodeListDto> {
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val catalogIdComposite = CatalogId(CatalogKey.of(catalogId), tenantIdComposite)
-        val codeListId = CodeListId(CodeListKey.of(createCodeListRequest.slug), catalogIdComposite)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val codeList = CreateCodeList(
-            id = codeListId,
+            id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
             displayName = createCodeListRequest.displayName,
             description = createCodeListRequest.description,
             sourceType = when (createCodeListRequest.sourceType) {
@@ -98,31 +100,42 @@ class EpistolaCodeListApi : CodeListsApi {
             authType = createCodeListRequest.authType?.toModel() ?: AuthType.NONE,
             credential = createCodeListRequest.credential,
             entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
+            catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(codeList.toDto())
+        return codeList.toDto(draft.catalog).let { created(it.key, it) }
     }
 
     override fun getCodeList(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
     ): ResponseEntity<CodeListDto> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
-        val codeList = GetCodeList(id = id).query()
-            ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
-        return ResponseEntity.ok(codeList.toDto())
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!at.isDraft) {
+            return ResponseEntity.ok(at.releasedResource<CodeListResource>("codeList", codeListKey)?.toDto(at) ?: throw at.codeListNotFound(codeListKey))
+        }
+        val codeList = GetCodeList(id = at.codeListId(codeListKey), catalogVersion = at.ref).query() ?: throw at.codeListNotFound(codeListKey)
+        return okWithETag(codeList.revision, codeList.toDto(at.catalog))
     }
 
     override fun updateCodeList(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
         updateCodeListRequest: UpdateCodeListRequest,
+        ifMatch: String?,
     ): ResponseEntity<CodeListDto> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.codeListId(codeListKey)
         // PATCH semantics — fetch current, merge with the request body, then
         // replay through the full UpdateCodeList command (it isn't partial).
-        val current = GetCodeList(id = id).query() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
+        val current = GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
         val updated = UpdateCodeList(
             id = id,
             displayName = updateCodeListRequest.displayName ?: current.displayName,
@@ -131,71 +144,93 @@ class EpistolaCodeListApi : CodeListsApi {
             authType = updateCodeListRequest.authType?.toModel() ?: current.authType,
             credential = updateCodeListRequest.credential ?: current.credential?.value,
             entries = updateCodeListRequest.propertyEntries?.map { it.toModel() },
-        ).execute() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
-        return ResponseEntity.ok(updated.toDto())
+            catalogVersion = draft.ref,
+            // The merge above read the list at `current`; a write in between must not be lost.
+            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+        ).execute() ?: throw draft.codeListNotFound(codeListKey)
+        return okWithETag(updated.revision, updated.toDto(draft.catalog))
     }
 
     override fun deleteCodeList(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
     ): ResponseEntity<Unit> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
-        val deleted = DeleteCodeList(id = id).execute()
-        return if (deleted) {
-            ResponseEntity.noContent().build()
-        } else {
-            throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
-        }
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        if (!DeleteCodeList(id = draft.codeListId(codeListKey), catalogVersion = draft.ref).execute()) throw draft.codeListNotFound(codeListKey)
+        return ResponseEntity.noContent().build()
     }
 
+    /** Refreshing changes the draft's entries, so it is a write. */
     override fun refreshCodeList(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
     ): ResponseEntity<CodeListDto> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
-        val refreshed = RefreshCodeList(id = id).execute() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
-        return ResponseEntity.ok(refreshed.toDto())
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val refreshed = RefreshCodeList(id = draft.codeListId(codeListKey), catalogVersion = draft.ref).execute() ?: throw draft.codeListNotFound(codeListKey)
+        return ResponseEntity.ok(refreshed.toDto(draft.catalog))
     }
 
     override fun listCodeListEntries(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
         includeHidden: Boolean,
     ): ResponseEntity<CodeListEntriesResponse> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
-        val entries = ListCodeListEntries(codeListId = id, includeHidden = includeHidden).query()
-        return ResponseEntity.ok(CodeListEntriesResponse(items = entries.map { it.toDto() }))
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val entries = if (at.isDraft) {
+            ListCodeListEntries(codeListId = at.codeListId(codeListKey), includeHidden = includeHidden, catalogVersion = at.ref).query().map { it.toDto() }
+        } else {
+            at.releasedResource<CodeListResource>("codeList", codeListKey)?.entryDtos(includeHidden)
+                ?: throw at.codeListNotFound(codeListKey)
+        }
+        return ResponseEntity.ok(CodeListEntriesResponse(items = entries))
     }
 
     override fun updateCodeListEntryHidden(
-        tenantId: String,
-        catalogId: String,
-        codeListSlug: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        catalogVersion: String,
+        codeListKey: String,
         code: String,
         updateCodeListEntryHiddenRequest: UpdateCodeListEntryHiddenRequest,
+        ifMatch: String?,
     ): ResponseEntity<CodeListEntryDto> {
-        val id = buildId(tenantId, catalogId, codeListSlug)
-        GetCodeList(id = id).query() ?: throw CodeListNotFoundException(id.tenantKey, id.catalogKey, id.key)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val id = draft.codeListId(codeListKey)
+        GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
         val updated = UpdateCodeListEntryHidden(
             codeListId = id,
             code = code,
             hidden = updateCodeListEntryHiddenRequest.hidden,
+            catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute()
         if (!updated) {
             throw ValidationException(field = "code", message = "Code list entry '$code' not found")
         }
-        val entry = ListCodeListEntries(codeListId = id, includeHidden = true).query()
+        val entry = ListCodeListEntries(codeListId = id, includeHidden = true, catalogVersion = draft.ref).query()
             .first { it.code == code }
-        return ResponseEntity.ok(entry.toDto())
+        // The code list's ETag: an entry is part of its list (contract `updateCodeListEntryHidden`).
+        val list = requireNotNull(GetCodeList(id = id, catalogVersion = draft.ref).query())
+        return okWithETag(list.revision, entry.toDto())
     }
 
-    private fun buildId(tenantId: String, catalogId: String, codeListSlug: String) = CodeListId(
-        key = CodeListKey.of(codeListSlug),
-        catalogId = CatalogId(CatalogKey.of(catalogId), TenantId(TenantKey.of(tenantId))),
-    )
+    private fun ResolvedCatalogVersion.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
+
+    private fun ResolvedCatalogVersion.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
 
     private fun CreateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
         CreateCodeListRequest.AuthType.NONE -> AuthType.NONE

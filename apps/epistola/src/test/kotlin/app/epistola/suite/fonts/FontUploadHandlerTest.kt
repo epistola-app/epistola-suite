@@ -90,7 +90,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "700")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -133,7 +133,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -166,7 +166,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -198,7 +198,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/system/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -228,7 +228,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("kind", "display")
             payload.add("catalog", "default")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -257,7 +257,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -291,7 +291,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "700")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
@@ -327,12 +327,12 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             payload.add("weight", "400")
             payload.add("italic", "false")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts",
+                "/tenants/${testTenant.id}/catalogs/default/fonts",
                 HttpEntity(payload, multipartHeaders()),
                 String::class.java,
             )
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/fonts/default/temp-sans/delete",
+                "/tenants/${testTenant.id}/catalogs/default/fonts/temp-sans/delete",
                 null,
                 String::class.java,
             )

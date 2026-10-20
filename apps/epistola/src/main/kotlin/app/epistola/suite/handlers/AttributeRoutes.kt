@@ -14,13 +14,15 @@ import org.springframework.web.servlet.function.router
 class AttributeRoutes(private val handler: AttributeHandler) {
     @Bean
     fun attributeRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/attributes".nest {
-            GET("", handler::list)
+        // A list belongs to a catalog; there is none across the tenant.
+        GET("/tenants/{tenantId}/catalogs/{catalogId}/attributes", handler::list)
+        // A resource's pages and actions are its catalog's, like its list.
+        "/tenants/{tenantId}/catalogs/{catalogId}/attributes".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
-            GET("/{catalogId}/{attributeId}/edit", handler::editForm)
-            PATCH("/{catalogId}/{attributeId}", handler::update)
-            POST("/{catalogId}/{attributeId}/delete", handler::delete)
+            GET("/{attributeId}/edit", handler::editForm)
+            PATCH("/{attributeId}", handler::update)
+            POST("/{attributeId}/delete", handler::delete)
         }
     }
 }

@@ -371,7 +371,7 @@ export class EpistolaToolbar extends LitElement {
         break;
       case 'error':
         iconName = 'triangle-alert';
-        label = 'Save';
+        label = 'Retry save';
         title = `Save failed: ${errorMsg}. Click to retry.`;
         break;
     }
@@ -394,8 +394,10 @@ export class EpistolaToolbar extends LitElement {
           ${icon(iconName)} ${label}
         </button>
         ${
-          displayError
-            ? html`<span class="toolbar-save-error-text" title=${errorMsg}>${displayError}</span>`
+          isError
+            ? html`<span class="toolbar-save-error-text" role="alert" title=${errorMsg}
+                >${`Not saved: ${displayError ?? errorMsg}`}</span
+              >`
             : nothing
         }
       </div>

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "stencil",
+    "key": "customer-address",
+    "name": "Customer Address",
+    "description": "An address block that reads the using template's data (customer.name, customer.street, customer.postalCode, customer.city) instead of taking parameters.",
+    "tags": ["address", "letter"],
+    "readsTemplateData": true,
+    "content": {
+      "modelVersion": 1,
+      "root": "n-root",
+      "themeRef": {
+        "type": "inherit"
+      },
+      "nodes": {
+        "n-root": {
+          "id": "n-root",
+          "type": "root",
+          "slots": ["s-root-children"]
+        },
+        "n-name": {
+          "id": "n-name",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.name"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "styles": {
+            "fontWeight": "bold"
+          }
+        },
+        "n-street": {
+          "id": "n-street",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.street"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "n-city": {
+          "id": "n-city",
+          "type": "text",
+          "slots": [],
+          "props": {
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.postalCode"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.city"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "slots": {
+        "s-root-children": {
+          "id": "s-root-children",
+          "nodeId": "n-root",
+          "name": "children",
+          "children": ["n-name", "n-street", "n-city"]
+        }
+      }
+    }
+  }
+}

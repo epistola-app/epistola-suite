@@ -660,31 +660,6 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
-     * Sets a full-page fallback handler.
-     *
-     * Kept for source compatibility with older handlers. In a boosted app this
-     * block is not limited to non-HTMX traffic: boosted requests and history
-     * restores also need a full page, so new code should use [onFullPage].
-     */
-    fun onNonHtmx(block: FullPageBuilder.() -> Unit) {
-        onFullPage(block)
-    }
-
-    /**
-     * Sets a handler for full-page requests using a lambda.
-     * Legacy API - prefer onFullPage(block) for new code.
-     *
-     * @param handler Lambda that returns a ServerResponse for full-page requests
-     */
-    @Deprecated(
-        "Use onFullPage { page(...) } or onFullPage { redirect(...) } instead",
-        ReplaceWith("onFullPage { redirect(url) }"),
-    )
-    fun onNonHtmxLegacy(handler: () -> ServerResponse) {
-        fullPageHandler = handler
-    }
-
-    /**
      * Builds the final ServerResponse.
      *
      * For non-boosted HTMX requests: renders fragments with appropriate headers.

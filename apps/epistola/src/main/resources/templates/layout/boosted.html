@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--/* A boosted navigation inside the workspace (docs/workspace-shell.md): the page, swapped into
+       #ws-page (HX-Retarget, set by ShellModelInterceptor); the side nav out of band, since what is
+       highlighted follows the page; and the context bar out of band only when it changed
+       (`barChanged`), so it does not blink. The title travels too: htmx sets it from here. */-->
+<head>
+    <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
+</head>
+<body>
+    <th:block th:replace="~{layout/shell :: page}" />
+    <th:block th:replace="~{layout/nav :: side}" />
+    <th:block th:if="${barChanged}">
+        <th:block th:replace="~{layout/nav :: nav}" />
+    </th:block>
+</body>
+</html>

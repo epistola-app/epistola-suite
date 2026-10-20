@@ -13,7 +13,7 @@ The repo-wide source guards live in `modules/guards`; the ones needing the Sprin
 | Path       | `/api/**`                                      | `/tenants/**`, `/themes/**`, …          |
 | Auth       | API key or OAuth2 JWT, stateless, no CSRF      | session                                 |
 | Built from | `@RestController` in `modules/rest-api`        | `@Component` + functional routing here  |
-| Returns    | JSON DTOs (`application/vnd.epistola.v1+json`) | Thymeleaf, HTMX fragments, minimal JSON |
+| Returns    | JSON DTOs (`application/vnd.epistola.v2+json`) | Thymeleaf, HTMX fragments, minimal JSON |
 | For        | external systems; stable and versioned         | this UI; free to change                 |
 
 **UI code — Thymeleaf, JavaScript, TypeScript — must never call `/api/**`.** A UI need gets a UI
@@ -28,8 +28,8 @@ Copy `handlers/EnvironmentHandler.kt` and `handlers/EnvironmentRoutes.kt`: a `@C
 - Read the tenant with `request.tenantId()`; gate with `requirePermission(tenantId.key, Permission.X)`.
 - Reach the domain through `.execute()` / `.query()`. Handlers do not touch JDBI.
 - Full page: `ServerResponse.ok().page("domain/list") { … }`. Swap:
-  `request.htmx { fragment("domain/list", "rows") { … } }`. Prefer `onFullPage {}` over the older
-  `onNonHtmx {}` in new code; `DriftRatchetTest` ratchets the remaining count downward only.
+  `request.htmx { fragment("domain/list", "rows") { … } }`, with `onFullPage {}` for the same URL
+  opened directly or boosted.
 - Dialog forms: `request.form { field("name") { required(); maxLength(100) } }`, then
   `form.executeOrFormError { … }`, `dialogFieldErrors(...)` on failure and `dialogSuccess(...)` on
   success. See [`docs/dialog-forms.md`](../../docs/dialog-forms.md) and

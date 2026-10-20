@@ -12,9 +12,12 @@ import app.epistola.suite.documents.queries.AnalyzeTemplateData
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.mcp.dto.PreviewResult
 import app.epistola.suite.mcp.dto.TemplateDataAnalysisInfo
+import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -33,8 +36,9 @@ class PreviewMcpTools(
         description = "Render a preview of a template variant as a PDF and return it base64-encoded. " +
             "When `data` is omitted, the contract's first sample example is used. " +
             "By default this renders the catalog's latest release, exactly as generation would, and fails when " +
-            "the catalog has never been released. Set `workingCopy` to render the drafts and live resources " +
-            "instead, to see unreleased work. Set `environmentId` to render what that environment serves. " +
+            "the catalog has never been released. Set `workingCopy` to render the working copy " +
+            "instead, to see unreleased work, or `catalogVersion` to render one draft's. Set `environmentId` to render what that environment uses (its chosen release or followed draft, else the highest release it serves), " +
+            "and `releaseVersion` to pick the highest release satisfying a version selector; the two combine. " +
             "If the data does not satisfy the template's data contract the call fails; `analyze_template_data` " +
             "then says which fields are missing or wrong.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -50,17 +54,17 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Render the working copy (drafts and live resources) instead of the latest release.",
+            description = "Render the working copy instead of the latest release.",
             required = false,
         )
         workingCopy: Boolean?,
         @McpToolParam(
-            description = "Release of the catalog to render (e.g. '1.4.0'). Mutually exclusive with `environmentId` and `workingCopy`.",
+            description = "Version selector in npm range grammar (e.g. '1.4.0', '^1.4.0'): the highest release satisfying it is rendered. Combines with `environmentId`; not with `workingCopy`.",
             required = false,
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'). What that environment serves is rendered.",
+            description = "Environment key (e.g. 'production'). What that environment uses is rendered: the release or draft it was pointed at (unless `releaseVersion` names an exact release), else the highest release it serves satisfying `releaseVersion`.",
             required = false,
         )
         environmentId: String?,
@@ -69,8 +73,14 @@ class PreviewMcpTools(
             required = false,
         )
         data: String?,
+        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        catalogVersion: String? = null,
     ): PreviewResult {
         val parsedData = parseData(data)
+        val version = catalogVersionRef(catalogId, catalogVersion)
+        if (version != null && (releaseVersion != null || environmentId != null)) {
+            throw ValidationException("catalogVersion", "`catalogVersion` renders a draft; it cannot be combined with `releaseVersion` or `environmentId`")
+        }
 
         val pdfBytes = mediator.query(
             PreviewDocument(
@@ -81,7 +91,9 @@ class PreviewMcpTools(
                 environmentId = environmentId?.let { EnvironmentKey.of(it) },
                 releaseVersion = releaseVersion,
                 data = parsedData,
-                workingCopy = workingCopy == true,
+                // A draft named renders that draft: its working copy.
+                workingCopy = workingCopy == true || version != null,
+                catalogVersion = version,
             ),
         )
 
@@ -112,12 +124,12 @@ class PreviewMcpTools(
         )
         variantId: String?,
         @McpToolParam(
-            description = "Release of the catalog to check against (e.g. '1.4.0'). Mutually exclusive with `environmentId`.",
+            description = "Version selector in npm range grammar (e.g. '1.4.0', '^1.4.0'): the highest release satisfying it is checked against. Combines with `environmentId`.",
             required = false,
         )
         releaseVersion: String?,
         @McpToolParam(
-            description = "Environment key (e.g. 'production'); the release deployed there is checked. Mutually exclusive with `releaseVersion`.",
+            description = "Environment key (e.g. 'production'); what it uses is checked against: the release or draft it was pointed at (unless `releaseVersion` names an exact release), else the highest release it serves satisfying `releaseVersion`.",
             required = false,
         )
         environmentId: String?,

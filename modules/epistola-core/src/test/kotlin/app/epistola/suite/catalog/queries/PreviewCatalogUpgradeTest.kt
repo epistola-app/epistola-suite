@@ -73,7 +73,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
     private fun removeResource(tmp: Path, slug: String) {
         rewriteJson(tmp.resolve("catalog.json")) { manifest ->
             val kept = objectMapper.createArrayNode()
-            (manifest.get("resources") as ArrayNode).forEach { if (it.get("slug").asString() != slug) kept.add(it) }
+            (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != slug) kept.add(it) }
             manifest.set("resources", kept)
         }
     }
@@ -186,13 +186,13 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             // Publisher ships a brand-new theme in the next release.
             Files.write(
                 tmp.resolve("resources/themes/extra-theme.json"),
-                """{"schemaVersion":2,"resource":{"type":"theme","slug":"extra-theme","name":"Extra Theme","documentStyles":{"fontFamily":"Georgia, serif","fontSize":"12pt"}}}""".toByteArray(),
+                """{"schemaVersion":$CATALOG_SCHEMA_VERSION,"resource":{"type":"theme","key":"extra-theme","name":"Extra Theme","documentStyles":{"fontFamily":"Georgia, serif","fontSize":"12pt"}}}""".toByteArray(),
             )
             rewriteJson(tmp.resolve("catalog.json")) { manifest ->
                 (manifest.get("resources") as ArrayNode).add(
                     objectMapper.createObjectNode()
                         .put("type", "theme")
-                        .put("slug", "extra-theme")
+                        .put("key", "extra-theme")
                         .put("name", "Extra Theme")
                         .put("detailUrl", "./resources/themes/extra-theme.json"),
                 )

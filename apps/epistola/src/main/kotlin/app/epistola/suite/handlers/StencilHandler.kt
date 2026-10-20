@@ -6,24 +6,27 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.queries.GetCatalogContext
+import app.epistola.suite.catalog.queries.CatalogResourceState
+import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
-import app.epistola.suite.common.ids.StencilVersionId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.handlers.CatalogDraftBar
+import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
+import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.stencilId
@@ -31,29 +34,41 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.requirePermission
-import app.epistola.suite.stencils.commands.ArchiveStencilVersion
+import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.stencils.commands.CreateStencilVersion
 import app.epistola.suite.stencils.commands.DeleteStencil
-import app.epistola.suite.stencils.commands.PublishStencilVersion
+import app.epistola.suite.stencils.commands.MarkStencilReady
 import app.epistola.suite.stencils.commands.UpdateStencil
-import app.epistola.suite.stencils.commands.UpdateStencilDraft
-import app.epistola.suite.stencils.commands.UpdateStencilInTemplate
-import app.epistola.suite.stencils.queries.CountStencilUsageByVersion
 import app.epistola.suite.stencils.queries.GetStencil
-import app.epistola.suite.stencils.queries.GetStencilUsageDetails
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
-import app.epistola.suite.stencils.queries.GetStencilVersion
-import app.epistola.suite.stencils.queries.ListStencilSummaries
-import app.epistola.suite.stencils.queries.ListStencilVersions
 import app.epistola.suite.stencils.queries.ListStencils
-import app.epistola.suite.stencils.queries.USAGE_FILTER_BOTH
+import app.epistola.suite.validation.ValidationException
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
+
+/**
+ * Where a stencil stands for its catalog's next release, and whether to offer "Mark ready".
+ *
+ * @property state how the stencil differs from the catalog's last release; null for a stencil of a
+ *   subscribed catalog, which has no next release.
+ * @property ready whether its working copy is marked ready as it is now.
+ * @property offerMarkReady the one name the page gates "Mark ready" on: the viewer may edit
+ *   stencils, the catalog is authored (so editable), and the working copy is not ready yet.
+ */
+data class StencilReadiness(
+    val state: CatalogResourceState?,
+    val ready: Boolean,
+    val offerMarkReady: Boolean,
+) {
+    /** Whether releasing the catalog waits on this stencil. */
+    val blocksRelease: Boolean get() = state != null && state != CatalogResourceState.RELEASED && state != CatalogResourceState.REMOVED && !ready
+}
 
 /**
  * Stencil handler serving both the management UI (HTMX) and editor callbacks (JSON).
@@ -63,40 +78,29 @@ import tools.jackson.databind.ObjectMapper
 class StencilHandler(
     private val objectMapper: ObjectMapper,
 ) {
-    private fun ServerRequest.isHtmx(): Boolean = headers().firstHeader("HX-Request") != null
 
     // ── List & Search ──────────────────────────────────────────────────────
 
-    fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val catalogFilter = request.param("catalog").orElse(null)?.ifBlank { null }?.let { CatalogKey.of(it) }
-        val catalogs = ListCatalogs(tenantId.key).query()
-        val stencils = ListStencils(tenantId = tenantId, catalogKey = catalogFilter).query()
-        return ServerResponse.ok().page("stencils/list") {
-            "pageTitle" to "Stencils - Epistola"
-            "tenantId" to tenantId.key
-            "catalogs" to catalogs
-            "selectedCatalog" to (catalogFilter?.value ?: "")
-            "stencils" to stencils
-        }
-    }
+    fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("stencils/list") { stencilPageModel(request) }
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
-        val catalogFilter = request.queryParam("catalog")?.ifBlank { null }?.let { CatalogKey.of(it) }
+        val segment = request.catalogParam()
+        val catalogFilter = segment?.key
+        // The editor searches across catalogs from inside a draft (`in=letters@2.0.0`): that
+        // catalog's stencils are then the draft's, every other catalog's its current version's.
+        val version = segment?.ref(tenantId.key) ?: request.catalogParam("in")?.ref(tenantId.key)
 
-        if (!request.isHtmx()) {
-            val summaries = ListStencilSummaries(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
-            val items = summaries.map { s ->
+        if (!request.isHtmx) {
+            val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, catalogVersion = version).query()
+            val items = stencils.map { s ->
                 mapOf(
                     "id" to s.id.value,
                     "catalogKey" to s.catalogKey.value,
                     "name" to s.name,
                     "description" to s.description,
                     "tags" to s.tags,
-                    "latestPublishedVersion" to s.latestPublishedVersion,
-                    "latestVersion" to s.latestVersion,
                 )
             }
             return ServerResponse.ok()
@@ -104,34 +108,44 @@ class StencilHandler(
                 .body(mapOf("items" to items))
         }
 
-        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter).query()
+        val stencils = ListStencils(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, catalogVersion = version).query()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
                 "stencils" to stencils
+                "draftSegment" to segment
                 // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 
     // ── Create ─────────────────────────────────────────────────────────────
 
     /**
-     * The full-page list model, used by the newForm non-HTMX branch so the list
-     * renders behind the embedded create dialog. `authoredCatalogs` (the dialog's
-     * catalog `<select>` source) is threaded separately — the list puts *all*
-     * `catalogs` in the model for its filter, so the dialog uses a distinct key to
-     * avoid rendering the wrong (non-authored) options.
+     * The catalog's stencils as the list page shows them: the page itself, and behind the create dialog
+     * when `/new` is opened directly or a create is refused without HTMX. The segment may name a draft
+     * (`letters@<draft>`); its rows are then the draft's.
      */
-    private fun ModelBuilder.stencilPageModel(tenantId: TenantId, catalogs: List<Catalog>) {
+    private fun ModelBuilder.stencilPageModel(request: ServerRequest) {
+        val tenantId = request.tenantId()
+        // The filter may name a draft (`letters@2.0.0`); its rows are then the draft's.
+        val segment = request.catalogSegment()
+        val catalogs = ListCatalogs(tenantId.key).query()
+        val stencils = ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/stencils" } }
+        // What the catalogs this one depends on hold of this kind, listed read-only below its own.
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListStencils(tenantId = tenantId, catalogKey = it).query() }) { s, c, n -> FromOtherCatalog(s.name, "/tenants/${tenantId.key}/catalogs/${c.value}/stencils/${s.id.value}", n) }
         "pageTitle" to "Stencils - Epistola"
         "tenantId" to tenantId.key
         "catalogs" to catalogs
-        "selectedCatalog" to ""
-        "stencils" to ListStencils(tenantId = tenantId).query()
+        "selectedCatalog" to segment.value
+        "draftSegment" to segment
+        "draftBar" to bar
+        "fromOtherCatalogs" to fromOtherCatalogs
+        "stencils" to stencils
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -146,13 +160,17 @@ class StencilHandler(
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("stencils/new", "dialog") {
                 "tenantId" to tenantId.key
+                // Opened from a list filtered to a draft, the dialog creates in that draft.
+                // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
+                // creates there, rather than in whichever catalog sorts first.
+                "draftSegment" to request.catalogParam()
                 "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
-            onNonHtmx {
+            onFullPage {
                 page("stencils/list") {
-                    stencilPageModel(tenantId, allCatalogs)
+                    stencilPageModel(request)
                     "openDialog" to true
                     "authoredCatalogs" to authoredCatalogs
                 }
@@ -163,14 +181,13 @@ class StencilHandler(
     /**
      * Create a stencil. Supports two modes:
      * - Form POST (HTMX): creates stencil from form fields, redirects to detail
-     * - JSON POST (editor): { id, name, content?, publish? }
-     *     content → creates draft v1 with that content
-     *     publish → also publishes v1
+     * - JSON POST (editor): { id, name, catalogKey, content?, parameterSchema? } → the stencil
+     *     with that working copy
      */
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
 
-        if (!request.isHtmx()) {
+        if (!request.isHtmx) {
             return createJson(request, tenantId)
         }
 
@@ -183,12 +200,12 @@ class StencilHandler(
      * which is why this dialog drops the plain no-JS form-POST fallback the other
      * create dialogs keep — that fallback would collide with the JSON API.
      *
-     * The `onNonHtmx { }` branches below therefore never serve the JSON API: within
+     * The `onFullPage { }` branches below therefore never serve the JSON API: within
      * [build] they fire only for **boosted** (HX-Boosted) or **history-restore**
      * (HX-History-Restore-Request) requests, which still carry `HX-Request: true` and
      * so land here rather than in [createJson]. Both are full-page browser
      * navigations that must NOT get a bare fragment — a stale tab left open across a
-     * deploy submits this form as a boosted POST, and without an onNonHtmx fallback
+     * deploy submits this form as a boosted POST, and without an onFullPage fallback
      * [build] would throw (HTTP 500) even for a valid create. Mirrors
      * DocumentTemplateHandler.create.
      */
@@ -196,13 +213,6 @@ class StencilHandler(
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
 
         val form = request.form {
-            // Validated like any other field so a missing or malformed catalog
-            // lands in the dialog's error path rather than a bodyless 400 (which
-            // HTMX does not swap) or a CatalogKey.of throw (a 500).
-            field("catalog") {
-                required()
-                asCatalogId()
-            }
             field("slug") {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
@@ -236,14 +246,16 @@ class StencilHandler(
             form
         } else {
             form.executeOrFormError {
+                val segment = request.catalogSegment()
                 CreateStencil(
                     id = StencilId(
                         StencilKey.validateOrNull(form["slug"])!!,
-                        CatalogId(CatalogKey.of(form["catalog"]), tenantId),
+                        CatalogId(segment.key, tenantId),
                     ),
                     name = form["name"],
                     description = description,
                     tags = tags,
+                    catalogVersion = segment.ref(tenantId.key),
                 ).execute()
             }
         }
@@ -253,7 +265,7 @@ class StencilHandler(
             val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
             val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             // Re-render the form inside the dialog (retargeted to the form, not the
-            // list) with inline errors + preserved values. The onNonHtmx fallback
+            // list) with inline errors + preserved values. The onFullPage fallback
             // (boosted / history-restore only — see the function KDoc) re-renders the
             // list page with the dialog embedded and its errors, so a stale-tab boosted
             // POST never throws.
@@ -265,11 +277,12 @@ class StencilHandler(
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "draftSegment" to request.catalogParam()
                     "authoredCatalogs" to authoredCatalogs
                 }
-                onNonHtmx {
+                onFullPage {
                     page(422, "stencils/list") {
-                        stencilPageModel(tenantId, allCatalogs)
+                        stencilPageModel(request)
                         "openDialog" to true
                         "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
@@ -281,15 +294,15 @@ class StencilHandler(
 
         // Success: soft-navigate to the newly created stencil's page via a boosted
         // body-swap (HX-Location) — no full-page reload. The dialog goes with the
-        // swapped-out body; the list is not refreshed. onNonHtmx (boosted /
+        // swapped-out body; the list is not refreshed. onFullPage (boosted /
         // history-restore only) redirects to the same page.
         // Safe !!/of(): both fields were validated above and the create succeeded.
         val stencilKey = StencilKey.validateOrNull(form["slug"])!!
-        val catalogKey = CatalogKey.of(form["catalog"])
-        val destination = "/tenants/${tenantId.key}/stencils/$catalogKey/$stencilKey"
+        val catalogKey = request.catalogSegment().value
+        val destination = "/tenants/${tenantId.key}/catalogs/$catalogKey/stencils/$stencilKey"
         return request.htmx {
             dialogLocation(destination)
-            onNonHtmx { redirect(destination) }
+            onFullPage { redirect(destination) }
         }
     }
 
@@ -301,16 +314,16 @@ class StencilHandler(
         val catalogKey: String? = null,
         val content: app.epistola.template.model.TemplateDocument? = null,
         val parameterSchema: tools.jackson.databind.JsonNode? = null,
-        val publish: Boolean = false,
     )
 
     private fun createJson(request: ServerRequest, tenantId: TenantId): ServerResponse {
         val body = request.body(String::class.java)
         val req = objectMapper.readValue(body, CreateStencilJsonRequest::class.java)
 
-        val catalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
-            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
-        val stencilId = StencilId(StencilKey.of(req.id), catalog)
+        // The editor sends its template's catalog segment, so a stencil made from a draft lands in it.
+        val segment = req.catalogKey?.let { CatalogSegment.parse(it) }
+            ?: return ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
+        val stencilId = StencilId(StencilKey.of(req.id), CatalogId(segment.key, tenantId))
 
         CreateStencil(
             id = stencilId,
@@ -319,18 +332,12 @@ class StencilHandler(
             tags = req.tags ?: emptyList(),
             content = req.content,
             parameterSchema = req.parameterSchema,
+            catalogVersion = segment.ref(tenantId.key),
         ).execute()
-
-        var publishedVersion: Int? = null
-        if (req.publish && req.content != null) {
-            val versionIdComposite = StencilVersionId(VersionKey.of(1), stencilId)
-            PublishStencilVersion(versionId = versionIdComposite).execute()
-            publishedVersion = 1
-        }
 
         return ServerResponse.status(201)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("stencilId" to req.id, "version" to (publishedVersion ?: 1), "catalogKey" to req.catalogKey))
+            .body(mapOf("stencilId" to req.id, "catalogKey" to segment.key.value))
     }
 
     // ── Detail & Update & Delete ───────────────────────────────────────────
@@ -338,28 +345,50 @@ class StencilHandler(
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogId = request.catalogId()
+        val segment = request.catalogSegment()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
+        val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
+        val version = draftBar.ref
 
-        val stencil = GetStencil(id = stencilId).query()
+        val stencil = GetStencil(id = stencilId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
-        val versions = ListStencilVersions(stencilId = stencilId).query()
-        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = USAGE_FILTER_BOTH, page = 1).query()
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, page = 1, catalogVersion = version).query()
 
         return ServerResponse.ok().page("stencils/detail") {
             "pageTitle" to "${stencil.name} - Epistola"
             "tenantId" to tenantId.key
             "catalogId" to catalogId.value
-            "catalogContext" to GetCatalogContext(tenantId.key, catalogId).query()
-            "stencil" to stencil
-            "versions" to versions
-            "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
+            "catalogSegment" to segment.value
+            "draftSegment" to segment.takeIf { it.draft != null }
+            "draftBar" to draftBar
+            stencilModel(stencil, version = version)
+            "parameterSchemaJson" to stencil.parameterSchema?.let { objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(it) }
             "usage" to usagePage.items
             "usagePage" to usagePage
         }
     }
 
+    /** The stencil, whether the viewer may change it here, and its readiness. */
+    private fun ModelBuilder.stencilModel(stencil: Stencil, error: String? = null, version: CatalogVersionRef? = null) {
+        val editable = stencil.catalogType == CatalogType.AUTHORED &&
+            AuthContext.from(SecurityContext.current(), stencil.tenantKey).has(Permission.STENCIL_EDIT)
+        "stencil" to stencil
+        "stencilEditable" to editable
+        "readiness" to readinessOf(stencil, editable, version)
+        if (error != null) "readinessError" to error
+    }
+
+    private fun readinessOf(stencil: Stencil, editable: Boolean, version: CatalogVersionRef?): StencilReadiness {
+        if (stencil.catalogType != CatalogType.AUTHORED) return StencilReadiness(state = null, ready = false, offerMarkReady = false)
+        val change = GetCatalogResourceChanges(stencil.tenantKey, stencil.catalogKey, catalogVersion = version).query()
+            .resources.firstOrNull { it.type == "stencil" && it.slug == stencil.id.value }
+        val ready = change?.ready == true
+        return StencilReadiness(state = change?.state, ready = ready, offerMarkReady = editable && !ready)
+    }
+
+    /** `PATCH` with JSON metadata `{ name?, description?, clearDescription?, tags? }`. */
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -381,6 +410,7 @@ class StencilHandler(
             description = req.description,
             clearDescription = req.clearDescription,
             tags = req.tags,
+            catalogVersion = request.catalogVersion(),
         ).execute() ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -396,6 +426,59 @@ class StencilHandler(
             )
     }
 
+    /**
+     * `POST …/settings` from the detail page's form: whether the stencil's content also sees the
+     * using template's data. A checked box submits `readsTemplateData`, an unchecked one nothing.
+     */
+    fun updateSettings(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+        val readsTemplateData = request.params().getFirst("readsTemplateData")?.let { it != "false" } ?: false
+
+        val stencil = UpdateStencil(id = stencilId, readsTemplateData = readsTemplateData, catalogVersion = request.catalogVersion()).execute()
+            ?: return ServerResponse.notFound().build()
+        return detailsFragment(request, stencil)
+    }
+
+    /**
+     * `POST …/ready`: marks the working copy ready. From the detail page (HTMX) a refusal is shown in
+     * the details panel; from the editor (JSON) it is a 400 with its `detail`.
+     */
+    fun markReady(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val stencilId = request.stencilId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val error = try {
+            MarkStencilReady(stencilId = stencilId, catalogVersion = request.catalogVersion()).execute()
+            null
+        } catch (e: ValidationException) {
+            e.message
+        }
+        if (!request.isHtmx) {
+            // The template editor marks the stencil it edits ready (JSON).
+            val status = if (error == null) 200 else 400
+            return ServerResponse.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(if (error == null) mapOf("ready" to true) else mapOf("detail" to error))
+        }
+        val stencil = GetStencil(id = stencilId, catalogVersion = request.catalogVersion()).query()
+            ?: return ServerResponse.notFound().build()
+        return detailsFragment(request, stencil, error)
+    }
+
+    private fun detailsFragment(request: ServerRequest, stencil: Stencil, error: String? = null): ServerResponse = request.htmx {
+        val segment = request.catalogSegment()
+        fragment("stencils/detail", "details") {
+            "tenantId" to stencil.tenantKey
+            "catalogId" to stencil.catalogKey.value
+            "catalogSegment" to segment.value
+            stencilModel(stencil, error, segment.ref(stencil.tenantKey))
+        }
+        onFullPage { redirect("/tenants/${stencil.tenantKey}/catalogs/${segment.value}/stencils/${stencil.id}") }
+    }
+
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
@@ -404,287 +487,141 @@ class StencilHandler(
         val force = request.param("force").orElse("false").toBoolean()
 
         try {
-            DeleteStencil(id = stencilId, force = force).execute()
+            DeleteStencil(id = stencilId, force = force, catalogVersion = request.catalogVersion()).execute()
         } catch (e: app.epistola.suite.stencils.StencilInUseException) {
             return ServerResponse.badRequest()
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("error" to e.message))
         }
 
-        val stencils = ListStencils(tenantId = tenantId).query()
+        // The catalog's rows, refreshed in place.
+        val segment = request.catalogSegment()
         return request.htmx {
             fragment("stencils/list", "rows") {
                 "tenantId" to tenantId.key
-                "stencils" to stencils
+                "draftSegment" to segment
+                "stencils" to ListStencils(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils") }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "stencils")) }
         }
     }
 
-    // ── Usage & Upgrade ──────────────────────────────────────────────────
+    // ── Usage ──────────────────────────────────────────────────────────────
 
-    /** Usage details: which templates use this stencil, with version info. */
+    /** The variants that use this stencil, each with whether it still fits. HTMX → fragment; else JSON. */
     fun usageDetails(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val stencil = GetStencil(id = stencilId).query()
+        val version = request.catalogVersion()
+        val stencil = GetStencil(id = stencilId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
-        if (!request.isHtmx()) {
-            val usage = GetStencilUsageDetails(stencilId = stencilId).query()
+        val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
+        val usagePage = GetStencilUsagePage(stencilId = stencilId, page = page, catalogVersion = version).query()
+
+        if (!request.isHtmx) {
             return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
                     mapOf(
-                        "items" to usage.map { u ->
+                        "items" to usagePage.items.map { u ->
                             mapOf(
                                 "templateId" to u.templateId.value,
+                                "catalogKey" to u.catalogKey.value,
                                 "templateName" to u.templateName,
                                 "variantId" to u.variantId.value,
-                                "versionId" to u.versionId.value,
-                                "versionStatus" to u.versionStatus,
-                                "stencilVersion" to u.stencilVersion,
                                 "instanceCount" to u.instanceCount,
+                                "fits" to u.fits,
+                                "problems" to u.problems,
                             )
                         },
+                        "page" to usagePage.page,
+                        "totalPages" to usagePage.totalPages,
+                        "total" to usagePage.total,
                     ),
                 )
         }
 
-        val filter = request.param("filter").orElse(USAGE_FILTER_BOTH)
-        val page = request.param("page").map { it.toIntOrNull() ?: 1 }.orElse(1)
-        val usagePage = GetStencilUsagePage(stencilId = stencilId, filter = filter, page = page).query()
-
-        val versions = ListStencilVersions(stencilId = stencilId).query()
         return request.htmx {
             fragment("stencils/detail", "usage") {
                 "tenantId" to tenantId.key
                 "catalogId" to stencilId.catalogKey.value
+                "catalogSegment" to request.catalogSegment().value
+                "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
                 "stencil" to stencil
-                "versions" to versions
                 "usage" to usagePage.items
                 "usagePage" to usagePage
             }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
+            onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${stencilId.catalogKey}/stencils/${stencilId.key}") }
         }
     }
 
-    /** Upgrade a stencil in a specific template variant's draft. */
-    fun upgradeInTemplate(request: ServerRequest): ServerResponse {
+    // ── Working copy (editor) ──────────────────────────────────────────────
+
+    /** `GET …/content` (JSON): the stencil's working copy, which the template editor inlines. */
+    fun getContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
-
-        data class UpgradeRequest(
-            val templateId: String,
-            val variantId: String,
-            val catalogKey: String? = null,
-            val newVersion: Int,
-        )
-
-        val body = request.body(String::class.java)
-        val req = objectMapper.readValue(body, UpgradeRequest::class.java)
-
-        val templateCatalog = req.catalogKey?.let { CatalogId(CatalogKey.of(it), tenantId) }
-            ?: return ServerResponse.badRequest().contentType(org.springframework.http.MediaType.APPLICATION_JSON).body(mapOf("error" to "catalogKey is required"))
-        val templateId = TemplateId(TemplateKey.of(req.templateId), templateCatalog)
-        val variantId = VariantId(VariantKey.of(req.variantId), templateId)
-
-        val result = UpdateStencilInTemplate(
-            variantId = variantId,
-            stencilId = stencilId,
-            newVersion = req.newVersion,
-        ).execute()
-
-        if (result == null) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to "Template variant not found"))
-        }
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_JSON)
-            .body(
-                mapOf(
-                    "upgraded" to result.upgradedCount,
-                    "droppedFills" to result.droppedFills.mapValues { (_, fills) ->
-                        fills.map { mapOf("name" to it.name, "contentSummary" to it.contentSummary) }
-                    },
-                ),
-            )
-    }
-
-    // ── Versions ───────────────────────────────────────────────────────────
-
-    /** List versions. HTMX → fragment; JSON → version list. */
-    fun listVersions(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-
-        val versions = ListStencilVersions(stencilId = stencilId).query()
-
-        if (!request.isHtmx()) {
-            val items = versions.map { v ->
-                mapOf(
-                    "version" to v.id.value,
-                    "status" to v.status.name.lowercase(),
-                    "createdAt" to v.createdAt.toString(),
-                    "publishedAt" to v.publishedAt?.toString(),
-                )
-            }
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("items" to items))
-        }
-
-        return versionListFragment(request, tenantId, stencilId)
-    }
-
-    /** Get a specific version's content (JSON only). */
-    fun getVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
-        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
-
-        val version = GetStencilVersion(versionId = versionIdComposite).query()
+        val stencil = GetStencil(id = stencilId, catalogVersion = request.catalogVersion()).query()
             ?: return ServerResponse.notFound().build()
-
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
-                    "id" to version.id.value,
-                    "stencilId" to version.stencilKey.value,
-                    "status" to version.status.name.lowercase(),
-                    "content" to version.content,
-                    "parameterSchema" to version.parameterSchema,
+                    "stencilId" to stencil.id.value,
+                    "catalogKey" to stencil.catalogKey.value,
+                    "name" to stencil.name,
+                    "editable" to (stencil.catalogType == CatalogType.AUTHORED),
+                    "content" to stencil.content,
+                    "parameterSchema" to stencil.parameterSchema,
+                    "readsTemplateData" to stencil.readsTemplateData,
+                    "revision" to stencil.revision,
                 ),
             )
     }
 
     /**
-     * Create a version. Idempotent — returns existing draft if one exists.
-     * HTMX → version list fragment; JSON → the exact draft and its content.
-     * Optional JSON payload: { content?, publish? }
+     * `PUT …/content` (JSON `{ content, parameterSchema?, clearParameterSchema?, expectedRevision? }`):
+     * saves the working copy from the template editor. An absent `parameterSchema` keeps the stored
+     * one; `clearParameterSchema` removes it, for a stencil whose author removed every parameter. A
+     * save against a revision someone else has moved on from is refused (412); the answer carries the
+     * new `revision` otherwise.
      */
-    fun createVersion(request: ServerRequest): ServerResponse {
+    fun updateContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val stencilId = request.stencilId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val draft = CreateStencilVersion(stencilId = stencilId).execute()
-            ?: return ServerResponse.notFound().build()
-
-        if (!request.isHtmx()) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(
-                    mapOf(
-                        "version" to draft.id.value,
-                        "status" to draft.status.name.lowercase(),
-                        "content" to draft.content,
-                        "parameterSchema" to draft.parameterSchema,
-                    ),
-                )
-        }
-
-        return versionListFragment(request, tenantId, stencilId)
-    }
-
-    /** Publish a version. HTMX → fragment; JSON → { version, status }. */
-    fun publishVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
-        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
-
-        val published = PublishStencilVersion(versionId = versionIdComposite).execute()
-
-        if (!request.isHtmx()) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("version" to published.id.value, "status" to "published"))
-        }
-
-        return versionListFragment(request, tenantId, stencilId)
-    }
-
-    /** Archive a version. HTMX → fragment; JSON → { version, status }. */
-    fun archiveVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
-        val versionIdComposite = StencilVersionId(VersionKey.of(versionId), stencilId)
-
-        val archived = ArchiveStencilVersion(versionId = versionIdComposite).execute()
-
-        if (!request.isHtmx()) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("version" to archived.id.value, "status" to "archived"))
-        }
-
-        return versionListFragment(request, tenantId, stencilId)
-    }
-
-    // ── Draft content ──────────────────────────────────────────────────────
-
-    /** Save content to one exact draft version (editor auto-save). */
-    fun updateDraft(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        val stencilId = request.stencilId(tenantId)
-            ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
-
-        data class DraftRequest(
+        data class ContentRequest(
             val content: app.epistola.template.model.TemplateDocument,
             val parameterSchema: tools.jackson.databind.JsonNode? = null,
+            val clearParameterSchema: Boolean = false,
+            val expectedRevision: Long? = null,
         )
 
         val body = request.body(String::class.java)
-        val req = objectMapper.readValue(body, DraftRequest::class.java)
+        val req = objectMapper.readValue(body, ContentRequest::class.java)
 
-        val updated = UpdateStencilDraft(
-            versionId = StencilVersionId(VersionKey.of(versionId), stencilId),
-            content = req.content,
-            parameterSchema = req.parameterSchema,
-        ).execute()
+        val saved = try {
+            UpdateStencil(
+                id = stencilId,
+                content = req.content,
+                parameterSchema = req.parameterSchema.takeUnless { req.clearParameterSchema },
+                clearParameterSchema = req.clearParameterSchema,
+                catalogVersion = request.catalogVersion(),
+                expectedRevision = req.expectedRevision,
+            ).execute()
+        } catch (e: ResourceModifiedException) {
+            return ServerResponse.status(HttpStatus.PRECONDITION_FAILED)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to "Someone else saved this stencil after you opened it."))
+        } ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("version" to updated.id.value))
-    }
-
-    // ── Shared ─────────────────────────────────────────────────────────────
-
-    private fun versionListFragment(
-        request: ServerRequest,
-        tenantId: TenantId,
-        stencilId: StencilId,
-    ): ServerResponse {
-        val stencil = GetStencil(id = stencilId).query()
-            ?: return ServerResponse.notFound().build()
-        val versions = ListStencilVersions(stencilId = stencilId).query()
-        return request.htmx {
-            fragment("stencils/detail", "versions") {
-                "tenantId" to tenantId.key
-                "catalogId" to stencilId.catalogKey.value
-                "stencil" to stencil
-                "versions" to versions
-                "versionUsage" to CountStencilUsageByVersion(stencilId = stencilId).query()
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.key}/stencils/${stencilId.catalogKey}/${stencilId.key}") }
-        }
+            .body(mapOf("success" to true, "revision" to saved.revision))
     }
 }

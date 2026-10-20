@@ -185,29 +185,6 @@
     border-style: dashed;
   }
 
-  .stencil-picker-status {
-    display: inline-block;
-    padding: 0 var(--ep-space-1-5);
-    border-radius: var(--ep-radius-sm);
-    font-size: var(--ep-text-xs);
-    font-weight: 500;
-  }
-
-  .stencil-picker-status--draft {
-    background: var(--ep-amber-50, #fffbeb);
-    color: var(--ep-amber-700, #b45309);
-  }
-
-  .stencil-picker-status--published {
-    background: var(--ep-green-50, #f0fdf4);
-    color: var(--ep-green-700, #15803d);
-  }
-
-  .stencil-picker-status--archived {
-    background: var(--ep-stone-100);
-    color: var(--ep-stone-500);
-  }
-
   /* ── Stencil inspector ───────────────────────────────────────────────── */
 
   .stencil-actions {
@@ -218,6 +195,12 @@
 
   .stencil-btn {
     width: 100%;
+  }
+
+  .stencil-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-stone-600);
+    margin-bottom: var(--ep-space-2);
   }
 
   /* ── Binding row ─────────────────────────────────────────────────────── */

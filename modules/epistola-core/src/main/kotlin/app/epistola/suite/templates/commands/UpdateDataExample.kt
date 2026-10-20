@@ -5,27 +5,29 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.REQUESTED_TEMPLATE_ADDRESS
-import app.epistola.suite.templates.contracts.model.ContractVersion
+import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Updates a single data example within a template's draft contract version.
+ * Updates a single data example within a template's data contract.
  * Only validates the single example being updated against the schema.
  */
 data class UpdateDataExample(
@@ -34,7 +36,12 @@ data class UpdateDataExample(
     val name: String? = null,
     val data: ObjectNode? = null,
     val forceUpdate: Boolean = false,
-) : Command<UpdateDataExampleResult?>,
+    /** The catalog version this addresses; null for its catalog's current version. */
+    override val catalogVersion: CatalogVersionRef? = null,
+    /** The template's revision the change was made against; null to write whatever it is at now. */
+    val expectedRevision: Long? = null,
+) : CatalogVersionScoped,
+    Command<UpdateDataExampleResult?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = templateId.tenantKey
@@ -43,6 +50,8 @@ data class UpdateDataExample(
 data class UpdateDataExampleResult(
     val example: DataExample,
     val warnings: Map<String, List<ValidationError>> = emptyMap(),
+    /** The template's revision after the write. */
+    val revision: Long = 1,
 )
 
 @Component
@@ -56,21 +65,9 @@ class UpdateDataExampleHandler(
 
         return jdbi.inTransaction<UpdateDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
-            val draftContract = handle.createQuery(
-                """
-                SELECT *, $REQUESTED_TEMPLATE_ADDRESS
-                FROM contract_versions
-                WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
-                FOR UPDATE
-                """,
-            )
-                .bind("tenantKey", command.templateId.tenantKey)
-                .bind("catalogKey", command.templateId.catalogKey)
-                .bind("templateKey", command.templateId.key)
-                .mapTo<ContractVersion>()
-                .findOne()
-                .orElse(null) ?: return@inTransaction null
+            val draftContract = readDataContract(handle, objectMapper, command.templateId, forUpdate = true) ?: return@inTransaction null
+            // The row is locked now, so its revision holds until this transaction ends.
+            Revisions.refuse("Template '${command.templateId.key.value}'", command.expectedRevision, templateRevision(handle, command.templateId))
 
             val existingExample = draftContract.dataExamples.find { it.id == command.exampleId }
                 ?: return@inTransaction null
@@ -79,6 +76,8 @@ class UpdateDataExampleHandler(
                 id = existingExample.id,
                 name = command.name ?: existingExample.name,
                 data = command.data ?: existingExample.data,
+                // A rename keeps the address.
+                key = existingExample.key,
             )
 
             // Validate only the updated example against schema
@@ -100,21 +99,23 @@ class UpdateDataExampleHandler(
                 if (example.id == command.exampleId) updatedExample else example
             }
 
-            handle.createUpdate(
+            val revision = handle.createQuery(
                 """
-                UPDATE contract_versions
-                SET data_examples = :dataExamples::jsonb
-                WHERE tenant_key = :tenantKey
-                  AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND status = 'draft'
+                UPDATE document_templates
+                SET data_examples = :dataExamples::jsonb, updated_at = NOW()
+                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                  AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
+                RETURNING revision
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
                 .bind("catalogKey", command.templateId.catalogKey)
                 .bind("templateKey", command.templateId.key)
                 .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
-                .execute()
+                .mapTo(Long::class.java)
+                .one()
 
-            UpdateDataExampleResult(example = updatedExample, warnings = warnings)
+            UpdateDataExampleResult(example = updatedExample, warnings = warnings, revision = revision)
         }
     }
 }
