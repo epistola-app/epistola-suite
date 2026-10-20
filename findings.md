@@ -33,9 +33,10 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 ### Wording that misleads
 
 - [ ] **U10. Readiness labels read as a required step.** "Ready" looks like a gate, not a marker.
-- [ ] **U11. Data contract opens with a red error.** An empty contract shows an error on entry,
-      before the user has done anything.
-- [ ] **U12. Data contract "Save draft" clashes with catalog drafts.** Same word, different thing.
+- [x] **U11. Data contract opens with a red error.** The example message waits for unsaved changes.
+      Evidence: `EpistolaDataContractEditor.clientValidationBanner.test.ts` (fails without it).
+- [x] **U12. Data contract "Save draft" clashes with catalog drafts.** Now "Save", "Saved", "Unsaved
+      changes"; `ContractSaveBar` tests and `DataContractSaveBarUiTest` updated.
 
 ### Consistency
 

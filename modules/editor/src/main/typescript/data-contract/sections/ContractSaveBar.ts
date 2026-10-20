@@ -29,7 +29,7 @@ export function renderContractSaveControls(
   const saveTooltip = state.blocked
     ? 'Fix validation errors before saving'
     : isDirty
-      ? 'Save schema and examples as one draft'
+      ? 'Save the schema and examples together'
       : 'No unsaved changes';
 
   return html`
@@ -37,14 +37,14 @@ export function renderContractSaveControls(
       <div class="dc-contract-save-summary" aria-live="polite">
         ${
           state.saving
-            ? html`<span class="dc-contract-save-state">Saving draft…</span>`
+            ? html`<span class="dc-contract-save-state">Saving…</span>`
             : state.saveError
               ? html`<span class="dc-status-error">${state.saveError}</span>`
               : state.saveSuccess
-                ? html`<span class="dc-status-success">Draft saved</span>`
+                ? html`<span class="dc-status-success">Saved</span>`
                 : isDirty
                   ? html`
-                      <span class="dc-contract-save-state">Unsaved draft changes</span>
+                      <span class="dc-contract-save-state">Unsaved changes</span>
                       ${
                         state.schemaDirty
                           ? html`<span class="dc-contract-change-badge">Schema</span>`
@@ -82,7 +82,7 @@ export function renderContractSaveControls(
           @click=${() => callbacks.onSave()}
           title=${saveTooltip}
         >
-          ${state.saving ? 'Saving…' : 'Save draft'}
+          ${state.saving ? 'Saving…' : 'Save'}
         </button>
       </div>
     </div>

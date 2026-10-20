@@ -294,7 +294,8 @@ export class EpistolaDataContractEditor extends LitElement {
    */
   private get _clientValidationMessages(): string[] {
     const messages: string[] = [];
-    if (!this._hasRequiredExample) {
+    // Only once there is something to save: a contract just opened for editing has nothing to warn about.
+    if (!this._hasRequiredExample && (this.contractState?.isDirty ?? false)) {
       messages.push('Add at least one test data example before saving.');
     }
     const issueCount =

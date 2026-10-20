@@ -38,8 +38,22 @@ async function mountEditor(callbacks: SaveCallbacks): Promise<{
 afterEach(() => document.body.replaceChildren());
 
 describe('client-side validation banner position', () => {
+  it('says nothing before the author has changed anything', async () => {
+    const { editor } = await mountEditor({});
+
+    // Just opened: there is nothing to save yet, so nothing to warn about.
+    expect(editor.querySelector('.dc-validation-banner')).toBeNull();
+  });
+
   it('renders inline in the editor, alongside the breaking changes banner, not in the external container', async () => {
     const { editor, validationAlert } = await mountEditor({});
+
+    editor.contractState!.setDraftSchema({
+      ...schema,
+      properties: { ...schema.properties, name: { type: 'string' } },
+    });
+    editor.requestUpdate();
+    await editor.updateComplete;
 
     expect(validationAlert.querySelector('.dc-validation-banner')).toBeNull();
 
