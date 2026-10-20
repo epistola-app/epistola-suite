@@ -74,16 +74,17 @@ class EmitGenerationResultHandler(
                 INSERT INTO generation_results (
                     partition, request_id, batch_id, tenant_key, routing_key, status,
                     document_id, correlation_id, template_id, variant_id, version_id, release_version, draft_id, draft_label,
-                    registry, namespace, catalog_key, filename, content_type, size_bytes, error, completed_at
+                    registry, namespace, catalog_key, catalog_version_id, filename, content_type, size_bytes, error, completed_at
                 )
                 VALUES (
                     :partition, :requestId, :batchId, :tenantKey, :routingKey, :status,
                     :documentId, :correlationId, :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
-                    :registry, :namespace, :catalogKey, :filename, :contentType, :sizeBytes, :error, :completedAt
+                    :registry, :namespace, :catalogKey,
+                    (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId), :filename, :contentType, :sizeBytes, :error, :completedAt
                 )
                 RETURNING sequence, partition, created_at, request_id, batch_id, tenant_key,
                           routing_key, status, document_id, correlation_id, template_id,
-                          variant_id, version_id, release_version, draft_id, draft_label, registry, namespace, catalog_key,
+                          variant_id, version_id, release_version, draft_id, draft_label, registry, namespace, catalog_key, catalog_version_id,
                           filename, content_type, size_bytes,
                           error, completed_at
                 """,

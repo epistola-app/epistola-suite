@@ -37,6 +37,8 @@ data class DocumentMetadata(
     val draftId: String? = null,
     /** The draft's name when the document was rendered. */
     val draftLabel: String? = null,
+    /** The id of the catalog version rendered, a release's or a draft's (contract `versionId`); null before 2.0. */
+    val catalogVersionId: String? = null,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
@@ -68,7 +70,7 @@ class GetDocumentMetadataHandler(
     override fun handle(query: GetDocumentMetadata): DocumentMetadata? = jdbi.withHandle<DocumentMetadata?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, release_version, draft_id, draft_label,
+            SELECT id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, release_version, draft_id, draft_label, catalog_version_id,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -90,6 +92,7 @@ class GetDocumentMetadataHandler(
                     releaseVersion = rs.getString("release_version"),
                     draftId = rs.getString("draft_id"),
                     draftLabel = rs.getString("draft_label"),
+                    catalogVersionId = rs.getString("catalog_version_id"),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

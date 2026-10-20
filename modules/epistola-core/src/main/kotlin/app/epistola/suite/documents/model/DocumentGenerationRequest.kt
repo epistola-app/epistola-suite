@@ -77,6 +77,8 @@ data class DocumentGenerationRequest(
     val draftId: String? = null,
     /** The draft's name when the request was accepted. */
     val draftLabel: String? = null,
+    /** The id of the catalog version rendered, a release's or a draft's (contract `versionId`); null before 2.0. */
+    val catalogVersionId: String? = null,
     /** Times it was taken back from a node that stopped while rendering it (stale-job recovery). */
     val recoveries: Int = 0,
     @Json val data: ObjectNode,

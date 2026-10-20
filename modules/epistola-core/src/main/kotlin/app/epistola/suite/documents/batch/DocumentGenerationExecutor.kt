@@ -392,7 +392,7 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version, draft_id, draft_label,
+                    id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, release_version, draft_id, draft_label, catalog_version_id,
                     template_resource_id, filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
@@ -401,6 +401,7 @@ class DocumentGenerationExecutor(
                     (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                     (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                     :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
+                    (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId),
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
@@ -415,6 +416,7 @@ class DocumentGenerationExecutor(
                 .bind("releaseVersion", document.releaseVersion)
                 .bind("draftId", document.draftId)
                 .bind("draftLabel", document.draftLabel)
+                .bind("requestId", requestId)
                 .bind("templateResourceId", document.templateResourceId)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)

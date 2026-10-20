@@ -484,6 +484,7 @@ class JobPoller(
                           document_generation_requests.release_version,
                           document_generation_requests.draft_id,
                           document_generation_requests.draft_label,
+                          document_generation_requests.catalog_version_id,
                           document_generation_requests.recoveries,
                           document_generation_requests.environment_key,
                           document_generation_requests.data,

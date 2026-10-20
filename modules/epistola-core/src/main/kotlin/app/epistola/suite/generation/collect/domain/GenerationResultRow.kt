@@ -53,6 +53,8 @@ data class GenerationResultRow(
     val registry: String? = null,
     val namespace: String? = null,
     val catalogKey: String? = null,
+    /** The id of the catalog version rendered, a release's or a draft's (contract `versionId`). */
+    val catalogVersionId: String? = null,
     val filename: String?,
     val contentType: String?,
     val sizeBytes: Long?,

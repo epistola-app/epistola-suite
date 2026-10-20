@@ -156,7 +156,11 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             val jobAt = accepted.headers.location!!
             assertThat(jobAt.path).isEqualTo("/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}")
             val job = exchange(HttpMethod.GET, jobAt.path, key)
-            JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")
+            val release = JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")
+            // A release has a version id too, and the item names it (contract `versionId`).
+            val releaseId = JsonPath.read<String>(exchange(HttpMethod.GET, withMediator { CatalogApiPaths.version(tenant, version = release) }, key).body!!, "$.versionId")
+            assertThat(JsonPath.read<String?>(job.body!!, "$.items[0].versionId")).isEqualTo(releaseId)
+            release
         }
 
         assertThat(rendered(null)).isEqualTo("1.0.1")
