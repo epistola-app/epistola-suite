@@ -23,7 +23,7 @@
                     hx-swap="innerHTML"
                     hx-include="[name='catalog'],[name='severity'],[name='source'],[name='template'],[name='q']">
                 <option value="">All statuses</option>
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">OPEN</option>
             </select>
 
@@ -35,7 +35,7 @@
                     hx-swap="innerHTML"
                     hx-include="[name='catalog'],[name='status'],[name='source'],[name='template'],[name='q']">
                 <option value="">All severities</option>
-                <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
+                <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${selectedSeverity != null && selectedSeverity.name() == s.name()}">ERROR</option>
             </select>
 

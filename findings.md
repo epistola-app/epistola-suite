@@ -40,7 +40,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 ### Consistency
 
 - [ ] **U13. UTC vs local times.** Some pages show UTC, others local time, without saying which.
-- [ ] **U14. Raw enums.** Quality, Feedback and the profile page still show values like `IN_REVIEW`.
+- [x] **U14. Raw enums.** `#labels.of(...)` (epistola-web `LabelsDialect`) on Quality, Feedback, profile
+      and generation pages. Evidence: `LabelsTest`, `ProfileHandlerHtmxTest`, `GenerationHistoryRoutesTest`.
 - [ ] **U15. Inline template settings give no feedback.** Saving shows nothing on success.
 
 ### Contract

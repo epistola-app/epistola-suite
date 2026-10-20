@@ -59,7 +59,7 @@
                     <label class="ep-label" for="manual-severity">Severity</label>
                     <select id="manual-severity" name="severity" class="ep-select" required
                             data-testid="quality-manual-severity">
-                        <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${s.name()}"
+                        <option th:each="s : ${severities}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                                 th:selected="${s.name() == 'WARNING'}">WARNING</option>
                     </select>
                 </div>

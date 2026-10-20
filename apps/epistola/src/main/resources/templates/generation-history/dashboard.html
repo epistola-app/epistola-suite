@@ -68,7 +68,7 @@
                         hx-swap="innerHTML"
                         name="status">
                     <option value="">All Statuses</option>
-                    <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#strings.capitalize(#strings.toLowerCase(#strings.replace(s.name(),'_',' ')))}">Pending</option>
+                    <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}">Pending</option>
                 </select>
             </div>
             <div th:if="${#lists.isEmpty(recentJobs)}" class="empty-state">
@@ -107,7 +107,7 @@
                                                         job.status.name() == 'IN_PROGRESS' ? 'badge-primary' :
                                                         job.status.name() == 'FAILED' ? 'badge-destructive' :
                                                         job.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
-                                      th:text="${#strings.capitalize(#strings.toLowerCase(#strings.replace(job.status.name(),'_',' ')))}">Completed</span>
+                                      th:text="${#labels.of(job.status)}">Completed</span>
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"

@@ -4,15 +4,15 @@
     <!-- Feedback status badge: OPEN=info, IN_PROGRESS=warning, RESOLVED=success, else=muted -->
     <span th:fragment="status-badge(status)" class="badge"
           th:classappend="${status.name() == 'OPEN'} ? 'badge-info' : (${status.name() == 'IN_PROGRESS'} ? 'badge-warning' : (${status.name() == 'RESOLVED'} ? 'badge-success' : 'badge-muted'))"
-          th:text="${status.name()}">OPEN</span>
+          th:text="${#labels.of(status)}">OPEN</span>
 
     <!-- Feedback priority badge: CRITICAL=destructive, HIGH=warning, else=outline -->
     <span th:fragment="priority-badge(priority)" class="badge"
           th:classappend="${priority.name() == 'CRITICAL'} ? 'badge-destructive' : (${priority.name() == 'HIGH'} ? 'badge-warning' : 'badge-outline')"
-          th:text="${priority.name()}">MEDIUM</span>
+          th:text="${#labels.of(priority)}">MEDIUM</span>
 
     <!-- Feedback category badge (always outline style) -->
     <span th:fragment="category-badge(category)" class="badge badge-outline"
-          th:text="${category.name()}">BUG</span>
+          th:text="${#labels.of(category)}">BUG</span>
 </body>
 </html>

@@ -120,7 +120,7 @@
               class="ep-row">
             <div th:replace="~{epistola-web/form-error :: form-error(id='update-status-error')}"></div>
             <select name="status" class="ep-select ep-select-sm form-control-auto">
-                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${#labels.of(s)}"
                         th:selected="${feedback.status.name() == s.name()}">STATUS</option>
             </select>
             <button type="submit" class="ep-btn ep-btn-outline">Update Status</button>

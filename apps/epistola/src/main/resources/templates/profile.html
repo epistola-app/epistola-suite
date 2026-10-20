@@ -53,7 +53,7 @@
                             <td th:text="${membership.tenant}">acme-corp</td>
                             <td>
                                 <span class="badge-list">
-                                    <span th:each="role : ${membership.roles}" class="badge badge-default" th:text="${role}">READER</span>
+                                    <span th:each="role : ${membership.roles}" class="badge badge-default" th:text="${#labels.of(role)}">READER</span>
                                 </span>
                             </td>
                         </tr>
@@ -63,13 +63,13 @@
                 <h3>Global roles</h3>
                 <p th:if="${globalRoles.isEmpty()}" class="text-muted">None</p>
                 <div th:unless="${globalRoles.isEmpty()}" class="badge-list">
-                    <span th:each="role : ${globalRoles}" class="badge badge-default" th:text="${role}">READER</span>
+                    <span th:each="role : ${globalRoles}" class="badge badge-default" th:text="${#labels.of(role)}">READER</span>
                 </div>
 
                 <h3>Platform roles</h3>
                 <p th:if="${platformRoles.isEmpty()}" class="text-muted">None</p>
                 <div th:unless="${platformRoles.isEmpty()}" class="badge-list">
-                    <span th:each="role : ${platformRoles}" class="badge badge-default" th:text="${role}">TENANT_MANAGER</span>
+                    <span th:each="role : ${platformRoles}" class="badge badge-default" th:text="${#labels.of(role)}">TENANT_MANAGER</span>
                 </div>
             </div>
         </div>
