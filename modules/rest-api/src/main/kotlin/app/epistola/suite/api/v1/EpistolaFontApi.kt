@@ -90,15 +90,16 @@ class EpistolaFontApi : FontsApi {
     }
 
     /**
-     * A released font with its faces. A release carries only asset-backed faces: the faces of a
-     * system font ship with the installation (classpath), the same for every release, so they are
-     * read from it.
+     * A released font with its faces. A release keeps a system font's bundled faces too
+     * (`RecordInstalledRelease`); one recorded before it did lists none, so the installation's
+     * bundled faces fill in the ones the release lacks.
      */
     private fun FontResource.toReleasedDto(at: ResolvedCatalogVersion): FontDto {
         val dto = toDto(at)
         val installed = GetFontVariants(fontId = FontId(FontKey.of(key), at.catalogId), catalogVersion = at.ref).query()
             .filter { it.source == FontVariantSource.CLASSPATH }
             .map { FontVariantDto(it.weight, it.italic) }
+            .filter { face -> dto.variants.none { it.weight == face.weight && it.italic == face.italic } }
         return if (installed.isEmpty()) dto else dto.copy(variants = dto.variants + installed)
     }
 

@@ -133,8 +133,12 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ## Still to verify
 
-- [ ] **V1. Full suites after the last fixes.** Only targeted tests ran for `43d188555` and
-      `feb62bbe9`. Run `./gradlew test uiTest`.
+- [x] **V1. Full suites after the last fixes.** `./gradlew test uiTest --continue` on 2026-10-20:
+      4467 tests, 1 skipped, 2 failed. `EpistolaFontApiTest` "get single system font returns its
+      variants" listed each bundled face twice, a side effect of G4 (the API added the installation's
+      faces to a release that now keeps them); fixed by adding only faces the release lacks.
+      `EmbeddingBridgeUiTest` "clicking a boosted row link" passed on rerun: flaky, as noted in
+      progress.md before. Both pass on rerun.
 - [x] **V2. `NoTenantWideListTest` guard.** Passes (guards: 27 tests, 0 failed, 2026-10-20).
 - [ ] **V3. Clean up the test machinery.** Databases `epistola_v1`, `epistola_upg`…`epistola_upg4`
       in `epistola-postgres`, stopped containers `epistola-v1` / `epistola-v1b`, and the image
