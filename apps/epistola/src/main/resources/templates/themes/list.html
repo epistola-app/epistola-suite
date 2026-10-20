@@ -18,25 +18,18 @@
         <div th:if="${houseThemeApplied != null}" class="alert alert-success" data-testid="house-theme-applied"
              th:text="${houseThemeApplied == '1'} ? 'The house theme is now the default theme of 1 catalog. It takes effect when it is published.' : 'The house theme is now the default theme of ' + ${houseThemeApplied} + ' catalogs. It takes effect when each is published.'">
             The house theme is now the default theme of 3 catalogs.</div>
-        <div th:if="${!#lists.isEmpty(themes)}" class="ep-panel detail-section" data-testid="theme-defaults">
-            <div class="detail-section-body" style="display: flex; gap: var(--ep-space-4); align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                <p class="form-hint" style="margin: 0;">
-                    <th:block th:if="${catalogDefault != null}">
-                        Templates that name no theme use <strong th:text="${catalogDefault.catalogKey} + '/' + ${catalogDefault.themeKey}">brand/house</strong>, this catalog's default theme.
-                    </th:block>
-                    <th:block th:if="${catalogDefault == null}">
-                        This catalog has no default theme: templates that name none use the built-in styles.
-                    </th:block>
-                </p>
-                <form th:if="${auth.has('TENANT_SETTINGS') and tenant?.defaultThemeKey != null}" method="post" hx-boost="false"
-                      th:action="@{/tenants/{t}/house-theme/apply(t=${tenantId},catalog=${draftSegment?.value})}">
-                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="house-theme-apply"
-                            title="Make the house theme the default theme of every catalog you author; each takes it on its next publish">
-                        Apply house theme to all catalogs</button>
-                </form>
-            </div>
-        </div>
-
+        <!--/* Loaded after the page: the catalog's default theme and the presets its themes style
+               (catalogs/theme-settings), next to the themes themselves. */-->
+        <div th:if="${draftSegment != null}"
+             th:hx-get="@{/tenants/{t}/catalogs/{c}/theme-settings(t=${tenantId},c=${draftSegment.value})}"
+             hx-trigger="load" hx-swap="outerHTML" data-testid="catalog-theme-settings-mount"></div>
+        <form th:if="${!#lists.isEmpty(themes) and auth.has('TENANT_SETTINGS') and tenant?.defaultThemeKey != null}" method="post" hx-boost="false"
+              th:action="@{/tenants/{t}/house-theme/apply(t=${tenantId},catalog=${draftSegment?.value})}"
+              style="margin-bottom: var(--ep-space-4);" data-testid="theme-defaults">
+            <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="house-theme-apply"
+                    title="Make the house theme the default theme of every catalog you author; each takes it on its next publish">
+                Apply house theme to all catalogs</button>
+        </form>
 
         <div th:if="${#lists.isEmpty(themes)}" class="empty-state">
             <div class="empty-state-icon">

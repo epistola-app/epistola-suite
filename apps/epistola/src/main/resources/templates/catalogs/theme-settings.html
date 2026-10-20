@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!--/* A catalog version's theme settings (contract ADR 0007, CatalogThemeSettingsHandler): the default
+    <!--/* A catalog version's theme settings on its Themes page (contract ADR 0007, CatalogThemeSettingsHandler): the default
            theme its templates that name none render with, and the presets it declares, which its themes
            style. Saved in place. */-->
     <section th:fragment="section" id="catalog-theme-settings" class="ep-panel detail-section" data-testid="catalog-theme-settings">
-        <div class="detail-section-header"><h3>Themes</h3></div>
+        <div class="detail-section-header"><h3>Default theme and presets</h3></div>
         <div class="detail-section-body">
             <div th:if="${saved}" class="alert alert-success" data-testid="catalog-theme-settings-saved">Saved. It goes out with the next version you publish.</div>
             <div th:if="${error != null}" class="alert alert-error" th:text="${error}">Preset keys must be unique</div>

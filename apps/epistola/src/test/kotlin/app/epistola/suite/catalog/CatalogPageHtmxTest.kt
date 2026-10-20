@@ -247,13 +247,19 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `the details page sets the catalog's default theme and presets`() {
+    fun `the themes page sets the catalog's default theme and presets`() {
         val tenant = catalog("Catalog Theme Settings") { t, c ->
             app.epistola.suite.themes.commands.CreateTheme(
                 app.epistola.suite.common.ids.ThemeId(app.epistola.suite.common.ids.ThemeKey.of("brand"), c),
                 "Brand",
             ).execute()
         }
+        // The section loads on the catalog's Themes page, next to the themes, and no longer on Details.
+        assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/themes", String::class.java).body!!)
+            .contains("data-testid=\"catalog-theme-settings-mount\"")
+            .contains("/tenants/${tenant.id}/catalogs/letters/theme-settings")
+        assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/settings", String::class.java).body!!)
+            .doesNotContain("catalog-theme-settings-mount")
         val section = restTemplate.exchange(
             "/tenants/${tenant.id}/catalogs/letters/theme-settings",
             org.springframework.http.HttpMethod.GET,

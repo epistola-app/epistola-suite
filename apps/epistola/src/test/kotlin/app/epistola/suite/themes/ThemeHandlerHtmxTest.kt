@@ -323,7 +323,7 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
         // With a house theme, the list offers applying it everywhere; applying says how many took it.
         withMediator { app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenant.id, ThemeKey.of("brand"), catalogKey = CatalogKey.of("default")).execute() }
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/default/themes", String::class.java).body!!
-        assertThat(page).contains("data-testid=\"house-theme-apply\"").contains("this catalog's default theme")
+        assertThat(page).contains("data-testid=\"house-theme-apply\"").contains("data-testid=\"catalog-theme-settings-mount\"")
         val applied = restTemplate.postForEntity("/tenants/${tenant.id}/house-theme/apply?catalog=default", null, String::class.java)
         assertThat(applied.body).contains("data-testid=\"house-theme-applied\"")
     }

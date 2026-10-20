@@ -112,7 +112,7 @@ theme, and "apply house theme to all catalogs" sets it on every authored catalog
 each theme gives them their styles. Its available presets are its own plus those of the catalogs it
 depends on; the editor offers exactly those, a block naming another one is refused once the catalog
 declares any, and the quality ledger reports a block whose preset its theme does not style. Both
-settings are on the catalog's Details page, over REST on a catalog version, and over MCP
+settings are on the catalog's Themes page, over REST on a catalog version, and over MCP
 (`get_catalog_theme_settings`, `set_catalog_theme_settings`, `apply_house_theme`).
 
 ### Multi-Tenancy

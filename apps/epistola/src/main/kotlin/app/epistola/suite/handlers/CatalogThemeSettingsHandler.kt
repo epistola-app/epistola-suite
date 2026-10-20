@@ -30,7 +30,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 /**
- * A catalog version's theme settings on its Details page (contract ADR 0007): the default theme its
+ * A catalog version's theme settings on its Themes page (contract ADR 0007): the default theme its
  * templates that name none render with, and the block style presets it declares. Loaded into the page
  * after it, and saved in place.
  */
@@ -83,7 +83,7 @@ class CatalogThemeSettingsHandler {
                 "saved" to saved
                 "error" to error
             }
-            onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${segment.value}/settings") }
+            onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${segment.value}/themes") }
         }
     }
 
