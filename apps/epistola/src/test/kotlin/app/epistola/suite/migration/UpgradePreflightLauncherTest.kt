@@ -23,7 +23,30 @@ class UpgradePreflightLauncherTest {
 
     @Test
     fun `catalogs that use each other stop the migration before it starts, and once fixed it runs`() {
-        val url = oneXDatabase("preflight_launcher")
+        val url = withCycle("preflight_launcher")
+
+        assertThat(MigrationLauncher.runMigration(args(url))).isEqualTo(1)
+        assertThat(applied(url)).`as`("not one migration ran").isEqualTo(LAST_1X)
+
+        // Fixed in 1.x: the stencil no longer uses letters.
+        sql(url, """UPDATE stencil_versions SET content = '{"nodes": {}}'""")
+        assertThat(MigrationLauncher.runMigration(args(url))).isEqualTo(0)
+        assertThat(applied(url)).isGreaterThan(LAST_1X)
+    }
+
+    @Test
+    fun `an operator skips a check by id`() {
+        val url = withCycle("preflight_launcher_skip")
+
+        val code = MigrationLauncher.runMigration(args(url) + "--epistola.migration.preflight.skip=1x-catalog-dependency-cycles")
+
+        assertThat(code).isEqualTo(0)
+        assertThat(applied(url)).isGreaterThan(LAST_1X)
+    }
+
+    /** A 1.x database whose catalogs letters and brand use each other. */
+    private fun withCycle(name: String): String {
+        val url = oneXDatabase(name)
         sql(
             url,
             """
@@ -37,14 +60,7 @@ class UpgradePreflightLauncherTest {
                 SELECT 1, 'acme', resource_id, '{"nodes": {"logo": {"type": "image", "props": {"catalogKey": "letters"}}}}', 'published', NOW() FROM stencils;
             """,
         )
-
-        assertThat(MigrationLauncher.runMigration(args(url))).isEqualTo(1)
-        assertThat(applied(url)).`as`("not one migration ran").isEqualTo(LAST_1X)
-
-        // Fixed in 1.x: the stencil no longer uses letters.
-        sql(url, """UPDATE stencil_versions SET content = '{"nodes": {}}'""")
-        assertThat(MigrationLauncher.runMigration(args(url))).isEqualTo(0)
-        assertThat(applied(url)).isGreaterThan(LAST_1X)
+        return url
     }
 
     private fun args(url: String) = arrayOf(

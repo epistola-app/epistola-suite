@@ -67,7 +67,7 @@ class ContentVersionSqlTest {
      */
     private val allowed: Map<String, String> = mapOf(
         // Reads a 1.x database before the upgrade migrates it: content there has no catalog versions yet.
-        "modules/epistola-core/src/main/kotlin/app/epistola/suite/migration/UpgradePreflight.kt" to
+        "modules/epistola-core/src/main/kotlin/app/epistola/suite/migration/preflight/OneXCatalogReferences.kt" to
             "reads the 1.x schema, before catalog versions exist",
         // The tenant purge deletes the attribute definitions of every version of every catalog.
         "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/PurgeTenantCatalogs.kt" to

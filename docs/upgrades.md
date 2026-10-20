@@ -93,17 +93,23 @@ record `upgrade-1x-history`, so a document or load-test run that names a 1.x ver
 be traced. The content of older published versions is not kept. No 1.x release kept its content
 either, so the upgrade cannot deploy anything for you:
 
-**The upgrade checks first whether it can finish** (`UpgradePreflight`, run by the migration step,
-and by the app in `embedded` mode, before `flyway.migrate()`). Every authored catalog gets a first
-release after the catalogs it uses, so two things would leave catalogs without one, unable to render
-or be deployed: **catalogs that use each other** (a dependency cycle, which 2.0 does not allow), and
-**a reference to a catalog the tenant does not have**. 1.x allowed both. If it finds either, the
-migration step exits non-zero before a single migration runs, logging which tenant, which catalogs
-and which resources use what. The database is untouched and 1.x keeps working: move what the
-catalogs share into one of them, or into a catalog they all use (or install the missing catalog),
-and run the upgrade again. Only what the upgrade keeps is checked — each variant's and stencil's
-latest published version and draft, themes, attributes, templates and the catalogs' details — and
-only an authored catalog's references: a subscribed catalog's release is recorded as installed.
+**The upgrade checks first whether it can finish.** Before a single migration runs, the migration
+step (and the app in `embedded` mode) runs the upgrade's preflight checks. Each one that finds a
+problem is reported with the tenant, the catalogs and every resource involved, and the step exits
+non-zero. The database is untouched and 1.x keeps working: fix it there and run the upgrade again.
+For this upgrade:
+
+| Check                          | Refuses when                                                                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `1x-catalog-dependency-cycles` | authored catalogs use each other, which 2.0 cannot release; move what they share into one of them, or into a catalog they all use |
+| `1x-missing-catalogs`          | a catalog uses a catalog the tenant does not have; install it, or change what uses it                                             |
+
+Both read what the upgrade keeps — each variant's and stencil's latest published version and draft,
+themes, attributes, templates and the catalogs' details — and only authored catalogs' references:
+a subscribed catalog's release is recorded as installed. A check that cannot run refuses too. To
+go ahead regardless, once you have read why, skip a check by id:
+`EPISTOLA_MIGRATION_PREFLIGHT_SKIP=1x-missing-catalogs` (comma-separated; in the Helm chart under
+`config.env`). A catalog a skipped check would have reported stays without a first release.
 
 **Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
 the documents of each environment before deploying to it:

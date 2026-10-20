@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package app.epistola.suite.migration
+package app.epistola.suite.migration.preflight
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -14,12 +13,12 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 /**
- * [UpgradePreflight] on a 1.x database: what would leave catalogs without the first release the
- * upgrade gives them is found before a single migration runs. The state is what 1.x had; no 2.0
- * command can make it, so it is written as 1.x wrote it.
+ * The 1.x-to-2.0 preflight checks on a 1.x database: what would leave catalogs without the first
+ * release the upgrade gives them is found before a single migration runs. The state is what 1.x
+ * had; no 2.0 command can make it, so it is written as 1.x wrote it.
  */
 @Tag("integration")
-class UpgradePreflightTest {
+class OneXCatalogChecksTest {
 
     @Test
     fun `catalogs that use each other are a cycle, named with what they use`() {
@@ -32,14 +31,16 @@ class UpgradePreflightTest {
             stencil("brand", "footer", """{"nodes": {"logo": {"type": "image", "props": {"assetId": "logo", "catalogKey": "letters"}}}}""")
         }
 
-        assertThat(report.cycles).singleElement().satisfies({ cycle ->
-            assertThat(cycle.catalogs).containsExactly("brand", "letters")
-            assertThat(cycle.uses.map { it.describe() }).containsExactly(
+        assertThat(report.problems).singleElement().satisfies({ (check, problem) ->
+            assertThat(check).isEqualTo(CatalogDependencyCycleCheck)
+            assertThat(problem.tenantKey).isEqualTo("acme")
+            assertThat(problem.summary).isEqualTo("catalogs 'brand', 'letters' use each other, which 2.0 does not allow.")
+            assertThat(problem.details).containsExactly(
                 "stencil footer in 'brand' uses 'letters' (content)",
                 "template invoice in 'letters' uses 'brand' (theme house)",
             )
         })
-        assertThat(report.describe()).contains("catalogs 'brand', 'letters' use each other").contains("Nothing was changed")
+        assertThat(report.describe()).contains("[1x-catalog-dependency-cycles, 1.x to 2.0] Tenant 'acme': catalogs").contains("Nothing was changed")
     }
 
     @Test
@@ -51,10 +52,9 @@ class UpgradePreflightTest {
             template("letters", "invoice", themeOf = "house", model = """{"nodes": {"n": {"type": "stencil", "props": {"stencilId": "x", "catalogKey": "ghost"}}}}""")
         }
 
-        assertThat(report.cycles).isEmpty()
-        assertThat(report.missing).singleElement().satisfies({
-            assertThat(it.catalogKey).isEqualTo("letters")
-            assertThat(it.usedCatalog).isEqualTo("ghost")
+        assertThat(report.problems).singleElement().satisfies({ (check, problem) ->
+            assertThat(check).isEqualTo(MissingCatalogCheck)
+            assertThat(problem.summary).isEqualTo("catalog 'letters' uses catalog 'ghost', which this tenant does not have.")
         })
     }
 
@@ -82,13 +82,14 @@ class UpgradePreflightTest {
     }
 
     @Test
-    fun `a 2_0 database is not checked, and a refusal says what to fix`() {
+    fun `a 2_0 database is not what the 1_x checks are about`() {
         val url = database("preflight_head")
         Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration").load().migrate()
-        DriverManager.getConnection(url, user, password).use { assertThat(UpgradePreflight.isOneX(it)).isFalse() }
 
-        val refused = UpgradePreflight.Refused(UpgradePreflight.Report(listOf(UpgradePreflight.Cycle("acme", listOf("a", "b"), emptyList())), emptyList()))
-        assertThatThrownBy { throw refused }.hasMessageContaining("cannot start").hasMessageContaining("Fix the following in 1.x")
+        val report = DriverManager.getConnection(url, user, password).use { UpgradePreflights.run(it) }
+
+        assertThat(report.outcomes).allMatch { it is UpgradePreflightOutcome.NotApplicable }
+        assertThat(report.passed).isTrue()
     }
 
     // ── A 1.x database ───────────────────────────────────────────────────────
@@ -136,13 +137,14 @@ class UpgradePreflightTest {
         }
     }
 
-    private fun oneX(name: String, seed: OneX.() -> Unit): UpgradePreflight.Report {
+    private fun oneX(name: String, seed: OneX.() -> Unit): UpgradePreflightReport {
         val url = database(name)
         Flyway.configure().dataSource(url, user, password).locations("classpath:db/migration").target(LAST_1X).load().migrate()
         return DriverManager.getConnection(url, user, password).use { connection ->
             OneX(connection).apply { exec("INSERT INTO tenants (id, name) VALUES ('acme', 'Acme')") }.seed()
-            assertThat(UpgradePreflight.isOneX(connection)).isTrue()
-            UpgradePreflight.check(connection)
+            val report = UpgradePreflights.run(connection)
+            assertThat(report.outcomes).`as`("every 1.x check ran").allMatch { it is UpgradePreflightOutcome.Ran }
+            report
         }
     }
 
