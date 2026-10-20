@@ -90,11 +90,11 @@ class KnownFeaturesTest {
         assertThat(KnownFeatures.stageOf(KnownFeatures.EDITOR_WALKTHROUGH)).isEqualTo(KnownFeatures.FeatureStage.ALPHA)
     }
 
-    /** Default off, resolved by its own [FeatureDefaults.isEnabled] branch rather than the `else`. */
+    /** Default on, resolved by its own [FeatureDefaults.isEnabled] branch rather than the `else`. */
     @Test
-    fun `editor walkthrough default is off and resolved by its own branch`() {
-        assertThat(FeatureDefaults().isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isFalse()
-        assertThat(FeatureDefaults(editorWalkthrough = true).isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isTrue()
+    fun `editor walkthrough default is on and resolved by its own branch`() {
+        assertThat(FeatureDefaults().isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).`as`("on by default").isTrue()
+        assertThat(FeatureDefaults(editorWalkthrough = false).isEnabled(KnownFeatures.EDITOR_WALKTHROUGH)).isFalse()
     }
 
     @Test

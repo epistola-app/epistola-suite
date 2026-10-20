@@ -141,7 +141,7 @@ rule in `components.css`.
 | `support-compatibility-check` | Support → Upgrading (compatibility checks against upcoming releases)  | Stable | tier\*  |
 | `quality`                     | Quality checks ledger, report, and template-editor panel              | Alpha  | `false` |
 | `ai-chat`                     | AI chat panel in the template editor                                  | Alpha  | `false` |
-| `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `false` |
+| `editor-walkthrough`          | Guided in-editor tour of the template editor (client-side onboarding) | Alpha  | `true`  |
 | `catalog-publishing`          | Durable publication of authored catalog releases to Epistola Exchange | Alpha  | `false` |
 | `catalog-installing`          | Browsing Epistola Exchange and installing catalogs published there    | Alpha  | `false` |
 | `resource-graph`              | Tenant-wide catalog resource-reference explorer                       | Alpha  | `false` |
