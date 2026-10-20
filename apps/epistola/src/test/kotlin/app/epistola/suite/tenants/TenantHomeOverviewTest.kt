@@ -93,4 +93,15 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         withMediator { DeployCatalogVersion(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).`as`("everything can make documents: no notice").isEmpty()
     }
+
+    @Test
+    fun `a new tenant's home walks through the first document, no step done yet`() {
+        val tenant = createTenant("Home Getting Started")
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body!!
+
+        assertThat(body).contains("data-testid=\"getting-started\"")
+        assertThat(body).contains(">Create a template<").contains(">Publish a version<").contains(">Deploy it to an environment<")
+        assertThat(body).contains("data-done=\"false\"").doesNotContain("data-done=\"true\"")
+    }
 }

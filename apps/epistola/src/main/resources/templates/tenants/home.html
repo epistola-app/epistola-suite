@@ -51,6 +51,39 @@
             </div>
         </div>
 
+        <!--/* Getting started (GetGettingStarted): the way from nothing to a document, a step at a time,
+               until the tenant has gone it once. A sequence, so the steps are numbered. */-->
+        <section th:if="${gettingStarted != null}" class="ep-panel detail-section" data-testid="getting-started">
+            <div class="detail-section-header">
+                <h2>Getting started</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">From a template to a document your application can request.</p>
+                <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-2);">
+                    <li th:attr="data-done=${gettingStarted.hasTemplate}">
+                        <a th:href="@{/tenants/{t}/catalogs/default/templates(t=${tenant.id})}">Create a template</a>
+                        and design it in the editor.
+                        <span th:if="${gettingStarted.hasTemplate}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasPublished}">
+                        <a th:href="@{/tenants/{t}/catalogs/default/browse(t=${tenant.id})}">Publish a version</a>
+                        of its catalog, with Publish at the top of the catalog's pages.
+                        <span th:if="${gettingStarted.hasPublished}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasDeployed}">
+                        <a th:href="@{/tenants/{t}/environments(t=${tenant.id})}">Deploy it to an environment</a>,
+                        so documents can be made there.
+                        <span th:if="${gettingStarted.hasDeployed}" class="badge badge-success">Done</span>
+                    </li>
+                    <li th:attr="data-done=${gettingStarted.hasDocument}">
+                        Make a document: try one on the environment's page, or
+                        <a th:href="@{/tenants/{t}/api-keys(t=${tenant.id})}">create an API key</a> for your application.
+                        <span th:if="${gettingStarted.hasDocument}" class="badge badge-success">Done</span>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
         <!--/* Where every catalog stands, so someone sees what is going on before choosing a catalog
                version to work in (docs/catalog-workspace-navigation.md). Each draft and release
                links into that version. */-->

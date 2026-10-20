@@ -26,6 +26,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.queries.GetGettingStarted
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import org.slf4j.LoggerFactory
@@ -60,6 +61,8 @@ class TenantHandler(
         val auth = AuthContext.from(principal, tenantId.key)
         // Where every catalog stands: the landing overview (docs/catalog-workspace-navigation.md).
         val catalogs = if (auth.has(Permission.CATALOG_VIEW)) GetCatalogOverview(tenantId.key).query() else emptyList()
+        // The way from nothing to a document, until the tenant has gone it once.
+        val gettingStarted = if (auth.has(Permission.CATALOG_VIEW)) GetGettingStarted(tenantId.key).query().takeUnless { it.complete } else null
 
         // Always show latest changelog entry; highlight if unseen
         val appVersion = buildProperties?.version ?: "dev"
@@ -77,6 +80,7 @@ class TenantHandler(
                 "tenantId" to tenantId.key,
                 "tenant" to tenant,
                 "catalogs" to catalogs,
+                "gettingStarted" to gettingStarted,
                 "mayViewCatalogs" to auth.has(Permission.CATALOG_VIEW),
                 "changelogVersion" to latestEntry?.version,
                 "changelogSummary" to latestEntry?.summary,

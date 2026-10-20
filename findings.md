@@ -10,8 +10,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ### Getting started
 
-- [ ] **U1. No "start here".** A new user lands on the tenant home with no path through catalog →
-      template → publish → deploy → generate.
+- [x] **U1. No "start here".** The tenant home shows Getting started (template, publish, deploy,
+      document), each marked when done, until all are (`GetGettingStarted`). Evidence:
+      `GetGettingStartedTest`, `TenantHomeOverviewTest`.
 - [x] **U2. No demo credentials hint.** The login page lists the accounts under the `local` profile
       only (`localAccountHints`); elsewhere they are real credentials. Evidence: `LocalAccountHintsTest`.
 - [x] **U3. No way to generate a test document from the UI.** An environment's page has "Try a
