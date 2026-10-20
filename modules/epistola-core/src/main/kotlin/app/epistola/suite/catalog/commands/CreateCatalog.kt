@@ -9,8 +9,10 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.versions.CatalogDrafts
+import app.epistola.suite.catalog.versions.HouseTheme
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -56,10 +58,12 @@ class CreateCatalogHandler(
     private val identity: CatalogIdentityProperties,
     private val drafts: CatalogDrafts,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
+    private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateCatalog, Catalog> {
 
     override fun handle(command: CreateCatalog): Catalog = executeOrThrowDuplicate("catalog", command.id.value) {
-        jdbi.withHandle<Catalog, Exception> { handle ->
+        var houseThemeCatalog: CatalogKey? = null
+        val created = jdbi.inTransaction<Catalog, Exception> { handle ->
             val namespace = namespaceFor(handle, command)
             handle.createUpdate(
                 """
@@ -76,9 +80,14 @@ class CreateCatalogHandler(
                 .execute()
             // Its working copy is its next version, a convention of this suite.
             drafts.open(handle, command.tenantKey, command.id, base = null)
+            // It starts with the tenant's house theme as its default theme (contract ADR 0007, 1a).
+            houseThemeCatalog = HouseTheme.applyTo(handle, command.tenantKey, command.id)
 
             handle.findCatalog(command.tenantKey, command.id)!!
         }
+        // A house theme of another catalog is a use of that catalog, declared as any reference is.
+        houseThemeCatalog?.takeIf { it != command.id }?.let { usedCatalogs.declare(command.tenantKey, command.id, it) }
+        created
     }
 
     /**
