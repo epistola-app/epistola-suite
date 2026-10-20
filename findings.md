@@ -50,12 +50,31 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ## Upgrade test: 1.x → 2.0
 
-- [~] **G1. Live output changes after the upgrade.** Verified by comparing PDFs:
-  - an environment that served an older 1.x version gets the latest published content once deployed;
-  - stencil instances pinned to an older stencil version render the stencil as it is now.
+- [~] **G1. Live output changes after the upgrade.** Verified side by side (1.5.0 vs 2.0, same data,
+  `sectioned-letter`, production; PDFs in the scratchpad `upg/v1-production.pdf`, `upg/v2-production.pdf`):
+  - an environment that served an older 1.x version gets the latest published content once deployed
+    (1.x production had no marker, 2.0 shows the `[v2]` content);
+  - stencil instances pinned to an older stencil version render the stencil as it is now
+    (`[stencil v2]` on every page).
 
   Option: create a release per distinct activation set, so each environment keeps what it served.
   Until decided, `docs/upgrades.md` ("Documents can look different after the upgrade") warns.
+
+- [ ] **G4. Upgraded releases render without their fonts.** 1.x: Inter (embedded), 16 pages. 2.0:
+      Helvetica, 14 pages, the title no longer bold. The log says
+      `Font ref 'inter' (catalog 'system', weight 400) could not be resolved; falling back to the
+      built-in font`. The fonts are there: `system` is installed at 2.0.0 with 9 fonts, has a
+      `catalog_releases` row, and `epistola-demo` 5.21.1 pins it. Release renders read other catalogs
+      through `DraftDependencyView.released` / `releasedBinary` (retained release content), so the
+      suspicion is that the retained content of the installed `system` 2.0.0 lacks the font
+      resource or its bytes. Not yet proven. Not seen in the fresh demo log, so it looks
+      upgrade-specific, but that is also unproven.
+- [ ] **G5. Stencil parameters render empty after the upgrade.** The letterhead's company name
+      ("Globex Corporation", from `companyName`) shows in 1.x header and footer on every page
+      (13 times) and in 2.0 once, outside the stencil. The upgraded reference keeps
+      `parameterBindings: {companyName: companyName}` and `paramsAlias: params`, so the binding
+      survived; why it evaluates empty is not yet known. Check whether the current stencil content
+      reads `params.companyName`, and whether a fresh 2.0 stencil reference fills it.
 
 - [~] **G2. No guard against a live 1.x node during the migration.** The 1.x node fails closed (500s,
   writes nothing), so no data is lost, but nothing stops the operator either. Option: refuse a
