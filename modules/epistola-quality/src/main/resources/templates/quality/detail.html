@@ -84,14 +84,14 @@
                             <dd th:if="${finding.path != null}"><code th:text="${finding.path}">$.customer.name</code></dd>
 
                             <dt>First seen</dt>
-                            <dd th:text="${#temporals.format(finding.firstSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+                            <dd th:text="${#temporals.format(finding.firstSeenAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${finding.firstSeenAt}">2026-01-01</dd>
 
                             <dt>Last seen</dt>
-                            <dd th:text="${#temporals.format(finding.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+                            <dd th:text="${#temporals.format(finding.lastSeenAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${finding.lastSeenAt}">2026-01-01</dd>
 
                             <dt th:if="${finding.resolvedAt != null}">Resolved</dt>
                             <dd th:if="${finding.resolvedAt != null}"
-                                th:text="${#temporals.format(finding.resolvedAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</dd>
+                                th:text="${#temporals.format(finding.resolvedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${finding.resolvedAt}">2026-01-01</dd>
                         </dl>
                     </div>
                 </div>
@@ -186,7 +186,7 @@
                                         <div class="ep-row ep-gap-1" style="margin-bottom: var(--ep-space-1);">
                                             <strong th:text="${c.authorName}" style="font-size: var(--ep-text-sm);">Author</strong>
                                             <span class="text-muted" style="font-size: var(--ep-text-sm);"
-                                                  th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</span>
+                                                  th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${c.createdAt}">2026-01-01</span>
                                         </div>
                                         <p th:text="${c.body}" style="margin: 0;">Comment body</p>
                                     </div>

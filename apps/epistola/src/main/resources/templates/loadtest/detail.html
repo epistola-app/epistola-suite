@@ -45,11 +45,11 @@
                     <dt>Target Count</dt>
                     <dd th:text="${run.targetCount}"></dd>
                     <dt>Created</dt>
-                    <dd th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                    <dd th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${run.createdAt}"></dd>
                     <dt th:if="${run.startedAt != null}">Started</dt>
-                    <dd th:if="${run.startedAt != null}" th:text="${#temporals.format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                    <dd th:if="${run.startedAt != null}" th:text="${#temporals.format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${run.startedAt}"></dd>
                     <dt th:if="${run.completedAt != null}">Completed</dt>
-                    <dd th:if="${run.completedAt != null}" th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                    <dd th:if="${run.completedAt != null}" th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${run.completedAt}"></dd>
                 </dl>
             </div>
         </div>

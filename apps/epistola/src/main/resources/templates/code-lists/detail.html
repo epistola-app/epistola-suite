@@ -30,7 +30,7 @@
 
             <div th:if="${codeList.lastRefreshedAt != null}" class="text-xs text-muted" style="margin-bottom: var(--ep-space-3);">
                 Last refreshed
-                <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                <span th:text="${#temporals.format(codeList.lastRefreshedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${codeList.lastRefreshedAt}"></span>
                 <th:block th:if="${codeList.lastRefreshError != null}">
                     &mdash; last attempt failed: <span th:text="${codeList.lastRefreshError}"></span>
                 </th:block>

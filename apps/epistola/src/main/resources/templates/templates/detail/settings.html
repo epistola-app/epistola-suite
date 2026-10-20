@@ -39,9 +39,9 @@
                         </button>
                     </dd>
                     <dt>Created</dt>
-                    <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                    <dd th:text="${#temporals.format(template.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.createdAt}"></dd>
                     <dt>Modified</dt>
-                    <dd th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                    <dd th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}"></dd>
                 </dl>
             </div>
         </div>

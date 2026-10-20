@@ -21,7 +21,7 @@
                 <div>
                     <h2>Theme configuration</h2>
                     <span class="theme-panel-subtitle">
-                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                        Last modified <span th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}"></span>
                     </span>
                 </div>
                 <!--/* No catalog badge: the bar above names it, links to it and says where it

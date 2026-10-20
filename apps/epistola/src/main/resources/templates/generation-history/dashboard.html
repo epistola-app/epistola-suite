@@ -117,8 +117,8 @@
                                       th:text="${job.errorMessage}">Error</span>
                                 <span th:if="${job.errorMessage == null}" class="text-muted">—</span>
                             </td>
-                            <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
-                            <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                            <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${job.createdAt}">2026-01-01</td>
+                            <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}" th:data-local-time="${job.completedAt}">—</td>
                         </tr>
                     </th:block>
                 </tbody>

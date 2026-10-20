@@ -118,7 +118,7 @@
                                 <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${f.ruleId}">example.empty-text</td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: source-badge(${f.sourceId})}" /></td>
                                 <td><th:block th:insert="~{quality/fragments/badges :: status-badge(${f.effectiveStatus})}" /></td>
-                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${#temporals.format(f.lastSeenAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                                <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${#temporals.format(f.lastSeenAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${f.lastSeenAt}">2026-01-01</td>
                             </tr>
                         </tbody>
                     </table>

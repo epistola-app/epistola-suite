@@ -164,7 +164,7 @@
                         <div class="alert-title">Publications are not progressing.</div>
                         <p style="margin: var(--ep-space-1) 0 0;">
                             The oldest unfinished publication has been queued since
-                            <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</span>.
+                            <span th:text="${#temporals.format(activity.oldestActiveSince, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${activity.oldestActiveSince}">2026-08-24 09:00</span>.
                             Check that this tenant's connection is active and that a namespace is available.
                         </p>
                     </div>
@@ -195,7 +195,7 @@
                             <div th:if="${entry.failure?.message != null}" class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${entry.failure.message}"></div>
                         </td>
                         <td th:text="${entry.attempts}">0</td>
-                        <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                        <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${entry.updatedAt}">2026-08-24 09:00</td>
                     </tr>
                     </tbody>
                 </table>

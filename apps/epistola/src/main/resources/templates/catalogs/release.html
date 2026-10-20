@@ -83,7 +83,7 @@
             <div class="catalog-detail-summary">
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Published</span>
-                    <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}"></p>
+                    <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${release.releasedAt}"></p>
                 </div>
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Fingerprint</span>

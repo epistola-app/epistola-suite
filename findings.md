@@ -39,7 +39,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ### Consistency
 
-- [ ] **U13. UTC vs local times.** Some pages show UTC, others local time, without saying which.
+- [x] **U13. UTC vs local times.** Server-formatted date-times carry `data-local-time`; `behaviors.js`
+      shows them in the browser zone, UTC in the title. Audit and logs stay labelled UTC; ops dashboards
+      keep their own. Evidence: `LocalTimeUiTest` (Tokyo; fails with the script off).
 - [x] **U14. Raw enums.** `#labels.of(...)` (epistola-web `LabelsDialect`) on Quality, Feedback, profile
       and generation pages. Evidence: `LabelsTest`, `ProfileHandlerHtmxTest`, `GenerationHistoryRoutesTest`.
 - [ ] **U15. Inline template settings give no feedback.** Saving shows nothing on success.

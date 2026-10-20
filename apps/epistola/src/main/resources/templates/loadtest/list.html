@@ -33,7 +33,7 @@
             </thead>
             <tbody>
                 <tr th:each="run : ${runs}">
-                    <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${run.createdAt}"></td>
                     <td>
                         <strong th:text="${run.templateKey}"></strong>
                         <span class="text-muted">/</span>

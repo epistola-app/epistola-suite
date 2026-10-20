@@ -71,7 +71,7 @@
                         <td><th:block th:insert="~{feedback/fragments/badges :: priority-badge(${item.priority})}" /></td>
                         <td th:text="${item.createdByName}">User</td>
                         <td th:text="${item.commentCount}">0</td>
-                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${item.createdAt}">2026-01-01</td>
                     </tr>
                 </th:block>
             </tbody>

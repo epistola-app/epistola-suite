@@ -73,7 +73,7 @@
                             <span th:if="${theme.description != null}" th:text="${theme.description}"></span>
                             <span th:unless="${theme.description != null}" class="text-muted">-</span>
                         </td>
-                        <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"

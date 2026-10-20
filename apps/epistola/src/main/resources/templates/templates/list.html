@@ -80,7 +80,7 @@
                             </td>
                             <td th:title="${template.id}"><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                             <td th:text="${template.variantCount}"></td>
-                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <span th:if="${template.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"

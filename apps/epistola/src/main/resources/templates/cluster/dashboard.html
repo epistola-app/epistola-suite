@@ -196,7 +196,7 @@
                         <td>
                             <span th:title="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}"
                                   th:attr="data-local-datetime=${entry.node.joinedAt}"
-                                  th:text="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                  th:text="${#temporals.format(entry.node.joinedAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${entry.node.joinedAt}">--</span>
                         </td>
                         <td>
                             <span th:title="${#temporals.format(entry.node.lastSeenAt, 'yyyy-MM-dd HH:mm:ss')}"
@@ -252,7 +252,7 @@
                                 <td>
                                     <span th:title="${#temporals.format(entry.effectiveNextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
                                           th:attr="data-local-datetime=${entry.effectiveNextDueAt}"
-                                          th:text="${#temporals.format(entry.effectiveNextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                          th:text="${#temporals.format(entry.effectiveNextDueAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${entry.effectiveNextDueAt}">--</span>
                                 </td>
                                 <td><code th:text="${task.leaseOwnerNodeId ?: '-'}">-</code></td>
                             </tr>
@@ -278,13 +278,13 @@
                                                 <td>
                                                     <span th:title="${#temporals.format(state.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}"
                                                           th:attr="data-local-datetime=${state.nextDueAt}"
-                                                          th:text="${#temporals.format(state.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                                          th:text="${#temporals.format(state.nextDueAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${state.nextDueAt}">--</span>
                                                 </td>
                                                 <td>
                                                     <span th:if="${state.leaseExpiresAt != null}"
                                                           th:title="${#temporals.format(state.leaseExpiresAt, 'yyyy-MM-dd HH:mm:ss')}"
                                                           th:attr="data-local-datetime=${state.leaseExpiresAt}"
-                                                          th:text="${#temporals.format(state.leaseExpiresAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                                          th:text="${#temporals.format(state.leaseExpiresAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${state.leaseExpiresAt}">--</span>
                                                     <code th:if="${state.leaseExpiresAt == null}">-</code>
                                                 </td>
                                                 <td><code th:text="${state.consecutiveFailures}">0</code></td>
@@ -325,7 +325,7 @@
                             <td>
                                 <span th:title="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}"
                                       th:attr="data-local-datetime=${timer.dueAt}"
-                                      th:text="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}">--</span>
+                                      th:text="${#temporals.format(timer.dueAt, 'yyyy-MM-dd HH:mm:ss')}" th:data-local-time="${timer.dueAt}">--</span>
                             </td>
                             <td th:text="${timer.status.dbValue}">scheduled</td>
                         </tr>

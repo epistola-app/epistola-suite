@@ -70,9 +70,9 @@
                                 </dd>
                             </th:block>
                             <dt>Created</dt>
-                            <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                            <dd th:text="${#temporals.format(stencil.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${stencil.createdAt}"></dd>
                             <dt>Last Modified</dt>
-                            <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></dd>
+                            <dd th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${stencil.updatedAt}"></dd>
                         </dl>
                     </div>
                 </div>

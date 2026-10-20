@@ -343,3 +343,47 @@ document.addEventListener('click', function (event) {
     done(ok);
   }
 });
+
+// ── Times in the reader's time zone ─────────────────────────────────────────
+// Usage: <td th:text="${#temporals.format(t, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${t}">
+// The server writes the time in UTC; this rewrites it in the browser's time zone, in the same
+// shape (seconds when the server wrote them), and keeps the UTC time in the title. A value without
+// a zone is left alone: it names no instant, so there is nothing to convert.
+function padTime(value) {
+  return String(value).padStart(2, '0');
+}
+
+function localizeTimes(root) {
+  const elements = [];
+  if (root.matches && root.matches('[data-local-time]')) elements.push(root);
+  if (root.querySelectorAll)
+    root.querySelectorAll('[data-local-time]').forEach(function (element) {
+      elements.push(element);
+    });
+  elements.forEach(function (element) {
+    if (element.dataset.localTimeShown) return;
+    const value = element.dataset.localTime;
+    if (!/(Z|[+-]\d{2}:?\d{2})$/.test(value)) return;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return;
+    const utc = element.textContent.trim();
+    let local =
+      date.getFullYear() +
+      '-' +
+      padTime(date.getMonth() + 1) +
+      '-' +
+      padTime(date.getDate()) +
+      ' ' +
+      padTime(date.getHours()) +
+      ':' +
+      padTime(date.getMinutes());
+    if ((utc.match(/:/g) || []).length >= 2) local += ':' + padTime(date.getSeconds());
+    element.textContent = local;
+    if (!element.title || element.title === utc) element.title = utc + ' UTC';
+    element.dataset.localTimeShown = 'true';
+  });
+}
+
+document.addEventListener('htmx:load', function (event) {
+  localizeTimes(event.target);
+});

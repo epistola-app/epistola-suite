@@ -209,8 +209,9 @@
                                     <div th:each="served : ${row.served}" th:attr="data-version=${served.version}"
                                          style="display: flex; gap: var(--ep-space-2); align-items: center;">
                                         <span th:text="'v' + ${served.version}">v1.0.0</span>
-                                        <span class="text-muted" style="font-size: var(--ep-text-xs);"
-                                              th:text="'since ' + ${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')} + ' · ' + ${served.usage}"></span>
+                                        <span class="text-muted" style="font-size: var(--ep-text-xs);">since
+                                            <span th:text="${#temporals.format(served.deployedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${served.deployedAt}"></span>
+                                            · <span th:text="${served.usage}"></span></span>
                                         <form th:if="${canDeploy}"
                                               method="post" style="display: inline;"
                                               th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
@@ -465,7 +466,7 @@
                                 </a>
                             </td>
                             <td th:text="${entry.attempts}">0</td>
-                            <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}">2026-08-24 09:00</td>
+                            <td th:text="${#temporals.format(entry.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${entry.updatedAt}">2026-08-24 09:00</td>
                             <td class="actions">
                                 <!--
                                   Straight to this submission on Exchange. Exchange is the only side that
