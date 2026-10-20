@@ -36,9 +36,6 @@ class DeleteCatalogHandler(
 ) : CommandHandler<DeleteCatalog, Boolean> {
 
     override fun handle(command: DeleteCatalog): Boolean {
-        require(command.catalogKey != CatalogKey.DEFAULT) {
-            "The default catalog cannot be deleted"
-        }
         // The suite installs it in every tenant on every start, so a delete would not stick; what uses it is
         // refused below anyway.
         require(command.catalogKey != SYSTEM_CATALOG_KEY) {

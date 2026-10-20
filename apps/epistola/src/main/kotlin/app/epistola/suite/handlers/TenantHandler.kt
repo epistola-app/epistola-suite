@@ -81,6 +81,8 @@ class TenantHandler(
                 "tenant" to tenant,
                 "catalogs" to catalogs,
                 "gettingStarted" to gettingStarted,
+                // Where the steps point: the first catalog the tenant authors; none sends them to create one.
+                "startCatalog" to catalogs.firstOrNull { it.authored }?.catalogKey,
                 "mayViewCatalogs" to auth.has(Permission.CATALOG_VIEW),
                 "changelogVersion" to latestEntry?.version,
                 "changelogSummary" to latestEntry?.summary,

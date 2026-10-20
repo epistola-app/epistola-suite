@@ -61,12 +61,18 @@
                 <p class="form-hint" style="margin-top: 0;">From a template to a document your application can request.</p>
                 <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-2);">
                     <li th:attr="data-done=${gettingStarted.hasTemplate}">
-                        <a th:href="@{/tenants/{t}/catalogs/default/templates(t=${tenant.id})}">Create a template</a>
-                        and design it in the editor.
+                        <th:block th:if="${startCatalog != null}">
+                            <a th:href="@{/tenants/{t}/catalogs/{c}/templates(t=${tenant.id},c=${startCatalog})}">Create a template</a>
+                            and design it in the editor.
+                        </th:block>
+                        <th:block th:if="${startCatalog == null}">
+                            <a th:href="@{/tenants/{t}/catalogs(t=${tenant.id})}">Create a catalog</a>, then a template in it.
+                        </th:block>
                         <span th:if="${gettingStarted.hasTemplate}" class="badge badge-success">Done</span>
                     </li>
                     <li th:attr="data-done=${gettingStarted.hasPublished}">
-                        <a th:href="@{/tenants/{t}/catalogs/default/browse(t=${tenant.id})}">Publish a version</a>
+                        <a th:if="${startCatalog != null}" th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${startCatalog})}">Publish a version</a>
+                        <span th:if="${startCatalog == null}">Publish a version</span>
                         of its catalog, with Publish at the top of the catalog's pages.
                         <span th:if="${gettingStarted.hasPublished}" class="badge badge-success">Done</span>
                     </li>

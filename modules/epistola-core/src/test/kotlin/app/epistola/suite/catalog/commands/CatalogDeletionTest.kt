@@ -48,6 +48,15 @@ class CatalogDeletionTest : IntegrationTestBase() {
     inner class DeleteCatalogTests {
 
         @Test
+        fun `the default catalog is deleted like any other once nothing uses it`() {
+            val tenant = createTenant("Delete Default")
+
+            withMediator { DeleteCatalog(tenant.id, CatalogKey.of("default")).execute() }
+
+            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("default")).query() }).isNull()
+        }
+
+        @Test
         fun `the system catalog cannot be deleted, not even forced`() {
             val tenant = createTenant("Delete System")
 

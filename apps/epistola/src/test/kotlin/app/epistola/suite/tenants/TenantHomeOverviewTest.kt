@@ -6,6 +6,7 @@ package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
@@ -103,5 +104,17 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(body).contains("data-testid=\"getting-started\"")
         assertThat(body).contains(">Create a template<").contains(">Publish a version<").contains(">Deploy it to an environment<")
         assertThat(body).contains("data-done=\"false\"").doesNotContain("data-done=\"true\"")
+        // The steps point at a catalog the tenant has, never at one assumed to exist.
+        assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/default/templates")
+    }
+
+    @Test
+    fun `without a catalog of its own the first step is creating one`() {
+        val tenant = createTenant("Home Without Catalogs")
+        withMediator { DeleteCatalog(tenant.id, CatalogKey.of("default")).execute() }
+
+        val body = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body!!
+
+        assertThat(body).contains(">Create a catalog<").doesNotContain("/catalogs/default/")
     }
 }
