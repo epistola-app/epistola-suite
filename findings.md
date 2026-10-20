@@ -35,7 +35,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       browser (only panel preferences), and autosaves to the server 3 s after a change (`SaveService`),
       warning on leave while a save is pending. In the test the leave warning was dismissed by the
       script (which keeps the page open), the autosave ran, and the block was simply saved.
-- [x] **U9. Walkthrough off by default.** Decided: on by default (`3d4b4690d`); it never starts by
+- [x] **U9. Walkthrough off by default.** Decided: on by default (`d1134c6b6`); it never starts by
       itself, a first visit only points at the Guide button. Evidence: `KnownFeaturesTest`.
 
 ### Wording that misleads
@@ -62,7 +62,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 - [x] **U16. `versionId` empty on generated documents.** Decided: always there. Contract `7ae3536`
       says so; the suite stores the rendered version's id with each request, document and result
-      (`26721799d`). Evidence: `ReleasesAndDeploymentsApiIT` (fails without it).
+      (`eee388885`). Evidence: `ReleasesAndDeploymentsApiIT` (fails without it).
 
 ## Upgrade test: 1.x → 2.0
 
@@ -70,7 +70,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       and the upgrade does what was decided: the first release is what was last published, and
       unpublished work stays in the next version. `docs/upgrades.md` keeps the warning.
 
-- [x] **G4. Releases render without the system catalog's fonts.** Fixed in `30c6dd0e1`. 1.x rendered
+- [x] **G4. Releases render without the system catalog's fonts.** Fixed in `b4130757e`. 1.x rendered
       Inter, 2.0 Helvetica (`Font ref 'inter' (catalog 'system') could not be resolved`). Not
       upgrade-specific: the system catalog's release kept every font with `"variants": []`, on a
       fresh 2.0 demo too, because `RecordInstalledRelease` retained content built by `ExportFonts`,
@@ -118,7 +118,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       treat an empty schema as none, REST no longer clears on omission. Evidence:
       `StencilParameterSchemaApiTest` (fails with the old REST mapping), `StencilIntegrationTest`.
 - [x] **G2. No guard against a live 1.x node during the migration.** Decided: release notes. The 2.0
-      upgrade fragment says to stop every 1.x node first (`3d4b4690d`); `docs/upgrades.md` step 2 checks it.
+      upgrade fragment says to stop every 1.x node first (`d1134c6b6`); `docs/upgrades.md` step 2 checks it.
 
 - [x] **G3. 404 `no-release-deployed` right after the upgrade.** The detail now says "published version"
       and where to deploy (the environment's page, or `deployCatalogVersion`); the tenant home already
@@ -144,7 +144,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 ## Found while catching up with the contract (2026-10-20)
 
 - [x] **C1. The collect stream had drifted from the contract.** Written by hand, it emitted
-      `templateId`/`variantId`/`draftId`, no catalog, `COMPLETED` and `count`. Fixed in `65c66c142`;
+      `templateId`/`variantId`/`draftId`, no catalog, `COMPLETED` and `count`. Fixed in `20f0e35bf`;
       `CollectWireContractTest` now reads each line as the generated `GenerationResult`/`CollectMeta`.
 - [x] **C2. A theme the draft still used could be deleted.** Refused now (409 `theme-in-use`).
 - [x] **C3. The theme usage list still resolved the tenant default.** Fixed: it resolves the
@@ -159,7 +159,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 - [x] **C5. Stencil parameter changes that slipped through.** A renamed parameter (old binding
       ignored, new one unbound and silent when optional) and a binding of another type than the
-      parameter's. Both block marking ready and releasing now (`a714d68c8`). Evidence:
+      parameter's. Both block marking ready and releasing now (`0b15eeb16`). Evidence:
       `StencilInstancesTest`, `ReadyMarksTest` (2 fail before), `parameter-bindings-dialog.test.ts`.
 
 ## Flaky tests
@@ -188,7 +188,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       progress.md before. Both pass on rerun.
 - [x] **V4. Full suites after the contract catch-up.** 2026-10-20: 4545 tests, 1 skipped, 1 failed
       (`EmbeddingBridgeUiTest`, T1, passes alone). The run before it had 13 failures, all fixed in
-      `827a8742d` (walkthrough spotlight in editor UI tests, collect `resultCount`).
+      `328a68fd4` (walkthrough spotlight in editor UI tests, collect `resultCount`).
 - [x] **V2. `NoTenantWideListTest` guard.** Passes (guards: 27 tests, 0 failed, 2026-10-20).
 - [ ] **V3. Clean up the test machinery.** Databases `epistola_v1`, `epistola_upg`…`epistola_upg4`
       in `epistola-postgres`, stopped containers `epistola-v1` / `epistola-v1b`, and the image
@@ -196,9 +196,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ## Already fixed during the tests
 
-- `9fcc314bc`: "long-term work" renamed to "parallel work".
-- `47ca663c1`: publishing parallel work decides where everyday work continues; "promote" removed.
-- `a259db3b4`:
+- `67640796e`: "long-term work" renamed to "parallel work".
+- `20dcb97fe`: publishing parallel work decides where everyday work continues; "promote" removed.
+- `61e477df8`:
   - Create buttons hidden on subscribed (read-only) catalogs.
   - The release number is suggested correctly for an older line.
   - The getting-started hint names the namespace.
@@ -206,5 +206,5 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
   - The generation dashboard has an empty state, and its statuses read as words.
   - Role texts corrected.
   - Smaller copy fixes, a duplicate Production badge removed, "· up to date" made visible.
-- `43d188555`: requests queued before the upgrade log one warning, not a stack trace each.
-- `feb62bbe9`: an upgrade held back by a missing catalog names that catalog.
+- `d7cf75ccf`: requests queued before the upgrade log one warning, not a stack trace each.
+- `e863a77de`: an upgrade held back by a missing catalog names that catalog.
