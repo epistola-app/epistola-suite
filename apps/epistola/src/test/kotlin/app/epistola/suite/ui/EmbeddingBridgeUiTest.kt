@@ -258,7 +258,7 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // The editor is a standalone full page outside the shell
         // (hx-boost="false"), so this is a real reload — the init script
         // reinstalls the capture and only the editor page's messages remain.
-        page.locator("a[title='Open editor']").click()
+        page.getByTestId("variant-open-editor").click()
         assertThat(page.locator("#editor-container")).isVisible()
 
         val navigated = latestMessageOfType("navigated")

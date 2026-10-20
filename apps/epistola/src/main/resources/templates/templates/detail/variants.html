@@ -141,8 +141,9 @@
                         <!--/* Not boosted: the editor is a full page with its own layout and scripts, outside the shell. */-->
                         <a th:if="${auth.has('TEMPLATE_EDIT') and editable}"
                            th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
-                           class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" hx-boost="false" title="Open editor">
+                           class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false" data-testid="variant-open-editor">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            <span>Open editor</span>
                         </a>
                         <form th:if="${variant.offerMarkReady}"
                               th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"
@@ -153,12 +154,13 @@
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
                             </button>
                         </form>
-                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                                 th:data-tenant-id="${tenantId}" th:data-catalog-id="${catalogSegment ?: catalogId}"
                                 th:data-template-id="${template.id}" th:data-variant-id="${variant.id}"
                                 th:data-test-data="${contractDataExamples != null and !#lists.isEmpty(contractDataExamples) ? contractDataExamples[0].data : '{}'}"
-                                data-pdf-preview title="Preview">
+                                data-pdf-preview data-testid="variant-preview">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            <span>Preview</span>
                         </button>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and editable}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},variantId=${variant.id})}"

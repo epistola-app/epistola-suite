@@ -20,7 +20,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ### Editor
 
-- [ ] **U4. Icon-only actions.** Several toolbar and block actions have no visible label.
+- [x] **U4. Icon-only actions.** Variant cards: "Open editor" and "Preview" carry text. Catalog rows were
+      fine (the name is the link, icons have tooltips); the editor's JSON and shortcut buttons have
+      tooltips and labels, kept as icons. Evidence: `VariantReadyHandlerHtmxTest`.
 - [x] **U5. Internal node ids visible.** Gone from the canvas block headers; the inspector labels it "ID".
       Evidence: `EpistolaCanvas.hints.test.ts` "names the block by its kind" (fails without it).
 - [x] **U6. Truncated tabs hide Quality.** The tabs wrap instead of scrolling (`sidebar.css`). Evidence:

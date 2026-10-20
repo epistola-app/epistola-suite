@@ -60,6 +60,9 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(body).contains("data-testid=\"variant-not-ready\"").contains(">Not checked yet<").doesNotContain(">Not ready<")
             assertThat(body).contains("data-testid=\"variant-mark-ready\"")
             assertThat(body).contains("data-testid=\"template-mark-ready\"")
+            // The card's two main actions say what they do, not only through an icon.
+            assertThat(body).contains("data-testid=\"variant-open-editor\"").contains(">Open editor<")
+            assertThat(body).contains("data-testid=\"variant-preview\"").contains(">Preview<")
             // No versions any more: no history, no publish, no discard.
             assertThat(body).doesNotContain("Version history")
             assertThat(body).doesNotContain("/draft/publish")
