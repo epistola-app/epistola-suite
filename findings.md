@@ -103,6 +103,22 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       that worked a minute ago. Consider a clearer problem detail naming the environment and the
       deploy step, and a tenant-home notice until something is deployed.
 
+## Design to decide
+
+- [~] **D1. One storage model for drafts and releases.** Discussed 2026-10-19, not written up yet. A
+  draft is stored as rows per version (`template_variants`, `themes`, …) and a release as a
+  manifest of content revisions stored once (`release_entries` → `resource_revisions`). Every
+  page and list reads the rows, so a released version cannot be browsed in the tables; only
+  export, deployment and rendering read releases, through `ReleaseContentAssembler`. Proposal:
+  every version, draft or release, is a manifest mapping each resource to a revision in one
+  store. Saving a draft writes a revision and moves the draft's pointer; publishing freezes the
+  manifest without copying; any version is read, listed and compared the same way. Cost: small
+  per-version index rows (key, name, references, updated) for lists, search and "what uses
+  this"; optimistic locking moves to the pointer; a migration rewriting how drafts are stored.
+  Rejected stopgap: unpacking a release back into rows to show it (duplicates what D1 removes).
+  Next step: a design note (or contract ADR, since it touches the release model) before
+  building, after the `release/2.0` merge.
+
 ## Ideas for later
 
 - **F1. A data contract as its own catalog resource.** Templates and stencils would reference a
