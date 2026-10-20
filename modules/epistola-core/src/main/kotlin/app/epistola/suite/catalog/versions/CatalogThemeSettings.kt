@@ -220,3 +220,30 @@ class GetAvailablePresetsHandler : QueryHandler<GetAvailablePresets, List<Availa
         return (own + fromDependencies).distinctBy { it.key }
     }
 }
+
+/**
+ * The block style presets a template or stencil may name (contract ADR 0007): once its catalog declares
+ * presets, a block naming one that is not among the available presets is refused when saved. A catalog
+ * that declares none is not checked, so older content and imported archives keep working.
+ */
+object PresetUse {
+    fun requireAvailable(
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        document: app.epistola.suite.templates.model.TemplateDocument,
+        catalogVersion: CatalogVersionRef? = null,
+    ) {
+        val named = document.nodes.values.mapNotNull { it.stylePreset?.takeIf(String::isNotBlank) }.toSet()
+        if (named.isEmpty()) return
+        val available = GetAvailablePresets(tenantKey, catalogKey, catalogVersion).query().map { it.key }.toSet()
+        if (available.isEmpty()) return
+        val unknown = (named - available).sorted()
+        if (unknown.isNotEmpty()) {
+            throw ValidationException(
+                "templateModel",
+                "Preset ${unknown.joinToString(", ") { "'$it'" }} is not one of this catalog's presets. Declare it on the catalog's Details page, or choose another.",
+                app.epistola.suite.validation.ValidationCode.TEMPLATE_STYLE_PRESET_UNKNOWN,
+            )
+        }
+    }
+}

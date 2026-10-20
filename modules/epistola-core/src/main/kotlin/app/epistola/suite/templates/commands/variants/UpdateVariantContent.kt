@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.PresetUse
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
@@ -67,6 +68,7 @@ class UpdateVariantContentHandler(
 
     private fun save(command: UpdateVariantContent): SavedVariantContent {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        PresetUse.requireAvailable(command.variantId.tenantKey, command.variantId.catalogKey, command.templateModel)
         val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.catalogKey)
         val revision = jdbi.withHandle<Long?, Exception> { handle ->
             val written = handle.createQuery(

@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.PresetUse
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -103,6 +104,7 @@ class UpdateStencilHandler(
     private fun save(command: UpdateStencil): Stencil? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
+        command.content?.let { PresetUse.requireAvailable(command.id.tenantKey, command.id.catalogKey, it) }
         val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
         if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->

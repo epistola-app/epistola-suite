@@ -106,6 +106,28 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `once a catalog declares presets, saving a block that names another one is refused`() {
+        val catalog = lettersIn("Preset Use")
+        val template = TemplateId(TemplateKey.of("invoice"), catalog)
+        val variant = app.epistola.suite.common.ids.VariantId(VariantKey.INITIAL, template)
+        fun withPreset(preset: String) = app.epistola.suite.testing.TestTemplateBuilder.buildMinimal(name = "Invoice").let { doc ->
+            doc.copy(nodes = doc.nodes.mapValues { (_, node) -> node.copy(stylePreset = preset) })
+        }
+        withMediator {
+            CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
+
+            // Nothing declared: not checked, as before.
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("anything")).execute()
+
+            SetCatalogPresets(catalog.tenantKey, letters, listOf(CatalogPreset("accent", "Accent"))).execute()
+            app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("accent")).execute()
+            assertThatThrownBy { app.epistola.suite.templates.commands.variants.UpdateVariantContent(variant, withPreset("bogus")).execute() }
+                .isInstanceOf(ValidationException::class.java)
+                .hasMessageContaining("'bogus' is not one of this catalog's presets")
+        }
+    }
+
+    @Test
     fun `a draft renders a template that names no theme with the catalog's default theme`() {
         val catalog = lettersIn("Default Theme Render")
         val template = TemplateId(TemplateKey.of("invoice"), catalog)

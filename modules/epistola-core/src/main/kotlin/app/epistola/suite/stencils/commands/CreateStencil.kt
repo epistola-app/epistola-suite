@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.versions.PresetUse
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionKey
@@ -100,6 +101,7 @@ class CreateStencilHandler(
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         if (command.content != null) {
             templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)
+            PresetUse.requireAvailable(command.id.tenantKey, command.id.catalogKey, command.content)
         }
         val parameterSchema = command.parameterSchema?.takeUnless(::declaresNoParameters)
         parameterSchemaValidator.validate(parameterSchema)
