@@ -35,8 +35,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       browser (only panel preferences), and autosaves to the server 3 s after a change (`SaveService`),
       warning on leave while a save is pending. In the test the leave warning was dismissed by the
       script (which keeps the page open), the autosave ran, and the block was simply saved.
-- [~] **U9. Walkthrough off by default.** The editor walkthrough would help exactly the users who
-  never find the switch. Decide: on for first visit, or offered once.
+- [x] **U9. Walkthrough off by default.** Decided: on by default (`3d4b4690d`); it never starts by
+      itself, a first visit only points at the Guide button. Evidence: `KnownFeaturesTest`.
 
 ### Wording that misleads
 
@@ -60,21 +60,15 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ### Contract
 
-- [~] **U16. `versionId` empty on generated documents.** By contract `DocumentDto.versionId` is null
-  for a document rendered from a release, which reads as missing data. Proposal: always fill it
-  (contract wording change in `epistola-contract`).
+- [x] **U16. `versionId` empty on generated documents.** Decided: always there. Contract `7ae3536`
+      says so; the suite stores the rendered version's id with each request, document and result
+      (`26721799d`). Evidence: `ReleasesAndDeploymentsApiIT` (fails without it).
 
 ## Upgrade test: 1.x → 2.0
 
-- [~] **G1. Live output changes after the upgrade.** Verified side by side (1.5.0 vs 2.0, same data,
-  `sectioned-letter`, production; PDFs in the scratchpad `upg/v1-production.pdf`, `upg/v2-production.pdf`):
-  - an environment that served an older 1.x version gets the latest published content once deployed
-    (1.x production had no marker, 2.0 shows the `[v2]` content);
-  - stencil instances pinned to an older stencil version render the stencil as it is now
-    (`[stencil v2]` on every page).
-
-  Option: create a release per distinct activation set, so each environment keeps what it served.
-  Until decided, `docs/upgrades.md` ("Documents can look different after the upgrade") warns.
+- [x] **G1. Live output changes after the upgrade.** Not a problem: environments are not in use yet,
+      and the upgrade does what was decided: the first release is what was last published, and
+      unpublished work stays in the next version. `docs/upgrades.md` keeps the warning.
 
 - [x] **G4. Releases render without the system catalog's fonts.** Fixed in `30c6dd0e1`. 1.x rendered
       Inter, 2.0 Helvetica (`Font ref 'inter' (catalog 'system') could not be resolved`). Not
@@ -108,7 +102,10 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       out cleared it (G8). Evidence: `TemplateContentV8MigrationTest`; end to end, the upgraded
       letter is identical in text to 1.x apart from the G1 markers (16 pages, Inter, company name
       13 times).
-- [~] **G9. An instance inlined by the upgrade loses its parameters.** Reported now: the upgrade
+- [~] **G9. An instance inlined by the upgrade loses its parameters.** Why (explained 2026-10-20): a
+  1.x instance is a copy of the stencil plus bindings; when the copy no longer matches a stencil
+  version (edited, stencil or version gone) the upgrade keeps it as plain content and the bindings
+  go, so its `params.x` read nothing. Reported now: the upgrade
   report names each inlined copy and the parameters it reads (`noteParametersLost`; evidence:
   `TemplateContentV8MigrationTest` "…reported with them"). Still open, for a decision: rewriting
   each `params.x` in the copy to its binding or default, so it renders as before (the complex
@@ -120,9 +117,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       no schema. Contract wording `b4ad6ed` (feature/v2); suite: `UpdateStencil` / `CreateStencil`
       treat an empty schema as none, REST no longer clears on omission. Evidence:
       `StencilParameterSchemaApiTest` (fails with the old REST mapping), `StencilIntegrationTest`.
-- [~] **G2. No guard against a live 1.x node during the migration.** The 1.x node fails closed (500s,
-  writes nothing), so no data is lost, but nothing stops the operator either. Option: refuse a
-  breaking migration while another node heartbeated in the last minute, with an override flag.
+- [x] **G2. No guard against a live 1.x node during the migration.** Decided: release notes. The 2.0
+      upgrade fragment says to stop every 1.x node first (`3d4b4690d`); `docs/upgrades.md` step 2 checks it.
+
 - [x] **G3. 404 `no-release-deployed` right after the upgrade.** The detail now says "published version"
       and where to deploy (the environment's page, or `deployCatalogVersion`); the tenant home already
       names environments that serve nothing (`GenerationReadinessHomeNoticeContributor`). Evidence:
@@ -130,7 +127,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ## Design to decide
 
-- [~] **D1. One storage model for drafts and releases.** Discussed 2026-10-19, not written up yet. A
+- [~] **D1. One storage model for drafts and releases.** Decided 2026-10-20: after the `release/2.0` merge. Discussed 2026-10-19, not written up yet. A
   draft is stored as rows per version (`template_variants`, `themes`, …) and a release as a
   manifest of content revisions stored once (`release_entries` → `resource_revisions`). Every
   page and list reads the rows, so a released version cannot be browsed in the tables; only
@@ -143,6 +140,18 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
   Rejected stopgap: unpacking a release back into rows to show it (duplicates what D1 removes).
   Next step: a design note (or contract ADR, since it touches the release model) before
   building, after the `release/2.0` merge.
+
+## Found while catching up with the contract (2026-10-20)
+
+- [x] **C1. The collect stream had drifted from the contract.** Written by hand, it emitted
+      `templateId`/`variantId`/`draftId`, no catalog, `COMPLETED` and `count`. Fixed in `65c66c142`;
+      `CollectWireContractTest` now reads each line as the generated `GenerationResult`/`CollectMeta`.
+- [x] **C2. A theme the draft still used could be deleted.** Refused now (409 `theme-in-use`).
+- [ ] **C3. The theme usage list still resolves the tenant default.** `GetThemeUsagePage` resolves
+      variant override → template theme → tenant default; since ADR 0007 the last step is the
+      catalog's default theme, so the "used by" list on a theme can be wrong.
+- [ ] **C4. The suite still accepts `X-API-Key`.** The contract dropped it; the suite keeps it as a
+      legacy alias (docs/auth.md). Decide: keep, or remove in 2.0.
 
 ## Flaky tests
 
