@@ -32,7 +32,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ### Wording that misleads
 
-- [ ] **U10. Readiness labels read as a required step.** "Ready" looks like a gate, not a marker.
+- [x] **U10. Readiness labels read as a required step.** Neutral "Not checked yet" badge; the stencil says
+      publishing checks and marks it. Evidence: `StencilHandlerHtmxTest`, `VariantReadyHandlerHtmxTest`.
 - [x] **U11. Data contract opens with a red error.** The example message waits for unsaved changes.
       Evidence: `EpistolaDataContractEditor.clientValidationBanner.test.ts` (fails without it).
 - [x] **U12. Data contract "Save draft" clashes with catalog drafts.** Now "Save", "Saved", "Unsaved

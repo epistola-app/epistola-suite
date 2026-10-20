@@ -58,9 +58,10 @@
                                 <dt>Readiness</dt>
                                 <dd>
                                     <span th:if="${readiness.ready}" class="badge badge-success" data-testid="stencil-ready">Ready</span>
-                                    <span th:unless="${readiness.ready}" class="badge badge-warning" data-testid="stencil-not-ready">Not ready</span>
+                                    <span th:unless="${readiness.ready}" class="badge badge-outline" data-testid="stencil-not-ready"
+                                          title="Publishing checks it and marks it ready. Marking it ready now checks it early.">Not checked yet</span>
                                     <span th:if="${readiness.blocksRelease}" class="text-muted" style="margin-left: var(--ep-space-2);">
-                                        Changed since the last release; the catalog cannot be released until it is marked ready.
+                                        Changed since the last release. Publishing checks it and marks it ready.
                                     </span>
                                     <form th:if="${readiness.offerMarkReady}" style="display: inline; margin-left: var(--ep-space-2);"
                                           th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id})}"

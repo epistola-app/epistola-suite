@@ -57,7 +57,7 @@ class VariantReadyHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             val body = response.body!!
-            assertThat(body).contains("data-testid=\"variant-not-ready\"")
+            assertThat(body).contains("data-testid=\"variant-not-ready\"").contains(">Not checked yet<").doesNotContain(">Not ready<")
             assertThat(body).contains("data-testid=\"variant-mark-ready\"")
             assertThat(body).contains("data-testid=\"template-mark-ready\"")
             // No versions any more: no history, no publish, no discard.
