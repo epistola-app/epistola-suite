@@ -227,7 +227,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(metaLine, "$._meta"))
             .`as`("last line must be the meta envelope")
             .isTrue
-        assertThat(JsonPath.read<Int>(metaLine, "$.count")).isEqualTo(0) // empty tenant, no results yet
+        assertThat(JsonPath.read<Int>(metaLine, "$.resultCount")).isEqualTo(0) // empty tenant, no results yet
         assertThat(JsonPath.read<Boolean>(metaLine, "$.hasMore")).isFalse
         assertThat(JsonPath.read<Any?>(metaLine, "$.lastSequence")).isNull()
         assertThat(JsonPath.read<Int>(metaLine, "$.partitions.total")).isEqualTo(64)

@@ -112,10 +112,8 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
         val tenant = CreateTenant(id = tenantKey, name = "Walkthrough UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
 
-        if (enabled) {
-            // Turn the alpha walkthrough feature on for this tenant (off by default).
-            SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = true).execute()
-        }
+        // Set per tenant either way, so neither case leans on a default (the test profile has it off).
+        SaveFeatureToggle(tenantKey, KnownFeatures.EDITOR_WALKTHROUGH, enabled = enabled).execute()
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(id = templateId, name = "Walkthrough Template").execute()

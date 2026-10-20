@@ -1521,8 +1521,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"features\": {")
                 assertThat(response.body).contains("\"aiChat\":{\"enabled\":false")
                 assertThat(response.body).contains("\"badge\":{\"label\":\"Alpha\",\"className\":\"badge-alpha\"}")
-                // The walkthrough is off by default (ALPHA). Assert the value, not just
-                // the key, so a default-on regression fails.
+                // The walkthrough is off in the test profile (application-test.yaml), so the
+                // flag the editor gets follows the configuration; its default is KnownFeaturesTest's.
                 assertThat(response.body).contains("\"editorWalkthrough\":{\"enabled\":false")
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/ai-plugin-")
                 assertThat(response.body).contains("\"moduleUrl\": \"/editor/walkthrough-plugin-")
