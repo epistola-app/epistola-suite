@@ -22,6 +22,7 @@ data class CountDocuments(
     val tenantId: TenantKey,
     val templateId: TemplateKey? = null,
     val correlationId: String? = null,
+    val catalog: DocumentCatalog = DocumentCatalog(),
 ) : Query<Long>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_VIEW
@@ -40,7 +41,9 @@ class CountDocumentsHandler(
         if (query.correlationId != null) {
             sql.append(" AND correlation_id = :correlationId")
         }
+        sql.append(query.catalog.sql)
         val q = handle.createQuery(sql.toString()).bind("tenantId", query.tenantId)
+        query.catalog.bindTo(q)
         if (query.templateId != null) {
             q.bind("templateId", query.templateId)
         }

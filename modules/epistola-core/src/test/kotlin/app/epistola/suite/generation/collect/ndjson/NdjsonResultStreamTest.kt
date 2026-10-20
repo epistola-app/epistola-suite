@@ -78,13 +78,13 @@ class NdjsonResultStreamTest {
 
         val first = mapper.readTree(lines[0])
         assertThat(first["sequence"].asLong()).isEqualTo(1L)
-        assertThat(first["status"].asString()).isEqualTo("COMPLETED")
+        assertThat(first["status"].asString()).`as`("lowercase on the wire").isEqualTo("completed")
         assertThat(first["routingKey"].asString()).isNotBlank
 
         val last = mapper.readTree(lines[2])
         assertThat(last["_meta"].asBoolean()).isTrue
         assertThat(last["hasMore"].asBoolean()).isFalse
-        assertThat(last["count"].asInt()).isEqualTo(2)
+        assertThat(last["resultCount"].asInt()).isEqualTo(2)
         assertThat(last["lastSequence"].asLong()).isEqualTo(2L)
         assertThat(last["partitions"]["total"].asInt()).isEqualTo(64)
         val mine: List<Int> = last["partitions"]["mine"].values().map { it.asInt() }
@@ -110,7 +110,7 @@ class NdjsonResultStreamTest {
 
         val node = mapper.readTree(lines[0])
         assertThat(node["_meta"].asBoolean()).isTrue
-        assertThat(node["count"].asInt()).isZero
+        assertThat(node["resultCount"].asInt()).isZero
         assertThat(node["lastSequence"].isNull).isTrue
         assertThat(node["partitions"]["mine"].values()).isEmpty()
     }
@@ -178,7 +178,7 @@ class NdjsonResultStreamTest {
     }
 
     @Test
-    fun `writeTo names the release a result rendered, and no template version`() {
+    fun `writeTo names the release a result rendered, and no draft`() {
         val out = ByteArrayOutputStream()
         stream.writeTo(
             out,
@@ -189,7 +189,7 @@ class NdjsonResultStreamTest {
         val node = mapper.readTree(out.toString(Charsets.UTF_8).split("\n").first())
 
         assertThat(node["releaseVersion"].asString()).isEqualTo("1.4.0")
-        assertThat(node.has("versionId")).`as`("contract 2.0 dropped versionId").isFalse
+        assertThat(node["versionId"].isNull).`as`("a release, not a draft").isTrue
     }
 
     private fun sample(seq: Long) = GenerationResultRow(

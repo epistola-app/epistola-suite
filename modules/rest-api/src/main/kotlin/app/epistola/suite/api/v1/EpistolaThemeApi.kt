@@ -15,6 +15,7 @@ import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
@@ -89,9 +90,7 @@ class EpistolaThemeApi : ThemesApi {
             catalogVersion = draft.ref,
         ).execute()
 
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(theme.toDto())
+        return theme.toDto().let { created(it.key, it) }
     }
 
     override fun getTheme(

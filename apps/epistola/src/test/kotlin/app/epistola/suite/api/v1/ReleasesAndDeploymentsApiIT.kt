@@ -91,7 +91,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(list.statusCode).describedAs(list.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1", "1.0.0")
         assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[1].deployedTo")).containsExactly("production")
-        assertThat(JsonPath.read<Int>(list.body!!, "$.page.totalElements")).isEqualTo(2)
+        assertThat(JsonPath.read<Int>(list.body!!, "$.page.total")).isEqualTo(2)
 
         val all = exchange(HttpMethod.GET, "$catalog/versions", key)
         assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].releaseVersion")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
@@ -133,7 +133,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val history = exchange(HttpMethod.GET, "$env/deployment-history", key)
         assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].action")).containsExactly("undeployed", "deployed", "deployed")
         assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1", "1.0.1", "1.0.0")
-        assertThat(JsonPath.read<Int>(history.body!!, "$.page.totalElements")).isEqualTo(3)
+        assertThat(JsonPath.read<Int>(history.body!!, "$.page.total")).isEqualTo(3)
 
         val notDeployable = exchange(HttpMethod.PUT, "$deployments/9.9.9", key)
         assertThat(notDeployable.statusCode).isEqualTo(HttpStatus.CONFLICT)
@@ -152,7 +152,10 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val rendered = { version: String? ->
             val accepted = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body(version))
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
-            val job = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key)
+            // The 202 points at the job (contract `Location`).
+            val jobAt = accepted.headers.location!!
+            assertThat(jobAt.path).isEqualTo("/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}")
+            val job = exchange(HttpMethod.GET, jobAt.path, key)
             JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")
         }
 

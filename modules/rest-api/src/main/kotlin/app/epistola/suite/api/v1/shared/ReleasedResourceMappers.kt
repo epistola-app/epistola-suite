@@ -179,8 +179,8 @@ internal fun CodeListResource.toDto(at: ResolvedCatalogVersion) = CodeListDto(
     sourceType = CodeListDto.SourceType.INLINE,
     authType = CodeListDto.AuthType.NONE,
     catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> CodeListDto.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> CodeListDto.CatalogType.SUBSCRIBED
+        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
     },
     readOnly = true,
     createdAt = at.releasedAt,
@@ -201,8 +201,8 @@ internal fun FontResource.toDto(at: ResolvedCatalogVersion) = FontDto(
     namespace = at.catalog.namespace,
     catalogKey = at.catalogKey.value,
     catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> FontDto.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> FontDto.CatalogType.SUBSCRIBED
+        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
     },
     readOnly = true,
     variants = variants.map { FontVariantDto(weight = it.weight, italic = it.italic) },
@@ -217,8 +217,8 @@ internal fun ImageResource.toDto(at: ResolvedCatalogVersion, sizeBytes: Long) = 
     namespace = at.catalog.namespace,
     catalogKey = at.catalogKey.value,
     catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> ImageDto.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> ImageDto.CatalogType.SUBSCRIBED
+        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
     },
     readOnly = true,
     name = name,

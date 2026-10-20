@@ -108,6 +108,9 @@ class CatalogDependencyStore {
 
     /** Replaces the declarations of [catalogKey] with [declarations], in that order. */
     fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
+        // Only a change counts: the same declarations again leave the version's revision as it is.
+        fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, releaseVersion, releaseFingerprint, draftId)
+        if (declarations(handle, tenantKey, catalogKey).map { it.what() } == declarations.map { it.what() }) return
         handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalogKey)

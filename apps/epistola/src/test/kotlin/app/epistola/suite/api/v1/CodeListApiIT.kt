@@ -76,7 +76,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val readOnlyFlags: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
         assertThat(readOnlyFlags).allMatch { it }
         val catalogTypes: List<String> = JsonPath.read(body, "$.items[*].catalogType")
-        assertThat(catalogTypes).allMatch { it == "SUBSCRIBED" }
+        assertThat(catalogTypes).allMatch { it == "subscribed" }
     }
 
     @Test
@@ -93,9 +93,9 @@ class CodeListApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("iso-639-1")
         assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("SUBSCRIBED")
+        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        assertThat(JsonPath.read<String>(body, "$.sourceType")).isEqualTo("INLINE")
+        assertThat(JsonPath.read<String>(body, "$.sourceType")).isEqualTo("inline")
     }
 
     @Test
@@ -122,7 +122,7 @@ class CodeListApiIT : IntegrationTestBase() {
             {
               "key": "should-not-stick",
               "displayName": "Won't land",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
         """.trimIndent()
@@ -151,7 +151,7 @@ class CodeListApiIT : IntegrationTestBase() {
             {
               "key": "inline-refresh-test",
               "displayName": "Inline Refresh Test",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [{ "code": "x", "label": "X" }]
             }
         """.trimIndent()
@@ -216,7 +216,7 @@ class CodeListApiIT : IntegrationTestBase() {
             {
               "key": "priorities",
               "displayName": "Priorities",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [
                 { "code": "low", "label": "Low", "sortOrder": 1 },
                 { "code": "high", "label": "High", "sortOrder": 2 }
@@ -271,7 +271,7 @@ class CodeListApiIT : IntegrationTestBase() {
             {
               "key": "$slug",
               "displayName": "Visibility",
-              "sourceType": "INLINE",
+              "sourceType": "inline",
               "entries": [
                 { "code": "shown", "label": "Shown", "sortOrder": 1 },
                 { "code": "legacy", "label": "Legacy", "sortOrder": 2 }
@@ -346,7 +346,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("locale")
         assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("SUBSCRIBED")
+        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
         assertThat(JsonPath.read<String>(body, "$.codeListBinding.catalogKey")).isEqualTo("system")
         assertThat(JsonPath.read<String>(body, "$.codeListBinding.key")).isEqualTo("bcp-47")

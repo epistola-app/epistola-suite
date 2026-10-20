@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.environments.Environment
@@ -24,6 +25,8 @@ data class UpdateEnvironment(
     val name: String,
     /** Marks it production (see [Environment.production]); null keeps it as it is. */
     val production: Boolean? = null,
+    /** The revision the caller read ([Environment.revision]); null: no check, last write wins. */
+    val expectedRevision: Long? = null,
 ) : Command<Environment?>,
     RequiresPermission {
     override val permission get() = Permission.TENANT_SETTINGS
@@ -56,7 +59,7 @@ class UpdateEnvironmentHandler(
                 """
                 UPDATE environments
                 SET name = :name, production = COALESCE(:production, production), updated_by = :updatedBy
-                WHERE id = :id AND tenant_key = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId AND ${Revisions.MATCHES}
                 RETURNING *
                 """,
             )
@@ -65,9 +68,15 @@ class UpdateEnvironmentHandler(
                 .bind("name", command.name)
                 .bind("production", command.production)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
+                .bind("expectedRevision", command.expectedRevision)
                 .mapTo<Environment>()
                 .findOne()
                 .orElse(null)
+                ?: null.also {
+                    val current = handle.createQuery("SELECT revision FROM environments WHERE id = :id AND tenant_key = :tenantId")
+                        .bind("id", command.id.key).bind("tenantId", command.id.tenantKey).mapTo(Long::class.java).findOne().orElse(null)
+                    Revisions.refuse("Environment '${command.id.key.value}'", command.expectedRevision, current)
+                }
         }
     }
 }

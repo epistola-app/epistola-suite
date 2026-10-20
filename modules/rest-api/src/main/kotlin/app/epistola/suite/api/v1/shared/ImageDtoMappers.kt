@@ -23,8 +23,8 @@ internal fun Asset.toImageDto(catalog: Catalog) = ImageDto(
     namespace = catalog.namespace,
     catalogKey = catalogKey.value,
     catalogType = when (catalogType) {
-        CatalogType.AUTHORED -> ImageDto.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> ImageDto.CatalogType.SUBSCRIBED
+        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
     },
     readOnly = catalogType == CatalogType.SUBSCRIBED,
     name = name,

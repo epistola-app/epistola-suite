@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Total number of stencils matching the same filters as [ListStencils], ignoring pagination: the
- * `totalElements` of a paginated list.
+ * `total` of a paginated list.
  */
 data class CountStencils(
     val tenantId: TenantId,

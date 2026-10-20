@@ -274,7 +274,11 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val redesign = work(tenant, "Redesign")
         val kept = rowsIn(tenant, DraftRef.Next)
 
-        withMediator { DeleteTheme(brand(tenant), catalogVersion = at(tenant, redesign)).execute() }
+        // The invoice uses the brand theme; a theme in use is not deleted, so the draft lets go of it first.
+        withMediator {
+            UpdateDocumentTemplate(invoice(tenant), clearThemeId = true, catalogVersion = at(tenant, redesign)).execute()
+            DeleteTheme(brand(tenant), catalogVersion = at(tenant, redesign)).execute()
+        }
         assertThat(themeName(tenant, redesign)).isNull()
         assertThat(themeName(tenant, DraftRef.Next)).isEqualTo("Brand")
         assertThat(identityExists(tenant, "theme", "brand")).isTrue()
@@ -286,7 +290,10 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, redesign).execute() } }.isInstanceOf(CatalogVersionNotFoundException::class.java)
 
         // With no draft left holding it, the identity stays while a release does (1.0.0 holds 'brand')...
-        withMediator { DeleteTheme(brand(tenant), catalogVersion = next(tenant)).execute() }
+        withMediator {
+            UpdateDocumentTemplate(invoice(tenant), clearThemeId = true, catalogVersion = next(tenant)).execute()
+            DeleteTheme(brand(tenant), catalogVersion = next(tenant)).execute()
+        }
         assertThat(identityExists(tenant, "theme", "brand")).isTrue()
         // ...and goes when nothing holds it: a theme that was never released.
         val draftOnly = ThemeId(ThemeKey.of("draft-only"), catalogId(tenant))

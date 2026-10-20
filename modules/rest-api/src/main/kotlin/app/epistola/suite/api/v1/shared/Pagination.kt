@@ -41,7 +41,7 @@ object Pagination {
         return PageMeta(
             number = page.coerceAtLeast(0),
             propertySize = safeSize,
-            totalElements = totalElements,
+            total = totalElements,
             totalPages = totalPages,
         )
     }

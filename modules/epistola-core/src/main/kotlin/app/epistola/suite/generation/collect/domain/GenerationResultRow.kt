@@ -49,6 +49,10 @@ data class GenerationResultRow(
     val draftId: String? = null,
     /** The draft's name when it was rendered. */
     val draftLabel: String? = null,
+    /** The catalog of the template rendered, copied from the request; null for results emitted before it was stored. */
+    val registry: String? = null,
+    val namespace: String? = null,
+    val catalogKey: String? = null,
     val filename: String?,
     val contentType: String?,
     val sizeBytes: Long?,

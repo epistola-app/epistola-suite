@@ -84,7 +84,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("UP")
+        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("up")
         assertThat(JsonPath.read<String>(body, "$.timestamp")).isNotBlank
         // Anonymous ping omits the details block entirely.
         assertThat(JsonPath.read<Any?>(body, "$.details")).isNull()
@@ -103,7 +103,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = response.body!!
-        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("UP")
+        assertThat(JsonPath.read<String>(body, "$.status")).isEqualTo("up")
         assertThat(JsonPath.read<String>(body, "$.details.serverVersion")).isNotBlank
         // apiVersion is read from the contract JAR's Implementation-Version manifest
         // entry; assert non-blank to keep the test stable across contract bumps.

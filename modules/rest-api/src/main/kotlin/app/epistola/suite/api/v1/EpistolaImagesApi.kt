@@ -10,6 +10,7 @@ import app.epistola.api.model.ImageListResponse
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
@@ -143,7 +144,7 @@ class EpistolaImagesApi(
             sensitive = sensitive,
             catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(image.toImageDto(draft.catalog))
+        return image.toImageDto(draft.catalog).let { created(it.key, it) }
     }
 
     override fun downloadImageContent(

@@ -45,7 +45,7 @@ class DeleteThemeHandler(
     /**
      * Deletes a theme by ID.
      * Returns true if a theme was deleted, false if not found.
-     * @throws ThemeInUseException if the theme is the tenant's default theme
+     * @throws ThemeInUseException if the theme is the tenant's default theme, or the version still uses it
      */
     override fun handle(command: DeleteTheme): Boolean {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
@@ -67,6 +67,38 @@ class DeleteThemeHandler(
 
             if (isDefaultTheme) {
                 throw ThemeInUseException(command.id.key, "it is the tenant's default theme")
+            }
+
+            // In use in this draft (contract `deleteTheme`: refused while the draft uses it): as the
+            // catalog's default theme, a template's theme or a variant's override. Deleting it would
+            // leave them naming a theme the draft no longer has.
+            val users = handle.createQuery(
+                """
+                WITH theme AS (
+                    SELECT resource_id FROM themes
+                    WHERE tenant_key = :tenantId AND id = :themeId AND version_id = ${versionAt("tenantId", "catalogKey")}
+                )
+                SELECT 'the catalog''s default theme' FROM catalog_versions v, theme
+                WHERE v.tenant_key = :tenantId AND v.version_id = ${versionAt("tenantId", "catalogKey")} AND v.default_theme_resource_id = theme.resource_id
+                UNION ALL
+                SELECT 'template ' || dt.id FROM document_templates dt, theme
+                WHERE dt.tenant_key = :tenantId AND dt.version_id = ${versionAt("tenantId", "catalogKey")} AND dt.theme_resource_id = theme.resource_id
+                UNION ALL
+                SELECT 'variant ' || dt.id || '/' || tv.id FROM template_variants tv
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
+                  AND tv.template_model -> 'themeRef' ->> 'type' = 'override'
+                  AND tv.template_model -> 'themeRef' ->> 'themeKey' = :themeId
+                  AND COALESCE(tv.template_model -> 'themeRef' ->> 'catalogKey', :catalogKey) = :catalogKey
+                """,
+            )
+                .bind("tenantId", command.id.tenantKey)
+                .bind("themeId", command.id.key)
+                .bind("catalogKey", command.id.catalogKey)
+                .mapTo<String>()
+                .list()
+            if (users.isNotEmpty()) {
+                throw ThemeInUseException(command.id.key, "this version still uses it: " + users.take(5).joinToString() + if (users.size > 5) ", and ${users.size - 5} more" else "")
             }
 
             val deleted = handle.createUpdate(

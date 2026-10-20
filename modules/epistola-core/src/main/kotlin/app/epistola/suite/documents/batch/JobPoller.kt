@@ -476,6 +476,8 @@ class JobPoller(
                           document_generation_requests.batch_id,
                           document_generation_requests.tenant_key,
                           document_generation_requests.catalog_key,
+                          document_generation_requests.registry,
+                          document_generation_requests.namespace,
                           document_generation_requests.template_key,
                           document_generation_requests.variant_key,
                           document_generation_requests.version_key,

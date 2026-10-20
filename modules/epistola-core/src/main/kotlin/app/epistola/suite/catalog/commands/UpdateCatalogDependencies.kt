@@ -52,6 +52,8 @@ data class UpdateCatalogDependencies(
     val dependencies: List<DeclaredCatalogDependency>,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The revision of the version the caller read ([CatalogVersion.revision]); null: no check. */
+    val expectedRevision: Long? = null,
 ) : CatalogVersionScoped,
     Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
@@ -95,12 +97,16 @@ data class UpdateCatalogDependencies(
 class UpdateCatalogDependenciesHandler(
     private val jdbi: Jdbi,
     private val store: CatalogDependencyStore,
+    private val drafts: app.epistola.suite.catalog.versions.CatalogDrafts,
 ) : CommandHandler<UpdateCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(command: UpdateCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
+        drafts.draft(handle, command.tenantKey, command.catalogKey)?.let { draft ->
+            drafts.requireRevision(handle, command.tenantKey, draft.versionId, command.expectedRevision, "Catalog version '${draft.label}' of '${command.catalogKey.value}'")
+        }
 
         val declarations = command.dependencies.mapIndexed { index, dependency ->
             val declared = CatalogDependencyDeclaration(dependency.registry, dependency.namespace, dependency.catalogKey)

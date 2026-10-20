@@ -14,6 +14,7 @@ import app.epistola.api.model.GenerationJobListResponse
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.acceptedAsJob
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
@@ -23,6 +24,7 @@ import app.epistola.suite.api.v1.shared.toQuery
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.ResolveCatalogVersion
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -34,6 +36,7 @@ import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.CountDocuments
 import app.epistola.suite.documents.queries.CountGenerationJobs
+import app.epistola.suite.documents.queries.DocumentCatalog
 import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
@@ -96,9 +99,7 @@ class EpistolaDocumentGenerationApi(
         val command = generateDocumentRequest.toCommand(tenantKey, catalogsOf(tenantKey))
         val request = command.execute()
 
-        return ResponseEntity
-            .status(HttpStatus.ACCEPTED)
-            .body(request.toJobResponse())
+        return request.toJobResponse().let { acceptedAsJob(it.requestId.toString(), it) }
     }
 
     override fun generateDocumentBatch(
@@ -108,9 +109,7 @@ class EpistolaDocumentGenerationApi(
         val command = generateBatchRequest.toCommand(tenantKey, catalogsOf(tenantKey))
         val request = command.execute()
 
-        return ResponseEntity
-            .status(HttpStatus.ACCEPTED)
-            .body(request.toJobResponse())
+        return request.toJobResponse().let { acceptedAsJob(it.requestId.toString(), it) }
     }
 
     // ================== Job Management ==================
@@ -322,13 +321,22 @@ class EpistolaDocumentGenerationApi(
         correlationId: String?,
         page: Int,
         size: Int,
+        registry: String?,
+        namespace: String?,
+        catalogKey: String?,
     ): ResponseEntity<DocumentListResponse> {
         val typedTenantId = TenantKey.of(tenantKey)
         val typedTemplateId = templateKey?.let { TemplateKey.of(it) }
+        // A template key is unique only within its catalog, so a listing by template names it.
+        if (typedTemplateId != null && (namespace == null || catalogKey == null)) {
+            throw ValidationException("templateKey", "Listing documents by template needs the template's catalog: namespace and catalogKey")
+        }
+        val catalog = DocumentCatalog(registry = registry, namespace = namespace, catalogKey = catalogKey?.let { CatalogKey.of(it) })
         val documents = ListDocuments(
             tenantId = typedTenantId,
             templateId = typedTemplateId,
             correlationId = correlationId,
+            catalog = catalog,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
         ).query()
@@ -336,6 +344,7 @@ class EpistolaDocumentGenerationApi(
             tenantId = typedTenantId,
             templateId = typedTemplateId,
             correlationId = correlationId,
+            catalog = catalog,
         ).query()
 
         val catalogs = GetCatalogNames(typedTenantId, documents.map { it.catalogKey }).query()

@@ -6,11 +6,19 @@ package app.epistola.suite.api.v1
 
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -98,6 +106,63 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
         assertThat(call(HttpMethod.PATCH, template, apiKey, """{"name":"Renamed"}""", ifMatch = etag).statusCode).isEqualTo(HttpStatus.OK)
         assertThat(call(HttpMethod.PATCH, template, apiKey, """{"dataModel":{"type":"object"}}""", ifMatch = etag).statusCode)
             .isEqualTo(HttpStatus.PRECONDITION_FAILED)
+    }
+
+    /** Asserts the If-Match round trip on [path]: the read's ETag writes, then is stale. */
+    private fun assertLocked(path: String, apiKey: String, method: HttpMethod, first: String, second: String, read: String = path) {
+        val etag = call(HttpMethod.GET, read, apiKey).headers.eTag
+        assertThat(etag).`as`("$read carries an ETag").matches("\"[0-9]+\"")
+        val written = call(method, path, apiKey, first, ifMatch = etag)
+        assertThat(written.statusCode).describedAs(written.body).isEqualTo(HttpStatus.OK)
+        assertThat(written.headers.eTag).`as`("the new revision").isNotNull.isNotEqualTo(etag)
+        val stale = call(method, path, apiKey, second, ifMatch = etag)
+        assertThat(stale.statusCode).describedAs(stale.body).isEqualTo(HttpStatus.PRECONDITION_FAILED)
+        assertThat(JsonPath.read<String>(stale.body!!, "$.type")).endsWith("/resource-modified")
+        assertThat(call(method, path, apiKey, second, ifMatch = written.headers.eTag).statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `a tenant and an environment are updated only against the ETag they were read at`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        withMediator { CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenantKey)), "Test").execute() }
+
+        assertLocked("/api/tenants/${tenantKey.value}", apiKey, HttpMethod.PATCH, """{"name":"Mine"}""", """{"name":"Theirs"}""")
+        assertLocked("/api/tenants/${tenantKey.value}/environments/test", apiKey, HttpMethod.PATCH, """{"name":"Mine"}""", """{"name":"Theirs"}""")
+    }
+
+    @Test
+    fun `a catalog draft's ETag covers its settings and its dependencies`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val version = withMediator { CatalogApiPaths.version(tenantKey) }
+
+        assertLocked(version, apiKey, HttpMethod.PATCH, """{"presets":[{"key":"accent","name":"Accent"}]}""", """{"presets":[]}""")
+        assertThat(call(HttpMethod.GET, "$version/dependencies", apiKey).headers.eTag).`as`("the version's ETag")
+            .isEqualTo(call(HttpMethod.GET, version, apiKey).headers.eTag)
+        val etag = call(HttpMethod.GET, version, apiKey).headers.eTag
+        val noDependencies = """{"dependencies":[]}"""
+        assertThat(call(HttpMethod.PATCH, version, apiKey, """{"presets":[{"key":"small","name":"Small"}]}""").statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(call(HttpMethod.PUT, "$version/dependencies", apiKey, noDependencies, ifMatch = etag).statusCode)
+            .`as`("the draft changed since").isEqualTo(HttpStatus.PRECONDITION_FAILED)
+        val current = call(HttpMethod.GET, version, apiKey).headers.eTag
+        val same = call(HttpMethod.PUT, "$version/dependencies", apiKey, noDependencies, ifMatch = current)
+        assertThat(same.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(same.headers.eTag).`as`("the same declarations are no change").isEqualTo(current)
+    }
+
+    @Test
+    fun `hiding a code list entry is a change to the code list, against its ETag`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        withMediator {
+            CreateCodeList(
+                id = CodeListId(CodeListKey.of("locales"), CatalogId.default(TenantId(tenantKey))),
+                displayName = "Locales",
+                sourceType = CodeListSource.INLINE,
+                entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
+            ).execute()
+        }
+        val list = "${withMediator { CatalogApiPaths.version(tenantKey) }}/code-lists/locales"
+
+        assertLocked("$list/entries/nl/hidden", apiKey, HttpMethod.PATCH, """{"hidden":true}""", """{"hidden":false}""", read = list)
     }
 
     /** The request body with a text node saying [text] in the model's root slot: a change the server keeps. */

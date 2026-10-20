@@ -26,6 +26,9 @@ data class DocumentMetadata(
     val id: DocumentKey,
     val tenantId: TenantKey,
     val catalogKey: CatalogKey,
+    /** The registry and namespace of [catalogKey] when the document was rendered (stored with it). */
+    val registry: String? = null,
+    val namespace: String? = null,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     /** The catalog release rendered, from 2.0 on. */
@@ -65,7 +68,7 @@ class GetDocumentMetadataHandler(
     override fun handle(query: GetDocumentMetadata): DocumentMetadata? = jdbi.withHandle<DocumentMetadata?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_key, catalog_key, template_key, variant_key, release_version, draft_id, draft_label,
+            SELECT id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, release_version, draft_id, draft_label,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -80,6 +83,8 @@ class GetDocumentMetadataHandler(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),
                     tenantId = TenantKey(rs.getString("tenant_key")),
                     catalogKey = CatalogKey(rs.getString("catalog_key")),
+                    registry = rs.getString("registry"),
+                    namespace = rs.getString("namespace"),
                     templateId = TemplateKey(rs.getString("template_key")),
                     variantId = VariantKey(rs.getString("variant_key")),
                     releaseVersion = rs.getString("release_version"),

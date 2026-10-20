@@ -26,6 +26,7 @@ import java.util.UUID
  * @property tenantId Tenant that owns the documents
  * @property templateId Optional filter by template ID
  * @property correlationId Optional filter by client-provided correlation ID
+ * @property catalog Optional filter by the catalog the documents were rendered from
  * @property limit Maximum number of results (default: 50)
  * @property offset Pagination offset (default: 0)
  */
@@ -33,6 +34,7 @@ data class ListDocuments(
     val tenantId: TenantKey,
     val templateId: TemplateKey? = null,
     val correlationId: String? = null,
+    val catalog: DocumentCatalog = DocumentCatalog(),
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<DocumentMetadata>>,
@@ -49,7 +51,7 @@ class ListDocumentsHandler(
     override fun handle(query: ListDocuments): List<DocumentMetadata> = jdbi.withHandle<List<DocumentMetadata>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_key, catalog_key, template_key, variant_key, release_version, draft_id, draft_label,
+            SELECT id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, release_version, draft_id, draft_label,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
@@ -64,6 +66,7 @@ class ListDocumentsHandler(
         if (query.correlationId != null) {
             sql.append(" AND correlation_id = :correlationId")
         }
+        sql.append(query.catalog.sql)
 
         sql.append(" ORDER BY created_at DESC")
         sql.append(" LIMIT :limit OFFSET :offset")
@@ -80,12 +83,15 @@ class ListDocumentsHandler(
         if (query.correlationId != null) {
             q.bind("correlationId", query.correlationId)
         }
+        query.catalog.bindTo(q)
 
         q.map { rs, _ ->
             DocumentMetadata(
                 id = DocumentKey(rs.getObject("id", UUID::class.java)),
                 tenantId = TenantKey(rs.getString("tenant_key")),
                 catalogKey = CatalogKey(rs.getString("catalog_key")),
+                registry = rs.getString("registry"),
+                namespace = rs.getString("namespace"),
                 templateId = TemplateKey(rs.getString("template_key")),
                 variantId = VariantKey(rs.getString("variant_key")),
                 releaseVersion = rs.getString("release_version"),
@@ -116,6 +122,31 @@ class ListDocumentsHandler(
  *
  * The key a template has now is the one in its catalog's current version.
  */
+
+/**
+ * The catalog documents are listed for, by the coordinates stored with each document: each part
+ * null to match any. A template key is unique only within its catalog, so a listing by template
+ * names the catalog too (contract `listDocuments`).
+ */
+data class DocumentCatalog(
+    val registry: String? = null,
+    val namespace: String? = null,
+    val catalogKey: CatalogKey? = null,
+) {
+    internal val sql: String
+        get() = buildString {
+            if (registry != null) append(" AND registry = :registry")
+            if (namespace != null) append(" AND namespace = :namespace")
+            if (catalogKey != null) append(" AND catalog_key = :catalogKey")
+        }
+
+    internal fun bindTo(query: org.jdbi.v3.core.statement.Query) {
+        registry?.let { query.bind("registry", it) }
+        namespace?.let { query.bind("namespace", it) }
+        catalogKey?.let { query.bind("catalogKey", it) }
+    }
+}
+
 internal val DOCUMENTS_OF_TEMPLATE = """
     AND (template_key = :templateId
          OR template_resource_id IN (

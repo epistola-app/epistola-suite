@@ -31,6 +31,7 @@ import app.epistola.suite.api.v1.shared.UnsupportedSortException
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
@@ -169,7 +170,7 @@ class EpistolaTemplateApi(
             name = createTemplateRequest.name,
             catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(workingCopyDto(draft, template))
+        return workingCopyDto(draft, template).let { created(it.key, it) }
     }
 
     override fun getTemplate(
@@ -343,7 +344,7 @@ class EpistolaTemplateApi(
             attributes = createVariantRequest.attributes ?: emptyMap(),
             catalogVersion = draft.ref,
         ).execute() ?: throw TemplateNotFoundException(templateId.tenantKey, templateId.key)
-        return ResponseEntity.status(HttpStatus.CREATED).body(variantDto(draft, variant))
+        return variantDto(draft, variant).let { created(it.key, it) }
     }
 
     override fun getVariant(

@@ -62,6 +62,12 @@ data class DocumentGenerationRequest(
     val versionKey: VersionKey?,
     val environmentKey: EnvironmentKey?,
     /**
+     * The registry and namespace of [catalogKey] when the request was accepted (stored with it).
+     * Defaulted, like [releaseVersion], so a SELECT that does not ask for them still maps.
+     */
+    val registry: String? = null,
+    val namespace: String? = null,
+    /**
      * The catalog release this request renders, bound when it was accepted. Null for requests
      * accepted before 2.0, which name a [versionKey] or an [environmentKey] instead. Defaulted, like
      * [routingKey], so a SELECT that does not ask for `release_version` still maps.

@@ -32,8 +32,8 @@ internal fun Font.toDto(catalog: Catalog, variants: List<FontVariantDto>) = Font
     // `catalogType` is loaded via the JOIN in `ListFonts`, so for any row that
     // exists it's non-null. AUTHORED is the safe fallback for the orphan case.
     catalogType = when (catalogType) {
-        CatalogType.SUBSCRIBED -> FontDto.CatalogType.SUBSCRIBED
-        else -> FontDto.CatalogType.AUTHORED
+        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
+        else -> app.epistola.api.model.CatalogType.AUTHORED
     },
     readOnly = catalogType == CatalogType.SUBSCRIBED,
     variants = variants,

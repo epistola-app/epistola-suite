@@ -22,4 +22,6 @@ data class Environment(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
+    /** Raised when its name or production mark changes (optimistic locking: REST `ETag` / `If-Match`). */
+    val revision: Long = 1,
 )

@@ -56,7 +56,7 @@ data class CreateCatalogDraft(
     }
 }
 
-/** Renames a draft (contract `renameCatalogDraft`); its id does not change. The next version has no name to change. */
+/** Renames a draft (part of contract `updateCatalogDraft`, see [UpdateCatalogDraft]); its id does not change. The next version has no name to change. */
 data class RenameCatalogDraft(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,

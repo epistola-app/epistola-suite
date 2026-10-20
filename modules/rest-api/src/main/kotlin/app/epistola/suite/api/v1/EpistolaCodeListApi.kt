@@ -18,6 +18,7 @@ import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.entryDtos
 import app.epistola.suite.api.v1.shared.okWithETag
@@ -101,7 +102,7 @@ class EpistolaCodeListApi : CodeListsApi {
             entries = createCodeListRequest.propertyEntries?.map { it.toModel() } ?: emptyList(),
             catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(codeList.toDto(draft.catalog))
+        return codeList.toDto(draft.catalog).let { created(it.key, it) }
     }
 
     override fun getCodeList(
@@ -205,6 +206,7 @@ class EpistolaCodeListApi : CodeListsApi {
         codeListKey: String,
         code: String,
         updateCodeListEntryHiddenRequest: UpdateCodeListEntryHiddenRequest,
+        ifMatch: String?,
     ): ResponseEntity<CodeListEntryDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val id = draft.codeListId(codeListKey)
@@ -214,13 +216,16 @@ class EpistolaCodeListApi : CodeListsApi {
             code = code,
             hidden = updateCodeListEntryHiddenRequest.hidden,
             catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute()
         if (!updated) {
             throw ValidationException(field = "code", message = "Code list entry '$code' not found")
         }
         val entry = ListCodeListEntries(codeListId = id, includeHidden = true, catalogVersion = draft.ref).query()
             .first { it.code == code }
-        return ResponseEntity.ok(entry.toDto())
+        // The code list's ETag: an entry is part of its list (contract `updateCodeListEntryHidden`).
+        val list = requireNotNull(GetCodeList(id = id, catalogVersion = draft.ref).query())
+        return okWithETag(list.revision, entry.toDto())
     }
 
     private fun ResolvedCatalogVersion.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)

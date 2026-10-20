@@ -98,7 +98,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
         val after = get("$stencilPath/usage", apiKey)
         assertThat(JsonPath.read<List<Boolean>>(after.body!!, "$.items[*].fits")).containsExactly(false)
         assertThat(JsonPath.read<List<String>>(after.body!!, "$.items[0].problems")).singleElement().asString().contains("placeholder 'body'")
-        assertThat(JsonPath.read<Int>(after.body!!, "$.page.totalElements")).isEqualTo(1)
+        assertThat(JsonPath.read<Int>(after.body!!, "$.page.total")).isEqualTo(1)
     }
 
     private fun stencilPath(tenantKey: TenantKey, seed: SeededUsage): String = "${withMediator { CatalogApiPaths.version(tenantKey, seed.stencilCatalogKey) }}/stencils/${seed.stencilKey}"

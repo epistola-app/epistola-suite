@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.versions
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -50,6 +51,11 @@ data class CatalogVersion(
     val versionId: String,
     val name: String? = null,
     val isNext: Boolean = false,
+    /**
+     * Raised when a draft's name, default theme, presets or dependency declarations change (REST
+     * `ETag` / `If-Match`); a release does not change, so it stays at 1.
+     */
+    val revision: Long = 1,
 ) {
     /** What people call it: "Next version", parallel work's name, or a release's number. */
     val label: String get() = when {
@@ -88,6 +94,8 @@ data class CatalogDraft(
     val base: String?,
     val createdFrom: String?,
     val createdAt: OffsetDateTime,
+    /** Raised when its name, default theme, presets or dependency declarations change (REST `ETag`). */
+    val revision: Long = 1,
 ) {
     val label: String get() = if (isNext) NEXT_LABEL else name ?: NEXT_LABEL
 
@@ -209,6 +217,21 @@ class CatalogDrafts {
         check(moved == 1) { "no draft $promoted to make the next version" }
     }
 
+    /**
+     * Before an update of draft [versionId] that names the revision it read: locks the row for the rest
+     * of the transaction and refuses a stale [expected] ([Revisions.refuse]). Null expects nothing.
+     */
+    fun requireRevision(handle: Handle, tenantKey: TenantKey, versionId: UUID, expected: Long?, resource: String) {
+        if (expected == null) return
+        val current = handle.createQuery("SELECT revision FROM catalog_versions WHERE tenant_key = :t AND version_id = :v FOR UPDATE")
+            .bind("t", tenantKey)
+            .bind("v", versionId)
+            .mapTo(Long::class.java)
+            .findOne()
+            .orElse(null)
+        Revisions.refuse(resource, expected, current)
+    }
+
     /** Renames parallel work [versionId]. */
     fun rename(handle: Handle, tenantKey: TenantKey, versionId: UUID, name: String) {
         handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next")
@@ -259,10 +282,11 @@ class CatalogDrafts {
         rs.getString("base_version"),
         rs.getString("created_from"),
         rs.getObject("created_at", OffsetDateTime::class.java),
+        rs.getLong("revision"),
     )
 
     companion object {
-        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at FROM catalog_versions"
+        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision FROM catalog_versions"
 
         /** The number a catalog's first release gets when nothing says otherwise. */
         const val FIRST: String = "1.0.0"

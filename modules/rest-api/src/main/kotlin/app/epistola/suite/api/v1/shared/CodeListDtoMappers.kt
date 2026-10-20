@@ -45,8 +45,8 @@ internal fun CodeList.toDto(catalog: Catalog) = CodeListDto(
     // so for any row that exists it's non-null. Defaulting to AUTHORED is
     // the safe fallback for the (theoretical) orphan case.
     catalogType = when (catalogType) {
-        app.epistola.suite.catalog.CatalogType.SUBSCRIBED -> CodeListDto.CatalogType.SUBSCRIBED
-        else -> CodeListDto.CatalogType.AUTHORED
+        app.epistola.suite.catalog.CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
+        else -> app.epistola.api.model.CatalogType.AUTHORED
     },
     readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
     createdAt = createdAt,

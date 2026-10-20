@@ -120,7 +120,7 @@ class GenerateDocumentHandler(
                         (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
                         :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :draftId, :draftLabel, :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
-                RETURNING id, batch_id, tenant_key, catalog_key, template_key, variant_key, version_key, environment_key,
+                RETURNING id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
                           release_version, draft_id, draft_label, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
                           claimed_at, error_message, created_at, started_at, completed_at, expires_at
                 """,

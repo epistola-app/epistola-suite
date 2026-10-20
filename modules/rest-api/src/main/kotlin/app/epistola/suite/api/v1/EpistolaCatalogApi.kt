@@ -27,15 +27,17 @@ import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
 import app.epistola.api.model.ReleasedChangeDto
 import app.epistola.api.model.ReleasedDependencyDto
-import app.epistola.api.model.RenameCatalogDraftRequest
 import app.epistola.api.model.ResourceChangeDto
 import app.epistola.api.model.UpdateCatalogDependenciesRequest
+import app.epistola.api.model.UpdateCatalogDraftRequest
+import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.draftRef
+import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.catalog.Catalog
@@ -76,8 +78,7 @@ import app.epistola.suite.catalog.versions.GetReleasedThemeSettings
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.versions.UpdateCatalogDraft
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -180,7 +181,7 @@ class EpistolaCatalogApi(
         file: MultipartFile,
         registry: String?,
         namespace: String?,
-        catalogType: String?,
+        catalogType: app.epistola.api.model.CatalogType?,
     ): ResponseEntity<ImportCatalogResponse> {
         if (registry != null) throw ApiOperationNotImplementedException("importCatalog.registry")
         if (namespace != null) throw ApiOperationNotImplementedException("importCatalog.namespace")
@@ -188,7 +189,7 @@ class EpistolaCatalogApi(
         val result = ImportCatalogZip(
             tenantKey = tenant,
             zipBytes = file.bytes,
-            catalogType = catalogType?.takeIf { it.isNotBlank() }?.let(CatalogType::valueOf),
+            catalogType = catalogType?.let { CatalogType.valueOf(it.name) },
             // REST is non-interactive: an archive of an older wire version migrates without a prompt.
             confirmMigration = true,
         ).execute()
@@ -236,7 +237,7 @@ class EpistolaCatalogApi(
         catalogVersion: String,
     ): ResponseEntity<CatalogVersionDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        return ResponseEntity.ok(at.version.toDto(at.catalog))
+        return okWithETag(at.version.revision, at.version.toDto(at.catalog))
     }
 
     /** Starts a draft, as a copy of the version `from` names, or of the highest release. */
@@ -267,31 +268,31 @@ class EpistolaCatalogApi(
         return ResponseEntity.noContent().build()
     }
 
-    override fun renameCatalogDraft(
+    override fun updateCatalogDraft(
         tenantKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
         catalogVersion: String,
-        renameCatalogDraftRequest: RenameCatalogDraftRequest,
+        updateCatalogDraftRequest: UpdateCatalogDraftRequest,
+        ifMatch: String?,
     ): ResponseEntity<CatalogVersionDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val request = renameCatalogDraftRequest
-        request.name?.let { RenameCatalogDraft(draft.tenantKey, draft.catalogKey, draft.draftRef, it).execute() }
-        // Its theme settings (contract ADR 0007); an omitted member keeps what the draft has.
-        request.defaultTheme?.let { theme ->
-            SetCatalogDefaultTheme(
-                draft.tenantKey,
-                draft.catalogKey,
-                CatalogDefaultTheme(ThemeKey.of(theme.key), theme.catalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) } ?: draft.catalogKey),
-                catalogVersion = draft.ref,
-            ).execute()
-        }
-        request.presets?.let { presets ->
-            SetCatalogPresets(draft.tenantKey, draft.catalogKey, presets.map { CatalogPreset(it.key, it.name, it.description) }, catalogVersion = draft.ref).execute()
-        }
+        val request = updateCatalogDraftRequest
+        // An omitted member keeps what the draft has; its theme settings are contract ADR 0007.
+        UpdateCatalogDraft(
+            tenantKey = draft.tenantKey,
+            catalogKey = draft.catalogKey,
+            draft = draft.draftRef,
+            name = request.name,
+            defaultTheme = request.defaultTheme?.let { theme ->
+                CatalogDefaultTheme(ThemeKey.of(theme.key), theme.catalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) } ?: draft.catalogKey)
+            },
+            presets = request.presets?.map { CatalogPreset(it.key, it.name, it.description) },
+            expectedRevision = ETags.expected(ifMatch),
+        ).execute()
         val updated = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        return ResponseEntity.ok(updated.version.toDto(updated.catalog))
+        return okWithETag(updated.version.revision, updated.version.toDto(updated.catalog))
     }
 
     /** The number releasing the draft would give it, from the kind of change against its base. */
@@ -391,7 +392,7 @@ class EpistolaCatalogApi(
         catalogVersion: String,
     ): ResponseEntity<CatalogDependencyListResponse> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        return ResponseEntity.ok(CatalogDependencyListResponse(items = dependenciesOf(at).map { it.toDependencyDto() }))
+        return okWithETag(at.version.revision, CatalogDependencyListResponse(items = dependenciesOf(at).map { it.toDependencyDto() }))
     }
 
     /** A dependency without a registry is on the default registry, as the contract says. */
@@ -402,6 +403,7 @@ class EpistolaCatalogApi(
         catalogKey: String,
         catalogVersion: String,
         updateCatalogDependenciesRequest: UpdateCatalogDependenciesRequest,
+        ifMatch: String?,
     ): ResponseEntity<CatalogDependencyListResponse> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
         val declared = UpdateCatalogDependencies(
@@ -417,8 +419,10 @@ class EpistolaCatalogApi(
                 )
             },
             catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
         ).execute()
-        return ResponseEntity.ok(CatalogDependencyListResponse(items = declared.map { it.toDependencyDto() }))
+        val revision = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion).version.revision
+        return okWithETag(revision, CatalogDependencyListResponse(items = declared.map { it.toDependencyDto() }))
     }
 
     // ================== Helpers ==================
@@ -431,7 +435,7 @@ class EpistolaCatalogApi(
             catalogKey = id.value,
             name = name,
             description = description,
-            type = CatalogDto.Type.valueOf(type.name),
+            type = app.epistola.api.model.CatalogType.valueOf(type.name),
             drafts = if (authored) {
                 ListCatalogVersions(tenantKey, id, CatalogVersionStatus.DRAFT).query()
                     .map { CatalogDraftSummary(versionId = it.versionId, name = it.label, base = it.base) }

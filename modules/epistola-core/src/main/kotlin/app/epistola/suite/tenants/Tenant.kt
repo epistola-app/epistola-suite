@@ -17,4 +17,6 @@ data class Tenant(
     val defaultLocale: String? = null,
     val publishCatalogsByDefault: Boolean = false,
     val createdAt: OffsetDateTime,
+    /** Raised on every change (optimistic locking: REST `ETag` / `If-Match`). */
+    val revision: Long = 1,
 )

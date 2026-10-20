@@ -31,6 +31,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogAt
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
@@ -57,6 +58,7 @@ import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetCatalogNames
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -131,9 +133,7 @@ class EpistolaTenantApi(
             name = createTenantRequest.name,
         ).execute()
 
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(tenant.toDto())
+        return tenant.toDto().let { created(it.key, it) }
     }
 
     override fun getTenant(
@@ -142,23 +142,25 @@ class EpistolaTenantApi(
         val typedTenantId = TenantKey.of(tenantKey)
         val tenant = GetTenant(id = typedTenantId).query()
             ?: throw TenantNotFoundException(typedTenantId)
-        return ResponseEntity.ok(tenant.toDto())
+        return okWithETag(tenant.revision, tenant.toDto())
     }
 
     override fun updateTenant(
         tenantKey: String,
         updateTenantRequest: UpdateTenantRequest,
+        ifMatch: String?,
     ): ResponseEntity<TenantDto> {
         val typedTenantId = TenantKey.of(tenantKey)
+        val expected = ETags.expected(ifMatch)
         // `name` is the only mutable field in the contract; a null name is a no-op
         // update that still returns the current tenant (or 404 if it doesn't exist).
         val name = updateTenantRequest.name
         val tenant = if (name != null) {
-            RenameTenant(tenantId = typedTenantId, name = name).execute()
+            RenameTenant(tenantId = typedTenantId, name = name, expectedRevision = expected).execute()
         } else {
-            GetTenant(id = typedTenantId).query()
+            GetTenant(id = typedTenantId).query()?.also { Revisions.refuse("Tenant '$tenantKey'", expected, it.revision) }
         } ?: throw TenantNotFoundException(typedTenantId)
-        return ResponseEntity.ok(tenant.toDto())
+        return okWithETag(tenant.revision, tenant.toDto())
     }
 
     override fun deleteTenant(
@@ -223,7 +225,7 @@ class EpistolaTenantApi(
             codeListId = codeListId,
             catalogVersion = draft.ref,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto(draft))
+        return attribute.toDto(draft).let { created(it.key, it) }
     }
 
     override fun getAttribute(
@@ -339,7 +341,7 @@ class EpistolaTenantApi(
             name = createEnvironmentRequest.name,
             production = createEnvironmentRequest.production ?: false,
         ).execute()
-        return ResponseEntity.status(HttpStatus.CREATED).body(environment.toDto())
+        return environment.toDto().let { created(it.key, it) }
     }
 
     override fun getEnvironment(
@@ -349,20 +351,26 @@ class EpistolaTenantApi(
         val id = environmentId(tenantKey, environmentKey)
         val environment = GetEnvironment(id = id).query()
             ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
-        return ResponseEntity.ok(environment.toDto())
+        return okWithETag(environment.revision, environment.toDto())
     }
 
     override fun updateEnvironment(
         tenantKey: String,
         environmentKey: String,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
+        ifMatch: String?,
     ): ResponseEntity<EnvironmentDto> {
         val id = environmentId(tenantKey, environmentKey)
         // A partial update: what is left out stays as it is.
         val current = GetEnvironment(id = id).query() ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
-        val environment = UpdateEnvironment(id = id, name = updateEnvironmentRequest.name ?: current.name, production = updateEnvironmentRequest.production).execute()
+        val environment = UpdateEnvironment(
+            id = id,
+            name = updateEnvironmentRequest.name ?: current.name,
+            production = updateEnvironmentRequest.production,
+            expectedRevision = ETags.expected(ifMatch) ?: current.revision,
+        ).execute()
             ?: throw EnvironmentNotFoundException(id.tenantKey, id.key)
-        return ResponseEntity.ok(environment.toDto())
+        return okWithETag(environment.revision, environment.toDto())
     }
 
     override fun deleteEnvironment(

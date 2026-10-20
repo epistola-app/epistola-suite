@@ -20,6 +20,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.ResourceStatuses
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
+import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
@@ -129,9 +130,7 @@ class EpistolaStencilApi(
             catalogVersion = draft.ref,
         ).execute()
 
-        return ResponseEntity
-            .status(HttpStatus.CREATED)
-            .body(stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)))
+        return stencil.toDto(ResourceStatuses.of(draft).of(STENCIL, stencil.id.value)).let { created(it.key, it) }
     }
 
     override fun getStencil(

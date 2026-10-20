@@ -109,7 +109,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val body = get("${versionPath(tenantKey, "default")}/images", key)
         val slugs: List<String> = JsonPath.read(body, "$.items[*].key")
         assertThat(slugs).containsExactly("municipality-mark")
-        assertThat(JsonPath.read<Int>(body, "$.page.totalElements")).isEqualTo(1)
+        assertThat(JsonPath.read<Int>(body, "$.page.total")).isEqualTo(1)
     }
 
     @Test

@@ -175,6 +175,31 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a theme the version still uses is not deleted`() {
+        val catalog = lettersIn("Theme Delete In Use")
+        val brand = ThemeId(ThemeKey.of("brand"), catalog)
+        val invoice = TemplateId(TemplateKey.of("invoice"), catalog)
+        withMediator {
+            CreateTheme(brand, "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("spare"), catalog), "Spare").execute()
+            CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
+
+            SetCatalogDefaultTheme(catalog.tenantKey, letters, CatalogDefaultTheme(brand.key, letters)).execute()
+            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand).execute() }
+                .isInstanceOf(app.epistola.suite.themes.ThemeInUseException::class.java)
+                .hasMessageContaining("the catalog's default theme")
+
+            SetCatalogDefaultTheme(catalog.tenantKey, letters, null).execute()
+            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = brand.key, themeCatalogKey = letters).execute()
+            assertThatThrownBy { app.epistola.suite.themes.commands.DeleteTheme(brand).execute() }
+                .isInstanceOf(app.epistola.suite.themes.ThemeInUseException::class.java)
+                .hasMessageContaining("template invoice")
+
+            assertThat(app.epistola.suite.themes.commands.DeleteTheme(ThemeId(ThemeKey.of("spare"), catalog)).execute()).`as`("one nothing uses").isTrue
+        }
+    }
+
+    @Test
     fun `a draft renders a template that names no theme with the catalog's default theme`() {
         val catalog = lettersIn("Default Theme Render")
         val template = TemplateId(TemplateKey.of("invoice"), catalog)

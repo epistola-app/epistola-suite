@@ -173,6 +173,7 @@ class CatalogVersionReader(
                 versionId = draft.key,
                 name = draft.name,
                 isNext = draft.isNext,
+                revision = draft.revision,
             )
         }
         return open + releases.sortedWith(HIGHEST_FIRST)

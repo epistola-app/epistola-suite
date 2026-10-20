@@ -32,8 +32,8 @@ internal fun Tenant.toDto() = TenantDto(
 )
 
 internal fun CatalogType.toAttributeCatalogType() = when (this) {
-    CatalogType.AUTHORED -> AttributeDto.CatalogType.AUTHORED
-    CatalogType.SUBSCRIBED -> AttributeDto.CatalogType.SUBSCRIBED
+    CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
+    CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
 }
 
 /**

@@ -1358,7 +1358,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<Any>>(firstJson, "$.items")).hasSize(2)
         assertThat(JsonPath.read<Int>(firstJson, "$.page.number")).isEqualTo(0)
         assertThat(JsonPath.read<Int>(firstJson, "$.page.size")).isEqualTo(2)
-        assertThat(JsonPath.read<Int>(firstJson, "$.page.totalElements")).isEqualTo(3)
+        assertThat(JsonPath.read<Int>(firstJson, "$.page.total")).isEqualTo(3)
         assertThat(JsonPath.read<Int>(firstJson, "$.page.totalPages")).isEqualTo(2)
 
         val second = restTemplate.exchange(
@@ -1370,7 +1370,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         val secondJson = second.body!!
         assertThat(JsonPath.read<List<Any>>(secondJson, "$.items")).hasSize(1)
         assertThat(JsonPath.read<Int>(secondJson, "$.page.number")).isEqualTo(1)
-        assertThat(JsonPath.read<Int>(secondJson, "$.page.totalElements")).isEqualTo(3)
+        assertThat(JsonPath.read<Int>(secondJson, "$.page.total")).isEqualTo(3)
     }
 
     @Test

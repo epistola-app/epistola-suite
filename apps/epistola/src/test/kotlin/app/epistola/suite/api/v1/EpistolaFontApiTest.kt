@@ -84,7 +84,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         val readOnly: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
         assertThat(readOnly).allMatch { it }
         val catalogTypes: List<String> = JsonPath.read(body, "$.items[*].catalogType")
-        assertThat(catalogTypes).allMatch { it == "SUBSCRIBED" }
+        assertThat(catalogTypes).allMatch { it == "subscribed" }
     }
 
     @Test

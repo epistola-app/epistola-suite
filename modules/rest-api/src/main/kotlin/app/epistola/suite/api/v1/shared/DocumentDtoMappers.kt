@@ -42,8 +42,8 @@ import tools.jackson.databind.ObjectMapper
 internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
     id = id.value,
     tenantKey = tenantId.value,
-    registry = catalog?.registry,
-    namespace = catalog?.namespace,
+    registry = requireNotNull(registry ?: catalog?.registry) { "document $id names no registry" },
+    namespace = requireNotNull(namespace ?: catalog?.namespace) { "document $id names no namespace" },
     catalogKey = catalogKey.value,
     templateKey = templateId.value,
     variantKey = variantId.value,
@@ -64,7 +64,7 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     id = id.value,
     jobType = DocumentGenerationJobDto.JobType.SINGLE, // Always SINGLE in flattened structure
     status = DocumentGenerationJobDto.Status.valueOf(status.name),
-    totalCount = 1, // Always 1 in flattened structure
+    total = 1, // Always 1 in flattened structure
     completedCount = if (status == app.epistola.suite.documents.model.RequestStatus.COMPLETED) 1 else 0,
     failedCount = if (status == app.epistola.suite.documents.model.RequestStatus.FAILED) 1 else 0,
     errorMessage = errorMessage,
@@ -78,7 +78,7 @@ internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     requestId = id.value,
     status = GenerationJobResponse.Status.valueOf(status.name),
     jobType = GenerationJobResponse.JobType.SINGLE, // Always SINGLE in flattened structure
-    totalCount = 1, // Always 1 in flattened structure
+    total = 1, // Always 1 in flattened structure
     createdAt = createdAt,
 )
 
@@ -86,7 +86,7 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
     requestId = value, // Use batch ID as request ID for API compatibility
     status = GenerationJobResponse.Status.PENDING,
     jobType = GenerationJobResponse.JobType.BATCH,
-    totalCount = 0, // Count not available without querying - caller should use batch endpoints
+    total = 0, // Count not available without querying - caller should use batch endpoints
     createdAt = EpistolaClock.offsetDateTime(),
 )
 
@@ -95,8 +95,8 @@ internal fun BatchKey.toJobResponse() = GenerationJobResponse(
 
 internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, catalog: CatalogName?) = DocumentGenerationItemDto(
     id = id.value,
-    registry = catalog?.registry,
-    namespace = catalog?.namespace,
+    registry = requireNotNull(registry ?: catalog?.registry) { "generation request $id names no registry" },
+    namespace = requireNotNull(namespace ?: catalog?.namespace) { "generation request $id names no namespace" },
     catalogKey = catalogKey.value,
     templateKey = templateKey.value,
     variantKey = variantKey.value,
