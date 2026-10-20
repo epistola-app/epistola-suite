@@ -150,6 +150,15 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         // produce a navigation of their own.
         page.locator("a[title='View template']").click()
         assertThat(page.locator("#page-title-text")).containsText("Boosted Row")
+        // The title is swapped in before htmx pushes the new address, and the bridge reports the
+        // address it is at: its `navigated` message follows the title by a few milliseconds (T1, where
+        // reading the messages at once sometimes still saw the list's). Wait for the message itself.
+        page.waitForFunction(
+            """
+            () => (window.__epistolaMessages || []).some((entry) =>
+                entry.message && entry.message.type === 'navigated' && String(entry.message.path).endsWith('/boosted-row'))
+            """,
+        )
 
         val navigated = latestMessageOfType("navigated")
         checkNotNull(navigated) { "expected a 'navigated' message, got: ${capturedMessages()}" }

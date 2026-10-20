@@ -159,12 +159,13 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 ## Flaky tests
 
-- [ ] **T1. `EmbeddingBridgeUiTest` "clicking a boosted row link…" fails in full UI runs.** Failed in two
-      of three full `uiTest` runs on 2026-10-20 (the page stays on the templates list instead of
-      `/boosted-row`), passes alone every time (twice in a row with `--rerun`). Likely an ordering or
-      timing dependence on state left by an earlier test; not caused by this branch's changes.
-      Again on 2026-10-20 (second run): "a host navigate message drives real navigation…" timed out
-      in the full run and passed alone (8/8), so it is the class, not one case.
+- [x] **T1. `EmbeddingBridgeUiTest` failed in full UI runs.** Two test-side races, both proved by
+      repeating the scenario 40 times: - "a host navigate message…" (6/40 stuck): `htmxSettle` counted requests by `htmx:afterRequest`,
+      which htmx never reports for a request whose element a swap replaced while it was in flight;
+      the bridge's whole-body navigate replaces `ws-status` mid `bar-status`. It now counts each
+      request from send to end (`HtmxSettleUiTest`, fails before; probe 0/40 after). - "clicking a boosted row link…" (26/40 read too early): the title swaps in before htmx pushes
+      the address, and the bridge's `navigated` message follows by a few ms; the test now waits for
+      the message.
 
 ## Ideas for later
 
