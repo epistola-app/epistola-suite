@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.migration.UpgradePreflight
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.exception.FlywayValidateException
 import org.slf4j.LoggerFactory
@@ -81,6 +82,14 @@ class FlywayConfig {
     }
 
     private fun migrate(flyway: Flyway) {
+        // From 1.x, first whether the upgrade could finish: refused before any migration runs, so
+        // the database is untouched and 1.x keeps working while it is fixed there.
+        try {
+            UpgradePreflight.require(flyway.configuration.dataSource)
+        } catch (e: UpgradePreflight.Refused) {
+            logger.error("{}", e.report.describe())
+            throw e
+        }
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {

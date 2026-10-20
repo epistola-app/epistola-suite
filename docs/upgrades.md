@@ -93,6 +93,18 @@ record `upgrade-1x-history`, so a document or load-test run that names a 1.x ver
 be traced. The content of older published versions is not kept. No 1.x release kept its content
 either, so the upgrade cannot deploy anything for you:
 
+**The upgrade checks first whether it can finish** (`UpgradePreflight`, run by the migration step,
+and by the app in `embedded` mode, before `flyway.migrate()`). Every authored catalog gets a first
+release after the catalogs it uses, so two things would leave catalogs without one, unable to render
+or be deployed: **catalogs that use each other** (a dependency cycle, which 2.0 does not allow), and
+**a reference to a catalog the tenant does not have**. 1.x allowed both. If it finds either, the
+migration step exits non-zero before a single migration runs, logging which tenant, which catalogs
+and which resources use what. The database is untouched and 1.x keeps working: move what the
+catalogs share into one of them, or into a catalog they all use (or install the missing catalog),
+and run the upgrade again. Only what the upgrade keeps is checked — each variant's and stencil's
+latest published version and draft, themes, attributes, templates and the catalogs' details — and
+only an authored catalog's references: a subscribed catalog's release is recorded as installed.
+
 **Documents can look different after the upgrade.** Two 1.x choices are not carried over, so check
 the documents of each environment before deploying to it:
 
