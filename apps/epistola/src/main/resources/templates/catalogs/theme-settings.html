@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* A catalog version's theme settings (contract ADR 0007, CatalogThemeSettingsHandler): the default
+           theme its templates that name none render with, and the presets it declares, which its themes
+           style. Saved in place. */-->
+    <section th:fragment="section" id="catalog-theme-settings" class="ep-panel detail-section" data-testid="catalog-theme-settings">
+        <div class="detail-section-header"><h3>Themes</h3></div>
+        <div class="detail-section-body">
+            <div th:if="${saved}" class="alert alert-success" data-testid="catalog-theme-settings-saved">Saved. It goes out with the next version you publish.</div>
+            <div th:if="${error != null}" class="alert alert-error" th:text="${error}">Preset keys must be unique</div>
+
+            <th:block th:unless="${editable}">
+                <p style="margin-top: 0;">
+                    Default theme:
+                    <strong th:if="${defaultThemeValue != null}" th:text="${defaultThemeValue}">brand/house</strong>
+                    <span th:if="${defaultThemeValue == null}" class="text-muted">none</span>
+                </p>
+                <p th:if="${!settings.presets.isEmpty()}" style="margin: 0;"
+                   th:text="'Presets: ' + ${#strings.listJoin(settings.presets.![name], ', ')}">Presets: Heading accent</p>
+            </th:block>
+
+            <form th:if="${editable}" th:hx-post="@{/tenants/{t}/catalogs/{c}/theme-settings(t=${tenantId},c=${segmentValue})}"
+                  hx-target="#catalog-theme-settings" hx-swap="outerHTML" data-testid="catalog-theme-settings-form">
+                <div class="form-group">
+                    <label class="ep-label" for="catalog-default-theme">Default theme</label>
+                    <select id="catalog-default-theme" name="defaultTheme" class="ep-select">
+                        <option value="" th:selected="${defaultThemeValue == null}">None: the built-in styles</option>
+                        <option th:each="option : ${themeOptions}" th:value="${option.value}" th:text="${option.label}"
+                                th:selected="${option.value == defaultThemeValue}">Brand (letters)</option>
+                    </select>
+                    <p class="form-hint">Templates of this catalog that name no theme use it.</p>
+                </div>
+
+                <div class="form-group">
+                    <span class="ep-label">Presets</span>
+                    <p class="form-hint" style="margin-top: 0;">
+                        The block styles this catalog's templates and stencils can pick. Each theme gives them their look.
+                    </p>
+                    <table class="ep-table">
+                        <thead><tr><th>Key</th><th>Name</th><th>Description</th><th>Remove</th></tr></thead>
+                        <tbody>
+                            <tr th:each="preset : ${settings.presets}">
+                                <td><input type="text" class="ep-input" name="presetKey" th:value="${preset.key}" maxlength="50" readonly></td>
+                                <td><input type="text" class="ep-input" name="presetName" th:value="${preset.name}" maxlength="100" required></td>
+                                <td><input type="text" class="ep-input" name="presetDescription" th:value="${preset.description}" maxlength="500"></td>
+                                <td><input type="checkbox" name="presetRemove" th:value="${preset.key}" th:attr="aria-label='Remove ' + ${preset.name}"></td>
+                            </tr>
+                            <tr data-testid="catalog-preset-new">
+                                <td><input type="text" class="ep-input" name="presetKey" maxlength="50" placeholder="new-preset"></td>
+                                <td><input type="text" class="ep-input" name="presetName" maxlength="100" placeholder="Name"></td>
+                                <td><input type="text" class="ep-input" name="presetDescription" maxlength="500" placeholder="Description"></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-theme-settings-save">Save</button>
+            </form>
+        </div>
+    </section>
+</body>
+</html>

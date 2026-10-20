@@ -245,4 +245,43 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(editor).contains("availablePresets").contains("heading-accent").contains("Heading accent")
     }
+
+    @Test
+    fun `the details page sets the catalog's default theme and presets`() {
+        val tenant = catalog("Catalog Theme Settings") { t, c ->
+            app.epistola.suite.themes.commands.CreateTheme(
+                app.epistola.suite.common.ids.ThemeId(app.epistola.suite.common.ids.ThemeKey.of("brand"), c),
+                "Brand",
+            ).execute()
+        }
+        val section = restTemplate.exchange(
+            "/tenants/${tenant.id}/catalogs/letters/theme-settings",
+            org.springframework.http.HttpMethod.GET,
+            org.springframework.http.HttpEntity<Void>(org.springframework.http.HttpHeaders().apply { add("HX-Request", "true") }),
+            String::class.java,
+        ).body!!
+        assertThat(section).contains("data-testid=\"catalog-theme-settings-form\"").contains("value=\"letters/brand\"")
+
+        val form = org.springframework.util.LinkedMultiValueMap<String, String>().apply {
+            add("defaultTheme", "letters/brand")
+            add("presetKey", "heading-accent")
+            add("presetName", "Heading accent")
+            add("presetDescription", "")
+        }
+        val headers = org.springframework.http.HttpHeaders().apply {
+            add("HX-Request", "true")
+            contentType = org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED
+        }
+        val saved = restTemplate.exchange(
+            "/tenants/${tenant.id}/catalogs/letters/theme-settings",
+            org.springframework.http.HttpMethod.POST,
+            org.springframework.http.HttpEntity(form, headers),
+            String::class.java,
+        ).body!!
+
+        assertThat(saved).contains("data-testid=\"catalog-theme-settings-saved\"")
+        val settings = withMediator { app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenant.id, letters).query() }
+        assertThat(settings.defaultTheme?.themeKey?.value).isEqualTo("brand")
+        assertThat(settings.presets.map { it.key }).containsExactly("heading-accent")
+    }
 }

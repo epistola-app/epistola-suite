@@ -17,6 +17,7 @@ class CatalogRoutes(
     private val organise: CatalogOrganiseHandler,
     private val nextRelease: CatalogReleaseHandler,
     private val drafts: CatalogDraftHandler,
+    private val themeSettings: CatalogThemeSettingsHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -65,6 +66,8 @@ class CatalogRoutes(
             GET("/{catalogId}/deployments", handler::deploymentsPage)
             GET("/{catalogId}/dependencies", handler::dependenciesPage)
             GET("/{catalogId}/settings", handler::settingsPage)
+            GET("/{catalogId}/theme-settings", themeSettings::show)
+            POST("/{catalogId}/theme-settings", themeSettings::save)
             GET("/{catalogId}/bar-status", handler::barStatus)
             GET("/{catalogId}/releases/{version}", handler::releaseDetail)
             POST("/{catalogId}/releases/{version}/delete", handler::deleteRelease)

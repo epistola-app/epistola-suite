@@ -13,6 +13,9 @@
         <div th:replace="~{catalogs/content :: metadata-card}"></div>
         <div th:replace="~{catalogs/browse :: identity-section}"></div>
         <div th:replace="~{catalogs/browse :: exchange-section}"></div>
+        <!--/* Loaded after the page: its default theme and presets (catalogs/theme-settings). */-->
+        <div th:hx-get="@{/tenants/{t}/catalogs/{c}/theme-settings(t=${tenantId},c=${catalogId})}"
+             hx-trigger="load" hx-swap="outerHTML" data-testid="catalog-theme-settings-mount"></div>
 
         <!--/* Deleting the catalog, where its details are. The system catalog is the one that cannot go:
                the suite installs it in every tenant. A refusal (still used, served or pinned) lands on
