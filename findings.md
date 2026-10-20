@@ -157,6 +157,11 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       "ignores the X-API-Key header…" (fails before). Was: The contract dropped it; the suite keeps it as a
       legacy alias (docs/auth.md). Decide: keep, or remove in 2.0.
 
+- [x] **C5. Stencil parameter changes that slipped through.** A renamed parameter (old binding
+      ignored, new one unbound and silent when optional) and a binding of another type than the
+      parameter's. Both block marking ready and releasing now (`a714d68c8`). Evidence:
+      `StencilInstancesTest`, `ReadyMarksTest` (2 fail before), `parameter-bindings-dialog.test.ts`.
+
 ## Flaky tests
 
 - [x] **T1. `EmbeddingBridgeUiTest` failed in full UI runs.** Two test-side races, both proved by

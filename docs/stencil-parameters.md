@@ -131,8 +131,9 @@ reserved name (`NODE_PARAMS_ALIAS_RESERVED`).
 - a required parameter with neither binding nor `default` blocks marking the variant ready and
   releasing the catalog (`NODE_PARAMETER_BINDING_MISSING_REQUIRED`); the template may be saved with
   it;
-- a binding for a parameter the stencil does not declare is harmless: it is ignored when
-  rendering and blocks nothing.
+- a binding for a parameter the stencil does not declare is ignored when rendering; it blocks only
+  next to a declared parameter left unbound (a probable rename);
+- a binding whose type is certain and differs from the parameter's blocks too.
 
 The fit is checked against the stencil as it is now, so a stencil change that adds a required
 parameter or removes one shows up there, and on the stencil's usage page; see
@@ -185,7 +186,12 @@ There is no upgrade step: a template reads the stencil's schema whenever it is e
 change applies to every template that uses the stencil at once.
 
 - A **renamed or removed** parameter leaves the old binding in place; it is ignored. A renamed
-  parameter that is required is unbound until the template binds the new name.
+  parameter is unbound until the template binds the new name, and an old binding next to an
+  unbound parameter is reported as a probable rename, which blocks marking ready and releasing,
+  required or not. Saving **Configure parameters…** drops bindings the stencil no longer declares.
+- A **changed type** is checked where the binding's type is certain: a literal, or a path the
+  template's data contract types. A string bound to a `number` parameter, say, blocks marking ready
+  and releasing; an expression whose type the contract cannot tell is not judged.
 - A **new required** parameter without a default blocks marking ready, and releasing, every
   template that does not bind it.
 - A **new default** applies to every instance that does not bind the parameter.

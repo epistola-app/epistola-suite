@@ -112,12 +112,17 @@ An instance does not fit when it:
 
 - fills a placeholder the stencil does not have;
 - leaves a required parameter unbound (no binding and no default);
+- binds a parameter the stencil no longer declares while leaving one it declares unbound: most
+  likely a renamed parameter, which would otherwise render empty without a word;
+- binds a value whose type is certain to a parameter declared with another type: a literal, or a
+  path the template's data contract types (`customer.name` → string). A function, an operator, a
+  loop item or a field the contract does not describe is not judged;
 - names a stencil that does not exist;
 - makes a stencil contain itself (recursion);
 - nests stencils deeper than 5.
 
-A binding for a parameter the stencil does not declare is harmless: it is ignored when rendering and
-does not block. Saves do not run this check, and a preview renders an instance that does not
+A binding for a parameter the stencil does not declare is otherwise harmless: it is ignored when
+rendering and does not block. Saving **Configure parameters…** in the editor drops it. Saves do not run this check, and a preview renders an instance that does not
 fit as far as it can, so a template stays usable while its author fixes it.
 
 ### Nesting
