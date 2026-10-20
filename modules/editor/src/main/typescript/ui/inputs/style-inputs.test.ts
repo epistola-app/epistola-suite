@@ -2,8 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-only
 
+// @vitest-environment happy-dom
+
 import { describe, it, expect } from 'vitest';
+import { render } from 'lit';
 import {
+  renderUnitInput,
+  unitTitle,
   expandSpacingToStyles,
   readSpacingFromStyles,
   expandBorderToStyles,
@@ -439,5 +444,29 @@ describe('readBorderFromStyles', () => {
     const result = readBorderFromStyles(styles);
 
     expect(result).toEqual(original);
+  });
+});
+
+describe('unit explanations', () => {
+  it("says what sp and pt are, with the theme's spacing step", () => {
+    expect(unitTitle('sp', 6)).toBe('Spacing steps from the theme: 1 sp = 6 pt');
+    expect(unitTitle('pt', 6)).toBe('Points: 1 pt = 1/72 inch');
+  });
+
+  it('puts the explanation on each unit option of a unit input', () => {
+    const container = document.createElement('div');
+    render(
+      renderUnitInput('2sp', ['pt', 'sp'], () => {}, 4),
+      container,
+    );
+
+    const options = [...container.querySelectorAll('option')].map((o) => [o.value, o.title]);
+    expect(options).toEqual([
+      ['pt', 'Points: 1 pt = 1/72 inch'],
+      ['sp', 'Spacing steps from the theme: 1 sp = 4 pt'],
+    ]);
+    expect(container.querySelector('select')?.title).toBe(
+      'Spacing steps from the theme: 1 sp = 4 pt',
+    );
   });
 });

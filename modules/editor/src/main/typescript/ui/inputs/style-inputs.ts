@@ -38,6 +38,13 @@ export function formatValueWithUnit(value: number, unit: string): string {
 // Unit input: number + unit dropdown
 // ---------------------------------------------------------------------------
 
+/** What a unit means, for the unit menus: `sp` is a step of the theme's spacing scale. */
+export function unitTitle(unit: string, baseUnit: number = DEFAULT_SPACING_UNIT): string {
+  if (unit === 'sp') return `Spacing steps from the theme: 1 sp = ${baseUnit} pt`;
+  if (unit === 'pt') return 'Points: 1 pt = 1/72 inch';
+  return unit;
+}
+
 export function renderUnitInput(
   value: unknown,
   units: string[],
@@ -105,11 +112,20 @@ export function renderUnitInput(
           ? html`
               <select
                 class="ep-select style-unit-select"
+                title=${unitTitle(parsed.unit, baseUnit)}
                 ?disabled=${readOnly || !isSet}
                 @change=${handleUnitChange}
               >
                 ${units.map(
-                  (u) => html` <option .value=${u} ?selected=${u === parsed.unit}>${u}</option> `,
+                  (u) => html`
+                    <option
+                      .value=${u}
+                      title=${unitTitle(u, baseUnit)}
+                      ?selected=${u === parsed.unit}
+                    >
+                      ${u}
+                    </option>
+                  `,
                 )}
               </select>
             `
@@ -397,6 +413,7 @@ export function renderSpacingInput(
                 <span class="style-spacing-label">&nbsp;</span>
                 <select
                   class="ep-select style-spacing-unit"
+                  title=${unitTitle(currentUnit, baseUnit)}
                   ?disabled=${readOnly}
                   @change=${(e: Event) => {
                     const newUnit = (e.target as HTMLSelectElement).value;
@@ -413,7 +430,14 @@ export function renderSpacingInput(
                   }}
                 >
                   ${units.map(
-                    (u) => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`,
+                    (u) =>
+                      html`<option
+                        .value=${u}
+                        title=${unitTitle(u, baseUnit)}
+                        ?selected=${u === currentUnit}
+                      >
+                        ${u}
+                      </option>`,
                   )}
                 </select>
               </div>

@@ -24,7 +24,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 - [ ] **U5. Internal node ids visible.** Raw node ids appear in the editor where a name is expected.
 - [ ] **U6. Truncated tabs hide Quality.** At ordinary widths the editor tabs cut off, and the
       Quality tab is not reachable without knowing it is there.
-- [ ] **U7. "sp" unit unexplained.** Spacing values use `sp` with no hint of what it means.
+- [x] **U7. "sp" unit unexplained.** Unit menus and options carry `unitTitle` ("1 sp = N pt" from the
+      theme). Evidence: `style-inputs.test.ts` "unit explanations" (fails without it).
 - [ ] **U8. Unsaved work restored silently.** Reopening a template brings back unsaved local edits
       without saying so, or offering to discard them.
 - [~] **U9. Walkthrough off by default.** The editor walkthrough would help exactly the users who

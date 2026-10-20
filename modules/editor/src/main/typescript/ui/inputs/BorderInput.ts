@@ -22,6 +22,7 @@ import {
   formatValueWithUnit,
   nearestSpacingStep,
   DEFAULT_SPACING_UNIT,
+  unitTitle,
 } from './style-inputs.js';
 
 const EMPTY_SIDE: BorderSideValue = { width: '', style: 'none', color: '' };
@@ -210,7 +211,11 @@ export class BorderInput extends LitElement {
                           >
                             ${this.units.map(
                               (u) =>
-                                html`<option .value=${u} ?selected=${u === widthParsed.unit}>
+                                html`<option
+                                  .value=${u}
+                                  title=${unitTitle(u, this.baseUnit)}
+                                  ?selected=${u === widthParsed.unit}
+                                >
                                   ${u}
                                 </option>`,
                             )}
