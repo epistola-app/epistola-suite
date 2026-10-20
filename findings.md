@@ -14,9 +14,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       template → publish → deploy → generate.
 - [x] **U2. No demo credentials hint.** The login page lists the accounts under the `local` profile
       only (`localAccountHints`); elsewhere they are real credentials. Evidence: `LocalAccountHintsTest`.
-- [ ] **U3. No way to generate a test document from the UI.** The only route is the REST API, which
-      needs the vendor media type and a namespace. A "Try it" from a template or environment would
-      close the loop.
+- [x] **U3. No way to generate a test document from the UI.** An environment's page has "Try a
+      document": a deployed template, as served there, with its first example data, as a PDF
+      (`EnvironmentHandler.tryDocument`, `PreviewDocument`). Evidence: `EnvironmentTryDocumentHtmxTest`.
 
 ### Editor
 

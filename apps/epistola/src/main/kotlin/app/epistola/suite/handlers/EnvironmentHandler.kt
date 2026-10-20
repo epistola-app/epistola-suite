@@ -4,10 +4,15 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.GetReleasedResource
+import app.epistola.suite.catalog.versions.ListReleasedResources
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.environments.DeploymentLogEntry
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.commands.CreateEnvironment
@@ -46,10 +51,14 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 
 @Component
-class EnvironmentHandler {
+class EnvironmentHandler(
+    private val objectMapper: ObjectMapper,
+) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
@@ -278,6 +287,18 @@ class EnvironmentHandler {
                 )
             }
             "history" to history
+            // Templates of what is deployed, to try one here as an application would get it.
+            "tryTemplates" to served.flatMap { deployment ->
+                val version = requireNotNull(deployment.version)
+                ListReleasedResources(tenantId.key, deployment.catalogKey, version, "template").query()
+                    .filterIsInstance<TemplateResource>()
+                    .map { template ->
+                        TryTemplateView(
+                            value = "${deployment.catalogKey.value}@$version/${template.key}",
+                            label = "${catalogNames[deployment.catalogKey] ?: deployment.catalogKey.value} v$version: ${template.name}",
+                        )
+                    }
+            }
             // Used here without being deployed: what the deployed versions are pinned to.
             "implicit" to implicit
         }
@@ -361,6 +382,42 @@ class EnvironmentHandler {
         return redirectTo(environmentId)
     }
 
+    /**
+     * `GET /{environmentId}/try?template=catalog@version/template`: a PDF of the template as this
+     * environment serves it, made with its first example data, so a document can be tried without
+     * calling the API. Rendered on the spot ([PreviewDocument]); nothing is stored.
+     */
+    fun tryDocument(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.DOCUMENT_GENERATE)
+        val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
+        val choice = request.param("template").orElse("")
+        val catalogKey = CatalogKey.validateOrNull(choice.substringBefore('@', missingDelimiterValue = ""))
+        val version = choice.substringAfter('@', missingDelimiterValue = "").substringBefore('/', missingDelimiterValue = "")
+        val templateKey = TemplateKey.validateOrNull(choice.substringAfter('/', missingDelimiterValue = ""))
+        if (catalogKey == null || version.isEmpty() || templateKey == null) return detail(request, error = "Choose a template to try.")
+
+        val template = GetReleasedResource(tenantId.key, catalogKey, version, "template", templateKey.value).query() as? TemplateResource
+            ?: return detail(request, error = "Version $version of ${catalogKey.value} has no template '${templateKey.value}'.")
+        val data = template.dataExamples?.firstOrNull()?.data?.let { objectMapper.valueToTree<ObjectNode>(it) } ?: objectMapper.createObjectNode()
+        val pdf = try {
+            PreviewDocument(
+                tenantId = tenantId.key,
+                catalogKey = catalogKey,
+                templateId = templateKey,
+                data = data,
+                releaseVersion = version,
+                environmentId = environmentId.key,
+            ).query()
+        } catch (e: RuntimeException) {
+            return detail(request, error = "The document could not be made: ${e.message}")
+        }
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header("Content-Disposition", "inline; filename=\"${templateKey.value}-$version.pdf\"")
+            .body(pdf)
+    }
+
     private fun redirectTo(environmentId: EnvironmentId): ServerResponse = redirect("/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")
 
     /** One release of a catalog the environment serves. */
@@ -378,6 +435,9 @@ class EnvironmentHandler {
         /** What a request naming no version gets here. */
         val latest: Boolean = false,
     )
+
+    /** A template of a deployed version that can be tried here: `catalog@version/template`, and how it reads. */
+    data class TryTemplateView(val value: String, val label: String)
 
     /** A draft the environment follows, live. */
     data class FollowedDraftView(val catalogKey: String, val catalogName: String, val draftLabel: String, val href: String)

@@ -147,6 +147,31 @@
             </div>
         </div>
 
+        <!--/* Try a document: one of the deployed templates as this environment serves it, with its
+               first example data, rendered on the spot (EnvironmentHandler.tryDocument). Opens the
+               PDF in a new tab; a plain GET, unboosted, so the browser shows it. */-->
+        <div th:if="${auth.has('DOCUMENT_GENERATE') and !tryTemplates.isEmpty()}" class="ep-panel detail-section" data-testid="environment-try">
+            <div class="detail-section-header">
+                <h2>Try a document</h2>
+            </div>
+            <div class="detail-section-body">
+                <p class="form-hint" style="margin-top: 0;">
+                    Makes a PDF of a template as applications get it here, with the template's first example data.
+                </p>
+                <form method="get" target="_blank" hx-boost="false" data-testid="environment-try-form"
+                      style="display: flex; gap: var(--ep-space-2); align-items: flex-end;"
+                      th:action="@{/tenants/{t}/environments/{e}/try(t=${tenantId},e=${environment.id})}">
+                    <div class="form-group" style="margin: 0;">
+                        <label class="ep-label" for="try-template">Template</label>
+                        <select id="try-template" name="template" class="ep-select" required>
+                            <option th:each="choice : ${tryTemplates}" th:value="${choice.value}" th:text="${choice.label}">Letters v1.0.0: Invoice</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="ep-btn ep-btn-outline">Make a PDF</button>
+                </form>
+            </div>
+        </div>
+
         <!--/* What comes along: the versions of other catalogs that what is deployed here is pinned to.
                They render from the tenant's copy, so nothing has to deploy them. */-->
         <div th:unless="${implicit.isEmpty()}" class="ep-panel detail-section" data-testid="environment-implicit">
