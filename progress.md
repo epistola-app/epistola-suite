@@ -976,3 +976,28 @@ and generation's `version` as a selector combinable with `environmentKey` (contr
 - Run Gradle with `--no-watch-fs`; worktrees need `pnpm install --frozen-lockfile && pnpm build`.
 - Don't trust a background command's exit code; check for `BUILD SUCCESSFUL`/`FAILED` and the
   test-result XML timestamps.
+
+### ADR 0007: themes per catalog (20 October, in progress)
+
+Contract `feature/v2` ADR 0007 (accepted): a catalog's own `defaultTheme`; a catalog declares its
+`presets`, each theme styles them, a catalog's available presets include its dependencies'; the
+tenant default theme stays only as a **house theme**, never read while rendering (a new catalog
+starts with it; "apply to all catalogs" sets it).
+
+Plan, in order:
+
+1. Contract: `CatalogInfo.defaultTheme` (theme reference, cross-catalog qualified) and
+   `CatalogInfo.presets` (key, name, description) in wire v8 (2.0 is unreleased, optional members),
+   Kotlin model + binding + canonical form (absent members leave fingerprints unchanged), TS model,
+   validator; API: catalog details read/update carry both. Publish locally (2.0.0-SNAPSHOT).
+2. Suite storage: both per catalog version (they go out with each version); migration seeds
+   `default_theme` from the tenant default where the catalog's templates inherit, and `presets` from
+   the preset keys its themes style; existing releases record the theme they rendered with.
+3. Rendering: variant theme → template theme → catalog default → none, in release, draft and
+   preview renders; the tenant default is no longer read.
+4. Presets: available = own + dependencies'; the editor offers them; a block naming an undeclared
+   preset is refused when the catalog declares presets; a theme not styling one is a quality finding.
+5. House theme: `CreateCatalog` starts with it; `ApplyHouseTheme` sets every authored catalog's
+   default; UI on the tenant/theme page.
+6. UI (catalog Details: default theme, presets), MCP, REST, export/import round trip, demo catalog,
+   docs, changelog.
