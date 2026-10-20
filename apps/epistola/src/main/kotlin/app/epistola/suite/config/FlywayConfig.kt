@@ -4,6 +4,8 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.migration.preflight.UpgradePreflightRefused
+import app.epistola.suite.migration.preflight.UpgradePreflights
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.exception.FlywayValidateException
 import org.slf4j.LoggerFactory
@@ -70,17 +72,29 @@ class FlywayConfig {
     @Bean
     fun flywayMigrationStrategy(
         @Value("\${epistola.migration.mode:embedded}") mode: String,
+        // Preflight checks an operator skips, by id, after reading why they refused (docs/upgrades.md).
+        @Value("\${epistola.migration.preflight.skip:}") skipPreflight: String,
     ): FlywayMigrationStrategy {
+        val skipped = skipPreflight.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         val migrationMode = MigrationMode.from(mode)
         return FlywayMigrationStrategy { flyway ->
             when (migrationMode) {
-                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway)
+                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, skipped)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
     }
 
-    private fun migrate(flyway: Flyway) {
+    private fun migrate(flyway: Flyway, skippedPreflight: Set<String>) {
+        // First whether the upgrade could finish: refused before any migration runs, so the database
+        // is untouched and the version it runs keeps working while it is fixed there.
+        try {
+            UpgradePreflights.require(flyway.configuration.dataSource, skippedPreflight)
+        } catch (e: UpgradePreflightRefused) {
+            logger.error("{}", e.report.describe())
+            throw e
+        }
+        if (skippedPreflight.isNotEmpty()) logger.warn("Upgrade preflight checks skipped by configuration: {}", skippedPreflight.sorted())
         try {
             flyway.migrate()
         } catch (e: FlywayValidateException) {

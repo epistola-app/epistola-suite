@@ -186,6 +186,29 @@ non-zero through Spring Boot's own failure handling — `main()` is a bare
 Kubernetes wiring is the Helm `migration.mode` value (`job` default /
 `initContainer` / `embedded`) — see [`deployment.md`](deployment.md).
 
+## Preflight checks
+
+Some data a migration cannot carry over, and finding that out halfway leaves a database that
+neither version can read. An upgrade therefore checks first: `FlywayConfig` runs every check in
+`UpgradePreflights.checks` (`modules/epistola-core/.../migration/preflight/`) on a plain connection
+right before `flyway.migrate()`, in `migrate` and `embedded` mode, and refuses with their report
+before a single migration has run.
+
+A check is an `UpgradePreflightCheck`:
+
+- `id`, kebab-case and stable: the report names it, and `epistola.migration.preflight.skip` (a
+  comma-separated list) skips it;
+- `upgrade`, the upgrade it guards (`1.x to 2.0`), for the report;
+- `appliesTo`, whether the database is at that point — check the schema's shape rather than a
+  version number, so a check stays right as releases add migrations;
+- `run`, the problems it finds, each with a summary, the fix and the resources involved.
+
+Facts several checks read go through `UpgradePreflightContext.shared` and are computed once per run
+(the 1.x catalog references, for instance). A check that throws refuses the upgrade rather than let
+it through unchecked. Add a check to `UpgradePreflights.checks`, test it on a database at the point
+it is about (migrate to that version, seed as the old version wrote), and list it in
+[`upgrades.md`](upgrades.md) with what it refuses and how to fix it.
+
 ## The application never resets a database
 
 `FlywayConfig` has **no `flyway.clean()` call** — a reset is not a capability the
