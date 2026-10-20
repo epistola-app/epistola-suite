@@ -27,10 +27,10 @@ import org.springframework.stereotype.Component
 data class ResolveTemplateTheme(
     override val tenantKey: TenantKey,
     val templateDefaultThemeId: ThemeKey?,
-    val tenantDefaultThemeId: ThemeKey?,
+    val catalogDefaultThemeId: ThemeKey?,
     val templateModel: TemplateDocument,
     val templateCatalogKey: CatalogKey? = null,
-    val tenantDefaultThemeCatalogKey: CatalogKey? = null,
+    val catalogDefaultThemeCatalogKey: CatalogKey? = null,
     /** The template's catalog, whose draft's declarations say where another catalog's theme comes from. */
     val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
@@ -49,10 +49,10 @@ class ResolveTemplateThemeHandler(
     override fun handle(query: ResolveTemplateTheme): Theme? = resolver.resolveTheme(
         tenantId = query.tenantKey,
         templateDefaultThemeId = query.templateDefaultThemeId,
-        tenantDefaultThemeId = query.tenantDefaultThemeId,
+        catalogDefaultThemeId = query.catalogDefaultThemeId,
         templateModel = query.templateModel,
         templateCatalogKey = query.templateCatalogKey,
-        tenantDefaultThemeCatalogKey = query.tenantDefaultThemeCatalogKey,
+        catalogDefaultThemeCatalogKey = query.catalogDefaultThemeCatalogKey,
         dependencies = (query.catalogKey ?: query.catalogVersion?.catalogKey)?.let { dependencyViews.of(query.tenantKey, it) },
     )
 }

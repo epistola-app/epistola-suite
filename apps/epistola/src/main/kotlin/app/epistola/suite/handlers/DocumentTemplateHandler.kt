@@ -8,6 +8,7 @@ import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -435,13 +436,15 @@ class DocumentTemplateHandler(
             ?: return ServerResponse.notFound().build()
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
         val featureToggles = ResolveFeatureToggles(tenantId.key).query()
+        // The catalog's own default theme (contract ADR 0007), as the render uses it.
+        val catalogTheme = GetCatalogThemeSettings(tenantId.key, segment.key, catalogVersion = version).query().defaultTheme
         val editorTheme = ResolveTemplateTheme(
             tenantKey = tenantId.key,
             templateDefaultThemeId = context.templateThemeKey,
-            tenantDefaultThemeId = tenant.defaultThemeKey,
+            catalogDefaultThemeId = catalogTheme?.themeKey,
             templateModel = context.templateModel,
             templateCatalogKey = context.templateThemeCatalogKey,
-            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
             catalogKey = segment.key,
             catalogVersion = version,
         ).query()?.let {

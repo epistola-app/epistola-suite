@@ -66,19 +66,19 @@ class ThemeQueriesTest : IntegrationTestBase() {
             themeStyleResolver.resolveTheme(
                 tenantId = tenant.id,
                 templateDefaultThemeId = null,
-                tenantDefaultThemeId = tenantTheme.key,
+                catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
-                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
             )?.name,
         ).isEqualTo("Tenant")
         assertThat(
             themeStyleResolver.resolveTheme(
                 tenantId = tenant.id,
                 templateDefaultThemeId = templateTheme.key,
-                tenantDefaultThemeId = tenantTheme.key,
+                catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
                 templateCatalogKey = templateTheme.catalogKey,
-                tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
             )?.name,
         ).isEqualTo("Template")
 
@@ -89,18 +89,18 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val rawTheme = themeStyleResolver.resolveTheme(
             tenantId = tenant.id,
             templateDefaultThemeId = templateTheme.key,
-            tenantDefaultThemeId = tenantTheme.key,
+            catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
             templateCatalogKey = templateTheme.catalogKey,
-            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
         )
         val mergedStyles = themeStyleResolver.resolveStyles(
             tenantId = tenant.id,
             templateDefaultThemeId = templateTheme.key,
-            tenantDefaultThemeId = tenantTheme.key,
+            catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
             templateCatalogKey = templateTheme.catalogKey,
-            tenantDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
         )
 
         assertThat(rawTheme?.name).isEqualTo("Variant")

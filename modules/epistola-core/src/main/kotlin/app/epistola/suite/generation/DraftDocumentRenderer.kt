@@ -18,6 +18,7 @@ import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -32,6 +33,7 @@ import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilResolvers
@@ -119,13 +121,15 @@ class PrepareDraftRenderHandler(
 
         val dependencies = dependencyViews.of(query.tenantKey, query.catalogKey)
         val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantKey, template.catalogKey, model, dependencies)
+        // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
+        val catalogTheme = GetCatalogThemeSettings(query.tenantKey, query.catalogKey).query().defaultTheme
         val theme = generationService.resolveTheme(
             query.tenantKey,
             expanded,
             template.themeKey,
-            tenant.defaultThemeKey,
+            catalogTheme?.themeKey,
             templateCatalogKey = template.themeCatalogKey,
-            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
             dependencies = dependencies,
         )
         val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
@@ -143,8 +147,8 @@ class PrepareDraftRenderHandler(
             model = expanded,
             templateName = template.name,
             pdfaEnabled = template.pdfaEnabled,
-            // Unqualified font references belong to the template's theme catalog, then the tenant's.
-            owningCatalogKey = template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: template.catalogKey,
+            // Unqualified font references belong to the template's theme catalog, then the catalog default's.
+            owningCatalogKey = template.themeCatalogKey ?: catalogTheme?.catalogKey ?: template.catalogKey,
             theme = theme,
             data = data,
             culture = localeResolver.resolveCulture(tenant, variantId),

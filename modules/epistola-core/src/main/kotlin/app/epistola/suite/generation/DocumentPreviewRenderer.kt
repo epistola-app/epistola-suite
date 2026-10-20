@@ -13,10 +13,12 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.fontFamilyResolver
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.tenants.Tenant
@@ -72,19 +74,21 @@ class DocumentPreviewRenderer(
             author = tenant.name,
         )
         val assetResolver = draftAssetResolver(tenantId, null, dependencies)
+        // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
+        val catalogTheme = GetCatalogThemeSettings(tenantId, template.catalogKey).query().defaultTheme
         // Owning catalog for unqualified font refs: same cascade the theme
-        // resolution + asset binding use (template theme catalog → tenant
-        // default theme catalog → the template's own catalog).
+        // resolution + asset binding use (template theme catalog → the
+        // catalog's default theme's catalog → the template's own catalog).
         val owningCatalogKey =
-            template.themeCatalogKey ?: tenant.defaultThemeCatalogKey ?: template.catalogKey
+            template.themeCatalogKey ?: catalogTheme?.catalogKey ?: template.catalogKey
         val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, dependencies = dependencies)
         val theme = resolvedThemeOverride ?: generationService.resolveTheme(
             tenantId,
             expandedModel,
             template.themeKey,
-            tenant.defaultThemeKey,
+            catalogTheme?.themeKey,
             templateCatalogKey = template.themeCatalogKey,
-            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
             dependencies = dependencies,
         )
 
@@ -97,13 +101,13 @@ class DocumentPreviewRenderer(
             dataMap,
             outputStream,
             template.themeKey,
-            tenant.defaultThemeKey,
+            catalogTheme?.themeKey,
             metadataWithEngine,
             pdfaCompliant = template.pdfaEnabled,
             assetResolver = assetResolver,
             fontFamilyResolver = fontResolver,
             templateCatalogKey = template.themeCatalogKey,
-            tenantDefaultThemeCatalogKey = tenant.defaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
             culture = culture,
             watermarkText = PREVIEW_WATERMARK,
             resolvedThemeOverride = theme,

@@ -57,7 +57,7 @@ class GenerationService(
      * Theme resolution cascade:
      * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
-     * 3. Tenant default theme (tenantDefaultThemeId parameter) - ultimate fallback
+     * 3. Tenant default theme (catalogDefaultThemeId parameter) - ultimate fallback
      *
      * When a theme is resolved, theme styles are merged:
      * - Theme document styles serve as defaults, template document styles override
@@ -68,7 +68,7 @@ class GenerationService(
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
-     * @param tenantDefaultThemeId Optional default theme from Tenant (ultimate fallback)
+     * @param catalogDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
         tenantId: TenantKey,
@@ -76,14 +76,14 @@ class GenerationService(
         data: Map<String, Any?>,
         outputStream: OutputStream,
         templateDefaultThemeId: ThemeKey? = null,
-        tenantDefaultThemeId: ThemeKey? = null,
+        catalogDefaultThemeId: ThemeKey? = null,
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
         templateCatalogKey: CatalogKey? = null,
-        tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        catalogDefaultThemeCatalogKey: CatalogKey? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
         resolvedThemeOverride: ResolvedTheme? = null,
@@ -96,9 +96,9 @@ class GenerationService(
             tenantId,
             templateModel,
             templateDefaultThemeId,
-            tenantDefaultThemeId,
+            catalogDefaultThemeId,
             templateCatalogKey,
-            tenantDefaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey,
         )
 
         pdfRenderer.render(
@@ -127,17 +127,17 @@ class GenerationService(
         tenantId: TenantKey,
         templateModel: TemplateDocument,
         templateDefaultThemeId: ThemeKey?,
-        tenantDefaultThemeId: ThemeKey?,
+        catalogDefaultThemeId: ThemeKey?,
         templateCatalogKey: CatalogKey?,
-        tenantDefaultThemeCatalogKey: CatalogKey?,
+        catalogDefaultThemeCatalogKey: CatalogKey?,
         dependencies: DraftDependencyView? = null,
     ): ResolvedTheme = themeStyleResolver.resolveStyles(
         tenantId,
         templateDefaultThemeId,
-        tenantDefaultThemeId,
+        catalogDefaultThemeId,
         templateModel,
         templateCatalogKey = templateCatalogKey,
-        tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
+        catalogDefaultThemeCatalogKey = catalogDefaultThemeCatalogKey,
         dependencies = dependencies,
     ).let { resolvedStyles ->
         ResolvedTheme(

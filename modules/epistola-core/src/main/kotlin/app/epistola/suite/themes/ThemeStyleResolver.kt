@@ -60,7 +60,7 @@ class ThemeStyleResolver(
      * @param templateModel The template document containing themeRef and template-level styles
      * @return Resolved styles combining theme and template settings
      */
-    fun resolveStyles(tenantId: TenantKey, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, tenantDefaultThemeId = null, templateModel = templateModel)
+    fun resolveStyles(tenantId: TenantKey, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, catalogDefaultThemeId = null, templateModel = templateModel)
 
     /**
      * Resolves document-level styles with support for template-level and tenant-level default themes.
@@ -76,7 +76,7 @@ class ThemeStyleResolver(
         tenantId: TenantKey,
         templateDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
-    ): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId, tenantDefaultThemeId = null, templateModel)
+    ): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId, catalogDefaultThemeId = null, templateModel)
 
     /**
      * Resolves document-level styles with full theme cascade support.
@@ -84,30 +84,30 @@ class ThemeStyleResolver(
      * Theme cascade order:
      * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId) - fallback
-     * 3. Tenant default theme (tenantDefaultThemeId) - ultimate fallback
+     * 3. Tenant default theme (catalogDefaultThemeId) - ultimate fallback
      *
      * @param tenantId The tenant ID for theme lookup
      * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
-     * @param tenantDefaultThemeId The default theme from Tenant (may be null)
+     * @param catalogDefaultThemeId The default theme from Tenant (may be null)
      * @param templateModel The template document containing optional themeRef override and styles
      * @return Resolved styles combining theme and template settings
      */
     fun resolveStyles(
         tenantId: TenantKey,
         templateDefaultThemeId: ThemeKey?,
-        tenantDefaultThemeId: ThemeKey?,
+        catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
         templateCatalogKey: CatalogKey? = null,
-        tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        catalogDefaultThemeCatalogKey: CatalogKey? = null,
         dependencies: DraftDependencyView? = null,
     ): ResolvedStyles {
         val theme = resolveTheme(
             tenantId = tenantId,
             templateDefaultThemeId = templateDefaultThemeId,
-            tenantDefaultThemeId = tenantDefaultThemeId,
+            catalogDefaultThemeId = catalogDefaultThemeId,
             templateModel = templateModel,
             templateCatalogKey = templateCatalogKey,
-            tenantDefaultThemeCatalogKey = tenantDefaultThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogDefaultThemeCatalogKey,
             dependencies = dependencies,
         )
         val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
@@ -140,10 +140,10 @@ class ThemeStyleResolver(
     fun resolveTheme(
         tenantId: TenantKey,
         templateDefaultThemeId: ThemeKey?,
-        tenantDefaultThemeId: ThemeKey?,
+        catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
         templateCatalogKey: CatalogKey? = null,
-        tenantDefaultThemeCatalogKey: CatalogKey? = null,
+        catalogDefaultThemeCatalogKey: CatalogKey? = null,
         dependencies: DraftDependencyView? = null,
     ): Theme? {
         // Theme cascade: variant-level > template-level > tenant-level
@@ -156,8 +156,8 @@ class ThemeStyleResolver(
                 themeId to catalogKey
             } else if (templateDefaultThemeId != null) {
                 templateDefaultThemeId to templateCatalogKey
-            } else if (tenantDefaultThemeId != null) {
-                tenantDefaultThemeId to tenantDefaultThemeCatalogKey
+            } else if (catalogDefaultThemeId != null) {
+                catalogDefaultThemeId to catalogDefaultThemeCatalogKey
             } else {
                 null to null
             }
