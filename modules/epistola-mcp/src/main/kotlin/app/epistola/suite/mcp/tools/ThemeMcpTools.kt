@@ -28,6 +28,7 @@ import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -273,7 +274,7 @@ class ThemeMcpTools(
         val version = catalogVersionRef(catalogId, catalogVersion)
         if (defaultThemeKey != null || clearDefaultTheme == true) {
             val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.let(CatalogKey::of) ?: catalogKey) }
-            mediator.send(SetCatalogDefaultTheme(tenantKey, catalogKey, theme, catalogVersion = version))
+            SetCatalogDefaultTheme(tenantKey, catalogKey, theme, catalogVersion = version).execute()
         }
         if (presets != null) {
             val declared = objectMapper.readTree(presets).iterator().asSequence().map { node ->
@@ -283,7 +284,7 @@ class ThemeMcpTools(
                     description = node.get("description")?.takeUnless { it.isNull }?.asString(),
                 )
             }.toList()
-            mediator.send(SetCatalogPresets(tenantKey, catalogKey, declared, catalogVersion = version))
+            SetCatalogPresets(tenantKey, catalogKey, declared, catalogVersion = version).execute()
         }
         return settingsInfo(catalogId, catalogVersion)
     }
@@ -295,17 +296,17 @@ class ThemeMcpTools(
             "Returns which catalogs took it and which had no next version.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )
-    fun applyHouseTheme(): ApplyHouseThemeResult = mediator.send(ApplyHouseTheme(mcpTenantId().key))
+    fun applyHouseTheme(): ApplyHouseThemeResult = ApplyHouseTheme(mcpTenantId().key).execute()
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
         val catalogKey = CatalogKey.of(catalogId)
         val version = catalogVersionRef(catalogId, catalogVersion)
-        val settings = mediator.query(GetCatalogThemeSettings(tenantKey, catalogKey, version))
+        val settings = GetCatalogThemeSettings(tenantKey, catalogKey, version).query()
         return CatalogThemeSettingsInfo(
             defaultTheme = settings.defaultTheme?.let { "${it.catalogKey.value}/${it.themeKey.value}" },
             presets = settings.presets,
-            availablePresets = mediator.query(GetAvailablePresets(tenantKey, catalogKey, version)),
+            availablePresets = GetAvailablePresets(tenantKey, catalogKey, version).query(),
         )
     }
 }
