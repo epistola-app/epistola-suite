@@ -76,9 +76,11 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       option, since dependents pin the system release by it. Reachable before through the list's
       Export button, answering raw JSON. Evidence: `CatalogListHandlerTest`,
       `ExportUsesReleasedVersionTest`.
-- [x] **G10. The system catalog could be deleted.** Fixed: `DeleteCatalog` refuses it like `default`,
-      forced or not, and the list disables its delete button. Before, it went through on a tenant where
-      nothing referred to it. Evidence: `CatalogDeletionTest` (fails without the guard).
+- [x] **G10. The system catalog could be deleted.** `DeleteCatalog` refuses it like `default`, and
+      the list disables its button. Not for safety: what uses it (content, pinning releases, served
+      releases) was already refused. Where nothing used it, the delete went through and did not
+      last, since `SystemCatalogBootstrap` installs it again on every start. Evidence:
+      `CatalogDeletionTest` (fails without the guard).
 - [x] **G7. A generation job named the wrong catalog.** Fixed: `GetGenerationJob` did not select
       `catalog_key`, so every item fell back to the model's default (`default`), and the registry and
       namespace looked up by it were the default catalog's. Rendering was always right. Not

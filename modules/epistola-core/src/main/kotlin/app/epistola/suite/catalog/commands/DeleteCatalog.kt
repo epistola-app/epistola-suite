@@ -39,7 +39,8 @@ class DeleteCatalogHandler(
         require(command.catalogKey != CatalogKey.DEFAULT) {
             "The default catalog cannot be deleted"
         }
-        // The suite installs it in every tenant, and its fonts and the releases pinning it depend on it.
+        // The suite installs it in every tenant on every start, so a delete would not stick; what uses it is
+        // refused below anyway.
         require(command.catalogKey != SYSTEM_CATALOG_KEY) {
             "The system catalog cannot be deleted"
         }
