@@ -188,8 +188,8 @@ class NdjsonResultStreamTest {
         )
         val node = mapper.readTree(out.toString(Charsets.UTF_8).split("\n").first())
 
-        assertThat(node["releaseVersion"].asString()).isEqualTo("1.4.0")
-        assertThat(node["versionId"].isNull).`as`("a release, not a draft").isTrue
+        assertThat(node["version"].asString()).isEqualTo("1.4.0")
+        assertThat(node["releaseId"].isNull).`as`("a release, not a draft").isTrue
     }
 
     private fun sample(seq: Long) = GenerationResultRow(

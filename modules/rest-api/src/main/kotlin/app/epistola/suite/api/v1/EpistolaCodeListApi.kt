@@ -60,7 +60,7 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -68,7 +68,7 @@ class EpistolaCodeListApi : CodeListsApi {
     ): ResponseEntity<CodeListListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
             ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto(at.catalog) }
         } else {
@@ -84,10 +84,10 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         createCodeListRequest: CreateCodeListRequest,
     ): ResponseEntity<CodeListDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val codeList = CreateCodeList(
             id = CodeListId(CodeListKey.of(createCodeListRequest.key), draft.catalogId),
             displayName = createCodeListRequest.displayName,
@@ -110,10 +110,10 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
     ): ResponseEntity<CodeListDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             return ResponseEntity.ok(at.releasedResource<CodeListResource>("codeList", codeListKey)?.toDto(at) ?: throw at.codeListNotFound(codeListKey))
         }
@@ -126,12 +126,12 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
         updateCodeListRequest: UpdateCodeListRequest,
         ifMatch: String?,
     ): ResponseEntity<CodeListDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.codeListId(codeListKey)
         // PATCH semantics — fetch current, merge with the request body, then
         // replay through the full UpdateCodeList command (it isn't partial).
@@ -156,10 +156,10 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         if (!DeleteCodeList(id = draft.codeListId(codeListKey), catalogVersion = draft.ref).execute()) throw draft.codeListNotFound(codeListKey)
         return ResponseEntity.noContent().build()
     }
@@ -170,10 +170,10 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
     ): ResponseEntity<CodeListDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val refreshed = RefreshCodeList(id = draft.codeListId(codeListKey), catalogVersion = draft.ref).execute() ?: throw draft.codeListNotFound(codeListKey)
         return ResponseEntity.ok(refreshed.toDto(draft.catalog))
     }
@@ -183,11 +183,11 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
         includeHidden: Boolean,
     ): ResponseEntity<CodeListEntriesResponse> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val entries = if (at.isDraft) {
             ListCodeListEntries(codeListId = at.codeListId(codeListKey), includeHidden = includeHidden, catalogVersion = at.ref).query().map { it.toDto() }
         } else {
@@ -202,13 +202,13 @@ class EpistolaCodeListApi : CodeListsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         codeListKey: String,
         code: String,
         updateCodeListEntryHiddenRequest: UpdateCodeListEntryHiddenRequest,
         ifMatch: String?,
     ): ResponseEntity<CodeListEntryDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.codeListId(codeListKey)
         GetCodeList(id = id, catalogVersion = draft.ref).query() ?: throw draft.codeListNotFound(codeListKey)
         val updated = UpdateCodeListEntryHidden(

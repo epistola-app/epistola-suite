@@ -87,25 +87,25 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val catalog = catalogPath(tenant)
         exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0", key)
 
-        val list = exchange(HttpMethod.GET, "$catalog/versions?status=released", key)
+        val list = exchange(HttpMethod.GET, "$catalog/releases?status=released", key)
         assertThat(list.statusCode).describedAs(list.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[*].version")).containsExactly("1.0.1", "1.0.0")
         assertThat(JsonPath.read<List<String>>(list.body!!, "$.items[1].deployedTo")).containsExactly("production")
         assertThat(JsonPath.read<Int>(list.body!!, "$.page.total")).isEqualTo(2)
 
-        val all = exchange(HttpMethod.GET, "$catalog/versions", key)
-        assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].releaseVersion")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
+        val all = exchange(HttpMethod.GET, "$catalog/releases", key)
+        assertThat(JsonPath.read<List<String?>>(all.body!!, "$.items[*].version")).`as`("the next version, numbered when released, then the releases").containsExactly(null, "1.0.1", "1.0.0")
         assertThat(JsonPath.read<String>(all.body!!, "$.items[0].status")).isEqualTo("draft")
 
-        val paged = exchange(HttpMethod.GET, "$catalog/versions?status=released&page=1&size=1", key)
-        assertThat(JsonPath.read<List<String>>(paged.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.0")
+        val paged = exchange(HttpMethod.GET, "$catalog/releases?status=released&page=1&size=1", key)
+        assertThat(JsonPath.read<List<String>>(paged.body!!, "$.items[*].version")).containsExactly("1.0.0")
 
-        val one = exchange(HttpMethod.GET, "$catalog/versions/1.0.1", key)
+        val one = exchange(HttpMethod.GET, "$catalog/releases/1.0.1", key)
         assertThat(one.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(one.body!!, "$.status")).isEqualTo("released")
         assertThat(JsonPath.read<List<Any>>(one.body!!, "$.dependencies")).isEmpty()
 
-        val missing = exchange(HttpMethod.GET, "$catalog/versions/9.9.9", key)
+        val missing = exchange(HttpMethod.GET, "$catalog/releases/9.9.9", key)
         assertThat(missing.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(JsonPath.read<String>(missing.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-not-found")
     }
@@ -119,20 +119,20 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(exchange(HttpMethod.PUT, "$deployments/1.0.0", key).statusCode).isEqualTo(HttpStatus.OK)
         val added = exchange(HttpMethod.PUT, "$deployments/1.0.1", key)
         assertThat(added.statusCode).describedAs(added.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(added.body!!, "$.releaseVersion")).isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(added.body!!, "$.version")).isEqualTo("1.0.1")
 
         val serves = exchange(HttpMethod.GET, "$env/deployments", key)
-        assertThat(JsonPath.read<List<String>>(serves.body!!, "$.items[*].releaseVersion")).`as`("both served").containsExactly("1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String>>(serves.body!!, "$.items[*].version")).`as`("both served").containsExactly("1.0.1", "1.0.0")
 
         assertThat(exchange(HttpMethod.DELETE, "$deployments/1.0.1", key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
         val after = exchange(HttpMethod.GET, "$env/deployments", key)
-        assertThat(JsonPath.read<List<String>>(after.body!!, "$.items[*].releaseVersion")).`as`("the other stays").containsExactly("1.0.0")
+        assertThat(JsonPath.read<List<String>>(after.body!!, "$.items[*].version")).`as`("the other stays").containsExactly("1.0.0")
         val again = exchange(HttpMethod.DELETE, "$deployments/1.0.1", key)
         assertThat(again.statusCode).`as`("no longer served").isEqualTo(HttpStatus.NOT_FOUND)
 
         val history = exchange(HttpMethod.GET, "$env/deployment-history", key)
         assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].action")).containsExactly("undeployed", "deployed", "deployed")
-        assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].releaseVersion")).containsExactly("1.0.1", "1.0.1", "1.0.0")
+        assertThat(JsonPath.read<List<String>>(history.body!!, "$.items[*].version")).containsExactly("1.0.1", "1.0.1", "1.0.0")
         assertThat(JsonPath.read<Int>(history.body!!, "$.page.total")).isEqualTo(3)
 
         val notDeployable = exchange(HttpMethod.PUT, "$deployments/9.9.9", key)
@@ -156,10 +156,10 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             val jobAt = accepted.headers.location!!
             assertThat(jobAt.path).isEqualTo("/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}")
             val job = exchange(HttpMethod.GET, jobAt.path, key)
-            val release = JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")
+            val release = JsonPath.read<String>(job.body!!, "$.items[0].version")
             // A release has a version id too, and the item names it (contract `versionId`).
-            val releaseId = JsonPath.read<String>(exchange(HttpMethod.GET, withMediator { CatalogApiPaths.version(tenant, version = release) }, key).body!!, "$.versionId")
-            assertThat(JsonPath.read<String?>(job.body!!, "$.items[0].versionId")).isEqualTo(releaseId)
+            val releaseId = JsonPath.read<String>(exchange(HttpMethod.GET, withMediator { CatalogApiPaths.version(tenant, version = release) }, key).body!!, "$.releaseId")
+            assertThat(JsonPath.read<String?>(job.body!!, "$.items[0].releaseId")).isEqualTo(releaseId)
             release
         }
 
@@ -199,7 +199,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val along = exchange(HttpMethod.PUT, "${deployments(tenant)}/$version?includeDependencies=true", key)
         assertThat(along.statusCode).describedAs(along.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(along.body!!, "$.releaseVersion")).isEqualTo(version)
+        assertThat(JsonPath.read<String>(along.body!!, "$.version")).isEqualTo(version)
         val served = exchange(HttpMethod.GET, "$env/deployments", key)
         assertThat(JsonPath.read<List<String>>(served.body!!, "$.items[*].catalogKey")).`as`("deployed explicitly too, on request")
             .containsExactlyInAnyOrder("default", "shared")
@@ -217,7 +217,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
         val requestId = JsonPath.read<String>(accepted.body!!, "$.requestId")
         val job = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/$requestId", key)
-        assertThat(JsonPath.read<String>(job.body!!, "$.items[0].releaseVersion")).`as`("the named release, not the latest").isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(job.body!!, "$.items[0].version")).`as`("the named release, not the latest").isEqualTo("1.0.0")
 
         val unknown = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("9.9.9"))
         assertThat(unknown.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
@@ -274,18 +274,18 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
 
         val deployed = exchange(HttpMethod.PUT, "${deployments(tenant)}/$next", key)
         assertThat(deployed.statusCode).describedAs(deployed.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(deployed.body!!, "$.kind")).isEqualTo("draft")
-        assertThat(JsonPath.read<String>(deployed.body!!, "$.versionId")).isEqualTo(next)
-        assertThat(JsonPath.read<String>(deployed.body!!, "$.draftName")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.status")).isEqualTo("draft")
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseId")).isEqualTo(next)
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseName")).isEqualTo("Next version")
         val fromDraft = generated("production", null)
-        assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].releaseVersion")).isNull()
-        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].versionId")).isEqualTo(next)
-        assertThat(JsonPath.read<String>(generated("production", "^1.0.0"), "$.items[0].releaseVersion")).`as`("a range matches releases only").isEqualTo("1.0.1")
-        assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].kind")).isEqualTo("draft")
+        assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].version")).isNull()
+        assertThat(JsonPath.read<String>(fromDraft, "$.items[0].releaseId")).isEqualTo(next)
+        assertThat(JsonPath.read<String>(generated("production", "^1.0.0"), "$.items[0].version")).`as`("a range matches releases only").isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(exchange(HttpMethod.GET, "$environments/production/deployment-history", key).body!!, "$.items[0].status")).isEqualTo("draft")
 
         assertThat(exchange(HttpMethod.DELETE, "${deployments(tenant)}/$next", key).statusCode).isEqualTo(HttpStatus.NO_CONTENT)
         assertThat(exchange(HttpMethod.DELETE, "${deployments(tenant)}/$next", key).statusCode).`as`("no longer deployed").isEqualTo(HttpStatus.NOT_FOUND)
-        assertThat(JsonPath.read<String>(generated("production", null), "$.items[0].releaseVersion")).isEqualTo("1.0.1")
+        assertThat(JsonPath.read<String>(generated("production", null), "$.items[0].version")).isEqualTo("1.0.1")
     }
 
     @Test
@@ -307,12 +307,12 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
         usage.flush()
         val used = exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!
-        assertThat(JsonPath.read<List<Int>>(used, "$.items[?(@.releaseVersion == '1.0.1')].documentsRequested")).containsExactly(1)
-        assertThat(JsonPath.read<List<String?>>(used, "$.items[?(@.releaseVersion == '1.0.1')].lastUsedAt").single()).isNotNull()
+        assertThat(JsonPath.read<List<Int>>(used, "$.items[?(@.version == '1.0.1')].documentsRequested")).containsExactly(1)
+        assertThat(JsonPath.read<List<String?>>(used, "$.items[?(@.version == '1.0.1')].lastUsedAt").single()).isNotNull()
 
         val replaced = exchange(HttpMethod.PUT, "${deployments(tenant)}/1.0.0?replace=true", key)
         assertThat(replaced.statusCode).describedAs(replaced.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!, "$.items[*].releaseVersion"))
+        assertThat(JsonPath.read<List<String>>(exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/environments/production/deployments", key).body!!, "$.items[*].version"))
             .containsExactly("1.0.0")
     }
 

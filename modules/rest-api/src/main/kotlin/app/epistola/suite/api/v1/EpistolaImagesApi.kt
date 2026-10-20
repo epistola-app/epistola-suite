@@ -72,12 +72,12 @@ class EpistolaImagesApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         search: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<ImageListResponse> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             val images = at.releasedResources<ImageResource>("image").filter { search.isNullOrBlank() || it.name.contains(search, ignoreCase = true) }
@@ -112,13 +112,13 @@ class EpistolaImagesApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         file: MultipartFile,
         name: String?,
         mediaType: String?,
         sensitive: Boolean,
     ): ResponseEntity<ImageDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val content = file.bytes
         val resolvedMediaType = assetTypeCatalog.require(
             mediaType?.takeIf { it.isNotBlank() } ?: file.contentType ?: MediaType.APPLICATION_OCTET_STREAM_VALUE,
@@ -152,10 +152,10 @@ class EpistolaImagesApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         imageKey: String,
     ): ResponseEntity<Resource> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
         val (mediaType, bytes) = if (at.isDraft) {
             GetAssetContent(tenantId = at.tenantKey, catalogKey = at.catalogKey, assetId = key, catalogVersion = at.ref).query()
@@ -183,11 +183,11 @@ class EpistolaImagesApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         imageKey: String,
         force: Boolean,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
         val image = GetAsset(tenantId = draft.tenantKey, assetId = key, catalogVersion = draft.ref).query()
         if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {

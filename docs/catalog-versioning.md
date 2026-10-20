@@ -106,7 +106,7 @@ releases (and an installed release) are numbered.
   when asked for (`ListCatalogVersions(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
   every release's content.
 - **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
-  its draft started from, which `getCatalogVersion` reports as a released version's `base` and which
+  its draft started from, which `getCatalogRelease` reports as a released release's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed
   from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
   release cut before the column. Those fall back to the release below them.
@@ -166,7 +166,7 @@ inherits it; the caller's target is restored when the message ends. A message th
 works on the next version. A self-managed command (`RefreshCodeList`) applies the target in each
 transaction it opens.
 
-The REST API's `…/versions/{catalogVersion}/…` paths take `next`, a draft id or a release number
+The REST API's `…/releases/{release}/…` paths take `next`, a draft's release id or a release number
 (`ResolveCatalogVersion`), pass the draft they name to every message they dispatch
 (`ResolvedCatalogVersion.ref`), and read a released version from its retained content.
 
@@ -290,8 +290,8 @@ everyone than one large catalog nobody wants all of.
 
 A catalog that uses another catalog's resources declares that catalog once (wire v8
 `catalogDependencies`, contract ADR 0003): by registry, namespace and key, **pinned to one exact
-release** of it (`releaseVersion`), not a range. A draft may instead name a **draft** of that catalog
-(`versionId`; column `dependency_version_id`), to build on work not released yet; it renders with that
+release** of it (`version`), not a range. A draft may instead name a **draft** of that catalog
+(`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an authored catalog;
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
 fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
@@ -334,7 +334,7 @@ arise, since catalogs never use each other (above); the release still refuses th
 `releaseDependencies`, lists the catalogs it publishes along with their numbers, and marks their
 changes ready as it marks its own. A pinned release that is gone refuses the release
 (`CATALOG_DEPENDENCY_UNRESOLVED`), and so does a resource reference into a catalog the catalog does
-not declare. The release records each declaration with its pin (`releaseVersion` and
+not declare. The release records each declaration with its pin (`version` and
 `releaseFingerprint`) in its manifest and in `catalog_release_dependencies`
 (`ListReleaseDependencies`).
 
@@ -464,8 +464,8 @@ next release records one.
 
 ## What an environment uses
 
-Deploying (`DeployCatalogVersion`, contract `deployCatalogVersion`) names a catalog version by its
-release number or its `versionId`, and adds it beside what the environment serves, in the UI as over
+Deploying (`DeployCatalogVersion`, contract `deployCatalogRelease`) names a catalog release by its
+number or its `releaseId`, and adds it beside what the environment serves, in the UI as over
 REST; `replace` (the UI's _Stop using the catalog's other versions here_) stops serving the others.
 Each release deployment counts the generation requests accepted through the environment for it and
 when the last was (`documents_requested`, `last_used_at`; `DeploymentUsage` tallies per node and
@@ -497,7 +497,7 @@ it per catalog.
   on requests and documents, no release version), validate their data against the draft's contract,
   and carry the preview watermark, so nobody takes one for a published document. They do not pin
   the draft's exact content: a document says which draft it came from and when, not a fingerprint.
-- **A draft's lifecycle carries through.** Releasing a deployed draft keeps its `versionId` on the
+- **A draft's lifecycle carries through.** Releasing a deployed draft keeps its `releaseId` on the
   release, so the deployment becomes one of that release, logged `RELEASED`; discarding it, or
   discarding the next version by making another draft the next version, undeploys it, logged.
 - **History.** Every deploy, undeploy and release of a deployed draft is recorded in the environment's
@@ -511,8 +511,8 @@ it per catalog.
   the banner of a draft other than the next version names the environments serving it. _Try a
   document_ on the environment page makes a PDF of a deployed template as the environment serves it,
   with the template's first example data (`EnvironmentHandler.tryDocument` → `PreviewDocument`).
-- **Over REST** `deployCatalogVersion` and `undeployCatalogVersion` (`…/deployments/{registry}/{namespace}/{catalogKey}/{catalogVersion}`);
-  deployments and history entries carry `versionId`, `kind` (`release` | `draft`) and `draftName`.
+- **Over REST** `deployCatalogRelease` and `undeployCatalogRelease` (`…/deployments/{registry}/{namespace}/{catalogKey}/{release}`);
+  deployments and history entries carry `releaseId`, `status` (`released` | `draft`), `version` and `releaseName`.
 - **Over MCP** nothing deploys; `preview_document` and `analyze_template_data` with an
   `environmentId` render what the environment serves.
 
@@ -644,7 +644,7 @@ To regenerate after an intentional change: run the test, paste the reported
 | Surface  | Exposure                                                                                                                                                                                |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next version, publish any with `acknowledgedBehind`)                                                     |
-| REST     | Catalog versions: list, create a draft, rename, discard, preview a draft's release number, release a draft (`…/versions/{next, version id or number}/…`)                                |
+| REST     | Catalog releases: list (drafts with `?status=draft`), create a draft, rename, discard, preview a draft's release number, release a draft (`…/releases/{next, release id or number}/…`)  |
 | MCP      | `list_catalog_versions`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft` (with `continueEverydayWork`); `catalogVersion` on the content tools |
 | Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                            |
 

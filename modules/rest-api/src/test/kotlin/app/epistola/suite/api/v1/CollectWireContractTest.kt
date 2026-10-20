@@ -72,7 +72,7 @@ class CollectWireContractTest {
         assertThat(result.templateKey).isEqualTo("invoice")
         assertThat(result.variantKey).isEqualTo("default")
         assertThat(listOf(result.registry, result.namespace, result.catalogKey)).containsExactly("exchange.epistola.app", "acme", "letters")
-        assertThat(result.releaseVersion).isEqualTo("1.4.0")
+        assertThat(result.version).isEqualTo("1.4.0")
 
         val meta = strict.readValue(metaLine, CollectMeta::class.java)
         assertThat(meta.resultCount).isEqualTo(1)

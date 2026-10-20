@@ -47,8 +47,8 @@ internal fun DocumentMetadata.toDto(catalog: CatalogName?) = DocumentDto(
     catalogKey = catalogKey.value,
     templateKey = templateId.value,
     variantKey = variantId.value,
-    releaseVersion = releaseVersion,
-    versionId = catalogVersionId ?: draftId,
+    version = releaseVersion,
+    releaseId = catalogVersionId ?: draftId,
     draftLabel = draftLabel,
     filename = filename,
     correlationId = correlationId,
@@ -100,8 +100,8 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper, cat
     catalogKey = catalogKey.value,
     templateKey = templateKey.value,
     variantKey = variantKey.value,
-    releaseVersion = releaseVersion,
-    versionId = catalogVersionId ?: draftId,
+    version = releaseVersion,
+    releaseId = catalogVersionId ?: draftId,
     draftLabel = draftLabel,
     environmentKey = environmentKey?.value,
     data = objectMapper.valueToTree(data),
@@ -193,25 +193,16 @@ private fun List<VariantSelectionAttribute>.toSelectionCriteria(
 }
 
 /**
- * Resolve the storage key for a `VariantSelectionAttribute`.
- *
- * The variant attribute map is stored as `Map<String, String>` keyed by
- * either a qualified `"<catalogKey>.<key>"` form or a bare key. We accept
- * three input shapes (in order of preference):
- *
- *  1. Explicit `catalogKey` — produces the qualified form. A `namespace` (and `registry`) names a
- *     catalog other than the template's, which must exist; omitted, they are the template's.
- *  2. Dotted `key` (`"<catalogKey>.<key>"`) — already qualified, used as-is.
- *  3. Bare key — kept as-is for the legacy tenant-wide lookup path.
- *
- * Catalog keys match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no `.`), so the
- * dotted-form split is unambiguous.
+ * The storage key of a `VariantSelectionAttribute`: `"<catalogKey>.<key>"`, as variants store their
+ * attributes. Without `catalogKey`, the attribute is the template's own catalog's. A `namespace`
+ * (and `registry`) names a catalog other than the template's, which must exist; omitted, they are
+ * the template's.
  */
 private fun VariantSelectionAttribute.toStorageKey(
     template: Catalog,
     catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
 ): String {
-    val qualifier = catalogKey ?: return key
+    val qualifier = catalogKey ?: template.id.value
     val catalog = if (namespace == null) {
         qualifier
     } else {
