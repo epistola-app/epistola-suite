@@ -138,7 +138,7 @@ class PreviewDocumentApiIT : IntegrationTestBase() {
                 accept = listOf(MediaType.APPLICATION_PDF, MediaType.APPLICATION_PROBLEM_JSON)
                 set(HttpHeaders.USER_AGENT, "epistola-contract/1.3.1 preview-it")
                 set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-                set("X-API-Key", apiKey)
+                set("Authorization", "ApiKey $apiKey")
             },
         ),
         String::class.java,

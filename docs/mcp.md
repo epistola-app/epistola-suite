@@ -6,7 +6,7 @@ Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) ser
 
 - **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author a draft — templates, variants, data contracts, stencils, themes, images and fonts — mark it ready, and manage a catalog's [drafts](#catalog-versions-beta), including releasing one; they may still change their arguments in a minor release. Nothing over MCP deploys a release or deletes a resource: whether a release is used to generate documents is still decided in the UI.
 - **Transport: Streamable HTTP**, mounted at `/api/mcp` on the same Spring Boot service that serves the UI and REST API.
-- **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type. Legacy `X-API-Key` remains accepted for existing clients.
+- **Auth: `Authorization: ApiKey`.** Reuses the existing per-tenant API-key mechanism — no new credential type.
 - **Server-wide toggle: `epistola.mcp.enabled`** (default `true`). Setting it to `false` disables the entire MCP endpoint — no `/api/mcp` route, no Spring AI MCP server, no eager loading of the component registry JSON. Wired through to Spring AI's own `spring.ai.mcp.server.enabled`.
 
 ## Connecting an MCP client
@@ -248,7 +248,7 @@ returns the new `revision`, for the next one.
 
 ## Troubleshooting
 
-- **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. Legacy `X-API-Key` is still accepted.
+- **`401 Unauthorized`**: The `Authorization: ApiKey` header is missing, the key is malformed (must start with `epk_`), or the key has been revoked/disabled/expired. An `X-API-Key` header is not read.
 - **Tool errors mentioning permission**: The API key is missing `TEMPLATE_VIEW` (for read tools), `DOCUMENT_GENERATE` (for preview), or the edit or publish permission a [write tool](#write-tools-beta) needs (`CATALOG_RELEASE` comes with the content publisher role, the edit permissions with the content author role, `CATALOG_MANAGE` for `create_catalog` with the tenant administrator role).
 - **Tool errors mentioning a read-only catalog**: Write tools only write to AUTHORED catalogs; SUBSCRIBED catalogs such as `system` are read-only.
 - **A tool this page lists is missing in the client**: MCP clients cache the tool list from when they connected. After upgrading Epistola, reconnect the server in the client (in Claude Code, `/mcp`) to pick up new tools and changed descriptions.

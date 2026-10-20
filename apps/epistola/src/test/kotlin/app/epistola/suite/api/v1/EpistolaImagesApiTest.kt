@@ -291,7 +291,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/1.3.0 images-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     /** The catalog version an address names: the open draft of an authored catalog. */

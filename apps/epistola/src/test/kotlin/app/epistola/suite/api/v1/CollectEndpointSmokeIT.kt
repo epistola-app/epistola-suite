@@ -123,7 +123,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
         val headers = HttpHeaders().apply {
             contentType = MediaType.parseMediaType(EPISTOLA_JSON)
             set(HttpHeaders.USER_AGENT, "epistola-contract/0.3.0 smoke-test")
-            add("X-API-Key", key)
+            add("Authorization", "ApiKey $key")
         }
         val response = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/generation/collect",
@@ -150,7 +150,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
             contentType = MediaType.parseMediaType(EPISTOLA_JSON)
             accept = listOf(MediaType.parseMediaType(EPISTOLA_JSON), MediaType.parseMediaType(EPISTOLA_NDJSON))
             set(HttpHeaders.USER_AGENT, "epistola-contract/0.3.0 smoke-test")
-            add("X-API-Key", key)
+            add("Authorization", "ApiKey $key")
         }
         val response = restTemplate.exchange(
             "/api/tenants/${tenantKey.value}/generation/collect?limit=25",
@@ -175,7 +175,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     fun `collect rejects 400 when User-Agent does not start with epistola-contract`() {
         val (tenantKey, key) = seedTenantAndKey()
         val headers = baseHeaders().apply {
-            add("X-API-Key", key)
+            add("Authorization", "ApiKey $key")
             set(HttpHeaders.USER_AGENT, "curl/8.0")
         }
         val response = restTemplate.exchange(
@@ -196,7 +196,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     fun `collect with valid headers returns NDJSON _meta line and gzip-encoded body`() {
         val (tenantKey, key) = seedTenantAndKey()
         val headers = baseHeaders().apply {
-            add("X-API-Key", key)
+            add("Authorization", "ApiKey $key")
             // Accept-Encoding: gzip is also the spec default, but pin it explicitly
             // so we know the server actually negotiates against it.
             set(HttpHeaders.ACCEPT_ENCODING, "gzip")
@@ -239,7 +239,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     fun `collect negotiates identity encoding when client refuses gzip`() {
         val (tenantKey, key) = seedTenantAndKey()
         val headers = baseHeaders().apply {
-            add("X-API-Key", key)
+            add("Authorization", "ApiKey $key")
             set(HttpHeaders.ACCEPT_ENCODING, "identity")
         }
 
@@ -309,7 +309,7 @@ class CollectEndpointSmokeIT : IntegrationTestBase() {
     @Test
     fun `access denied returns 403 problem details with ACCESS_DENIED code`() {
         val (_, key) = seedTenantAndKey()
-        val headers = baseHeaders().apply { add("X-API-Key", key) }
+        val headers = baseHeaders().apply { add("Authorization", "ApiKey $key") }
         val response = restTemplate.exchange(
             "/api/test/forbidden",
             HttpMethod.GET,

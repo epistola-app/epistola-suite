@@ -1647,7 +1647,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.5.0 template-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

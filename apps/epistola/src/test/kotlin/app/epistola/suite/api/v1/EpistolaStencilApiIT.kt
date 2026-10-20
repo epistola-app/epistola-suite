@@ -214,7 +214,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.14.0 stencil-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

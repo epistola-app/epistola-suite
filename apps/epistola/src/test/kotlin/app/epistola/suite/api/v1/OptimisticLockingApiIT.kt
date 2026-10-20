@@ -189,7 +189,7 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/2.0.0 locking-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {

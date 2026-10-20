@@ -51,47 +51,6 @@ class ApiKeyAuthenticationFilterAsyncTest {
     }
 
     @Test
-    fun `reads from custom header name when configured`() {
-        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key", objectMapper = ObjectMapper())
-        val plaintext = "epk_unit_test_key_value"
-        val key = sampleApiKey()
-        fakeMediator.lookupResponse = key
-
-        val request = MockHttpServletRequest("POST", "/api/mcp").apply {
-            addHeader("X-Custom-Api-Key", plaintext)
-        }
-        val response = MockHttpServletResponse()
-
-        MediatorContext.runWithMediator(fakeMediator) {
-            customFilter.doFilter(request, response, FilterChain { _, _ -> })
-        }
-
-        assertThat(fakeMediator.lookupQueries).isEqualTo(1)
-        assertThat(SecurityContextHolder.getContext().authentication)
-            .isInstanceOf(ApiKeyAuthenticationToken::class.java)
-    }
-
-    @Test
-    fun `keeps default X-API-Key header when custom header is configured`() {
-        val customFilter = ApiKeyAuthenticationFilter(service, meterRegistry, headerName = "X-Custom-Api-Key", objectMapper = ObjectMapper())
-        val key = sampleApiKey()
-        fakeMediator.lookupResponse = key
-
-        val request = MockHttpServletRequest("POST", "/api/mcp").apply {
-            addHeader("X-API-Key", "epk_some_key")
-        }
-        val response = MockHttpServletResponse()
-
-        MediatorContext.runWithMediator(fakeMediator) {
-            customFilter.doFilter(request, response, FilterChain { _, _ -> })
-        }
-
-        assertThat(fakeMediator.lookupQueries).isEqualTo(1)
-        assertThat(SecurityContextHolder.getContext().authentication)
-            .isInstanceOf(ApiKeyAuthenticationToken::class.java)
-    }
-
-    @Test
     fun `validates on REQUEST and restores from cache on ASYNC dispatch without re-querying`() {
         val plaintext = "epk_unit_test_key_value"
         val key = sampleApiKey()

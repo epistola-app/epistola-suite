@@ -123,6 +123,6 @@ class RelocationAddressSurfacesTest : BaseIntegrationTest() {
     private fun api(key: String) = HttpHeaders().apply {
         contentType = MediaType.parseMediaType("application/vnd.epistola.v2+json")
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
-        set("X-API-Key", key)
+        set("Authorization", "ApiKey $key")
     }
 }

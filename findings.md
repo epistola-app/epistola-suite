@@ -152,7 +152,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       Was: `GetThemeUsagePage` resolves
       variant override → template theme → tenant default; since ADR 0007 the last step is the
       catalog's default theme, so the "used by" list on a theme can be wrong.
-- [ ] **C4. The suite still accepts `X-API-Key`.** The contract dropped it; the suite keeps it as a
+- [x] **C4. The suite still accepted `X-API-Key`.** Decided: remove. Only `Authorization: ApiKey`
+      is read; `epistola.auth.api-key.header-name` is gone. Evidence: `ApiKeyAuthenticationFilterTest`
+      "ignores the X-API-Key header…" (fails before). Was: The contract dropped it; the suite keeps it as a
       legacy alias (docs/auth.md). Decide: keep, or remove in 2.0.
 
 ## Flaky tests

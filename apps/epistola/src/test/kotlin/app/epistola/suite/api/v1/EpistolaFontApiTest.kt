@@ -174,7 +174,7 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         accept = listOf(MediaType.parseMediaType("application/vnd.epistola.v2+json"))
         set(HttpHeaders.USER_AGENT, "epistola-contract/0.4.0-SNAPSHOT font-it")
         set("X-EP-Node-Id", "test-node-${UUID.randomUUID()}")
-        set("X-API-Key", apiKey)
+        set("Authorization", "ApiKey $apiKey")
     }
 
     /** The catalog version an address names: the open draft of an authored catalog, the installed release of a subscribed one. */
