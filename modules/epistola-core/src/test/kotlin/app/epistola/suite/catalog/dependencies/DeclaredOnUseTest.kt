@@ -152,21 +152,18 @@ class DeclaredOnUseTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `two catalogs building on each other's drafts are refused at release, naming both`() {
+    fun `two catalogs cannot come to use each other, the second use is refused as it is made`() {
         val tenant = setUp("on-use-cycle")
         withMediator {
-            // Letters uses Shared's theme; Shared uses a theme Letters has, both changed since.
+            // Letters uses Shared's theme; then Shared would use a theme Letters has.
             UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
             CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(letters, TenantId(tenant))), "House").execute()
             val memo = TemplateId(TemplateKey.of("memo"), CatalogId(shared, TenantId(tenant)))
             CreateDocumentTemplate(memo, "Memo").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalogKey = letters).execute()
-            MarkCatalogReady(tenant, letters).execute()
-            MarkCatalogReady(tenant, shared).execute()
-        }
 
-        assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, releaseDependencies = true).execute() } }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("build on each other's drafts")
+            assertThatThrownBy { UpdateDocumentTemplate(memo, themeId = ThemeKey.of("house"), themeCatalogKey = letters).execute() }
+                .isInstanceOf(ValidationException::class.java)
+                .hasMessageContaining("Catalog 'shared' cannot use 'letters'")
+        }
     }
 }

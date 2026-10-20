@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Handle
 import org.semver4j.Semver
 import org.springframework.stereotype.Component
@@ -106,11 +108,19 @@ class CatalogDependencyStore {
         .map { rs, _ -> declarationOf(rs) }
         .list()
 
-    /** Replaces the declarations of [catalogKey] with [declarations], in that order. */
+    /**
+     * Replaces the declarations of [catalogKey] with [declarations], in that order.
+     *
+     * @throws ValidationException when a declaration it adds names a catalog that already uses
+     *   [catalogKey]: catalogs never use each other. Every write that starts using another catalog
+     *   declares it here, in its own transaction, so the write is refused with it.
+     */
     fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
         // Only a change counts: the same declarations again leave the version's revision as it is.
         fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, releaseVersion, releaseFingerprint, draftId)
-        if (declarations(handle, tenantKey, catalogKey).map { it.what() } == declarations.map { it.what() }) return
+        val current = declarations(handle, tenantKey, catalogKey)
+        if (current.map { it.what() } == declarations.map { it.what() }) return
+        requireNoCycle(handle, tenantKey, catalogKey, declarations.filter { new -> current.none { it.identity == new.identity } })
         handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalogKey)
@@ -140,6 +150,58 @@ class CatalogDependencyStore {
                 .add()
         }
         batch.execute()
+    }
+
+    /**
+     * Refuses [added] when one names a catalog that already uses [catalogKey], directly or through
+     * others: catalogs never use each other. 2.0 could not release them, since each would have to
+     * pin the other's release first, and installing, restoring and the upgrade all order catalogs by
+     * what they use. Judged by what every other version declares (each draft of each catalog, and each
+     * subscribed catalog's installed version), so a parallel draft cannot close the loop either.
+     */
+    private fun requireNoCycle(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, added: List<CatalogDependencyDeclaration>) {
+        val targets = added.map { it.catalogKey }.filter { it != catalogKey.value }.toSet()
+        if (targets.isEmpty()) return
+        val uses = handle.createQuery(
+            """
+            SELECT DISTINCT c.catalog_key AS user_key, dc.catalog_key AS used_key
+            FROM catalog_dependencies d
+            JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
+            JOIN catalogs dc ON dc.tenant_key = d.tenant_key AND dc.registry = d.registry AND dc.namespace = d.namespace
+                            AND dc.catalog_key = d.dependency_key
+            WHERE d.tenant_key = :t AND d.version_id <> ${versionAt("t", "c")}
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("c", catalogKey)
+            .map { rs, _ -> rs.getString("user_key") to rs.getString("used_key") }
+            .list()
+            .groupBy({ it.first }, { it.second })
+        for (target in targets.sorted()) {
+            val path = pathBetween(target, catalogKey.value, uses) ?: continue
+            throw ValidationException(
+                "dependencies",
+                "Catalog '${catalogKey.value}' cannot use '$target': '$target' already uses '${catalogKey.value}' " +
+                    "(${(path).joinToString(" uses ") { "'$it'" }}), and catalogs never use each other. " +
+                    "Move what they share into one of them, or into a catalog they both use.",
+                ValidationCode.CATALOG_DEPENDENCY_INVALID,
+            )
+        }
+    }
+
+    /** The catalogs from [from] to [to] along [uses], both included; null when [to] is not reached. */
+    private fun pathBetween(from: String, to: String, uses: Map<String, List<String>>): List<String>? {
+        val previous = mutableMapOf(from to from)
+        val queue = ArrayDeque(listOf(from))
+        while (queue.isNotEmpty()) {
+            val at = queue.removeFirst()
+            if (at == to) return generateSequence(to) { node -> previous.getValue(node).takeIf { node != from } }.toList().reversed()
+            uses[at].orEmpty().sorted().filter { it !in previous }.forEach {
+                previous[it] = at
+                queue.addLast(it)
+            }
+        }
+        return null
     }
 
     /** Records the declarations release [version] of [catalogKey] was cut with, each with its pin. */
