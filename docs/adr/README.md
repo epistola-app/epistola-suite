@@ -37,6 +37,7 @@ Back to the [documentation index](../README.md).
 | [0026](0026-revisions-releases-and-the-working-copy.md) Revisions, releases, working copy             | Accepted — steps 1 to 3 implemented | Content-addressed revisions, releases as manifests, a status per resource; subscribed catalogs are releases.                                                                |
 | [0027](0027-page-headers-and-footers-by-section.md) Page headers and footers placed anywhere          | Accepted                            | Any number, anywhere; headers apply to what follows them per page-break section, footers from the page they land on.                                                        |
 | [0030](0030-product-domain-and-discovery.md) Product domain and discovery                             | Accepted — implemented              | One `product-domain` setting and one cached `.well-known/epistola.json` naming every endpoint; one `endpoint` setting per integration.                                      |
+| [0031](0031-quality-findings-never-out-of-date.md) Quality findings never out of date                 | Proposed                            | Each check run stamps the inputs it read (resource, version, change counter); a finding is outdated when one changed, shown as such, and re-checked through the stamps.     |
 
 ## Adding an ADR
 
