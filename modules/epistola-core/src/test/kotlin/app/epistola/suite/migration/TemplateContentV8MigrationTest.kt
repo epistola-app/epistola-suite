@@ -31,6 +31,7 @@ class TemplateContentV8MigrationTest {
     private lateinit var user: String
     private lateinit var password: String
     private lateinit var model: JsonNode
+    private lateinit var signed: JsonNode
 
     @BeforeAll
     fun migrate() {
@@ -54,7 +55,8 @@ class TemplateContentV8MigrationTest {
         flyway(BEFORE).migrate()
         connect().use(::seed)
         flyway(BEFORE_VERSIONS_DROPPED).migrate()
-        model = connect().use { mapper.readTree(single(it, "SELECT template_model::text FROM template_versions")) }
+        model = connect().use { mapper.readTree(single(it, templateModelOf("letter"))) }
+        signed = connect().use { mapper.readTree(single(it, templateModelOf("signed-letter"))) }
     }
 
     @Test
@@ -121,6 +123,29 @@ class TemplateContentV8MigrationTest {
         assertThat(model["themeRef"]["themeKey"].asString()).isEqualTo("corporate")
     }
 
+    @Test
+    fun `a parameter a template binds that the stencil no longer declares is declared again, and the instance stays a reference`() {
+        // 1.x rendered the pinned copy with version 1's parameters; the latest version declares none,
+        // so the reference would render `params.signer` empty. The stencil gets the declaration back.
+        assertThat(signed["nodes"]["dropped"]["props"]["stencilKey"].asString()).isEqualTo("signature")
+        connect().use {
+            val workingCopy = mapper.readTree(single(it, "SELECT parameter_schema::text FROM stencils WHERE id = 'signature'"))
+            assertThat(workingCopy["properties"].propertyNames().asSequence().toList()).containsExactly("signer")
+            // The upgrade's first release is cut from the latest published version, so it needs it too.
+            val published = mapper.readTree(
+                single(it, "SELECT parameter_schema::text FROM stencil_versions WHERE id = 2 AND stencil_resource_id = (SELECT resource_id FROM stencils WHERE id = 'signature')"),
+            )
+            assertThat(published["properties"].propertyNames().asSequence().toList()).containsExactly("signer")
+        }
+        assertThat(report()).anyMatch { it.contains("stencil default/signature") && it.contains("'signer'") }
+    }
+
+    @Test
+    fun `an instance whose bound parameters the stencil still declares stays a reference`() {
+        assertThat(signed["nodes"]["kept"]["props"]["stencilKey"].asString()).isEqualTo("stamp")
+        assertThat(signed["nodes"]["kept"]["props"]["parameterBindings"]["label"].asString()).isEqualTo("customer.name")
+    }
+
     // ── Seed: a 1.x tenant ──────────────────────────────────────────────────
 
     private fun seed(connection: Connection) {
@@ -131,6 +156,12 @@ class TemplateContentV8MigrationTest {
             "\"slots\":{\"s-root\":{\"id\":\"s-root\",\"nodeId\":\"root\",\"name\":\"children\",\"children\":[${roots.joinToString(",") { "\"$it\"" }}]}},\"themeRef\":{\"type\":\"inherit\"}}"
         val footerV1 = footer(listOf("f-text"), "")
         val footerDraft = footer(listOf("f-text", "draft-only"), ",\"draft-only\":{\"id\":\"draft-only\",\"type\":\"text\",\"props\":{}}")
+        // signature: version 1 declares `signer` and `title`; version 2, the latest, declares nothing.
+        val signatureDoc = expressionsDoc("sig", listOf("params.signer", "params.title"))
+        val signatureSchema = SIGNATURE_SCHEMA
+        // stamp: both versions declare `label`.
+        val stampDoc = expressionsDoc("st", listOf("params.label"))
+        val stampSchema = STAMP_SCHEMA
         connection.createStatement().use { st ->
             st.execute(
                 """
@@ -145,12 +176,22 @@ class TemplateContentV8MigrationTest {
                     (2, 'acme', (SELECT resource_id FROM stencils WHERE id = 'letterhead'), '$letterheadV2', 'published', NOW()),
                     (1, 'acme', (SELECT resource_id FROM stencils WHERE id = 'footer'), '$footerV1', 'published', NOW()),
                     (2, 'acme', (SELECT resource_id FROM stencils WHERE id = 'footer'), '$footerDraft', 'draft', NULL);
-                INSERT INTO document_templates (id, tenant_key, catalog_id, name)
-                    VALUES ('letter', 'acme', (SELECT catalog_id FROM catalogs), 'Letter');
+                INSERT INTO stencils (id, tenant_key, catalog_id, name) VALUES
+                    ('signature', 'acme', (SELECT catalog_id FROM catalogs), 'Signature'),
+                    ('stamp', 'acme', (SELECT catalog_id FROM catalogs), 'Stamp');
+                INSERT INTO stencil_versions (id, tenant_key, stencil_resource_id, content, parameter_schema, status, published_at) VALUES
+                    (1, 'acme', (SELECT resource_id FROM stencils WHERE id = 'signature'), '$signatureDoc', '$signatureSchema', 'published', NOW()),
+                    (2, 'acme', (SELECT resource_id FROM stencils WHERE id = 'signature'), '$signatureDoc', NULL, 'published', NOW()),
+                    (1, 'acme', (SELECT resource_id FROM stencils WHERE id = 'stamp'), '$stampDoc', '$stampSchema', 'published', NOW()),
+                    (2, 'acme', (SELECT resource_id FROM stencils WHERE id = 'stamp'), '$stampDoc', '$stampSchema', 'published', NOW());
+                INSERT INTO document_templates (id, tenant_key, catalog_id, name) VALUES
+                    ('letter', 'acme', (SELECT catalog_id FROM catalogs), 'Letter'),
+                    ('signed-letter', 'acme', (SELECT catalog_id FROM catalogs), 'Signed letter');
                 INSERT INTO template_variants (id, tenant_key, template_resource_id, title)
-                    VALUES ('default', 'acme', (SELECT resource_id FROM document_templates), 'Default');
-                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status)
-                    VALUES (1, 'acme', (SELECT resource_id FROM document_templates), 'default', '${templateDoc()}', 'draft');
+                    SELECT 'default', 'acme', resource_id, 'Default' FROM document_templates;
+                INSERT INTO template_versions (id, tenant_key, template_resource_id, variant_key, template_model, status) VALUES
+                    (1, 'acme', (SELECT resource_id FROM document_templates WHERE id = 'letter'), 'default', '${templateDoc()}', 'draft'),
+                    (1, 'acme', (SELECT resource_id FROM document_templates WHERE id = 'signed-letter'), 'default', '${signedDoc()}', 'draft');
                 """.trimIndent(),
             )
         }
@@ -197,6 +238,33 @@ class TemplateContentV8MigrationTest {
         return """{"modelVersion":1,"root":"root","nodes":{${nodes.joinToString(",")}},"slots":{${slots.joinToString(",")}},"themeRef":{"type":"override","themeId":"corporate"}}"""
     }
 
+    /** A stencil document of one text node per expression, ids `<prefix>-0`, `<prefix>-1`, …. */
+    private fun expressionsDoc(prefix: String, expressions: List<String>): String {
+        val ids = expressions.indices.map { "$prefix-$it" }
+        val texts = ids.zip(expressions).joinToString(",") { (id, expression) -> "\"$id\":${expressionText(id, expression)}" }
+        return """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["s-root"]},$texts},"slots":{"s-root":{"id":"s-root","nodeId":"root","name":"children","children":[${ids.joinToString(",") { "\"$it\"" }}]}},"themeRef":{"type":"inherit"}}"""
+    }
+
+    private fun expressionText(id: String, expression: String) = """{"id":"$id","type":"text","props":{"content":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"expression","attrs":{"expression":"$expression"}}]}]}}}"""
+
+    /**
+     * Two instances: `dropped` (signature version 1, binding `signer`, which the latest version no
+     * longer declares) and `kept` (stamp version 1, binding `label`, still declared).
+     */
+    private fun signedDoc(): String {
+        fun instance(id: String, stencil: String, schema: String, bindings: String, copy: List<Pair<String, String>>): Pair<String, String> {
+            val nodes = listOf(
+                "\"$id\":{\"id\":\"$id\",\"type\":\"stencil\",\"slots\":[\"$id-c\"],\"props\":{\"stencilId\":\"$stencil\",\"version\":1,\"parameterBindings\":$bindings,\"parameterSchemaSnapshot\":$schema}}",
+            ) + copy.map { (nodeId, expression) -> "\"$nodeId\":${expressionText(nodeId, expression)}" }
+            val slots = "\"$id-c\":{\"id\":\"$id-c\",\"nodeId\":\"$id\",\"name\":\"children\",\"children\":[${copy.joinToString(",") { "\"${it.first}\"" }}]}"
+            return nodes.joinToString(",") to slots
+        }
+        val dropped = instance("dropped", "signature", SIGNATURE_SCHEMA, """{"signer":"customer.name"}""", listOf("dropped-name" to "params.signer", "dropped-title" to "params.title"))
+        val kept = instance("kept", "stamp", STAMP_SCHEMA, """{"label":"customer.name"}""", listOf("kept-label" to "params.label"))
+        return """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["s-root"]},${dropped.first},${kept.first}},""" +
+            """"slots":{"s-root":{"id":"s-root","nodeId":"root","name":"children","children":["dropped","kept"]},${dropped.second},${kept.second}},"themeRef":{"type":"inherit"}}"""
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private fun connect(): Connection = DriverManager.getConnection(url, user, password)
@@ -213,6 +281,8 @@ class TemplateContentV8MigrationTest {
             .iterator().asSequence().map { it["subject"].asString() + " " + it["message"].asString() }.toList()
     }
 
+    private fun templateModelOf(templateKey: String) = "SELECT v.template_model::text FROM template_versions v JOIN document_templates t ON t.resource_id = v.template_resource_id WHERE t.id = '$templateKey'"
+
     private fun children(document: JsonNode, nodeId: String, slotName: String): List<String> {
         val slotIds = document["nodes"][nodeId]["slots"].iterator().asSequence().map { it.asString() }
         val slot = slotIds.map { document["slots"][it] }.first { it["name"].asString() == slotName }
@@ -225,5 +295,8 @@ class TemplateContentV8MigrationTest {
 
         /** The last migration that still has the 1.x version tables this migration rewrote; the upgrade drops them. */
         const val BEFORE_VERSIONS_DROPPED = "20261018201300"
+
+        const val SIGNATURE_SCHEMA = """{"type":"object","properties":{"signer":{"type":"string"},"title":{"type":"string","default":"Director"}}}"""
+        const val STAMP_SCHEMA = """{"type":"object","properties":{"label":{"type":"string"}}}"""
     }
 }

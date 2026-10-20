@@ -77,22 +77,18 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 - [ ] **G7. A generation job names the wrong catalog.** Rendering `epistola-demo/sectioned-letter`
       returns a job item with `catalogKey: "default"` (and `releaseVersion: 5.21.1`, which is
       epistola-demo's). Seen on the upgraded database; not yet checked on a fresh one.
-- [~] **G5. Stencil parameters render empty after the upgrade.** Cause found. The 1.x letterhead
-  has two published versions: version 1 declares `companyName`, version 2 declares no parameters.
-  Version 2 lost its schema in 1.x itself: `UpdateStencilDraft` (1.5.0) writes
-  `parameter_schema = :parameterSchema`, so an update that omits the schema clears it; the test
-  seed did exactly that through the 1.x REST API. In 1.x the template rendered its pinned copy of
-  version 1, schema included, so the gap stayed hidden. 2.0 renders the stencil as it is now
-  (version 2), whose schema declares nothing, so the binding is ignored and `params.companyName`
-  is empty. Not a scoping problem: the stencil reads only its parameters, and the upgrade already
-  marks stencils that read template data `readsTemplateData` (none here, correctly).
-  General form: **an instance pinned to an older stencil version whose parameters differ from
-  the current version's** silently loses those parameters. The upgrade report says "now renders
-  the stencil as it is", but not that a binding stopped working. Options to decide:
-  (a) treat it as "differs" and inline the copy as plain content, as already happens when a copy
-  differs from its version (keeps the 1.x output, loses the link to the stencil);
-  (b) keep the reference, but report the dropped bindings by name in the upgrade report and the
-  tenant notice; (c) both: inline only when a bound parameter is missing from the current schema.
+- [x] **G5. Stencil parameters rendered empty after the upgrade.** Fixed ("declare again the stencil parameters templates still bind"), the
+      simple way: a parameter an instance binds that its pinned version declared but the stencil no
+      longer does is declared again, optional, on the working copy and the latest published
+      version, and reported. Instances stay references. Cause in 1.x: an update leaving the schema
+      out cleared it (G8). Evidence: `TemplateContentV8MigrationTest`; end to end, the upgraded
+      letter is identical in text to 1.x apart from the G1 markers (16 pages, Inter, company name
+      13 times).
+- [ ] **G9. An instance inlined by the upgrade loses its parameters.** When a copy differs from its
+      pinned version (or its stencil or version is gone), the upgrade inlines it as plain content
+      and removes the stencil node, which is what supplied `params`; a copy reading `params.x`
+      then renders it empty. Fixing it means rewriting each `params.x` to its binding or default.
+      Not seen in the test data; how common it is in real 1.x tenants is unknown.
 - [x] **G8. A stencil content save through REST dropped its parameters.** The cause behind G5's
       data: `updateStencilContent` cleared the schema when `parameterSchema` was left out, by
       contract ("full replacement"); 1.5.0 did the same. The editor and MCP were not affected. Now
@@ -106,6 +102,12 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 - [ ] **G3. 404 `no-release-deployed` right after the upgrade.** Correct, but surprising to a client
       that worked a minute ago. Consider a clearer problem detail naming the environment and the
       deploy step, and a tenant-home notice until something is deployed.
+
+## Ideas for later
+
+- **F1. A data contract as its own catalog resource.** Templates and stencils would reference a
+  contract instead of each carrying one, so contracts can be reused, and several included or
+  merged into one. (Raised 2026-10-20; not designed yet.)
 
 ## Still to verify
 

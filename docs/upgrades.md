@@ -103,7 +103,11 @@ the documents of each environment before deploying to it:
 - **A stencil instance pinned to an older stencil version** renders the stencil as it is now. An
   instance whose copy differed from the version it pinned keeps that copy as plain content and stops
   following the stencil. Each case is listed in the `app_metadata` record
-  `upgrade-2.0-template-content` and in the log, prefixed `2.0 upgrade:`.
+  `upgrade-2.0-template-content` and in the log, prefixed `2.0 upgrade:`. One case is kept as it
+  rendered: a parameter a template binds that the stencil's latest version no longer declares
+  (for example because an API update dropped the stencil's parameters) would render empty, so the
+  upgrade declares it again on the stencil, optional, and reports it. Remove it once no template
+  binds it.
 
 **Generation stops at the upgrade and resumes per environment as you deploy.** Plan the upgrade as
 that outage, and tell the teams whose applications request documents.

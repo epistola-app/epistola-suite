@@ -32,6 +32,11 @@ import java.sql.ResultSet
  * A stencil whose own content reads anything but its parameters and `sys` declares
  * `reads_template_data`. Both detections err towards keeping the 1.x behaviour.
  *
+ * A parameter an instance binds, declared by the version it pinned but not by the stencil as it is
+ * now, is declared again, optional, on the working copy and on the latest published version (which
+ * the upgrade's first release is cut from), and reported. 1.x rendered the pinned copy with that
+ * version's parameters; a reference to a stencil not declaring it would render it empty.
+ *
  * Then every stored template document, stencil and stencil version gets the wire-v8 renames and loses
  * stencil version pins, by the contract's own [CatalogDocumentMigration], and theme styles their font renames.
  * What is reported is logged and kept in `app_metadata` under [REPORT_KEY].
@@ -49,6 +54,7 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
         val connection = context.connection
         val stencils = loadStencils(connection)
         val versions = loadStencilVersions(connection)
+        val versionSchemas = loadStencilVersionSchemas(connection)
 
         // Template versions: instances to references, then the v8 renames.
         val rows = query(
@@ -68,7 +74,7 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
             for (row in rows) {
                 val document = mapper.readTree(row.model) as? ObjectNode ?: continue
                 val where = "template ${row.catalogKey}/${row.templateKey} variant ${row.variantKey} version ${row.id}"
-                convertInstances(document, row.tenantKey, row.catalogKey, stencils, versions, where)
+                convertInstances(document, row.tenantKey, row.catalogKey, stencils, versions, versionSchemas, where)
                 val migrated = CatalogDocumentMigration.templateDocumentV7ToV8(document).document
                 update.setString(1, mapper.writeValueAsString(migrated))
                 update.setString(2, row.tenantKey)
@@ -99,6 +105,8 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
             }
             update.executeBatch()
         }
+
+        restoreBoundParameters(connection, stencils.values)
 
         // Stencil history the same way: the upgrade's first release is cut from each stencil's latest
         // published version (CatalogDependencyBackfillRunner), so that version must be v8 too, with the
@@ -149,6 +157,7 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
         templateCatalog: String,
         stencils: Map<String, StencilRow>,
         versions: Map<String, JsonNode>,
+        pinnedSchemas: Map<String, JsonNode>,
         where: String,
     ) {
         val nodes = document["nodes"] as? ObjectNode ?: return
@@ -193,6 +202,13 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
                     }
                     val alias = props.text("paramsAlias")?.takeIf { it.isNotBlank() } ?: "params"
                     stencil.aliases += alias
+                    // What 1.x rendered with: the instance's snapshot, else its pinned version's schema.
+                    val declaredThen = (props["parameterSchemaSnapshot"]?.takeIf { it.isObject } ?: pinnedSchemas["${stencil.tenantKey}|${stencil.resourceId}|$pinned"])
+                        ?.get("properties") as? ObjectNode
+                    val bound = (props["parameterBindings"] as? ObjectNode)?.propertyNames()
+                        ?.filter { props["parameterBindings"][it]?.takeIf { value -> value.isString }?.asString()?.isNotBlank() == true }
+                        .orEmpty()
+                    for (name in bound) declaredThen?.get(name)?.let { stencil.boundDeclarations.putIfAbsent(name, it) }
                     collapse(instance, nodes, slots, alias, stencil)
                 }
             }
@@ -392,6 +408,70 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
         }
     }
 
+    // ── Parameters templates bind ───────────────────────────────────────────
+
+    /**
+     * Declares again, optional, each parameter instances bind that the stencil's working copy or its
+     * latest published version no longer declares, with the declaration the instance's version had.
+     */
+    private fun restoreBoundParameters(connection: Connection, stencils: Collection<StencilRow>) {
+        for (stencil in stencils.filter { it.boundDeclarations.isNotEmpty() }) {
+            val added = linkedSetOf<String>()
+
+            /** [schemaJson] with the bound parameters it lacks, or null when it lacks none. */
+            fun withBound(schemaJson: String?): String? {
+                val schema = (schemaJson?.let(mapper::readTree) as? ObjectNode) ?: mapper.createObjectNode().put("type", "object")
+                val properties = (schema["properties"] as? ObjectNode) ?: schema.putObject("properties")
+                val missing = stencil.boundDeclarations.filterKeys { !properties.has(it) }
+                if (missing.isEmpty()) return null
+                missing.forEach { (name, declaration) -> properties.set(name, declaration.deepCopy()) }
+                added += missing.keys
+                return mapper.writeValueAsString(schema)
+            }
+
+            val current = query(
+                connection,
+                "SELECT parameter_schema::text FROM stencils WHERE tenant_key = ? AND resource_id = ?::uuid",
+                stencil.tenantKey,
+                stencil.resourceId,
+            ) { it.getString(1) }
+            withBound(current.firstOrNull())?.let { schema ->
+                connection.prepareStatement("UPDATE stencils SET parameter_schema = ?::jsonb WHERE tenant_key = ? AND resource_id = ?::uuid").use {
+                    it.setString(1, schema)
+                    it.setString(2, stencil.tenantKey)
+                    it.setString(3, stencil.resourceId)
+                    it.executeUpdate()
+                }
+            }
+
+            val latest = query(
+                connection,
+                "SELECT id, parameter_schema::text FROM stencil_versions WHERE tenant_key = ? " +
+                    "AND stencil_resource_id = ?::uuid AND status = 'published' ORDER BY id DESC LIMIT 1",
+                stencil.tenantKey,
+                stencil.resourceId,
+            ) { it.getInt(1) to it.getString(2) }.firstOrNull()
+            latest?.let { (id, schemaJson) ->
+                withBound(schemaJson)?.let { schema ->
+                    connection.prepareStatement("UPDATE stencil_versions SET parameter_schema = ?::jsonb WHERE tenant_key = ? AND stencil_resource_id = ?::uuid AND id = ?").use {
+                        it.setString(1, schema)
+                        it.setString(2, stencil.tenantKey)
+                        it.setString(3, stencil.resourceId)
+                        it.setInt(4, id)
+                        it.executeUpdate()
+                    }
+                }
+            }
+
+            if (added.isNotEmpty()) {
+                note(
+                    "stencil ${stencil.catalogKey}/${stencil.key}",
+                    "templates bind ${added.joinToString(", ") { "'$it'" }}, which it no longer declared; declared again as optional",
+                )
+            }
+        }
+    }
+
     // ── Loading ─────────────────────────────────────────────────────────────
 
     private fun loadStencils(connection: Connection): Map<String, StencilRow> = query(
@@ -406,7 +486,13 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
         "SELECT tenant_key, stencil_resource_id::text, id, content::text FROM stencil_versions",
     ) { rs -> "${rs.getString(1)}|${rs.getString(2)}|${rs.getInt(3)}" to mapper.readTree(rs.getString(4)) }.toMap()
 
-    private fun <T> query(connection: Connection, sql: String, map: (ResultSet) -> T): List<T> = connection.prepareStatement(sql).use { statement ->
+    private fun loadStencilVersionSchemas(connection: Connection): Map<String, JsonNode> = query(
+        connection,
+        "SELECT tenant_key, stencil_resource_id::text, id, parameter_schema::text FROM stencil_versions WHERE parameter_schema IS NOT NULL",
+    ) { rs -> "${rs.getString(1)}|${rs.getString(2)}|${rs.getInt(3)}" to mapper.readTree(rs.getString(4)) }.toMap()
+
+    private fun <T> query(connection: Connection, sql: String, vararg parameters: String, map: (ResultSet) -> T): List<T> = connection.prepareStatement(sql).use { statement ->
+        parameters.forEachIndexed { index, value -> statement.setString(index + 1, value) }
         statement.executeQuery().use { rs -> buildList { while (rs.next()) add(map(rs)) } }
     }
 
@@ -450,6 +536,9 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
     ) {
         val passParameters = mutableSetOf<String>()
         val aliases = mutableSetOf<String>()
+
+        /** Parameters instances bind, with the declaration of the version each instance pinned. */
+        val boundDeclarations = linkedMapOf<String, JsonNode>()
     }
 
     companion object {
