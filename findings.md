@@ -77,13 +77,22 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 - [ ] **G7. A generation job names the wrong catalog.** Rendering `epistola-demo/sectioned-letter`
       returns a job item with `catalogKey: "default"` (and `releaseVersion: 5.21.1`, which is
       epistola-demo's). Seen on the upgraded database; not yet checked on a fresh one.
-- [ ] **G5. Stencil parameters render empty after the upgrade.** The letterhead's company name
-      ("Globex Corporation", from `companyName`) shows in 1.x header and footer on every page
-      (13 times) and in 2.0 once, outside the stencil. The upgraded reference keeps
-      `parameterBindings: {companyName: companyName}` and `paramsAlias: params`, so the binding
-      survived; why it evaluates empty is not yet known. Check whether the current stencil content
-      reads `params.companyName`, and whether a fresh 2.0 stencil reference fills it.
-
+- [~] **G5. Stencil parameters render empty after the upgrade.** Cause found. The 1.x letterhead
+  has two published versions: version 1 declares `companyName`, version 2 declares no parameters.
+  Version 2 lost its schema in 1.x itself: `UpdateStencilDraft` (1.5.0) writes
+  `parameter_schema = :parameterSchema`, so an update that omits the schema clears it; the test
+  seed did exactly that through the 1.x REST API. In 1.x the template rendered its pinned copy of
+  version 1, schema included, so the gap stayed hidden. 2.0 renders the stencil as it is now
+  (version 2), whose schema declares nothing, so the binding is ignored and `params.companyName`
+  is empty. Not a scoping problem: the stencil reads only its parameters, and the upgrade already
+  marks stencils that read template data `readsTemplateData` (none here, correctly).
+  General form: **an instance pinned to an older stencil version whose parameters differ from
+  the current version's** silently loses those parameters. The upgrade report says "now renders
+  the stencil as it is", but not that a binding stopped working. Options to decide:
+  (a) treat it as "differs" and inline the copy as plain content, as already happens when a copy
+  differs from its version (keeps the 1.x output, loses the link to the stencil);
+  (b) keep the reference, but report the dropped bindings by name in the upgrade report and the
+  tenant notice; (c) both: inline only when a bound parameter is missing from the current schema.
 - [~] **G2. No guard against a live 1.x node during the migration.** The 1.x node fails closed (500s,
   writes nothing), so no data is lost, but nothing stops the operator either. Option: refuse a
   breaking migration while another node heartbeated in the last minute, with an override flag.
