@@ -96,6 +96,7 @@ class UpgradeCatalogHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
+    private val importRows: CatalogImportRows,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -187,6 +188,8 @@ class UpgradeCatalogHandler(
             objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog)),
             manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
         )
+        // The upgraded version's theme settings (contract ADR 0007), as its archive declares them.
+        importRows.updateThemeSettings(command.tenantKey, command.catalogKey, manifest.catalog, objectMapper)
 
         if (!InstalledReleaseRecording.isDeferred) {
             RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()

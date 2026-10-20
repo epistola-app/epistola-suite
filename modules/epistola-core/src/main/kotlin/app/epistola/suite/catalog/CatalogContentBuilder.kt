@@ -187,7 +187,7 @@ class CatalogContentBuilder(
                 availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.key } else null,
                 namespace = catalog.namespace,
                 registry = catalog.registry,
-            ),
+            ).withThemeSettings(tenantKey, catalogKey),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
             dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value)
@@ -430,3 +430,30 @@ private const val PUBLISHED_CONTRACT_JOIN =
 private const val PUBLISHED_VARIANT_JOIN =
     "JOIN catalog_upgrade_published pv ON pv.tenant_key = v.tenant_key AND pv.resource_id = v.template_resource_id " +
         "AND pv.kind = 'variant' AND pv.part = v.id"
+
+/**
+ * The catalog details with the version's theme settings (contract ADR 0007): its default theme,
+ * qualified when it lives in another catalog, and the presets it declares. Absent ones leave the
+ * details, and so the fingerprint, as they were.
+ */
+private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogInfo {
+    val settings = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenantKey, catalogKey).query()
+    if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
+    val theme = settings.defaultTheme?.let { theme ->
+        if (theme.catalogKey == catalogKey) {
+            app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value)
+        } else {
+            val other = GetCatalog(tenantKey, theme.catalogKey).query()
+            app.epistola.catalog.protocol.CatalogThemeRef(
+                key = theme.themeKey.value,
+                catalogKey = theme.catalogKey.value,
+                namespace = other?.namespace,
+                registry = other?.registry,
+            )
+        }
+    }
+    return copyWithMetadata(
+        defaultTheme = theme,
+        presets = settings.presets.map { app.epistola.catalog.protocol.CatalogPresetDeclaration(it.key, it.name, it.description) },
+    )
+}

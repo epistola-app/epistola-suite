@@ -681,6 +681,7 @@ class ImportCatalogZipHandler(
                 catalogMetadataJson,
             )
             jdbi.useHandle<Exception> { dependencyStore.replace(it, command.tenantKey, catalogKey, declared) }
+            rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
             if (!InstalledReleaseRecording.isDeferred) {
                 RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries)).execute()
             }
@@ -702,6 +703,12 @@ class ImportCatalogZipHandler(
                     emptyList()
                 }
                 dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
+            }
+            // A merge into existing work keeps its theme settings; a fresh or replacing import takes the archive's.
+            if (existingCatalog == null || command.authoredMode == AuthoredImportMode.REPLACE) {
+                rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
+            }
+            jdbi.useHandle<Exception> { handle ->
                 // What an archive brings is released content: imported, every resource of it is
                 // ready as it is (contract ADR 0002), which adopting its release below relies on.
                 for (entry in manifest.resources) {

@@ -1001,3 +1001,16 @@ Plan, in order:
    default; UI on the tenant/theme page.
 6. UI (catalog Details: default theme, presets), MCP, REST, export/import round trip, demo catalog,
    docs, changelog.
+
+ADR 0007 state (20 October, paused at the usage limit). Done and committed: storage + migration,
+commands/queries, draft/preview/editor/release renders use the catalog default theme, house theme,
+themes list, Details page section, editor presets, preset refusal, quality finding, MCP, published
+versions carry both in their manifest (content builder), import writes them back. Open:
+- `CatalogThemeSettingsTest` "a published version carries its theme settings through export and
+  import" (left uncommitted in the working tree) fails: the imported catalog's version has no default
+  theme. Suspect the new-authored-catalog import path (`ImportCatalogZip`: `existingCatalog` may be set
+  by the earlier `CreateCatalog`, so `updateThemeSettings` is skipped), and `CatalogVersions.copyContent`
+  does not copy `default_theme_resource_id`/`presets` into parallel work started from another version.
+- REST: `RenameCatalogDraftRequest.name` is now optional (compile error in `EpistolaCatalogApi`
+  line ~269 until handled); map `defaultTheme`/`presets` there and in `CatalogVersionDto`.
+- Demo catalog, docs (catalog-versioning, themes), changelog fragment, full test run.

@@ -95,6 +95,7 @@ class RecordInstalledReleaseHandler(
     private val releaseEntryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
+    private val rows: CatalogImportRows,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -115,6 +116,9 @@ class RecordInstalledReleaseHandler(
         }
         if (exists) return version
 
+        // The installed version carries the archive's theme settings (contract ADR 0007), so its
+        // release, rebuilt or not, renders with its default theme.
+        if (command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
         val content = command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey)
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a

@@ -96,6 +96,33 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a template that names no theme renders with the default theme its release was published with`() {
+        val catalog = authoredCatalog("rr-catalog-default")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
+            CreateTheme(ThemeId(ThemeKey.of("other"), catalog), "Other", documentStyles = mapOf("color" to "#0000ff")).execute()
+            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+                catalog.tenantKey,
+                catalog.key,
+                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("brand"), catalog.key),
+            ).execute()
+            invoice(catalog, theme = null, nodeId = "body")
+            release(catalog, "1.0.0")
+
+            // The next version moves on to another default; the release keeps the one it was published with.
+            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+                catalog.tenantKey,
+                catalog.key,
+                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("other"), catalog.key),
+            ).execute()
+        }
+
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+
+        assertThat(inputs.resolvedTheme.documentStyles).containsEntry("color", "#ff0000")
+    }
+
+    @Test
     fun `a theme from another catalog renders from the release of it this release pinned`() {
         val tenant = createTenant("rr-pinned")
         val shared = catalogIn(tenant.id, "shared")

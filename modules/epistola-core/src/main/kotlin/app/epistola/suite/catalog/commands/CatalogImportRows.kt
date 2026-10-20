@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -15,6 +16,36 @@ import org.springframework.stereotype.Component
 class CatalogImportRows(
     private val jdbi: Jdbi,
 ) {
+    /**
+     * The archive's theme settings (contract ADR 0007) on the version it was imported into: its
+     * default theme, found among the themes the import put in place (or in the catalog it names), and
+     * the presets it declares. A default theme that is not there is left unset rather than failing the
+     * import; the validator already checked it resolves.
+     */
+    fun updateThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey, info: app.epistola.catalog.protocol.CatalogInfo, objectMapper: tools.jackson.databind.ObjectMapper) {
+        val themeCatalog = info.defaultTheme?.catalogKey?.let(CatalogKey::of) ?: catalogKey
+        val presets = objectMapper.writeValueAsString(info.presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) })
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE catalog_versions SET
+                    default_theme_resource_id = (
+                        SELECT resource_id FROM themes
+                        WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = CAST(:theme AS TEXT)
+                    ),
+                    presets = CAST(:presets AS JSONB)
+                WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+                """,
+            )
+                .bind("t", tenantKey)
+                .bind("c", catalogKey)
+                .bind("themeCatalog", themeCatalog)
+                .bind("theme", info.defaultTheme?.key)
+                .bind("presets", presets)
+                .execute()
+        }
+    }
+
     fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_key = :c")

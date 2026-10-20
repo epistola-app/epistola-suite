@@ -247,3 +247,30 @@ object PresetUse {
         }
     }
 }
+
+/**
+ * The theme settings release [version] of [catalogKey] was published with (contract ADR 0007), read
+ * from what it froze; empty settings for a release published before catalogs had them.
+ */
+data class GetReleasedThemeSettings(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+    val version: String,
+) : Query<CatalogThemeSettings>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+@Component
+class GetReleasedThemeSettingsHandler(
+    private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+) : QueryHandler<GetReleasedThemeSettings, CatalogThemeSettings> {
+    override fun handle(query: GetReleasedThemeSettings): CatalogThemeSettings {
+        val info = assembler.readCatalogInfo(query.tenantKey, query.catalogKey, query.version)
+            ?: return CatalogThemeSettings(defaultTheme = null, presets = emptyList())
+        return CatalogThemeSettings(
+            defaultTheme = info.defaultTheme?.let { CatalogDefaultTheme(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: query.catalogKey) },
+            presets = info.presets.map { CatalogPreset(it.key, it.name, it.description) },
+        )
+    }
+}

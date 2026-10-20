@@ -177,15 +177,17 @@ class ReleaseRenderSource(
 
     /**
      * The theme cascade, read from releases: the variant's own theme, then the template's, then the
-     * tenant default. Returns the theme's catalog alongside it, because unqualified font references
+     * default theme the release was published with (contract ADR 0007; the tenant's house theme is
+     * never read here). Returns the theme's catalog alongside it, because unqualified font references
      * resolve in the catalog of the theme that styles the document.
      */
     private fun resolveTheme(scope: Scope, tenant: Tenant, template: TemplateResource, model: TemplateDocument): Pair<CatalogKey?, ThemeResource?> {
         val ref = model.themeRef
+        val releaseDefault by lazy { assembler.readCatalogInfo(scope.tenantKey, scope.release.catalogKey, scope.release.version)?.defaultTheme }
         val (themeKey, themeCatalog) = when {
             ref is ThemeRefOverride -> ref.themeKey to ref.catalogKey?.let(CatalogKey::of)
             template.themeKey != null -> template.themeKey!! to template.themeCatalogKey?.let(CatalogKey::of)
-            tenant.defaultThemeKey != null -> tenant.defaultThemeKey.value to tenant.defaultThemeCatalogKey
+            releaseDefault != null -> releaseDefault!!.key to releaseDefault!!.catalogKey?.let(CatalogKey::of)
             else -> return null to null
         }
         val catalog = themeCatalog ?: scope.release.catalogKey
