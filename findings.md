@@ -161,6 +161,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       of three full `uiTest` runs on 2026-10-20 (the page stays on the templates list instead of
       `/boosted-row`), passes alone every time (twice in a row with `--rerun`). Likely an ordering or
       timing dependence on state left by an earlier test; not caused by this branch's changes.
+      Again on 2026-10-20 (second run): "a host navigate message drives real navigation…" timed out
+      in the full run and passed alone (8/8), so it is the class, not one case.
 
 ## Ideas for later
 
@@ -176,6 +178,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       faces to a release that now keeps them); fixed by adding only faces the release lacks.
       `EmbeddingBridgeUiTest` "clicking a boosted row link" passed on rerun: flaky, as noted in
       progress.md before. Both pass on rerun.
+- [x] **V4. Full suites after the contract catch-up.** 2026-10-20: 4545 tests, 1 skipped, 1 failed
+      (`EmbeddingBridgeUiTest`, T1, passes alone). The run before it had 13 failures, all fixed in
+      `827a8742d` (walkthrough spotlight in editor UI tests, collect `resultCount`).
 - [x] **V2. `NoTenantWideListTest` guard.** Passes (guards: 27 tests, 0 failed, 2026-10-20).
 - [ ] **V3. Clean up the test machinery.** Databases `epistola_v1`, `epistola_upg`…`epistola_upg4`
       in `epistola-postgres`, stopped containers `epistola-v1` / `epistola-v1b`, and the image
