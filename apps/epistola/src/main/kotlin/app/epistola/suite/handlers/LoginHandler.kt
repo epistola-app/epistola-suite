@@ -6,10 +6,12 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.embedding.EmbeddingProperties
 import app.epistola.suite.security.AuthProperties
+import app.epistola.suite.security.LocalUserProperties
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler.Companion.POPUP_PARAM
 import app.epistola.suite.security.SilentLoginAuthorizationRequestResolver.Companion.SILENT_LOGIN_ATTEMPTED_ATTR
 import app.epistola.suite.security.SilentLoginAuthorizationRequestResolver.Companion.SILENT_PARAM
 import jakarta.servlet.http.HttpServletRequest
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
@@ -33,6 +35,7 @@ class LoginHandler(
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
     private val authProperties: AuthProperties,
     private val embeddingProperties: EmbeddingProperties,
+    private val environment: Environment,
 ) {
 
     /**
@@ -63,6 +66,7 @@ class LoginHandler(
             "login",
             buildMap {
                 put("hasFormLogin", hasFormLogin)
+                put("localAccounts", if (hasFormLogin) localAccountHints(environment.activeProfiles.toSet(), authProperties.localUsers) else emptyList())
                 put("hasOAuth2", hasOAuth2)
                 if (registrationId != null) {
                     put("oauth2RegistrationId", registrationId)
@@ -131,3 +135,13 @@ class LoginHandler(
         }
     }
 }
+
+/** An account the login page names, with its password, so a first visit can sign in. */
+data class LocalAccountHint(val username: String, val password: String, val name: String)
+
+/**
+ * The accounts the login page lists: under the `local` profile only, whose users are the documented
+ * development defaults (`application-local.yaml`; it refuses to start alongside `prod`). Anywhere
+ * else configured users are real credentials, so none are shown.
+ */
+internal fun localAccountHints(activeProfiles: Set<String>, users: List<LocalUserProperties>): List<LocalAccountHint> = if ("local" in activeProfiles) users.map { LocalAccountHint(it.username, it.password, it.displayName) } else emptyList()

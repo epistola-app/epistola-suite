@@ -12,7 +12,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 - [ ] **U1. No "start here".** A new user lands on the tenant home with no path through catalog →
       template → publish → deploy → generate.
-- [ ] **U2. No demo credentials hint.** The demo login page does not say which accounts exist.
+- [x] **U2. No demo credentials hint.** The login page lists the accounts under the `local` profile
+      only (`localAccountHints`); elsewhere they are real credentials. Evidence: `LocalAccountHintsTest`.
 - [ ] **U3. No way to generate a test document from the UI.** The only route is the REST API, which
       needs the vendor media type and a namespace. A "Try it" from a template or environment would
       close the loop.
