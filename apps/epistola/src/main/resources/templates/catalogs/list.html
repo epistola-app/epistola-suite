@@ -85,7 +85,8 @@
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
-                        <button type="button"
+                        <!--/* Not the system catalog: every installation has it, and it keeps more than its archive. */-->
+                        <button type="button" th:if="${catalog.id != 'system'}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">

@@ -65,6 +65,12 @@ data class ExportCatalogZip(
     override val permission get() = Permission.CATALOG_VIEW
 }
 
+/**
+ * The system catalog is not exported. Every installation has it, from the suite itself, and what it
+ * keeps (its seeded fonts with their bundled faces) is more than the archive its fingerprint covers.
+ */
+class SystemCatalogNotExportableException : RuntimeException("The system catalog is not exported: every installation has it, from the suite itself.")
+
 /** A fat export cannot be made: what it would bundle is not there to bundle, or does not agree. */
 class CatalogBundleException(message: String) : RuntimeException(message)
 
@@ -85,6 +91,7 @@ class ExportCatalogZipHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
+        if (command.catalogKey == SYSTEM_CATALOG_KEY) throw SystemCatalogNotExportableException()
         if (command.workingCopy) return exportWorkingCopy(command)
         val version = command.version ?: highestRelease(command)
         if (!command.includeDependencies) return exportRelease(command, version)

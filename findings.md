@@ -69,11 +69,17 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       fixed build renders in Inter. **Existing 2.0 databases** (the local demo, dev databases) keep
       the faceless system release until the system catalog's version is bumped, because recording
       it is idempotent: recreate them, or bump the system catalog when this ships.
-- [ ] **G6. The system catalog's release cannot be exported.** `ExportCatalogZip(tenant, system)`
-      fails with "Release 2.0.0 of catalog 'system' rebuilds to fingerprint … but was released as …;
-      its retained content has been altered", with or without the G4 fix. The recorded fingerprint
-      is the publisher's; the retained content rebuilds to another. Check whether the UI offers
-      this export, and whether the seeded fonts are what make the two differ.
+- [x] **G6. The system catalog's release could not be exported.** Fixed: it is no longer offered
+      (catalogs list) and `ExportCatalogZip` refuses it with `SystemCatalogNotExportableException`.
+      Cause: its release records the publisher's fingerprint (`catalog.json`), but what it retains
+      also holds the seeded fonts, so the two never match; re-recording the fingerprint is not an
+      option, since dependents pin the system release by it. Reachable before through the list's
+      Export button, answering raw JSON. Evidence: `CatalogListHandlerTest`,
+      `ExportUsesReleasedVersionTest`.
+- [ ] **G10. The system catalog can be deleted from the catalogs list.** Delete is offered for it
+      and `DeleteCatalog` guards only `default`. Every template using a system font, and every
+      release pinning the system catalog, depends on it. Refuse it like `default`; check what the
+      bootstrap does on the next start.
 - [x] **G7. A generation job named the wrong catalog.** Fixed: `GetGenerationJob` did not select
       `catalog_key`, so every item fell back to the model's default (`default`), and the registry and
       namespace looked up by it were the default catalog's. Rendering was always right. Not

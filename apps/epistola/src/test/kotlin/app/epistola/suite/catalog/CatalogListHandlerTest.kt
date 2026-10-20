@@ -471,6 +471,23 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the system catalog is not offered for export`() = fixture {
+        lateinit var t: Tenant
+        given { t = tenant("Catalog System Export") }
+
+        whenever {
+            restTemplate.getForEntity("/tenants/${t.id}/catalogs", String::class.java)
+        }
+
+        then {
+            val body = result<org.springframework.http.ResponseEntity<String>>().body!!
+            // Every installation has it, and what it keeps is not the archive it came in.
+            assertThat(body).contains("/tenants/${t.id}/catalogs/default/export-check")
+            assertThat(body).doesNotContain("/tenants/${t.id}/catalogs/system/export-check")
+        }
+    }
+
+    @Test
     fun `export-check confirms that the working copy is exported as it is`() = fixture {
         lateinit var t: Tenant
         given {

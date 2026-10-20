@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
@@ -70,5 +71,14 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
             assertThat(after.release.fingerprint).isEqualTo(released.fingerprint)
             assertThat(after.resources.map { it.key }).doesNotContain("th2")
         }
+    }
+
+    @Test
+    fun `the system catalog is not exported, and says why`() {
+        val tenantKey = createTenant("Export System Test").id
+
+        assertThatThrownBy { withMediator { ExportCatalogZip(tenantKey, SYSTEM_CATALOG_KEY).execute() } }
+            .isInstanceOf(SystemCatalogNotExportableException::class.java)
+            .hasMessageContaining("every installation has it")
     }
 }
