@@ -75,6 +75,16 @@
     if (key) e.detail.headers['X-Epistola-Shell'] = key.getAttribute('data-key');
   });
 
+  // A save on the page (any request but a GET) can change what is not published yet: refresh the
+  // bar's status, so an inline edit shows in it without reloading the page.
+  document.addEventListener('htmx:afterRequest', function (e) {
+    var config = e.detail.requestConfig;
+    var verb = config && config.verb ? String(config.verb).toLowerCase() : 'get';
+    if (!e.detail.successful || verb === 'get') return;
+    if (document.getElementById('ws-status') && window.htmx)
+      window.htmx.trigger(document.body, 'ws-status-refresh');
+  });
+
   // When the bar is replaced for the same catalog version, show its status as it was until the
   // fresh one arrives, instead of an empty space.
   var keptStatus = null;

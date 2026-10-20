@@ -44,7 +44,9 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       keep their own. Evidence: `LocalTimeUiTest` (Tokyo; fails with the script off).
 - [x] **U14. Raw enums.** `#labels.of(...)` (epistola-web `LabelsDialect`) on Quality, Feedback, profile
       and generation pages. Evidence: `LabelsTest`, `ProfileHandlerHtmxTest`, `GenerationHistoryRoutesTest`.
-- [ ] **U15. Inline template settings give no feedback.** Saving shows nothing on success.
+- [x] **U15. Inline template settings give no feedback.** Any successful non-GET request refreshes the
+      bar status (`nav.js`), so an inline save shows as "1 change not published". Evidence:
+      `TemplateSettingsUiTest` "an inline save refreshes…" (fails without it).
 
 ### Contract
 

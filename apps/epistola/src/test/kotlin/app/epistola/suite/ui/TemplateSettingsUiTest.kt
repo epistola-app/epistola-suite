@@ -4,7 +4,10 @@
 
 package app.epistola.suite.ui
 
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -143,6 +146,27 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     }
 
     /** Makes the endpoint answer 500 so the control's error path runs. */
+    @Test
+    fun `an inline save refreshes what the bar says is not published`() {
+        val (tenant, template) = withMediator {
+            createTemplate().also { (tenant, _) ->
+                MarkCatalogReady(tenant.id, CatalogKey.DEFAULT).execute()
+                ReleaseCatalogVersion(tenant.id, CatalogKey.DEFAULT).execute()
+            }
+        }
+
+        gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
+        val status = page.locator("[data-testid=ws-pending]")
+        assertThat(status).hasText("Everything is published")
+
+        val input = page.locator("[data-template-name-input]")
+        input.fill("Renamed After Publishing")
+        input.press("Enter")
+
+        // The rename is the change the bar now names, without reloading the page.
+        assertThat(status).hasText("1 change not published")
+    }
+
     private fun failEveryRequestTo(urlPattern: String) {
         page.route(urlPattern) { route ->
             route.fulfill(
