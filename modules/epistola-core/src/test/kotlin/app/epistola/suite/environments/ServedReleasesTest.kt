@@ -80,10 +80,10 @@ class ServedReleasesTest : IntegrationTestBase() {
 
         assertThatThrownBy { generate(letters, production.key, selector = "1.0.1") }
             .isInstanceOf(NoReleaseDeployedException::class.java)
-            .hasMessageContaining("satisfying 1.0.1")
+            .hasMessageContaining("matching 1.0.1")
         assertThatThrownBy { generate(letters, production.key, selector = "^2.0.0") }
             .isInstanceOf(NoReleaseDeployedException::class.java)
-            .hasMessageContaining("satisfying ^2.0.0")
+            .hasMessageContaining("matching ^2.0.0")
     }
 
     @Test
