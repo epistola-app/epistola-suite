@@ -28,8 +28,10 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       The scroll-arrow code in `EpistolaSidebar` no longer triggers; left in place.
 - [x] **U7. "sp" unit unexplained.** Unit menus and options carry `unitTitle` ("1 sp = N pt" from the
       theme). Evidence: `style-inputs.test.ts` "unit explanations" (fails without it).
-- [ ] **U8. Unsaved work restored silently.** Reopening a template brings back unsaved local edits
-      without saying so, or offering to discard them.
+- [x] **U8. Unsaved work restored silently.** Not a bug: the template editor keeps no document in the
+      browser (only panel preferences), and autosaves to the server 3 s after a change (`SaveService`),
+      warning on leave while a save is pending. In the test the leave warning was dismissed by the
+      script (which keeps the page open), the autosave ran, and the block was simply saved.
 - [~] **U9. Walkthrough off by default.** The editor walkthrough would help exactly the users who
   never find the switch. Decide: on for first visit, or offered once.
 
