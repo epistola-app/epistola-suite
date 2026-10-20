@@ -42,6 +42,19 @@ data class Stencil(
 )
 
 /**
+ * Whether [schema] declares no parameters: `{}`, or an object schema without properties. A stencil
+ * stores that as no schema, so "no parameters" has one form, and an update sends it to remove them
+ * (leaving the schema out keeps it).
+ */
+fun declaresNoParameters(schema: JsonNode?): Boolean {
+    if (schema == null || !schema.isObject) return false
+    val properties = schema.get("properties")
+    val required = schema.get("required")
+    return (properties == null || (properties.isObject && properties.size() == 0)) &&
+        (required == null || (required.isArray && required.size() == 0))
+}
+
+/**
  * This stencil with an absent parameter schema as null. JDBI hands a SQL NULL JSON column to Jackson
  * as the text `null`, which Jackson reads into a [JsonNode] as a `NullNode`, not as null.
  */

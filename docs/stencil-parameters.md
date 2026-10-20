@@ -26,9 +26,11 @@ both.
 ### 2.1 Schema on the stencil
 
 `stencils.parameter_schema` (JSONB, nullable) holds the parameters. NULL means "no parameters" —
-semantically identical to `{"type":"object","properties":{}}`. It is part of the stencil's working
-copy (set with `CreateStencil` / `UpdateStencil`, removed with `UpdateStencil.clearParameterSchema`)
-and is released with the catalog like the stencil's content.
+semantically identical to `{"type":"object","properties":{}}`, and a schema declaring no parameters
+is stored as NULL, so "no parameters" has one form. It is part of the stencil's working copy (set
+with `CreateStencil` / `UpdateStencil`; removed by sending such an empty schema, or with
+`UpdateStencil.clearParameterSchema`; an update leaving it out keeps it) and is released with the
+catalog like the stencil's content.
 
 The supported shape:
 

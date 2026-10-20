@@ -221,8 +221,8 @@ class EpistolaStencilApi(
         val stencil = UpdateStencil(
             id = id,
             content = content,
+            // Left out keeps the schema; an empty one (`{}`) removes it (UpdateStencil).
             parameterSchema = parameterSchema,
-            clearParameterSchema = parameterSchema == null,
             catalogVersion = draft.ref,
             expectedRevision = ETags.expected(ifMatch),
         ).execute() ?: throw StencilNotFoundException(id.tenantKey, id.key)

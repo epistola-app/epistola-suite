@@ -93,6 +93,13 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
   differs from its version (keeps the 1.x output, loses the link to the stencil);
   (b) keep the reference, but report the dropped bindings by name in the upgrade report and the
   tenant notice; (c) both: inline only when a bound parameter is missing from the current schema.
+- [x] **G8. A stencil content save through REST dropped its parameters.** The cause behind G5's
+      data: `updateStencilContent` cleared the schema when `parameterSchema` was left out, by
+      contract ("full replacement"); 1.5.0 did the same. The editor and MCP were not affected. Now
+      left out or null keeps it and a schema declaring no parameters (`{}`) removes it, stored as
+      no schema. Contract wording `b4ad6ed` (feature/v2); suite: `UpdateStencil` / `CreateStencil`
+      treat an empty schema as none, REST no longer clears on omission. Evidence:
+      `StencilParameterSchemaApiTest` (fails with the old REST mapping), `StencilIntegrationTest`.
 - [~] **G2. No guard against a live 1.x node during the migration.** The 1.x node fails closed (500s,
   writes nothing), so no data is lost, but nothing stops the operator either. Option: refuse a
   breaking migration while another node heartbeated in the last minute, with an override flag.
@@ -104,8 +111,7 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 
 - [ ] **V1. Full suites after the last fixes.** Only targeted tests ran for `43d188555` and
       `feb62bbe9`. Run `./gradlew test uiTest`.
-- [ ] **V2. `NoTenantWideListTest` guard.** Its last run found no test results; rerun
-      `./gradlew --no-watch-fs :modules:guards:test --tests "*NoTenantWideList*"`.
+- [x] **V2. `NoTenantWideListTest` guard.** Passes (guards: 27 tests, 0 failed, 2026-10-20).
 - [ ] **V3. Clean up the test machinery.** Databases `epistola_v1`, `epistola_upg`…`epistola_upg4`
       in `epistola-postgres`, stopped containers `epistola-v1` / `epistola-v1b`, and the image
       `ghcr.io/epistola-app/epistola-suite:1.5.0`.

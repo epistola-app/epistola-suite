@@ -36,8 +36,10 @@ template. Wherever the template is shown or rendered, the instance is expanded f
 The commands live in `modules/epistola-core/src/main/kotlin/app/epistola/suite/stencils/`:
 
 - `CreateStencil` — a new stencil with its working copy;
-- `UpdateStencil` — changes name, description, tags, `content`, `parameterSchema`
-  (`clearParameterSchema` removes it) or `readsTemplateData`;
+- `UpdateStencil` — changes name, description, tags, `content`, `parameterSchema` or
+  `readsTemplateData`, each only when given. A schema declaring no parameters (`{}`, or one without
+  properties) removes the schema, as does `clearParameterSchema`; leaving it out keeps it. REST and
+  MCP follow the same rule, so a client saving only the content cannot drop the parameters;
 - `ImportStencil` — a catalog import replaces the working copy with the imported stencil;
 - `MarkStencilReady` — records that the working copy is reviewed, so the next release may capture
   it (see [ready marks](catalog-versioning.md#ready-marks)). Any later edit makes the mark stale.

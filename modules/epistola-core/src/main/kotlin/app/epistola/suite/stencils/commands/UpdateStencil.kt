@@ -23,6 +23,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.declaresNoParameters
 import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
@@ -102,7 +103,8 @@ class UpdateStencilHandler(
     private fun save(command: UpdateStencil): Stencil? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
         command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
-        parameterSchemaValidator.validate(command.parameterSchema)
+        val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
+        if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->
             val setClauses = mutableListOf<String>()
             val bindings = mutableMapOf<String, Any?>()
@@ -132,7 +134,7 @@ class UpdateStencilHandler(
                     .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
                     .let(objectMapper::writeValueAsString)
             }
-            if (command.clearParameterSchema) {
+            if (clearsParameterSchema) {
                 setClauses.add("parameter_schema = NULL")
             } else {
                 command.parameterSchema?.let {

@@ -97,7 +97,7 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `updating the working copy with an omitted or null parameterSchema clears it`() {
+    fun `updating the working copy keeps the parameterSchema when it is left out or null, and an empty one removes it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val stencilId = "param-clear-${UUID.randomUUID().toString().take(8)}"
         post(
@@ -108,15 +108,17 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
         val path = contentPath(tenantKey, stencilId)
         val content = contentOf(path, apiKey)
 
+        // A client changing only the content must not drop the parameters every template binds.
         val omitted = put(path, """{"content":$content}""", apiKey)
         assertThat(omitted.statusCode).describedAs(omitted.body).isEqualTo(HttpStatus.OK)
-        assertNoSchema(omitted.body)
-
-        put(path, """{"content":$content,"parameterSchema":$schema}""", apiKey)
+        assertThat(JsonPath.read<List<String>>(omitted.body, "$.parameterSchema.required")).containsExactly("recipientName")
         val explicitNull = put(path, """{"content":$content,"parameterSchema":null}""", apiKey)
-        assertThat(explicitNull.statusCode).describedAs(explicitNull.body).isEqualTo(HttpStatus.OK)
-        assertNoSchema(explicitNull.body)
-        assertThat(JsonPath.read<String>(explicitNull.body, "$.content.root")).isEqualTo("root")
+        assertThat(JsonPath.read<List<String>>(explicitNull.body, "$.parameterSchema.required")).containsExactly("recipientName")
+
+        val emptied = put(path, """{"content":$content,"parameterSchema":{}}""", apiKey)
+        assertThat(emptied.statusCode).describedAs(emptied.body).isEqualTo(HttpStatus.OK)
+        assertNoSchema(emptied.body)
+        assertThat(JsonPath.read<String>(emptied.body, "$.content.root")).isEqualTo("root")
     }
 
     @Test

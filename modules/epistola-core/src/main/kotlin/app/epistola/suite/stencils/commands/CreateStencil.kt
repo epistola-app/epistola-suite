@@ -23,6 +23,7 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.declaresNoParameters
 import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
@@ -100,7 +101,8 @@ class CreateStencilHandler(
         if (command.content != null) {
             templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)
         }
-        parameterSchemaValidator.validate(command.parameterSchema)
+        val parameterSchema = command.parameterSchema?.takeUnless(::declaresNoParameters)
+        parameterSchemaValidator.validate(parameterSchema)
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
             jdbi.inTransaction<Stencil, Exception> { handle ->
@@ -127,7 +129,7 @@ class CreateStencilHandler(
                     .bind("description", command.description)
                     .bind("tags", tagsJson)
                     .bind("content", contentJson)
-                    .bind("parameterSchema", command.parameterSchema?.let { objectMapper.writeValueAsString(it) })
+                    .bind("parameterSchema", parameterSchema?.let { objectMapper.writeValueAsString(it) })
                     .bind("readsTemplateData", command.readsTemplateData)
                     .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                     .execute()

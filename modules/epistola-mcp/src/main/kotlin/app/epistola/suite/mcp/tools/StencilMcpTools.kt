@@ -189,9 +189,9 @@ class StencilMcpTools(
         tags: List<String>?,
         @McpToolParam(description = "The complete new content: a template document as a JSON object string.", required = false)
         content: String?,
-        @McpToolParam(description = "JSON Schema object string replacing the parameter schema.", required = false)
+        @McpToolParam(description = "JSON Schema object string replacing the parameter schema. Left out keeps it; `{}` removes it.", required = false)
         parameterSchema: String?,
-        @McpToolParam(description = "True to remove the parameter schema; ignored when `parameterSchema` is given.", required = false)
+        @McpToolParam(description = "True to remove the parameter schema, the same as `parameterSchema` `{}`; ignored when `parameterSchema` is given.", required = false)
         clearParameterSchema: Boolean?,
         @McpToolParam(description = "Whether the content also reads the using template's data.", required = false)
         readsTemplateData: Boolean?,

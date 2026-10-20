@@ -152,6 +152,21 @@ class StencilIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an empty parameter schema is stored as none`() = test {
+        val id = stencilId(TenantId(createTenant("Test Tenant").id))
+        val schema = ObjectMapper().readTree("""{"type":"object","properties":{"name":{"type":"string"}}}""")
+        CreateStencil(id = id, name = "Header", content = letterhead(), parameterSchema = ObjectMapper().readTree("{}")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("created with an empty schema").isNull()
+
+        UpdateStencil(id = id, parameterSchema = schema).execute()
+        UpdateStencil(id = id, content = letterhead(logo = "NEW LOGO")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("an update leaving it out keeps it").isEqualTo(schema)
+
+        UpdateStencil(id = id, parameterSchema = ObjectMapper().readTree("""{"type":"object","properties":{}}""")).execute()
+        assertThat(GetStencil(id = id).query()!!.parameterSchema).`as`("a schema without properties clears it").isNull()
+    }
+
+    @Test
     fun `a stencil may contain another stencil`() = test {
         val tenantId = TenantId(createTenant("Test Tenant").id)
         val inner = stencilId(tenantId)
