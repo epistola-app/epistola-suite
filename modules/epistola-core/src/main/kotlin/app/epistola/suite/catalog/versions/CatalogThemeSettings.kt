@@ -29,7 +29,7 @@ data class CatalogDefaultTheme(val themeKey: ThemeKey, val catalogKey: CatalogKe
 /** A block style preset a catalog version declares (contract ADR 0007); its themes style it. */
 data class CatalogPreset(val key: String, val name: String, val description: String? = null) {
     init {
-        validate("presets", PRESET_KEY.matches(key)) { "Preset key '$key' must be lowercase letters, digits and dashes" }
+        validate("presets", PRESET_KEY.matches(key) && key.length <= MAX_KEY_LENGTH) { "Preset key '$key' must be lowercase letters, digits and dashes, at most $MAX_KEY_LENGTH characters" }
         validate("presets", name.isNotBlank() && name.length <= 100) { "Preset '$key' needs a name of at most 100 characters" }
         validate("presets", (description?.length ?: 0) <= 500) { "The description of preset '$key' is longer than 500 characters" }
     }
@@ -37,6 +37,9 @@ data class CatalogPreset(val key: String, val name: String, val description: Str
     companion object {
         /** The key rule for presets: what themes already use as preset keys. */
         val PRESET_KEY = Regex("^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
+
+        /** The contract's limit (`CatalogPresets.KEY_MAX_LENGTH`). */
+        const val MAX_KEY_LENGTH = 50
     }
 }
 

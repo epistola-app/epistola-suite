@@ -84,6 +84,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
         assertThatThrownBy { SetCatalogPresets(catalog.tenantKey, letters, listOf(CatalogPreset("a-b", "One"), CatalogPreset("a-b", "Two"))) }
             .isInstanceOf(ValidationException::class.java)
         assertThatThrownBy { CatalogPreset("Not A Key", "Bad") }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { CatalogPreset("a".repeat(51), "Too long") }.isInstanceOf(ValidationException::class.java)
     }
 
     @Test
