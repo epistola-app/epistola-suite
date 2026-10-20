@@ -162,6 +162,12 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val none = exchange(HttpMethod.POST, "/api/tenants/${tenant.value}/documents/generate", key, body("^2.0.0"))
         assertThat(none.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
         assertThat(JsonPath.read<String>(none.body!!, "$.type")).isEqualTo("https://epistola.app/errors/no-release-deployed")
+        // Says what to do, in the words the application uses, and where.
+        assertThat(JsonPath.read<String>(none.body!!, "$.detail"))
+            .isEqualTo(
+                "Environment 'production' serves no published version of catalog 'default' matching ^2.0.0. " +
+                    "Deploy one there first: on the environment's page in Epistola, or with deployCatalogVersion.",
+            )
     }
 
     @Test

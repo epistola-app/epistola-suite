@@ -99,9 +99,7 @@ class NoReleaseDeployedException(
     val catalogKey: CatalogKey,
     val versionSelector: String? = null,
 ) : RuntimeException(
-    if (versionSelector == null) {
-        "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}'. Deploy a release there first."
-    } else {
-        "Environment '${environmentKey.value}' serves no release of catalog '${catalogKey.value}' satisfying $versionSelector. Deploy one there first."
-    },
+    "Environment '${environmentKey.value}' serves no published version of catalog '${catalogKey.value}'" +
+        (versionSelector?.let { " matching $it" } ?: "") +
+        ". Deploy one there first: on the environment's page in Epistola, or with deployCatalogVersion.",
 )

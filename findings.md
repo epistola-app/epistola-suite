@@ -116,9 +116,10 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 - [~] **G2. No guard against a live 1.x node during the migration.** The 1.x node fails closed (500s,
   writes nothing), so no data is lost, but nothing stops the operator either. Option: refuse a
   breaking migration while another node heartbeated in the last minute, with an override flag.
-- [ ] **G3. 404 `no-release-deployed` right after the upgrade.** Correct, but surprising to a client
-      that worked a minute ago. Consider a clearer problem detail naming the environment and the
-      deploy step, and a tenant-home notice until something is deployed.
+- [x] **G3. 404 `no-release-deployed` right after the upgrade.** The detail now says "published version"
+      and where to deploy (the environment's page, or `deployCatalogVersion`); the tenant home already
+      names environments that serve nothing (`GenerationReadinessHomeNoticeContributor`). Evidence:
+      `ReleasesAndDeploymentsApiIT` asserts the detail.
 
 ## Design to decide
 
