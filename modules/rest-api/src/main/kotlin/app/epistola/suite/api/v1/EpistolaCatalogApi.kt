@@ -15,6 +15,8 @@ import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDraftSummary
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
+import app.epistola.api.model.CatalogPresetDto
+import app.epistola.api.model.CatalogThemeReference
 import app.epistola.api.model.CatalogVersionDto
 import app.epistola.api.model.CatalogVersionListResponse
 import app.epistola.api.model.CreateCatalogDraftRequest
@@ -57,6 +59,9 @@ import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.catalog.versions.AssessDraftNumber
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
+import app.epistola.suite.catalog.versions.CatalogPreset
+import app.epistola.suite.catalog.versions.CatalogThemeSettings
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -65,11 +70,16 @@ import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DeleteCatalogDraft
 import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.catalog.versions.GetCatalogNames
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.catalog.versions.GetCatalogVersion
+import app.epistola.suite.catalog.versions.GetReleasedThemeSettings
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.catalog.versions.RenameCatalogDraft
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.versions.SetCatalogPresets
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.springframework.http.HttpStatus
@@ -266,8 +276,22 @@ class EpistolaCatalogApi(
         renameCatalogDraftRequest: RenameCatalogDraftRequest,
     ): ResponseEntity<CatalogVersionDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
-        val renamed = RenameCatalogDraft(draft.tenantKey, draft.catalogKey, draft.draftRef, renameCatalogDraftRequest.name).execute()
-        return ResponseEntity.ok(renamed.toDto(draft.catalog))
+        val request = renameCatalogDraftRequest
+        request.name?.let { RenameCatalogDraft(draft.tenantKey, draft.catalogKey, draft.draftRef, it).execute() }
+        // Its theme settings (contract ADR 0007); an omitted member keeps what the draft has.
+        request.defaultTheme?.let { theme ->
+            SetCatalogDefaultTheme(
+                draft.tenantKey,
+                draft.catalogKey,
+                CatalogDefaultTheme(ThemeKey.of(theme.key), theme.catalogKey?.let { app.epistola.suite.common.ids.CatalogKey.of(it) } ?: draft.catalogKey),
+                catalogVersion = draft.ref,
+            ).execute()
+        }
+        request.presets?.let { presets ->
+            SetCatalogPresets(draft.tenantKey, draft.catalogKey, presets.map { CatalogPreset(it.key, it.name, it.description) }, catalogVersion = draft.ref).execute()
+        }
+        val updated = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        return ResponseEntity.ok(updated.version.toDto(updated.catalog))
     }
 
     /** The number releasing the draft would give it, from the kind of change against its base. */
@@ -463,7 +487,18 @@ class EpistolaCatalogApi(
             releasedAt = releasedAt,
             notes = notes,
             fingerprint = fingerprint,
+            defaultTheme = themeSettings(catalog).defaultTheme?.let { theme ->
+                CatalogThemeReference(key = theme.themeKey.value, catalogKey = theme.catalogKey.value.takeUnless { theme.catalogKey == catalog.id })
+            },
+            presets = themeSettings(catalog).presets.map { CatalogPresetDto(it.key, it.name, it.description) },
         )
+    }
+
+    /** The version's theme settings (contract ADR 0007): a draft's own, a release's as it froze them. */
+    private fun CatalogVersion.themeSettings(catalog: Catalog): CatalogThemeSettings = if (status == CatalogVersionStatus.DRAFT) {
+        GetCatalogThemeSettings(catalog.tenantKey, catalog.id, CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
+    } else {
+        GetReleasedThemeSettings(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
     }
 
     private fun CatalogDependencyDeclaration.toDependencyDto() = CatalogDependencyDto(

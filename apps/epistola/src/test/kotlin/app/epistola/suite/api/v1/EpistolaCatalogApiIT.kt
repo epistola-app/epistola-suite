@@ -243,6 +243,27 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a draft's default theme and presets are set and read over REST, and a release carries them`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val catalogSlug = "themes-${UUID.randomUUID().toString().take(8)}"
+        seedAuthoredCatalog(tenantKey, catalogSlug)
+        val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/versions"
+        fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val set = call(HttpMethod.PATCH, "$versions/next", """{"defaultTheme":{"key":"tha"},"presets":[{"key":"heading-accent","name":"Heading accent"}]}""")
+        assertThat(set.statusCode).describedAs(set.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(set.body!!, "$.defaultTheme.key")).isEqualTo("tha")
+        assertThat(JsonPath.read<List<String>>(set.body!!, "$.presets[*].key")).containsExactly("heading-accent")
+
+        assertThat(call(HttpMethod.POST, "$versions/next/mark-ready").statusCode).isEqualTo(HttpStatus.OK)
+        val release = call(HttpMethod.POST, "$versions/next/release", "{}")
+        assertThat(release.statusCode).describedAs(release.body).isEqualTo(HttpStatus.OK)
+        val released = call(HttpMethod.GET, "$versions/${JsonPath.read<String>(release.body!!, "$.catalogVersion.releaseVersion")}").body!!
+        assertThat(JsonPath.read<String>(released, "$.defaultTheme.key")).`as`("the release froze it").isEqualTo("tha")
+        assertThat(JsonPath.read<List<String>>(released, "$.presets[*].name")).containsExactly("Heading accent")
+    }
+
+    @Test
     fun `parallel work is behind a release of the next version, which names it`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "behind-${UUID.randomUUID().toString().take(8)}"
