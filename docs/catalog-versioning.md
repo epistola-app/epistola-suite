@@ -305,6 +305,17 @@ a theme's fonts, a stencil's content, an attribute's code list. An authored cata
 naming its **next version**, which is what the draft then renders it from; a subscribed one by pinning
 its installed release. A declaration already there is left as the author set it.
 
+**Catalogs never use each other.** A declaration naming a catalog that already uses this one,
+directly or through others, is refused, and so is the write that would add it, in the same
+transaction (`CatalogDependencyStore.replace`, `ValidationException` with
+`CATALOG_DEPENDENCY_INVALID`, naming the way round: `'letters' uses 'shared' uses 'base'`). It is
+judged by what every other version declares: each draft of each catalog, parallel work included, and
+each subscribed catalog's installed version. 2.0 could not release such catalogs, since each would
+have to pin the other's release first, and installing, restoring a snapshot and the upgrade from 1.x
+all order catalogs by what they use. What two catalogs share goes into one of them, or into a catalog
+they both use. Only a declaration being added is judged, so an edit elsewhere in a catalog is not held
+to a state from before this rule.
+
 **A draft renders as it is declared** (`DraftDependencyView`): another catalog's resources come from
 the release its declaration pins, or live from the draft it names; a catalog only a pinned release
 depends on comes from the release that one pinned, nearest first. Stencil expansion, theme, fonts and
@@ -317,8 +328,9 @@ release (no resource changed against its base, no draft named, the same pins as 
 base instead, with or without asking. Any other named draft must be released first:
 `releaseDependencies` releases each such draft first, recursively, each numbered as its changes need;
 without it the release is refused (`CatalogDependenciesUnreleasedException`, REST
-`release-dependencies-unreleased`, naming each). Two catalogs naming each other's drafts are refused
-(`CATALOG_DEPENDENCY_INVALID`): release one and pin it. The web UI's _Publish_ always releases with
+`release-dependencies-unreleased`, naming each). Two catalogs naming each other's drafts cannot
+arise, since catalogs never use each other (above); the release still refuses them
+(`CATALOG_DEPENDENCY_INVALID`) as a last guard. The web UI's _Publish_ always releases with
 `releaseDependencies`, lists the catalogs it publishes along with their numbers, and marks their
 changes ready as it marks its own. A pinned release that is gone refuses the release
 (`CATALOG_DEPENDENCY_UNRESOLVED`), and so does a resource reference into a catalog the catalog does
