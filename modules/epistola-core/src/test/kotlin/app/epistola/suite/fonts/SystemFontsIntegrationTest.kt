@@ -177,13 +177,14 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         given {
             val tenant = tenant("Fonts Render Tenant")
             val tenantId = TenantId(tenant.id)
-            // Point the tenant at the bundled `system/default` theme (Inter font).
-            // Themes are optional — without a default the render path falls back
-            // to engine defaults (Helvetica), which would not embed Inter.
-            app.epistola.suite.tenants.commands.SetTenantDefaultTheme(
-                tenantId = tenant.id,
-                themeId = ThemeKey.of("default"),
-                catalogKey = SYSTEM_CATALOG_KEY,
+            // Point the catalog at the bundled `system/default` theme (Inter font), as its default
+            // theme (contract ADR 0007; the tenant's house theme is not rendered with). Themes are
+            // optional — without one the render falls back to engine defaults (Helvetica), which
+            // would not embed Inter.
+            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+                tenant.id,
+                CatalogId.default(tenantId).key,
+                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("default"), SYSTEM_CATALOG_KEY),
             ).execute()
             val template = template(tenant.id, "Fonts Render Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))

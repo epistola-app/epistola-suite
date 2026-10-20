@@ -1002,15 +1002,10 @@ Plan, in order:
 6. UI (catalog Details: default theme, presets), MCP, REST, export/import round trip, demo catalog,
    docs, changelog.
 
-ADR 0007 state (20 October, paused at the usage limit). Done and committed: storage + migration,
-commands/queries, draft/preview/editor/release renders use the catalog default theme, house theme,
-themes list, Details page section, editor presets, preset refusal, quality finding, MCP, published
-versions carry both in their manifest (content builder), import writes them back. Open:
-- `CatalogThemeSettingsTest` "a published version carries its theme settings through export and
-  import" (left uncommitted in the working tree) fails: the imported catalog's version has no default
-  theme. Suspect the new-authored-catalog import path (`ImportCatalogZip`: `existingCatalog` may be set
-  by the earlier `CreateCatalog`, so `updateThemeSettings` is skipped), and `CatalogVersions.copyContent`
-  does not copy `default_theme_resource_id`/`presets` into parallel work started from another version.
-- REST: `RenameCatalogDraftRequest.name` is now optional (compile error in `EpistolaCatalogApi`
-  line ~269 until handled); map `defaultTheme`/`presets` there and in `CatalogVersionDto`.
-- Demo catalog, docs (catalog-versioning, themes), changelog fragment, full test run.
+ADR 0007 state (20 October): built. Storage + migration, commands/queries, renders (draft,
+preview, editor, release), house theme, themes list, Details page, editor presets, preset refusal,
+quality finding, MCP, REST (draft update + version DTO), manifest round trip (export, import, install,
+parallel work), demo catalog 6.3.0, docs, changelog. Full `test uiTest`: 4635 tests, 1 failure
+(`SystemFontsIntegrationTest` set the tenant default theme; now the catalog's) — passes after.
+Contract `feature/v2` `173dfef` (published locally as 2.0.0-SNAPSHOT). Left: the REST draft update
+cannot clear a default theme through generated clients (null and omitted are the same there).
