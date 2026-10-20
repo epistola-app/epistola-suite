@@ -141,6 +141,13 @@ class TemplateContentV8MigrationTest {
     }
 
     @Test
+    fun `an instance that becomes plain content while reading its parameters is reported with them`() {
+        // Plain content gets no parameters, so its params.label renders empty; the report says which.
+        assertThat(signed["nodes"].has("altered")).isFalse()
+        assertThat(report()).anyMatch { it.contains("instance altered") && it.contains("params.label") }
+    }
+
+    @Test
     fun `an instance whose bound parameters the stencil still declares stays a reference`() {
         assertThat(signed["nodes"]["kept"]["props"]["stencilKey"].asString()).isEqualTo("stamp")
         assertThat(signed["nodes"]["kept"]["props"]["parameterBindings"]["label"].asString()).isEqualTo("customer.name")
@@ -261,8 +268,16 @@ class TemplateContentV8MigrationTest {
         }
         val dropped = instance("dropped", "signature", SIGNATURE_SCHEMA, """{"signer":"customer.name"}""", listOf("dropped-name" to "params.signer", "dropped-title" to "params.title"))
         val kept = instance("kept", "stamp", STAMP_SCHEMA, """{"label":"customer.name"}""", listOf("kept-label" to "params.label"))
-        return """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["s-root"]},${dropped.first},${kept.first}},""" +
-            """"slots":{"s-root":{"id":"s-root","nodeId":"root","name":"children","children":["dropped","kept"]},${dropped.second},${kept.second}},"themeRef":{"type":"inherit"}}"""
+        // A copy that differs from stamp version 1 (an extra node) and reads its parameter.
+        val altered = instance(
+            "altered",
+            "stamp",
+            STAMP_SCHEMA,
+            """{"label":"customer.name"}""",
+            listOf("altered-label" to "params.label", "altered-extra" to "customer.name"),
+        )
+        return """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":["s-root"]},${dropped.first},${kept.first},${altered.first}},""" +
+            """"slots":{"s-root":{"id":"s-root","nodeId":"root","name":"children","children":["dropped","kept","altered"]},${dropped.second},${kept.second},${altered.second}},"themeRef":{"type":"inherit"}}"""
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

@@ -177,21 +177,25 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
             val subject = "$where, stencil instance $instanceId"
             when {
                 key == null -> {
+                    noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "names no stencil; its content became plain content")
                 }
 
                 stencil == null -> {
+                    noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "stencil $catalog/$key does not exist; its content became plain content")
                 }
 
                 pinnedContent == null -> {
+                    noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "stencil $catalog/$key has no version $pinned; its content became plain content")
                 }
 
                 shape(copyRoots(instance, slots), nodes, slots) != contentShape(pinnedContent) -> {
+                    noteParametersLost(instance, props, nodes, slots, subject)
                     inline(instance, nodes, slots)
                     note(subject, "its content differs from stencil $catalog/$key version $pinned; it became plain content")
                 }
@@ -264,6 +268,23 @@ class V20261018200500__core_template_content_v8 : BaseJavaMigration() {
             remove("version")
             remove("draftVersion")
             remove("parameterSchemaSnapshot")
+        }
+    }
+
+    /**
+     * Reports the parameters an instance's copy reads when the copy is about to become plain content:
+     * plain content gets no parameters, so each of them renders empty until someone changes it.
+     */
+    private fun noteParametersLost(instance: ObjectNode, props: ObjectNode, nodes: ObjectNode, slots: ObjectNode, subject: String) {
+        val alias = props.text("paramsAlias")?.takeIf { it.isNotBlank() } ?: "params"
+        val pattern = Regex("(?<![\\w$.])" + Regex.escape(alias) + "\\.([A-Za-z_][A-Za-z0-9_]*)")
+        val read = copyRoots(instance, slots)
+            .flatMap { subtreeExpressions(it, nodes, slots) }
+            .flatMap { expression -> pattern.findAll(STRING_LITERAL.replace(expression, "\"\"")).map { "$alias.${it.groupValues[1]}" } }
+            .distinct()
+            .sorted()
+        if (read.isNotEmpty()) {
+            note(subject, "its copy reads ${read.joinToString(", ")}, which plain content does not get; they render empty until changed")
         }
     }
 

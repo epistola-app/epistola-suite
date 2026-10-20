@@ -108,11 +108,11 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
       out cleared it (G8). Evidence: `TemplateContentV8MigrationTest`; end to end, the upgraded
       letter is identical in text to 1.x apart from the G1 markers (16 pages, Inter, company name
       13 times).
-- [ ] **G9. An instance inlined by the upgrade loses its parameters.** When a copy differs from its
-      pinned version (or its stencil or version is gone), the upgrade inlines it as plain content
-      and removes the stencil node, which is what supplied `params`; a copy reading `params.x`
-      then renders it empty. Fixing it means rewriting each `params.x` to its binding or default.
-      Not seen in the test data; how common it is in real 1.x tenants is unknown.
+- [~] **G9. An instance inlined by the upgrade loses its parameters.** Reported now: the upgrade
+  report names each inlined copy and the parameters it reads (`noteParametersLost`; evidence:
+  `TemplateContentV8MigrationTest` "…reported with them"). Still open, for a decision: rewriting
+  each `params.x` in the copy to its binding or default, so it renders as before (the complex
+  option set aside for G5).
 - [x] **G8. A stencil content save through REST dropped its parameters.** The cause behind G5's
       data: `updateStencilContent` cleared the schema when `parameterSchema` was left out, by
       contract ("full replacement"); 1.5.0 did the same. The editor and MCP were not affected. Now
