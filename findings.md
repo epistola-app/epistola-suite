@@ -21,7 +21,8 @@ Status: `[ ]` open · `[~]` needs a decision first · `[x]` done
 ### Editor
 
 - [ ] **U4. Icon-only actions.** Several toolbar and block actions have no visible label.
-- [ ] **U5. Internal node ids visible.** Raw node ids appear in the editor where a name is expected.
+- [x] **U5. Internal node ids visible.** Gone from the canvas block headers; the inspector labels it "ID".
+      Evidence: `EpistolaCanvas.hints.test.ts` "names the block by its kind" (fails without it).
 - [x] **U6. Truncated tabs hide Quality.** The tabs wrap instead of scrolling (`sidebar.css`). Evidence:
       `EditorSidebarTabsUiTest` with Quality and AI on (fails without it: Document ended at 276 of 260 px).
       The scroll-arrow code in `EpistolaSidebar` no longer triggers; left in place.

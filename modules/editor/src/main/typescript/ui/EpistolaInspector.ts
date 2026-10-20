@@ -106,7 +106,12 @@ export class EpistolaInspector extends LitElement {
         <!-- Node info -->
         <div class="inspector-node-info">
           <div class="inspector-node-label">${label}</div>
-          <div class="inspector-node-id">${node.id}</div>
+          <div
+            class="inspector-node-id"
+            title="The block's id, as the JSON view and support name it"
+          >
+            ID ${node.id}
+          </div>
         </div>
 
         <!-- Component-specific inspector (columns, table, etc.) -->

@@ -487,7 +487,6 @@ export class EpistolaCanvas extends LitElement {
                 >`
               : nothing
           }
-          <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
           ${
             isSelected
               ? html`

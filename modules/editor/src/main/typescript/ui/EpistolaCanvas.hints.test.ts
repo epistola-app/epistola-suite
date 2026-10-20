@@ -94,3 +94,24 @@ describe('EpistolaCanvas — block hints', () => {
     ).toBeNull();
   });
 });
+
+describe('EpistolaCanvas — block header', () => {
+  it('names the block by its kind, not by its internal id', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const engine = new EditorEngine(buildDoc(), createDefaultRegistry());
+    render(
+      html`<epistola-canvas .engine=${engine} .doc=${engine.doc}></epistola-canvas>`,
+      container,
+    );
+    await (
+      container.querySelector('epistola-canvas') as HTMLElement & {
+        updateComplete: Promise<boolean>;
+      }
+    ).updateComplete;
+
+    const header = blockHeader(container, 'body');
+    expect(header.querySelector('.canvas-block-id')).toBeNull();
+    expect(header.textContent).not.toContain('body');
+  });
+});
