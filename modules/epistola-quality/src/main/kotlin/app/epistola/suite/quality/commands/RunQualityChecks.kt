@@ -22,6 +22,7 @@ import app.epistola.suite.quality.QualitySourceRegistry
 import app.epistola.suite.quality.QualitySubject
 import app.epistola.suite.quality.ResolvedTemplateDependencies
 import app.epistola.suite.quality.SubmitFindingsResult
+import app.epistola.suite.quality.ThemePresets
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.queries.GetEditorContext
@@ -106,7 +107,8 @@ class RunQualityChecksHandler(
             templateModel = context.templateModel,
             dataExamples = context.dataExamples,
             dataModel = context.dataModel,
-            dependencies = resolveDependencies(subject, context.templateModel, requirements),
+            dependencies = resolveDependencies(subject, context.templateModel, requirements)
+                .let { if (QualityDataRequirement.RESOLVED_TEMPLATE_DEPENDENCIES in requirements) it.copy(themePresets = themePresets(subject, context)) else it },
         )
     }
 
@@ -146,6 +148,24 @@ class RunQualityChecksHandler(
             weight = NEUTRAL_WEIGHT,
             italic = false,
         ).query() != null
+    }
+
+    /**
+     * The presets the theme the variant renders with styles: its own theme, the template's, then its
+     * catalog's default (contract ADR 0007); an empty set, named by no theme, when none applies.
+     */
+    private fun themePresets(subject: QualitySubject, context: app.epistola.suite.templates.queries.EditorContext): ThemePresets {
+        val catalogTheme = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(subject.tenantKey, subject.catalogKey).query().defaultTheme
+        val theme = app.epistola.suite.themes.queries.ResolveTemplateTheme(
+            tenantKey = subject.tenantKey,
+            templateDefaultThemeId = context.templateThemeKey,
+            catalogDefaultThemeId = catalogTheme?.themeKey,
+            templateModel = context.templateModel,
+            templateCatalogKey = context.templateThemeCatalogKey,
+            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
+            catalogKey = subject.catalogKey,
+        ).query()
+        return ThemePresets(themeName = theme?.name, styled = theme?.blockStylePresets?.keys.orEmpty())
     }
 
     private companion object {

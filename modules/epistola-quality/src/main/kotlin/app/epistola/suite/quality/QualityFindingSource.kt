@@ -31,6 +31,11 @@ enum class QualityDataRequirement {
  */
 data class ResolvedTemplateDependencies(
     val fonts: Map<FontRef, Boolean> = emptyMap(),
+    /**
+     * The block style presets the theme the template renders with styles (contract ADR 0007), and
+     * that theme's name; null when it was not resolved.
+     */
+    val themePresets: ThemePresets? = null,
 ) {
     companion object {
         val EMPTY = ResolvedTemplateDependencies()
@@ -148,3 +153,6 @@ class QualitySourceRegistry(
     /** The sources that should run for this tenant. */
     fun availableFor(tenantKey: TenantKey): List<QualityFindingSource> = sources.filter { it.isAvailable(tenantKey) }
 }
+
+/** The presets a template's theme styles, by key, and the theme's name; [themeName] null when none applies. */
+data class ThemePresets(val themeName: String?, val styled: Set<String>)
