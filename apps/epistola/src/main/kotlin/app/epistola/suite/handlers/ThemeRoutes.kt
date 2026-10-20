@@ -16,6 +16,8 @@ class ThemeRoutes(private val handler: ThemeHandler) {
     fun themeRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}".nest {
             POST("/default-theme", handler::setDefault)
+            POST("/house-theme/apply", handler::applyHouseTheme)
+            POST("/catalogs/{catalogId}/default-theme", handler::setCatalogDefault)
 
             // A list belongs to a catalog; there is none across the tenant.
             GET("/catalogs/{catalogId}/themes", handler::list)

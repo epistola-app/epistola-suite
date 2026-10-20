@@ -7,10 +7,15 @@ package app.epistola.suite.themes
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.versions.ApplyHouseTheme
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.handlers.CatalogDraftBar
@@ -28,6 +33,7 @@ import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.themeId
 import app.epistola.suite.mediator.execute
@@ -91,6 +97,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
                 "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
                 // Lets the fragment tell "no matches" apart from "none yet". A search swaps only
                 // this fragment, so the distinction has to reach it.
                 "searchTerm" to searchTerm.orEmpty()
@@ -115,6 +122,8 @@ class ThemeHandler(
         "selectedCatalog" to segment.value
         "draftSegment" to segment
         "draftBar" to bar
+        "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
+        "houseThemeApplied" to request.param("houseThemeApplied").orElse(null)
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
         "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/themes/${t.id.value}", n) }
         "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
@@ -438,9 +447,51 @@ class ThemeHandler(
                 "tenantId" to tenantId.key
                 "tenant" to GetTenant(id = tenantId.key).query()
                 "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
                 "themes" to ListThemes(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
             }
             onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
+    }
+
+    /** The default theme of the catalog version a themes list shows (contract ADR 0007); null for none. */
+    private fun catalogDefaultOf(tenantKey: TenantKey, segment: CatalogSegment?): CatalogDefaultTheme? = segment?.let { GetCatalogThemeSettings(tenantKey, it.key, catalogVersion = it.ref(tenantKey)).query().defaultTheme }
+
+    /**
+     * Makes a theme the default theme of the catalog version the list shows (contract ADR 0007): the
+     * theme its templates that name none render with. An empty `themeId` clears it.
+     */
+    fun setCatalogDefault(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val segment = request.catalogSegment()
+        val themeKey = request.params().getFirst("themeId")?.takeIf { it.isNotBlank() }?.let { ThemeKey.validateOrNull(it) ?: return ServerResponse.badRequest().build() }
+        val themeCatalog = request.params().getFirst("themeCatalogKey")?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) } ?: segment.key
+        SetCatalogDefaultTheme(
+            tenantKey = tenantId.key,
+            catalogKey = segment.key,
+            theme = themeKey?.let { CatalogDefaultTheme(it, themeCatalog) },
+            catalogVersion = segment.ref(tenantId.key),
+        ).execute()
+        return request.htmx {
+            fragment("themes/list", "rows") {
+                "tenantId" to tenantId.key
+                "tenant" to GetTenant(id = tenantId.key).query()
+                "draftSegment" to segment
+                "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
+                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+            }
+            onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
+        }
+    }
+
+    /**
+     * Gives every catalog the tenant authors the house theme as its default theme (contract ADR 0007,
+     * 1a), then returns to the list it was asked from, saying how many took it.
+     */
+    fun applyHouseTheme(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val result = ApplyHouseTheme(tenantId.key).execute()
+        val back = request.param("catalog").orElse(null)?.let { "/tenants/${tenantId.key}/catalogs/$it/themes" } ?: "/tenants/${tenantId.key}/catalogs"
+        return redirect("$back?houseThemeApplied=${result.applied.size}")
     }
 }

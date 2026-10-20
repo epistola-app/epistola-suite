@@ -13,6 +13,30 @@
 
         <!--/* Filtered to a catalog with several drafts: which one the rows are from, and the others. */-->
 
+        <!--/* Themes per catalog (contract ADR 0007): the catalog's default theme styles its templates that
+               name none; the house theme is the tenant's starting value for catalogs, never rendered with. */-->
+        <div th:if="${houseThemeApplied != null}" class="alert alert-success" data-testid="house-theme-applied"
+             th:text="${houseThemeApplied == '1'} ? 'The house theme is now the default theme of 1 catalog. It takes effect when it is published.' : 'The house theme is now the default theme of ' + ${houseThemeApplied} + ' catalogs. It takes effect when each is published.'">
+            The house theme is now the default theme of 3 catalogs.</div>
+        <div th:if="${!#lists.isEmpty(themes)}" class="ep-panel detail-section" data-testid="theme-defaults">
+            <div class="detail-section-body" style="display: flex; gap: var(--ep-space-4); align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <p class="form-hint" style="margin: 0;">
+                    <th:block th:if="${catalogDefault != null}">
+                        Templates that name no theme use <strong th:text="${catalogDefault.catalogKey} + '/' + ${catalogDefault.themeKey}">brand/house</strong>, this catalog's default theme.
+                    </th:block>
+                    <th:block th:if="${catalogDefault == null}">
+                        This catalog has no default theme: templates that name none use the built-in styles.
+                    </th:block>
+                </p>
+                <form th:if="${auth.has('TENANT_SETTINGS') and tenant?.defaultThemeKey != null}" method="post" hx-boost="false"
+                      th:action="@{/tenants/{t}/house-theme/apply(t=${tenantId},catalog=${draftSegment?.value})}">
+                    <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="house-theme-apply"
+                            title="Make the house theme the default theme of every catalog you author; each takes it on its next publish">
+                        Apply house theme to all catalogs</button>
+                </form>
+            </div>
+        </div>
+
 
         <div th:if="${#lists.isEmpty(themes)}" class="empty-state">
             <div class="empty-state-icon">
@@ -60,11 +84,15 @@
                             th:text="'No themes match your search.'"></td>
                     </tr>
                     <tr th:each="theme : ${themes}"
-                        th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey}">
+                        th:with="isDefault=${tenant?.defaultThemeKey == theme.id and tenant?.defaultThemeCatalogKey == theme.catalogKey},
+                                 isCatalogDefault=${catalogDefault != null and catalogDefault.themeKey == theme.id and catalogDefault.catalogKey == theme.catalogKey}">
                         <td th:title="${theme.name}">
                             <!--/* Badge before the name: the cell clips at its end, so a long
                                    name would push a trailing badge out of view entirely. */-->
-                            <span th:if="${isDefault}" class="badge badge-primary" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge">Default</span>
+                            <span th:if="${isCatalogDefault}" class="badge badge-primary" style="margin-right: var(--ep-space-2);" data-testid="theme-catalog-default-badge"
+                                  title="Templates of this catalog that name no theme use it">Catalog default</span>
+                            <span th:if="${isDefault}" class="badge badge-outline" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge"
+                                  title="The house theme: new catalogs start with it as their default theme">House theme</span>
                             <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
                         </td>
@@ -76,6 +104,16 @@
                         <td th:text="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${theme.updatedAt}" th:title="${#temporals.format(theme.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <span th:if="${theme.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
+                            <form th:if="${auth.has('TEMPLATE_EDIT') and draftSegment != null and !isCatalogDefault and theme.catalogType.name() == 'AUTHORED' and workspace?.catalog?.readOnly != true}"
+                                  th:hx-post="@{/tenants/{t}/catalogs/{c}/default-theme(t=${tenantId},c=${draftSegment.value})}"
+                                  hx-target="#theme-rows" hx-swap="innerHTML" style="display: inline;">
+                                <input type="hidden" name="themeId" th:value="${theme.id}">
+                                <input type="hidden" name="themeCatalogKey" th:value="${theme.catalogKey}">
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" data-testid="theme-make-catalog-default"
+                                        title="Use as this catalog's default theme">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
                             <form th:if="${auth.has('TENANT_SETTINGS') and !isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
@@ -83,7 +121,7 @@
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="catalogKey" th:value="${theme.catalogKey}">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Set as default">
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Make it the house theme: new catalogs start with it">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
@@ -93,7 +131,7 @@
                                   hx-swap="innerHTML"
                                   style="display: inline;">
                                 <input type="hidden" name="themeId" value="">
-                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Clear default theme">
+                                <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Stop using it as the house theme">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>

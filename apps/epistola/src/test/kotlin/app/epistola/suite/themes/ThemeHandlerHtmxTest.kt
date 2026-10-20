@@ -304,4 +304,27 @@ class ThemeHandlerHtmxTest : BaseIntegrationTest() {
         contentType = MediaType.APPLICATION_FORM_URLENCODED
         set("HX-Request", "true")
     }
+
+    @Test
+    fun `the themes list makes a theme the catalog's default and applies the house theme to all catalogs`() {
+        val tenant = createTenant("Theme Defaults")
+        val catalog = CatalogId(CatalogKey.of("default"), TenantId(tenant.id))
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute() }
+
+        val headers = htmxHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
+        val form: MultiValueMap<String, String> = LinkedMultiValueMap<String, String>().apply {
+            add("themeId", "brand")
+            add("themeCatalogKey", "default")
+        }
+        val rows = restTemplate.exchange("/tenants/${tenant.id}/catalogs/default/default-theme", HttpMethod.POST, HttpEntity(form, headers), String::class.java)
+        assertThat(rows.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(rows.body).contains("data-testid=\"theme-catalog-default-badge\"")
+
+        // With a house theme, the list offers applying it everywhere; applying says how many took it.
+        withMediator { app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenant.id, ThemeKey.of("brand"), catalogKey = CatalogKey.of("default")).execute() }
+        val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/default/themes", String::class.java).body!!
+        assertThat(page).contains("data-testid=\"house-theme-apply\"").contains("this catalog's default theme")
+        val applied = restTemplate.postForEntity("/tenants/${tenant.id}/house-theme/apply?catalog=default", null, String::class.java)
+        assertThat(applied.body).contains("data-testid=\"house-theme-applied\"")
+    }
 }
