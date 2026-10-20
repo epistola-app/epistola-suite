@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -210,4 +211,22 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
     private fun get(tenant: Tenant, path: String) = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)
         .getForEntity("/tenants/${tenant.id}$path", String::class.java)
+
+    @Test
+    fun `the details page deletes the catalog, except the system catalog`() {
+        val tenant = catalog("Catalog Delete From Details")
+
+        val lettersPage = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/settings", String::class.java).body!!
+        assertThat(lettersPage).contains("data-testid=\"catalog-delete-form\"").contains("action=\"/tenants/${tenant.id}/catalogs/letters/delete\"")
+
+        val system = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/system/settings", String::class.java).body!!
+        assertThat(system).contains("data-testid=\"catalog-delete-section\"").doesNotContain("data-testid=\"catalog-delete-form\"")
+            .contains("The system catalog cannot be deleted")
+
+        // The form posts plainly: deleted, the browser lands on the list of catalogs.
+        val deleted = restTemplate.postForEntity("/tenants/${tenant.id}/catalogs/letters/delete", null, String::class.java)
+        assertThat(deleted.statusCode.value()).`as`(deleted.body).isLessThan(400)
+        assertThat(deleted.body).contains("id=\"catalog-list\"")
+        assertThat(withMediator { GetCatalog(tenant.id, letters).query() }).isNull()
+    }
 }
