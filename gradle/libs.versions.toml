@@ -19,14 +19,14 @@ playwright = "1.63.0"
 epistola-contract = "1.4.0"
 epistola-hub-client = "0.7.0"
 epistola-exchange-client = "0.1.1"
-aws-sdk = "2.55.14"
+aws-sdk = "2.55.15"
 guava = "33.7.2-jre"
 spring-ai = "2.0.1"
 archunit = "1.5.1"
 # One iText for the renderer and for every test that reads the PDFs it writes.
 itext = "9.8.0"
 # Declared here because modules:generation is outside the Spring Boot BOM.
-caffeine = "3.3.0"
+caffeine = "3.3.1"
 # Security overrides of the Spring Boot BOM's Jackson versions, applied by the three apps (see
 # apps/epistola/build.gradle.kts). Drop both once the BOM manages these versions or later.
 jackson = "3.1.7"
