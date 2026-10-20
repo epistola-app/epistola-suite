@@ -10,6 +10,8 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
@@ -21,6 +23,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.StencilInUseException
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
@@ -43,6 +46,15 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
     @Nested
     inner class DeleteCatalogTests {
+
+        @Test
+        fun `the system catalog cannot be deleted, not even forced`() {
+            val tenant = createTenant("Delete System")
+
+            assertThatThrownBy { withMediator { DeleteCatalog(tenant.id, SYSTEM_CATALOG_KEY, force = true).execute() } }
+                .hasMessageContaining("The system catalog cannot be deleted")
+            assertThat(withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query() }).isNotNull
+        }
 
         @Test
         fun `unregister with force=false and cross-references throws CatalogInUseException`() {

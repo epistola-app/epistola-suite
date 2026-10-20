@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -37,6 +38,10 @@ class DeleteCatalogHandler(
     override fun handle(command: DeleteCatalog): Boolean {
         require(command.catalogKey != CatalogKey.DEFAULT) {
             "The default catalog cannot be deleted"
+        }
+        // The suite installs it in every tenant, and its fonts and the releases pinning it depend on it.
+        require(command.catalogKey != SYSTEM_CATALOG_KEY) {
+            "The system catalog cannot be deleted"
         }
 
         if (!command.force) {
