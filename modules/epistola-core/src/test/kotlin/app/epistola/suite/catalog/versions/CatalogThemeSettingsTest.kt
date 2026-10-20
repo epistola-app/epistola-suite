@@ -128,6 +128,52 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a published version carries its theme settings through export and import`() {
+        val catalog = lettersIn("Theme Settings Export")
+        val zip = withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", blockStylePresets = null).execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalog), "Invoice").execute().withRequiredDataExample()
+            SetCatalogDefaultTheme(catalog.tenantKey, letters, CatalogDefaultTheme(ThemeKey.of("brand"), letters)).execute()
+            SetCatalogPresets(catalog.tenantKey, letters, listOf(CatalogPreset("accent", "Accent", "For titles"))).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(catalog.tenantKey, letters).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogVersion(catalog.tenantKey, letters, "1.0.0").execute()
+
+            assertThat(GetReleasedThemeSettings(catalog.tenantKey, letters, "1.0.0").query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
+            app.epistola.suite.catalog.commands.ExportCatalogZip(catalog.tenantKey, letters).execute().zipBytes
+        }
+
+        val other = createTenant("Theme Settings Import")
+        val imported = withMediator {
+            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, catalogType = app.epistola.suite.catalog.CatalogType.AUTHORED).execute()
+            GetCatalogThemeSettings(other.id, letters).query()
+        }
+
+        assertThat(imported.defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("brand"), letters))
+        assertThat(imported.presets).containsExactly(CatalogPreset("accent", "Accent", "For titles"))
+    }
+
+    @Test
+    fun `parallel work starts with the theme settings of the version it copies`() {
+        val catalog = lettersIn("Theme Settings Parallel")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
+            SetCatalogDefaultTheme(catalog.tenantKey, letters, CatalogDefaultTheme(ThemeKey.of("brand"), letters)).execute()
+            SetCatalogPresets(catalog.tenantKey, letters, listOf(CatalogPreset("accent", "Accent"))).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(catalog.tenantKey, letters).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogVersion(catalog.tenantKey, letters, "1.0.0").execute()
+
+            val fromRelease = requireNotNull(CreateCatalogDraft(catalog.tenantKey, letters, "From release").execute().versionId)
+            val fromNext = requireNotNull(CreateCatalogDraft(catalog.tenantKey, letters, "From next", from = "next").execute().versionId)
+
+            for (work in listOf(fromRelease, fromNext)) {
+                val settings = GetCatalogThemeSettings(catalog.tenantKey, letters, CatalogVersionRef(catalog.tenantKey, letters, DraftRef.Id(work))).query()
+                assertThat(settings.defaultTheme?.themeKey).`as`(work).isEqualTo(ThemeKey.of("brand"))
+                assertThat(settings.presets.map { it.key }).`as`(work).containsExactly("accent")
+            }
+        }
+    }
+
+    @Test
     fun `a draft renders a template that names no theme with the catalog's default theme`() {
         val catalog = lettersIn("Default Theme Render")
         val template = TemplateId(TemplateKey.of("invoice"), catalog)

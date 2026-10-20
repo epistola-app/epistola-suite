@@ -237,6 +237,18 @@ class CatalogDrafts {
             .bind("to", to)
             .mapTo(String::class.java)
             .findOne()
+        // The version's theme settings (contract ADR 0007) are part of what it holds.
+        handle.createUpdate(
+            """
+            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets
+            FROM catalog_versions f
+            WHERE t.tenant_key = :t AND t.version_id = :to AND f.tenant_key = :t AND f.version_id = :from
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("from", from)
+            .bind("to", to)
+            .execute()
     }
 
     private fun toDraft(rs: ResultSet, @Suppress("UNUSED_PARAMETER") ctx: StatementContext) = CatalogDraft(

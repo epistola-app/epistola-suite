@@ -344,6 +344,8 @@ class ImportCatalogZipHandler(
         val filled = targeting.within(holder.versionId) { importArchive(command.copy(intoDraft = true), CatalogType.AUTHORED) }
         val failed = filled.results.filter { it.status == InstallStatus.FAILED }
         check(failed.isEmpty()) { "Installing ${catalogKey.value} $version failed for " + failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" } }
+        // The release takes the archive's theme settings (contract ADR 0007) from the draft it is cut from.
+        targeting.within(holder.versionId) { rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper) }
         ReleaseCatalogVersion(
             tenantKey = command.tenantKey,
             catalogKey = catalogKey,
@@ -704,8 +706,9 @@ class ImportCatalogZipHandler(
                 }
                 dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
             }
-            // A merge into existing work keeps its theme settings; a fresh or replacing import takes the archive's.
-            if (existingCatalog == null || command.authoredMode == AuthoredImportMode.REPLACE) {
+            // A merge into existing work keeps its theme settings; a fresh or replacing import, or one
+            // filling a draft (a release copied into it), takes the archive's.
+            if (existingCatalog == null || command.authoredMode == AuthoredImportMode.REPLACE || command.intoDraft) {
                 rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
             }
             jdbi.useHandle<Exception> { handle ->
