@@ -71,7 +71,7 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         q: String?,
         tag: String?,
         page: Int,
@@ -81,7 +81,7 @@ class EpistolaStencilApi(
     ): ResponseEntity<StencilListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             val stencils = at.releasedResources<StencilResource>("stencil").filter { stencil ->
@@ -116,10 +116,10 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         createStencilRequest: CreateStencilRequest,
     ): ResponseEntity<StencilDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val stencil = CreateStencil(
             id = StencilId(StencilKey.of(createStencilRequest.key), draft.catalogId),
             name = createStencilRequest.name,
@@ -138,10 +138,10 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
     ): ResponseEntity<StencilDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toDto(at))
         val stencil = workingCopy(at, stencilKey)
         return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
@@ -152,12 +152,12 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
         updateStencilRequest: UpdateStencilRequest,
         ifMatch: String?,
     ): ResponseEntity<StencilDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.stencilId(stencilKey)
         val stencil = UpdateStencil(
             id = id,
@@ -176,10 +176,10 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.stencilId(stencilKey)
         if (!DeleteStencil(id = id, catalogVersion = draft.ref).execute()) throw StencilNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.noContent().build()
@@ -192,10 +192,10 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
     ): ResponseEntity<StencilContentDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toContentDto(at, objectMapper))
         val stencil = workingCopy(at, stencilKey)
         return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
@@ -207,12 +207,12 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
         updateStencilContentRequest: UpdateStencilContentRequest,
         ifMatch: String?,
     ): ResponseEntity<StencilContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.stencilId(stencilKey)
         val content = updateStencilContentRequest.content
             ?: throw ValidationException(field = "content", message = "Stencil content is required")
@@ -237,10 +237,10 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
     ): ResponseEntity<MarkStencilReadyResponse> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.stencilId(stencilKey)
         workingCopy(draft, stencilKey)
         MarkStencilReady(stencilId = id, catalogVersion = draft.ref).execute()
@@ -268,12 +268,12 @@ class EpistolaStencilApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         stencilKey: String,
         page: Int,
         size: Int,
     ): ResponseEntity<StencilUsageListResponse> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         // The usage scan reads the working copy's templates; nothing scans what a release holds yet.
         if (!at.isDraft) throw ApiOperationNotImplementedException("listStencilUsage on a released version")
         val id = at.stencilId(stencilKey)

@@ -9,13 +9,13 @@ import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
 import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeListResponse
+import app.epistola.api.model.CatalogReleaseStatus
 import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
 import app.epistola.api.model.DeploymentDto
 import app.epistola.api.model.DeploymentEventDto
 import app.epistola.api.model.DeploymentHistoryResponse
-import app.epistola.api.model.DeploymentKind
 import app.epistola.api.model.DeploymentListResponse
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.EnvironmentListResponse
@@ -181,7 +181,7 @@ class EpistolaTenantApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -189,7 +189,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<AttributeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
             val bindingCatalogs = bindingCatalogsOf(at)
             ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
@@ -207,12 +207,12 @@ class EpistolaTenantApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         createAttributeRequest: CreateAttributeRequest,
     ): ResponseEntity<AttributeDto> {
         // An attribute keeps no description; refuse it rather than drop it.
         if (createAttributeRequest.description != null) throw ApiOperationNotImplementedException("createAttribute.description")
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         // The constraint XOR check (allowedValues vs codeListBinding) is enforced in
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
@@ -233,10 +233,10 @@ class EpistolaTenantApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             return ResponseEntity.ok(at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at) ?: throw at.attributeNotFound(attributeKey))
         }
@@ -249,14 +249,14 @@ class EpistolaTenantApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         attributeKey: String,
         updateAttributeRequest: UpdateAttributeRequest,
         ifMatch: String?,
     ): ResponseEntity<AttributeDto> {
         // An attribute keeps no description; refuse it rather than drop it.
         if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.attributeId(attributeKey)
         // PATCH semantics: pull the current definition so we can write a
         // full UpdateAttributeDefinition that only changes the fields the
@@ -282,10 +282,10 @@ class EpistolaTenantApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         attributeKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         if (!DeleteAttributeDefinition(id = draft.attributeId(attributeKey), catalogVersion = draft.ref).execute()) throw draft.attributeNotFound(attributeKey)
         return ResponseEntity.noContent().build()
     }
@@ -403,34 +403,34 @@ class EpistolaTenantApi(
         )
     }
 
-    override fun deployCatalogVersion(
+    override fun deployCatalogRelease(
         tenantKey: String,
         environmentKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         includeDependencies: Boolean,
         replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployCatalogVersion(environmentId(tenantKey, environmentKey), catalog.id, catalogVersion, includeDependencies, replace = replace).execute()
+        val deployment = DeployCatalogVersion(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
-    /** Stops serving the version; 404 when the environment does not deploy that version of the catalog. */
-    override fun undeployCatalogVersion(
+    /** Stops serving the release; 404 when the environment does not deploy that release of the catalog. */
+    override fun undeployCatalogRelease(
         tenantKey: String,
         environmentKey: String,
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployCatalogVersion(environment, catalog.id, catalogVersion).execute()) {
-            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, catalogVersion)
+        if (!UndeployCatalogVersion(environment, catalog.id, release).execute()) {
+            throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
         }
         return ResponseEntity.noContent().build()
     }
@@ -458,10 +458,10 @@ class EpistolaTenantApi(
                             DeploymentAction.UNDEPLOYED -> DeploymentEventDto.Action.UNDEPLOYED
                             DeploymentAction.RELEASED -> DeploymentEventDto.Action.RELEASED
                         },
-                        versionId = entry.versionKey.orEmpty(),
-                        kind = if (entry.version == null) DeploymentKind.DRAFT else DeploymentKind.RELEASE,
-                        releaseVersion = entry.version,
-                        draftName = if (entry.version == null || entry.action == DeploymentAction.RELEASED) entry.draftLabel else null,
+                        releaseId = entry.versionKey.orEmpty(),
+                        status = if (entry.version == null) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+                        version = entry.version,
+                        releaseName = if (entry.version == null || entry.action == DeploymentAction.RELEASED) entry.draftLabel else null,
                         changedAt = entry.changedAt,
                         changedBy = entry.changedByName,
                     )
@@ -483,10 +483,10 @@ class EpistolaTenantApi(
         registry = catalog.registry,
         namespace = catalog.namespace,
         catalogKey = catalogKey.value,
-        versionId = versionId.orEmpty(),
-        kind = if (isDraft) DeploymentKind.DRAFT else DeploymentKind.RELEASE,
-        releaseVersion = version,
-        draftName = draftName,
+        releaseId = versionId.orEmpty(),
+        status = if (isDraft) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+        version = version,
+        releaseName = draftName,
         deployedAt = deployedAt,
         lastUsedAt = lastUsedAt,
         documentsRequested = documentsRequested,

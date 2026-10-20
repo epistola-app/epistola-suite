@@ -50,7 +50,7 @@ class EpistolaFontApi : FontsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         page: Int,
         size: Int,
         sort: String?,
@@ -58,7 +58,7 @@ class EpistolaFontApi : FontsApi {
     ): ResponseEntity<FontListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             val slice = Pagination.pageOfRelease(at.releasedResources<FontResource>("font"), page, size)
@@ -74,10 +74,10 @@ class EpistolaFontApi : FontsApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         fontKey: String,
     ): ResponseEntity<FontDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = FontKey.of(fontKey)
         val font = if (at.isDraft) {
             ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()

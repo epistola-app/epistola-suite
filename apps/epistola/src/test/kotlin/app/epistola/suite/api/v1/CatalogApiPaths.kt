@@ -15,7 +15,7 @@ import app.epistola.suite.mediator.query
 /**
  * Paths of the contract 2.0 catalog-scoped REST API, which addresses a catalog by its full name
  * (`/catalogs/{registry}/{namespace}/{catalogKey}`) and its content by version
- * (`…/versions/{catalogVersion}`). The registry is always `~`, the installation's default; the
+ * (`…/releases/{release}`). The registry is always `~`, the installation's default; the
  * namespace is read from the catalog rather than assumed.
  *
  * These read the catalog through the mediator, so call them inside `withMediator { }`.
@@ -30,10 +30,10 @@ internal object CatalogApiPaths {
     }
 
     /**
-     * `…/catalogs/~/{namespace}/{catalogKey}/versions/{version}`; without [version], the catalog's
+     * `…/catalogs/~/{namespace}/{catalogKey}/releases/{release}`; without [version], the catalog's
      * next version (`next`), or its highest release when it has none (a subscribed catalog).
      */
-    fun version(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value, version: String? = null): String = "${catalog(tenantKey, catalogKey)}/versions/${version ?: currentVersion(tenantKey, catalogKey)}"
+    fun version(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value, version: String? = null): String = "${catalog(tenantKey, catalogKey)}/releases/${version ?: currentVersion(tenantKey, catalogKey)}"
 
     /** How an address names the catalog's current version: `next`, or its highest release when it has no next version. */
     fun currentVersion(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String {

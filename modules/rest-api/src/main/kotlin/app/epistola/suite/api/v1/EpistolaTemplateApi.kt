@@ -103,7 +103,7 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         q: String?,
         page: Int,
         size: Int,
@@ -121,7 +121,7 @@ class EpistolaTemplateApi(
                 ?: throw UnsupportedSortException(sort, DocumentTemplateSort.paramValues)
         }
         val descending = SortDirection.fromParam(direction).descending
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             // Its templates share the release's timestamps, so only the name orders them.
@@ -159,12 +159,12 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         // A template keeps no description; refuse it rather than drop it.
         if (createTemplateRequest.description != null) throw ApiOperationNotImplementedException("createTemplate.description")
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val template = CreateDocumentTemplate(
             id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
             name = createTemplateRequest.name,
@@ -178,10 +178,10 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
     ): ResponseEntity<TemplateDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) return ResponseEntity.ok(released(at, templateKey).toDto(at, objectMapper))
         val (dto, revision) = workingCopyAtRevision(at, templateKey)
         return okWithETag(revision, dto)
@@ -197,14 +197,14 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         updateTemplateRequest: UpdateTemplateRequest,
         ifMatch: String?,
     ): ResponseEntity<TemplateDto> {
         // A template keeps no description; refuse it rather than drop it.
         if (updateTemplateRequest.description != null) throw ApiOperationNotImplementedException("updateTemplate.description")
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.templateId(templateKey)
         val template = UpdateDocumentTemplate(id = id, name = updateTemplateRequest.name, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
             ?: throw TemplateNotFoundException(id.tenantKey, id.key)
@@ -271,10 +271,10 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
     ): ResponseEntity<TemplateDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val template = workingCopy(draft, templateKey)
         MarkTemplateReady(templateId = draft.templateId(templateKey), catalogVersion = draft.ref).execute()
         return ResponseEntity.ok(workingCopyDto(draft, template))
@@ -285,10 +285,10 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.templateId(templateKey)
         if (!DeleteDocumentTemplate(id = id, catalogVersion = draft.ref).execute()) throw TemplateNotFoundException(id.tenantKey, id.key)
         return ResponseEntity.noContent().build()
@@ -301,7 +301,7 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         page: Int,
         size: Int,
@@ -310,7 +310,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<VariantListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val variants = if (at.isDraft) {
             val id = at.templateId(templateKey)
             workingCopy(at, templateKey)
@@ -331,11 +331,11 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val templateId = draft.templateId(templateKey)
         val variant = CreateVariant(
             id = VariantId(VariantKey.of(createVariantRequest.key), templateId),
@@ -352,11 +352,11 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
     ): ResponseEntity<VariantDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             val template = released(at, templateKey)
             return ResponseEntity.ok(releasedVariant(at, template, variantKey).toDto(template, at))
@@ -371,13 +371,13 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
         updateVariantRequest: UpdateVariantRequest,
         ifMatch: String?,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val current = workingVariant(draft, templateKey, variantKey)
         val id = draft.variantId(templateKey, variantKey)
         val variant = UpdateVariant(
@@ -396,11 +396,11 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.variantId(templateKey, variantKey)
         if (!DeleteVariant(variantId = id, catalogVersion = draft.ref).execute()) throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
         return ResponseEntity.noContent().build()
@@ -411,12 +411,12 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
         ifMatch: String?,
     ): ResponseEntity<VariantDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.variantId(templateKey, variantKey)
         val variant = SetDefaultVariant(variantId = id, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
             ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
@@ -430,11 +430,11 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
     ): ResponseEntity<VariantContentDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             val template = released(at, templateKey)
             return ResponseEntity.ok(releasedVariant(at, template, variantKey).toContentDto(template, at))
@@ -448,13 +448,13 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
         updateVariantContentRequest: UpdateVariantContentRequest,
         ifMatch: String?,
     ): ResponseEntity<VariantContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         workingVariant(draft, templateKey, variantKey)
         val saved = UpdateVariantContent(
             variantId = draft.variantId(templateKey, variantKey),
@@ -470,11 +470,11 @@ class EpistolaTemplateApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         templateKey: String,
         variantKey: String,
     ): ResponseEntity<VariantContentDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         workingVariant(draft, templateKey, variantKey)
         MarkVariantReady(variantId = draft.variantId(templateKey, variantKey), catalogVersion = draft.ref).execute()
         val (dto, revision) = workingContent(draft, templateKey, variantKey)

@@ -48,7 +48,7 @@ class EpistolaThemeApi : ThemesApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         q: String?,
         page: Int,
         size: Int,
@@ -57,7 +57,7 @@ class EpistolaThemeApi : ThemesApi {
     ): ResponseEntity<ThemeListResponse> {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
             ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto() }
         } else {
@@ -75,10 +75,10 @@ class EpistolaThemeApi : ThemesApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val theme = CreateTheme(
             id = ThemeId(ThemeKey.of(createThemeRequest.key), draft.catalogId),
             name = createThemeRequest.name,
@@ -98,10 +98,10 @@ class EpistolaThemeApi : ThemesApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         themeKey: String,
     ): ResponseEntity<ThemeDto> {
-        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = ThemeKey.of(themeKey)
         if (!at.isDraft) {
             return ResponseEntity.ok(at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at) ?: throw ThemeNotFoundException(key))
@@ -115,12 +115,12 @@ class EpistolaThemeApi : ThemesApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         themeKey: String,
         updateThemeRequest: UpdateThemeRequest,
         ifMatch: String?,
     ): ResponseEntity<ThemeDto> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val key = ThemeKey.of(themeKey)
         val theme = UpdateTheme(
             id = ThemeId(key, draft.catalogId),
@@ -142,10 +142,10 @@ class EpistolaThemeApi : ThemesApi {
         registry: String,
         namespace: String,
         catalogKey: String,
-        catalogVersion: String,
+        release: String,
         themeKey: String,
     ): ResponseEntity<Unit> {
-        val draft = draftAt(tenantKey, registry, namespace, catalogKey, catalogVersion)
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val key = ThemeKey.of(themeKey)
         if (!DeleteTheme(id = ThemeId(key, draft.catalogId), catalogVersion = draft.ref).execute()) throw ThemeNotFoundException(key)
         return ResponseEntity.noContent().build()

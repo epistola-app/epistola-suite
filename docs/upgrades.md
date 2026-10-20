@@ -161,7 +161,7 @@ that outage, and tell the teams whose applications request documents.
      report with the message.
 
 4. **Deploy those releases** to each environment, from its page (Environments) or with
-   `deployCatalogVersion`. Until an environment has a release deployed, a generation request for it is
+   `deployCatalogRelease`. Until an environment has a release deployed, a generation request for it is
    refused, and the tenant home names it. A release that renders with releases of other catalogs
    (the system catalog, a shared catalog) uses them implicitly; they need not be deployed.
 5. **Resubmit** what failed in the queue:
