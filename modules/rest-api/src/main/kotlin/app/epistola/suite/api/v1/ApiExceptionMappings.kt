@@ -22,6 +22,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
+import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
@@ -505,6 +506,12 @@ object ApiExceptionMappings {
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The import conflicts with what the tenant has",
             logMessage = { "Import refused: ${it.message}" },
+        )
+
+        builder.register<CatalogReleaseTakenException>(
+            problemType = ApiProblemTypes.RELEASE_NUMBER_TAKEN,
+            defaultDetail = "The tenant has this release as another: its number with other content, or its id",
+            logMessage = { "Import refused, release taken: ${it.message}" },
         )
 
         builder.register<CatalogDraftInUseException>(

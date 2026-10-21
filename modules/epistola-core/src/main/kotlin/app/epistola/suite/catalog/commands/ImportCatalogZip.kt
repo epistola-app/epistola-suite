@@ -133,7 +133,14 @@ data class ImportCatalogZip(
 }
 
 /** The import conflicts with what the tenant has: another catalog under the key, or the release under other content. */
-class CatalogImportConflictException(message: String) : RuntimeException(message)
+open class CatalogImportConflictException(message: String) : RuntimeException(message)
+
+/**
+ * The import names a release the tenant has as another: its number with other content, or its id
+ * held by another release or draft. One number and one id name one release (REST
+ * `release-number-taken`).
+ */
+class CatalogReleaseTakenException(message: String) : CatalogImportConflictException(message)
 
 /** The archive's release pins releases the tenant does not have ([missing]), and the archive does not carry them. */
 class CatalogImportDependenciesMissingException(
@@ -239,7 +246,7 @@ class ImportCatalogZipHandler(
         val present = existing?.let { ListCatalogReleases(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
         if (present != null) {
             if (published == null || present.fingerprint == published) return result(newly = false)
-            throw CatalogImportConflictException(
+            throw CatalogReleaseTakenException(
                 "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
             )
         }

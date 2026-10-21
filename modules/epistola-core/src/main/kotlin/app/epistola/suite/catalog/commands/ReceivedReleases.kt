@@ -88,7 +88,7 @@ class ReceivedReleases(private val jdbi: Jdbi) {
             .mapTo(String::class.java)
             .findOne()
             .orElse(null) ?: return
-        throw CatalogImportConflictException(
+        throw CatalogReleaseTakenException(
             "${catalogKey.value} ${release.version} has the release id '$id', which $holder of this catalog has here; one id names one release.",
         )
     }
