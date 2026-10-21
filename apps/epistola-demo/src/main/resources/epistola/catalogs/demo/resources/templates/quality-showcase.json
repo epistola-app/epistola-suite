@@ -4,6 +4,7 @@
     "type": "template",
     "key": "quality-showcase",
     "name": "Quality Showcase",
+    "description": "Deliberately flawed: an empty block, an overlong one, and an image with no alt text, so the quality report and editor panel have real findings to show. Enable the alpha 'quality' feature to see them.",
     "themeKey": "corporate",
     "dataModel": {
       "type": "object",

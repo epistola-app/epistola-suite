@@ -4,6 +4,7 @@
     "type": "template",
     "key": "stencil-showcase",
     "name": "Stencil Showcase",
+    "description": "A letter built from stencils: a shell that contains the letterhead stencil, a body fill reading the parameters the shell passes, and an address stencil that reads the template's data.",
     "pdfaEnabled": false,
     "themeKey": "corporate",
     "dataModel": {

@@ -180,13 +180,15 @@ class TemplateMcpTools(
         variantAttributes: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION, required = false)
+        description: String? = null,
     ): TemplateInfo {
         val id = templateId(catalogId, templateId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         // Validated before anything is created, so bad attributes leave no half-made template behind.
         val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
             ?.also { validateAttributes(mcpTenantId(), it) }
-        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version).execute()
+        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version, description = description).execute()
         if (!themeId.isNullOrBlank()) {
             template = UpdateDocumentTemplate(
                 id = id,
@@ -209,7 +211,7 @@ class TemplateMcpTools(
 
     @McpTool(
         name = "update_template",
-        description = "Update a template's metadata: name, theme, PDF/A output. Omitted arguments are left " +
+        description = "Update a template's metadata: name, description, theme, PDF/A output. Omitted arguments are left " +
             "unchanged. Content lives in the variants; change it with `update_variant_content`. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
@@ -233,6 +235,8 @@ class TemplateMcpTools(
         catalogVersion: String? = null,
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
+        @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION + " An empty string removes it.", required = false)
+        description: String? = null,
     ): TemplateInfo {
         if (clearTheme == true && !themeId.isNullOrBlank()) {
             throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
@@ -247,6 +251,7 @@ class TemplateMcpTools(
             pdfaEnabled = pdfaEnabled,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             expectedRevision = expectedRevision,
+            description = description,
         ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
@@ -341,3 +346,8 @@ class TemplateMcpTools(
         return VariantId(VariantKey.of(variantId), parent)
     }
 }
+
+/** What a template's `description` argument is, for its create and update tools. */
+private const val TEMPLATE_DESCRIPTION_DESCRIPTION =
+    "Plain-text notes on the template for its authors: what it is for, design decisions, known gaps. " +
+        "Not rendered; at most 2000 characters; travels with the template in its catalog."

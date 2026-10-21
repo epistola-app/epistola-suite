@@ -4,6 +4,7 @@
     "type": "template",
     "key": "hello-world",
     "name": "Hello World",
+    "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
     "pdfaEnabled": false,
     "themeKey": "corporate",
     "dataModel": {

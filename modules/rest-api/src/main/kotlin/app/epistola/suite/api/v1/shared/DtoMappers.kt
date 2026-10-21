@@ -71,8 +71,7 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     name = name,
     createdAt = createdAt,
     lastModified = updatedAt,
-    // Templates keep no description.
-    description = null,
+    description = description,
 )
 
 /** A template of the working copy, with its variants' statuses and its data contract. */
@@ -85,7 +84,7 @@ internal fun DocumentTemplate.toDto(
     key = id.value,
     tenantKey = tenantKey.value,
     name = name,
-    description = null,
+    description = description,
     // The contract's `schema` (input parameters) has no counterpart in the suite: the data model is the schema.
     schema = null,
     dataModel = contract?.dataModel,

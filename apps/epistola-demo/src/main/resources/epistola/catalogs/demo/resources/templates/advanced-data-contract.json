@@ -4,6 +4,7 @@
     "type": "template",
     "key": "advanced-data-contract",
     "name": "Advanced Data Contract",
+    "description": "A focused test template for editing local references, schema compositions, nullable unions, mixed object variants, deeply nested arrays, and nested-loop expression scopes.",
     "themeKey": "corporate",
     "dataModel": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -601,6 +601,37 @@ class DocumentTemplateHandler(
     }
 
     /**
+     * Sets the template's description from the settings tab's textarea (a native HTMX `hx-patch` on
+     * change, form-encoded `description` param). An empty value removes it. Returns the textarea
+     * rendered from the persisted value.
+     */
+    fun updateDescription(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogId = request.catalogId()
+        val templateId = request.templateId(tenantId)
+            ?: return ServerResponse.badRequest().build()
+
+        val template = UpdateDocumentTemplate(
+            id = templateId,
+            description = request.params().getFirst("description").orEmpty(),
+            catalogVersion = request.catalogVersion(),
+        ).execute() ?: return ServerResponse.notFound().build()
+
+        return request.htmx {
+            fragment("templates/detail/settings", "description-input") {
+                "tenantId" to tenantId.key
+                "catalogId" to catalogId.value
+                "catalogSegment" to request.catalogSegment().value
+                "template" to template
+                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
+            }
+            onFullPage {
+                redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
+            }
+        }
+    }
+
+    /**
      * Updates the template's default theme from the settings tab's theme
      * `<select>` (a native HTMX `hx-patch`, so the request is form-encoded and
      * carries the select's own `themeId` value: `"catalogKey/themeKey"`, or

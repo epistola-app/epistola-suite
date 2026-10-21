@@ -49,6 +49,8 @@ data class TemplateInfo(
     val updatedAt: OffsetDateTime,
     /** Pass back as `expectedRevision` when updating: the update is refused if someone changed it since. */
     val revision: Long? = null,
+    /** Plain-text notes on the template for its authors; null when it has none. Not rendered. */
+    val description: String? = null,
 ) {
     companion object {
         fun from(template: DocumentTemplate): TemplateInfo = TemplateInfo(
@@ -61,6 +63,7 @@ data class TemplateInfo(
             createdAt = template.createdAt,
             updatedAt = template.updatedAt,
             revision = template.revision,
+            description = template.description,
         )
     }
 }

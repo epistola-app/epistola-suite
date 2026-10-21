@@ -4,6 +4,7 @@
     "type": "template",
     "key": "demo-invoice",
     "name": "Invoice Template",
+    "description": "Professional invoice with line items, tax calculation, QR payment code, and conditional notes. Demonstrates datatables, columns, tables, conditionals, expressions, and the cover-page + running pageheader pattern.",
     "themeKey": "corporate",
     "dataModel": {
       "type": "object",

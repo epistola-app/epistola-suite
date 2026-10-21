@@ -3,6 +3,7 @@
   "resource": {
     "key": "officiele-snelheidsbekeuring",
     "name": "Verkeersboete",
+    "description": "Dutch traffic-fine notice (CJIB-style). Showcases locale-aware date and number formatting via $formatDate (four distinct patterns — long-form, short, date+time, no-leading-zero) and $formatLocaleNumber (integer speeds and currency amounts). Three variants exercise the locale chain: default (inherits from tenant/app), nl-NL (Dutch month names, '1.234,56' grouping), en-US (English month names, '1,234.56' grouping).",
     "themeKey": null,
     "themeCatalogKey": null,
     "dataModel": {

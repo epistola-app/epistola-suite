@@ -162,13 +162,12 @@ class EpistolaTemplateApi(
         release: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
-        // A template keeps no description; refuse it rather than drop it.
-        if (createTemplateRequest.description != null) throw ApiOperationNotImplementedException("createTemplate.description")
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val template = CreateDocumentTemplate(
             id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
             name = createTemplateRequest.name,
             catalogVersion = draft.ref,
+            description = createTemplateRequest.description,
         ).execute()
         return workingCopyDto(draft, template).let { created(it.key, it) }
     }
@@ -188,7 +187,7 @@ class EpistolaTemplateApi(
     }
 
     /**
-     * Updates the template's name and its data contract. The examples are always checked against the
+     * Updates the template's name, description and its data contract. The examples are always checked against the
      * schema (422 when they fail), whatever `forceUpdate` says: a template has no versions, so there
      * is no breaking change to confirm, and the contract never lets invalid examples through.
      */
@@ -202,11 +201,17 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
         ifMatch: String?,
     ): ResponseEntity<TemplateDto> {
-        // A template keeps no description; refuse it rather than drop it.
-        if (updateTemplateRequest.description != null) throw ApiOperationNotImplementedException("updateTemplate.description")
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.templateId(templateKey)
-        val template = UpdateDocumentTemplate(id = id, name = updateTemplateRequest.name, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
+        val template = UpdateDocumentTemplate(
+            id = id,
+            name = updateTemplateRequest.name,
+            // The generated request cannot tell an omitted description from an explicit null, so null
+            // keeps the current one and an empty string removes it.
+            description = updateTemplateRequest.description,
+            catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
+        ).execute()
             ?: throw TemplateNotFoundException(id.tenantKey, id.key)
         // The contract is part of the template: written against the revision the name change left.
         var revision = template.revision
