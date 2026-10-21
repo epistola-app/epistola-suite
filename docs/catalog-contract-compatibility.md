@@ -49,7 +49,7 @@ library:
 | Template, theme, manifest, and resource models             | Tenant and catalog authorization                    |
 | Component and style registries                             | Database persistence and transactions               |
 | Template and whole-catalog validation                      | Import/upsert orchestration and conflict policy     |
-| Safe deterministic archive reading and writing             | Authored/subscribed lifecycle and release state     |
+| Safe deterministic archive reading and writing             | Catalog lifecycle and release state                 |
 | Wire migration, canonicalization, hashes, and fingerprints | Editor, rendering, and operator-facing presentation |
 
 Suite adapters supply catalog-scoped resource resolution to the portable
@@ -92,8 +92,8 @@ accepted baseline: `CatalogV4ToV5Migration` removes false markers and removes
 true markers with an explicit migration notice because an archive contains no
 database identity from which to recover an exact draft version.
 
-Authored imports surface those notices in the confirmation UI before mutation;
-subscribed catalogs are never migrated. Catalog v5 publication rejects any
+Imports surface those notices in the confirmation UI before mutation, whichever
+catalog receives them. Catalog v5 publication rejects any
 `draftVersion`, so exported content always points to exact published stencil
 versions.
 
@@ -117,7 +117,7 @@ content, test a recent database snapshot and exercise:
 
 1. preview and generation for representative published templates;
 2. save and publish for representative open drafts;
-3. export and validation or test-import of each authored catalog that must
+3. export and validation or test-import of each catalog made here that must
    remain portable.
 
 An installation whose content was created only with the current editor and has

@@ -5,7 +5,7 @@
 > [catalog-exchange-installation.md](catalog-exchange-installation.md). Releases are not yet
 > self-contained; [ADR 0025](adr/0025-relocation-without-aliases.md) sets out where they are going.
 
-Epistola Suite can publish immutable releases of locally authored catalogs to
+Epistola Suite can publish immutable releases cut here to
 Epistola Exchange. Publishing is opt-in at both the deployment and tenant
 levels, runs asynchronously, and never makes the local release depend on
 Exchange availability.
@@ -27,7 +27,7 @@ The implemented flow is outbound publication:
 
 This does not change the existing inbound catalog subscription or ZIP import
 flows. The inbound Exchange direction — browsing Exchange and installing a
-release as a subscribed catalog — is a separate delivery, documented in
+release — is a separate delivery, documented in
 [catalog-exchange-installation.md](catalog-exchange-installation.md). MCP is
 unchanged.
 
@@ -332,7 +332,7 @@ so there is never a queue of work waiting on configuration.
 
 ## Release and publication transaction
 
-`ReleaseCatalogVersion` first builds and validates the authored catalog,
+`ReleaseCatalogVersion` first builds and validates the catalog's draft,
 computes its canonical fingerprint, and constructs the same portable ZIP used
 by export. When the resolved policy says publish, one database transaction:
 

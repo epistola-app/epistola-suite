@@ -14,52 +14,42 @@ catalogs. Companion to [`docs/exchange/README.md`](exchange/README.md).
 Authored catalogs had no real version: the ZIP export stamped
 `LocalDate.now()`, and every "changed?" decision (`DemoLoader`,
 `SystemCatalogBootstrap`, `UpgradeCatalog`) was an exact **string equality** on
-`installed_release_version` (a SUBSCRIBED-only column). An author could not say
+`installed_release_version` (then a column of subscribed catalogs only). An author could not say
 "this is now a new version" with any meaning, and re-export produced a
 different "version" even when nothing changed (or the same one when it did).
 
 ## Model
 
-A catalog is **one row per `(tenant_key, slug)`**. A subscribed catalog has one live resource set,
-its installed release; an authored catalog has one per open draft (see
-[drafts](#catalog-versions-and-drafts)).
+A catalog is **one row per `(tenant_key, slug)`**, with one live resource set per open draft (see
+[drafts](#catalog-versions-and-drafts)), and its **releases**, each kept with the content it was cut
+with. There are no catalog types (ADR 0032): every catalog has drafts and releases, and what differs
+is only whether it can be changed here and where its releases come from (below). `catalogs.type` is
+still in the table, defaulted and unused, and goes in a later major release.
 
-> This describes what ships today. [ADR 0026 §6](adr/0026-revisions-releases-and-the-working-copy.md)
-> decides otherwise for the next major: an installation will hold and resolve several releases of one
-> catalog; a request that names no version will resolve to the release its environment is on, or the
-> latest outside one; and a subscribed catalog will not be upgraded at all — another release of it is
-> installed alongside, leaving the one already there in place.
+- **Releases** — `catalog_releases` holds every release the catalog has, whether it was cut here or
+  received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_entries` row
+  per resource naming the revision that holds its content and the digest it fingerprinted to.
+- **Released here** — cutting a release advances `catalogs.released_version` /
+  `released_fingerprint` / `released_at`.
+- **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
+  source) records it and, when the next version moves to it, sets `installed_release_version` +
+  `installed_fingerprint`; `installed_resource_fingerprints` (JSONB) records the per-resource
+  source-side digests of that release, the upgrade-diff baseline for a catalog with a source.
 
-- **AUTHORED (publisher side)** — one live, editable copy per open draft. Cutting a
-  release records an **immutable boundary** in `catalog_releases`
-  (author-set SemVer + content fingerprint + notes + a manifest snapshot), one
-  `release_entries` row per resource naming the revision that holds its content
-  and the digest it fingerprinted to, and
-  advances the `catalogs.released_version` / `released_fingerprint` /
-  `released_at` pointer. `catalog_releases` is AUTHORED release **history**
-  (changelog), not parallel installs and **not** the consumer upgrade-diff
-  baseline (a SUBSCRIBED consumer's DB has no `catalog_releases` rows).
-- **SUBSCRIBED (consumer side)** — exactly one installed state.
-  `installed_release_version` + `installed_fingerprint` record which release is
-  installed; `installed_resource_fingerprints` (JSONB) records the per-resource
-  source-side digests of that release — the Phase 2 upgrade-diff baseline.
-  `UpgradeCatalog` replaces resources **in place**.
-
-`installed_*` (SUBSCRIBED) and `released_*` / `catalog_releases` (AUTHORED) are
-orthogonal — `CatalogType` is exclusive, so only one applies to a given
-catalog. An authored `1.4.0` exported and subscribed elsewhere flows its
-version + fingerprint through the manifest into the subscriber's
-`installed_release_version` / `installed_fingerprint`, so values stay coherent
-end to end.
+A catalog can carry both pointers: one received from elsewhere and then released here has both.
+Its version is its **highest release**, by number (`Catalog.highestReleaseVersion`). A
+`1.4.0` exported and received elsewhere flows its version and fingerprint through the manifest into
+the receiver's release and `installed_*`, so values stay coherent end to end.
 
 ## Who may change a catalog, and what receiving a release does
 
-ADR 0032 replaces the catalog types; until the code and this page drop the words, `AUTHORED` means
-made here and `SUBSCRIBED` received from a source or an archive.
+ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules below.
 
-- **Every catalog has a next version**, the draft its browsable content lives in. A received
-  catalog's next version starts on the release it installed (`base_version`); there is no installed
-  copy any more (`V20261021063432`).
+- **Every catalog has a next version**, the draft its browsable content lives in. The database opens
+  it when the catalog row is inserted, on the release it was inserted with, and moves it when an
+  install changes `installed_release_version` (`V20261021081527`). A received catalog's next version
+  starts on the release it installed (`base_version`); there is no installed copy any more
+  (`V20261021063432`).
 - **A catalog can be changed** when the installation allows editing
   (`epistola.catalog.editing.enabled`, default `true`) and the suite does not supply it (a
   `classpath:` source: the system and demo catalogs). `GetCatalogEditability` says which, and
@@ -80,19 +70,25 @@ made here and `SUBSCRIBED` received from a source or an archive.
   the release its content is on. What depends on a source stays keyed on having one
   (`Catalog.hasSource`): checking for and installing newer releases. Lists ask once per page
   (`ListCatalogEditability`), and a catalog's version is its highest release, released here or
-  received (`Catalog.highestReleaseVersion`). The web UI's import no longer asks for a type: it
-  receives the release, creating a catalog it does not have as received.
+  received (`Catalog.highestReleaseVersion`). No import asks for a type: every import receives the
+  release (see [Importing a ZIP](#importing-a-zip)).
+- **What else follows editability**: moving resources between catalogs (both must be changeable),
+  the house theme (applied to the next version of every catalog that can be changed), declaring a
+  catalog a write starts using (its next version when it can be changed, else its highest release),
+  the catalog list's _pending changes_ hint, getting started, and the ordering of usage lists.
+- **A tenant snapshot** still writes `SUBSCRIBED` for a catalog with a source and `AUTHORED` for any
+  other in `snapshot.json`, because the hub shares the format; a restore ignores it and fills every
+  catalog's next version.
 
 ## Catalog versions and drafts
 
 A catalog consists of **versions** (contract ADR 0002): released ones, kept in
 `catalog_releases` with their retained content, and the versions whose content is in the content
-tables, identified by `catalog_versions`: the open **drafts** of an authored catalog, and the one
-**installed** release of a subscribed catalog. A draft has **no number until it is released**; only
-releases (and an installed release) are numbered.
+tables, identified by `catalog_versions`: the catalog's open **drafts**. A draft has **no number
+until it is released**; only releases are numbered.
 
 - **Every draft is the same; one is the next version.** Any draft can be released (contract ADR
-  0002). Every authored catalog marks one draft the **next version**
+  0002). Every catalog marks one draft the **next version**
   (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into and the one a
   caller that names no version means. The mark is a suite default, not a kind of draft. Every other
   draft is named (`catalog_versions.name`, unique per catalog ignoring case): a redesign, a fix to an
@@ -188,13 +184,12 @@ releases (and an installed release) are numbered.
 
 Every statement on content names its version through the helpers in
 [`CatalogSql.kt`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogSql.kt):
-`versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`, or
-`versionNamed(t, c, v)` for an installed release by number; `ContentVersionSqlTest` fails a statement
-that names none. The view answers, per catalog, the version the caller means:
+`versionAt(t, c)` and `inCurrentVersion(alias)`, both over the view `catalog_current_versions`;
+`ContentVersionSqlTest` fails a statement that names none. The view answers, per catalog, the version
+the caller means:
 
 1. the version the transaction **targets**, when it is a version of that catalog;
-2. else a subscribed catalog's installed release;
-3. else the authored catalog's **next version**. Another draft is reached only by targeting it.
+2. else the catalog's **next version**. Another draft is reached only by targeting it.
 
 A command or query that addresses one draft implements
 [`CatalogVersionScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/versions/CatalogVersionScoped.kt)
@@ -302,8 +297,8 @@ Catalog wire v6 stores discovery metadata alongside catalog identity:
 - an icon and ordered image gallery referencing assets in the same catalog;
 - license name, optional SPDX expression, absolute HTTP(S) URL, and copyright.
 
-AUTHORED catalogs edit these fields from the catalog browse page. SUBSCRIBED
-catalogs show source metadata read-only. URL registration, URL upgrade, ZIP
+A catalog that can be changed here edits these fields from the catalog browse page; one that
+cannot (Epistola supplies it, or the installation is run-only) shows them read-only. URL registration, URL upgrade, ZIP
 import, export, release snapshots, and tenant snapshots preserve the same typed
 value. A metadata-only publisher edit appears in the upgrade preview and can be
 applied without fabricating a resource change.
@@ -313,7 +308,9 @@ or auto-downloads an uninstalled source asset just to render catalog chrome.
 The browse page shows an unavailable placeholder; local exports and snapshots
 omit missing icon references and filter missing gallery entries while preserving
 the order of installed entries. The full source metadata remains stored so the
-presentation appears as assets are installed later.
+presentation appears as assets are installed later. The metadata is catalog-wide and the
+images belong to a version, so every catalog's content names only the images the version it is
+built from holds.
 
 ## Size a catalog to be adopted whole
 
@@ -333,7 +330,7 @@ A catalog that uses another catalog's resources declares that catalog once (wire
 `catalogDependencies`, contract ADR 0003): by registry, namespace and key, **pinned to one exact
 release** of it (`version`), not a range. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
-draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of an authored catalog;
+draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
 fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
 releases again; `UpgradeCatalogDependencies` moves every pin to the highest release, the way a
@@ -342,16 +339,15 @@ versions_). Renaming the dependency's namespace carries the declarations that na
 
 **Declared as it is used.** A write that starts using another catalog declares it
 (`UsedCatalogDeclarer`), on every surface: a variant's stencils, images and fonts, a template's theme,
-a theme's fonts, a stencil's content, an attribute's code list. An authored catalog is declared by
-naming its **next version**, which is what the draft then renders it from; a subscribed one by pinning
-its installed release. A declaration already there is left as the author set it.
+a theme's fonts, a stencil's content, an attribute's code list. A catalog that can be changed here is
+declared by naming its **next version**, which is what the draft then renders it from; one that cannot
+by pinning its highest release. A declaration already there is left as the author set it.
 
 **Catalogs never use each other.** A declaration naming a catalog that already uses this one,
 directly or through others, is refused, and so is the write that would add it, in the same
 transaction (`CatalogDependencyStore.replace`, `ValidationException` with
 `CATALOG_DEPENDENCY_INVALID`, naming the way round: `'letters' uses 'shared' uses 'base'`). It is
-judged by what every other version declares: each draft of each catalog, parallel work included, and
-each subscribed catalog's installed version. 2.0 could not release such catalogs, since each would
+judged by what every other version declares: each draft of each catalog, parallel work included. 2.0 could not release such catalogs, since each would
 have to pin the other's release first, and installing, restoring a snapshot and the upgrade from 1.x
 all order catalogs by what they use. What two catalogs share goes into one of them, or into a catalog
 they both use. Only a declaration being added is judged, so an edit elsewhere in a catalog is not held
@@ -401,12 +397,12 @@ deleted (`ReleaseInUseException` names the pinning releases), and neither can it
 Deleting the pinning release first frees it. A release always holds its content: deleting it is the
 only way to reclaim what it holds.
 
-**Moving** a resource into another catalog declares what the move creates: every authored catalog
-whose content now references a catalog it did not declare gets a declaration pinned to that
+**Moving** a resource into another catalog declares what the move creates: every catalog that can be
+changed here whose content now references a catalog it did not declare gets a declaration pinned to that
 catalog's highest release, or naming its next version when it has none (`MissingDependencyDeclarer`).
 
-**Installing** keeps the archive's pins: a subscribed catalog's declarations and the pins of its
-installed release are the publisher's, and so are an imported authored release's. Every pinned
+**Installing** keeps the archive's pins: a received release's declarations and pins are the
+publisher's. Every pinned
 release must be present, carried in the archive or installed already
 (`CatalogImportDependenciesMissingException`, REST `release-dependencies-missing`).
 
@@ -445,8 +441,8 @@ and `MarkCatalogReady` (every changed resource of the catalog) set them; MCP has
 - Marking a variant ready runs what publishing used to: the model must be publishable and every
   stencil instance must fit its stencil. Marking a stencil ready checks the stencil's own instances.
   Other resources are marked without a check.
-- A subscribed catalog is read-only: nothing in it can be marked.
-- An authored ZIP import marks everything it imported ready — it is released content.
+- A catalog that cannot be changed here is read-only: nothing in it can be marked.
+- Receiving a release marks everything it put in the next version ready — it is released content.
 
 `ReleaseCatalogVersion` refuses with `CATALOG_RESOURCES_NOT_READY` while any resource that is new or
 modified since the last release — of any type — is not ready. `GetCatalogResourceChanges` (below)
@@ -458,9 +454,9 @@ else its latest published. What was publishable before is marked ready: a varian
 draft, a stencil without a draft, and every other resource. `template_versions` and
 `contract_versions` stay as history nobody reads.
 
-## Cutting a release (AUTHORED)
+## Cutting a release
 
-An authored catalog's page has a **Next release** section (`catalogs/next-release.html`): every
+The page of a catalog that can be changed here has a **Next release** section (`catalogs/next-release.html`): every
 resource that changed since the draft's base with its state and whether it is ready, **Mark all
 ready**, and the declared **Dependencies** with their locks (edited in a dialog: the catalogs it uses,
 each tied to its latest published version, which a newer one replaces once it fits what is used;
@@ -471,7 +467,7 @@ it. The page and the release dialog gate on the same read model, `CatalogRelease
 dialog (also reachable from the catalog list) pre-fills the draft's number, offers Patch / Minor /
 Major quick-picks and release notes, and names what this release will add, update and drop. It dispatches
 [`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
-AUTHORED-only, refuses while a changed resource is not [ready](#ready-marks),
+refuses for a catalog that cannot be changed here and while a changed resource is not [ready](#ready-marks),
 parses + monotonic-checks the SemVer, computes the fingerprint,
 inserts the `catalog_releases` row (with the manifest snapshot and the
 per-resource digests) and advances the catalog pointer — one transaction.
@@ -492,7 +488,7 @@ MODIFIED, RELEASED or REMOVED, and whether its current content is marked ready.
 Both sides come from the same canonicaliser that computes the catalog
 fingerprint, so a per-resource difference is exactly a fingerprint difference
 localised to one resource and the drift check and the detail cannot disagree. It
-is the authored mirror of the SUBSCRIBED upgrade diff, which reads
+is the mirror of the upgrade diff from a source, which reads
 `installed_resource_fingerprints` the same way.
 
 A release without those entries (one from 1.x; the 2.0 upgrade removes them) recorded
@@ -597,28 +593,42 @@ catalog is left out, as every installation has it. It is how a catalog reaches a
 receives catalogs as files. Refused while a pinned release is not here. The export dialog has
 _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
 
-Importing one installs every carried release first, as subscribed when the tenant lacks its catalog;
+Importing one receives every carried release first, creating its catalog when the tenant lacks it;
 one the tenant has at that release with the same fingerprint is left alone, and one with another
-fingerprint, or a catalog of another type, refuses the whole import (`CatalogImportConflictException`,
-REST `conflict`, 409). The catalog is then installed as asked.
+fingerprint, or another catalog under its key, refuses the whole import
+(`CatalogImportConflictException`, REST `conflict`, 409). The catalog is then received as asked.
 
 ## Importing installs a release
 
-`ImportCatalogZip` installs the archive's release (contract ADR 0004). The import that creates a
-catalog names its type (`catalogType`); after that the catalog's type decides. The same release with
-the same fingerprint again changes nothing (`newlyInstalled = false`); the same number with other
-content is refused. Into a **subscribed** catalog it replaces the installed release; a release lower
-than the installed one is refused. Into an **authored** catalog it is added beside its releases with
-the publisher's fingerprint and pins, and its drafts are untouched; a new authored catalog's next
-version is opened on it. `intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`) and `restore`
-(snapshots) are internal.
+`ImportCatalogZip` receives the archive's release (contract ADR 0004, ADR 0032 section 4). Every
+import takes the same path; none names a type.
 
-A tenant snapshot exports each catalog's next version as a working copy, labelled with its latest
+- **A catalog the tenant does not have** is created as the archive names it (registry, namespace,
+  key, name), with the caller's source (an Exchange or registry install) or none (a file). Its release
+  is recorded, and its next version is on it. An archive from before wire v8, which names no registry
+  or namespace, lands in the importing tenant's namespace on the default registry.
+- **The same number with the same fingerprint** is the release the tenant has: nothing changes
+  (`newlyInstalled = false`), also in the tenant that released it. The same number with other content
+  is refused.
+- **A lower number than the catalog's highest release, or a next version with changes of its own**
+  (`NextVersionChanges`; everything a next version without a base holds counts as its own): the
+  release is recorded beside the others from its archive, and the next version stays, behind it, to
+  be merged.
+- **Otherwise the next version moves to it** (a fast-forward): its content is replaced by the
+  archive's, resources the release no longer has are removed (a cross-catalog use of one refuses the
+  import first), the release is recorded, and everything it put in place is marked ready. A resource
+  that fails to install aborts it without advancing anything.
+
+`intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`: starting a draft from a release, and
+merging) and `restore` (snapshots) are internal, and fill the version the transaction targets
+(`DraftFillMode` `MERGE` or `REPLACE`).
+
+A tenant snapshot exports each catalog's next version as a working copy, labelled with its highest
 release or `0.0.0`; that is the only export of a draft.
 
 ## Publishing a release to Epistola Exchange
 
-An AUTHORED catalog release can also create a durable Exchange publication
+A release cut here can also create a durable Exchange publication
 outbox entry in the same database transaction. The outbox retains the exact ZIP
 for that immutable release; Exchange availability never determines whether the
 local release succeeds. Imported releases suppress publication, and an existing
@@ -628,24 +638,18 @@ namespace binding, status transitions, and retries are specified in
 
 ## Importing a ZIP
 
-A ZIP import always targets a catalog **type**. A slug that already exists with
-a _different_ type is rejected (it would flip ownership semantics). What the
-import then means depends entirely on that type:
+An archive is a release, and importing it receives it as [above](#importing-installs-a-release). An
+archive of an older wire schema that a migration can bring up to date is migrated, after the web UI
+asks to confirm (`CatalogMigrationConfirmationRequiredException`); REST, Exchange and registry
+installs confirm up front. There is no MCP import tool, so import is not an MCP surface.
 
-### AUTHORED — the archive's release, added beside yours
+### Releases from a source
 
-An import into an authored catalog adds the archive's release as it was published: its number,
-fingerprint and pins, never a merge into a draft (see [Importing installs a release](#importing-installs-a-release)).
-Its drafts are untouched; they are behind the new release if it is above their base. The import that
-creates the catalog opens its next version on the release. There is no MCP import tool, so import is
-not an MCP surface.
-
-### SUBSCRIBED — releases installed side by side
-
-Nothing is upgraded (contract ADR 0003). A subscribed catalog holds the releases it installed side by
+Nothing is upgraded in place (contract ADR 0003). A catalog holds the releases it received side by
 side, each an immutable release with its retained content, and installing another adds it, whether
-it is numbered above them or below. Its source, a manifest URL (`ManifestUrlReleaseSource`) or
-Epistola Exchange (`ExchangeCatalogReleaseSource`), offers releases:
+it is numbered above them or below. Its source, a manifest URL (`ManifestUrlReleaseSource`),
+Epistola Exchange (`ExchangeCatalogReleaseSource`) or a registry, offers releases; a catalog without
+a source (made here, or imported from a file) has none to ask (`CatalogHasNoSourceException`).
 
 - **`ListAvailableCatalogReleases`** (contract `listAvailableCatalogReleases`, MCP
   `list_available_catalog_releases`, the UI's _Available releases_) lists every release the source
@@ -657,12 +661,12 @@ Epistola Exchange (`ExchangeCatalogReleaseSource`), offers releases:
   importing its archive does, after installing the releases it pins that the tenant lacks from the
   source serving their registry (Exchange); one none can supply refuses it
   (`release-dependencies-missing`). The same release again changes nothing; the same number with
-  other content is refused (409 `conflict`). A release above the installed one also becomes what the
-  catalog mirrors in its content tables; one below is recorded beside the others from its archive.
+  other content is refused (409 `conflict`).
 - A source that cannot be reached answers 503 `catalog-source-unavailable` (with `Retry-After` when
   it gave one), one that answers badly 502 (`CatalogSourceUnavailableException`).
-
-Importing a ZIP into a subscribed catalog is the same install with the archive in hand.
+- **`RegisterCatalog`** adds a catalog from a manifest URL; a tenant that has a catalog under the
+  manifest's key already is refused (`DuplicateIdException`), since registering never takes over a
+  catalog.
 
 ## Bundled catalogs
 
@@ -691,9 +695,8 @@ To regenerate after an intentional change: run the test, paste the reported
 
 ## Roadmap
 
-- **Phase 2 — upgrade diff/preview.** _Backend landed._ A SUBSCRIBED consumer
-  has **no `catalog_releases` snapshot** (that table is AUTHORED/publisher
-  state), so the diff is **source-vs-source**, not snapshot-vs-installed: the
+- **Phase 2 — upgrade diff/preview.** _Backend landed._ The diff for a
+  catalog with a source is **source-vs-source**, not snapshot-vs-installed: the
   per-resource source-side digests are captured into
   `catalogs.installed_resource_fingerprints` (JSONB) at `RegisterCatalog` /
   `UpgradeCatalog`, exactly alongside `installed_fingerprint` and with the same

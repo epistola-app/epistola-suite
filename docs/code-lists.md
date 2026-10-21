@@ -223,7 +223,7 @@ Larger follow-ups requiring coordination with `epistola-contract`:
 Shipped since the first iteration (no longer future work):
 
 - **Reserved attributes + bundled "system" catalog.** A classpath-sourced
-  SUBSCRIBED catalog installed by `CreateTenant` for every new tenant,
+  catalog Epistola supplies, installed by `CreateTenant` for every new tenant,
   supplying `locale`, `language`, and `country` bound to BCP-47 (curated),
   ISO 639-1 (full), and ISO 3166-1 alpha-2 (full) respectively. Versioned
   via the manifest `release.version`; a `SystemCatalogBootstrap`
@@ -256,9 +256,9 @@ Backend tests live under
   `last_refreshed_at` advances), failure path (server 500 leaves entries
   intact and populates `last_refresh_error`), `Bearer` and `X-API-Key`
   auth header propagation, INLINE-refresh refusal.
-- `SubscribedCodeListsReadOnlyTest` — every mutating code-list command
+- `SuppliedCatalogCodeListsReadOnlyTest` — every mutating code-list command
   (Create / Update / Delete / Refresh / UpdateCodeListEntryHidden) raises
-  `CatalogReadOnlyException` against a SUBSCRIBED catalog.
+  `CatalogReadOnlyException` against a catalog Epistola supplies.
 - `AttributeCodeListBindingTest` — XOR validation between inline values and
   code-list bindings; half-specified bindings rejected; FK violation surfaces
   when binding to a non-existent list; transitioning the binding both ways.

@@ -91,11 +91,11 @@ other content; refuses a release whose dependencies are missing, and a catalog f
 new. The labels on a manifest (version, fingerprint, namespace) are shown in listings but never
 trusted: a tampered archive keeps whatever label it was given.
 
-A catalog the tenant does not have yet is created, for now as a subscribed catalog that receives its
-releases from that registry (`oci:<registry>/<namespace>/<key>`). The background update check asks
-the registry for its highest version, and the catalogs list offers a newer one through the same
-dialog. A catalog the tenant has keeps its kind: an authored catalog receives the release beside its
-own.
+A catalog the tenant does not have yet is created with that registry as its source
+(`oci:<registry>/<namespace>/<key>`). The background update check asks the registry for its highest
+version, and the catalogs list offers a newer one through the same dialog. A catalog the tenant has
+receives the release as any import does: its next version moves to it, or, when that has changes of
+its own or the release is lower, it is recorded beside the others (ADR 0032).
 
 ## Tags are mutable: turn on immutable tags
 

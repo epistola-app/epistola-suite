@@ -73,7 +73,7 @@ under its title. That banner, not this table, is authoritative.
 | [Catalog versioning](catalog-versioning.md)                           | Current      | How a catalog declares a version, how "is this new?" is decided, and ready marks.                              |
 | [Catalog contract compatibility](catalog-contract-compatibility.md)   | Current      | Suite impact of adopting the portable `epistola-catalog` aggregate.                                            |
 | [Resource reference graph](resource-reference-graph.md)               | Alpha        | Tenant-wide view of which resources depend on which.                                                           |
-| [Resource relocation](catalog-resource-relocation.md)                 | Alpha        | Moving or renaming an authored resource; its old address stops working.                                        |
+| [Resource relocation](catalog-resource-relocation.md)                 | Alpha        | Moving or renaming a resource; its old address stops working.                                                  |
 | [Resource identity migration](catalog-resource-identity-migration.md) | Proposed     | Separating identity from address, per ADR 0014; superseded where unfinished.                                   |
 | [Immutable publication plan](catalog-immutable-publication.md)        | Proposed     | Where relocation and publication go next: self-contained published artifacts.                                  |
 | [Release model v2 plan](catalog-release-model-v2.md)                  | Proposed     | The major that removes template and stencil versions: work packages, data migration, upgrade path.             |
@@ -81,7 +81,7 @@ under its title. That banner, not this table, is authoritative.
 | [Working on catalogs: the model](catalog-working-model.md)            | Partly built | Work freely, control what goes out: next version, published, live, side work; hotfix, stash, shared catalogs.  |
 | [The workspace shell](workspace-shell.md)                             | Proposed     | The context bar and side nav: inside a catalog (its version, Publish, its pages) and outside one (the tenant). |
 | [Version axes](version-axes.md)                                       | Current      | The independent "version" concepts and which question each answers.                                            |
-| [Exchange publication](catalog-exchange-publication.md)               | Alpha        | Publishing authored catalog releases to Epistola Exchange.                                                     |
+| [Exchange publication](catalog-exchange-publication.md)               | Alpha        | Publishing catalog releases cut here to Epistola Exchange.                                                     |
 | [Exchange installation](catalog-exchange-installation.md)             | Alpha        | Browsing Epistola Exchange, installing from it, and how updates are noticed.                                   |
 | [Catalog registries](catalog-registry.md)                             | Alpha        | Moving released catalog versions between installations through a container registry.                           |
 

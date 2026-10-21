@@ -28,8 +28,8 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
 
 ## The context bar
 
-- **Catalog switcher (Letters ▾):** the catalogs people work with, in two groups, _Yours_ and
-  _Subscribed_. The system catalog, part of every tenant, is left out; every catalog is under _All
+- **Catalog switcher (Letters ▾):** the catalogs people work with, in two groups, _You can change_ and
+  _Read-only here_ (ADR 0032). The system catalog, part of every tenant, is left out; every catalog is under _All
   catalogs_. Built as a list, so a filter and a _Starred_ group can be added without changing it.
 - **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
   of the way: parallel work, each by its name and what it started from, _Start parallel work…_,

@@ -106,7 +106,7 @@ Themes are reusable style definitions that can be shared across templates. A the
 4. None: the rendering defaults alone
 
 The tenant's **house theme** is a starting value only: a new catalog starts with it as its default
-theme, and "apply house theme to all catalogs" sets it on every authored catalog. No render reads it.
+theme, and "apply house theme to all catalogs" sets it on every catalog that can be changed here. No render reads it.
 
 **Presets.** A catalog declares the block style presets its content may use (key, name, description);
 each theme gives them their styles. Its available presets are its own plus those of the catalogs it

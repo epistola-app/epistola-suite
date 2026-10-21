@@ -4,8 +4,8 @@
 > hand-off to it also needs `resource-graph`. A crude move by decision:
 > [ADR 0025](adr/0025-relocation-without-aliases.md) records why, and where relocation goes next.
 
-Catalog resource relocation is an experimental, tenant-local operation for moving an authored
-resource to another authored catalog, renaming its key, or both. It is a **crude move**: the
+Catalog resource relocation is an experimental, tenant-local operation for moving a resource to
+another catalog, renaming its key, or both, between catalogs that can be changed here (ADR 0032). It is a **crude move**: the
 resource keeps its identity and editable references follow it, but nothing is left at the old
 address. Anything that still names the old address stops resolving — move the wrong thing and
 things break.
@@ -29,7 +29,7 @@ A preview is required before execution and reports:
 - references that will be rewritten to the destination address;
 - relative references inside the moving resource's own content that will be pinned to the catalog
   they resolve against today; and
-- blockers such as a destination collision, subscribed catalogs, or an unsupported resource type;
+- blockers such as a destination collision, a catalog that cannot be changed here, or an unsupported resource type;
   and warnings, which inform without stopping the move — currently a released source catalog.
 
 Execution obtains a tenant-scoped transaction lock, rebuilds the preview, and rejects a stale plan
@@ -96,7 +96,8 @@ written before it existed resolve through their recorded address instead.
   and themes. A type added to `CatalogResourceType` without a `MovableResource` entry produces an
   `unsupported-resource-type` blocker. Supported types are declared in `MovableResource`; adding an
   entry is the last step of making a type movable, not the first.
-- Source and destination must be different authored catalogs in the same tenant.
+- Source and destination must be different catalogs in the same tenant, both changeable here: not
+  one Epistola supplies, and not on a run-only installation.
 - A source catalog with a release **warns rather than blocks**. A subscriber that upgrades to a
   later release sees the resource gone rather than moved. Only the operator knows whether anyone
   consumes the catalog, and blocking made a catalog permanently unmovable after a single local

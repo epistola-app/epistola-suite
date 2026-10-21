@@ -73,7 +73,7 @@ inserts stencils by reference too:
   starts editing it in place.
 - **Using.** An instance's content is the stencil's and is locked; only its placeholders' fills are
   the template's to edit. Saving the template stores the reference, its bindings and its fills.
-- **Editing a stencil in place.** **Edit Stencil** (offered when the stencil's catalog is authored;
+- **Editing a stencil in place.** **Edit Stencil** (offered when the stencil's catalog can be changed here;
   otherwise the inspector says why not) unlocks the instance's content. **Save Stencil** writes the
   working copy — without the template's fills, with the stencils it uses stored by reference — and
   refreshes every other instance of the stencil in the document. **Save and Mark Ready** also marks it
