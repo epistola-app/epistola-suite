@@ -55,9 +55,12 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   (`epistola.catalog.editing.enabled`, default `true`) and the suite does not supply it (a
   `classpath:` source: the system and demo catalogs). `GetCatalogEditability` says which, and
   `requireCatalogEditable` refuses with the reason (`CatalogReadOnlyException.reason`). With editing
-  off the installation is **run-only**: it receives, deploys and rolls back releases, and nothing in a
-  catalog is started, changed, merged or released. Where releases come from does not matter: a
-  received catalog can be changed and released like one made here.
+  off the installation is **run-only**: nothing in a catalog is started, changed, merged or
+  released, but it still manages its releases. It receives (installs), deploys, rolls back and
+  deletes them: those are operating the installation, not editing a catalog, so they check their
+  own permission (`CATALOG_MANAGE`) and never editability (`RunOnlyInstallationTest`). Where
+  releases come from does not matter: a received catalog can be changed and released like one made
+  here.
 - **Receiving a newer release** (an import, an Exchange install, an upgrade from a source) records it
   and, when the next release has no changes of its own, moves the next release to it (a
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
