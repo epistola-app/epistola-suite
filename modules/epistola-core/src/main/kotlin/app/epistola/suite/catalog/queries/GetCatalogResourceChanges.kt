@@ -109,6 +109,7 @@ class GetCatalogResourceChangesHandler(
     private val releaseEntryStore: ReleaseEntryStore,
     private val readyMarks: ReadyMarks,
     private val drafts: CatalogDrafts,
+    private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -120,7 +121,7 @@ class GetCatalogResourceChangesHandler(
         if (!editability.editable) throw CatalogReadOnlyException(query.catalogKey, editability.reason)
 
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
-        val working = fingerprintService.perResourceFingerprints(content)
+        val working = fingerprintService.resourceFingerprints(content)
         val release = loadBaseRelease(query.tenantKey, query.catalogKey)
         val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
 
@@ -147,7 +148,7 @@ class GetCatalogResourceChangesHandler(
             )
         }
 
-        val baseline = released.mapValues { (_, entry) -> entry.fingerprint }
+        val baseline = baseline(query.tenantKey, query.catalogKey, release.version)
 
         val resources = (working.keys + baseline.keys).sorted().map { key ->
             val state = when {
@@ -167,6 +168,20 @@ class GetCatalogResourceChangesHandler(
     }
 
     private data class ReleaseRow(val version: String, val fingerprint: String)
+
+    /**
+     * Each resource of [version] by the function [working] is compared with: what the draft recorded
+     * holding of it when it is the draft's base and was put in place as this suite holds content
+     * (the draft's `base_fingerprints`), else its retained content, fingerprinted now. Never the
+     * digests `release_entries` stored, which another function computed.
+     */
+    private fun baseline(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Map<String, String> {
+        val held = jdbi.withHandle<String?, Exception> { handle ->
+            drafts.draft(handle, tenantKey, catalogKey)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, tenantKey, it.versionId) }
+        }
+        fingerprintService.readBaseline(held)?.let { recorded -> return recorded.filterKeys { !it.startsWith("catalog/") } }
+        return assembler.assemble(tenantKey, catalogKey, version)?.let { fingerprintService.resourceFingerprints(it.content) }.orEmpty()
+    }
 
     /**
      * What the draft the caller means is compared against (contract ADR 0002): its base, the release it

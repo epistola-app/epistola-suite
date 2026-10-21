@@ -20,11 +20,9 @@ import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.fonts.model.sha256Hex
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
 /**
  * A setting of a catalog version that a release holds beside its resources (contract ADR 0007 and
@@ -135,7 +133,7 @@ data class MergeInputs(
 /**
  * Reads [MergeInputs]. The draft's content is built from its rows; each release's from the content it
  * retained ([ReleaseContentAssembler]). All three are fingerprinted by the same function
- * ([CatalogFingerprintService.perResourceFingerprints]), not taken from `release_entries`: a release
+ * ([CatalogFingerprintService.resourceFingerprints], the complete per-resource form of V5), not taken from `release_entries`: a release
  * received from a source records its publisher's digests there, which need not be what this suite
  * computes for the same content, and comparing the two reports changes nobody made.
  *
@@ -150,7 +148,6 @@ class MergeInputReader(
     private val assembler: ReleaseContentAssembler,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprints: CatalogFingerprintService,
-    private val objectMapper: ObjectMapper,
 ) {
 
     /**
@@ -241,8 +238,9 @@ class MergeInputReader(
                 in draft.merged -> drafts.mergeHeldFingerprints(handle, tenantKey, draft.versionId, release)
                 else -> null
             }
-        } ?: return null
-        return objectMapper.readValue(recorded, HELD)
+        }
+        // A recording by another function than this one's (from before baselines named theirs) is none.
+        return fingerprints.readBaseline(recorded)
     }
 
     /** A recording from before settings were merged holds resources only; its settings are the base's. */
@@ -255,13 +253,13 @@ class MergeInputReader(
 
     /** One side: every resource and setting of [content], fingerprinted. */
     fun input(catalogKey: CatalogKey, content: CatalogContent): MergeInput {
-        val resourceFingerprints = fingerprints.perResourceFingerprints(content)
+        val resourceFingerprints = fingerprints.resourceFingerprints(content)
         val resources = content.resourceDetails.mapNotNull { (contentKey, detail) ->
             val fingerprint = resourceFingerprints[contentKey] ?: return@mapNotNull null
             contentKey to MergeValue.Resource(detail.resource, fingerprint, binariesOf(detail.resource, content))
         }
         val settings = CatalogSetting.of(catalogKey, content).map { setting ->
-            "${CatalogSetting.TYPE}/${setting.key}" to MergeValue.Setting(setting, sha256Hex(objectMapper.writeValueAsBytes(setting.canonical)))
+            "${CatalogSetting.TYPE}/${setting.key}" to MergeValue.Setting(setting, fingerprints.settingFingerprint(setting.canonical))
         }
         return MergeInput(content, (resources + settings).toMap())
     }
@@ -274,10 +272,6 @@ class MergeInputReader(
             else -> emptyList()
         }
         return paths.mapNotNull { path -> content.assetContents[path]?.let { path to it } }.toMap()
-    }
-
-    private companion object {
-        val HELD = object : tools.jackson.core.type.TypeReference<Map<String, String>>() {}
     }
 
     /** A release of the catalog: its fingerprint, and the release it records it was made from. */

@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.sources
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.migration.CatalogMigrationOptions
-import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogSizeLimits
@@ -33,7 +32,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 
 /**
@@ -143,29 +141,31 @@ class AvailableReleaseArchives(
     private val jdbi: Jdbi,
     private val sizeLimits: CatalogSizeLimits,
     private val identity: CatalogIdentityProperties,
-    private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
+    private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) {
-    private val canonicalizer by lazy { CatalogCanonicalizer(objectMapper) }
 
     /** [bytes], release [version], against the closest of [installed] below it. */
     fun describe(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, bytes: ByteArray, installed: Set<String>): AvailableRelease {
         val archive = read(tenantKey, bytes)
         val manifest = archive.manifest
-        val details = manifest.resources.associate { entry -> "${entry.type}/${entry.key}" to archive.content.open(entry.detailUrl.removePrefix("./")).use { it.readAllBytes() } }
-        val incoming = canonicalizer.perResourceFingerprintsFromSerializedDetails(details) { path -> runCatching { archive.content.open(path.removePrefix("./")).use { it.readAllBytes() } }.getOrNull() }
+        // Both sides by the function every comparison uses: the archive as it came, the installed
+        // release from the content it retained.
+        val incoming = fingerprints.resourceFingerprints(archive)
         val number = SemVer.parseOrNull(version)
         val comparedTo = installed.mapNotNull { v -> SemVer.parseOrNull(v)?.let { v to it } }
             .filter { number != null && it.second < number }
             .maxByOrNull { it.second }?.first
         val baseline = comparedTo?.let { GetCatalogRelease(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
+        val before = comparedTo?.let { assembler.assemble(tenantKey, catalogKey, it) }?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
         val names = manifest.resources.associate { "${it.type}/${it.key}" to it.name }
         val changes = buildList {
             for ((key, fingerprint) in incoming.toSortedMap()) {
-                val before = baseline.firstOrNull { it.contentKey == key }
-                when {
-                    before == null -> add(change(key, names[key], ResourceChangeKind.ADDED))
-                    before.fingerprint != fingerprint -> add(change(key, names[key], ResourceChangeKind.MODIFIED))
+                when (before[key]) {
+                    null -> add(change(key, names[key], ResourceChangeKind.ADDED))
+                    fingerprint -> {}
+                    else -> add(change(key, names[key], ResourceChangeKind.MODIFIED))
                 }
             }
             baseline.filter { it.contentKey !in incoming }.sortedBy { it.contentKey }.forEach { add(change(it.contentKey, it.name, ResourceChangeKind.REMOVED)) }

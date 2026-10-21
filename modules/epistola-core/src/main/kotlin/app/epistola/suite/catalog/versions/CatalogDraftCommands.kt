@@ -223,7 +223,6 @@ class CatalogReleaseCopier(
     private val drafts: CatalogDrafts,
     private val contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
-    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) {
     fun copy(tenantKey: TenantKey, catalogKey: CatalogKey, release: CatalogVersion, into: UUID) {
         val version = requireNotNull(release.version)
@@ -245,8 +244,8 @@ class CatalogReleaseCopier(
         // What the draft holds of its base, as this suite holds content: a merge compares the draft
         // with this rather than with the release's own fingerprints, which for a release received
         // from elsewhere need not match what this suite computes for the same content.
-        val held = targeting.within(into) { fingerprints.perResourceFingerprints(contentBuilder.build(tenantKey, catalogKey)) }
-        jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, into, objectMapper.writeValueAsString(held)) }
+        val held = targeting.within(into) { fingerprints.resourceFingerprints(contentBuilder.build(tenantKey, catalogKey)) }
+        jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, into, fingerprints.storeBaseline(held)) }
     }
 }
 

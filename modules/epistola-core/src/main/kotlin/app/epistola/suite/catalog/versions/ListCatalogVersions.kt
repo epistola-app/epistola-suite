@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -107,7 +106,8 @@ class GetCatalogDraftHandler(
 class CatalogVersionReader(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
-    private val releaseEntries: ReleaseEntryStore,
+    private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) {
     /**
      * Per draft key, the number it would be released as now ([AssessDraftNumber]): [draft] only, or
@@ -168,7 +168,7 @@ class CatalogVersionReader(
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
                 behind = numbers[draft.key]?.let { number -> CatalogDrafts.behind(draft.base, draft.createdAt, number, publishedAt, draft.merged) }.orEmpty().map { version ->
-                    BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) })
+                    BehindRelease(version, changes.getOrPut(version) { changesOf(tenantKey, catalogKey, version, bases[version], released) })
                 },
                 versionId = draft.key,
                 name = draft.name,
@@ -184,11 +184,12 @@ class CatalogVersionReader(
      * that recorded none, or whose base the catalog no longer has, is measured against the release
      * below it, which for releases cut one after another is the same one.
      */
-    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
-        val own = releaseEntries.entriesOf(handle, tenantKey, catalogKey, version).associate { it.contentKey to it.fingerprint }
-        val below = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))
-            ?.let { previous -> releaseEntries.entriesOf(handle, tenantKey, catalogKey, previous).associate { it.contentKey to it.fingerprint } }
-            .orEmpty()
+    private fun changesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
+        // Each release's retained content, fingerprinted now by the function every comparison uses, not
+        // the digests `release_entries` stored.
+        fun of(release: String) = assembler.assemble(tenantKey, catalogKey, release)?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
+        val own = of(version)
+        val below = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of).orEmpty()
         return (own.keys + below.keys).sorted().mapNotNull { key ->
             val change = when {
                 key !in below -> "added"

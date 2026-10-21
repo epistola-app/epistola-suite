@@ -9,6 +9,9 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
+/** The function a stored baseline's values come from: [CatalogFingerprintService.resourceFingerprints]. */
+const val BASELINE_ALGORITHM: String = "complete-v5"
+
 /** Count bound of the per-resource fingerprint cache; there are a handful of bundled catalogs. */
 private const val MAX_CACHED_CLASSPATH_CATALOGS: Long = 64
 
@@ -23,7 +26,7 @@ private const val MAX_CACHED_CLASSPATH_CATALOGS: Long = 64
  */
 @Component
 class CatalogFingerprintService(
-    objectMapper: ObjectMapper,
+    private val objectMapper: ObjectMapper,
     private val contentBuilder: CatalogContentBuilder,
     private val catalogClient: CatalogClient,
 ) {
@@ -68,12 +71,57 @@ class CatalogFingerprintService(
     fun fingerprintFromSource(manifestUrl: String, authType: AuthType, credential: String?): String = canonicalizer.fingerprintFromSource(catalogClient, manifestUrl, authType, credential)
 
     /**
-     * Per-resource digests of a live working copy, keyed `"type/slug"` — the
-     * authored counterpart of [perResourceFingerprintsFromSource], over the same
-     * content [fingerprint] hashes as a whole. A difference here is exactly a
-     * whole-catalog fingerprint difference localized to one resource.
+     * Per-resource digests of a live working copy in the V3 form, keyed `"type/slug"` — the
+     * authored counterpart of [perResourceFingerprintsFromSource]. Recorded per release
+     * (`release_entries.fingerprint`) and compared with a source's; it leaves out what wire v8 added
+     * to a resource, so nothing that tells resources apart compares it any more: that is
+     * [resourceFingerprints].
      */
     fun perResourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.perResourceFingerprints(content.resourceDetails) { contentPath -> content.assetContents[contentPath] }
+
+    /**
+     * What tells two states of a resource apart, keyed `"type/key"`: the complete per-resource
+     * fingerprint (contract `completePerResourceFingerprints`, the per-resource form of V5), over
+     * everything V5 covers of the resource, a template's description and a variant's metadata
+     * included. The one function every comparison of resources uses: a merge's three sides, what a
+     * next release changed, and the baselines a draft records ([storeBaseline]).
+     */
+    fun resourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.completePerResourceFingerprints(content)
+
+    /** [resourceFingerprints] of an archive as it was received. */
+    fun resourceFingerprints(archive: app.epistola.catalog.archive.CatalogArchive): Map<String, String> = app.epistola.catalog.canonical.CatalogCanonicalizer.completePerResourceFingerprints(archive)
+
+    /** The fingerprint of a catalog setting's value given in its fixed [canonical] shape. */
+    fun settingFingerprint(canonical: Any?): String = app.epistola.suite.fonts.model.sha256Hex(objectMapper.writeValueAsBytes(canonical))
+
+    /**
+     * Every entry of [content] a merge compares, by `type/key`: its resources ([resourceFingerprints])
+     * and its settings (`catalog/<key>`, [app.epistola.suite.catalog.merge.CatalogSetting]).
+     */
+    fun entryFingerprints(catalogKey: CatalogKey, content: CatalogContent): Map<String, String> = resourceFingerprints(content) +
+        app.epistola.suite.catalog.merge.CatalogSetting.of(catalogKey, content).associate { "${app.epistola.suite.catalog.merge.CatalogSetting.TYPE}/${it.key}" to settingFingerprint(it.canonical) }
+
+    /**
+     * [fingerprints] as a stored baseline (`catalog_versions.base_fingerprints`,
+     * `catalog_draft_merges.held_fingerprints`), naming the function that computed them, so a
+     * baseline is never compared with values of another ([readBaseline]).
+     */
+    fun storeBaseline(fingerprints: Map<String, String>): String = objectMapper.writeValueAsString(
+        mapOf("algorithm" to BASELINE_ALGORITHM, "entries" to fingerprints.toSortedMap()),
+    )
+
+    /**
+     * A stored baseline's fingerprints, or null when it was computed by another function (one stored
+     * before baselines named theirs holds V3 values): such a baseline is as good as none, and the
+     * caller compares with the release's content instead.
+     */
+    fun readBaseline(json: String?): Map<String, String>? {
+        val node = json?.let(objectMapper::readTree) ?: return null
+        if (!node.isObject || node.path("algorithm").asString(null) != BASELINE_ALGORITHM) return null
+        val entries = node.path("entries")
+        if (!entries.isObject) return null
+        return entries.properties().associate { (key, value) -> key to value.asString() }
+    }
 
     /**
      * Per-resource digests of a catalog fetched from a source URL — same fetch

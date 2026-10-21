@@ -60,6 +60,23 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         content.assetContents[contentPath]
     }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
 
+    /**
+     * The complete per-resource fingerprint of every `type/key` resource of [content]
+     * ([PortableCatalogCanonicalizer.completePerResourceFingerprints], the per-resource form of V5):
+     * what a resource is compared by, between releases, drafts and merges.
+     */
+    fun completePerResourceFingerprints(content: CatalogContent): Map<String, String> = archive(
+        content.catalog,
+        content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
+        content.dependencies,
+        content.catalogDependencies,
+        content.resourceEntries,
+        includeSerializedDetails = false,
+        publisher = content.publisher,
+    ) { contentPath ->
+        content.assetContents[contentPath]
+    }.use(PortableCatalogCanonicalizer::completePerResourceFingerprints)
+
     fun fingerprint(
         catalog: CatalogInfo,
         resourceDetails: Map<String, ResourceDetail>,

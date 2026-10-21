@@ -104,6 +104,7 @@ class MergeReleaseIntoDraftHandler(
     private val inputs: MergeInputReader,
     private val contentBuilder: CatalogContentBuilder,
     private val objectMapper: ObjectMapper,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) : CommandHandler<MergeReleaseIntoDraft, MergedRelease> {
 
     override fun handle(command: MergeReleaseIntoDraft): MergedRelease {
@@ -130,7 +131,7 @@ class MergeReleaseIntoDraftHandler(
             writer.apply(tenantKey, catalogKey, command.release, draft.label, actions) to inputs.input(catalogKey, contentBuilder.build(tenantKey, catalogKey))
         }
         val resolutions = objectMapper.writeValueAsString(command.resolutions.toSortedMap().mapValues { it.value.wire })
-        val held = objectMapper.writeValueAsString(held(plan, actions, after.fingerprints))
+        val held = fingerprints.storeBaseline(held(plan, actions, after.fingerprints))
         jdbi.useHandle<Exception> { drafts.recordMerged(it, tenantKey, draft.versionId, command.release, plan.inputs.mergeBase, resolutions, held) }
 
         return MergedRelease(
