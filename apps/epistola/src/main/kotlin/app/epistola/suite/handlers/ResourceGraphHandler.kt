@@ -58,7 +58,7 @@ class ResourceGraphHandler {
             .map(::nodeDto)
             .toList()
         val catalogs = ListCatalogs(request.tenantKey()).query().map {
-            mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
+            mapOf("key" to it.id.value, "name" to it.name)
         }
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
     }

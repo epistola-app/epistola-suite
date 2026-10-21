@@ -5,7 +5,8 @@
 export interface OrganiseCatalog {
   key: string;
   name: string;
-  type: string;
+  /** Whether the catalog can be changed here (ADR 0032): only such a catalog takes a move. */
+  editable: boolean;
 }
 
 export interface OrganiseResource {

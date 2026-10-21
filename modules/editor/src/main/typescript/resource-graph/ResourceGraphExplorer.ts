@@ -66,7 +66,7 @@ export class ResourceGraphExplorer extends LitElement {
   @state() private searchResults: ResourceNode[] = [];
   @state() private searchResultsVisible = false;
   @state() private searching = false;
-  @state() private catalogOptions: Array<{ key: string; name: string; type: string }> = [];
+  @state() private catalogOptions: Array<{ key: string; name: string }> = [];
   @state() private graph?: SubgraphResponse;
   @state() private selectedEdge?: ResourceEdge;
   @state() private evidence?: EvidenceResponse;
@@ -337,7 +337,7 @@ export class ResourceGraphExplorer extends LitElement {
       if (!response.ok) throw new Error(`Could not load resources (${response.status})`);
       const body = (await response.json()) as {
         nodes: ResourceNode[];
-        catalogs: Array<{ key: string; name: string; type: string }>;
+        catalogs: Array<{ key: string; name: string }>;
       };
       if (sequence === this.searchSequence) {
         this.catalogOptions = body.catalogs;
