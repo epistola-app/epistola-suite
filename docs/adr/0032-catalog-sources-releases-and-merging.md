@@ -175,6 +175,9 @@ Drafts live in the content tables; releases live in their snapshots. The `instal
 `catalog_versions` row goes away, because a catalog's browsable content is its next version. The
 remaining step, folding `catalog_versions` into `catalog_releases` so a release is one row from
 draft to released, is a rename that follows this decision (the one-table option considered below).
+[ADR 0033](0033-reading-any-release.md) carries the consolidation further: reading any release the
+same way, and, as its option 4, drafts stored like releases (entries pointing at revisions), after
+which the content tables go too.
 
 ## Alternatives considered
 
