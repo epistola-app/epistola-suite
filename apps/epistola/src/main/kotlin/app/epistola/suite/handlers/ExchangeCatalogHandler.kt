@@ -35,9 +35,9 @@ import org.springframework.web.servlet.function.ServerResponse
  * highlighting Catalogs and installing reads as what it is: another way to get a catalog, beside
  * subscribing to a URL and importing a ZIP.
  *
- * Both permissions are required to install. [Permission.CATALOG_MANAGE] is the catalog-lifecycle
- * one, and the nested ZIP import carries [Permission.TEMPLATE_EDIT] — checked here so someone
- * holding only one is told before a release is downloaded rather than after.
+ * Installing takes [Permission.CATALOG_MANAGE], the catalog-lifecycle permission, which is what
+ * `InstallExchangeCatalog` and the archive import it dispatches require: receiving a release writes
+ * no draft. Checked here so someone without it is told before a release is downloaded.
  */
 @Component
 class ExchangeCatalogHandler {
@@ -232,14 +232,10 @@ class ExchangeCatalogHandler {
         onFullPage { redirect("/tenants/${request.tenantId().key}/catalogs") }
     }
 
-    private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().let { principal ->
-        principal.hasPermission(tenantKey, Permission.CATALOG_MANAGE) &&
-            principal.hasPermission(tenantKey, Permission.TEMPLATE_EDIT)
-    }
+    private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_MANAGE)
 
     private fun requireInstallPermissions(tenantKey: TenantKey) {
         requirePermission(tenantKey, Permission.CATALOG_MANAGE)
-        requirePermission(tenantKey, Permission.TEMPLATE_EDIT)
     }
 
     private companion object {

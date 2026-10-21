@@ -1457,12 +1457,12 @@ class CatalogHandler {
      * The Import-ZIP dialog, mirroring [newForm]/[registerForm]: an in-app
      * trigger (hx-get → #dialog-mount) gets just the `dialog` fragment; direct
      * navigation / boost gets the host list page with the dialog embedded in its
-     * mount (openDialog=true), opened on load by JS. Gated on TEMPLATE_EDIT —
-     * the same permission [ImportCatalogZip] enforces.
+     * mount (openDialog=true), opened on load by JS. Gated on CATALOG_MANAGE —
+     * the same permission [ImportCatalogZip] enforces for receiving a release.
      */
     fun importForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
         return request.htmx {
             fragment("catalogs/import", "dialog") {
                 "tenantId" to tenantId.key
@@ -1480,7 +1480,7 @@ class CatalogHandler {
 
     fun importZip(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
 
         val multipartData = request.multipartData()
         val filePart = multipartData["file"]?.firstOrNull()

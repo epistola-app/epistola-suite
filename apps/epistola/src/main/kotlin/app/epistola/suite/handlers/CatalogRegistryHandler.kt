@@ -38,9 +38,9 @@ import org.springframework.web.servlet.function.ServerResponse
  * from a registry_ beside importing a file, and _Publish to a registry_ on a release. Offered only
  * when the installation has a registry configured.
  *
- * Getting a release takes [Permission.CATALOG_MANAGE] and [Permission.TEMPLATE_EDIT], as installing
- * from Exchange does: the install is the archive import, and receiving into a catalog this tenant
- * edits writes a draft. Publishing takes [Permission.CATALOG_PUBLISH].
+ * Getting a release takes [Permission.CATALOG_MANAGE], what [InstallReleaseFromRegistry] and the
+ * archive import it dispatches require: receiving a release writes no draft. Publishing takes
+ * [Permission.CATALOG_PUBLISH].
  */
 @Component
 class CatalogRegistryHandler {
@@ -196,7 +196,6 @@ class CatalogRegistryHandler {
 
     private fun requireInstallPermissions(tenantKey: TenantKey) {
         requirePermission(tenantKey, Permission.CATALOG_MANAGE)
-        requirePermission(tenantKey, Permission.TEMPLATE_EDIT)
     }
 
     companion object {
@@ -208,6 +207,6 @@ class CatalogRegistryHandler {
 
         /** Whether the catalogs page offers _Get a release from a registry_. */
         fun canInstall(tenantKey: TenantKey, registries: ConfiguredCatalogRegistries): Boolean = registries.available &&
-            SecurityContext.current().let { it.hasPermission(tenantKey, Permission.CATALOG_MANAGE) && it.hasPermission(tenantKey, Permission.TEMPLATE_EDIT) }
+            SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_MANAGE)
     }
 }

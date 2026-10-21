@@ -25,11 +25,9 @@ import org.springframework.stereotype.Component
  * dispatched through the mediator and gets its own transaction.
  *
  * The permission here is [Permission.CATALOG_MANAGE] — the same one that registers, upgrades and
- * unregisters a catalog. The effective requirement is that **and** [Permission.TEMPLATE_EDIT],
- * because the nested `ImportCatalogZip` carries the latter and authorization is enforced on every
- * dispatch. That is not new (applying any subscribed upgrade has always needed both), but the two
- * are not held by the same role, so callers should offer this only where both are present rather
- * than letting someone discover it after a download.
+ * unregisters a catalog, and the one the nested `ImportCatalogZip` requires for receiving a release
+ * (authorization is enforced on every dispatch). Receiving writes no draft, so no edit permission
+ * is needed; callers offer this to whoever holds [Permission.CATALOG_MANAGE].
  */
 data class InstallExchangeCatalog(
     override val tenantKey: TenantKey,

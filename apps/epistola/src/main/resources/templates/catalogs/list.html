@@ -626,7 +626,7 @@
             Organise
         </a>
         <button type="button" class="ep-btn ep-btn-outline"
-                th:if="${auth.has('TEMPLATE_EDIT')}"
+                th:if="${auth.has('CATALOG_MANAGE')}"
                 th:hx-get="@{/tenants/{tenantId}/catalogs/import(tenantId=${tenantId})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="catalog-import-open">
@@ -650,9 +650,6 @@
             <th:block th:replace="~{epistola-web/icon :: icon(name='globe', class='ep-icon')}" />
             Subscribe
         </button>
-        <!-- Both permissions, because installing dispatches the ZIP import, which carries
-             TEMPLATE_EDIT. Offering it to someone holding only one would fail after the
-             download rather than before it. -->
         <a class="ep-btn ep-btn-outline"
            th:href="@{/tenants/{tenantId}/catalogs/graph(tenantId=${tenantId})}"
            data-testid="catalog-graph-open">
@@ -660,7 +657,7 @@
             Dependencies
         </a>
         <a class="ep-btn ep-btn-outline"
-           th:if="${exchangeInstallAvailable and auth.has('CATALOG_MANAGE') and auth.has('TEMPLATE_EDIT')}"
+           th:if="${exchangeInstallAvailable and auth.has('CATALOG_MANAGE')}"
            th:href="@{/tenants/{tenantId}/catalogs/exchange(tenantId=${tenantId})}"
            data-testid="catalog-exchange-browse">
             <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon')}" />
