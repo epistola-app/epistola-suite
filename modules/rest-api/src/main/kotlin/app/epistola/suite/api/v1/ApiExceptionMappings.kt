@@ -569,7 +569,7 @@ object ApiExceptionMappings {
         // The contract's merge request carries no preview token yet, so REST never sends one; mapped
         // for when it does, to the generic conflict until the contract names its own problem type.
         builder.register<MergePreviewOutdatedException>(
-            problemType = ApiProblemTypes.CONFLICT,
+            problemType = ApiProblemTypes.MERGE_PREVIEW_OUTDATED,
             defaultDetail = "The draft or the release changed since the preview; preview again",
             extensions = { emptyMap() },
             logMessage = { "Merge refused, preview outdated: ${it.message}" },

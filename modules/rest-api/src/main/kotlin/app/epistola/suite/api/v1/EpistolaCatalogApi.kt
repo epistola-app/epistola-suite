@@ -357,6 +357,7 @@ class EpistolaCatalogApi(
                     )
                 },
                 unchanged = preview.resources.count { it.outcome in quiet },
+                token = preview.token,
             ),
         )
     }
@@ -377,6 +378,7 @@ class EpistolaCatalogApi(
             release = mergeIntoCatalogDraftRequest.release,
             resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeResolution.ofWire(side.name) ?: error("No resolution $side") },
             catalogVersion = draft.ref,
+            expectedToken = mergeIntoCatalogDraftRequest.expectedToken,
         ).execute()
         return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept))
     }

@@ -420,6 +420,43 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(again.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-not-applicable")
     }
 
+    @Test
+    fun `a merge sent with a preview's token applies only what that preview showed`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val slug = "merge-token-api"
+        seedAuthoredCatalog(tenantKey, slug)
+        val catalogKey = CatalogKey.of(slug)
+        val theme = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, TenantId(tenantKey)))
+        withMediator {
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            val fix = CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute()
+            val fixRef = CatalogVersionRef(tenantKey, catalogKey, DraftRef.Id(fix.versionId))
+            UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            UpdateTheme(theme, name = "Ours").execute()
+        }
+        val next = versionPath(tenantKey, slug, "next")
+        fun preview() = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        fun merge(body: String) = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val token = JsonPath.read<String>(preview().body!!, "$.token")
+        assertThat(token).isNotBlank()
+        assertThat(JsonPath.read<String>(preview().body!!, "$.token")).isEqualTo(token)
+
+        // The draft changes after the preview: the merge confirmed against it is refused.
+        withMediator { UpdateTheme(theme, name = "Ours, again").execute() }
+        val outdated = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$token"}""")
+        assertThat(outdated.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(outdated.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-preview-outdated")
+
+        val current = JsonPath.read<String>(preview().body!!, "$.token")
+        assertThat(current).isNotEqualTo(token)
+        val merged = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$current"}""")
+        assertThat(merged.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(merged.body!!, "$.kept")).containsExactly("theme/tha")
+    }
+
     private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }
 
     private fun seedAuthoredCatalog(tenantKey: TenantKey, slug: String) = withMediator {
