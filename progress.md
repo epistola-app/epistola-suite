@@ -233,11 +233,44 @@ Full runs (`--no-watch-fs`): core integration 1203 (1 skipped), core unit 1010, 
 
 **Noticed in the follow-up, left alone:**
 
-- `TemplateResource.themeNamespace` / `themeRegistry`, and the `namespace` / `registry` of a code-list binding and a font reference (wire v8), are not stored or emitted either. Unlike the members above every fingerprint form covers them, so they cause no new false conflict; a reference into a catalog of another namespace loses its qualifier on a round trip.
+- (Done in the next step.) `TemplateResource.themeNamespace` / `themeRegistry`, and the `namespace` / `registry` of a code-list binding and a font reference (wire v8), are not stored or emitted either. Unlike the members above every fingerprint form covers them, so they cause no new false conflict; a reference into a catalog of another namespace loses its qualifier on a round trip.
 - REST `UpdateTemplateRequest.description` says "null clears", but the generated request cannot tell an omitted member from `null`; the suite keeps it on `null` and removes it on `""`. The contract should say so (or model the member as nullable-and-optional).
-- The MCP list (`TemplateSummaryInfo`) and the web UI's create dialog and template list do not show or take the description.
+- (Done in the next step.) The MCP list (`TemplateSummaryInfo`) and the web UI's create dialog and template list do not show or take the description.
 - For a catalog installed from a URL source, the retained content of the installed release is rebuilt from rows (`RecordInstalledRelease` without `published`), so the fallback for an untagged baseline compares the source with this suite's form of it; it matched exactly for the test fixture.
 - `CheckCatalogUpgrade` compares whole-catalog fingerprints only (unchanged; it needed no switch).
+
+**Qualified references; descriptions where templates are listed and created (21 October; same branch, not pushed):**
+
+| Reference (wire v8)                                                   | Stored as                                                      | Before                                                        | Now                                                                                             | Coverage                                             |
+| --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `TemplateResource.themeNamespace` / `themeRegistry`                   | identity `document_templates.theme_resource_id`                | never emitted                                                 | derived on export from the theme's catalog                                                      | ✅ `QualifiedReferenceRoundTripTest` (failed before) |
+| `CodeListBindingRef.namespace` / `registry`                           | identity `variant_attribute_definitions.code_list_resource_id` | never emitted                                                 | derived on export                                                                               | ✅ same (failed before)                              |
+| `CatalogInfo.defaultTheme` (`CatalogThemeRef`)                        | identity `catalog_versions.default_theme_resource_id`          | namespace and registry always, registry even when the owner's | same rule as the others: registry only where it differs                                         | ✅ same (failed before)                              |
+| `FontRef` in theme `documentStyles` / presets                         | JSON, verbatim                                                 | authored refs carry no namespace, emitted so                  | `ResourceReferenceSites.qualifyOtherCatalogs` on export; a received one kept as it came         | ✅ same (failed before)                              |
+| `FontRef` in template / stencil node styles                           | JSON, verbatim                                                 | as above                                                      | as above                                                                                        | ✅ same (failed before)                              |
+| `ThemeRefOverride.namespace` / `registry` (template model `themeRef`) | JSON, verbatim                                                 | as above                                                      | as above                                                                                        | ✅ same (failed before)                              |
+| stencil node `props.namespace` / `registry`                           | JSON, verbatim                                                 | as above                                                      | as above (namespace and registry, other registry tested)                                        | ✅ same (failed before)                              |
+| image node                                                            | JSON, verbatim                                                 | by catalog key only                                           | unchanged: the image component declares no `namespace`/`registry` prop (validator refuses them) | ✅ same (documents the gap)                          |
+| `DependencyRef.*`, `CatalogDependency`                                | derived / declarations with full name                          | already named                                                 | unchanged                                                                                       | ➖ existing tests                                    |
+
+Resolution is unchanged (by catalog key, unique per tenant through `uq_catalogs_key_until_named`); the test checks the resource graph resolves the received references to `system` and `parts`. So "two catalogs with the same key in different namespaces in one tenant" cannot be set up yet; the tests use the system catalog (namespace `epistola`) and a catalog in namespace `parts-shop` of registry `registry.example.com`.
+
+| Change                                                                                                          | Where                                                                | Coverage                                                                                           |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Create dialog takes an optional description (textarea `maxlength="2000"`; the command validates in code points) | `templates/new.html`, `DocumentTemplateHandler.create`               | ✅ `TemplateDescriptionListHtmxTest` (4 of 5 failed before)                                        |
+| Template list shows it as one muted line under the name, ellipsis, full text on hover                           | `templates/list.html`                                                | ✅ same                                                                                            |
+| `TemplateSummary.description`; MCP `TemplateSummaryInfo.description` (`list_templates`)                         | `ListTemplateSummaries.kt`, `mcp/dto/TemplateInfo.kt`, `docs/mcp.md` | ✅ `ListTemplateSummariesDescriptionTest`, `McpWriteToolsIntegrationTest` (did not compile before) |
+
+Full runs (`--no-watch-fs`): core integration 1213 (1 skipped), core unit 1010, app integration 743 (741 green, `DataPreservationMigrationIT` ×2 known), app unit 281, MCP integration 88, rest-api 33, guards 27, demo integration 35 and unit 45, `checkMigrationVersions` green. No migration; bundled catalogs unchanged.
+
+**Noticed, left alone:**
+
+- The image component has no `namespace`/`registry` props, so an image reference into another namespace cannot say which catalog it means; the contract should add them (or declare images tenant-global).
+- Import resolves a qualified reference by catalog key alone; an explicit namespace that differs from the tenant's catalog of that key is not checked at the reference (only the catalog dependencies are, by full name).
+- A producer that writes a redundant qualifier (the owner's own namespace or registry) on a template's theme, a code-list binding or a default theme gets it dropped on a round trip (they are derived), so that resource fingerprints differently; JSON references keep theirs.
+- Resources and default themes with references into another namespace build differently from the content releases retained before this change, so on installations of this branch such a next version shows them as changed once.
+- A theme's own-catalog font references keep their `catalogKey` on export (templates and stencils drop it); unchanged.
+- The merge's handling of the default theme (`MergeInputs.DefaultTheme`) reads it by catalog key and ignores the qualifier; not touched here (a separate follow-up).
 
 ### `feat/contract-v2-catchup` (in progress, not pushed)
 
