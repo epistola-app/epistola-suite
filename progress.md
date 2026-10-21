@@ -48,6 +48,9 @@ Full runs: core integration 1161 green; app/MCP/REST/guards green except `DataPr
 
 **Noticed, left alone:**
 
+- `checkContractVersionAlignment` fails on `release/2.0` itself (checked on `a406d5410`): it cannot read
+  the editor's `file:` dependency on the local contract archive. It passes again once the suite
+  depends on a published contract.
 - `DataPreservationMigrationIT` fails on `release/2.0` itself (checked on `a406d5410`): the 1.x
   preflight `1x-catalog-dependency-cycles` (from #1116) queries `tv.template_resource_id`, which the
   RC1 schema does not have.
