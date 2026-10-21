@@ -192,14 +192,14 @@
                         <th:block th:if="${catalogEditing.editable(catalog.id)}">Publish it first; until then an environment that is not production can follow a draft.</th:block>
                     </p>
                     <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
-                        Deploying a version needs the permission to deploy.
+                        Deploying a release needs the permission to deploy.
                     </p>
                     <div class="ep-table-scroll" role="region" aria-label="Deployments table" tabindex="0">
                     <table class="ep-table">
                         <thead>
                             <tr>
                                 <th>Environment</th>
-                                <th>Deployed version</th>
+                                <th>Deployed release</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -224,7 +224,7 @@
                                                     class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                                     data-confirm-submit
                                                     data-confirm-submit-title="Undeploy this version"
-                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed version of it, or fail when there is none.'"
+                                                    th:attr="data-confirm-submit-message=${row.environmentName} + ' stops using v' + ${served.version} + ' of ' + ${catalog.name} + '. Documents made there use another deployed release of it, or fail when there is none.'"
                                                     data-confirm-submit-label="Undeploy"
                                                     data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                         </form>
@@ -250,8 +250,8 @@
                                           th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                         <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
                                         <select name="version" class="ep-select ep-select-sm" required data-testid="catalog-deploy-version"
-                                                th:attr="aria-label='Version to deploy to ' + ${row.environmentName}">
-                                            <optgroup th:if="${!deployableVersions.isEmpty()}" label="Published versions">
+                                                th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
+                                            <optgroup th:if="${!deployableVersions.isEmpty()}" label="Published releases">
                                                 <option th:each="version : ${deployableVersions}"
                                                         th:value="${version}"
                                                         th:text="'v' + ${version} + (${row.servedVersions.contains(version)} ? ' (deployed)' : '')">v1.0.0</option>
@@ -260,7 +260,7 @@
                                             <optgroup th:if="${!row.production and !followableDrafts.isEmpty()}" label="Follow a draft">
                                                 <option th:each="draft : ${followableDrafts}"
                                                         th:value="'draft:' + ${draft.versionId}"
-                                                        th:text="${draft.label} + ' (follows its changes)'">Next version (follows its changes)</option>
+                                                        th:text="${draft.label} + ' (follows its changes)'">Next release (follows its changes)</option>
                                             </optgroup>
                                         </select>
                                         <label th:unless="${row.served.isEmpty()}" class="text-sm" style="display: flex; gap: var(--ep-space-1); align-items: center;">
@@ -291,8 +291,8 @@
                     </div>
                 </div>
                 <p class="text-muted text-sm detail-section-body" style="margin: 0; padding-top: 0;">
-                    Its name, description, keywords, presentation and license go out with each version:
-                    change them above, and see what a published version carried on its own page.
+                    Its name, description, keywords, presentation and license go out with each release:
+                    change them above, and see what a published release carried on its own page.
                 </p>
             </div>
     
@@ -401,7 +401,7 @@
                                 into. It has to grant one before anything from this catalog can be published.
                             </p>
                             <p style="margin: var(--ep-space-1) 0 0;">
-                                Releasing is unaffected: versions are created either way.
+                                Releasing is unaffected: releases are created either way.
                             </p>
                         </div>
                     </div>

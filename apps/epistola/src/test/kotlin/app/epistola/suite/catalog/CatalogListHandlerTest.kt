@@ -593,7 +593,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("type=\"file\"")
             // An import receives the release, whatever the catalog: there is no type to choose (ADR 0032).
             assertThat(body).doesNotContain("name=\"catalogType\"").doesNotContain("Subscribed").doesNotContain("Authored")
-            assertThat(body).contains("Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next version afterwards.")
+            assertThat(body).contains("Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next release afterwards.")
             // It is a fragment, not the whole page (no app shell).
             assertThat(body).doesNotContain("<html")
         }

@@ -93,15 +93,15 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the production mark is shown and changed on the page, and refused while it serves work in progress`() {
         val tenant = setup("page-production")
-        assertThat(page(tenant, "production")).contains("Only published versions are used here.").contains("Not production")
+        assertThat(page(tenant, "production")).contains("Only published releases are used here.").contains("Not production")
         assertThat(page(tenant, "test")).contains("Mark as production").contains("a draft can be deployed here").doesNotContain("follow work in progress")
 
         withMediator { DeployCatalogVersion(env(tenant, "test"), letters, GetCatalogDraft(tenant.id, letters).query()!!.versionId).execute() }
         val refused = post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
 
-        assertThat(refused.body).contains("serves work in progress").contains("Next version")
+        assertThat(refused.body).contains("serves work in progress").contains("Next release")
         assertThat(withMediator { GetEnvironment(env(tenant, "test")).query()!! }.production).isFalse()
-        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next version").contains("Undeploy")
+        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next release").contains("Undeploy")
 
         post("/tenants/${tenant.id.value}/environments/test/drafts/letters/undeploy")
         post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
@@ -118,7 +118,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         val dialog = getHtmx("$at/follow").body!!
         assertThat(dialog.substringAfter("data-environment=\"test\"").substringBefore("</tr>")).contains(">Follow<")
         assertThat(dialog.substringAfter("data-environment=\"production\"").substringBefore("</tr>"))
-            .`as`("production is listed, not offered").contains("uses only published versions").doesNotContain("follow-toggle")
+            .`as`("production is listed, not offered").contains("uses only published releases").doesNotContain("follow-toggle")
 
         val followed = postHtmx("$at/follow", "environment" to "test")
 

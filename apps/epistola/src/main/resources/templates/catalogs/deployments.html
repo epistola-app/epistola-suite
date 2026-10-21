@@ -6,7 +6,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Deployments',
-            pageDescription='Which version of ' + ${catalog.name} + ' each environment uses. An application gets documents from the version deployed to its environment.'
+            pageDescription='Which release of ' + ${catalog.name} + ' each environment uses. An application gets documents from the release deployed to its environment.'
         )}"></div>
         <div id="catalog-alert"></div>
         <div th:if="${publicationError != null}" class="alert alert-error" data-testid="catalog-live-error" th:text="${publicationError}"></div>

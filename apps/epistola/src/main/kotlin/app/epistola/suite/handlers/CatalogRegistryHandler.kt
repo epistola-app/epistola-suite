@@ -81,7 +81,7 @@ class CatalogRegistryHandler {
         val namespace = request.param("namespace").orElse("")
         val catalogKey = request.param("catalogKey").orElse("")
         val version = request.param("version").orElse("").trim()
-        if (version.isEmpty()) return installError(request, "Choose the version to get.")
+        if (version.isEmpty()) return installError(request, "Choose the release to get.")
         return try {
             val result = InstallReleaseFromRegistry(tenantKey, registry, namespace, catalogKey, version).execute()
             if (result.aborted) {
@@ -169,7 +169,7 @@ class CatalogRegistryHandler {
         is CatalogImportConflictException -> e.message ?: unexpected
 
         is CatalogImportDependenciesMissingException ->
-            "This release needs versions of other catalogs that this tenant does not have: " +
+            "This release needs releases of other catalogs that this tenant does not have: " +
                 e.missing.joinToString { "${it.catalogKey} ${it.releaseVersion}" } + ". Get those first."
 
         is CatalogImportValidationException -> "The release's archive does not check out (" + e.message + "). Nothing was installed."

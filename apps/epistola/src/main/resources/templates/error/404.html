@@ -13,16 +13,16 @@
         <div class="not-found-icon">
             <th:block th:replace="~{epistola-web/icon :: icon(name='search', class='ep-icon')}" />
         </div>
-        <h1 id="not-found-title" th:text="${catalogSection != null} ? 'Not in this version' : 'Page not found'">Page not found</h1>
+        <h1 id="not-found-title" th:text="${catalogSection != null} ? 'Not in this release' : 'Page not found'">Page not found</h1>
         <p th:if="${catalogSection != null}" data-testid="not-found-in-version">
-            This version of the catalog doesn’t have it. It may be in another version, or have been deleted.
+            This release of the catalog doesn’t have it. It may be in another release, or have been deleted.
         </p>
         <p th:unless="${catalogSection != null}">
             The page you’re looking for doesn’t exist, may have moved, or is no longer available.
         </p>
         <div th:if="${catalogSection != null}" class="not-found-actions">
             <a th:href="${catalogSection.href}" class="ep-btn ep-btn-primary"
-               th:text="${catalogSection.label} + ' in this version'">Templates in this version</a>
+               th:text="${catalogSection.label} + ' in this release'">Templates in this release</a>
             <a th:href="${catalogSection.overviewHref}" class="ep-btn ep-btn-outline">Catalog overview</a>
         </div>
         <div th:unless="${catalogSection != null}" class="not-found-actions">

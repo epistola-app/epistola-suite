@@ -398,7 +398,7 @@ class EnvironmentHandler(
         if (catalogKey == null || version.isEmpty() || templateKey == null) return detail(request, error = "Choose a template to try.")
 
         val template = GetReleasedResource(tenantId.key, catalogKey, version, "template", templateKey.value).query() as? TemplateResource
-            ?: return detail(request, error = "Version $version of ${catalogKey.value} has no template '${templateKey.value}'.")
+            ?: return detail(request, error = "Release v$version of ${catalogKey.value} has no template '${templateKey.value}'.")
         val data = template.dataExamples?.firstOrNull()?.data?.let { objectMapper.valueToTree<ObjectNode>(it) } ?: objectMapper.createObjectNode()
         val pdf = try {
             PreviewDocument(

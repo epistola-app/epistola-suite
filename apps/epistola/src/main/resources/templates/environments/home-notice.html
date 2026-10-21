@@ -21,7 +21,7 @@
                     <a th:href="${notice.data.environmentKey != null}
                            ? @{/tenants/{t}/environments/{e}(t=${notice.data.tenantId},e=${notice.data.environmentKey})}
                            : @{/tenants/{t}/environments(t=${notice.data.tenantId})}"
-                       class="ep-btn ep-btn-outline ep-btn-sm">Deploy a version</a>
+                       class="ep-btn ep-btn-outline ep-btn-sm">Deploy a release</a>
                 </div>
             </div>
         </div>

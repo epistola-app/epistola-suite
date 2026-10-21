@@ -119,7 +119,7 @@ class WorkspaceBuilder {
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
                 statusHref = if (bar.editable && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
-                versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/versions",
+                versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/releases",
             )
         }
 

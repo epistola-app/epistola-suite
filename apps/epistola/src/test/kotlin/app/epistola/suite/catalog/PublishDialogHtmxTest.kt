@@ -248,7 +248,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
 
         assertThat(dialog).doesNotContain("data-testid=\"release-blocked-borrowed\"")
-        assertThat(dialog).contains("Shared is published too, as v1.0.0: this uses its Next version, with Brand not published yet.")
+        assertThat(dialog).contains("Shared is published too, as v1.0.0: this uses its Next release, with Brand not published yet.")
         assertThat(dialog).contains("data-testid=\"release-submit\"")
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
@@ -266,7 +266,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val borrowed = page.substringAfter("data-testid=\"catalog-borrowed\"")
 
         assertThat(borrowed.substringAfter("data-catalog=\"shared\"").substringBefore("</tr>"))
-            .contains("Next version, as it is now").contains("Brand").contains("(Theme)")
+            .contains("Next release, as it is now").contains("Brand").contains("(Theme)")
         assertThat(borrowed).contains("data-testid=\"catalog-borrowed-others\"")
     }
 
@@ -280,7 +280,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
         val along = dialog.substringAfter("data-testid=\"publish-along\"").substringBefore("data-testid=\"publish-advanced\"")
-        assertThat(along).contains("Shared is published too, as v1.0.1: this uses its Next version, with Brand not published yet.")
+        assertThat(along).contains("Shared is published too, as v1.0.1: this uses its Next release, with Brand not published yet.")
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 

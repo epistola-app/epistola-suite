@@ -154,7 +154,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(first.body).contains("Published.", "/$namespace/ui-publish:1.0.0")
 
         val second = post("/tenants/${a.value}/catalogs/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
-        assertThat(second.body).contains("had this version already")
+        assertThat(second.body).contains("had this release already")
     }
 }
 

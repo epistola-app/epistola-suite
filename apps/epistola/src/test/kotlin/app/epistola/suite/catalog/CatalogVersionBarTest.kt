@@ -100,7 +100,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
             assertThat(body.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>"))
                 .`as`("$path names the catalog in the bar").contains(">Bar cat<")
             assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>"))
-                .`as`("$path says it is the next version, without a number").contains(">Next version<").doesNotContain("v1.0.1")
+                .`as`("$path says it is the next version, without a number").contains(">Next release<").doesNotContain("v1.0.1")
             assertThat(body).`as`("$path loads the bar's status").contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat/bar-status\"")
             assertThat(body).`as`("$path mounts the publish dialog").contains("id=\"release-dialog-container\"")
             assertThat(body).`as`("$path shows the catalog's nav").contains("data-testid=\"ws-nav-templates\"").contains("data-testid=\"ws-nav-versions\"")
@@ -128,7 +128,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val page = get(tenant, "/catalogs/bar-cat@$work/themes/house")
         assertThat(page).contains("ws-bar-side")
         assertThat(page.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Redesign 2027<")
-        assertThat(page).contains("data-testid=\"catalog-parallel-banner\"").contains("You are changing Redesign 2027, parallel work kept apart from the next version")
+        assertThat(page).contains("data-testid=\"catalog-parallel-banner\"").contains("You are changing Redesign 2027, parallel work kept apart from the next release")
         assertThat(page).contains("hx-get=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/bar-status\"")
         assertThat(page).contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat/themes/house\" data-testid=\"catalog-parallel-back\"")
         assertThat(barStatus(tenant, "bar-cat@$work")).`as`("any draft is published on its own").contains("data-testid=\"catalog-bar-publish\"")
@@ -137,7 +137,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val next = get(tenant, "/catalogs/bar-cat/themes/house")
         assertThat(next).doesNotContain("data-testid=\"catalog-parallel-banner\"")
         assertThat(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep"))
-            .contains(">Next version<").contains(">Redesign 2027<")
+            .contains(">Next release<").contains(">Redesign 2027<")
             .`as`("a switch keeps the page someone is on").contains("href=\"/tenants/${tenant.id.value}/catalogs/bar-cat@$work/switch\"")
         assertThat(Regex("ws-menu-check").findAll(next.substringAfter("data-testid=\"ws-version-menu\"").substringBefore("ws-menu-sep")).count())
             .`as`("only the version the page is in is ticked").isEqualTo(1)
@@ -153,7 +153,7 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
         val body = get(tenant, "/catalogs/system/themes/$theme")
         assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">v$installed<")
         assertThat(body.substringAfter("data-testid=\"catalog-version-bar-read-only\"").substringBefore("</span>")).contains(">Supplied by Epistola")
-        assertThat(body).doesNotContain("/bar-status").doesNotContain(">Next version<")
+        assertThat(body).doesNotContain("/bar-status").doesNotContain(">Next release<")
     }
 
     /** The bar's status, as the bar loads it after the page. */

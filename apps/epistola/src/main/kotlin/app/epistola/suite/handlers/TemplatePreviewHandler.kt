@@ -145,7 +145,7 @@ class TemplatePreviewHandler(
                 .body(
                     mapOf(
                         "errors" to listOf(
-                            mapOf("path" to "", "message" to "This variant could not be found: it may have been deleted, or belong to another version. Reload the page."),
+                            mapOf("path" to "", "message" to "This variant could not be found: it may have been deleted, or belong to another release or draft. Reload the page."),
                         ),
                     ),
                 )

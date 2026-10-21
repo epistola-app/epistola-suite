@@ -132,7 +132,7 @@ data class CatalogDraftBar(
     /** The page works in the next version, the one people work in 99% of the time. */
     val isNext: Boolean get() = editable && chosen?.isNext == true
 
-    /** What the chosen draft is called: "Next version", or parallel work's name. */
+    /** What the chosen draft is called: "Next release", or parallel work's name. */
     val draftTitle: String? get() = chosen?.label
 
     /** The latest published version: what the next version is based on. */
@@ -178,7 +178,7 @@ data class CatalogDraftBar(
         }
 
     /**
-     * One version on the catalog page: a draft by [label] ("Next version", or parallel work's name), a
+     * One version on the catalog page: a draft by [label] ("Next release", or parallel work's name), a
      * published one by [version]; [base] is the published version it started from (null when it
      * started from nothing); [publishedAt] is null for a draft.
      */
@@ -337,7 +337,10 @@ object CatalogPages {
     /** A draft's own page: the next version at a plain segment, parallel work at `key@<draft id>`. */
     fun draft(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.value}/draft"
 
-    /** A published version's own page. */
+    /** The catalog's Releases page: every release and draft, each to its own page. */
+    fun releases(tenantId: TenantId, catalogKey: CatalogKey): String = "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/releases"
+
+    /** A published release's own page. */
     fun release(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version"
 }
 

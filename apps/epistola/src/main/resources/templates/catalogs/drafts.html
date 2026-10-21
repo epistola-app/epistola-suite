@@ -4,7 +4,7 @@
     <!--/* Parallel work of a catalog that can be changed here (contract ADR 0002, amendment 2). Which draft a page
            works in is shown by the workspace bar (layout/nav), built from CatalogDraftBar. */-->
 
-    <!--/* Start parallel work: a name, and what it starts from — the next version, unpublished changes
+    <!--/* Start parallel work: a name, and what it starts from — the next release, unpublished changes
            included, or a published version that kept its content.
            Model: `tenantId`, `bar`, and on re-render `formData`/`errors`. */-->
     <th:block th:fragment="create-dialog">
@@ -22,7 +22,7 @@
         <div class="ep-dialog-body">
             <p class="form-hint">
                 For a large change that is not ready to go out with everyday work, such as a redesign, or a
-                fix to a version already published. It is kept apart from the next version and published on
+                fix to a release already published. It is kept apart from the next release and published on
                 its own when it is ready.
             </p>
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
@@ -36,7 +36,7 @@
             <div class="form-group" th:classappend="${errors?.containsKey('from')} ? 'error' : ''">
                 <label class="ep-label" for="create-draft-from">Start from</label>
                 <select id="create-draft-from" name="from" class="ep-select" data-testid="create-draft-from">
-                    <option value="next">The next version, with what is not published yet</option>
+                    <option value="next">The next release, with what is not published yet</option>
                     <option th:each="option : ${bar.createFromOptions}" th:value="${option}" th:text="'Published v' + ${option}"
                             th:selected="${formData != null and option == formData.get('from')}">Published v1.0.0</option>
                 </select>
@@ -48,8 +48,8 @@
             <button type="submit" class="ep-btn ep-btn-primary" data-testid="create-draft-submit">Start</button>
         </div>
     </form>
-    <!--/* Make a draft the next version, where everyday work goes (a convention of this suite). Neither
-           draft's content changes; the current next version is kept under a name, or discarded.
+    <!--/* Make a draft the next release, where everyday work goes (a convention of this suite). Neither
+           draft's content changes; the current next release is kept under a name, or discarded.
            Model: `tenantId`, `bar`, `segment`, `workName`, `keepAsSuggestion`, optionally `error`. */-->
     <!--/* Trying a draft on an environment: it then uses the draft, live, as its latest version of the
            catalog. Production uses only published versions, so it is listed but not offered. */-->
@@ -65,7 +65,7 @@
         <div class="ep-dialog-body">
             <div th:if="${error != null}" class="alert alert-error" data-testid="follow-error" th:text="${error}"></div>
             <p style="margin-top: 0;">
-                An environment that follows <strong th:text="${draftName}">Next version</strong> makes its documents from it
+                An environment that follows <strong th:text="${draftName}">Next release</strong> makes its documents from it
                 as it is changed, without publishing. Documents made there are marked as a preview.
             </p>
             <p th:if="${environments.isEmpty()}" class="text-muted">There are no environments yet.</p>
@@ -75,9 +75,9 @@
                         <td>
                             <strong th:text="${env.name}">Test</strong>
                             <div class="form-hint" style="margin: 0;"
-                                 th:text="${env.production} ? 'Production: uses only published versions'
+                                 th:text="${env.production} ? 'Production: uses only published releases'
                                      : (${env.following} ? 'Follows it'
-                                     : (${env.usesNow != null} ? 'Uses ' + ${env.usesNow} + ' now' : 'Uses the highest version it serves'))">Uses the highest version it serves</div>
+                                     : (${env.usesNow != null} ? 'Uses ' + ${env.usesNow} + ' now' : 'Uses the highest release it serves'))">Uses the highest release it serves</div>
                         </td>
                         <td class="actions">
                             <form th:unless="${env.production}" style="display: inline;"

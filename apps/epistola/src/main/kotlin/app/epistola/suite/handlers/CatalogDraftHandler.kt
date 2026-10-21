@@ -100,7 +100,7 @@ class CatalogDraftHandler(
         } catch (e: CatalogDraftNameInUseException) {
             return refused("name", "Other work is called that already. Choose another name.")
         } catch (e: CatalogVersionNotFoundException) {
-            return refused("from", e.message ?: "There is no such version to start from.")
+            return refused("from", e.message ?: "There is no such release or draft to start from.")
         } catch (e: ValidationException) {
             return refused(if (e.field == "from") "from" else "name", e.message)
         }
@@ -124,9 +124,9 @@ class CatalogDraftHandler(
         val draft = bar(tenantId, segment).chosen?.draftRef ?: return ServerResponse.notFound().build()
         return try {
             DeleteCatalogDraft(tenantId.key, segment.key, draft).execute()
-            // From the Versions page, back there; else to the catalog.
+            // From the Releases page, back there; else to the catalog.
             val back = if (request.param("from").orElse("") == "versions") {
-                "/tenants/${tenantId.key}/catalogs/${segment.key.value}/versions"
+                CatalogPages.releases(tenantId, segment.key)
             } else {
                 CatalogPages.browse(tenantId, segment.at(null))
             }

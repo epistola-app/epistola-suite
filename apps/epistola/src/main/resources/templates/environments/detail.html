@@ -16,7 +16,7 @@
             <div class="detail-section-body ep-row" style="justify-content: space-between; gap: var(--ep-space-4);">
                 <p style="margin: 0;" th:if="${environment.production}">
                     <span class="badge badge-outline">Production</span>
-                    Only published versions are used here.
+                    Only published releases are used here.
                 </p>
                 <p style="margin: 0;" th:unless="${environment.production}" class="text-muted">
                     Not production: a draft can be deployed here, so changes can be tried before they are published.
@@ -38,12 +38,12 @@
             <div class="detail-section-body">
                 <p class="form-hint" style="margin-top: 0;">
                     Documents made here without a version come from these, as they are changed, and are marked as a
-                    preview. A request naming a version or a range still gets a published version.
+                    preview. A request naming a version or a range still gets a published release.
                 </p>
                 <table class="ep-table">
                     <tbody>
                         <tr th:each="row : ${following}" th:attr="data-catalog=${row.catalogKey}">
-                            <td><a th:href="${row.href}" th:text="${row.catalogName} + ': ' + ${row.draftLabel}">Letters: Next version</a></td>
+                            <td><a th:href="${row.href}" th:text="${row.catalogName} + ': ' + ${row.draftLabel}">Letters: Next release</a></td>
                             <td class="actions" th:if="${auth.has('ENVIRONMENT_DEPLOY')}">
                                 <form method="post" style="display: inline;"
                                       th:action="@{/tenants/{t}/environments/{e}/drafts/{c}/undeploy(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
@@ -69,7 +69,7 @@
             <div class="detail-section-body">
                 <p th:if="${deployments.isEmpty()}" class="text-muted">
                     Nothing is deployed here yet, so documents made here fail.
-                    <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Deploy a version below.</th:block>
+                    <th:block th:if="${canDeploy and !releaseGroups.isEmpty()}">Deploy a release below.</th:block>
                 </p>
                 <div th:if="${!deployments.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Deployed here" tabindex="0">
                 <table class="ep-table">
@@ -103,7 +103,7 @@
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                             data-confirm-submit
                                             data-confirm-submit-title="Undeploy this version"
-                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops using ' + ${row.catalogName} + ' v' + ${row.version} + '. Documents made here use another deployed version of it, or fail when there is none.'"
+                                            th:attr="data-confirm-submit-message=${environment.name} + ' stops using ' + ${row.catalogName} + ' v' + ${row.version} + '. Documents made here use another deployed release of it, or fail when there is none.'"
                                             data-confirm-submit-label="Undeploy"
                                             data-confirm-submit-class="ep-btn-destructive">Undeploy</button>
                                 </form>
@@ -115,17 +115,17 @@
 
                 <!--/* The select only renders when there is something in it (ui-affordances). */-->
                 <p th:if="${releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
-                    Nothing can be deployed yet: no catalog has a published version.
+                    Nothing can be deployed yet: no catalog has a published release.
                     <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Publish a catalog</a> first.
                 </p>
                 <p th:if="${!canDeploy and !releaseGroups.isEmpty()}" class="text-muted" style="margin-top: var(--ep-space-4);">
-                    Deploying a version needs the permission to deploy.
+                    Deploying a release needs the permission to deploy.
                 </p>
                 <form th:if="${canDeploy and !releaseGroups.isEmpty()}" method="post" data-testid="environment-deploy-form"
                       style="display: flex; gap: var(--ep-space-2); align-items: flex-end; margin-top: var(--ep-space-4);"
                       th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments(tenantId=${tenantId},environmentId=${environment.id})}">
                     <div class="form-group" style="margin: 0;">
-                        <label class="ep-label" for="release">Deploy a version</label>
+                        <label class="ep-label" for="release">Deploy a release</label>
                         <select id="release" name="release" class="ep-select" required>
                             <optgroup th:each="group : ${releaseGroups}" th:label="${group.catalogName}">
                                 <option th:each="version : ${group.versions}"
@@ -136,13 +136,13 @@
                     </div>
                     <label style="display: flex; gap: var(--ep-space-2); align-items: center; margin: 0;">
                         <input type="checkbox" name="replace" value="true" data-testid="environment-deploy-replace">
-                        <span>Stop using the catalog's other versions here</span>
+                        <span>Stop using the catalog's other releases here</span>
                     </label>
                     <button type="submit" class="ep-btn ep-btn-primary">Deploy</button>
                 </form>
                 <p th:if="${canDeploy and !releaseGroups.isEmpty()}" class="form-hint">
-                    A version is deployed beside the others: applications asking for no version get the highest, and
-                    those asking for an older one keep getting it. Undeploy a version once its "Used" shows nobody asks for it.
+                    A release is deployed beside the others: applications asking for no version get the highest, and
+                    those asking for an older one keep getting it. Undeploy a release once its "Used" shows nobody asks for it.
                 </p>
             </div>
         </div>

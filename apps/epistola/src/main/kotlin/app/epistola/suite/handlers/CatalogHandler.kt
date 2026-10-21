@@ -57,6 +57,7 @@ import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.catalog.versions.CatalogVersionBehindException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
@@ -97,6 +98,7 @@ import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.wantsFragmentResponse
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -105,9 +107,11 @@ import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.net.URI
 import java.util.UUID
 
 private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
@@ -381,7 +385,7 @@ class CatalogHandler {
         val summary = ListCatalogReleases(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
         val bar = draftBar(tenantId, CatalogSegment(catalogKey, null))
         return ServerResponse.ok().page("catalogs/release") {
-            "pageTitle" to "${release.catalog.name} v$version - Published version - Epistola"
+            "pageTitle" to "${release.catalog.name} v$version - Published release - Epistola"
             "tenantId" to tenantId.key
             "activeNavSection" to "catalogs"
             "catalogId" to catalogKey.value
@@ -459,7 +463,7 @@ class CatalogHandler {
             "error" to error,
             // Publishing parallel work: where everyday work continues (`stay`, `keep`, `discard`).
             "afterwards" to afterwards,
-            "keepAs" to (keepAs ?: readiness.drafts.chosen?.let { "Next version before ${it.label}".take(100) }),
+            "keepAs" to (keepAs ?: readiness.drafts.chosen?.let { "${CatalogDraft.NEXT_LABEL} before ${it.label}".take(100) }),
         )
     }
 
@@ -509,9 +513,9 @@ class CatalogHandler {
         )
 
         if (form.hasErrors()) {
-            return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
+            return reRenderWithError("The version number must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
         }
-        if (afterwards == "keep" && keepAs == null) return reRenderWithError("Give the current next version a name to keep it under.")
+        if (afterwards == "keep" && keepAs == null) return reRenderWithError("Give the current next release a name to keep it under.")
 
         val notes = form.formData["notes"]?.ifBlank { null }
         val publicationChoice = when {
@@ -577,7 +581,7 @@ class CatalogHandler {
                 }
             }
         } catch (e: CatalogReleaseVersionException) {
-            reRenderWithError(e.message ?: "Invalid release version.")
+            reRenderWithError(e.message ?: "Invalid version number.")
         } catch (e: CatalogVersionBehindException) {
             reRenderWithError(
                 "Confirm that this draft may be released without " +
@@ -699,13 +703,13 @@ class CatalogHandler {
         }
     }
 
-    /** Removes a release from the history, landing on Versions. Refusals -- a send in flight -- land there too, with the reason. */
+    /** Removes a release from the history, landing on Releases. Refusals -- a send in flight -- land there too, with the reason. */
     fun deleteRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         return try {
             DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
-            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/versions")
+            redirect(CatalogPages.releases(tenantId, catalogKey))
         } catch (failure: ReleaseInUseException) {
             section(request, "catalogs/versions", failure.message)
         } catch (failure: ValidationException) {
@@ -872,8 +876,20 @@ class CatalogHandler {
         return catalogPage(request, "catalogs/version", segment, bar, error = null)
     }
 
-    /** `GET /{catalogId}/versions`: every version of the catalog, each to its own page. */
-    fun versionsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
+    /** `GET /{catalogId}/releases`: every release and draft of the catalog, each to its own page. */
+    fun releasesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
+
+    /**
+     * `GET /{catalogId}/versions`: where Releases was before releases were called releases. A
+     * permanent redirect there, its query kept; an HTMX request is sent there by `HX-Location`, the
+     * boosted navigation a link takes, since a redirect it follows would leave the old address shown.
+     */
+    fun formerVersionsPage(request: ServerRequest): ServerResponse {
+        val query = request.uri().rawQuery?.let { "?$it" }.orEmpty()
+        val target = CatalogPages.releases(request.tenantId(), request.catalogId()) + query
+        if (request.wantsFragmentResponse) return request.htmx { dialogLocation(target) }
+        return ServerResponse.status(HttpStatus.PERMANENT_REDIRECT).location(URI.create(target)).build()
+    }
 
     /** `GET /{catalogId}/deployments`: what each environment serves of the catalog, and deploying another version. */
     fun deploymentsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/deployments", catalogWide = true)
@@ -1032,7 +1048,7 @@ class CatalogHandler {
             ServerResponse.ok().page(template) {
                 "pageTitle" to when (template) {
                     "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
-                    "catalogs/versions" -> "Versions - ${result.catalog.name} - Epistola"
+                    "catalogs/versions" -> "Releases - ${result.catalog.name} - Epistola"
                     "catalogs/deployments" -> "Deployments - ${result.catalog.name} - Epistola"
                     "catalogs/dependencies" -> "Dependencies - ${result.catalog.name} - Epistola"
                     "catalogs/settings" -> "Settings - ${result.catalog.name} - Epistola"

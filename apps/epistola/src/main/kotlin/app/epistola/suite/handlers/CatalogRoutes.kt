@@ -72,7 +72,9 @@ class CatalogRoutes(
             GET("/{catalogId}/browse", handler::browse)
             // A draft's own page: the next version at a plain segment, another draft at key@version.
             GET("/{catalogId}/draft", handler::draftPage)
-            GET("/{catalogId}/versions", handler::versionsPage)
+            GET("/{catalogId}/releases", handler::releasesPage)
+            // Releases' former address, for links and bookmarks made before releases were called releases.
+            GET("/{catalogId}/versions", handler::formerVersionsPage)
             GET("/{catalogId}/deployments", handler::deploymentsPage)
             GET("/{catalogId}/dependencies", handler::dependenciesPage)
             GET("/{catalogId}/settings", handler::settingsPage)

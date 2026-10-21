@@ -97,7 +97,7 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" th:if="${catalogEditing.editable(catalog.id)}"
-                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
+                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Publish a new release"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
@@ -113,7 +113,7 @@
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id == 'system'}"
                                 th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : 'Delete catalog and all its resources'"
-                                th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every version of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"
+                                th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every release of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 data-confirm-target="#catalog-list">
@@ -186,7 +186,7 @@
                                 <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Template)</span>
                             </li>
                             <li th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}">
-                                Everything in the catalog: this is its first version.
+                                Everything in the catalog: this is its first release.
                             </li>
                         </ul>
                     </div>
@@ -197,7 +197,7 @@
                             <div class="alert-title">This can break what is connected to it</div>
                             <p style="margin: var(--ep-space-1) 0 0;">
                                 Systems that send data to these templates, or catalogs that use this one, may need to change
-                                before this version is deployed:
+                                before this release is deployed:
                             </p>
                             <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">
                                 <li th:each="reason : ${readiness.impactReasons}" th:text="${reason}">template 'invoice': variant 'en' removed</li>
@@ -205,37 +205,37 @@
                         </div>
                     </div>
                     <p th:if="${readiness.impact != null and readiness.impact.name() == 'ADDITIVE'}" data-testid="publish-impact-additive">
-                        Adds new things. Everything that works with the current version keeps working.
+                        Adds new things. Everything that works with the current release keeps working.
                     </p>
                     <p th:if="${readiness.impact != null and readiness.impact.name() == 'NONE'}" data-testid="publish-impact-none">
-                        Only corrections. Everything that works with the current version keeps working.
+                        Only corrections. Everything that works with the current release keeps working.
                     </p>
 
                     <p th:if="${readiness.publishVersion != null}" data-testid="publish-version">
                         It will be published as <strong th:text="'v' + ${releaseVersion}">v1.1.0</strong>.
                     </p>
 
-                    <!--/* Parallel work: whether everyday work carries on in the next version, or from this
+                    <!--/* Parallel work: whether everyday work carries on in the next release, or from this
                            version once it is published. Nothing is merged either way, so it says what
-                           happens to the next version's own changes. */-->
+                           happens to the next release's own changes. */-->
                     <div th:if="${readiness.drafts.onParallelWork}" class="form-group" data-testid="publish-afterwards">
                         <span class="ep-label">After publishing</span>
                         <label style="display: flex; gap: var(--ep-space-2);">
                             <input type="radio" name="afterwards" value="stay" th:checked="${afterwards == 'stay'}" data-testid="publish-afterwards-stay">
-                            <span>Everyday work carries on in the next version, as now</span>
+                            <span>Everyday work carries on in the next release, as now</span>
                         </label>
                         <label style="display: flex; gap: var(--ep-space-2);">
                             <input type="radio" name="afterwards" value="keep" th:checked="${afterwards == 'keep'}" data-testid="publish-afterwards-keep">
-                            <span>Everyday work continues from this version; keep the current next version as parallel work, named</span>
+                            <span>Everyday work continues from this release; keep the current next release as parallel work, named</span>
                         </label>
                         <input type="text" name="keepAs" class="ep-input" maxlength="100" th:value="${keepAs}"
                                style="margin: var(--ep-space-1) 0 var(--ep-space-2) var(--ep-space-6); width: calc(100% - var(--ep-space-6));"
-                               aria-label="Name to keep the current next version under">
+                               aria-label="Name to keep the current next release under">
                         <label style="display: flex; gap: var(--ep-space-2);">
                             <input type="radio" name="afterwards" value="discard" th:checked="${afterwards == 'discard'}" data-testid="publish-afterwards-discard">
-                            <span>Everyday work continues from this version; discard the current next version, with every change in it that is not published</span>
+                            <span>Everyday work continues from this release; discard the current next release, with every change in it that is not published</span>
                         </label>
-                        <p class="form-hint">Changes are never merged: the next version's own changes stay in it, or go with it.</p>
+                        <p class="form-hint">Changes are never merged: the next release's own changes stay in it, or go with it.</p>
                     </div>
 
                     <!--/* What blocks publishing that publishing cannot do itself, in a sentence each. */-->
@@ -245,8 +245,8 @@
                             <div class="alert-title">This cannot be published yet</div>
                             <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
                                data-testid="release-blocked-dependencies"
-                               th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published version that fits yet. Publish that first.'">
-                                It uses shared, which has no published version that fits yet. Publish that first.</p>
+                               th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published release that fits yet. Publish that first.'">
+                                It uses shared, which has no published release that fits yet. Publish that first.</p>
                             <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
                                data-testid="release-blocked-resources">
                                 Some changes still have to be marked ready by a content author.
@@ -266,7 +266,7 @@
                         <p th:each="other : ${readiness.publishedAlong}" style="margin: var(--ep-space-1) 0 0;"
                            data-testid="publish-along-catalog" th:attr="data-catalog=${other.catalogKey}"
                            th:text="${other.name} + ' is published too, as v' + ${other.nextNumber} + ': this uses its ' + ${other.draftName} + ', with ' + ${#strings.listJoin(other.unpublished.![name ?: key], ', ')} + ' not published yet.'">
-                            Shared is published too, as v1.1.0: this uses its Next version, with Brand not published yet.</p>
+                            Shared is published too, as v1.1.0: this uses its Next release, with Brand not published yet.</p>
                     </div>
 
                     <!--/* A newer version that would break something used here: this stays on what it uses, and says why. */-->
@@ -320,7 +320,7 @@
                         </label>
                         <label th:if="${live.anyLive}" style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-2);">
                             <input type="checkbox" name="replaceLive" value="true" th:checked="${live.replace}" data-testid="publish-live-replace">
-                            <span>Stop using the versions they use now</span>
+                            <span>Stop using the releases they use now</span>
                         </label>
                         <p class="form-hint">It is deployed beside what they use: applications asking for no version get it straight away, and those asking for an older one keep getting that. Leave it unticked to deploy it later.</p>
                     </div>
@@ -354,7 +354,7 @@
                                   && publication.policy.name() != 'NEVER' && !publication.hasPublishableDestination}">
                         <label class="text-muted">
                             <input type="checkbox" disabled>
-                            Publish this version to Epistola Exchange
+                            Publish this release to Epistola Exchange
                         </label>
                         <p class="form-hint" th:if="${!publication.connected}">
                             This tenant is not connected to Epistola Exchange. Connect it under
@@ -370,19 +370,19 @@
                             which the Exchange connection no longer grants. Its namespace is fixed, so it publishes
                             again once the organization grants it again.
                         </p>
-                        <p class="form-hint">Releasing is unaffected: this version is created either way.</p>
+                        <p class="form-hint">Releasing is unaffected: this release is created either way.</p>
                     </div>
                     <div class="form-group" th:if="${publication != null && publication.available
                                   && (publication.hasPublishableDestination || publication.policy.name() == 'NEVER')}">
                         <label th:if="${publication.allowsReleaseOverride && publication.canPublish}">
                             <input type="checkbox" name="publishToExchange" value="true"
                                    th:checked="${publication.defaultPublish}">
-                            Publish this version to Epistola Exchange
+                            Publish this release to Epistola Exchange
                         </label>
                         <p class="form-hint" th:if="${!publication.allowsReleaseOverride}"
                            th:text="${publication.defaultPublish} ?
-                               'Catalog policy Always: this version will be queued for Exchange.' :
-                               'Catalog policy Never: this version will not be published to Exchange.'">
+                               'Catalog policy Always: this release will be queued for Exchange.' :
+                               'Catalog policy Never: this release will not be published to Exchange.'">
                         </p>
                         <p class="form-hint">The Suite release succeeds even when Exchange is unavailable; publication continues in the background.</p>
                     </div>
@@ -454,7 +454,7 @@
                         <span>Include the catalogs it uses</span>
                     </label>
                     <span class="form-hint">
-                        One file with the versions of the other catalogs it uses, so it can be installed where
+                        One file with the releases of the other catalogs it uses, so it can be installed where
                         they are not, such as an acceptance or production installation.
                     </span>
                 </div>

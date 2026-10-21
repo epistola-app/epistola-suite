@@ -81,7 +81,7 @@
             <a class="ws-crumb" th:href="${scope.sections[0][0].href}" data-testid="editor-crumb-catalog" th:text="${scope.name}">Letters</a>
             <span class="ws-crumb-sep" aria-hidden="true">/</span>
             <span class="ws-crumb ws-crumb-version ws-crumb-here" th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
-                  data-testid="editor-crumb-version" th:text="${scope.versionLabel}">Next version</span>
+                  data-testid="editor-crumb-version" th:text="${scope.versionLabel}">Next release</span>
             <span class="ws-crumb-sep" aria-hidden="true">/</span>
             <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
                th:text="${templateName}">Template Name</a>

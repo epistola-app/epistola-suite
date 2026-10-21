@@ -6,12 +6,12 @@
            the environment page and the catalog page, which post the offer to their own deploy action. */-->
     <div th:fragment="refusal(refusal)" class="alert alert-error" data-testid="deploy-refusal">
         <p th:if="${!refusal.includedDependencies}"
-           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' needs versions of other catalogs that are not deployed to ' + ${refusal.environmentKey} + ', so it was not deployed:'">
-            letters v1.4.0 needs versions of other catalogs that are not deployed to production, so it was not deployed:
+           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' needs releases of other catalogs that are not deployed to ' + ${refusal.environmentKey} + ', so it was not deployed:'">
+            letters v1.4.0 needs releases of other catalogs that are not deployed to production, so it was not deployed:
         </p>
         <p th:if="${refusal.includedDependencies}"
-           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not deployed: it needs these versions, which cannot be used here, so nothing was.'">
-            letters v1.4.0 was not deployed: it needs these versions, which cannot be used here, so nothing was.
+           th:text="${refusal.catalogKey} + ' v' + ${refusal.version} + ' was not deployed: it needs these releases, which cannot be used here, so nothing was.'">
+            letters v1.4.0 was not deployed: it needs these releases, which cannot be used here, so nothing was.
         </p>
         <ul data-testid="deploy-refusal-missing">
             <li th:each="dependency : ${refusal.missing}" th:attr="data-reason=${dependency.reason}">
@@ -25,8 +25,8 @@
             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Deploy with what it needs</button>
         </form>
         <p th:if="${!refusal.deployableAlong and !refusal.includedDependencies}" data-testid="deploy-with-dependencies-withheld">
-            Deploying with what it needs is not offered: only a version this tenant has, with its
-            content, can be deployed along with it. Install the missing versions first, then try again.
+            Deploying with what it needs is not offered: only a release this tenant has, with its
+            content, can be deployed along with it. Install the missing releases first, then try again.
         </p>
     </div>
 </body>

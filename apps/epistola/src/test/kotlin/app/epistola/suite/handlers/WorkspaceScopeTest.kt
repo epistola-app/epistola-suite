@@ -69,7 +69,7 @@ class WorkspaceScopeTest {
     @Test
     fun `the bar names the next version plainly, parallel work by its name`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versionLabel)
-            .isEqualTo("Next version")
+            .isEqualTo("Next release")
 
         val parallel = WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/tenants/acme/templates", everything)
         assertThat(parallel.versionLabel).isEqualTo("Redesign")
@@ -98,7 +98,7 @@ class WorkspaceScopeTest {
         val versions = WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versions
 
         assertThat(versions.map { it.label to it.detail }).containsExactly(
-            "Next version" to "Based on v1.2.0",
+            "Next release" to "Based on v1.2.0",
             "Redesign" to "Parallel work, started from v1.1.0",
         )
         // The same from every page, so the bar is not sent again while moving around in a version; the
@@ -118,7 +118,7 @@ class WorkspaceScopeTest {
             .containsEntry("stencils", "/tenants/acme/catalogs/letters@$redesignId/stencils")
             .containsEntry("dependencies", "/tenants/acme/catalogs/letters@$redesignId/dependencies")
             .containsEntry("settings", "/tenants/acme/catalogs/letters@$redesignId/settings")
-            .containsEntry("versions", "/tenants/acme/catalogs/letters/versions")
+            .containsEntry("versions", "/tenants/acme/catalogs/letters/releases")
             .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
             .`as`("parallel work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")

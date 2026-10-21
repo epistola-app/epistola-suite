@@ -103,7 +103,7 @@
             <p th:if="${dependenciesWithheld}" class="form-hint" data-testid="catalog-dependencies-edit-withheld">Changing dependencies needs the content author role.</p>
             <table th:unless="${readiness.borrowing.catalogs.isEmpty()}" class="ep-table">
                 <thead>
-                    <tr><th>Catalog</th><th>Used here</th><th>Version</th></tr>
+                    <tr><th>Catalog</th><th>Used here</th><th>Release</th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="borrowed : ${readiness.borrowing.catalogs}" data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
@@ -116,13 +116,13 @@
                         <td>
                             <span th:if="${borrowed.release != null}" th:text="'v' + ${borrowed.release}">v1.0.0</span>
                             <span th:if="${borrowed.draftName != null}" data-testid="catalog-borrowed-draft"
-                                  th:text="${borrowed.draftName} + ', as it is now'">Next version, as it is now</span>
+                                  th:text="${borrowed.draftName} + ', as it is now'">Next release, as it is now</span>
                             <span th:unless="${borrowed.declared}" class="badge badge-warning" data-testid="catalog-borrowed-undeclared">not a dependency</span>
                             <div th:if="${borrowed.publishAlong}" class="form-hint" data-testid="catalog-borrowed-along"
                                  th:text="'Not published yet: publishing here publishes ' + ${borrowed.name} + ' too, as v' + ${borrowed.nextNumber} + '.'">Not published yet: publishing here publishes Shared too.</div>
                             <!--/* A newer version is judged by what is used here, not by its number. */-->
                             <div th:if="${borrowed.newerFits != null}" class="form-hint" data-testid="catalog-borrowed-newer-fits"
-                                 th:text="'v' + ${borrowed.newerFits} + ' is published and fits what is used here. Use the latest versions under Dependencies to move to it.'">v1.0.1 is published and fits.</div>
+                                 th:text="'v' + ${borrowed.newerFits} + ' is published and fits what is used here. Use the latest releases under Dependencies to move to it.'">v1.0.1 is published and fits.</div>
                             <div th:if="${borrowed.newerDoesNotFit != null}" class="form-hint" data-testid="catalog-borrowed-newer-breaks">
                                 <span th:text="'v' + ${borrowed.newerDoesNotFit} + ' is published, but does not fit what is used here, so this stays on v' + ${borrowed.release} + ':'">v2.0.0 does not fit:</span>
                                 <ul style="margin: var(--ep-space-1) 0 0; padding-left: var(--ep-space-4);">

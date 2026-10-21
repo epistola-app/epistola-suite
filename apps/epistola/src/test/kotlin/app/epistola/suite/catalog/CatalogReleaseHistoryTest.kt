@@ -176,7 +176,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
     /** A catalog's Versions page (docs/workspace-shell.md). */
     private fun versionsPage(tenantKey: String, catalogKey: String): String = restTemplate
-        .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/versions", String::class.java)
+        .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/releases", String::class.java)
         .body!!
 
     private fun release(tenantKey: String, catalogKey: String, version: String): String = restTemplate

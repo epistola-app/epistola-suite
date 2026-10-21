@@ -392,12 +392,12 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         val body = releaseDialog(tenant, catalogKey)
 
         // The instruction is shown as unavailable rather than offered and then refused.
-        assertThat(body).contains("Publish this version to Epistola Exchange")
+        assertThat(body).contains("Publish this release to Epistola Exchange")
         assertThat(body).doesNotContain("""name="publishToExchange"""")
         assertThat(body).doesNotContain("""name="chosenNamespace"""")
         assertThat(body).contains("not connected to Epistola Exchange")
         // Releasing locally is a separate act and is unaffected.
-        assertThat(body).contains("this version is created either way")
+        assertThat(body).contains("this release is created either way")
     }
 
     @Test
@@ -457,7 +457,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         assertThat(body).contains("not connected to Epistola Exchange")
         // The old nudge assumed a namespace could be chosen at publish time. It cannot here.
         assertThat(body).doesNotContain("Choose one when you publish")
-        assertThat(body).contains("versions are created either way")
+        assertThat(body).contains("releases are created either way")
     }
 
     @Test

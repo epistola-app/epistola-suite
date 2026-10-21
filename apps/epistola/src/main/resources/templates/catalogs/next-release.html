@@ -51,7 +51,7 @@
                     </p>
                     <p th:if="${readiness.mergeWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-merge-withheld">
-                        Merging a published version into this draft needs the content author role.
+                        Merging a published release into this draft needs the content author role.
                     </p>
                 </div>
             </div>
@@ -66,8 +66,8 @@
                     <div class="alert-title">This cannot be published yet</div>
                     <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-dependencies"
-                       th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published version that fits yet. Publish that first, or change its range under Advanced.'">
-                        It uses shared, which has no published version that fits yet.</p>
+                       th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published release that fits yet. Publish that first, or change its range under Advanced.'">
+                        It uses shared, which has no published release that fits yet.</p>
                     <p th:if="${!readiness.notReady.isEmpty() and !readiness.mayMarkReady}" style="margin: var(--ep-space-1) 0 0;"
                        data-testid="catalog-release-blocked-resources">
                         Some changes still have to be marked ready by a content author.
@@ -121,11 +121,11 @@
             <summary>Advanced</summary>
             <p th:if="${readiness.publishable}" class="form-hint" style="margin-top: var(--ep-space-2);">
                 A draft has no number until it is published: publishing picks it from the kind of change since
-                the version it started from.
+                the release it started from.
             </p>
             <p th:if="${readiness.drafts.onParallelWork}" class="form-hint" style="margin-top: var(--ep-space-2);"
                data-testid="catalog-parallel-hint">
-                This is parallel work, kept apart from the next version: publish it on its own when it is
+                This is parallel work, kept apart from the next release: publish it on its own when it is
                 ready, or try it first by pointing a test environment at it.
             </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
@@ -136,8 +136,8 @@
                             data-confirm-submit
                             th:attr="data-confirm-submit-title=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work',
                                      data-confirm-submit-message=${readiness.drafts.isNext}
-                                         ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and parallel work are not affected. This cannot be undone.'
-                                         : ${readiness.draft.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.',
+                                         ? 'Every change in the next release is thrown away; it starts again from the latest published release. Published releases and parallel work are not affected. This cannot be undone.'
+                                         : ${readiness.draft.label} + ' is discarded with every change made in it. Published releases and the next release are not affected. This cannot be undone.',
                                      data-confirm-submit-label=${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard work'"
                             data-confirm-submit-class="ep-btn-destructive"
                             th:text="${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work'">Discard draft</button>
@@ -167,7 +167,7 @@
                     <form th:if="${readiness.offerUpgradeDependencies}" style="display: inline;"
                           th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                           hx-target="#catalog-next-release" hx-swap="outerHTML">
-                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-upgrade">Use the latest versions</button>
+                        <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-upgrade">Use the latest releases</button>
                     </form>
                     <button th:if="${readiness.offerEditDependencies}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"
@@ -192,7 +192,7 @@
                         <td>
                             <span th:if="${dependency.pinned}" th:text="'v' + ${dependency.releaseVersion}"></span>
                             <span th:if="${dependency.namesDraft}" class="badge badge-muted"
-                                  th:text="'Its draft ' + ${dependency.draftName} + ', published along'">Its draft Next version, published along</span>
+                                  th:text="'Its draft ' + ${dependency.draftName} + ', published along'">Its draft Next release, published along</span>
                             <span th:unless="${dependency.pinned or dependency.namesDraft}" class="badge badge-warning">No release chosen</span>
                         </td>
                     </tr>
@@ -229,8 +229,8 @@
             </p>
             <th:block th:unless="${dependencyOptions.isEmpty()}">
                 <p class="form-hint">
-                    Choose the catalogs this one uses. Each is tied to its latest published version, or, while it has
-                    none, to its next version, which is then published along. Leave the catalog empty to remove a row.
+                    Choose the catalogs this one uses. Each is tied to its latest published release, or, while it has
+                    none, to its next release, which is then published along. Leave the catalog empty to remove a row.
                 </p>
                 <div th:each="row, stat : ${rows}" class="ep-row" style="gap: var(--ep-space-2); align-items: flex-start;"
                      data-testid="catalog-dependency-input-row">

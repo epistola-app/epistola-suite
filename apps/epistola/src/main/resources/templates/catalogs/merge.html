@@ -30,7 +30,7 @@
             <p>
                 <span class="badge badge-alpha" data-testid="catalog-merge-alpha">Alpha</span>
                 Brings the changes of <strong th:text="${releaseLabel}">v1.1.0</strong> into
-                <strong th:text="${preview.draftLabel}">Next version</strong>. Check the result before you publish.
+                <strong th:text="${preview.draftLabel}">Next release</strong>. Check the result before you publish.
             </p>
 
             <div th:if="${mergeError != null}" class="alert alert-error" data-testid="catalog-merge-refused">
@@ -38,7 +38,7 @@
             </div>
 
             <p th:if="${preview.alreadyMerged}" class="text-muted" data-testid="catalog-merge-already">
-                <span th:text="${preview.draftLabel}">Next version</span> already contains
+                <span th:text="${preview.draftLabel}">Next release</span> already contains
                 <span th:text="${releaseLabel}">v1.1.0</span>. There is nothing to merge.
             </p>
 

@@ -47,6 +47,6 @@ class RunOnlyCatalogPagesHtmxTest : BaseIntegrationTest() {
 
         val list = get(tenant, "/catalogs")
         assertThat(list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/default/browse").substringBefore("</tr>"))
-            .contains(">This installation only runs releases<").doesNotContain("Release new version")
+            .contains(">This installation only runs releases<").doesNotContain("Publish a new release")
     }
 }

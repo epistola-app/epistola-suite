@@ -64,7 +64,7 @@ class CatalogDraftBarVersionsTest {
         ).versionRows
 
         assertThat(rows.map { Triple(it.label, it.next, it.draft) }).containsExactly(
-            Triple("Next version", true, true),
+            Triple("Next release", true, true),
             Triple("Redesign", false, true),
             Triple("v1.2.0", false, false),
             Triple("v1.1.0", false, false),
@@ -86,7 +86,7 @@ class CatalogDraftBarVersionsTest {
             releases = listOf(release("1.2.0", base = "1.1.0"), release("1.1.0")),
         ).versionRows
 
-        assertThat(rows.map { it.label to it.base }).containsExactly("Next version" to "1.2.0", "v1.2.0" to "1.1.0", "v1.1.0" to null)
+        assertThat(rows.map { it.label to it.base }).containsExactly("Next release" to "1.2.0", "v1.2.0" to "1.1.0", "v1.1.0" to null)
     }
 
     @Test
@@ -94,7 +94,7 @@ class CatalogDraftBarVersionsTest {
         val drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0"))
 
         val onNext = bar(drafts, listOf(release("1.2.0")))
-        assertThat(onNext.draftTitle).isEqualTo("Next version")
+        assertThat(onNext.draftTitle).isEqualTo("Next release")
         assertThat(onNext.isNext).isTrue()
         assertThat(onNext.onParallelWork).isFalse()
         assertThat(onNext.offerRelease).isTrue()
@@ -122,7 +122,7 @@ class CatalogDraftBarVersionsTest {
         val releases = listOf(release("1.2.0"))
 
         val publisher = bar(drafts, releases).copy(mayDeleteReleases = false)
-        assertThat(publisher.versionRows.map { it.label to it.offerRemove }).containsExactly("Next version" to true, "Redesign" to true, "v1.2.0" to false)
+        assertThat(publisher.versionRows.map { it.label to it.offerRemove }).containsExactly("Next release" to true, "Redesign" to true, "v1.2.0" to false)
         assertThat(publisher.removalWithheld).isTrue()
 
         val manager = bar(drafts, releases).copy(mayDeleteReleases = true)

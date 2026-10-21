@@ -70,7 +70,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
         assertThat(themes).doesNotContain("data-testid=\"catalog-version-bar-read-only\"")
         assertThat(themes).`as`("something to create in it").contains("New Theme")
         assertThat(themes).`as`("its rows are not marked read-only").doesNotContain(">Read-only</span>")
-        assertThat(themes.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Next version<")
+        assertThat(themes.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Next release<")
         assertThat(themes).`as`("what is not published yet, and Publish").contains("/catalogs/received-ui/bar-status")
         assertThat(themes.substringAfter("data-testid=\"ws-catalog-menu\"").substringBefore("Read-only here"))
             .`as`("in the switcher, among the catalogs that can be changed").contains("You can change").contains("data-catalog=\"received-ui\"")
@@ -80,7 +80,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
 
         val list = get(tenant, "/catalogs")
         val row = list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/received-ui/browse").substringBefore("</tr>")
-        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("Release new version")
+        assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("Publish a new release")
     }
 
     @Test
@@ -98,7 +98,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
 
         val list = get(tenant, "/catalogs")
         val row = list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/system/browse").substringBefore("</tr>")
-        assertThat(row).contains("data-testid=\"catalog-list-read-only\"").contains(">Supplied by Epistola<").doesNotContain("Release new version")
+        assertThat(row).contains("data-testid=\"catalog-list-read-only\"").contains(">Supplied by Epistola<").doesNotContain("Publish a new rersion")
         assertThat(list).doesNotContain(">Authored<").doesNotContain(">Subscribed<")
     }
 }

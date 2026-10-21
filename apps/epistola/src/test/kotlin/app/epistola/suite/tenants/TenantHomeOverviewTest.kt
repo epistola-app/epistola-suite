@@ -61,7 +61,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         val card = body.substringAfter("data-testid=\"catalog-overview\"").substringAfter("data-catalog=\"letters\"").substringBefore("data-testid=\"catalog-overview-card\"")
         assertThat(card).`as`("it can be changed here: no read-only badge").doesNotContain("catalog-overview-read-only")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
-        assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
+        assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next release<")
         val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
         assertThat(card).`as`("parallel work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
             .contains(">Redesign<").contains("parallel work")
@@ -87,7 +87,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
             .substringAfter("data-testid=\"generation-readiness-notice\"", missingDelimiterValue = "")
 
         assertThat(notice()).contains("Production and Test use no catalog yet, so documents requested there fail.")
-            .contains("href=\"/tenants/${tenant.id.value}/environments\"").contains("Deploy a version")
+            .contains("href=\"/tenants/${tenant.id.value}/environments\"").contains("Deploy a release")
 
         withMediator { DeployCatalogVersion(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).contains("Test uses no catalog yet").contains("href=\"/tenants/${tenant.id.value}/environments/test\"")
@@ -103,7 +103,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         val body = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java).body!!
 
         assertThat(body).contains("data-testid=\"getting-started\"")
-        assertThat(body).contains(">Create a template<").contains(">Publish a version<").contains(">Deploy it to an environment<")
+        assertThat(body).contains(">Create a template<").contains(">Publish a release<").contains(">Deploy it to an environment<")
         assertThat(body).contains("data-done=\"false\"").doesNotContain("data-done=\"true\"")
         // The steps point at a catalog the tenant has, never at one assumed to exist.
         assertThat(body).contains("/tenants/${tenant.id.value}/catalogs/default/templates")

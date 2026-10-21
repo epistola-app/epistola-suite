@@ -143,6 +143,20 @@ Full runs (`--no-watch-fs`): core integration 1176 green (1 skipped; then the 8 
 - `docs/exchange/README.md`'s stencil-version-conflict and RENUMBER sections still speak of AUTHORED
   MERGE / SUBSCRIBED / REPLACE; stencil versions are gone in 2.0, so the section is stale as a whole.
 
+**Catalogs speak of releases (the contract's wording: a catalog's versions are releases; "version" is only the number):**
+
+| Change                                                                                                                                                                                   | Where                                                                                                | Coverage                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `CatalogDraft.NEXT_LABEL` is "Next release"; the SQL labels use it instead of a literal; a draft may be named neither "Next release" nor the former "Next version" (`FORMER_NEXT_LABEL`) | `CatalogVersions.kt`, `CatalogDraftCommands.kt`, `CatalogDeployment.kt`, `CatalogDependencyStore.kt` | ✅ `SeveralDraftsTest` (both names refused), every label assertion updated                              |
+| Catalog page `/{catalog}/versions` moved to `/{catalog}/releases`; the old address 308s (HTMX: `HX-Location`), query kept; nav, back links, discard and delete land on the new one       | `CatalogRoutes.kt`, `CatalogHandler.kt`, `CatalogPages.releases`, `Workspace.kt`, `release.html`     | ✅ `CatalogWorkspacePagesHtmxTest` (redirect, HTMX, new page)                                           |
+| Wording in templates, handler messages, core exception messages, the REST default detail for the next release, MCP descriptions, current docs                                            | templates, handlers, `CatalogVersionExceptions.kt`, `modules/epistola-mcp`, docs                     | ✅ app integration, MCP integration, core catalog/environments/migration/generation integration, guards |
+
+**Noticed, left alone:** template names (`catalogs/versions.html`, `catalogs/version.html`), the nav key `versions`
+and the `from=versions` form value stay as internal identifiers; `templates/detail/settings.html` still says a
+template is deleted with "all its variants, versions, and data" though templates have no versions in 2.0;
+the REST problem titles (`Catalog Version Released`, …) and MCP tool names (`list_catalog_versions`) are contract
+or tool identifiers and keep "version".
+
 ### `feat/contract-v2-catchup` (in progress, not pushed)
 
 | Change                                                                                                                                                                                   | Where                                               | Coverage                                                                                      |

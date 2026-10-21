@@ -120,12 +120,12 @@ class UiExceptionFilter(
 
             "CatalogVersionNotFoundException" -> {
                 log.warn("Catalog version not found: {}", cause.message)
-                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such version.")
+                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
             }
 
             "CatalogVersionReleasedException" -> {
                 log.warn("Write to a released catalog version: {}", cause.message)
-                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This version is released and cannot change.")
+                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
             }
 
             "CatalogVersionHeldException" -> {

@@ -18,7 +18,7 @@ catalog, or which version of it, they are changing.
 
 | Where                | Context bar                                            | Side nav                                                                                                   |
 | -------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **Inside a catalog** | `Acme / Letters ▾ / Next version ▾`, changes, Publish… | Overview, Quality · Templates, Stencils … Code lists · Versions, Deployments, Dependencies, Settings       |
+| **Inside a catalog** | `Acme / Letters ▾ / Next release ▾`, changes, Publish… | Overview, Quality · Templates, Stencils … Code lists · Releases, Deployments, Dependencies, Settings       |
 | **Outside one**      | `Acme / Environments`, "← Back to Letters"             | Home · the 5 catalogs changed most recently and All catalogs · Documents · Operations · Settings · Support |
 
 A page is inside a catalog when its handler puts a `CatalogDraftBar` in the model as `draftBar`, as
@@ -31,13 +31,13 @@ build one — the catalog's segment as `workspaceCatalog` (the quality report do
 - **Catalog switcher (Letters ▾):** the catalogs people work with, in two groups, _You can change_ and
   _Read-only here_ (ADR 0032). The system catalog, part of every tenant, is left out; every catalog is under _All
   catalogs_. Built as a list, so a filter and a _Starred_ group can be added without changing it.
-- **Version (Next version ▾):** the next version nearly always. The menu holds the advanced cases out
+- **Version (Next release ▾):** the next release nearly always. The menu holds the advanced cases out
   of the way: parallel work, each by its name and what it started from, _Start parallel work…_,
   and _Published versions_. Parallel work turns the bar amber, with a strip under it saying it is
-  kept apart from the next version, and a way back; publishing it asks whether everyday work continues from it. Hotfixes of
+  kept apart from the next release, and a way back; publishing it asks whether everyday work continues from it. Hotfixes of
   what is deployed come later (contract ADR 0001), fitted to the next-version model.
 - **Status:** what the version has not published yet and **Publish…**, or, with nothing in progress,
-  **Start the next version**. Loaded after the page (`/catalogs/{segment}/bar-status`), because
+  **Start the next release**. Loaded after the page (`/catalogs/{segment}/bar-status`), because
   working it out builds the catalog.
 - **Outside a catalog:** the page's name, and the way back to the catalog someone was last in, kept
   in their session.
@@ -68,10 +68,10 @@ without the workspace (a tenant list, a profile) the whole body is swapped, as b
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Overview                                                           | What is not published yet and the action that moves it on; templates; About (name, description, key)                                                       | the version |
 | Templates, Stencils, Themes, Images, Fonts, Attributes, Code lists | The catalog's own, then — read-only — what the catalogs it depends on hold of that kind. No catalog filter, and New creates in this catalog without asking | the version |
-| Versions                                                           | The next version, side work, the published versions, each with the version it started from                                                                 | the catalog |
-| Deployments                                                        | Which version each environment serves; deploy another; fix what is deployed                                                                                | the catalog |
+| Releases (`/releases`; `/versions` redirects there)                | The next release, side work, the published releases, each with the release it started from                                                                 | the catalog |
+| Deployments                                                        | Which release each environment serves; deploy another; fix what is deployed                                                                                | the catalog |
 | Dependencies                                                       | What it depends on (and Edit dependencies…), and which catalogs depend on it                                                                               | the version |
-| Settings                                                           | Name, description and presentation (published with each version); key; Exchange                                                                            | the version |
+| Settings                                                           | Name, description and presentation (published with each release); key; Exchange                                                                            | the version |
 
 **Words.** Environments get a catalog version by _deploying_ it: the page is Deployments, the action
 Deploy, the state "deployed to production". "Live" is not used. Deploying uses the versions of other catalogs a version is pinned to as they are
@@ -84,7 +84,7 @@ version's is the catalog page (`/catalogs/letters/browse`).
 ## The editor
 
 The template editor keeps the screen. Its bar is the context bar on one line: back to the template,
-`Letters / Next version / Invoice`, and the same status and Publish… as the full bar. Side work is
+`Letters / Next release / Invoice`, and the same status and Publish… as the full bar. Side work is
 marked there too.
 
 ## Not built yet

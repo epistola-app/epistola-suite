@@ -49,7 +49,7 @@
                 <input type="file" id="import-file" name="file" class="ep-input"
                        accept=".zip,application/zip" required />
             </div>
-            <p class="form-hint" data-testid="catalog-import-hint">Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next version afterwards.</p>
+            <p class="form-hint" data-testid="catalog-import-hint">Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next release afterwards.</p>
             <!-- Alpha: the other way to get a release, offered when a registry is configured. -->
             <p th:if="${registryInstallAvailable}" class="form-hint" data-testid="import-registry-hint">
                 No file? <a href="#" th:hx-get="@{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId})}"

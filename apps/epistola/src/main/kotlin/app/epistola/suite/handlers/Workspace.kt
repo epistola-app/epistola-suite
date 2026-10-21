@@ -78,7 +78,7 @@ data class NavLink(val key: String, val label: String, val href: String, val ico
 /**
  * Being inside a catalog: which version the page works in, and the catalog's nav.
  *
- * @property versionLabel what the bar calls the version: "Next version", "Fix of v1.2.0", or the
+ * @property versionLabel what the bar calls the version: "Next release", "Fix of v1.2.0", or the
  *   release a read-only catalog is on, "v2.0.0".
  * @property sideWork the page works in parallel work, not the next version, which the bar marks so
  *   nobody edits it thinking it is their everyday work.
@@ -150,7 +150,7 @@ object CatalogNav {
             addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/catalogs/$segment/${it.area}", it.icon) })
         }
         val catalog = listOf(
-            link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
+            link("versions", "Releases", "$tenant/catalogs/$key/releases", "history"),
             link("deployments", "Deployments", "$tenant/catalogs/$key/deployments", "radio"),
             link("dependencies", "Dependencies", "$tenant/catalogs/$segment/dependencies", "link"),
             link("settings", "Settings", "$tenant/catalogs/$segment/settings", "settings"),

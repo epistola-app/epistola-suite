@@ -23,7 +23,7 @@
         <div class="ep-dialog-body">
             <p style="margin-top: 0;">
                 <span class="badge badge-alpha">Alpha</span>
-                A container registry carries released versions between your own installations, for
+                A container registry carries releases between your own installations, for
                 example from acceptance to production.
             </p>
             <div th:if="${!registries.available}" class="alert alert-info" data-testid="registry-none">
@@ -56,7 +56,7 @@
                     <input type="text" id="registry-catalog-key" name="catalogKey" class="ep-input" required
                            minlength="3" maxlength="50" th:value="${catalogKey}" data-testid="registry-catalog-key">
                 </div>
-                <button type="submit" class="ep-btn ep-btn-outline" data-testid="registry-find">Show versions</button>
+                <button type="submit" class="ep-btn ep-btn-outline" data-testid="registry-find">Show releases</button>
             </form>
             <div id="registry-releases" style="margin-top: var(--ep-space-4);">
                 <th:block th:if="${asked}">
@@ -77,11 +77,11 @@
             <div th:if="${found.conflict != null}" class="alert alert-error" data-testid="registry-conflict"
                  th:text="${found.conflict}"></div>
             <p th:if="${found.releases.isEmpty()}" data-testid="registry-no-releases">
-                The registry has no versions of <code th:text="${found.namespace + '/' + found.catalogKey}">acme/letters</code>.
-                Check the namespace and ID, or publish a version to it from the other installation first.
+                The registry has no releases of <code th:text="${found.namespace + '/' + found.catalogKey}">acme/letters</code>.
+                Check the namespace and ID, or publish a release to it from the other installation first.
             </p>
             <p th:if="${found.conflict == null and !found.releases.isEmpty() and !found.installable}" data-testid="registry-all-present">
-                This tenant has every version the registry holds already.
+                This tenant has every release the registry holds already.
             </p>
             <form th:if="${found.installable}" id="registry-install-form"
                   th:hx-post="@{/tenants/{tenantId}/catalogs/registry/install(tenantId=${tenantId})}"
@@ -97,11 +97,11 @@
                                 th:text="${'v' + r.version + (r.present ? ' (already here)' : ' — ' + (r.sizeBytes / 1024) + ' KB')}"></option>
                     </select>
                     <span class="form-hint">
-                        The download is checked against the registry's digest, and the version's content
+                        The download is checked against the registry's digest, and the release's content
                         against its fingerprint. If anything does not match, nothing is installed.
                     </span>
                 </div>
-                <button type="submit" class="ep-btn ep-btn-primary" data-testid="registry-install-submit">Get this version</button>
+                <button type="submit" class="ep-btn ep-btn-primary" data-testid="registry-install-submit">Get this release</button>
             </form>
         </th:block>
     </th:block>
@@ -125,8 +125,8 @@
                 published here, where another installation can get it.
             </p>
             <p class="form-hint">
-                When the registry has this version already, nothing changes. When it has other content
-                under the same number, publishing is refused: one number names one version.
+                When the registry has this release already, nothing changes. When it has other content
+                under the same number, publishing is refused: one number names one release.
             </p>
             <input type="hidden" name="version" th:value="${version}">
             <div class="form-group" th:if="${registries.registries.size() > 1}">
@@ -156,7 +156,7 @@
         <div class="ep-dialog-body">
             <div class="alert alert-success" data-testid="registry-published">
                 <div>
-                    <th:block th:if="${publication.alreadyPublished}">The registry had this version already; nothing was changed.</th:block>
+                    <th:block th:if="${publication.alreadyPublished}">The registry had this release already; nothing was changed.</th:block>
                     <th:block th:unless="${publication.alreadyPublished}">Published.</th:block>
                     Another installation gets it as <code th:text="${publication.reference}">registry/acme/letters:1.0.0</code>.
                 </div>

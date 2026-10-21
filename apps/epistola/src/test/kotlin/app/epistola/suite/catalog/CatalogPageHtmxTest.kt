@@ -91,9 +91,9 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status(published)).contains("Not deployed").contains("The latest published version is v1.0.0.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
+        assertThat(status(published)).contains("Not deployed").contains("The latest published release is v1.0.0.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
         assertThat(get(tenant, "/catalogs/letters/deployments").body!!).contains("id=\"catalog-deployments\"")
-        assertThat(get(tenant, "/catalogs/letters/versions").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
+        assertThat(get(tenant, "/catalogs/letters/releases").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 
     @Test
@@ -154,7 +154,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
         val body = page.body!!
-        assertThat(body).contains("<span id=\"page-title-text\">Next version</span>")
+        assertThat(body).contains("<span id=\"page-title-text\">Next release</span>")
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/templates/invoice\"")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/settings\"")
