@@ -143,6 +143,36 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
+    fun `publishing a release again answers what happened to it and queues nothing more`() {
+        val tenant = createTenant("Worker Repeat")
+        val catalogKey = CatalogKey.of("worker-repeat")
+
+        withMediator {
+            enroll(tenant)
+            releaseWithPublication(tenant, catalogKey)
+            val queued = publication(tenant.id, catalogKey)
+
+            // Queued, not yet sent: a repeat gets the same publication, still queued.
+            val again = PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+            assertThat(again).isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_QUEUED))
+
+            // Sent and being decided: still queued.
+            worker.run()
+            assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
+            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute().status).isEqualTo(ExchangePublicationOutcome.Status.ALREADY_QUEUED)
+
+            // Accepted: published already, and nothing is queued again.
+            forceDue(queued.id)
+            exchange.statusResponse = { FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "ACCEPTED")) }
+            worker.run()
+            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute())
+                .isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_PUBLISHED))
+            assertThat(state(tenant.id, catalogKey).publications).singleElement().extracting { it.status }.isEqualTo(CatalogPublicationStatus.ACCEPTED)
+            assertThat(exchange.submittedNamespaces).hasSize(1)
+        }
+    }
+
+    @Test
     fun `a submission Exchange never decides is given up on instead of polled for ever`() {
         val tenant = createTenant("Worker Waits Out")
         val catalogKey = CatalogKey.of("worker-waits-out")

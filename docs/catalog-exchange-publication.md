@@ -373,6 +373,12 @@ on `ReleaseCatalogVersion`.
 | `FAILED`    | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**.                  |
 | `CANCELLED` | An administrator withdrew it before Exchange published it.          | No                | Terminal; the release can be queued again while the working copy still matches. |
 
+Publishing a release again (`PublishCurrentCatalogRelease`, the REST `publishReleaseToRegistry`
+with the Exchange) is idempotent: while its publication is `READY`, `SUBMITTED` or `RETRY` the
+answer is "queued" and nothing is queued again; once `ACCEPTED` it is "already published". A
+`FAILED` or `CANCELLED` one is queued again; a `REJECTED` one is refused, since that number cannot
+be published again.
+
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing
 safe across replicas and recoverable after node loss. Remote work already
