@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Merge a published version into the draft the page works in (ADR 0032, section 5; alpha), opened
+    from "Published since you started" on the draft's page (catalogs/next-release.html). It says
+    first what merging does, per resource: what is taken from the published version, what stays as
+    the draft has it, and, for what changed on both sides, a choice between the two. Unchanged
+    resources are only counted.
+
+    Model (CatalogMergeHandler): `tenantId`, `catalogId` (the catalog segment), `preview`
+    (DraftMergePreview), `releaseLabel` (`v1.1.0`), `taken`, `kept` and `conflicts` (MergeRowView),
+    `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`.
+    -->
+    <th:block th:fragment="merge-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='catalog-merge-dialog',
+            title='Merge ' + ${releaseLabel},
+            dialogClass='ep-dialog-wide',
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${catalogId})},
+            content=~{::merge-form})}"></div>
+    </th:block>
+
+    <form th:fragment="merge-form" id="catalog-merge-form" data-testid="catalog-merge-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId})}"
+          hx-target="#catalog-merge-form" hx-swap="outerHTML">
+        <input type="hidden" name="release" th:value="${preview.release}">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='catalog-merge-error')}"></div>
+        <div class="ep-dialog-body">
+            <p>
+                <span class="badge badge-alpha" data-testid="catalog-merge-alpha">Alpha</span>
+                Brings the changes of <strong th:text="${releaseLabel}">v1.1.0</strong> into
+                <strong th:text="${preview.draftLabel}">Next version</strong>. Check the result before you publish.
+            </p>
+
+            <div th:if="${mergeError != null}" class="alert alert-error" data-testid="catalog-merge-refused">
+                <span th:text="${mergeError}">Choose which one to keep.</span>
+            </div>
+
+            <p th:if="${preview.alreadyMerged}" class="text-muted" data-testid="catalog-merge-already">
+                <span th:text="${preview.draftLabel}">Next version</span> already contains
+                <span th:text="${releaseLabel}">v1.1.0</span>. There is nothing to merge.
+            </p>
+
+            <th:block th:unless="${preview.alreadyMerged}">
+                <p th:unless="${preview.changesDraft}" data-testid="catalog-merge-nothing">
+                    Nothing in <span th:text="${releaseLabel}">v1.1.0</span> needs to change here: what it changed is
+                    already the same in this draft. Merging only records that this draft now contains it.
+                </p>
+
+                <!--/* Changed on both sides: a choice per resource, required. */-->
+                <div th:unless="${conflicts.isEmpty()}" class="form-group" data-testid="catalog-merge-conflicts">
+                    <span class="ep-label">Changed on both sides</span>
+                    <p class="form-hint">Choose which one to keep for each.</p>
+                    <div th:each="row : ${conflicts}" style="margin-top: var(--ep-space-2);"
+                         data-testid="catalog-merge-conflict" th:data-resource="${row.contentKey}">
+                        <p style="margin: 0;">
+                            <strong th:text="${row.name}">Brand</strong>
+                            <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Theme)</span>:
+                            <span th:text="${row.what}">You changed it here, and it was changed in v1.1.0</span>.
+                        </p>
+                        <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+                            <input type="radio" th:name="${row.field}" value="OURS" required
+                                   th:checked="${choices.get(row.field) == 'OURS'}" data-testid="catalog-merge-keep-ours">
+                            <span th:text="${row.keepLabel}">Keep yours</span>
+                        </label>
+                        <label style="display: flex; gap: var(--ep-space-2);">
+                            <input type="radio" th:name="${row.field}" value="THEIRS" required
+                                   th:checked="${choices.get(row.field) == 'THEIRS'}" data-testid="catalog-merge-take-theirs">
+                            <span th:text="${row.takeLabel}">Take v1.1.0’s</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div th:unless="${taken.isEmpty()}" class="form-group" data-testid="catalog-merge-taken">
+                    <span class="ep-label" th:text="'Taken from ' + ${releaseLabel}">Taken from v1.1.0</span>
+                    <div class="ep-table-scroll" role="region" th:aria-label="'Taken from ' + ${releaseLabel}" tabindex="0">
+                        <table class="ep-table ep-table-compact">
+                            <tbody>
+                                <tr th:each="row : ${taken}" data-testid="catalog-merge-taken-row" th:data-resource="${row.contentKey}">
+                                    <td>
+                                        <span th:text="${row.name}">Brand</span>
+                                        <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Theme)</span>
+                                    </td>
+                                    <td class="text-muted" th:text="${row.what}">Changed in v1.1.0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div th:unless="${kept.isEmpty()}" class="form-group" data-testid="catalog-merge-kept">
+                    <span class="ep-label">Kept as you have it</span>
+                    <div class="ep-table-scroll" role="region" aria-label="Kept as you have it" tabindex="0">
+                        <table class="ep-table ep-table-compact">
+                            <tbody>
+                                <tr th:each="row : ${kept}" data-testid="catalog-merge-kept-row" th:data-resource="${row.contentKey}">
+                                    <td>
+                                        <span th:text="${row.name}">Footer</span>
+                                        <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Stencil)</span>
+                                    </td>
+                                    <td class="text-muted" th:text="${row.what}">You changed it here</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <p th:if="${untouchedCount > 0}" class="form-hint" data-testid="catalog-merge-untouched"
+                   th:text="${untouchedCount == 1} ? '1 other part is the same in both and stays as it is.' : ${untouchedCount} + ' other parts are the same in both and stay as they are.'">
+                    12 other parts are the same in both and stay as they are.</p>
+            </th:block>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-merge-dialog">Cancel</button>
+            <button th:unless="${preview.alreadyMerged}" type="submit" class="ep-btn ep-btn-primary"
+                    data-testid="catalog-merge-submit" th:text="${preview.changesDraft} ? 'Merge' : 'Record as merged'">Merge</button>
+        </div>
+    </form>
+</body>
+</html>

@@ -164,6 +164,16 @@ data class CatalogReleaseReadiness(
     /** Whether to offer editing the declared dependencies: the viewer may, and there is a draft to declare them in. */
     val offerEditDependencies: Boolean get() = mayEditDraft && hasDraft
 
+    /**
+     * Whether to offer merging a published version this draft is behind into it (ADR 0032, alpha):
+     * the viewer may edit the draft, and there is a version it lacks. Merging changes the draft's
+     * content, which `MergeReleaseIntoDraft` gates on `TEMPLATE_EDIT`.
+     */
+    val offerMerge: Boolean get() = mayEditDraft && hasDraft && drafts.behind.isNotEmpty()
+
+    /** The draft is behind a published version, but the viewer may not merge it in: the page says why. */
+    val mergeWithheld: Boolean get() = !mayEditDraft && hasDraft && drafts.behind.isNotEmpty()
+
     companion object {
         /** `type 'key': reason`, as `ChangeReason` words it. */
         private val REASON = Regex("""^(\S+) '([^']+)': (.+)$""")
