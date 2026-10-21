@@ -9,7 +9,8 @@
     resources are only counted.
 
     Model (CatalogMergeHandler): `tenantId`, `catalogId` (the catalog segment), `preview`
-    (DraftMergePreview), `releaseLabel` (`v1.1.0`), `taken`, `kept` and `conflicts` (MergeRowView),
+    (DraftMergePreview, whose `token` the form sends back), `releaseLabel` (`v1.1.0`), `taken`, `kept`
+    and `conflicts` (MergeRowView; a catalog setting, such as the default theme, is a row like a resource),
     `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`.
     -->
     <th:block th:fragment="merge-dialog">
@@ -25,6 +26,8 @@
           th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId})}"
           hx-target="#catalog-merge-form" hx-swap="outerHTML">
         <input type="hidden" name="release" th:value="${preview.release}">
+        <!--/* The state this dialog shows: a merge refuses it once the draft or the release changed. */-->
+        <input type="hidden" name="token" th:value="${preview.token}" data-testid="catalog-merge-token">
         <div th:replace="~{epistola-web/form-error :: form-error(id='catalog-merge-error')}"></div>
         <div class="ep-dialog-body">
             <p>

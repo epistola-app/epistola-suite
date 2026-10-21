@@ -7,7 +7,7 @@ package app.epistola.suite.mcp.tools
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
-import app.epistola.suite.catalog.merge.MergeSide
+import app.epistola.suite.catalog.merge.MergeResolution
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.versions.AssessDraftNumber
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -185,9 +185,10 @@ class CatalogVersionMcpTools {
         name = "preview_merge",
         description = "Alpha. What merging a release of the catalog into a draft (the next release unless `draft` names " +
             "another) would do, without changing anything: per resource a side changed, `THEIRS` (only the release " +
-            "changed it: taken), `OURS` (only the draft did: it stays) or `CONFLICT` (both did: the user chooses). Use it " +
+            "changed it: taken), `OURS` (only the draft did: it stays) or `CONFLICT` (both did: the user chooses). The " +
+            "catalog's settings are entries too: `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`. Use it " +
             "for a release the draft is `behind` (`list_catalog_versions`), and show the user the conflicts before " +
-            "`merge_release`.",
+            "`merge_release`; pass its `token` there.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun previewMerge(
@@ -208,7 +209,8 @@ class CatalogVersionMcpTools {
             "what only the release changed is taken from it, what only the draft changed stays, and every `CONFLICT` from " +
             "`preview_merge` is resolved by `resolutions`, which the user chooses. Afterwards the draft is no longer behind " +
             "the release. Refused when a conflict has no resolution, when the release removes something the draft still " +
-            "uses, and when the draft already contains the release. Requires the TEMPLATE_EDIT permission.",
+            "uses, when the draft already contains the release, and when `token` is given and the draft or the release " +
+            "changed since that preview (preview again). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun mergeRelease(
@@ -220,13 +222,15 @@ class CatalogVersionMcpTools {
         draft: String?,
         @McpToolParam(description = "For each conflict, its `resource` (`type/key`) to `OURS` (keep the draft's) or `THEIRS` (take the release's).", required = false)
         resolutions: Map<String, String>?,
+        @McpToolParam(description = "The `token` of the `preview_merge` the user confirmed; the merge is refused if anything changed since.", required = false)
+        token: String? = null,
     ): MergedReleaseInfo {
         val catalogKey = CatalogKey.of(catalogId)
         val sides = resolutions.orEmpty().mapValues { (resource, side) ->
-            MergeSide.entries.firstOrNull { it.name.equals(side.trim(), ignoreCase = true) }
+            MergeResolution.ofWire(side)
                 ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
         }
-        return MergedReleaseInfo.from(MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, draftScope(catalogKey, draft)).execute())
+        return MergedReleaseInfo.from(MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, draftScope(catalogKey, draft), expectedToken = token?.trim()?.ifEmpty { null }).execute())
     }
 
     private fun draftScope(catalogKey: CatalogKey, draft: String?): CatalogVersionRef? = draft?.takeIf { it.isNotBlank() }?.let { CatalogVersionRef(mcpTenantKey(), catalogKey, draftRefOf(it)) }

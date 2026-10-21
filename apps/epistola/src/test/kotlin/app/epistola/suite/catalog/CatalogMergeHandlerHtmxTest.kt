@@ -9,9 +9,12 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -57,7 +60,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
     private fun work(tenant: Tenant, id: String) = CatalogVersionRef(tenant.id, letters, DraftRef.Id(id))
 
     /** The scenario above; the work's draft id. */
-    private fun diverged(tenant: Tenant): String = withMediator {
+    private fun diverged(tenant: Tenant, alsoDefaultTheme: Boolean = false): String = withMediator {
         CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
         CreateTheme(theme(tenant, "brand"), "Brand").execute()
         CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
@@ -70,6 +73,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
 
         UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed").execute()
         UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed").execute()
+        if (alsoDefaultTheme) SetCatalogDefaultTheme(tenant.id, letters, CatalogDefaultTheme(ThemeKey.of("letterhead"), letters)).execute()
         MarkCatalogReady(tenant.id, letters).execute()
         ReleaseCatalogVersion(tenant.id, letters, "1.0.1").execute()
         work
@@ -198,6 +202,49 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             val ref = work(tenant, work)
             assertThat(withMediator { GetTheme(theme(tenant, "brand"), catalogVersion = ref).query() }!!.name).isEqualTo("Brand redesigned")
             assertThat(withMediator { GetTheme(theme(tenant, "letterhead"), catalogVersion = ref).query() }!!.name).isEqualTo("Letterhead, fixed")
+        }
+    }
+
+    @Test
+    fun `a catalog setting the release changed is listed and taken like a resource`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Setting")
+            work = diverged(tenant, alsoDefaultTheme = true)
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!! }
+        then {
+            assertThat(result<String>()).contains("data-testid=\"catalog-merge-taken-row\" data-resource=\"catalog/defaultTheme\"")
+                .contains("Default theme").contains("(Catalog setting)")
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS"))
+            assertThat(withMediator { GetCatalogThemeSettings(tenant.id, letters, work(tenant, work)).query() }.defaultTheme?.themeKey).isEqualTo(ThemeKey.of("letterhead"))
+        }
+    }
+
+    @Test
+    fun `a merge confirmed in a dialog that is out of date is refused, and the dialog shows the merge as it is now`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        lateinit var token: String
+        given {
+            tenant = tenant("Merge Outdated")
+            work = diverged(tenant)
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!!
+            token = Regex("""name="token" value="([0-9a-f]+)"""").find(dialog)!!.groupValues[1]
+            // Meanwhile the work changes the letterhead theme too.
+            withMediator { UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead redesigned", catalogVersion = work(tenant, work)).execute() }
+        }
+        whenever {
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "token" to token, "resolution[theme/brand]" to "THEIRS"))
+        }
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode.value()).isEqualTo(422)
+            assertThat(response.body!!).contains("data-testid=\"catalog-merge-refused\"").contains("since you opened this")
+                .contains("name=\"resolution[theme/letterhead]\"")
+                .doesNotContain("value=\"$token\"")
+            assertThat(withMediator { PreviewDraftMerge(tenant.id, letters, "1.0.1", work(tenant, work)).query() }.alreadyMerged).isFalse()
         }
     }
 

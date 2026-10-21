@@ -219,6 +219,11 @@ class CatalogDraftIsNextException(val catalogKey: CatalogKey, message: String) :
 @Component
 class CatalogReleaseCopier(
     private val targeting: CatalogVersionTargeting,
+    private val jdbi: Jdbi,
+    private val drafts: CatalogDrafts,
+    private val contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) {
     fun copy(tenantKey: TenantKey, catalogKey: CatalogKey, release: CatalogVersion, into: UUID) {
         val version = requireNotNull(release.version)
@@ -237,6 +242,11 @@ class CatalogReleaseCopier(
             "Copying release $version of '${catalogKey.value}' into a draft failed for " +
                 failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" }
         }
+        // What the draft holds of its base, as this suite holds content: a merge compares the draft
+        // with this rather than with the release's own fingerprints, which for a release received
+        // from elsewhere need not match what this suite computes for the same content.
+        val held = targeting.within(into) { fingerprints.perResourceFingerprints(contentBuilder.build(tenantKey, catalogKey)) }
+        jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, into, objectMapper.writeValueAsString(held)) }
     }
 }
 

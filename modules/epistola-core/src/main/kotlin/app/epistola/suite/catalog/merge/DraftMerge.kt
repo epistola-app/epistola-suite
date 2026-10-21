@@ -25,8 +25,32 @@ enum class MergeOutcome {
     CONFLICT,
 }
 
-/** Which side a conflict is resolved to. */
-enum class MergeSide { OURS, THEIRS }
+/**
+ * How a conflict is resolved. Today a whole side, [Ours] or [Theirs]; a later case can carry content
+ * resolved by hand, or a choice per part (a template's variants, a block), without breaking callers.
+ * [wire] is how forms, MCP and REST write it.
+ */
+sealed interface MergeResolution {
+    val wire: String
+
+    /** Keep the draft's. */
+    data object Ours : MergeResolution {
+        override val wire: String = "OURS"
+    }
+
+    /** Take the release's: written as it has it, or removed when it removed it. */
+    data object Theirs : MergeResolution {
+        override val wire: String = "THEIRS"
+    }
+
+    companion object {
+        /** Every resolution a whole-entry choice can be. */
+        val SIDES: List<MergeResolution> = listOf(Ours, Theirs)
+
+        /** The side [wire] names (`OURS`, `THEIRS`, any case), or null. */
+        fun ofWire(wire: String?): MergeResolution? = SIDES.firstOrNull { it.wire.equals(wire?.trim(), ignoreCase = true) }
+    }
+}
 
 /**
  * One resource of a merge. [ours] is how the draft changed it since the base, [theirs] how the
@@ -43,6 +67,9 @@ data class MergeResource(
 ) {
     /** `type/key`, as fingerprints and resolutions name it. */
     val contentKey: String get() = "$type/$key"
+
+    /** Whether this is one of the catalog's settings ([CatalogSetting]) rather than a resource. */
+    val isSetting: Boolean get() = type == CatalogSetting.TYPE
 }
 
 /**
@@ -88,21 +115,35 @@ object DraftMerge {
         theirs: Map<String, String>,
         names: Map<String, String> = emptyMap(),
     ): List<MergeResource> = (base.keys + ours.keys + theirs.keys).sorted().map { key ->
-        val b = base[key]
-        val o = ours[key]
-        val t = theirs[key]
+        classifyOne(key, base[key], ours[key], theirs[key], names[key])
+    }
+
+    /**
+     * One entry ([contentKey], `type/key`) from its fingerprint on each side, null where that side
+     * does not have it: the whole-entry table of ADR 0032, section 5.
+     *
+     * [heldBase] is the base as the draft holds it, which the draft's fingerprint [o] is compared
+     * with; [b], the base as released, is what the release's [t] is compared with. They differ for a
+     * release received from elsewhere: putting it in place writes it as this suite holds content
+     * (a default written out, a slot a stencil needs added), which need not fingerprint as its
+     * publisher's content does. When both sides made a change, [o] and [t] are compared directly.
+     */
+    fun classifyOne(contentKey: String, b: String?, o: String?, t: String?, name: String? = null, heldBase: String? = b): MergeResource {
+        val oursChanged = o != heldBase
+        val theirsChanged = t != b
         val outcome = when {
-            o == t -> if (o == b) MergeOutcome.UNCHANGED else MergeOutcome.SAME
-            t == b -> MergeOutcome.OURS
-            o == b -> MergeOutcome.THEIRS
+            !oursChanged && !theirsChanged -> MergeOutcome.UNCHANGED
+            !theirsChanged -> MergeOutcome.OURS
+            !oursChanged -> MergeOutcome.THEIRS
+            o == t -> MergeOutcome.SAME
             else -> MergeOutcome.CONFLICT
         }
-        MergeResource(
-            type = key.substringBefore('/'),
-            key = key.substringAfter('/'),
-            name = names[key],
+        return MergeResource(
+            type = contentKey.substringBefore('/'),
+            key = contentKey.substringAfter('/'),
+            name = name,
             outcome = outcome,
-            ours = change(b, o),
+            ours = change(heldBase, o),
             theirs = change(b, t),
             inTheirs = t != null,
         )

@@ -10,10 +10,11 @@ import app.epistola.suite.catalog.merge.MergeChange
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergeOutcome
+import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
+import app.epistola.suite.catalog.merge.MergeResolution
 import app.epistola.suite.catalog.merge.MergeResource
-import app.epistola.suite.catalog.merge.MergeSide
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
@@ -75,9 +76,11 @@ class CatalogMergeHandler {
     }
 
     /**
-     * `POST /{catalogId}/merge` with `release` and, per conflict, `resolution[<type>/<key>]` set to
-     * `OURS` or `THEIRS`. On success lands on the draft's page, which no longer lists the version as
-     * missing; a refusal shows the dialog again with why, and the choices already made.
+     * `POST /{catalogId}/merge` with `release`, the preview's `token`, and, per conflict,
+     * `resolution[<type>/<key>]` set to `OURS` or `THEIRS`. On success lands on the draft's page,
+     * which no longer lists the version as missing; a refusal shows the dialog again with why, and the
+     * choices already made. When the draft or the release changed since the dialog was opened, the
+     * merge is refused and the dialog shows the merge as it is now.
      */
     fun merge(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -86,6 +89,7 @@ class CatalogMergeHandler {
         val release = request.param("release").orElse("").trim()
         if (release.isEmpty()) return ServerResponse.badRequest().build()
         val choices = resolutions(request)
+        val token = request.param("token").orElse("").trim().ifEmpty { null }
 
         fun reRender(message: String): ServerResponse {
             val preview = PreviewDraftMerge(tenantId.key, segment.key, release, segment.ref(tenantId.key)).query()
@@ -103,7 +107,9 @@ class CatalogMergeHandler {
         }
 
         try {
-            MergeReleaseIntoDraft(tenantId.key, segment.key, release, choices, segment.ref(tenantId.key)).execute()
+            MergeReleaseIntoDraft(tenantId.key, segment.key, release, choices, segment.ref(tenantId.key), expectedToken = token).execute()
+        } catch (e: MergePreviewOutdatedException) {
+            return reRender("Something changed in this draft or in v$release since you opened this. Check the merge below again, then merge.")
         } catch (e: MergeConflictsUnresolvedException) {
             return reRender(
                 if (e.conflicts.size == 1) {
@@ -130,10 +136,10 @@ class CatalogMergeHandler {
     }
 
     /** The side chosen per conflict, from `resolution[<type>/<key>]` fields; anything else is ignored. */
-    private fun resolutions(request: ServerRequest): Map<String, MergeSide> = request.params().entries
+    private fun resolutions(request: ServerRequest): Map<String, MergeResolution> = request.params().entries
         .filter { (name, _) -> name.startsWith(RESOLUTION_PREFIX) && name.endsWith("]") && name.length > RESOLUTION_PREFIX.length + 1 }
         .mapNotNull { (name, values) ->
-            val side = MergeSide.entries.firstOrNull { it.name == values.firstOrNull()?.trim() } ?: return@mapNotNull null
+            val side = MergeResolution.SIDES.firstOrNull { it.wire == values.firstOrNull()?.trim() } ?: return@mapNotNull null
             name.removePrefix(RESOLUTION_PREFIX).removeSuffix("]") to side
         }
         .toMap()
@@ -142,7 +148,7 @@ class CatalogMergeHandler {
         tenantId: TenantId,
         segment: CatalogSegment,
         preview: DraftMergePreview,
-        choices: Map<String, MergeSide>,
+        choices: Map<String, MergeResolution>,
         error: String?,
     ) {
         val release = "v${preview.release}"
@@ -160,7 +166,7 @@ class CatalogMergeHandler {
         }
         "untouchedCount" to preview.resources.count { it.outcome == MergeOutcome.UNCHANGED || it.outcome == MergeOutcome.SAME }
         // By field name, as the radios are named: SpEL reads a plain map most simply.
-        "choices" to LinkedHashMap(choices.entries.associate { (key, side) -> Pair("$RESOLUTION_PREFIX$key]", side.name) })
+        "choices" to LinkedHashMap(choices.entries.associate { (key, side) -> Pair("$RESOLUTION_PREFIX$key]", side.wire) })
         "mergeError" to error
     }
 

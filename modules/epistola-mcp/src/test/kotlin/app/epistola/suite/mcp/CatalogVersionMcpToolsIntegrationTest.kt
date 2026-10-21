@@ -5,6 +5,7 @@
 package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
@@ -247,7 +248,12 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
 
         assertThatThrownBy { runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "MINE")) } }
             .isInstanceOf(ValidationException::class.java)
-        val merged = runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "theirs")) }
+        runAsApiKey(tenantId) { themeTools.updateTheme("default", "brand", "Brand, ours again", null, null, null, null, null, null, null) }
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "theirs"), preview.token) } }
+            .`as`("the draft changed since the preview")
+            .isInstanceOf(MergePreviewOutdatedException::class.java)
+        val fresh = runAsApiKey(tenantId) { versionTools.previewMerge("default", fixRelease, null) }
+        val merged = runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "theirs"), fresh.token) }
 
         assertThat(merged.taken).containsExactly("theme/brand")
         runAsApiKey(tenantId) {

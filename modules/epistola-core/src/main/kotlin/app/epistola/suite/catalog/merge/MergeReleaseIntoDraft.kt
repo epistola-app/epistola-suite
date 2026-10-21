@@ -4,15 +4,9 @@
 
 package app.epistola.suite.catalog.merge
 
-import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
-import app.epistola.suite.catalog.InstalledResource
-import app.epistola.suite.catalog.commands.ExportCatalogZip
-import app.epistola.suite.catalog.commands.ImportCatalogZip
-import app.epistola.suite.catalog.commands.InstallStatus
-import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
+import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versions.CatalogDrafts
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.CatalogVersionTargeting
@@ -20,37 +14,40 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.execute
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Merges [release] into a draft (ADR 0032, alpha): the draft the command targets, or the catalog's
- * next version. Per resource, as [PreviewDraftMerge] classifies it:
+ * next version. Per resource and per catalog setting (its default theme, presets and dependency
+ * declarations, [CatalogSetting]), as [PreviewDraftMerge] classifies it:
  *
  * - what only the release changed is taken from it: written as the release has it, or removed;
  * - what only the draft changed stays;
- * - a conflict is resolved by [resolutions] (`type/key` to a side), and every conflict must have one.
+ * - a conflict is resolved by [resolutions] (`type/key` to a [MergeResolution]), and every conflict
+ *   must have one.
  *
- * Taken resources are marked ready, since they are released content. The draft's settings (its
- * default theme, presets and dependency declarations) stay its own. Afterwards the draft has merged
- * [release], so it is not behind it.
+ * Taken resources are marked ready, since they are released content. Afterwards the draft has merged
+ * [release] (a row of `catalog_draft_merges`), so it is not behind it.
  *
  * Refused when the draft already contains [release] (its base, or merged before;
- * [MergeNotApplicableException]), when a conflict
- * has no resolution ([MergeConflictsUnresolvedException]), and when a resource the release removed
- * is still used ([MergeRefusedException]).
+ * [MergeNotApplicableException]), when [expectedToken] names another state than the one the merge
+ * starts from ([MergePreviewOutdatedException]), when a conflict has no resolution
+ * ([MergeConflictsUnresolvedException]), and when a resource the release removed is still used
+ * ([MergeRefusedException]).
  */
 data class MergeReleaseIntoDraft(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val release: String,
-    val resolutions: Map<String, MergeSide> = emptyMap(),
+    val resolutions: Map<String, MergeResolution> = emptyMap(),
     /** The draft to merge into; null for the catalog's next version. */
     override val catalogVersion: CatalogVersionRef? = null,
+    /** The [DraftMergePreview.token] the merge was confirmed against; null merges whatever the state is now. */
+    val expectedToken: String? = null,
 ) : CatalogVersionScoped,
     Command<MergedRelease>,
     RequiresPermission {
@@ -75,6 +72,9 @@ class MergeConflictsUnresolvedException(val catalogKey: CatalogKey, val release:
 /** A merge that does not apply: the draft already contains the release, or a resolution names no conflict. */
 class MergeNotApplicableException(val catalogKey: CatalogKey, override val message: String) : RuntimeException(message)
 
+/** The draft or the release changed since the preview a merge was confirmed against. */
+class MergePreviewOutdatedException(val catalogKey: CatalogKey, val release: String) : RuntimeException("The draft or $release changed since the preview; preview again")
+
 /** A merge that cannot be applied as asked; [message] says why. */
 class MergeRefusedException(val catalogKey: CatalogKey, override val message: String) : RuntimeException(message)
 
@@ -83,87 +83,60 @@ class MergeReleaseIntoDraftHandler(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
     private val targeting: CatalogVersionTargeting,
-    private val analyzer: CatalogUpgradeAnalyzer,
-    private val graph: TenantResourceGraphBuilder,
+    private val planner: DraftMergePlanner,
+    private val mergers: ResourceMergers,
+    private val writer: DraftResourceWriter,
+    private val inputs: MergeInputReader,
+    private val contentBuilder: CatalogContentBuilder,
+    private val objectMapper: ObjectMapper,
 ) : CommandHandler<MergeReleaseIntoDraft, MergedRelease> {
 
     override fun handle(command: MergeReleaseIntoDraft): MergedRelease {
         val (tenantKey, catalogKey) = command.tenantKey to command.catalogKey
         requireCatalogEditable(tenantKey, catalogKey)
-        val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, tenantKey, catalogKey) }
-            ?: throw CatalogVersionNotFoundException(catalogKey, command.catalogVersion?.draft?.toString() ?: "next")
-        val preview = PreviewDraftMerge(tenantKey, catalogKey, command.release, command.catalogVersion).query()
-        if (preview.alreadyMerged) {
+        val plan = planner.plan(tenantKey, catalogKey, command.release, command.catalogVersion?.draft?.toString() ?: "next")
+        val draft = plan.inputs.draft
+        if (command.release in plan.inputs.contained) {
             throw MergeNotApplicableException(catalogKey, "${draft.label} of '${catalogKey.value}' already contains ${command.release}")
         }
+        if (command.expectedToken != null && command.expectedToken != plan.token) throw MergePreviewOutdatedException(catalogKey, command.release)
 
-        val conflicts = preview.conflicts.map { it.contentKey }
+        val conflicts = plan.resources.filter { it.outcome == MergeOutcome.CONFLICT }.map { it.contentKey }
         val stray = command.resolutions.keys - conflicts.toSet()
         if (stray.isNotEmpty()) throw MergeNotApplicableException(catalogKey, "Not a conflict of this merge: ${stray.sorted().joinToString()}")
         val unresolved = conflicts.filter { it !in command.resolutions }
         if (unresolved.isNotEmpty()) throw MergeConflictsUnresolvedException(catalogKey, command.release, unresolved)
 
-        val takes = preview.resources.filter { resource ->
-            resource.outcome == MergeOutcome.THEIRS ||
-                (resource.outcome == MergeOutcome.CONFLICT && command.resolutions[resource.contentKey] == MergeSide.THEIRS)
+        val actions = plan.entries.zip(plan.resources).associate { (sides, classified) ->
+            sides.contentKey to mergers.of(sides.type).plan(sides, classified, command.resolutions[sides.contentKey])
+        }.filterValues { it != MergeAction.Keep }
+        val (writes, after) = targeting.within(draft.versionId) {
+            writer.apply(tenantKey, catalogKey, command.release, draft.label, actions) to inputs.input(catalogKey, contentBuilder.build(tenantKey, catalogKey))
         }
-        val (bring, remove) = takes.partition { it.inTheirs }
-
-        targeting.within(draft.versionId) {
-            if (bring.isNotEmpty()) {
-                // The release as it was cut, rebuilt from what it kept, of which only these resources land.
-                val archive = ExportCatalogZip(tenantKey, catalogKey, command.release).execute()
-                val imported = ImportCatalogZip(
-                    tenantKey = tenantKey,
-                    zipBytes = archive.zipBytes,
-                    validateCrossCatalogDeps = false,
-                    confirmMigration = true,
-                    intoDraft = true,
-                    mergeResources = bring.map { it.contentKey }.toSet(),
-                ).execute()
-                val failed = imported.results.filter { it.status == InstallStatus.FAILED }
-                if (failed.isNotEmpty()) {
-                    throw MergeRefusedException(catalogKey, "Could not take " + failed.joinToString { "${it.type} '${it.slug}': ${it.errorMessage}" })
-                }
-            }
-            if (remove.isNotEmpty()) {
-                val stale = remove.map { InstalledResource(it.type, it.key) }
-                val inUse = analyzer.findConflicts(tenantKey, catalogKey, stale)
-                if (inUse.isNotEmpty()) throw MergeRefusedException(catalogKey, "${command.release} removes what is still used: ${inUse.joinToString("; ")}")
-                // Within the draft too, which that check leaves out: a reference points at an identity,
-                // so removing the row would leave it pointing at nothing instead of failing. Read after
-                // taking theirs, since what was taken refers to what the release has.
-                val removed = remove.map { it.type to it.key }.toSet()
-                val users = jdbi.withHandle<_, Exception> { graph.buildOn(it, tenantKey, includeHistory = false) }.edges.filter { edge ->
-                    val target = edge.target ?: return@filter false
-                    target.catalogKey == catalogKey.value &&
-                        (target.type.wireName to target.key) in removed &&
-                        edge.source.catalogKey == catalogKey.value &&
-                        (edge.source.type.wireName to edge.source.key) !in removed
-                }
-                if (users.isNotEmpty()) {
-                    throw stillUsed(command, draft.label, users.map { "${it.target!!.type.wireName} '${it.target.key}' (used by ${it.source.type.wireName} '${it.source.key}')" }.distinct())
-                }
-                try {
-                    analyzer.removeStale(tenantKey, catalogKey, stale)
-                } catch (e: org.jdbi.v3.core.JdbiException) {
-                    // A reference the database itself refuses to leave behind (an attribute's code list).
-                    throw stillUsed(command, draft.label, remove.map { "${it.type} '${it.key}'" })
-                }
-            }
-        }
-        jdbi.useHandle<Exception> { drafts.recordMerged(it, tenantKey, draft.versionId, command.release) }
+        val resolutions = objectMapper.writeValueAsString(command.resolutions.toSortedMap().mapValues { it.value.wire })
+        val held = objectMapper.writeValueAsString(held(plan, actions, after.fingerprints))
+        jdbi.useHandle<Exception> { drafts.recordMerged(it, tenantKey, draft.versionId, command.release, plan.inputs.mergeBase, resolutions, held) }
 
         return MergedRelease(
             release = command.release,
-            taken = bring.map { it.contentKey },
-            removed = remove.map { it.contentKey },
-            kept = preview.conflicts.filter { command.resolutions[it.contentKey] == MergeSide.OURS }.map { it.contentKey },
+            taken = writes.written.sorted(),
+            removed = writes.removed.sorted(),
+            kept = conflicts.filter { command.resolutions[it] == MergeResolution.Ours },
         )
     }
 
-    private fun stillUsed(command: MergeReleaseIntoDraft, draftLabel: String, what: List<String>) = MergeRefusedException(
-        command.catalogKey,
-        "${command.release} removes ${what.joinToString()}, which $draftLabel still uses. Keep it, or stop using it first.",
-    )
+    /**
+     * What the draft holds of the release once merged, by entry, for a later merge that has it as its
+     * base: as the draft now holds it where it holds the release's (taken, or the same on both
+     * sides), and as the release has it where the draft kept its own.
+     */
+    private fun held(plan: MergePlan, actions: Map<String, MergeAction>, after: Map<String, String>): Map<String, String> = plan.resources
+        .mapNotNull { resource ->
+            val key = resource.contentKey
+            val holdsTheirs = key in actions || resource.outcome == MergeOutcome.UNCHANGED || resource.outcome == MergeOutcome.SAME
+            val fingerprint = if (holdsTheirs) after[key] else plan.inputs.theirs.fingerprints[key]
+            fingerprint?.let { key to it }
+        }
+        .toMap()
+        .toSortedMap()
 }

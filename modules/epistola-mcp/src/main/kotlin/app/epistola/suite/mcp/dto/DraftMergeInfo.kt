@@ -20,6 +20,8 @@ data class DraftMergeInfo(
     val alreadyMerged: Boolean,
     val resources: List<MergeResourceInfo>,
     val unchanged: Int,
+    /** Names the state this preview shows; `merge_release` given it refuses once something changed. */
+    val token: String,
 ) {
     companion object {
         fun from(preview: DraftMergePreview) = DraftMergeInfo(
@@ -29,6 +31,7 @@ data class DraftMergeInfo(
             alreadyMerged = preview.alreadyMerged,
             resources = preview.resources.filter { it.outcome !in QUIET }.map(MergeResourceInfo::from),
             unchanged = preview.resources.count { it.outcome in QUIET },
+            token = preview.token,
         )
 
         private val QUIET = setOf(MergeOutcome.UNCHANGED, MergeOutcome.SAME)

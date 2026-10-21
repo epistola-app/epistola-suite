@@ -338,7 +338,8 @@ class CatalogDrafts {
         // releases merged into it (ADR 0032).
         handle.createUpdate(
             """
-            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets
+            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets,
+                base_fingerprints = f.base_fingerprints
             FROM catalog_versions f
             WHERE t.tenant_key = :t AND t.version_id = :to AND f.tenant_key = :t AND f.version_id = :from
             """,

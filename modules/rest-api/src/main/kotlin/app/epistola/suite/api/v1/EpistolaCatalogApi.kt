@@ -57,7 +57,7 @@ import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.merge.MergeOutcome
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
-import app.epistola.suite.catalog.merge.MergeSide
+import app.epistola.suite.catalog.merge.MergeResolution
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
@@ -375,7 +375,7 @@ class EpistolaCatalogApi(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
             release = mergeIntoCatalogDraftRequest.release,
-            resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeSide.valueOf(side.name) },
+            resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeResolution.ofWire(side.name) ?: error("No resolution $side") },
             catalogVersion = draft.ref,
         ).execute()
         return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept))

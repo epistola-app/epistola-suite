@@ -76,9 +76,9 @@ import java.io.ByteArrayInputStream
  * - The releases it pins must be present, with the fingerprints they were pinned with
  *   ([CatalogImportDependenciesMissingException]).
  *
- * Internally the same archive reader fills a draft ([intoDraft], copying a release into a draft or
- * merging one) or restores a tenant snapshot ([restore]); those keep the per-resource import they
- * always had, into the version the transaction targets.
+ * Internally the same archive reader fills a draft ([intoDraft], copying a release into a draft) or
+ * restores a tenant snapshot ([restore]); those keep the per-resource import they always had, into
+ * the version the transaction targets. Each resource is written by [CatalogResourceInstaller].
  */
 data class ImportCatalogZip(
     override val tenantKey: TenantKey,
@@ -126,12 +126,6 @@ data class ImportCatalogZip(
      * did before contract 2.0. Internal so no API can set it.
      */
     internal val restore: Boolean = false,
-    /**
-     * With [intoDraft], a merge (ADR 0032): only these resources (`type/key`) are written, each
-     * marked ready as released content, and the draft's dependency declarations and theme settings
-     * stay as they are. Null writes the whole archive. Internal so no API can set it.
-     */
-    internal val mergeResources: Set<String>? = null,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
@@ -492,7 +486,6 @@ class ImportCatalogZipHandler(
         }
 
         val ordered = manifest.resources
-            .filter { command.mergeResources == null || "${it.type}/${it.key}" in command.mergeResources }
             .sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
         // Pre-parse every stencil detail once. Each detail is routed through the
@@ -593,9 +586,6 @@ class ImportCatalogZipHandler(
             if (!InstalledReleaseRecording.isDeferred) {
                 RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries)).execute()
             }
-        } else if (!anyFailed && command.mergeResources != null) {
-            // A merge takes resources only; everything else of the draft stays its own.
-            markReady(command.tenantKey, catalogKey, ordered)
         } else if (!anyFailed) {
             if (!command.intoDraft) {
                 rows.updateMetadata(
@@ -606,7 +596,7 @@ class ImportCatalogZipHandler(
                     catalogMetadataJson,
                 )
             }
-            // The archive's declarations, locked as it was cut. A merge keeps those it does not name.
+            // The archive's declarations, locked as it was cut. A restore's MERGE keeps those it does not name.
             jdbi.useHandle<Exception> { handle ->
                 val kept = if (existingCatalog != null && command.fillMode != DraftFillMode.REPLACE) {
                     dependencyStore.declarations(handle, command.tenantKey, catalogKey).filter { local -> declared.none { it.identity == local.identity } }

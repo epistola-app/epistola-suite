@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
+import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -563,6 +564,15 @@ object ApiExceptionMappings {
             defaultDetail = "The merge does not apply",
             extensions = { emptyMap() },
             logMessage = { "Merge not applicable: ${it.message}" },
+        )
+
+        // The contract's merge request carries no preview token yet, so REST never sends one; mapped
+        // for when it does, to the generic conflict until the contract names its own problem type.
+        builder.register<MergePreviewOutdatedException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The draft or the release changed since the preview; preview again",
+            extensions = { emptyMap() },
+            logMessage = { "Merge refused, preview outdated: ${it.message}" },
         )
 
         builder.register<CatalogNotFoundException>(
