@@ -48,7 +48,7 @@ internal fun catalogEditability(): CatalogEditabilities = ListCatalogEditability
 
 /** The description of the optional `catalogVersion` argument of every tool that addresses catalog content. */
 internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or parallel work by its " +
-    "`draftId` from `list_catalog_versions`. Omit for the catalog's current version: its next version."
+    "`draftId` from `list_catalog_versions`. Omit for the next release, where everyday work goes."
 
 /**
  * The draft a tool's `catalogVersion` argument names, of catalog [catalogId], or null for its current
@@ -57,7 +57,7 @@ internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work i
 internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): CatalogVersionRef? {
     val version = catalogVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     val catalog = catalogId?.takeIf { it.isNotBlank() }
-        ?: throw ValidationException("catalogVersion", "`catalogVersion` is a version of one catalog; give `catalogId` too")
+        ?: throw ValidationException("catalogVersion", "`catalogVersion` is a draft or release of one catalog; give `catalogId` too")
     val draft = DraftRef.parse(version)
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_versions`; a draft has no number until it is released")
     return CatalogVersionRef(mcpTenantKey(), CatalogKey.of(catalog), draft)

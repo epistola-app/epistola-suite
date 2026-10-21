@@ -52,7 +52,7 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
             .containsSubsequence("default", "letters", SYSTEM_CATALOG_KEY.value)
         val entry = overview.single { it.catalogKey == letters }
         assertThat(entry.editable).isTrue()
-        assertThat(entry.drafts.map { it.label to it.isNext }).containsExactly("Next version" to true, "Redesign" to false)
+        assertThat(entry.drafts.map { it.label to it.isNext }).containsExactly("Next release" to true, "Redesign" to false)
         assertThat(entry.latestRelease?.version).isEqualTo("1.0.0")
         assertThat(entry.notReady).`as`("the new theme in the next version").isEqualTo(1)
         assertThat(entry.served).containsEntry("production", listOf("1.0.0"))

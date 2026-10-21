@@ -276,7 +276,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(deployed.statusCode).describedAs(deployed.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(deployed.body!!, "$.status")).isEqualTo("draft")
         assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseId")).isEqualTo(next)
-        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseName")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseName")).isEqualTo("Next release")
         val fromDraft = generated("production", null)
         assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].version")).isNull()
         assertThat(JsonPath.read<String>(fromDraft, "$.items[0].releaseId")).isEqualTo(next)

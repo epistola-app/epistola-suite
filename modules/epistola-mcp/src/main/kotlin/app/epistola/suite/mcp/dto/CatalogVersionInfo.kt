@@ -11,7 +11,7 @@ import app.epistola.suite.catalog.versions.DraftNumberAssessment
 /**
  * One version of a catalog (contract ADR 0002): a draft (`status` `DRAFT`) or a release (`RELEASED`),
  * addressed by its [versionId], which a draft keeps when it is released. A draft has no [version] until
- * then; the [isNext] one is the catalog's next version (also addressed as `next`), a convention of this
+ * then; the [isNext] one is the catalog's next release (also addressed as `next`), a convention of this
  * suite. A draft names its fixed [base] release and the releases it is [behind] for the number it would
  * be released as.
  */

@@ -185,7 +185,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val declared = withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }
         assertThat(declared.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
         assertThat(declared.single().releaseVersion).`as`("pinned to the installed system release").isNotNull()
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
         assertThat(queueRow(catalog)).isNull()
     }
 
@@ -201,7 +201,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.3.1" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogVersionStatus.DRAFT, "v1.3.1" to CatalogVersionStatus.RELEASED)
     }
 
     @Test
@@ -343,7 +343,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(queueRow(lettersCatalog)).contains("uses drafts of other catalogs")
-        assertThat(versions(lettersCatalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(lettersCatalog)).containsExactly("Next release" to CatalogVersionStatus.DRAFT)
 
         queue(sharedCatalog)
         runUpgrade()
@@ -381,7 +381,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(queueRow(catalog)).`as`("not \"dependency names no namespace\"").contains("catalog 'ghost', which this tenant does not have")
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogVersionStatus.DRAFT)
     }
 
     @Test
@@ -397,6 +397,6 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         // Only what its author's own write declared, as it used the system catalog's font: nothing added behind it.
         assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogVersionStatus.DRAFT)
     }
 }

@@ -86,7 +86,7 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(created.base).isEqualTo(first)
         val versions = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", null) }
         assertThat(versions.map { Triple(it.isNext, it.name, it.version) }).containsExactly(
-            Triple(true, "Next version", null),
+            Triple(true, "Next release", null),
             Triple(false, "Redesign", null),
             Triple(false, null, first),
         )
@@ -225,7 +225,7 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
 
         assertThat(release.versionId).isEqualTo(redesign)
         assertThat(runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "DRAFT") }.map { it.name to it.isNext })
-            .containsExactlyInAnyOrder("Next version" to true, "Old next" to false)
+            .containsExactlyInAnyOrder("Next release" to true, "Old next" to false)
         assertThat(runAsApiKey(tenantId) { themeTools.getTheme("default", "brand")!!.name }).isEqualTo("Brand redesigned")
     }
 

@@ -91,7 +91,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -99,7 +99,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = setUp("on-use-theme")
         withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute() }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -113,7 +113,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -148,7 +148,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
 
         withMediator { UpgradeCatalogDependencies(tenant, letters).execute() }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test

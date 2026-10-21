@@ -6,21 +6,21 @@ package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.common.ids.CatalogKey
 
-/** The catalog has no version with that number. */
-class CatalogVersionNotFoundException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Catalog '${catalogKey.value}' has no version $version")
+/** The catalog has no release with that number, nor a draft by that key. */
+class CatalogVersionNotFoundException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Catalog '${catalogKey.value}' has no release or draft $version")
 
 /** Only a draft can be changed or discarded; [version] is released. */
-class CatalogVersionReleasedException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Version $version of catalog '${catalogKey.value}' is released and cannot change")
+class CatalogVersionReleasedException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Release $version of catalog '${catalogKey.value}' is published and cannot change")
 
 /**
  * A draft that is behind releases (contract ADR 0002, "A draft can be behind": releases it does not
  * contain unless an author applied their changes by hand) is released only when every one of them is
  * acknowledged. [version] names the draft; [behind] are the releases not acknowledged.
  */
-class CatalogVersionBehindException(val catalogKey: CatalogKey, val version: String, val behind: List<String>) : RuntimeException("Version $version of catalog '${catalogKey.value}' is behind release ${behind.joinToString()}; acknowledge ${if (behind.size == 1) "it" else "them"} to release it")
+class CatalogVersionBehindException(val catalogKey: CatalogKey, val version: String, val behind: List<String>) : RuntimeException("Draft $version of catalog '${catalogKey.value}' is behind release ${behind.joinToString()}; acknowledge ${if (behind.size == 1) "it" else "them"} to release it")
 
 /**
- * Draft [version] is the only version holding a resource something outside it still needs, so
+ * Draft [version] is the only draft or release holding a resource something outside it still needs, so
  * discarding it would delete that resource's identity out from under it. [holders] name each one and
  * the resource it needs, e.g. `the tenant's default theme (theme letters/seasonal)`.
  */

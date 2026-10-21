@@ -94,7 +94,7 @@ trusted: a tampered archive keeps whatever label it was given.
 A catalog the tenant does not have yet is created with that registry as its source
 (`oci:<registry>/<namespace>/<key>`). The background update check asks the registry for its highest
 version, and the catalogs list offers a newer one through the same dialog. A catalog the tenant has
-receives the release as any import does: its next version moves to it, or, when that has changes of
+receives the release as any import does: its next release moves to it, or, when that has changes of
 its own or the release is lower, it is recorded beside the others (ADR 0032).
 
 ## Tags are mutable: turn on immutable tags

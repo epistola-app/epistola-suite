@@ -57,7 +57,7 @@ data class CatalogVersion(
      */
     val revision: Long = 1,
 ) {
-    /** What people call it: "Next version", parallel work's name, or a release's number. */
+    /** What people call it: "Next release", parallel work's name, or a release's number. */
     val label: String get() = when {
         status == CatalogVersionStatus.RELEASED -> "v$version"
         isNext -> CatalogDraft.NEXT_LABEL
@@ -104,8 +104,11 @@ data class CatalogDraft(
     val ref: DraftRef get() = if (isNext) DraftRef.Next else DraftRef.Id(key)
 
     companion object {
-        /** What the next version is always called: it has no name of its own. */
-        const val NEXT_LABEL: String = "Next version"
+        /** What the next release is always called: it has no name of its own. */
+        const val NEXT_LABEL: String = "Next release"
+
+        /** What the next release was called before releases were called releases; still no draft's name. */
+        const val FORMER_NEXT_LABEL: String = "Next version"
     }
 }
 

@@ -664,7 +664,7 @@ object ApiExceptionMappings {
 
         builder.register<CatalogDraftIsNextException>(
             problemType = ApiProblemTypes.CONFLICT,
-            defaultDetail = "The next version has no name of its own",
+            defaultDetail = "The next release has no name of its own",
             extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Draft operation refused for its kind: ${it.message}" },
         )

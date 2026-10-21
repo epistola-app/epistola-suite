@@ -93,12 +93,13 @@ data class DeleteCatalogDraft(
     override val permission get() = Permission.CATALOG_RELEASE
 }
 
-/** A draft has no name the user cannot see, nor one that reads as the next version. */
+/** A draft has no name the user cannot see, nor one that reads as the next release, by its name now or its former one. */
 internal fun validateDraftName(name: String) {
     validate("name", name.isNotBlank(), ValidationCode.GENERIC) { "Give the work a name" }
     validate("name", name.length <= FieldLimits.MAX_NAME_LENGTH, ValidationCode.GENERIC) { "A name is at most ${FieldLimits.MAX_NAME_LENGTH} characters" }
-    validate("name", !name.trim().equals(CatalogDraft.NEXT_LABEL, ignoreCase = true) && !name.trim().equals(DraftRef.NEXT, ignoreCase = true), ValidationCode.GENERIC) {
-        "'${name.trim()}' is what the next version is called; choose another name"
+    val reserved = listOf(CatalogDraft.NEXT_LABEL, CatalogDraft.FORMER_NEXT_LABEL, DraftRef.NEXT)
+    validate("name", reserved.none { name.trim().equals(it, ignoreCase = true) }, ValidationCode.GENERIC) {
+        "'${name.trim()}' is what the next release is called; choose another name"
     }
 }
 
@@ -197,8 +198,8 @@ class RenameCatalogDraftHandler(
         return jdbi.withHandle<CatalogVersion, Exception> { handle ->
             val open = drafts.drafts(handle, command.tenantKey, command.catalogKey)
             val draft = drafts.find(handle, command.tenantKey, command.catalogKey, command.draft) ?: throw CatalogVersionNotFoundException(command.catalogKey, command.draft.toString())
-            // The next version is a convention of this suite, always called "Next version".
-            if (draft.isNext) throw CatalogDraftIsNextException(command.catalogKey, "The next version of catalog '${command.catalogKey.value}' has no name of its own")
+            // The next release is a convention of this suite, always called "Next release".
+            if (draft.isNext) throw CatalogDraftIsNextException(command.catalogKey, "The next release of catalog '${command.catalogKey.value}' has no name of its own")
             if (open.any { it.versionId != draft.versionId && it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(command.catalogKey, name)
             drafts.rename(handle, command.tenantKey, draft.versionId, name)
             versions.all(handle, command.tenantKey, command.catalogKey).first { it.status == CatalogVersionStatus.DRAFT && it.versionId == draft.key }

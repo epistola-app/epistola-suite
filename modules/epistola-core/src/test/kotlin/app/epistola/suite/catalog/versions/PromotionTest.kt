@@ -85,7 +85,7 @@ class PromotionTest : IntegrationTestBase() {
 
         assertThat(released.version).`as`("a fix against its base").isEqualTo("1.0.1")
         assertThat(released.versionId).isEqualTo(work)
-        assertThat(drafts(tenant).map { it.label to it.versionId }).`as`("the draft became the release").containsExactly("Next version" to next.versionId)
+        assertThat(drafts(tenant).map { it.label to it.versionId }).`as`("the draft became the release").containsExactly("Next release" to next.versionId)
         val byId = withMediator { GetCatalogVersion(tenant, letters, work).query()!! }
         assertThat(byId.version to byId.status).isEqualTo("1.0.1" to CatalogVersionStatus.RELEASED)
         assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).`as`("the next version is untouched").isEqualTo("Brand")
@@ -159,7 +159,7 @@ class PromotionTest : IntegrationTestBase() {
         releaseForEverydayWork(tenant, work, keepPreviousAs = "Small fixes")
 
         val drafts = drafts(tenant)
-        assertThat(drafts.map { it.label to it.isNext }).containsExactlyInAnyOrder("Next version" to true, "Small fixes" to false)
+        assertThat(drafts.map { it.label to it.isNext }).containsExactlyInAnyOrder("Next release" to true, "Small fixes" to false)
         val kept = drafts.single { !it.isNext }
         assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = CatalogVersionRef(tenant, letters, kept.draftRef!!)).query()!! }.name).isEqualTo("Brand, small fix")
     }

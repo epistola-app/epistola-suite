@@ -153,7 +153,7 @@ class CatalogUpgradeRunner(
                     "install ${if (unknown.size == 1) "it" else "them"}, or change what uses ${if (unknown.size == 1) "it" else "them"}, and it is upgraded on the next run"
             }
             requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
-                "catalog ${catalog.catalogKey.value} has no next version to release"
+                "catalog ${catalog.catalogKey.value} has no next release to publish"
             }
             // What was published before 2.0 becomes the next patch after its latest release, 1.x ones
             // included, or the first version.

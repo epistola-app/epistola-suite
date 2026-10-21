@@ -150,6 +150,6 @@ object DraftDeploymentStore {
         }
         .list()
 
-    /** A draft's label in SQL, over alias `v`: its name, or "Next version" for the next version. */
+    /** A draft's label in SQL, over alias `v`: its name, or "Next release" for the next release. */
     private val LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
 }

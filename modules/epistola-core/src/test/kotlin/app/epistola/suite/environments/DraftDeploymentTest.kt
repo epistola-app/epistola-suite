@@ -191,8 +191,8 @@ class DraftDeploymentTest : IntegrationTestBase() {
             .`as`("the draft first, then the releases").containsExactly("Redesign", "1.0.1", "1.0.0")
         assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.take(3).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
             Triple(DeploymentAction.DEPLOYED, null, "Redesign"),
-            Triple(DeploymentAction.UNDEPLOYED, null, "Next version"),
-            Triple(DeploymentAction.DEPLOYED, null, "Next version"),
+            Triple(DeploymentAction.UNDEPLOYED, null, "Next release"),
+            Triple(DeploymentAction.DEPLOYED, null, "Next release"),
         )
         assertThat(withMediator { UndeployCatalogVersion(env(setup, test), default, work.versionId).execute() }).isTrue()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
@@ -207,7 +207,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
 
         val accepted = generate(setup, test, field = "reference")
         assertThat(accepted.releaseVersion).isNull()
-        assertThat(accepted.draftLabel).isEqualTo("Next version")
+        assertThat(accepted.draftLabel).isEqualTo("Next release")
         assertThat(generate(setup, test, "^1.0.0").releaseVersion).`as`("a range matches releases only").isEqualTo("1.0.1")
         assertThat(generate(setup, test, "1.0.1").releaseVersion).`as`("so does a number").isEqualTo("1.0.1")
 
@@ -217,7 +217,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val document = withMediator { GetDocument(setup.tenant, job.items.single().documentKey!!).query()!! }
         assertThat(document.releaseVersion).isNull()
         assertThat(document.draftId).isEqualTo(accepted.draftId)
-        assertThat(document.draftLabel).isEqualTo("Next version")
+        assertThat(document.draftLabel).isEqualTo("Next release")
 
         // Data the release wants but the draft does not: the draft is what is validated.
         val stale = generate(setup, test, field = "name")
@@ -243,7 +243,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         }
 
         val request = withMediator { ListGenerationJobs(setup.tenant).query() }.single { it.batchId == batch }
-        assertThat(request.draftLabel).isEqualTo("Next version")
+        assertThat(request.draftLabel).isEqualTo("Next release")
         assertThat(request.releaseVersion).isNull()
     }
 
@@ -258,7 +258,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThatThrownBy { withMediator { UpdateEnvironment(env(setup, test), "test", production = true).execute() } }
             .`as`("marking it production while it serves a draft")
             .isInstanceOf(EnvironmentDeploymentRefusedException::class.java)
-            .hasMessageContaining("Next version")
+            .hasMessageContaining("Next release")
     }
 
     @Test
@@ -303,7 +303,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat(withMediator { GetEnvironmentLatest(setup.tenant, production).query() })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
         assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query() }.getValue(default) as CatalogSelection.Draft).source.label)
-            .isEqualTo("Next version")
+            .isEqualTo("Next release")
 
         withMediator { UndeployCatalogVersion(env(setup, test), default, nextVersion(setup)).execute() }
         assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query() })

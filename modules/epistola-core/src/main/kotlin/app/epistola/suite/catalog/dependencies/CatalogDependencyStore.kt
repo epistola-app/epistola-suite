@@ -8,6 +8,7 @@ import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.validation.ValidationCode
@@ -378,10 +379,10 @@ class CatalogDependencyStore {
     }
 
     private companion object {
-        /** A draft's label over alias `dv`: its name, or "Next version" for the next version. */
-        const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN 'Next version' ELSE dv.name END"
+        /** A draft's label over alias `dv`: its name, or "Next release" for the next release. */
+        const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END"
 
         /** The same over alias `v`, for the declaring draft. */
-        const val DECLARING_LABEL = "CASE WHEN v.is_next THEN 'Next version' ELSE v.name END"
+        const val DECLARING_LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
     }
 }

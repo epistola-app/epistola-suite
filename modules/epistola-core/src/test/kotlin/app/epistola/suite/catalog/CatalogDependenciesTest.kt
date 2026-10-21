@@ -226,12 +226,12 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         // shared has no release yet, so the declaration this adds names its next version.
         val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
         assertThat(declared.releaseVersion).isNull()
-        assertThat(declared.draftName).isEqualTo("Next version")
+        assertThat(declared.draftName).isEqualTo("Next release")
 
         withMediator { MarkCatalogReady(tenant, letters).execute() }
         assertThatThrownBy { withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0").execute() } }
             .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
-            .hasMessageContaining("shared (Next version)")
+            .hasMessageContaining("shared (Next release)")
 
         releaseShared(tenant, "1.0.0", "#111111")
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion)

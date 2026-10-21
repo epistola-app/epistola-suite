@@ -4,6 +4,7 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -44,7 +45,7 @@ object DeploymentRows {
     const val FROM = """
         SELECT d.environment_key, cat.catalog_key AS catalog_key, d.version,
                COALESCE(dv.version_key, r.version_key) AS version_id,
-               CASE WHEN dv.version_id IS NULL THEN NULL WHEN dv.is_next THEN 'Next version' ELSE dv.name END AS draft_name,
+               CASE WHEN dv.version_id IS NULL THEN NULL WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END AS draft_name,
                d.deployed_at, d.deployed_by, d.documents_requested, d.last_used_at
         FROM environment_catalog_deployments d
         JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id

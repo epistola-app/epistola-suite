@@ -141,7 +141,7 @@ class PublishCurrentCatalogReleaseHandler(
                         "publication",
                         existing.status == CatalogPublicationStatus.CANCELLED || existing.archiveRetained,
                         ValidationCode.PUBLICATION_ARCHIVE_MISSING,
-                    ) { "The failed publication no longer has its released archive; release a new version instead." }
+                    ) { "The failed publication no longer has its released archive; publish a new release instead." }
                     store.requeue(handle, existing.id, namespace, UUIDv7.generate(), archive)
                     existing.id
                 }

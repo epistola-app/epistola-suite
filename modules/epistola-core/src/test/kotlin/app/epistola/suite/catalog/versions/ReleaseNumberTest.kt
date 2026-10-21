@@ -317,7 +317,7 @@ class ReleaseNumberTest : IntegrationTestBase() {
             UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
         }
         assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.map { it.catalogKey to it.draftName })
-            .`as`("declared as it was used, naming Shared's next version").containsExactly("shared" to "Next version")
+            .`as`("declared as it was used, naming Shared's next version").containsExactly("shared" to "Next release")
 
         val assessment = assess(tenant)
 

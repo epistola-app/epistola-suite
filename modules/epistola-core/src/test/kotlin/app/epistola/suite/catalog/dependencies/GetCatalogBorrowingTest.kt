@@ -82,7 +82,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         assertThat(used.catalogKey).isEqualTo("shared")
         assertThat(used.declared).isTrue()
         assertThat(used.release).`as`("no pin: it names a draft").isNull()
-        assertThat(used.draftName).isEqualTo("Next version")
+        assertThat(used.draftName).isEqualTo("Next release")
         assertThat(used.uses.map { Triple(it.type, it.key, it.name) }).containsExactly(Triple("theme", "brand", "Brand"))
         assertThat(used.publishAlong).`as`("its next version has nothing unpublished").isFalse()
         assertThat(borrowing.undeclared).isEmpty()

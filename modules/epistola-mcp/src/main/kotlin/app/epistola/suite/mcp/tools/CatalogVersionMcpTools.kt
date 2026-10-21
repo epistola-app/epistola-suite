@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component
 /**
  * The versions of a catalog that can be changed here (contract ADR 0002): its drafts, each released on its own, and
  * its releases. Every version has a `versionId`, which a draft keeps when it is released. Which draft
- * is the next version, where everyday work goes and which the content tools address by default, is a
+ * is the next release, where everyday work goes and which the content tools address by default, is a
  * convention of this suite. Each tool dispatches the command the UI and REST API use, so the same
  * refusals apply.
  */
@@ -44,9 +44,9 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "list_catalog_versions",
-        description = "List a catalog's versions: its drafts, the next version first (`isNext`, where everyday work " +
+        description = "List a catalog's drafts and releases: the next release first (`isNext`, where everyday work " +
             "goes, and the one the content tools use when `catalogVersion` is omitted), then the other drafts, then its " +
-            "releases, highest first. Every version has a `versionId`; a draft has no `version` until it is released. " +
+            "releases, highest first. Every draft and release has a `versionId`; a draft has no `version` number until it is released. " +
             "Pass a draft's `versionId` as `catalogVersion` to the content tools to read or change it. A draft lists the " +
             "releases it is `behind` for the number it would be released as: it does not contain their changes.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -81,7 +81,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "rename_draft",
-        description = "Give a draft another name; its `versionId` does not change. The next version has no name of its own. Requires the TEMPLATE_EDIT permission.",
+        description = "Give a draft another name; its `versionId` does not change. The next release has no name of its own. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun renameDraft(
@@ -97,7 +97,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "discard_draft",
-        description = "Discard a draft of a catalog that can be changed here and everything changed in it. Discarding the next version " +
+        description = "Discard a draft of a catalog that can be changed here and everything changed in it. Discarding the next release " +
             "(`next`) throws its changes away: it starts again as a copy of the latest release. Releases cannot be " +
             "deleted here. Refused while another catalog's draft builds on it, and while the draft alone holds something " +
             "used outside it, such as the tenant's default theme; the error names it. Confirm with the user first: this " +
@@ -136,13 +136,13 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "release_draft",
-        description = "Release a draft of a catalog that can be changed here (the next version unless `draft` names another), numbered " +
+        description = "Release a draft of a catalog that can be changed here (the next release unless `draft` names another), numbered " +
             "as its changes need against its base (`preview_release_number`) unless `version` asks for a higher free " +
             "number. Its changed resources must be marked ready (`get_catalog_changes`). A draft behind releases is " +
             "released only when `acknowledgedBehind` names every one. One that builds on drafts of other catalogs is " +
             "refused unless `releaseDependencies` releases those first. The draft becomes the release, keeping its " +
-            "`versionId`; the next version then continues on it. Parallel work released with `continueEverydayWork` " +
-            "becomes the next version on its release instead, and the previous next version is discarded with its " +
+            "`versionId`; the next release then continues on it. Parallel work released with `continueEverydayWork` " +
+            "becomes the next release on its release instead, and the previous next release is discarded with its " +
             "changes, or kept as parallel work under `keepPreviousAs`; nothing is merged, so confirm with the user. A release is immutable and can be deployed for " +
             "generation, so release only when the user asks to. Requires the CATALOG_RELEASE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
@@ -160,9 +160,9 @@ class CatalogVersionMcpTools {
         acknowledgedBehind: List<String>?,
         @McpToolParam(description = "Also release the drafts of other catalogs this draft builds on, first.", required = false)
         releaseDependencies: Boolean?,
-        @McpToolParam(description = "Releasing parallel work: everyday work continues from this release, which becomes the next version.", required = false)
+        @McpToolParam(description = "Releasing parallel work: everyday work continues from this release, which becomes the next release.", required = false)
         continueEverydayWork: Boolean? = null,
-        @McpToolParam(description = "With `continueEverydayWork`: keep the previous next version as parallel work under this name. Omit to discard it.", required = false)
+        @McpToolParam(description = "With `continueEverydayWork`: keep the previous next release as parallel work under this name. Omit to discard it.", required = false)
         keepPreviousAs: String? = null,
     ): CatalogReleaseInfo {
         val catalogKey = CatalogKey.of(catalogId)
@@ -183,7 +183,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "preview_merge",
-        description = "Alpha. What merging a release of the catalog into a draft (the next version unless `draft` names " +
+        description = "Alpha. What merging a release of the catalog into a draft (the next release unless `draft` names " +
             "another) would do, without changing anything: per resource a side changed, `THEIRS` (only the release " +
             "changed it: taken), `OURS` (only the draft did: it stays) or `CONFLICT` (both did: the user chooses). Use it " +
             "for a release the draft is `behind` (`list_catalog_versions`), and show the user the conflicts before " +
@@ -204,7 +204,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "merge_release",
-        description = "Alpha. Merge a release of the catalog into a draft (the next version unless `draft` names another): " +
+        description = "Alpha. Merge a release of the catalog into a draft (the next release unless `draft` names another): " +
             "what only the release changed is taken from it, what only the draft changed stays, and every `CONFLICT` from " +
             "`preview_merge` is resolved by `resolutions`, which the user chooses. Afterwards the draft is no longer behind " +
             "the release. Refused when a conflict has no resolution, when the release removes something the draft still " +

@@ -235,11 +235,12 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a name in use or that reads as the next version, an unknown release, an unknown draft and a catalog the suite supplies are refused`() {
+    fun `a name in use or that reads as the next release, an unknown release, an unknown draft and a catalog the suite supplies are refused`() {
         val tenant = released("drafts-refused")
         work(tenant, "Redesign")
         assertThatThrownBy { work(tenant, "redesign") }.`as`("names tell drafts apart, whatever their case").isInstanceOf(CatalogDraftNameInUseException::class.java)
-        assertThatThrownBy { work(tenant, "Next version") }.isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { work(tenant, "next release") }.`as`("what the next release is called").isInstanceOf(ValidationException::class.java)
+        assertThatThrownBy { work(tenant, "Next version") }.`as`("what it was called before, which may still be typed").isInstanceOf(ValidationException::class.java)
         assertThatThrownBy { work(tenant, "  ") }.isInstanceOf(ValidationException::class.java)
         assertThatThrownBy { work(tenant, "Other", from = "1.5.0") }.isInstanceOf(CatalogVersionNotFoundException::class.java)
         // A message naming a draft runs on it, so one that does not exist is refused.

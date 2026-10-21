@@ -252,7 +252,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         }
             .`as`("the declaration names shared's draft, which a release cannot pin")
             .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
-            .hasMessageContaining("shared (Next version)")
+            .hasMessageContaining("shared (Next release)")
     }
 
     @Test

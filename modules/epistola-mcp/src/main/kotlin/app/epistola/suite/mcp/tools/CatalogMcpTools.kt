@@ -114,7 +114,7 @@ class CatalogMcpTools(
         description = "Replace the catalogs a catalog that can be changed here depends on, in the order given. Each names " +
             "another catalog of this tenant by key and pins the exact `release` of it to render with (not a " +
             "range), or, to build on work not released yet, one of its drafts by `draftId`. Neither: its highest " +
-            "release. Using another catalog's resource declares that catalog by itself, naming its next version. " +
+            "release. Using another catalog's resource declares that catalog by itself, naming its next release. " +
             "Releasing a catalog that builds on a draft needs that draft released first, or along " +
             "(`release_draft` with `releaseDependencies`). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),

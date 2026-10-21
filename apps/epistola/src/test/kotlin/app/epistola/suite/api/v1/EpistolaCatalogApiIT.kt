@@ -100,7 +100,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val byId = restTemplate.exchange(versionPath(tenantKey, catalogSlug, before), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
         assertThat(JsonPath.read<String>(byId, "$.version")).`as`("its id addresses the release").isEqualTo("1.0.0")
         val next = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
-        assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next release")
         assertThat(JsonPath.read<String>(next, "$.releaseId")).isNotEqualTo(before)
         assertThat(JsonPath.read<String?>(next, "$.version")).`as`("numbered only when released").isNull()
         assertThat(JsonPath.read<String>(next, "$.base")).isEqualTo("1.0.0")
@@ -228,7 +228,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work/themes/tha").body!!, "$.name")).isEqualTo("Th, redesigned")
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
         val listed = call(HttpMethod.GET, versions).body!!
-        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next version", "Redesign", null)
+        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next release", "Redesign", null)
         assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].version")).containsExactly(null, null, "1.0.0")
 
         val renamed = call(HttpMethod.PATCH, "$versions/$work", """{"name":"Redesign 2027"}""")

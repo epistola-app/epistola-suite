@@ -87,8 +87,8 @@ class CatalogUpgradeAbortedException(
  */
 class CatalogHasLocalChangesException(val catalogKey: CatalogKey, val changed: Set<String>) :
     RuntimeException(
-        "Catalog '${catalogKey.value}' has changes of its own in its next version (${changed.joinToString()}). " +
-            "Install the new release beside the others, then merge it into the next version.",
+        "Catalog '${catalogKey.value}' has changes of its own in its next release (${changed.joinToString()}). " +
+            "Install the new release beside the others, then merge it into the next release.",
     )
 
 class CatalogUpgradeConflictException(
