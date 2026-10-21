@@ -78,4 +78,17 @@ class DraftMergeTest {
 
         assertThat(DraftMerge.mergeBase("9.0.0", setOf("1.0.0"), mapOf("9.0.0" to null)::get)).isNull()
     }
+
+    @Test
+    fun `the merge base by lineage carries the fingerprint the line names it by, and a release naming no base ends its line`() {
+        val lines = mapOf(
+            "1.1.0" to DraftMerge.MadeFrom("1.0.0", "v5:aaa"),
+            "1.0.1" to DraftMerge.MadeFrom("1.0.0", "v5:bbb"),
+        )
+        val contained = DraftMerge.contained("1.1.0", emptyList()) { lines[it]?.version }
+
+        assertThat(DraftMerge.mergeBaseOf("1.0.1", contained, lines::get)).isEqualTo(DraftMerge.MadeFrom("1.0.0", "v5:bbb"))
+        // 2.0.1 records no base: 2.0.0 below it is not taken for one.
+        assertThat(DraftMerge.mergeBaseOf("2.0.1", setOf("2.0.0"), lines::get)).isNull()
+    }
 }

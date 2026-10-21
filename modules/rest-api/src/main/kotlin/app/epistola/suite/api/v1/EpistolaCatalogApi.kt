@@ -16,6 +16,7 @@ import app.epistola.api.model.CatalogDraftMergeResource
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
+import app.epistola.api.model.CatalogMergeBaseRef
 import app.epistola.api.model.CatalogMergeOutcome
 import app.epistola.api.model.CatalogPresetDto
 import app.epistola.api.model.CatalogReleaseDto
@@ -358,6 +359,7 @@ class EpistolaCatalogApi(
                 },
                 unchanged = preview.resources.count { it.outcome in quiet },
                 token = preview.token,
+                missingBase = preview.missingBase?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint) },
             ),
         )
     }

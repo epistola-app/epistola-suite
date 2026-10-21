@@ -8,10 +8,12 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
@@ -28,6 +30,7 @@ import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -455,6 +458,33 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val merged = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$current"}""")
         assertThat(merged.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(merged.body!!, "$.kept")).containsExactly("theme/tha")
+    }
+
+    @Test
+    fun `without the merge base the preview names it and classifies nothing, and the merge is refused with merge-base-missing`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val producer = createTenant("Merge Base Producer").id
+        val slug = "merge-base-api"
+        val fingerprint = withMediator {
+            val lines = mediator.parallelReleaseLines(producer, CatalogKey.of(slug))
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101).execute()
+            ListCatalogReleases(producer, CatalogKey.of(slug)).query().single { it.version == "1.0.0" }.fingerprint
+        }
+        val next = versionPath(tenantKey, slug, "next")
+
+        val preview = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(preview.body!!, "$.missingBase.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.missingBase.fingerprint")).isEqualTo(fingerprint)
+        assertThat(JsonPath.read<List<Any>>(preview.body!!, "$.resources")).isEmpty()
+        assertThat(JsonPath.read<Int>(preview.body!!, "$.unchanged")).isZero()
+
+        val merge = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity("""{"release":"1.0.1"}""", baseHeaders(apiKey)), String::class.java)
+        assertThat(merge.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(merge.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-base-missing")
+        assertThat(JsonPath.read<String>(merge.body!!, "$.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(merge.body!!, "$.fingerprint")).isEqualTo(fingerprint)
     }
 
     private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }

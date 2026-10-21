@@ -25,6 +25,7 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
@@ -569,6 +570,13 @@ object ApiExceptionMappings {
 
         // The contract's merge request carries no preview token yet, so REST never sends one; mapped
         // for when it does, to the generic conflict until the contract names its own problem type.
+        builder.register<MergeBaseMissingException>(
+            problemType = ApiProblemTypes.MERGE_BASE_MISSING,
+            defaultDetail = "This installation does not have the release both the draft and the release come from; get it first",
+            extensions = { mapOf("version" to it.version, "fingerprint" to it.fingerprint) },
+            logMessage = { "Merge refused, merge base missing: ${it.message}" },
+        )
+
         builder.register<MergePreviewOutdatedException>(
             problemType = ApiProblemTypes.MERGE_PREVIEW_OUTDATED,
             defaultDetail = "The draft or the release changed since the preview; preview again",

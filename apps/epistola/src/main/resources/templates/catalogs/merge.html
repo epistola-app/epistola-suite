@@ -11,7 +11,9 @@
     Model (CatalogMergeHandler): `tenantId`, `catalogId` (the catalog segment), `preview`
     (DraftMergePreview, whose `token` the form sends back), `releaseLabel` (`v1.1.0`), `taken`, `kept`
     and `conflicts` (MergeRowView; a catalog setting, such as the default theme, is a row like a resource),
-    `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`.
+    `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`. Without the
+    merge base (`preview.missingBase`) nothing is compared and there is no Merge button; without any release
+    both come from (`preview.noCommonRelease`) every difference is a conflict, and the dialog says why.
     -->
     <th:block th:fragment="merge-dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
@@ -45,7 +47,18 @@
                 <span th:text="${releaseLabel}">v1.1.0</span>. There is nothing to merge.
             </p>
 
-            <th:block th:unless="${preview.alreadyMerged}">
+            <!--/* The release both lines come from is not here: nothing can be compared until it is. */-->
+            <div th:if="${!preview.alreadyMerged and preview.missingBase != null}" class="alert alert-warning" data-testid="catalog-merge-missing-base">
+                <span th:text="'To merge ' + ${releaseLabel} + ', this installation needs v' + ${preview.missingBase.version} + ', the release both come from. Get it first (from a registry, the Exchange or a file).'">
+                    To merge v1.0.1, this installation needs v1.0.0, the release both come from. Get it first (from a registry, the Exchange or a file).</span>
+            </div>
+
+            <th:block th:unless="${preview.alreadyMerged or preview.missingBase != null}">
+                <p th:if="${preview.noCommonRelease}" class="alert alert-info" data-testid="catalog-merge-no-common-release">
+                    No release that both <span th:text="${preview.draftLabel}">Next release</span> and
+                    <span th:text="${releaseLabel}">v1.1.0</span> come from is known here, so every difference between
+                    them is a choice: nothing is taken or kept without asking.
+                </p>
                 <p th:unless="${preview.changesDraft}" data-testid="catalog-merge-nothing">
                     Nothing in <span th:text="${releaseLabel}">v1.1.0</span> needs to change here: what it changed is
                     already the same in this draft. Merging only records that this draft now contains it.
@@ -116,7 +129,7 @@
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="catalog-merge-dialog">Cancel</button>
-            <button th:unless="${preview.alreadyMerged}" type="submit" class="ep-btn ep-btn-primary"
+            <button th:unless="${preview.alreadyMerged or preview.missingBase != null}" type="submit" class="ep-btn ep-btn-primary"
                     data-testid="catalog-merge-submit" th:text="${preview.changesDraft} ? 'Merge' : 'Record as merged'">Merge</button>
         </div>
     </form>

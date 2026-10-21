@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
@@ -312,6 +313,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         MergeRefusedException::class,
         MergeNotApplicableException::class,
         MergePreviewOutdatedException::class,
+        MergeBaseMissingException::class,
         CatalogNotFoundException::class,
         CatalogNotUpgradeableException::class,
         CatalogReleaseVersionException::class,

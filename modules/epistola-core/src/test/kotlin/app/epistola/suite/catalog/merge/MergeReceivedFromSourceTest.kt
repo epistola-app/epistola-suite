@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -59,14 +60,18 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
         val a = createTenant("Merge Source A").id
         val b = createTenant("Merge Source B").id
         val v1 = fixture(tmp.resolve("v1"), "1.0.0")
-        val v2 = fixture(tmp.resolve("v2"), "1.1.0") { dir ->
-            val theme = dir.resolve("resources/themes/test-theme.json")
-            theme.writeText(theme.readText().replace("\"fontSize\": \"11pt\"", "\"fontSize\": \"12pt\""))
-        }
         withMediator {
-            // A installs 1.0.0 from its source; B installs 1.1.0, which changed the theme, from another.
+            // A installs 1.0.0 from its source.
             RegisterCatalog(tenantKey = a, sourceUrl = v1, authType = AuthType.NONE).execute()
             assertThat(InstallFromCatalog(tenantKey = a, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
+            val v1Fingerprint = ListCatalogReleases(a, depKey).query().single { it.version == "1.0.0" }.fingerprint
+            // B installs 1.1.0, which changed the theme and says it was made from 1.0.0, from another.
+            val v2 = fixture(tmp.resolve("v2"), "1.1.0") { dir ->
+                val theme = dir.resolve("resources/themes/test-theme.json")
+                theme.writeText(theme.readText().replace("\"fontSize\": \"11pt\"", "\"fontSize\": \"12pt\""))
+                val manifest = dir.resolve("catalog.json")
+                manifest.writeText(manifest.readText().replace("\"version\": \"1.1.0\"", "\"version\": \"1.1.0\", \"base\": {\"version\": \"1.0.0\", \"fingerprint\": \"$v1Fingerprint\"}"))
+            }
             RegisterCatalog(tenantKey = b, sourceUrl = v2, authType = AuthType.NONE).execute()
             assertThat(InstallFromCatalog(tenantKey = b, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
             val archive = ExportCatalogZip(b, depKey, "1.1.0").execute().zipBytes

@@ -5,6 +5,8 @@
 package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
 import app.epistola.suite.catalog.versions.CatalogVersionHeldException
@@ -22,6 +24,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -261,5 +264,24 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
             assertThat(versionTools.previewMerge("default", fixRelease, null).alreadyMerged).isTrue()
             assertThat(versionTools.listCatalogVersions("default", "DRAFT").single { it.isNext }.behind).isEmpty()
         }
+    }
+
+    @Test
+    fun `a merge whose merge base this installation lacks names the release to get, and is refused`() {
+        val producer = createTenant("MCP Lineage Producer ${UUID.randomUUID()}").id
+        val tenantId = newTenant()
+        withMediator {
+            val lines = mediator.parallelReleaseLines(producer, CatalogKey.of("mcp-lines"))
+            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v110).execute()
+            ImportCatalogZip(tenantKey = tenantId.key, zipBytes = lines.v101).execute()
+        }
+
+        val preview = runAsApiKey(tenantId) { versionTools.previewMerge("mcp-lines", "1.0.1", null) }
+        assertThat(preview.missingBase?.version).isEqualTo("1.0.0")
+        assertThat(preview.resources).isEmpty()
+        assertThat(preview.notice).isEqualTo("To merge v1.0.1, this installation needs v1.0.0, the release both come from. Get it first (from a registry, the Exchange or a file).")
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.mergeRelease("mcp-lines", "1.0.1", null, null) } }
+            .isInstanceOf(MergeBaseMissingException::class.java)
+            .hasMessageContaining("needs v1.0.0")
     }
 }

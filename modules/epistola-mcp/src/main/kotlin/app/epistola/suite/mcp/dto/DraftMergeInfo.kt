@@ -22,6 +22,13 @@ data class DraftMergeInfo(
     val unchanged: Int,
     /** Names the state this preview shows; `merge_release` given it refuses once something changed. */
     val token: String,
+    /**
+     * The release both the draft and the release come from, which this installation does not have:
+     * nothing is compared until it is installed, and `merge_release` is refused.
+     */
+    val missingBase: MergeBaseInfo? = null,
+    /** What the user needs to know first: the release to get, or that no release both come from is known. */
+    val notice: String? = null,
 ) {
     companion object {
         fun from(preview: DraftMergePreview) = DraftMergeInfo(
@@ -32,11 +39,25 @@ data class DraftMergeInfo(
             resources = preview.resources.filter { it.outcome !in QUIET }.map(MergeResourceInfo::from),
             unchanged = preview.resources.count { it.outcome in QUIET },
             token = preview.token,
+            missingBase = preview.missingBase?.let { MergeBaseInfo(it.version, it.fingerprint) },
+            notice = when {
+                preview.missingBase != null ->
+                    "To merge v${preview.release}, this installation needs v${preview.missingBase!!.version}, the release both come from. " +
+                        "Get it first (from a registry, the Exchange or a file)."
+
+                preview.noCommonRelease ->
+                    "No release both the draft and v${preview.release} come from is known, so every difference is a CONFLICT for the user to choose."
+
+                else -> null
+            },
         )
 
         private val QUIET = setOf(MergeOutcome.UNCHANGED, MergeOutcome.SAME)
     }
 }
+
+/** A release by its number and its catalog fingerprint. */
+data class MergeBaseInfo(val version: String, val fingerprint: String)
 
 /**
  * One resource of a merge: [resource] is `type/key`, as a resolution names it. [outcome] is `OURS`

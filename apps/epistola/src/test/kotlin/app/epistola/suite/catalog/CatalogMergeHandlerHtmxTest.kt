@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
@@ -26,6 +27,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -50,6 +52,9 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
+
+    @Autowired
+    private lateinit var objectMapper: tools.jackson.databind.ObjectMapper
 
     private val letters = CatalogKey.of("letters")
 
@@ -248,7 +253,75 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    @Test
+    fun `without the release both come from the dialog says which to get, and offers no merge`() = fixture {
+        lateinit var tenant: Tenant
+        given {
+            val producer = tenant("Merge Lineage Producer")
+            tenant = tenant("Merge Lineage Receiver")
+            withMediator {
+                val lines = mediator.parallelReleaseLines(producer.id, CatalogKey.of("lines-ui"))
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v101).execute()
+            }
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/lines-ui/merge?release=1.0.1").body!! }
+        then {
+            assertThat(result<String>()).contains("data-testid=\"catalog-merge-missing-base\"")
+                .contains("To merge v1.0.1, this installation needs v1.0.0, the release both come from. Get it first (from a registry, the Exchange or a file).")
+                .doesNotContain("data-testid=\"catalog-merge-submit\"")
+            val refused = postForm("/tenants/${tenant.id}/catalogs/lines-ui/merge", mapOf("release" to "1.0.1"))
+            assertThat(refused.statusCode.value()).isEqualTo(422)
+            assertThat(refused.body!!).contains("data-testid=\"catalog-merge-refused\"").contains("needs v1.0.0")
+        }
+    }
+
+    @Test
+    fun `when no release both come from is known the dialog says every difference is a choice`() = fixture {
+        lateinit var tenant: Tenant
+        given {
+            val producer = tenant("Merge No Lineage Producer")
+            tenant = tenant("Merge No Lineage Receiver")
+            withMediator {
+                val lines = mediator.parallelReleaseLines(producer.id, CatalogKey.of("no-lines-ui"))
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = lines.v110).execute()
+                ImportCatalogZip(tenantKey = tenant.id, zipBytes = withoutBase(lines.v101)).execute()
+            }
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/no-lines-ui/merge?release=1.0.1").body!! }
+        then {
+            assertThat(result<String>()).contains("data-testid=\"catalog-merge-no-common-release\"")
+                .contains("every difference between")
+                .contains("name=\"resolution[theme/brand]\"")
+                .contains("data-testid=\"catalog-merge-submit\"")
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────
+
+    /** [archive] as a release from before releases named their base. */
+    private fun withoutBase(archive: ByteArray): ByteArray {
+        val entries = LinkedHashMap<String, ByteArray>()
+        java.util.zip.ZipInputStream(archive.inputStream()).use { zip ->
+            var e = zip.nextEntry
+            while (e != null) {
+                if (!e.isDirectory) entries[e.name] = zip.readAllBytes()
+                e = zip.nextEntry
+            }
+        }
+        val manifest = objectMapper.readTree(entries["catalog.json"]!!) as tools.jackson.databind.node.ObjectNode
+        (manifest.get("release") as tools.jackson.databind.node.ObjectNode).remove("base")
+        entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+        val out = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use { zip ->
+            entries.forEach { (name, data) ->
+                zip.putNextEntry(java.util.zip.ZipEntry(name))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        return out.toByteArray()
+    }
 
     private fun get(url: String): ResponseEntity<String> = restTemplate.getForEntity(url, String::class.java)
 

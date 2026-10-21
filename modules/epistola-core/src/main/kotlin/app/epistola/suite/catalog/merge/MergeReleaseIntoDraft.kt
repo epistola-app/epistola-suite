@@ -36,8 +36,9 @@ import tools.jackson.databind.ObjectMapper
  * Refused when the draft already contains [release] (its base, or merged before;
  * [MergeNotApplicableException]), when [expectedToken] names another state than the one the merge
  * starts from ([MergePreviewOutdatedException]), when a conflict has no resolution
- * ([MergeConflictsUnresolvedException]), and when a resource the release removed is still used
- * ([MergeRefusedException]).
+ * ([MergeConflictsUnresolvedException]), when a resource the release removed is still used
+ * ([MergeRefusedException]), and when this installation does not have the merge base the lineage
+ * names ([MergeBaseMissingException]).
  */
 data class MergeReleaseIntoDraft(
     override val tenantKey: TenantKey,
@@ -75,6 +76,20 @@ class MergeNotApplicableException(val catalogKey: CatalogKey, override val messa
 /** The draft or the release changed since the preview a merge was confirmed against. */
 class MergePreviewOutdatedException(val catalogKey: CatalogKey, val release: String) : RuntimeException("The draft or $release changed since the preview; preview again")
 
+/**
+ * A merge whose merge base this installation does not have: [version] (with [fingerprint]), the
+ * release the draft and [release] both descend from (contract ADR 0005). Getting it first, from a
+ * registry, the Exchange or a file, makes the merge possible.
+ */
+class MergeBaseMissingException(
+    val catalogKey: CatalogKey,
+    val release: String,
+    val version: String,
+    val fingerprint: String,
+) : RuntimeException(
+    "To merge v$release, this installation needs v$version, the release both come from. Get it first (from a registry, the Exchange or a file).",
+)
+
 /** A merge that cannot be applied as asked; [message] says why. */
 class MergeRefusedException(val catalogKey: CatalogKey, override val message: String) : RuntimeException(message)
 
@@ -100,6 +115,7 @@ class MergeReleaseIntoDraftHandler(
             throw MergeNotApplicableException(catalogKey, "${draft.label} of '${catalogKey.value}' already contains ${command.release}")
         }
         if (command.expectedToken != null && command.expectedToken != plan.token) throw MergePreviewOutdatedException(catalogKey, command.release)
+        plan.inputs.missingBase?.let { throw MergeBaseMissingException(catalogKey, command.release, it.version, it.fingerprint) }
 
         val conflicts = plan.resources.filter { it.outcome == MergeOutcome.CONFLICT }.map { it.contentKey }
         val stray = command.resolutions.keys - conflicts.toSet()

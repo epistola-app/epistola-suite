@@ -36,7 +36,9 @@ class DraftMergePlanner(
         val (base, ours, theirs) = Triple(read.base, read.ours, read.theirs)
         // A resource is called what the draft calls it, else what the release does, else the base.
         val names = base.names + theirs.names + ours.names
-        val entries = (base.values.keys + ours.values.keys + theirs.values.keys).sorted().map { key ->
+        // Without the merge base it names, nothing can be classified (contract ADR 0005).
+        val keys = if (read.missingBase != null) emptyList() else (base.values.keys + ours.values.keys + theirs.values.keys).sorted()
+        val entries = keys.map { key ->
             val setting = (ours.values[key] ?: theirs.values[key] ?: base.values[key]) as? MergeValue.Setting
             MergeEntrySides(key, setting?.setting?.label ?: names[key], base.values[key], ours.values[key], theirs.values[key], heldBase = read.heldBase[key])
         }
@@ -59,6 +61,7 @@ class DraftMergePlanner(
             val text = listOf(
                 "release ${inputs.release}",
                 "base ${inputs.mergeBase.orEmpty()}",
+                "missing ${inputs.missingBase?.let { "${it.version} ${it.fingerprint}" }.orEmpty()}",
                 side("base", inputs.base),
                 inputs.heldBase.toSortedMap().entries.joinToString("\n") { "held ${it.key} ${it.value}" },
                 side("ours", inputs.ours),

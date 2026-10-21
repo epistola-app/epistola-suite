@@ -91,6 +91,7 @@ object ApiProblemTypes {
     val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog cannot be changed in this installation: the installation only receives and runs releases, or Epistola supplies the catalog.", listOf("catalogKey", "readOnlyReason"))
     val MERGE_CONFLICTS_UNRESOLVED = problem("MERGE_CONFLICTS_UNRESOLVED", "Merge Conflicts Unresolved", HttpStatus.CONFLICT, "A resource changed in both the draft and the release has no resolution; `unresolvedConflicts` lists them.", listOf("unresolvedConflicts"))
     val MERGE_REFUSED = problem("MERGE_REFUSED", "Merge Refused", HttpStatus.CONFLICT, "The release removes something the draft still uses.", emptyList())
+    val MERGE_BASE_MISSING = problem("MERGE_BASE_MISSING", "Merge Base Missing", HttpStatus.CONFLICT, "This installation does not have the merge base, the release both the draft and the release come from; `version` and `fingerprint` name it, to get first.", listOf("version", "fingerprint"))
     val MERGE_PREVIEW_OUTDATED = problem("MERGE_PREVIEW_OUTDATED", "Merge Preview Outdated", HttpStatus.CONFLICT, "The draft or the release changed since the preview whose token the request sent as expectedToken; preview again.", emptyList())
     val MERGE_NOT_APPLICABLE = problem("MERGE_NOT_APPLICABLE", "Merge Not Applicable", HttpStatus.UNPROCESSABLE_CONTENT, "The draft already contains the release, or a resolution names something that is not a conflict.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
@@ -174,6 +175,7 @@ object ApiProblemTypes {
         MERGE_CONFLICTS_UNRESOLVED,
         MERGE_REFUSED,
         MERGE_PREVIEW_OUTDATED,
+        MERGE_BASE_MISSING,
         MERGE_NOT_APPLICABLE,
         CATALOG_NOT_FOUND,
         CATALOG_VERSION_NOT_FOUND,

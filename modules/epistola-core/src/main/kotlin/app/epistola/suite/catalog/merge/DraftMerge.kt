@@ -99,15 +99,25 @@ object DraftMerge {
      * started from 1.0.0 and released as 1.0.1 does not remove what the draft's base 1.1.0 added
      * since 1.0.0. Null when they share no release.
      */
-    fun mergeBase(release: String, contained: Set<String>, baseOf: (String) -> String?): String? {
+    fun mergeBase(release: String, contained: Set<String>, baseOf: (String) -> String?): String? = mergeBaseOf(release, contained) { r -> baseOf(r)?.let { MadeFrom(it, null) } }?.version
+
+    /**
+     * [mergeBase] by the lineage each release records ([madeFrom], never a guess from the numbers,
+     * contract ADR 0005), with the fingerprint the release it was reached from names it by: the
+     * merge base the line means, which an installed release of that number must match.
+     */
+    fun mergeBaseOf(release: String, contained: Set<String>, madeFrom: (String) -> MadeFrom?): MadeFrom? {
         val seen = mutableSetOf<String>()
-        var current: String? = release
-        while (current != null && seen.add(current)) {
-            if (current in contained) return current
-            current = baseOf(current)
+        var current = MadeFrom(release, null)
+        while (seen.add(current.version)) {
+            if (current.version in contained) return current
+            current = madeFrom(current.version) ?: return null
         }
         return null
     }
+
+    /** The release a release was made from ([version]), by the [fingerprint] it named it with, when it did. */
+    data class MadeFrom(val version: String, val fingerprint: String?)
 
     fun classify(
         base: Map<String, String>,

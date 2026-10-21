@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.merge.DraftMergePreview
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeChange
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
@@ -118,6 +119,8 @@ class CatalogMergeHandler {
                     "Choose which one to keep for each of the ${e.conflicts.size} changes made on both sides."
                 },
             )
+        } catch (e: MergeBaseMissingException) {
+            return reRender(e.message ?: "This installation does not have the release both come from.")
         } catch (e: MergeRefusedException) {
             return reRender(e.message)
         } catch (e: MergeNotApplicableException) {

@@ -188,7 +188,9 @@ class CatalogVersionMcpTools {
             "changed it: taken), `OURS` (only the draft did: it stays) or `CONFLICT` (both did: the user chooses). The " +
             "catalog's settings are entries too: `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`. Use it " +
             "for a release the draft is `behind` (`list_catalog_versions`), and show the user the conflicts before " +
-            "`merge_release`; pass its `token` there.",
+            "`merge_release`; pass its `token` there. When this installation lacks the release both come from, " +
+            "`missingBase` names it and nothing is compared: get it first. Without any release both come from, every " +
+            "difference is a `CONFLICT`; `notice` says either.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun previewMerge(
@@ -209,8 +211,9 @@ class CatalogVersionMcpTools {
             "what only the release changed is taken from it, what only the draft changed stays, and every `CONFLICT` from " +
             "`preview_merge` is resolved by `resolutions`, which the user chooses. Afterwards the draft is no longer behind " +
             "the release. Refused when a conflict has no resolution, when the release removes something the draft still " +
-            "uses, when the draft already contains the release, and when `token` is given and the draft or the release " +
-            "changed since that preview (preview again). Requires the TEMPLATE_EDIT permission.",
+            "uses, when the draft already contains the release, when this installation lacks the release both come from " +
+            "(get it first), and when `token` is given and the draft or the release changed since that preview (preview " +
+            "again). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun mergeRelease(

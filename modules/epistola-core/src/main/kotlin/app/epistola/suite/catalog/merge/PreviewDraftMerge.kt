@@ -49,7 +49,18 @@ data class DraftMergePreview(
     val resources: List<MergeResource>,
     /** Names the state this preview shows; a merge given it refuses once the draft or the release changed. */
     val token: String = "",
+    /**
+     * The merge base the lines descend from that this installation does not have: nothing is
+     * classified ([resources] is empty) and merging is refused until it is installed.
+     */
+    val missingBase: MergeBaseRef? = null,
 ) {
+    /**
+     * Whether no release both the draft and [release] descend from is known (no recorded lineage
+     * meets): every entry the two have differently is then a choice, never a guess.
+     */
+    val noCommonRelease: Boolean get() = base == null && missingBase == null && !alreadyMerged
+
     val conflicts: List<MergeResource> get() = resources.filter { it.outcome == MergeOutcome.CONFLICT }
 
     /** What the merge takes from the release without asking. */
@@ -80,4 +91,5 @@ internal fun MergePlan.toPreview(catalogKey: CatalogKey) = DraftMergePreview(
     alreadyMerged = inputs.release in inputs.contained,
     resources = resources,
     token = token,
+    missingBase = inputs.missingBase,
 )
