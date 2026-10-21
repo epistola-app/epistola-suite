@@ -17,7 +17,9 @@ import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -159,6 +161,39 @@ class ReceivedCatalogTest : IntegrationTestBase() {
                 .isInstanceOf(CatalogReadOnlyException::class.java)
                 .hasMessageContaining("Epistola supplies this catalog")
             assertThat(next(tenant, SYSTEM_CATALOG_KEY).base).`as`("its next version is on the release it installed").isNotNull()
+        }
+    }
+
+    @Test
+    fun `the editability of every catalog at once agrees with each one's`() {
+        val author = createTenant("Received List A").id
+        val receiver = createTenant("Received List B").id
+        val catalog = CatalogKey.of("received-list")
+        withMediator {
+            ImportCatalogZip(receiver, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+
+            val all = ListCatalogEditability(receiver).query()
+            assertThat(all.byCatalog.keys).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
+            all.byCatalog.forEach { (key, editability) -> assertThat(editability).`as`(key.value).isEqualTo(GetCatalogEditability(receiver, key).query()) }
+            assertThat(all.editableKeys).contains(catalog, CatalogKey.DEFAULT).doesNotContain(SYSTEM_CATALOG_KEY)
+            assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+            assertThat(all.editable(CatalogKey.of("not-here"))).isFalse()
+        }
+    }
+
+    @Test
+    fun `an import that names a type only for a new catalog creates one received, and leaves a catalog the tenant has alone`() {
+        val author = createTenant("Received New A").id
+        val receiver = createTenant("Received New B").id
+        val catalog = CatalogKey.of("received-new")
+        withMediator {
+            val archive = authored(author, catalog)
+            ImportCatalogZip(receiver, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
+            assertThat(GetCatalog(receiver, catalog).query()?.type).isEqualTo(CatalogType.SUBSCRIBED)
+
+            // The author's own catalog, made here: the same import is no conflict, and it keeps its type.
+            ImportCatalogZip(author, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
+            assertThat(GetCatalog(author, catalog).query()?.type).isEqualTo(CatalogType.AUTHORED)
         }
     }
 }

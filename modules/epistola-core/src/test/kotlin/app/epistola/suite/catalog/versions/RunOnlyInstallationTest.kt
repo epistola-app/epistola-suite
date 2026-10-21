@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -33,6 +35,11 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("run-only")
         withMediator {
             assertThat(GetCatalogEditability(tenant, CatalogKey.DEFAULT).query().reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
+            ListCatalogEditability(tenant).query().let { all ->
+                assertThat(all.editableKeys).isEmpty()
+                assertThat(all.of(CatalogKey.DEFAULT)?.reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
+                assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).`as`("supplied wins: it is not changed even where editing is on").isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+            }
             assertThatThrownBy { CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.DEFAULT, TenantId(tenant))), name = "Brand").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
                 .hasMessageContaining("only receives and runs releases")

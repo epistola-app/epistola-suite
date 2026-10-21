@@ -67,6 +67,17 @@ data class Catalog(
     /** Its releases come from a source that can be asked for newer ones (ADR 0032, section 7). */
     val hasSource: Boolean get() = sourceUrl != null
 
+    /**
+     * Its highest release, released here or received ([installedReleaseVersion]), by version
+     * number; null when it has none. A received catalog can be released here too (ADR 0032), so
+     * neither pointer alone is the highest.
+     */
+    val highestReleaseVersion: String? get() = listOfNotNull(releasedVersion, installedReleaseVersion)
+        .maxWithOrNull(compareBy(nullsFirst()) { SemVer.parseOrNull(it) })
+
+    /** The fingerprint of [highestReleaseVersion]. */
+    val highestReleaseFingerprint: String? get() = if (highestReleaseVersion != null && highestReleaseVersion == releasedVersion) releasedFingerprint else installedFingerprint
+
     companion object {
         const val CLASSPATH_SOURCE = "classpath:"
     }

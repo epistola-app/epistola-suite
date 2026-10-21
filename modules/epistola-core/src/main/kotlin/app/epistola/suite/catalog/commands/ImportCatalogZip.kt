@@ -69,8 +69,8 @@ import java.io.ByteArrayInputStream
  *
  * - The same number with the same fingerprint is the release the tenant has: nothing changes.
  * - The same number with another fingerprint is refused ([CatalogImportConflictException]).
- * - A new catalog is created with [catalogType], which it then must name, holding that release and
- *   no draft. A catalog the tenant has keeps its type: naming the other one is refused.
+ * - A new catalog is created with [catalogType], else [newCatalogType] (the web UI, which does not ask:
+ *   ADR 0032), holding that release. A catalog the tenant has keeps its type: naming another is refused.
  * - The releases it pins must be present, with the fingerprints they were pinned with
  *   ([CatalogImportDependenciesMissingException]).
  *
@@ -86,6 +86,7 @@ data class ImportCatalogZip(
     val zipBytes: ByteArray,
     /** The type of the catalog the import creates; null for a catalog the tenant has. */
     val catalogType: CatalogType? = null,
+    val newCatalogType: CatalogType? = null,
     /** How a [restore] treats local-only resources of an authored catalog. Internal. */
     internal val authoredMode: AuthoredImportMode = AuthoredImportMode.MERGE,
     /**
@@ -99,10 +100,9 @@ data class ImportCatalogZip(
      */
     val validateCrossCatalogDeps: Boolean = true,
     /**
-     * Set when the operator has confirmed updating an **AUTHORED** ZIP whose catalog
-     * schema version is below current but migratable. Without it such an import is
-     * not run — the handler raises [CatalogMigrationConfirmationRequiredException] so
-     * the UI can prompt. The REST import sets it `true` (non-interactive).
+     * Set when the operator has confirmed updating an **AUTHORED** ZIP whose schema version is below
+     * current but migratable. Without it the handler raises [CatalogMigrationConfirmationRequiredException]
+     * so the UI can prompt. The REST import sets it `true` (non-interactive).
      */
     val confirmMigration: Boolean = false,
     /**
@@ -229,7 +229,7 @@ class ImportCatalogZipHandler(
         if (existing != null && command.catalogType != null && command.catalogType != existing.type) {
             throw CatalogImportConflictException("Catalog '${catalogKey.value}' is ${existing.type}; an import never changes a catalog's type.")
         }
-        val type = existing?.type ?: command.catalogType
+        val type = existing?.type ?: command.catalogType ?: command.newCatalogType
             ?: throw ValidationException("catalogType", "Name the type of the catalog this import creates: AUTHORED or SUBSCRIBED", ValidationCode.GENERIC)
         val version = manifest.release.version
         val published = manifest.release.fingerprint
