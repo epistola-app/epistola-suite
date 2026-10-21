@@ -11,7 +11,6 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.findCatalog
-import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.catalog.versions.HouseTheme
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -56,7 +55,6 @@ data class CreateCatalog(
 class CreateCatalogHandler(
     private val jdbi: Jdbi,
     private val identity: CatalogIdentityProperties,
-    private val drafts: CatalogDrafts,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
     private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<CreateCatalog, Catalog> {
@@ -67,8 +65,8 @@ class CreateCatalogHandler(
             val namespace = namespaceFor(handle, command)
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, created_at, updated_at)
-                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, created_at, updated_at)
+                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, NOW(), NOW())
                 """,
             )
                 .bind("id", command.id)
@@ -78,8 +76,7 @@ class CreateCatalogHandler(
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .execute()
-            // Its working copy is its next version, a convention of this suite.
-            drafts.open(handle, command.tenantKey, command.id, base = null)
+            // Its next version, where everyday work goes, is opened by the database with the row.
             // It starts with the tenant's house theme as its default theme (contract ADR 0007, 1a).
             houseThemeCatalog = HouseTheme.applyTo(handle, command.tenantKey, command.id)
 
