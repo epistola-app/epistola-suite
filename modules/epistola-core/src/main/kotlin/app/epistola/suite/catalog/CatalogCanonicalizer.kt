@@ -142,6 +142,20 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
         assetBytes = assetBytes,
     ).use(PortableCatalogCanonicalizer::currentPerResourceFingerprints)
 
+    /**
+     * [completePerResourceFingerprints] of resources given as their serialized details (a source's
+     * or an archive's, keyed `type/key`), with [assetBytes] for the binaries they name.
+     */
+    fun completePerResourceFingerprintsFromSerializedDetails(
+        serializedDetails: Map<String, ByteArray>,
+        assetBytes: (contentUrl: String) -> ByteArray?,
+    ): Map<String, String> = archive(
+        PLACEHOLDER_CATALOG,
+        serializedDetails,
+        null,
+        assetBytes = assetBytes,
+    ).use(PortableCatalogCanonicalizer::completePerResourceFingerprints)
+
     fun perResourceFingerprints(
         resourceDetails: Map<String, ResourceDetail>,
         assetBytes: (contentUrl: String) -> ByteArray?,

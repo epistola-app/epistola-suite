@@ -21,7 +21,6 @@ import app.epistola.catalog.validation.CatalogValidator
 import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
-import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
@@ -191,10 +190,10 @@ class ImportCatalogZipHandler(
     private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
     private val installer: CatalogResourceInstaller,
     private val receivedReleases: ReceivedReleases,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
-    private val canonicalizer = CatalogCanonicalizer(objectMapper)
 
     override fun handle(command: ImportCatalogZip): ImportCatalogZipResult {
         if (command.intoDraft || command.restore) return importArchive(command)
@@ -580,7 +579,7 @@ class ImportCatalogZipHandler(
                 catalogKey,
                 manifest.release.version,
                 manifest.release.fingerprint,
-                objectMapper.writeValueAsString(sourcePerResourceFingerprints(manifest, entries)),
+                fingerprints.storeBaseline(sourceResourceFingerprints(manifest, entries)),
                 manifest.catalog.name,
                 manifest.catalog.description,
                 catalogMetadataJson,
@@ -664,20 +663,18 @@ class ImportCatalogZipHandler(
     }
 
     /**
-     * Per-resource source-side digests from the ZIP bytes — the received release's
-     * upgrade-diff baseline, computed with the **exact same** canonicalization
-     * as a URL source ([CatalogCanonicalizer.perResourceFingerprintsFromSerializedDetails]),
-     * keyed `"$type/$slug"`, asset bytes folded in. Equals what the publisher
-     * stamped (deterministic round-trip).
+     * The received release's per-resource baseline from the ZIP bytes, by the same function as a URL
+     * source's ([app.epistola.suite.catalog.CatalogFingerprintService.resourceFingerprintsFromSource],
+     * the complete form), keyed `"$type/$key"`, asset bytes folded in.
      */
-    private fun sourcePerResourceFingerprints(
+    private fun sourceResourceFingerprints(
         manifest: CatalogManifest,
         entries: Map<String, ByteArray>,
     ): Map<String, String> {
         val detailBytesByKey = manifest.resources.mapNotNull { entry ->
             entries[entry.detailUrl.removePrefix("./")]?.let { "${entry.type}/${entry.key}" to it }
         }.toMap()
-        return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytesByKey) { contentUrl ->
+        return fingerprints.resourceFingerprints(detailBytesByKey) { contentUrl ->
             entries[contentUrl.removePrefix("./")]
         }
     }

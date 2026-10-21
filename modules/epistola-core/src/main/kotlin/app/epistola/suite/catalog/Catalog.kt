@@ -32,12 +32,14 @@ data class Catalog(
     val installedReleaseVersion: String? = null,
     val installedFingerprint: String? = null,
     /**
-     * Per-resource source-side digests (`"type/slug"` -> SHA-256) of the
-     * installed release, captured from the source manifest at register/upgrade.
-     * The source-vs-source baseline for [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade].
-     * Never publisher-authored; null for a catalog that never received a release.
+     * Per-resource source-side digests of the installed release as stored, captured from the source
+     * at register/upgrade: a baseline naming its function (`{"algorithm", "entries"}`), read with
+     * [CatalogFingerprintService.readBaseline], which counts one stored before baselines named theirs
+     * (a flat V3 map) as none. The source-vs-source baseline for
+     * [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]. Never
+     * publisher-authored; null for a catalog that never received a release.
      */
-    @Json val installedResourceFingerprints: Map<String, String>? = null,
+    @Json val installedResourceFingerprints: tools.jackson.databind.JsonNode? = null,
     @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
     val installedAt: OffsetDateTime? = null,
     val releasedVersion: String? = null,

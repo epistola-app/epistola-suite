@@ -139,10 +139,9 @@ class RecordInstalledReleaseHandler(
         val publisherFingerprint = if (command.release != null) command.release.fingerprint else catalog.installedFingerprint
         val fingerprint = publisherFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
             ?: fingerprintService.fingerprint(content)
-        // The publisher's per-resource digests where the install recorded them; a resource the
-        // manifest does not carry (the system catalog's seeded fonts) gets its own.
-        val resourceFingerprints = fingerprintService.perResourceFingerprints(content) +
-            (if (command.release == null) catalog.installedResourceFingerprints.orEmpty() else emptyMap())
+        // `release_entries.fingerprint` keeps the V3 form, of what the release holds. The installed
+        // baseline is of another function (the complete form), so it is not mixed in.
+        val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
 
         jdbi.useTransaction<Exception> { handle ->
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()

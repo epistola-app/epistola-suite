@@ -6,6 +6,8 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
+import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
@@ -26,6 +28,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -48,6 +51,15 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var fingerprints: CatalogFingerprintService
+
+    @Autowired
+    private lateinit var contentBuilder: CatalogContentBuilder
+
+    @Autowired
+    private lateinit var jdbi: Jdbi
 
     private val depKey = CatalogKey.of("dep-test")
 
@@ -151,6 +163,70 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             val upgraded = GetCatalog(tenant.id, depKey).query()!!
             assertThat(upgraded.name).isEqualTo("Publisher Renamed Catalog")
             assertThat(upgraded.catalogMetadata.keywords).containsExactly("new-keyword")
+        }
+    }
+
+    @Test
+    fun `a template whose only change is its description previews as CHANGED`(@TempDir tmp: Path) {
+        val sourceUrl = copyFixture(tmp)
+        val tenant = createTenant("Preview Description")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+
+            // Wire v8 added the description; the per-resource V3 form leaves it out.
+            rewriteJson(tmp.resolve("resources/templates/no-deps.json")) { detail ->
+                (detail.get("resource") as ObjectNode).put("description", "Now described")
+            }
+
+            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+
+            assertThat(diff.changed).containsExactly(UpgradeResourceChange("template", "no-deps"))
+            assertThat(diff.unchanged).hasSize(5)
+        }
+    }
+
+    @Test
+    fun `a baseline stored before baselines named their function is recomputed, and the upgrade stores it anew`(@TempDir tmp: Path) {
+        val sourceUrl = copyFixture(tmp)
+        val tenant = createTenant("Preview Legacy Baseline")
+
+        withMediator {
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
+            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+        }
+        // What register stored before baselines named their function: a flat map of V3 values. No
+        // command writes that form any more, so it is put in place directly.
+        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(tenant.id, depKey))) }
+        jdbi.useHandle<Exception> { h ->
+            h.createUpdate("UPDATE catalogs SET installed_resource_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND catalog_key = :c")
+                .bind("f", legacy).bind("t", tenant.id).bind("c", depKey).execute()
+        }
+
+        withMediator {
+            // The source still serves the installed release: nothing changed.
+            assertThat(PreviewCatalogUpgrade(tenant.id, depKey).query().hasChanges).isFalse()
+
+            // The publisher's next release describes a template and renames the theme.
+            rewriteJson(tmp.resolve("resources/templates/no-deps.json")) { detail ->
+                (detail.get("resource") as ObjectNode).put("description", "Now described")
+            }
+            rewriteJson(tmp.resolve("resources/themes/test-theme.json")) { detail ->
+                (detail.get("resource") as ObjectNode).put("name", "Renamed By Publisher")
+            }
+            rewriteJson(tmp.resolve("catalog.json")) { manifest -> (manifest.get("release") as ObjectNode).put("version", "1.1.0") }
+
+            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            assertThat(diff.changed).containsExactlyInAnyOrder(UpgradeResourceChange("template", "no-deps"), UpgradeResourceChange("theme", "test-theme"))
+            assertThat(diff.added).isEmpty()
+            assertThat(diff.removed).isEmpty()
+
+            UpgradeCatalog(tenant.id, depKey).execute()
+            val upgraded = GetCatalog(tenant.id, depKey).query()!!
+            assertThat(upgraded.installedReleaseVersion).isEqualTo("1.1.0")
+            assertThat(fingerprints.readBaseline(upgraded.installedResourceFingerprints)).isNotNull()
+            assertThat(PreviewCatalogUpgrade(tenant.id, depKey).query().hasChanges).isFalse()
         }
     }
 

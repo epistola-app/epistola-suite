@@ -34,7 +34,8 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
   source) records it and, when the next release moves to it, sets `installed_release_version` +
   `installed_fingerprint`; `installed_resource_fingerprints` (JSONB) records the per-resource
-  source-side digests of that release, the upgrade-diff baseline for a catalog with a source.
+  source-side digests of that release (the complete form, naming its function), the upgrade-diff
+  baseline for a catalog with a source.
 
 A catalog can carry both pointers: one received from elsewhere and then released here has both.
 Its version is its **highest release**, by number (`Catalog.highestReleaseVersion`). A
@@ -518,8 +519,17 @@ release changes. The base side is what the draft recorded holding of its base wh
 place (`catalog_versions.base_fingerprints`), else the base's retained content, fingerprinted now;
 `release_entries.fingerprint` (V3, stored per release) is not compared any more. A stored baseline
 names the function that computed it (`{"algorithm": "complete-v5", "entries": …}`); one stored before,
-without it, is as good as none. The upgrade diff from a source still reads
-`installed_resource_fingerprints`, both sides in the V3 form.
+without it, is as good as none. The upgrade diff from a source compares the same way:
+`installed_resource_fingerprints` holds the complete form of the installed release, stored as such a
+baseline at register, upgrade and receiving an archive; one stored before (a flat V3 map) is recomputed
+when previewing — from the source while it still serves the installed release, else from that
+release's retained content — and replaced at the next upgrade.
+
+Everything wire v8 added to a resource is stored, so it survives being written into a version: a
+template's `description` (`document_templates.description`), a variant's `metadata`
+(`template_variants.metadata`, kept as it came; this suite writes none of its own), a data example's
+`key` and a stencil's `readsTemplateData`. A template built back from the rows a release was written
+into fingerprints as the release holds it.
 
 A release without those entries (one from 1.x; the 2.0 upgrade removes them) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
@@ -793,8 +803,8 @@ To regenerate after an intentional change: run the test, paste the reported
   per-resource digests, and classifies every `(type, slug)` as
   ADDED / REMOVED / CHANGED / UNCHANGED — so a CHANGED verdict means the
   _publisher_ changed that resource, never install round-trip noise. The
-  per-resource digest reuses the **exact** whole-catalog fingerprint pipeline
-  (`CatalogCanonicalizer.perResourceFingerprints*`); cross-catalog conflicts on
+  per-resource digest is the complete form
+  (`CatalogFingerprintService.resourceFingerprintsFromSource`); cross-catalog conflicts on
   the removal set are computed by the shared `CatalogUpgradeAnalyzer` that
   `UpgradeCatalog` also throws on, so a blocking conflict surfaces in the
   preview before Apply. **UI:** an **explicit, user-driven** check — a refresh

@@ -86,11 +86,11 @@ class RegisterCatalogHandler(
         validateCatalogNameLength(manifest.catalog.name)
 
         // Source-side per-resource baseline, captured at register exactly like
-        // installed_fingerprint (never publisher-authored). The upgrade preview
-        // diffs this against the re-fetched manifest — source-vs-source, so a
-        // CHANGED verdict means the publisher changed that resource.
-        val resourceFingerprintsJson = objectMapper.writeValueAsString(
-            fingerprintService.perResourceFingerprintsFromSource(
+        // installed_fingerprint (never publisher-authored), stored naming its function. The upgrade
+        // preview diffs this against the re-fetched source — source-vs-source, so a CHANGED verdict
+        // means the publisher changed that resource.
+        val resourceFingerprintsJson = fingerprintService.storeBaseline(
+            fingerprintService.resourceFingerprintsFromSource(
                 command.sourceUrl,
                 command.authType,
                 command.authCredential,

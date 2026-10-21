@@ -71,11 +71,10 @@ class CatalogFingerprintService(
     fun fingerprintFromSource(manifestUrl: String, authType: AuthType, credential: String?): String = canonicalizer.fingerprintFromSource(catalogClient, manifestUrl, authType, credential)
 
     /**
-     * Per-resource digests of a live working copy in the V3 form, keyed `"type/slug"` — the
-     * authored counterpart of [perResourceFingerprintsFromSource]. Recorded per release
-     * (`release_entries.fingerprint`) and compared with a source's; it leaves out what wire v8 added
-     * to a resource, so nothing that tells resources apart compares it any more: that is
-     * [resourceFingerprints].
+     * Per-resource digests of a live working copy in the V3 form, keyed `"type/slug"`. Recorded per
+     * release (`release_entries.fingerprint`, which the REST release detail shows) and nothing else:
+     * it leaves out what wire v8 added to a resource, so nothing that tells resources apart compares
+     * it. That is [resourceFingerprints].
      */
     fun perResourceFingerprints(content: CatalogContent): Map<String, String> = canonicalizer.perResourceFingerprints(content.resourceDetails) { contentPath -> content.assetContents[contentPath] }
 
@@ -115,38 +114,46 @@ class CatalogFingerprintService(
      * before baselines named theirs holds V3 values): such a baseline is as good as none, and the
      * caller compares with the release's content instead.
      */
-    fun readBaseline(json: String?): Map<String, String>? {
-        val node = json?.let(objectMapper::readTree) ?: return null
-        if (!node.isObject || node.path("algorithm").asString(null) != BASELINE_ALGORITHM) return null
+    fun readBaseline(json: String?): Map<String, String>? = readBaseline(json?.let(objectMapper::readTree))
+
+    /** [readBaseline] of a baseline already read as JSON (a `@Json` column). */
+    fun readBaseline(node: tools.jackson.databind.JsonNode?): Map<String, String>? {
+        if (node == null || !node.isObject || node.path("algorithm").asString(null) != BASELINE_ALGORITHM) return null
         val entries = node.path("entries")
         if (!entries.isObject) return null
         return entries.properties().associate { (key, value) -> key to value.asString() }
     }
 
     /**
-     * Per-resource digests of a catalog fetched from a source URL — same fetch
-     * loop as [fingerprintFromSource], so a CHANGED verdict is exactly a
-     * whole-catalog fingerprint mismatch localized to one resource. Captured at
-     * register/upgrade as the stored baseline and re-computed for the incoming
-     * release at preview time (source-vs-source, no install round-trip noise).
+     * [resourceFingerprints] of a catalog fetched from a source URL, the same fetch loop as
+     * [fingerprintFromSource]. Stored at register and upgrade as the installed release's baseline
+     * (`catalogs.installed_resource_fingerprints`, through [storeBaseline]) and computed again for
+     * the incoming release when previewing an upgrade: source against source, so a CHANGED verdict
+     * means the publisher changed that resource, a template's description included.
      */
-    fun perResourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
+    fun resourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
         if (manifestUrl.startsWith("classpath:")) {
             return classpathResourceFingerprints.get(manifestUrl) {
-                computePerResourceFingerprintsFromSource(it, authType, credential)
+                computeResourceFingerprintsFromSource(it, authType, credential)
             }
         }
-        return computePerResourceFingerprintsFromSource(manifestUrl, authType, credential)
+        return computeResourceFingerprintsFromSource(manifestUrl, authType, credential)
     }
 
-    private fun computePerResourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
+    /**
+     * [resourceFingerprints] of resources given as an archive holds them: serialized details keyed
+     * `type/key`, with [assetBytes] for the binaries they name.
+     */
+    fun resourceFingerprints(serializedDetails: Map<String, ByteArray>, assetBytes: (contentUrl: String) -> ByteArray?): Map<String, String> = canonicalizer.completePerResourceFingerprintsFromSerializedDetails(serializedDetails, assetBytes)
+
+    private fun computeResourceFingerprintsFromSource(manifestUrl: String, authType: AuthType, credential: String?): Map<String, String> {
         val manifest = catalogClient.fetchManifest(manifestUrl, authType, credential)
         val detailBytes = LinkedHashMap<String, ByteArray>()
         for (entry in manifest.resources) {
             detailBytes["${entry.type}/${entry.key}"] =
                 catalogClient.fetchBinaryContent(entry.detailUrl, manifestUrl, authType, credential)
         }
-        return canonicalizer.perResourceFingerprintsFromSerializedDetails(detailBytes) { contentUrl ->
+        return canonicalizer.completePerResourceFingerprintsFromSerializedDetails(detailBytes) { contentUrl ->
             catalogClient.fetchBinaryContent(contentUrl, manifestUrl, authType, credential)
         }
     }

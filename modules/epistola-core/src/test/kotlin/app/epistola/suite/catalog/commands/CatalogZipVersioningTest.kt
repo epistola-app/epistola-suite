@@ -276,7 +276,9 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThat(catalog.sourceUrl).isNull() // ZIP-sourced, no URL
             assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(catalog.installedFingerprint).isEqualTo(manifestFp)
-            assertThat(catalog.installedResourceFingerprints).isNotNull().containsKey("theme/brand")
+            // Stored naming its function, so it is never compared with values of another.
+            assertThat(catalog.installedResourceFingerprints?.path("algorithm")?.asString()).isEqualTo(app.epistola.suite.catalog.BASELINE_ALGORITHM)
+            assertThat(catalog.installedResourceFingerprints?.path("entries")?.has("theme/brand")).isEqualTo(true)
         }
     }
 

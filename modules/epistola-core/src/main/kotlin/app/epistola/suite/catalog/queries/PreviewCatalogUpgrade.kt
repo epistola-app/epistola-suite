@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
@@ -11,6 +12,7 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
+import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -86,6 +88,7 @@ class PreviewCatalogUpgradeHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val analyzer: CatalogUpgradeAnalyzer,
     private val catalogClient: CatalogClient,
+    private val assembler: ReleaseContentAssembler,
 ) : QueryHandler<PreviewCatalogUpgrade, UpgradeDiff> {
 
     override fun handle(query: PreviewCatalogUpgrade): UpgradeDiff {
@@ -100,17 +103,16 @@ class PreviewCatalogUpgradeHandler(
 
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
 
-        val incoming = fingerprintService.perResourceFingerprintsFromSource(
+        val incoming = fingerprintService.resourceFingerprintsFromSource(
             sourceUrl,
             catalog.sourceAuthType,
             catalog.sourceAuthCredential?.value,
         )
 
-        // Source-vs-source: the baseline was captured from the source manifest
-        // at register/upgrade (same provenance as the incoming side), so a
-        // CHANGED verdict means the publisher changed that resource — never
-        // install round-trip noise. A catalog registered from a source always has it.
-        val installed = catalog.installedResourceFingerprints
+        // Source-vs-source: the baseline was captured from the source at register/upgrade (same
+        // provenance and the same function as the incoming side), so a CHANGED verdict means the
+        // publisher changed that resource — never install round-trip noise.
+        val installed = installedBaseline(query, catalog, manifest.release, incoming)
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,
                 "no per-resource baseline captured yet — re-register or upgrade it to capture one",
@@ -155,5 +157,25 @@ class PreviewCatalogUpgradeHandler(
             metadataChanges = metadataChanges,
             conflicts = conflicts,
         )
+    }
+
+    /**
+     * The installed release's per-resource baseline, in the function [incoming] was computed with.
+     * A stored one that names another function (a flat V3 map, stored before baselines named theirs)
+     * counts as none and is recomputed: from the source when it still serves the installed release,
+     * else from the installed release's retained content. The next upgrade stores it anew.
+     */
+    private fun installedBaseline(
+        query: PreviewCatalogUpgrade,
+        catalog: Catalog,
+        offered: app.epistola.catalog.protocol.ReleaseInfo,
+        incoming: Map<String, String>,
+    ): Map<String, String>? {
+        fingerprintService.readBaseline(catalog.installedResourceFingerprints)?.let { return it }
+        val sourceServesInstalled = catalog.installedReleaseVersion == offered.version &&
+            (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint)
+        if (sourceServesInstalled) return incoming
+        val version = catalog.installedReleaseVersion ?: return null
+        return assembler.assemble(query.tenantKey, query.catalogKey, version)?.content?.let(fingerprintService::resourceFingerprints)
     }
 }

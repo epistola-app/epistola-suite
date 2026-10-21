@@ -193,8 +193,8 @@ class UpgradeCatalogHandler(
         //    Re-capture the source-side per-resource baseline of the release we
         //    just moved to (same provenance as installed_fingerprint), so the
         //    next preview diffs against this release, not the old one.
-        val resourceFingerprintsJson = objectMapper.writeValueAsString(
-            fingerprintService.perResourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value),
+        val resourceFingerprintsJson = fingerprintService.storeBaseline(
+            fingerprintService.resourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value),
         )
         updateCatalogVersion(
             command.tenantKey,
