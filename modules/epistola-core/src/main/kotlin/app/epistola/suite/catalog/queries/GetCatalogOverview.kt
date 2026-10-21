@@ -80,7 +80,10 @@ class GetCatalogOverviewHandler(
         return jdbi.withHandle<List<CatalogOverview>, Exception> { handle ->
             catalogs.map { catalog ->
                 val all = versions.all(handle, query.tenantKey, catalog.id)
-                val drafts = all.filter { it.status == CatalogVersionStatus.DRAFT }
+                // A catalog that cannot be changed here has a next version only to hold what it
+                // received (ADR 0032): there is no draft for anyone to work in.
+                val editable = GetCatalogEditability(query.tenantKey, catalog.id).query().editable
+                val drafts = if (editable) all.filter { it.status == CatalogVersionStatus.DRAFT } else emptyList()
                 val releases = all.filter { it.status == CatalogVersionStatus.RELEASED }
                 CatalogOverview(
                     catalogKey = catalog.id,

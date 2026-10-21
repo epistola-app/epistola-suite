@@ -43,21 +43,6 @@ fun catalogAt(tenantParam: String, catalogParam: String): String = "(SELECT cata
 fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id WHERE c.tenant_key = :$tenantParam AND c.catalog_key = :$catalogParam)"
 
 /**
- * The `version_id` of the version numbered [versionParam] of the catalog a caller named by key: its
- * installed release. A draft has no number (contract ADR 0002, amendment 2) and a released version has
- * no row (its content is the retained release content), so either yields NULL, as does a number the
- * catalog does not have.
- *
- * For statements that must reach a version other than the one the caller means; everything else uses
- * [versionAt], which a targeted message already points at its version.
- *
- * @param tenantParam name of the bound tenant parameter.
- * @param catalogParam name of the bound catalog-key parameter.
- * @param versionParam name of the bound version-number parameter.
- */
-fun versionNamed(tenantParam: String, catalogParam: String, versionParam: String): String = "(SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id WHERE c.tenant_key = :$tenantParam AND c.catalog_key = :$catalogParam AND v.version = :$versionParam)"
-
-/**
  * A predicate that the content row aliased [alias] is part of the version its catalog's callers mean
  * (see [versionAt]: the targeted version for its catalog, else the current one). For statements that reach content without a catalog key in hand: tenant-wide reads,
  * and references to a resource by its identity, possibly in another catalog (a template's theme, an

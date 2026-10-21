@@ -7,6 +7,15 @@
     "catalog": {
       "type": "object",
       "properties": {
+        "editing": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Whether people may change catalogs here. false makes the installation run-only.",
+              "type": "boolean"
+            }
+          }
+        },
         "fileRoots": {
           "description": "Directories file: catalog and code-list sources may be read from. Empty turns file: sources off.",
           "type": "array",

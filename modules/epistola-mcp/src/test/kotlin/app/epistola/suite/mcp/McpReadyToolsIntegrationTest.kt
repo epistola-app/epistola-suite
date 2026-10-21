@@ -129,7 +129,7 @@ class McpReadyToolsIntegrationTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             runAsApiKey(tenantId) { readyTools.markCatalogReady("system") }
-        }.hasMessageContaining("read-only catalog 'system'")
+        }.hasMessageContaining("Epistola supplies this catalog")
     }
 
     /**

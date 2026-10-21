@@ -235,7 +235,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a name in use or that reads as the next version, an unknown release, an unknown draft and a subscribed catalog are refused`() {
+    fun `a name in use or that reads as the next version, an unknown release, an unknown draft and a catalog the suite supplies are refused`() {
         val tenant = released("drafts-refused")
         work(tenant, "Redesign")
         assertThatThrownBy { work(tenant, "redesign") }.`as`("names tell drafts apart, whatever their case").isInstanceOf(CatalogDraftNameInUseException::class.java)
@@ -245,14 +245,14 @@ class SeveralDraftsTest : IntegrationTestBase() {
         // A message naming a draft runs on it, so one that does not exist is refused.
         assertThatThrownBy { themeName(tenant, DraftRef.Id("nosuchdraft")) }.isInstanceOf(CatalogVersionNotFoundException::class.java)
 
+        // From a classpath: source, so supplied by the suite: it holds what it installed in its next
+        // version, and nobody starts a draft of it (ADR 0032).
         val subscribed = CatalogKey.of("epistola-demo")
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenant, catalogKey = subscribed).execute()
         }
         assertThatThrownBy { withMediator { CreateCatalogDraft(tenant, subscribed, "Mine").execute() } }.isInstanceOf(CatalogReadOnlyException::class.java)
-        assertThatThrownBy { withMediator { GetTheme(ThemeId(ThemeKey.of("brand"), CatalogId(subscribed, TenantId(tenant))), catalogVersion = CatalogVersionRef(tenant, subscribed, DraftRef.Next)).query() } }
-            .`as`("a subscribed catalog has no next version").isInstanceOf(CatalogVersionNotFoundException::class.java)
     }
 
     @Test

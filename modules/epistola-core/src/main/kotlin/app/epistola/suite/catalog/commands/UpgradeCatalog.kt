@@ -81,6 +81,16 @@ class CatalogUpgradeAbortedException(
         failed.joinToString("\n") { "  - ${it.type}/${it.slug}: ${it.errorMessage}" },
 )
 
+/**
+ * An upgrade of a catalog whose next version has changes of its own ([changed], `type/key`): moving it
+ * to the new release would discard them. Install the release beside the others and merge it instead.
+ */
+class CatalogHasLocalChangesException(val catalogKey: CatalogKey, val changed: Set<String>) :
+    RuntimeException(
+        "Catalog '${catalogKey.value}' has changes of its own in its next version (${changed.joinToString()}). " +
+            "Install the new release beside the others, then merge it into the next version.",
+    )
+
 class CatalogUpgradeConflictException(
     val conflicts: List<String>,
 ) : RuntimeException(
@@ -97,6 +107,7 @@ class UpgradeCatalogHandler(
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val importRows: CatalogImportRows,
+    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -104,6 +115,12 @@ class UpgradeCatalogHandler(
     override fun handle(command: UpgradeCatalog): UpgradeCatalogResult = CatalogImportContext.runAsImport {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
+
+        // An upgrade moves the next version to the new release, which is right only while it has no
+        // changes of its own (ADR 0032). With changes, the release is received beside the others and
+        // merged instead.
+        val changed = nextVersionChanges.changed(command.tenantKey, command.catalogKey)
+        if (changed.isNotEmpty()) throw CatalogHasLocalChangesException(command.catalogKey, changed)
 
         val sourceUrl = catalog.sourceUrl
             ?: throw CatalogNotUpgradeableException(

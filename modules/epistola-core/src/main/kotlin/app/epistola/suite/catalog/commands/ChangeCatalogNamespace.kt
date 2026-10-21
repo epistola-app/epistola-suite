@@ -8,11 +8,11 @@ import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -65,7 +65,7 @@ class ChangeCatalogNamespaceHandler(
     override fun handle(command: ChangeCatalogNamespace): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
-        if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
         if (catalog.namespace == command.namespace) return@inTransaction catalog
         if (publicationPort.ifAvailable?.isNamespaceFixed(handle, command.tenantKey, command.catalogKey) == true) {
             throw CatalogNamespaceFixedException(catalog.catalogName)

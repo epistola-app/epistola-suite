@@ -115,9 +115,10 @@ class GetCatalogResourceChangesHandler(
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
         val catalog = GetCatalog(query.tenantKey, query.catalogKey).query()
             ?: throw CatalogNotFoundException(query.catalogKey)
-        // Only an authored catalog has a next release. A subscribed one is replaced wholesale by
-        // its source, and `PreviewCatalogUpgrade` is the diff that applies to it.
-        if (catalog.type != CatalogType.AUTHORED) throw CatalogReadOnlyException(query.catalogKey)
+        // Only a catalog that can be changed here has a next release to describe (ADR 0032): one the
+        // suite supplies, or any in a run-only installation, only receives releases.
+        val editability = GetCatalogEditability(query.tenantKey, query.catalogKey).query()
+        if (!editability.editable) throw CatalogReadOnlyException(query.catalogKey, editability.reason)
 
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
         val working = fingerprintService.perResourceFingerprints(content)

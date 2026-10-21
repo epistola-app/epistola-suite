@@ -304,14 +304,14 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `release rejects a subscribed catalog with read only problem details`() {
+    fun `release rejects a catalog the suite supplies with read only problem details`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of("epistola-demo")).execute()
         }
 
-        // A subscribed catalog has no draft: its versions are the releases it installed.
+        // From a classpath: source, so Epistola supplies it and it cannot be changed here (ADR 0032).
         val response = restTemplate.exchange(
             "${versionPath(tenantKey, "epistola-demo")}/release",
             HttpMethod.POST,
@@ -321,7 +321,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
     }
 
     @Test

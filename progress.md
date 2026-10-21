@@ -34,8 +34,23 @@ a merge into the next version, releases move through the Exchange, a container r
 | A draft records merged releases; `behind` leaves them out; reset when the next version moves on, copied with a draft                                            | `V20261021060745`, `CatalogVersions.kt`, `ListCatalogVersions.kt`, `ReleaseCatalogVersion.kt` | ✅ `MergeReleaseIntoDraftTest` (release after merge), all 430 catalog integration tests green |
 | MCP `preview_merge`, `merge_release`                                                                                                                            | `CatalogVersionMcpTools.kt`, `dto/DraftMergeInfo.kt`                                          | ✅ `CatalogVersionMcpToolsIntegrationTest` (10)                                               |
 
+**Slice 1 of removing the catalog types (core semantics):**
+
+| Change                                                                                                                                                                         | Where                                                                                            | Coverage                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `epistola.catalog.editing.enabled` (run-only installation), Helm `catalog.editing.enabled`                                                                                     | `CatalogConfiguration.kt`, chart                                                                 | ✅ `RunOnlyInstallationTest`, `catalog-render.sh`                         |
+| A catalog can be changed unless run-only or supplied by the suite (`GetCatalogEditability`, reason on `CatalogReadOnlyException` and the REST problem)                         | `IsCatalogEditable.kt`, `CatalogReadOnlyException.kt`, release/dependency/namespace commands     | ✅ `ReceivedCatalogTest`, `SuppliedCatalogCodeListsReadOnlyTest`, API ITs |
+| The installed row becomes the next version on its installed release; triggers move its base; view without `installed`                                                          | `V20261021063432`                                                                                | ✅ `CatalogDraftsMigrationTest`, `CurrentCatalogVersionTest`              |
+| Receiving a newer release fast-forwards an unchanged next version, else records it beside (behind, to merge); upgrade refused with local changes; baseline `base_fingerprints` | `NextVersionChanges.kt`, `ImportCatalogZip.kt`, `UpgradeCatalog.kt`, `RecordInstalledRelease.kt` | ✅ `ReceivedCatalogTest` (5), `UpgradeCatalogTest`                        |
+| UI still shows received catalogs as before (drafts hidden on the bar, overview lists no drafts of read-only catalogs) until slice 2                                            | `CatalogDraftBar.kt`, `GetCatalogOverview.kt`                                                    | ✅ `CatalogVersionBarTest`, `GetCatalogOverviewTest`                      |
+
+Full runs: core integration 1161 green; app/MCP/REST/guards green except `DataPreservationMigrationIT`.
+
 **Noticed, left alone:**
 
+- `DataPreservationMigrationIT` fails on `release/2.0` itself (checked on `a406d5410`): the 1.x
+  preflight `1x-catalog-dependency-cycles` (from #1116) queries `tv.template_resource_id`, which the
+  RC1 schema does not have.
 - Removing a resource row leaves references to it from the same version pointing at an identity that
   version no longer has (`document_templates.theme_resource_id` is `ON DELETE SET NULL` on
   `catalog_resources`, not on the row), and the resource graph drops such a reference instead of

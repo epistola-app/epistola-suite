@@ -202,6 +202,7 @@ class ImportCatalogZipHandler(
     private val drafts: app.epistola.suite.catalog.versions.CatalogDrafts,
     private val targeting: app.epistola.suite.catalog.versions.CatalogVersionTargeting,
     private val rows: CatalogImportRows,
+    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -280,10 +281,11 @@ class ImportCatalogZipHandler(
             CatalogType.SUBSCRIBED -> {
                 val installed = existing?.installedReleaseVersion?.let(SemVer::parseOrNull)
                 val incoming = SemVer.parseOrNull(version)
-                if (installed != null && incoming != null && incoming < installed) {
-                    // Installed beside the others (contract `installCatalogRelease`): a release below
-                    // the installed one is recorded from the archive as published, and what the
-                    // catalog mirrors stays the highest release it has.
+                // Installed beside the others (contract `installCatalogRelease`): a release below the
+                // installed one, or any while the next version has changes of its own (ADR 0032), is
+                // recorded from the archive as published; the next version stays, behind it.
+                val older = installed != null && incoming != null && incoming < installed
+                if (older || (existing != null && nextVersionChanges.hasChanges(command.tenantKey, catalogKey))) {
                     val bound = parsed.manifest.resources.associate { entry ->
                         val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
                             ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
@@ -499,7 +501,8 @@ class ImportCatalogZipHandler(
         // semantics. Same type is fine: AUTHORED ⇒ in-place edit; SUBSCRIBED ⇒
         // an upgrade (the ZIP is the transport instead of a source URL).
         val existingCatalog = GetCatalog(command.tenantKey, catalogKey).query()
-        if (existingCatalog != null && existingCatalog.type != catalogType) {
+        // Filling a draft (a release copied in, or merged) writes content whatever the type.
+        if (existingCatalog != null && existingCatalog.type != catalogType && !command.intoDraft) {
             throw IllegalArgumentException(
                 "Catalog '${catalogKey.value}' already exists as ${existingCatalog.type} — " +
                     "cannot import it as $catalogType.",

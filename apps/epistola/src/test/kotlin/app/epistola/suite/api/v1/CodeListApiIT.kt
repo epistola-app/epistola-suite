@@ -132,13 +132,13 @@ class CodeListApiIT : IntegrationTestBase() {
             HttpEntity(body, baseHeaders(key)),
             String::class.java,
         )
-        // A SUBSCRIBED catalog has no draft: its versions are the releases it installed, and a
-        // released version does not change, surfaced as RFC 9457 problem details.
+        // Epistola supplies the system catalog, so it cannot be changed here (ADR 0032), surfaced as
+        // RFC 9457 problem details.
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
-        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Version Released")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Read Only")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(409)
         assertThat(JsonPath.read<String>(problem, "$.catalogKey")).isEqualTo("system")
         assertThat(JsonPath.read<String>(problem, "$.instance")).isEqualTo("${versionPath(tenantKey, "system")}/code-lists")

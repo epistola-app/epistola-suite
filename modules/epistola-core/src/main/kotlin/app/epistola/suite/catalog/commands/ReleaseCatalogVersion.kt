@@ -14,7 +14,6 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.CatalogReleasePublicationRequest
 import app.epistola.suite.catalog.CatalogType
@@ -29,6 +28,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versions.AssessDraftNumber
@@ -204,9 +204,8 @@ class ReleaseCatalogVersionHandler(
     override fun handle(command: ReleaseCatalogVersion): ReleaseCatalogVersionResult {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-        if (catalog.type != CatalogType.AUTHORED) {
-            throw CatalogReadOnlyException(command.catalogKey)
-        }
+        // Releasing is changing the catalog, unless it records a release received from elsewhere.
+        if (command.imported == null) requireCatalogEditable(command.tenantKey, command.catalogKey)
 
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.tenantKey, command.catalogKey, command.catalogVersion?.draft ?: DraftRef.Next)

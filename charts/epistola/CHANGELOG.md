@@ -17,6 +17,11 @@
 
 ### Added
 
+- **`catalog.editing.enabled` — a run-only installation.** Off (`EPISTOLA_CATALOG_EDITING_ENABLED=false`),
+  nobody can change a catalog in the installation: it receives releases, deploys them and rolls
+  back. Typical for production when catalogs are made in a test installation. Default `true`, as
+  before.
+
 - **`generation.fontCache.maxSize` and `generation.fontCache.maxFaces` — bounds of the parsed-font
   cache.** Render `EPISTOLA_GENERATION_FONTCACHE_MAXSIZE` and `EPISTOLA_GENERATION_FONTCACHE_MAXFACES`
   when set. Empty (the default) keeps the application defaults, `384MB` and `64` faces; `maxFaces: 0`

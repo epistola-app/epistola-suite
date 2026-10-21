@@ -240,8 +240,10 @@ data class CatalogDraftBar(
         fun of(tenantKey: TenantKey, segment: CatalogSegment, pageAt: (CatalogSegment) -> String): CatalogDraftBar {
             val catalog = GetCatalog(tenantKey, segment.key).query()
             val versions = ListCatalogVersions(tenantKey, segment.key).query()
-            val drafts = versions.filter { it.status == CatalogVersionStatus.DRAFT }
             val authored = catalog?.type == CatalogType.AUTHORED
+            // A received catalog's next version holds what it installed (ADR 0032); until the page
+            // offers changing it, it shows its installed release as before.
+            val drafts = if (authored) versions.filter { it.status == CatalogVersionStatus.DRAFT } else emptyList()
             // A subscribed catalog shows its installed release, the only version whose content it has.
             val installed = catalog?.installedReleaseVersion?.takeUnless { authored }?.let { number ->
                 versions.firstOrNull { it.version == number } ?: CatalogVersion(number, CatalogVersionStatus.RELEASED, versionId = "")

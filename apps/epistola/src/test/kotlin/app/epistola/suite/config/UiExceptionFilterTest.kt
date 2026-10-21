@@ -45,7 +45,7 @@ class UiExceptionFilterTest {
         assertThat(parsed.get("type").asString()).isEqualTo("https://epistola.app/errors/catalog-read-only")
         assertThat(parsed.get("status").asInt()).isEqualTo(403)
         assertThat(parsed.get("detail").asString())
-            .isEqualTo("Cannot modify resources in read-only catalog 'system'. Subscribed catalogs are read-only.")
+            .isEqualTo("Catalog 'system' cannot be changed here.")
         assertThat(parsed.has("code")).isFalse()
     }
 
@@ -134,7 +134,7 @@ class UiExceptionFilterTest {
 
         assertThat(response.status).isEqualTo(403)
         assertThat(response.errorMessage)
-            .isEqualTo("Cannot modify resources in read-only catalog 'system'. Subscribed catalogs are read-only.")
+            .isEqualTo("Catalog 'system' cannot be changed here.")
         assertThat(response.contentAsString).isEmpty()
     }
 }

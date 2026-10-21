@@ -182,7 +182,7 @@ class CatalogDrafts {
         val moved = handle.createUpdate(
             """
             UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key(),
-                merged_releases = '{}'
+                merged_releases = '{}', base_fingerprints = NULL
             WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND is_next
             """,
         )
@@ -252,6 +252,24 @@ class CatalogDrafts {
         handle.createUpdate("DELETE FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND kind = 'draft'")
             .bind("t", tenantKey)
             .bind("v", versionId)
+            .execute()
+    }
+
+    /** The fingerprints the next version had when a received release was put in place in it; null when not recorded. */
+    fun baseFingerprints(handle: Handle, tenantKey: TenantKey, versionId: UUID): String? = handle
+        .createQuery("SELECT base_fingerprints::text FROM catalog_versions WHERE tenant_key = :t AND version_id = :v")
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .mapTo(String::class.java)
+        .findOne()
+        .orElse(null)
+
+    /** Records what draft [versionId] holds now as what a received release put in place ([baseFingerprints]). */
+    fun recordBaseFingerprints(handle: Handle, tenantKey: TenantKey, versionId: UUID, fingerprintsJson: String) {
+        handle.createUpdate("UPDATE catalog_versions SET base_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND version_id = :v")
+            .bind("t", tenantKey)
+            .bind("v", versionId)
+            .bind("f", fingerprintsJson)
             .execute()
     }
 

@@ -476,7 +476,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `requireCatalogEditable passes for authored and throws for subscribed`() {
+    fun `requireCatalogEditable passes for a catalog made here and throws for one the suite supplies`() {
         val tenant = createTenant("Editable Test")
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
@@ -493,7 +493,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
             // Should NOT throw for authored catalog
             requireCatalogEditable(tenantKey, authoredKey)
 
-            // Register a subscribed catalog
+            // Register a catalog from a classpath: source, which the suite supplies
             RegisterCatalog(
                 tenantKey = tenantKey,
                 sourceUrl = DEMO_CATALOG_URL,
@@ -502,13 +502,13 @@ class CatalogExportImportTest : IntegrationTestBase() {
 
             val subscribedKey = CatalogKey.of("epistola-demo")
 
-            // Should throw for subscribed catalog
+            // Should throw for a catalog the suite supplies
             assertThatThrownBy {
                 requireCatalogEditable(tenantKey, subscribedKey)
             }.isInstanceOf(CatalogReadOnlyException::class.java)
-                .hasMessageContaining("read-only")
+                .hasMessageContaining("Epistola supplies this catalog")
 
-            // Inside CatalogImportContext.runAsImport, even subscribed should pass
+            // Inside CatalogImportContext.runAsImport, receiving a release passes
             CatalogImportContext.runAsImport {
                 requireCatalogEditable(tenantKey, subscribedKey)
                 // No exception — import context bypasses the check

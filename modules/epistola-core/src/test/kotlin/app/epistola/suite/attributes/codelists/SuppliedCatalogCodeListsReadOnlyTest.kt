@@ -27,23 +27,23 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
 /**
- * SUBSCRIBED catalogs are read-only by design — the `requireCatalogEditable`
- * helper short-circuits anything that would mutate one. This test pins that
- * contract for every code-list mutating command, because the helper is shared
- * domain machinery and a single missed call site would silently allow edits.
+ * A catalog the suite supplies (a `classpath:` source, ADR 0032) is read-only: the
+ * `requireCatalogEditable` helper refuses anything that would change one. This test pins that for
+ * every code-list mutating command, because the helper is shared domain machinery and a single
+ * missed call site would silently allow edits.
  */
-class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
+class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
 
     @Test
-    fun `CreateCodeList is rejected on a SUBSCRIBED catalog`() {
-        val (tenantId, subscribedCatalog) = subscribedFixture()
+    fun `CreateCodeList is rejected on a catalog the suite supplies`() {
+        val (tenantId, suppliedCatalog) = suppliedFixture()
         withMediator {
             assertThatThrownBy {
                 CreateCodeList(
-                    id = CodeListId(CodeListKey.of("any-list"), CatalogId(subscribedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("any-list"), CatalogId(suppliedCatalog, tenantId)),
                     displayName = "Any list",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("x", "X")),
@@ -53,17 +53,16 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `UpdateCodeList is rejected on a SUBSCRIBED catalog`() {
-        val (tenantId, subscribedCatalog) = subscribedFixture()
+    fun `UpdateCodeList is rejected on a catalog the suite supplies`() {
+        val (tenantId, suppliedCatalog) = suppliedFixture()
         // Inject a row directly — we can't use CreateCodeList for setup since
-        // the catalog is SUBSCRIBED. This simulates a list that landed via a
-        // future remote-catalog import.
-        seedCodeList(tenantId, subscribedCatalog, slug = "regions", display = "Regions")
+        // the catalog is read-only. This simulates a list its install put in place.
+        seedCodeList(tenantId, suppliedCatalog, slug = "regions", display = "Regions")
 
         withMediator {
             assertThatThrownBy {
                 UpdateCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(subscribedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
                     displayName = "Renamed",
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
@@ -71,43 +70,43 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `DeleteCodeList is rejected on a SUBSCRIBED catalog`() {
-        val (tenantId, subscribedCatalog) = subscribedFixture()
-        seedCodeList(tenantId, subscribedCatalog, slug = "regions", display = "Regions")
+    fun `DeleteCodeList is rejected on a catalog the suite supplies`() {
+        val (tenantId, suppliedCatalog) = suppliedFixture()
+        seedCodeList(tenantId, suppliedCatalog, slug = "regions", display = "Regions")
 
         withMediator {
             assertThatThrownBy {
                 DeleteCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(subscribedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
     }
 
     @Test
-    fun `RefreshCodeList is rejected on a SUBSCRIBED catalog`() {
-        val (tenantId, subscribedCatalog) = subscribedFixture()
-        seedCodeList(tenantId, subscribedCatalog, slug = "regions", display = "Regions", sourceUrl = "https://example.com/r.json")
+    fun `RefreshCodeList is rejected on a catalog the suite supplies`() {
+        val (tenantId, suppliedCatalog) = suppliedFixture()
+        seedCodeList(tenantId, suppliedCatalog, slug = "regions", display = "Regions", sourceUrl = "https://example.com/r.json")
 
         withMediator {
             assertThatThrownBy {
                 RefreshCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(subscribedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
     }
 
     @Test
-    fun `UpdateCodeListEntryHidden is rejected on a SUBSCRIBED catalog`() {
-        val (tenantId, subscribedCatalog) = subscribedFixture()
-        seedCodeList(tenantId, subscribedCatalog, slug = "regions", display = "Regions")
-        seedEntry(tenantId, subscribedCatalog, slug = "regions", code = "eu", label = "Europe")
+    fun `UpdateCodeListEntryHidden is rejected on a catalog the suite supplies`() {
+        val (tenantId, suppliedCatalog) = suppliedFixture()
+        seedCodeList(tenantId, suppliedCatalog, slug = "regions", display = "Regions")
+        seedEntry(tenantId, suppliedCatalog, slug = "regions", code = "eu", label = "Europe")
 
         withMediator {
             assertThatThrownBy {
                 UpdateCodeListEntryHidden(
-                    codeListId = CodeListId(CodeListKey.of("regions"), CatalogId(subscribedCatalog, tenantId)),
+                    codeListId = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
                     code = "eu",
                     hidden = true,
                 ).execute()
@@ -120,15 +119,15 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Creates a fresh tenant and a SUBSCRIBED catalog inside it. We do the
+     * Creates a fresh tenant and a catalog the suite supplies inside it. We do the
      * insert via JDBI directly because the regular `RegisterCatalog` command
      * needs a reachable catalog manifest, which we don't want to set up here —
-     * the test is about the read-only check, not the subscription flow.
+     * the test is about the read-only check, not the install flow.
      */
-    private fun subscribedFixture(): Pair<TenantId, CatalogKey> {
+    private fun suppliedFixture(): Pair<TenantId, CatalogKey> {
         val tenant = createTenant("RO Test")
         val tenantId = TenantId(tenant.id)
-        val subscribedCatalog = CatalogKey.of("remote-feed")
+        val suppliedCatalog = CatalogKey.of("remote-feed")
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -136,13 +135,13 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
                 VALUES (:id, :tenantKey, 'exchange.epistola.app', :tenantKey, :name, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
                 """,
             )
-                .bind("id", subscribedCatalog)
+                .bind("id", suppliedCatalog)
                 .bind("tenantKey", tenant.id)
                 .bind("name", "Remote Feed")
-                .bind("sourceUrl", "https://example.com/catalog.json")
+                .bind("sourceUrl", "classpath:epistola/catalogs/remote-feed/catalog.json")
                 .execute()
         }
-        return tenantId to subscribedCatalog
+        return tenantId to suppliedCatalog
     }
 
     private fun seedCodeList(
@@ -171,7 +170,7 @@ class SubscribedCodeListsReadOnlyTest : IntegrationTestBase() {
 
     /**
      * Seeded with SQL rather than a command, which is the exception the seeding rule allows: the
-     * commands refuse to write into a SUBSCRIBED catalog, and that refusal is the behaviour under
+     * commands refuse to write into a catalog the suite supplies, and that refusal is the behaviour under
      * test. There is no command that can produce this state, so producing it another way is the
      * only way to test that the refusal holds.
      */

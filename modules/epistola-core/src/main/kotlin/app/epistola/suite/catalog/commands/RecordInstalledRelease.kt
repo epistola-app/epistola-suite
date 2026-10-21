@@ -96,6 +96,7 @@ class RecordInstalledReleaseHandler(
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val rows: CatalogImportRows,
+    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -114,6 +115,9 @@ class RecordInstalledReleaseHandler(
                 .mapTo(Boolean::class.java)
                 .one()
         }
+        // The installed release is in place in the next version: what it holds now is the baseline
+        // its own changes are measured from (ADR 0032).
+        if (command.release == null) nextVersionChanges.recordBaseline(command.tenantKey, command.catalogKey)
         if (exists) return version
 
         // The installed version carries the archive's theme settings (contract ADR 0007), so its

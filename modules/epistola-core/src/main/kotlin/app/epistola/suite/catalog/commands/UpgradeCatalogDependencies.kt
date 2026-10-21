@@ -5,11 +5,11 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
@@ -47,7 +47,7 @@ class UpgradeCatalogDependenciesHandler(
     override fun handle(command: UpgradeCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
-        if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
         val resolved = store.declarations(handle, command.tenantKey, command.catalogKey).map { declaration ->
             // A declaration naming a draft builds on that draft, live; there is no pin to move.
             if (declaration.namesDraft) return@map declaration

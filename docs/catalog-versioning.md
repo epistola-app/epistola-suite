@@ -52,6 +52,29 @@ version + fingerprint through the manifest into the subscriber's
 `installed_release_version` / `installed_fingerprint`, so values stay coherent
 end to end.
 
+## Who may change a catalog, and what receiving a release does
+
+ADR 0032 replaces the catalog types; until the code and this page drop the words, `AUTHORED` means
+made here and `SUBSCRIBED` received from a source or an archive.
+
+- **Every catalog has a next version**, the draft its browsable content lives in. A received
+  catalog's next version starts on the release it installed (`base_version`); there is no installed
+  copy any more (`V20261021063432`).
+- **A catalog can be changed** when the installation allows editing
+  (`epistola.catalog.editing.enabled`, default `true`) and the suite does not supply it (a
+  `classpath:` source: the system and demo catalogs). `GetCatalogEditability` says which, and
+  `requireCatalogEditable` refuses with the reason (`CatalogReadOnlyException.reason`). With editing
+  off the installation is **run-only**: it receives, deploys and rolls back releases, and nothing in a
+  catalog is started, changed, merged or released. Where releases come from does not matter: a
+  received catalog can be changed and released like one made here.
+- **Receiving a newer release** (an import, an Exchange install, an upgrade from a source) records it
+  and, when the next version has no changes of its own, moves the next version to it (a
+  fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
+  others and the next version is behind it, to be merged; an upgrade from a source is refused
+  (`CatalogHasLocalChangesException`), since it would discard them. Changes are measured against what
+  the next version held when the release was put in place (`catalog_versions.base_fingerprints`, set
+  by `RecordInstalledRelease`), else against its base release.
+
 ## Catalog versions and drafts
 
 A catalog consists of **versions** (contract ADR 0002): released ones, kept in

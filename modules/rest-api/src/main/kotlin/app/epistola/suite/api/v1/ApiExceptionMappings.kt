@@ -536,8 +536,8 @@ object ApiExceptionMappings {
 
         builder.register<CatalogReadOnlyException>(
             problemType = ApiProblemTypes.CATALOG_READ_ONLY,
-            defaultDetail = "Catalog is subscribed and cannot be modified through this API",
-            extensions = { emptyMap() },
+            defaultDetail = "The catalog cannot be changed in this installation",
+            extensions = { listOfNotNull("catalogKey" to it.catalogKey.value, it.reason?.let { reason -> "reason" to reason.name }).toMap() },
             logMessage = { "Write to read-only catalog rejected: ${it.message}" },
         )
 

@@ -9,10 +9,10 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versionNamed
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -24,7 +24,7 @@ private const val FIXTURE_CATALOG_URL = "classpath:epistola/catalogs/fixture/cat
 
 /**
  * `catalog_current_versions` and the helpers over it name the version a caller means: the current one
- * when it names none (`versionAt`), the numbered one when it does (`versionNamed`).
+ * when it names none (`versionAt`).
  */
 class CurrentCatalogVersionTest : IntegrationTestBase() {
 
@@ -34,11 +34,11 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
     private val installed = CatalogKey.of("epistola-demo")
 
-    /** The catalog's next version, or its installed release: its only version until another is opened. */
+    /** The catalog's next version: its only version until another is opened. */
     private fun versionRow(tenantKey: TenantKey, catalogKey: CatalogKey): Pair<UUID, String?> = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
         handle.createQuery(
             "SELECT v.version_id, v.version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                "WHERE c.tenant_key = :t AND c.catalog_key = :c AND (v.is_next OR v.kind = 'installed')",
+                "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("version") }
@@ -58,12 +58,6 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     private fun versionAtOf(tenantKey: TenantKey, catalogKey: CatalogKey): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
         handle.createQuery("SELECT ${versionAt("t", "c")}")
             .bind("t", tenantKey).bind("c", catalogKey)
-            .mapTo(UUID::class.java).findOne().orElse(null)
-    }
-
-    private fun versionNamedOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
-        handle.createQuery("SELECT ${versionNamed("t", "c", "v")}")
-            .bind("t", tenantKey).bind("c", catalogKey).bind("v", version)
             .mapTo(UUID::class.java).findOne().orElse(null)
     }
 
@@ -90,25 +84,25 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a subscribed catalog's current version is its installed release`() {
+    fun `a received catalog's current version is its next version, on the release it installed`() {
         val tenantKey = createTenant("Current subscribed").id
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenantKey, catalogKey = installed).execute()
         }
-        val (installedRow, number) = jdbi.withHandle<Pair<UUID, String>, Exception> { handle ->
+        val (nextRow, base) = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
             handle.createQuery(
-                "SELECT v.version_id, v.version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.kind = 'installed'",
+                "SELECT v.version_id, v.base_version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
+                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
             )
                 .bind("t", tenantKey).bind("c", installed)
-                .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("version") }
+                .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("base_version") }
                 .one()
         }
 
-        assertThat(currentInView(tenantKey, installed)).isEqualTo(installedRow)
-        assertThat(versionAtOf(tenantKey, installed)).isEqualTo(installedRow)
-        assertThat(versionNamedOf(tenantKey, installed, number)).isEqualTo(installedRow)
+        assertThat(currentInView(tenantKey, installed)).isEqualTo(nextRow)
+        assertThat(versionAtOf(tenantKey, installed)).isEqualTo(nextRow)
+        assertThat(base).isEqualTo(withMediator { app.epistola.suite.catalog.queries.GetCatalog(tenantKey, installed).query()!!.installedReleaseVersion })
     }
 
     @Test
@@ -117,6 +111,5 @@ class CurrentCatalogVersionTest : IntegrationTestBase() {
         withMediator { CreateCatalog(tenantKey, letters, "Letters").execute() }
 
         assertThat(versionAtOf(tenantKey, CatalogKey.of("nowhere"))).isNull()
-        assertThat(versionNamedOf(tenantKey, letters, "9.9.9")).isNull()
     }
 }

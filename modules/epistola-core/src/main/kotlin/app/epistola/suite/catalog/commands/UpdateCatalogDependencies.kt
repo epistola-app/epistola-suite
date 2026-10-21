@@ -7,11 +7,11 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.catalog.protocol.CatalogReleaseVersions
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.catalog.versions.DraftRef
@@ -103,7 +103,7 @@ class UpdateCatalogDependenciesHandler(
     override fun handle(command: UpdateCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
         val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
             ?: throw CatalogNotFoundException(command.catalogKey)
-        if (catalog.type == CatalogType.SUBSCRIBED) throw CatalogReadOnlyException(command.catalogKey)
+        requireCatalogEditable(command.tenantKey, command.catalogKey)
         drafts.draft(handle, command.tenantKey, command.catalogKey)?.let { draft ->
             drafts.requireRevision(handle, command.tenantKey, draft.versionId, command.expectedRevision, "Catalog version '${draft.label}' of '${command.catalogKey.value}'")
         }
