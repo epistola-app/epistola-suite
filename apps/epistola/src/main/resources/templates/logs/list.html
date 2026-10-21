@@ -8,8 +8,9 @@
         )}"></div>
 
         <style>
-            /* Break the dense log table out of the centered content column. */
-            .logs-fullbleed { width: 96vw; position: relative; left: 50%; margin-left: -48vw; }
+            /* The dense log table fills the content column and scrolls sideways within it, so it never
+               overlaps the workspace's side menu. */
+            .logs-fullbleed { width: 100%; max-width: 100%; overflow-x: auto; }
             .log-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs); }
             .log-table th, .log-table td { padding: var(--ep-space-1) var(--ep-space-2); }
             .log-table td { vertical-align: top; }

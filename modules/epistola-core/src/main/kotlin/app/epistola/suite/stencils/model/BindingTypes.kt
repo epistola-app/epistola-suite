@@ -39,7 +39,7 @@ object BindingTypes {
     fun infer(expression: String, dataModel: Map<String, Any?>): Type? {
         val text = expression.trim()
         return when {
-            text.length >= 2 && (text.startsWith("'") && text.endsWith("'") || text.startsWith("\"") && text.endsWith("\"")) ->
+            text.length >= 2 && ((text.startsWith("'") && text.endsWith("'")) || (text.startsWith("\"") && text.endsWith("\""))) ->
                 Type("string").takeIf { text.drop(1).dropLast(1).none { it == text.first() } }
 
             text == "true" || text == "false" -> Type("boolean")
