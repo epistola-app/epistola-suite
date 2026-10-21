@@ -297,7 +297,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val kept = objectMapper.createArrayNode()
             (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "drop") kept.add(it) }
             manifest.set("resources", kept)
-            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0").remove("releaseId") // another release, another id
             entries.remove("resources/theme/drop.json")
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
@@ -330,7 +330,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val entries = unzip(v1)
             val manifest = objectMapper.readTree(entries["catalog.json"]!!) as ObjectNode
             manifest.set("resources", objectMapper.createArrayNode())
-            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0").remove("releaseId") // another release, another id
             entries.remove("resources/theme/pinned.json")
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
 
@@ -362,7 +362,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             val kept = objectMapper.createArrayNode()
             (manifest.get("resources") as ArrayNode).forEach { if (it.get("key").asString() != "drop") kept.add(it) }
             manifest.set("resources", kept)
-            (manifest.get("release") as ObjectNode).put("version", "2.0.0")
+            (manifest.get("release") as ObjectNode).put("version", "2.0.0").remove("releaseId") // another release, another id
             entries.remove("resources/theme/drop.json")
             entries.remove("resources/theme/keep.json") // referenced by manifest → install FAILS
             entries["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
