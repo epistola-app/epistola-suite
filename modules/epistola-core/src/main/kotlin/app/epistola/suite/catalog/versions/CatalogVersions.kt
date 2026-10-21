@@ -185,7 +185,7 @@ class CatalogDrafts {
         val moved = handle.createUpdate(
             """
             UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key(),
-                merged_releases = '{}', base_fingerprints = NULL
+                base_fingerprints = NULL
             WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND is_next
             """,
         )
@@ -194,6 +194,11 @@ class CatalogDrafts {
             .bind("base", base)
             .execute()
         check(moved == 1) { "no next version $versionId to advance" }
+        // On a new base it has merged nothing yet: what it merged is in the release it continues on.
+        handle.createUpdate("DELETE FROM catalog_draft_merges WHERE tenant_key = :t AND version_id = :v")
+            .bind("t", tenantKey)
+            .bind("v", versionId)
+            .execute()
     }
 
     /**
@@ -276,19 +281,50 @@ class CatalogDrafts {
             .execute()
     }
 
-    /** Records that draft [versionId] has merged [release] (ADR 0032), so it is no longer behind it. */
-    fun recordMerged(handle: Handle, tenantKey: TenantKey, versionId: UUID, release: String) {
+    /**
+     * Records that draft [versionId] has merged [release] (ADR 0032), so it is no longer behind it:
+     * against [mergeBase], with the [resolutionsJson] (`{"type/key": "OURS"|"THEIRS"}`) chosen for its
+     * conflicts. A release merged before stays as it was recorded.
+     */
+    fun recordMerged(
+        handle: Handle,
+        tenantKey: TenantKey,
+        versionId: UUID,
+        release: String,
+        mergeBase: String? = null,
+        resolutionsJson: String = "{}",
+        heldFingerprintsJson: String? = null,
+    ) {
         handle.createUpdate(
             """
-            UPDATE catalog_versions SET merged_releases = array_append(merged_releases, :release)
-            WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT (:release = ANY (merged_releases))
+            INSERT INTO catalog_draft_merges (tenant_key, version_id, release_version, merge_base, resolutions, held_fingerprints, merged_by)
+            SELECT :t, version_id, :release, :base, CAST(:resolutions AS JSONB), CAST(:held AS JSONB), :by
+            FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND kind = 'draft'
+            ON CONFLICT (tenant_key, version_id, release_version) DO NOTHING
             """,
         )
             .bind("t", tenantKey)
             .bind("v", versionId)
             .bind("release", release)
+            .bind("base", mergeBase)
+            .bind("resolutions", resolutionsJson)
+            .bind("held", heldFingerprintsJson)
+            .bind("by", app.epistola.suite.security.currentUserIdOrNull()?.value)
             .execute()
     }
+
+    /**
+     * What draft [versionId] held of [release] once it merged it (`catalog_draft_merges.held_fingerprints`):
+     * a fingerprint per entry; null when not recorded.
+     */
+    fun mergeHeldFingerprints(handle: Handle, tenantKey: TenantKey, versionId: UUID, release: String): String? = handle
+        .createQuery("SELECT held_fingerprints::text FROM catalog_draft_merges WHERE tenant_key = :t AND version_id = :v AND release_version = :r")
+        .bind("t", tenantKey)
+        .bind("v", versionId)
+        .bind("r", release)
+        .mapTo(String::class.java)
+        .findOne()
+        .orElse(null)
 
     /** Copies every content row of version [from] into version [to] of the same catalog, keeping identities. */
     fun copyContent(handle: Handle, tenantKey: TenantKey, from: UUID, to: UUID) {
@@ -302,10 +338,21 @@ class CatalogDrafts {
         // releases merged into it (ADR 0032).
         handle.createUpdate(
             """
-            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets,
-                merged_releases = f.merged_releases
+            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets
             FROM catalog_versions f
             WHERE t.tenant_key = :t AND t.version_id = :to AND f.tenant_key = :t AND f.version_id = :from
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("from", from)
+            .bind("to", to)
+            .execute()
+        handle.createUpdate(
+            """
+            INSERT INTO catalog_draft_merges (tenant_key, version_id, release_version, merge_base, resolutions, held_fingerprints, merged_by, merged_at)
+            SELECT tenant_key, :to, release_version, merge_base, resolutions, held_fingerprints, merged_by, merged_at
+            FROM catalog_draft_merges WHERE tenant_key = :t AND version_id = :from
+            ON CONFLICT (tenant_key, version_id, release_version) DO NOTHING
             """,
         )
             .bind("t", tenantKey)
@@ -327,7 +374,9 @@ class CatalogDrafts {
     )
 
     companion object {
-        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision, merged_releases FROM catalog_versions"
+        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision, " +
+            "ARRAY(SELECT m.release_version FROM catalog_draft_merges m WHERE m.tenant_key = catalog_versions.tenant_key AND m.version_id = catalog_versions.version_id) AS merged_releases " +
+            "FROM catalog_versions"
 
         /** The number a catalog's first release gets when nothing says otherwise. */
         const val FIRST: String = "1.0.0"
