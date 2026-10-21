@@ -134,7 +134,8 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             // Taken resources hold exactly what the release has.
             val after = PreviewDraftMerge(a, catalog, "2.0.0").query()
             assertThat(after.alreadyMerged).isTrue()
-            assertThat(after.resources.filter { it.key in setOf("thw", "thx", "thz") }.map { it.outcome }).containsOnly(MergeOutcome.SAME)
+            assertThat(after.base).`as`("merged, the release is on the draft's line: its own merge base").isEqualTo("2.0.0")
+            assertThat(after.resources.filter { it.key in setOf("thw", "thx", "thz") }.map { it.outcome }).containsOnly(MergeOutcome.UNCHANGED)
             assertThat(ListCatalogVersions(a, catalog, CatalogVersionStatus.DRAFT, withBehind = true).query().single { it.isNext }.behind).isEmpty()
 
             MarkCatalogReady(a, catalog).execute()
@@ -186,6 +187,40 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
                 .hasMessageContaining("thz")
             assertThat(themeName(a, catalog, "thz")).isEqualTo("base thz")
             assertThat(themeName(a, catalog, "thw")).`as`("nothing was taken either").isNull()
+        }
+    }
+
+    @Test
+    fun `a fix released from parallel work merges against the release both started from, not the next version's base`() {
+        // 1.0.0 has x. The next version adds w and is released as 1.1.0; parallel work started from
+        // 1.0.0 changes x and is released as 1.0.1. Merged into the next version (on 1.1.0), 1.0.1
+        // brings its change to x and does not remove w, which it never had.
+        val tenant = createTenant("Merge Lines").id
+        val catalog = CatalogKey.of("merge-lines")
+        withMediator {
+            CreateCatalog(tenantKey = tenant, id = catalog, name = "Merge lines").execute()
+            CreateTheme(id = theme(tenant, catalog, "thx"), name = "base x").execute()
+            MarkCatalogReady(tenant, catalog).execute()
+            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
+            val fix = app.epistola.suite.catalog.versions.CreateCatalogDraft(tenant, catalog, "Fix", "1.0.0").execute()
+            val fixRef = app.epistola.suite.catalog.versions.CatalogVersionRef(tenant, catalog, app.epistola.suite.catalog.versions.DraftRef.Id(fix.versionId))
+            CreateTheme(id = theme(tenant, catalog, "thw"), name = "w").execute()
+            MarkCatalogReady(tenant, catalog).execute()
+            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.1.0").execute()
+            UpdateTheme(theme(tenant, catalog, "thx"), name = "fixed x", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenant, catalog, catalogVersion = fixRef).execute()
+            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.0.1", catalogVersion = fixRef).execute()
+
+            val preview = PreviewDraftMerge(tenant, catalog, "1.0.1").query()
+
+            assertThat(preview.base).isEqualTo("1.0.0")
+            assertThat(preview.resources.associate { it.contentKey to it.outcome }).containsExactlyInAnyOrderEntriesOf(
+                mapOf("theme/thx" to MergeOutcome.THEIRS, "theme/thw" to MergeOutcome.OURS),
+            )
+            val merged = MergeReleaseIntoDraft(tenant, catalog, "1.0.1").execute()
+            assertThat(merged.taken to merged.removed).isEqualTo(listOf("theme/thx") to emptyList<String>())
+            assertThat(themeName(tenant, catalog, "thw")).isEqualTo("w")
+            assertThat(themeName(tenant, catalog, "thx")).isEqualTo("fixed x")
         }
     }
 

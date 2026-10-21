@@ -47,10 +47,40 @@ data class MergeResource(
 
 /**
  * The three-way merge of a catalog per resource, from a fingerprint per resource on each side: the
- * merge base (the release the draft started from), ours (the draft) and theirs (the release merged
- * in). Keys are `type/key`; a side without a key does not have that resource.
+ * merge base (the closest release both descend from, [mergeBase]), ours (the draft) and theirs
+ * (the release merged in). Keys are `type/key`; a side without a key does not have that resource.
  */
 object DraftMerge {
+
+    /**
+     * The releases a draft already contains: its base and every release merged into it, with every
+     * release each of those descends from. [baseOf] gives a release's base.
+     */
+    fun contained(draftBase: String?, merged: Collection<String>, baseOf: (String) -> String?): Set<String> {
+        val seen = linkedSetOf<String>()
+        val todo = ArrayDeque(listOfNotNull(draftBase) + merged)
+        while (todo.isNotEmpty()) {
+            val release = todo.removeFirst()
+            if (seen.add(release)) baseOf(release)?.let(todo::addLast)
+        }
+        return seen
+    }
+
+    /**
+     * The merge base of a draft and [release]: the closest release on [release]'s line (itself, its
+     * base, that one's base, …) that the draft already [contained]. Not the draft's own base: work
+     * started from 1.0.0 and released as 1.0.1 does not remove what the draft's base 1.1.0 added
+     * since 1.0.0. Null when they share no release.
+     */
+    fun mergeBase(release: String, contained: Set<String>, baseOf: (String) -> String?): String? {
+        val seen = mutableSetOf<String>()
+        var current: String? = release
+        while (current != null && seen.add(current)) {
+            if (current in contained) return current
+            current = baseOf(current)
+        }
+        return null
+    }
 
     fun classify(
         base: Map<String, String>,
