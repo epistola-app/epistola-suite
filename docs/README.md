@@ -83,6 +83,7 @@ under its title. That banner, not this table, is authoritative.
 | [Version axes](version-axes.md)                                       | Current      | The independent "version" concepts and which question each answers.                                            |
 | [Exchange publication](catalog-exchange-publication.md)               | Alpha        | Publishing authored catalog releases to Epistola Exchange.                                                     |
 | [Exchange installation](catalog-exchange-installation.md)             | Alpha        | Browsing Epistola Exchange, installing from it, and how updates are noticed.                                   |
+| [Catalog registries](catalog-registry.md)                             | Alpha        | Moving released catalog versions between installations through a container registry.                           |
 
 ## Platform runtime
 

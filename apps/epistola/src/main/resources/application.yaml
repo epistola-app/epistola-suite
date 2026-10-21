@@ -225,6 +225,11 @@ epistola:
       allowed-hosts: []
       # Redirects one fetch follows; each is checked as if it were the first request.
       max-redirects: 3
+    # Container registries catalog releases are published to and installed from (alpha,
+    # docs/catalog-registry.md). Empty: the feature is not offered. Each entry: name, url
+    # (https://host[:port]), optional repository-prefix, username and password (from the
+    # environment, e.g. ${CATALOG_REGISTRY_PASSWORD}; never a literal here).
+    registries: []
     upstream-check:
       # Ask each catalog's source, on a schedule, whether it has published anything
       # newer, so a release can be noticed without anyone opening the catalogs page. On by
