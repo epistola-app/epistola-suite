@@ -146,6 +146,18 @@ that draft's working copy, and cannot be combined with `releaseVersion` or `envi
 Releasing and discarding change what can be generated and cannot be undone, so an assistant does
 them only when the user asks.
 
+### Catalog registries (alpha)
+
+Releases move between installations through a container registry configured for the installation
+([catalog-registry.md](catalog-registry.md)). Without one configured they refuse every call; an
+unknown registry name is refused with the names that are configured. REST has no counterpart yet.
+
+| Tool                            | Purpose                                                                                                                                                                                     | Permission        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `list_registry_releases`        | Alpha. The releases of `namespace`/`catalogKey` a registry holds, highest first, with fingerprint label, digest, size and whether the tenant has each (`present`), and a `conflict` if any. | `CATALOG_VIEW`    |
+| `publish_release_to_registry`   | Alpha. Publish a release as `<namespace>/<catalogKey>:<version>`. The same number with the same fingerprint pushes nothing (`alreadyPublished`); other content is refused.                  | `CATALOG_PUBLISH` |
+| `install_release_from_registry` | Alpha. Install a release from a registry, as importing its archive does: digest verified, fingerprint recomputed. A new catalog is created receiving its releases from that registry.       | `CATALOG_MANAGE`  |
+
 Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
 the argument. A template document is the node/slot graph `get_template_content` returns under
