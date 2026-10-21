@@ -295,16 +295,33 @@ class ReleaseContentAssembler(
         loadManifestSnapshot(handle, tenantKey, catalogKey, version).catalog
     }
 
+    /**
+     * The manifest [version] was released with, its release completed from what the catalog records
+     * of it ([ReleaseDescription.complete]), so a release recorded before a release said what it is
+     * exports saying it too.
+     */
     private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest = handle
         .createQuery(
             """
-            SELECT manifest_snapshot::text AS snapshot FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+            SELECT r.manifest_snapshot::text AS snapshot, r.version_key, r.rendering_defaults_version, r.base_version,
+                   (SELECT b.fingerprint FROM catalog_releases b
+                    WHERE b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version) AS base_fingerprint
+            FROM catalog_releases r
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
         .bind("t", tenantKey)
         .bind("c", catalogKey)
         .bind("version", version)
-        .map { rs, _ -> objectMapper.readValue(rs.getString("snapshot"), CatalogManifest::class.java) }
+        .map { rs, _ ->
+            val manifest = objectMapper.readValue(rs.getString("snapshot"), CatalogManifest::class.java)
+            val recorded = ReleaseDescription.RecordedDescription(
+                releaseId = rs.getString("version_key"),
+                renderingDefaultsVersion = rs.getObject("rendering_defaults_version") as Int?,
+                baseVersion = rs.getString("base_version"),
+                baseFingerprint = rs.getString("base_fingerprint"),
+            )
+            manifest.copy(release = ReleaseDescription.complete(manifest.release, recorded))
+        }
         .one()
 }

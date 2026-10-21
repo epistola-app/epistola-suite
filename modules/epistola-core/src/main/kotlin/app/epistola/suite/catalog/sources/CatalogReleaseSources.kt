@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.sources
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogArchiveBuilder
@@ -103,7 +102,8 @@ class ManifestUrlReleaseSource(
             }
         }.distinct().associateWith { path -> client.fetchBinaryContent(path, url, auth, credential) }
         val content = publishedContent(manifest, bound, binaries)
-        archiveBuilder.build(content, ReleaseInfo(version = manifest.release.version, releasedAt = manifest.release.releasedAt, fingerprint = manifest.release.fingerprint))
+        // The release as its source describes it, its id, metadata and base included (wire v8).
+        archiveBuilder.build(content, manifest.release)
     }
 
     private fun manifest(catalog: Catalog) = client.fetchManifest(requireNotNull(catalog.sourceUrl), catalog.sourceAuthType, catalog.sourceAuthCredential?.value)

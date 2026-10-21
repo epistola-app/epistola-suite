@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versionAt
@@ -136,13 +137,24 @@ class RecordInstalledReleaseHandler(
 
         jdbi.useTransaction<Exception> { handle ->
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
-            val manifest = content.toManifest(ReleaseInfo(version = version, releasedAt = releasedAt.toString(), fingerprint = fingerprint))
+            // Its id is chosen here rather than by the column's default, so its snapshot says it too.
+            val releaseId = handle.createQuery("SELECT epistola_version_key()").mapTo(String::class.java).one()
+            val renderingDefaults = RenderingDefaults.CURRENT.version
+            val manifest = content.toManifest(
+                ReleaseInfo(
+                    version = version,
+                    releasedAt = releasedAt.toString(),
+                    fingerprint = fingerprint,
+                    releaseId = releaseId,
+                    metadata = ReleaseDescription.metadata(renderingDefaults),
+                ),
+            )
 
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults)
+                                              rendering_defaults_version, version_key)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -152,7 +164,8 @@ class RecordInstalledReleaseHandler(
                 .bind("notes", "Installed from ${catalog.sourceUrl ?: "a catalog archive"}")
                 .bind("snapshot", objectMapper.writeValueAsString(manifest))
                 .bind("releasedAt", releasedAt)
-                .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
+                .bind("renderingDefaults", renderingDefaults)
+                .bind("releaseId", releaseId)
                 .execute()
 
             // The publisher's pins, as installed: a received release's declarations are its archive's.

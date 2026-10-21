@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versions.AssessDraftNumber
@@ -361,7 +362,16 @@ class ReleaseCatalogVersionHandler(
         val releasedAt = jdbi.withHandle<OffsetDateTime, Exception> { handle ->
             handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
         }
-        val releaseInfo = ReleaseInfo(version = newVersion.toString(), releasedAt = releasedAt.toString(), fingerprint = fingerprint)
+        // The release says what it is (wire v8): the draft's id, the rendering defaults it renders
+        // with, and the release it was made from, the draft's base.
+        val releaseInfo = ReleaseInfo(
+            version = newVersion.toString(),
+            releasedAt = releasedAt.toString(),
+            fingerprint = fingerprint,
+            releaseId = ReleaseDescription.releaseId(draft.key),
+            metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version),
+            base = ReleaseDescription.base(draft.base, existing.firstOrNull { it.version == draft.base }?.fingerprint),
+        )
         val manifest = content.toManifest(releaseInfo)
         // Building the archive is expensive, so only do it when the release will actually be
         // queued. The bytes are handed to the outbox inside the release transaction below: a crash
