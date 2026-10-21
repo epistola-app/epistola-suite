@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -25,12 +26,19 @@ data class UpdateCatalogDraft(
     val catalogKey: CatalogKey,
     val draft: DraftRef,
     val name: String? = null,
+    /** The draft's new default theme; null keeps it ([clearDefaultTheme] removes it). */
     val defaultTheme: CatalogDefaultTheme? = null,
     val presets: List<CatalogPreset>? = null,
     val expectedRevision: Long? = null,
+    /** Removes the default theme, so a template that names none renders with the rendering defaults alone. */
+    val clearDefaultTheme: Boolean = false,
 ) : Command<UpdatedCatalogDraft>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_EDIT
+
+    init {
+        validate("clearDefaultTheme", !(clearDefaultTheme && defaultTheme != null)) { "Send a defaultTheme or clearDefaultTheme, not both" }
+    }
 }
 
 /** The draft's revision after [UpdateCatalogDraft]: what the caller names to update it again. */
@@ -51,6 +59,7 @@ class UpdateCatalogDraftHandler(
         val version = CatalogVersionRef(command.tenantKey, command.catalogKey, draft.ref)
         command.name?.let { RenameCatalogDraft(command.tenantKey, command.catalogKey, draft.ref, it).execute() }
         command.defaultTheme?.let { SetCatalogDefaultTheme(command.tenantKey, command.catalogKey, it, catalogVersion = version).execute() }
+        if (command.clearDefaultTheme) SetCatalogDefaultTheme(command.tenantKey, command.catalogKey, theme = null, catalogVersion = version).execute()
         command.presets?.let { SetCatalogPresets(command.tenantKey, command.catalogKey, it, catalogVersion = version).execute() }
         return jdbi.withHandle<UpdatedCatalogDraft, Exception> { handle ->
             UpdatedCatalogDraft(requireNotNull(drafts.find(handle, command.tenantKey, command.catalogKey, draft.ref)).revision)

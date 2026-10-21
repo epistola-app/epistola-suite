@@ -92,6 +92,7 @@ import app.epistola.suite.tenants.commands.RenameTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.validate
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
@@ -258,6 +259,8 @@ class EpistolaTenantApi(
     ): ResponseEntity<AttributeDto> {
         // An attribute keeps no description; refuse it rather than drop it.
         if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
+        val clearsBinding = updateAttributeRequest.clearCodeListBinding == true
+        validate("clearCodeListBinding", !(clearsBinding && updateAttributeRequest.codeListBinding != null)) { "Send a codeListBinding or clearCodeListBinding, not both" }
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.attributeId(attributeKey)
         // PATCH semantics: pull the current definition so we can write a
@@ -266,7 +269,7 @@ class EpistolaTenantApi(
         val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
         val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
             draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
-        } ?: current.codeListId
+        } ?: current.codeListId.takeUnless { clearsBinding }
         val attribute = UpdateAttributeDefinition(
             id = id,
             displayName = updateAttributeRequest.displayName ?: current.displayName,

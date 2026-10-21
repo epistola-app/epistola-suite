@@ -45,6 +45,7 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateStencil(
     val id: StencilId,
     val name: String? = null,
+    /** The new description; null keeps the current one, blank removes it (as [clearDescription] does). */
     val description: String? = null,
     val tags: List<String>? = null,
     val clearDescription: Boolean = false,
@@ -116,7 +117,8 @@ class UpdateStencilHandler(
                 bindings["name"] = it
             }
 
-            if (command.clearDescription) {
+            // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+            if (command.clearDescription || command.description?.isBlank() == true) {
                 setClauses.add("description = NULL")
             } else {
                 command.description?.let {

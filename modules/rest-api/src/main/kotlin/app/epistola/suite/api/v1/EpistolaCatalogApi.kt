@@ -314,7 +314,7 @@ class EpistolaCatalogApi(
     ): ResponseEntity<CatalogReleaseDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val request = updateCatalogReleaseRequest
-        // An omitted member keeps what the draft has; its theme settings are contract ADR 0007.
+        // An omitted or null member keeps what the draft has; its theme settings are contract ADR 0007.
         UpdateCatalogDraft(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
@@ -325,6 +325,8 @@ class EpistolaCatalogApi(
             },
             presets = request.presets?.map { CatalogPreset(it.key, it.name, it.description) },
             expectedRevision = ETags.expected(ifMatch),
+            // Null keeps the default theme; the flag removes it (and is refused beside a theme).
+            clearDefaultTheme = request.clearDefaultTheme == true,
         ).execute()
         val updated = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         return okWithETag(updated.version.revision, updated.version.toDto(updated.catalog))

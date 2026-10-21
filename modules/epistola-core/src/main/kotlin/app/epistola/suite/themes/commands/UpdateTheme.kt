@@ -40,6 +40,7 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateTheme(
     val id: ThemeId,
     val name: String? = null,
+    /** The new description; null keeps the current one, blank removes it (as [clearDescription] does). */
     val description: String? = null,
     val clearDescription: Boolean = false,
     val documentStyles: DocumentStyles? = null,
@@ -100,7 +101,8 @@ class UpdateThemeHandler(
             bindings["name"] = command.name
         }
 
-        if (command.clearDescription) {
+        // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+        if (command.clearDescription || command.description?.isBlank() == true) {
             updates.add("description = NULL")
         } else if (command.description != null) {
             updates.add("description = :description")
