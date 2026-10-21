@@ -4,13 +4,13 @@
 
 package app.epistola.suite.catalog.registry
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler

@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog.registry
 
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler

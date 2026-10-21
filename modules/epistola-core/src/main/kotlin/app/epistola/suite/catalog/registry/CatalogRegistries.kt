@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.registry
 
 import app.epistola.catalog.protocol.CatalogNamespaces
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.springframework.boot.context.properties.EnableConfigurationProperties

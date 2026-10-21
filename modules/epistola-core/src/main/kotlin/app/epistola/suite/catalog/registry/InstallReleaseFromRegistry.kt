@@ -5,7 +5,6 @@
 package app.epistola.suite.catalog.registry
 
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
@@ -14,6 +13,7 @@ import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler

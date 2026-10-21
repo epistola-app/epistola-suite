@@ -4,13 +4,13 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.UUIDv7
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.images.builder.Transferable
 import org.testcontainers.utility.DockerImageName
-import java.util.UUID
 
 /**
  * Two CNCF distribution registries (`registry:2`) per test JVM, for the catalog registry route
@@ -24,7 +24,7 @@ object SharedRegistries {
     const val USERNAME = "epistola"
 
     /** Generated per run: nothing to leak, and nothing a committed file could carry. */
-    val password: String = UUID.randomUUID().toString()
+    val password: String = UUIDv7.generate().toString()
 
     const val SECURED_PREFIX = "team/catalogs"
 
