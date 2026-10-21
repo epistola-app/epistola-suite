@@ -113,6 +113,14 @@ enum class ValidationCode(val wire: String) {
     EXCHANGE_RELEASE_UNAVAILABLE("EXCHANGE_RELEASE_UNAVAILABLE"),
     EXCHANGE_ARCHIVE_REJECTED("EXCHANGE_ARCHIVE_REJECTED"),
 
+    // Moving catalog releases through a container registry (alpha, ADR 0032).
+    REGISTRY_UNKNOWN("REGISTRY_UNKNOWN"),
+    REGISTRY_REFERENCE_INVALID("REGISTRY_REFERENCE_INVALID"),
+    REGISTRY_TAG_TAKEN("REGISTRY_TAG_TAKEN"),
+    REGISTRY_RELEASE_UNAVAILABLE("REGISTRY_RELEASE_UNAVAILABLE"),
+    REGISTRY_ARCHIVE_REJECTED("REGISTRY_ARCHIVE_REJECTED"),
+    REGISTRY_CATALOG_KEY_TAKEN("REGISTRY_CATALOG_KEY_TAKEN"),
+
     /**
      * A catalog or code-list source URL Epistola will not read: a `classpath:` URL, a `file:` path
      * outside `epistola.catalog.file-roots`, a non-public address, or a scheme that is not allowed.
