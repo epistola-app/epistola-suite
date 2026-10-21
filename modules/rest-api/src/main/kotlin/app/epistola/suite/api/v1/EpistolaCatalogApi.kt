@@ -28,9 +28,13 @@ import app.epistola.api.model.ImportCatalogResponse
 import app.epistola.api.model.InstallCatalogReleaseResponse
 import app.epistola.api.model.MergeIntoCatalogDraftRequest
 import app.epistola.api.model.MergeIntoCatalogDraftResponse
+import app.epistola.api.model.PublishReleaseToRegistryRequest
+import app.epistola.api.model.RegistryReleaseListResponse
 import app.epistola.api.model.ReleaseCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
+import app.epistola.api.model.ReleasePublicationDto
+import app.epistola.api.model.ReleaseRegistryListResponse
 import app.epistola.api.model.ReleasedChangeDto
 import app.epistola.api.model.ReleasedDependencyDto
 import app.epistola.api.model.ResourceChangeDto
@@ -221,6 +225,23 @@ class EpistolaCatalogApi(
             ),
         )
     }
+
+    // ================== Release registries (contract ADR 0008, alpha) ==================
+
+    override fun listReleaseRegistries(tenantKey: String): ResponseEntity<ReleaseRegistryListResponse> = throw ApiOperationNotImplementedException("listReleaseRegistries")
+
+    override fun listRegistryReleases(tenantKey: String, name: String, namespace: String, catalogKey: String): ResponseEntity<RegistryReleaseListResponse> = throw ApiOperationNotImplementedException("listRegistryReleases")
+
+    override fun installRegistryRelease(tenantKey: String, name: String, namespace: String, catalogKey: String, version: String): ResponseEntity<ImportCatalogResponse> = throw ApiOperationNotImplementedException("installRegistryRelease")
+
+    override fun publishReleaseToRegistry(
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        release: String,
+        publishReleaseToRegistryRequest: PublishReleaseToRegistryRequest,
+    ): ResponseEntity<ReleasePublicationDto> = throw ApiOperationNotImplementedException("publishReleaseToRegistry")
 
     // ================== Releases (a draft is a release in status draft) ==================
 
