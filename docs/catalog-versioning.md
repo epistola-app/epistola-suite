@@ -133,15 +133,18 @@ until it is released**; only releases are numbered.
   when asked for (`ListCatalogVersions(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
   every release's content.
 - **Merging** (alpha, ADR 0032). A draft takes in a release it is behind with
-  `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, from three
-  fingerprints the suite already keeps (the draft's base and the release from `release_entries`, the
-  draft from its content): what only the release changed is taken (written as the release has it, or
-  removed), what only the draft changed stays, and a resource both changed differently is a conflict
-  the person resolves to one side. Taken resources are marked ready, since they are released content;
-  the draft's default theme, presets and dependency declarations stay its own. A release that removes
-  something the draft still uses is refused (`MergeRefusedException`), as is one the draft already
-  contains. The draft records the release (`catalog_versions.merged_releases`), which `behind` then
-  leaves out; its base does not move. Merging inside one resource is later work.
+  `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, and per
+  catalog setting (the default theme, the presets and the dependency declarations, each one entry
+  `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`), against the merge base, the
+  closest release both descend from: what only the release changed is taken (written as the release
+  has it, or removed), what only the draft changed stays, and an entry both changed differently is a
+  conflict the person resolves to one side. Taken resources are marked ready, since they are released
+  content. A release that removes something the draft still uses is refused
+  (`MergeRefusedException`), as is one the draft already contains. The preview carries a `token`; a
+  merge given it is refused once the draft or the release changed since
+  (`MergePreviewOutdatedException`: preview again). The draft records the merge
+  (`catalog_draft_merges`), which `behind` then leaves out; its base does not move. Merging inside one
+  resource is later work; see [Merge internals](#merge-internals).
 - **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
   its draft started from, which `getCatalogRelease` reports as a released release's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed
@@ -553,6 +556,45 @@ it per catalog.
 - **Over MCP** nothing deploys; `preview_document` and `analyze_template_data` with an
   `environmentId` render what the environment serves.
 
+## Merge internals
+
+The merge (package `catalog.merge`) is built so that later work — choosing any entry, merging a
+template per variant or per block, an editor merge tool — adds to it rather than replacing it.
+
+- **Inputs** (`MergeInputReader` → `MergeInputs`). Three sides, each a `MergeInput`: its content and a
+  `MergeValue` per entry (`type/key`), resources and `CatalogSetting`s alike, each with a fingerprint.
+  The draft (ours) is built from its rows; the merge base and the release (theirs) from the content
+  each release retained (`ReleaseContentAssembler`). All three are fingerprinted by one function,
+  `CatalogFingerprintService.perResourceFingerprints` (settings by a digest over a fixed shape), not
+  read from `release_entries`, which for a release received from a source holds its publisher's
+  digests. A received release is written into a draft as this suite holds content (a default written
+  out, a slot a stencil needs added), so the draft is compared with the base _as it holds it_
+  (`heldBase`): `catalog_versions.base_fingerprints`, recorded when its base was put in place or copied
+  in, or `catalog_draft_merges.held_fingerprints` for a release it merged; else the base as released.
+- **Mergers** (`ResourceMerger`, found by type in `ResourceMergers`). One classifies an entry from its
+  three sides (`MergeEntrySides`) and plans what to write for a `MergeResolution` (`MergeAction`:
+  keep, write a value, remove). `WholeResourceMerger`, the whole-entry table above
+  (`DraftMerge.classifyOne`), serves every type today. `DraftMergePlanner` reads the inputs and
+  classifies every entry; the preview shows that plan and the merge applies it, so the two agree.
+- **Writer** (`DraftResourceWriter`). Applies the actions to the draft: resources through
+  `CatalogResourceInstaller` (the import's own per-type code), marked ready; removals refused while
+  another catalog or the draft itself uses one; settings last, through `SetCatalogDefaultTheme`,
+  `SetCatalogPresets` and the dependency store.
+- **Merges** (`catalog_draft_merges`). One row per release a draft merged: its merge base, the
+  resolutions chosen, what the draft then held of the release (`held_fingerprints`), who and when.
+  `CatalogDraft.merged` reads it, so the draft contains the release and is not behind it. Copying a
+  draft copies its rows; moving the next release onto a new base (releasing it, or a release put in
+  place) clears them.
+- **Token.** `DraftMergePlanner.token` digests the release, the merge base and every fingerprint of
+  the three sides. `PreviewDraftMerge` returns it, the UI and MCP send it back, and the merge refuses
+  another (`MergePreviewOutdatedException`). REST does not send one yet: the contract's request has no
+  field for it.
+
+To merge a type differently, add a Spring bean implementing `ResourceMerger` whose `types` names it:
+`classify` returns the `MergeResource` the preview shows (its outcome decides whether a resolution is
+asked for), and `plan` returns a `MergeAction.Write` with the value to write, which can be content
+combined from both sides. A new kind of resolution is a new case of `MergeResolution`.
+
 ## Everyday work continuing from parallel work
 
 Which draft is the next release is only a default: any draft is released as it is. There is no
@@ -619,9 +661,10 @@ import takes the same path; none names a type.
   import first), the release is recorded, and everything it put in place is marked ready. A resource
   that fails to install aborts it without advancing anything.
 
-`intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`: starting a draft from a release, and
-merging) and `restore` (snapshots) are internal, and fill the version the transaction targets
-(`DraftFillMode` `MERGE` or `REPLACE`).
+`intoDraft` (load an archive into a draft, `TEMPLATE_EDIT`: starting a draft from a release) and
+`restore` (snapshots) are internal, and fill the version the transaction targets (`DraftFillMode`
+`MERGE` or `REPLACE`). Each resource is written by `CatalogResourceInstaller`, which a merge uses
+too.
 
 A tenant snapshot exports each catalog's next release as a working copy, labelled with its highest
 release or `0.0.0`; that is the only export of a draft.

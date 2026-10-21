@@ -157,6 +157,42 @@ template is deleted with "all its variants, versions, and data" though templates
 the REST problem titles (`Catalog Version Released`, …) and MCP tool names (`list_catalog_versions`) are contract
 or tool identifiers and keep "version".
 
+**Merge foundation (21 October; same branch, not pushed):** the merge reworked into parts later
+features extend (any entry choosable, per variant or block, an editor merge tool); described in
+`docs/catalog-versioning.md`, "Merge internals".
+
+| Change                                                                                                                                                                                  | Where                                                                  | Coverage                                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One fingerprint function for all three sides: base and theirs from each release's retained content, not `release_entries`; the draft compared with its base as it holds it (`heldBase`) | `merge/MergeInputs.kt` (`MergeInputReader`, `CatalogSetting`)          | ✅ `MergeReceivedFromSourceTest` (failed before: CONFLICT for the theme and both templates, OURS for the image, SAME for the rest, where only one theme and one template changed) |
+| A draft records what it holds of its base when a release is copied in (`base_fingerprints`, also copied with a draft)                                                                   | `CatalogReleaseCopier`, `CatalogDrafts.copyContent`                    | ✅ via `MergeReceivedFromSourceTest`, `MergeReleaseIntoDraftTest`                                                                                                                 |
+| `ResourceMerger` per type, `WholeResourceMerger` default, `ResourceMergers` registry; `DraftMerge.classifyOne` with a held base                                                         | `merge/ResourceMerger.kt`, `DraftMerge.kt`                             | ✅ `DraftMergeTest` (unit), merge integration tests                                                                                                                               |
+| `MergeResolution` (`Ours`, `Theirs`) replaces `MergeSide`; wire values unchanged                                                                                                        | `DraftMerge.kt`, UI, MCP, REST                                         | ✅ existing UI/MCP/REST merge tests                                                                                                                                               |
+| `DraftMergePlanner`: preview and merge share one plan; `token` over merge base and fingerprints                                                                                         | `merge/DraftMergePlanner.kt`                                           | ✅ `MergeReleaseIntoDraftTest` (token), `CatalogMergeHandlerHtmxTest`, `CatalogVersionMcpToolsIntegrationTest`                                                                    |
+| `DraftResourceWriter` writes through `CatalogResourceInstaller` (extracted from `ImportCatalogZip`); `mergeResources` and the ZIP detour gone                                           | `merge/DraftResourceWriter.kt`, `commands/CatalogResourceInstaller.kt` | ✅ `MergeContentKindsTest` (image, font with a face, code list, bound attribute), existing removal tests                                                                          |
+| Catalog settings merged: `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`                                                                                              | `CatalogSetting`, writer                                               | ✅ `MergeContentKindsTest` (taken; conflict), `CatalogMergeHandlerHtmxTest` (row, taken)                                                                                          |
+| `MergePreviewOutdatedException`; UI hidden `token`, MCP `token`; REST maps 409 `conflict`, sends none                                                                                   | handler, `merge.html`, MCP tools, `ApiExceptionMappings.kt`            | ✅ core, UI and MCP tests; REST mapping by `ApiExceptionMappingsConsistencyTest` only                                                                                             |
+| `catalog_draft_merges` replaces `merged_releases` (moved, then dropped); trigger clears on a new base                                                                                   | `V20261021095928`, `CatalogVersions.kt`                                | ✅ `CatalogDraftMergesMigrationTest`, `MergeReleaseIntoDraftTest` (recorded, copied)                                                                                              |
+| A release received beside keeps the bytes it brings (stored in the shared scope)                                                                                                        | `ResourceRevisionStore.retain`                                         | ✅ `ReleaseReceivedBesideBinariesTest` (failed before: no bytes)                                                                                                                  |
+
+Full runs: core integration 1187 (1 skipped); core unit 1009; app integration 729
+(727 green, `DataPreservationMigrationIT` ×2 known); app unit 281; MCP integration 85; REST 32; guards 27;
+`checkMigrationVersions` green.
+
+**Noticed in the merge foundation, left alone:**
+
+- The contract needs a `token` on `CatalogDraftMergePreview` and `MergeIntoCatalogDraftRequest`, and
+  probably its own problem type for an outdated preview (REST maps to `conflict` for now). The REST
+  preview now lists settings entries with `resourceType` `catalog`; check the contract allows it.
+- `NextVersionChanges` compares resources only: a next version whose only change is a catalog setting
+  (default theme, presets, declarations) is moved to a newer received release, losing it (by reading).
+- An entry both sides changed the same way is SAME only when both fingerprint alike; a draft holding a
+  received release's content in this suite's form and the release in its publisher's form compare
+  unequal, so such an entry is a CONFLICT (the person picks either; nothing is lost).
+- A font with bundled (classpath) faces has no bytes in a release's retained content, so a merge
+  taking it would be refused; only the system catalog has such fonts, and it cannot be changed.
+- `ktlintCheck` fails on `ListDocuments.kt` (dangling KDoc) and `BindingTypes.kt` (mixed `&&`/`||`),
+  neither touched here.
+
 ### `feat/contract-v2-catchup` (in progress, not pushed)
 
 | Change                                                                                                                                                                                   | Where                                               | Coverage                                                                                      |
