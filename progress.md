@@ -21,6 +21,34 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0032 and merging (21 October; branch `refactor/catalog-releases`, not pushed)
+
+Decided in ADR 0032: no catalog types, editing as a switch per installation, receiving a release is
+a merge into the next version, releases move through the Exchange, a container registry or a file.
+
+| Change                                                                                                                                                          | Where                                                                                         | Coverage                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| ADR 0032 rewritten around the user's jobs, with the checks and both spikes as evidence                                                                          | `docs/adr/0032-catalog-sources-releases-and-merging.md`                                       | ➖ docs                                                                                       |
+| Three-way classification per resource from fingerprints                                                                                                         | `catalog/merge/DraftMerge.kt`                                                                 | ✅ `DraftMergeTest` (3, unitTest)                                                             |
+| `PreviewDraftMerge`, `MergeReleaseIntoDraft`; import limited to chosen resources (`mergeResources`); refusal when the release removes what the draft still uses | `catalog/merge/`, `ImportCatalogZip.kt`                                                       | ✅ `MergeReleaseIntoDraftTest` (6; the in-use test failed before the graph check)             |
+| A draft records merged releases; `behind` leaves them out; reset when the next version moves on, copied with a draft                                            | `V20261021060745`, `CatalogVersions.kt`, `ListCatalogVersions.kt`, `ReleaseCatalogVersion.kt` | ✅ `MergeReleaseIntoDraftTest` (release after merge), all 430 catalog integration tests green |
+| MCP `preview_merge`, `merge_release`                                                                                                                            | `CatalogVersionMcpTools.kt`, `dto/DraftMergeInfo.kt`                                          | ✅ `CatalogVersionMcpToolsIntegrationTest` (10)                                               |
+
+**Noticed, left alone:**
+
+- Removing a resource row leaves references to it from the same version pointing at an identity that
+  version no longer has (`document_templates.theme_resource_id` is `ON DELETE SET NULL` on
+  `catalog_resources`, not on the row), and the resource graph drops such a reference instead of
+  reporting it as missing (it joins the target in the current version). `CatalogUpgradeAnalyzer`
+  only checks other catalogs. The merge checks it itself.
+- `DeleteCatalogRelease`'s doc says the deployment gate does not exist yet; it does (`ReleaseInUse`).
+- The import page checks `TEMPLATE_EDIT`, the import command `CATALOG_MANAGE`.
+- `RegisterCatalog` upserts over a catalog with the same key without checking its type (unverified
+  that it overwrites an authored one).
+- The Exchange refuses any number below the highest published (`PublicationPolicy`), though a suite
+  comment says an older one may be sent.
+- `catalog_releases.released_by` is never written.
+
 ### `feat/contract-v2-catchup` (in progress, not pushed)
 
 | Change                                                                                                                                                                                   | Where                                               | Coverage                                                                                      |
