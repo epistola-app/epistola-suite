@@ -105,6 +105,16 @@ releases (and an installed release) are numbered.
   (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one. Behind is computed only
   when asked for (`ListCatalogVersions(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
   every release's content.
+- **Merging** (alpha, ADR 0032). A draft takes in a release it is behind with
+  `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, from three
+  fingerprints the suite already keeps (the draft's base and the release from `release_entries`, the
+  draft from its content): what only the release changed is taken (written as the release has it, or
+  removed), what only the draft changed stays, and a resource both changed differently is a conflict
+  the person resolves to one side. Taken resources are marked ready, since they are released content;
+  the draft's default theme, presets and dependency declarations stay its own. A release that removes
+  something the draft still uses is refused (`MergeRefusedException`), as is one the draft already
+  contains. The draft records the release (`catalog_versions.merged_releases`), which `behind` then
+  leaves out; its base does not move. Merging inside one resource is later work.
 - **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
   its draft started from, which `getCatalogRelease` reports as a released release's `base` and which
   `behind` measures its changes against. It is null for a catalog's first release, a release installed

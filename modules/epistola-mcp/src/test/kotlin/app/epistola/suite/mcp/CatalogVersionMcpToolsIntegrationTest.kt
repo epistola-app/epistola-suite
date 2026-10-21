@@ -228,4 +228,32 @@ class CatalogVersionMcpToolsIntegrationTest : IntegrationTestBase() {
             .containsExactlyInAnyOrder("Next version" to true, "Old next" to false)
         assertThat(runAsApiKey(tenantId) { themeTools.getTheme("default", "brand")!!.name }).isEqualTo("Brand redesigned")
     }
+
+    @Test
+    fun `a release the next version is behind is previewed and merged, its conflict resolved as the user chose`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        val fix = work(tenantId, "Fix")
+        runAsApiKey(tenantId) {
+            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null, catalogVersion = fix)
+            readyTools.markCatalogReady("default", catalogVersion = fix)
+            versionTools.releaseDraft("default", fix, null, "the fix", null, null)
+            themeTools.updateTheme("default", "brand", "Brand, ours", null, null, null, null, null, null, null)
+        }
+        val fixRelease = runAsApiKey(tenantId) { versionTools.listCatalogVersions("default", "RELEASED") }.first().version!!
+
+        val preview = runAsApiKey(tenantId) { versionTools.previewMerge("default", fixRelease, null) }
+        assertThat(preview.resources.map { it.resource to it.outcome }).containsExactly("theme/brand" to "CONFLICT")
+
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "MINE")) } }
+            .isInstanceOf(ValidationException::class.java)
+        val merged = runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "theirs")) }
+
+        assertThat(merged.taken).containsExactly("theme/brand")
+        runAsApiKey(tenantId) {
+            assertThat(themeTools.getTheme("default", "brand")!!.name).isEqualTo("Brand, fixed")
+            assertThat(versionTools.previewMerge("default", fixRelease, null).alreadyMerged).isTrue()
+            assertThat(versionTools.listCatalogVersions("default", "DRAFT").single { it.isNext }.behind).isEmpty()
+        }
+    }
 }

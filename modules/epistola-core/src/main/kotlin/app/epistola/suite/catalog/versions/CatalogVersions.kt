@@ -96,6 +96,8 @@ data class CatalogDraft(
     val createdAt: OffsetDateTime,
     /** Raised when its name, default theme, presets or dependency declarations change (REST `ETag`). */
     val revision: Long = 1,
+    /** The releases merged into it (ADR 0032), which it is not behind. */
+    val merged: Set<String> = emptySet(),
 ) {
     val label: String get() = if (isNext) NEXT_LABEL else name ?: NEXT_LABEL
 
@@ -179,7 +181,8 @@ class CatalogDrafts {
     fun advance(handle: Handle, tenantKey: TenantKey, versionId: UUID, base: String) {
         val moved = handle.createUpdate(
             """
-            UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key()
+            UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key(),
+                merged_releases = '{}'
             WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND is_next
             """,
         )
@@ -252,6 +255,20 @@ class CatalogDrafts {
             .execute()
     }
 
+    /** Records that draft [versionId] has merged [release] (ADR 0032), so it is no longer behind it. */
+    fun recordMerged(handle: Handle, tenantKey: TenantKey, versionId: UUID, release: String) {
+        handle.createUpdate(
+            """
+            UPDATE catalog_versions SET merged_releases = array_append(merged_releases, :release)
+            WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT (:release = ANY (merged_releases))
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("v", versionId)
+            .bind("release", release)
+            .execute()
+    }
+
     /** Copies every content row of version [from] into version [to] of the same catalog, keeping identities. */
     fun copyContent(handle: Handle, tenantKey: TenantKey, from: UUID, to: UUID) {
         handle.createQuery("SELECT copy_catalog_version_content(:t, :from, :to)::text")
@@ -260,10 +277,12 @@ class CatalogDrafts {
             .bind("to", to)
             .mapTo(String::class.java)
             .findOne()
-        // The version's theme settings (contract ADR 0007) are part of what it holds.
+        // The version's theme settings (contract ADR 0007) are part of what it holds, and so are the
+        // releases merged into it (ADR 0032).
         handle.createUpdate(
             """
-            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets
+            UPDATE catalog_versions t SET default_theme_resource_id = f.default_theme_resource_id, presets = f.presets,
+                merged_releases = f.merged_releases
             FROM catalog_versions f
             WHERE t.tenant_key = :t AND t.version_id = :to AND f.tenant_key = :t AND f.version_id = :from
             """,
@@ -283,10 +302,11 @@ class CatalogDrafts {
         rs.getString("created_from"),
         rs.getObject("created_at", OffsetDateTime::class.java),
         rs.getLong("revision"),
+        (rs.getArray("merged_releases").array as Array<*>).map { it as String }.toSet(),
     )
 
     companion object {
-        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision FROM catalog_versions"
+        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision, merged_releases FROM catalog_versions"
 
         /** The number a catalog's first release gets when nothing says otherwise. */
         const val FIRST: String = "1.0.0"
@@ -304,10 +324,16 @@ class CatalogDrafts {
          * The releases a draft on [base], started at [createdAt], is behind when it is released as
          * [number] (contract ADR 0002, "A draft can be behind"), lowest first: every release
          * (a) numbered above its base and below [number], or (b) published after the draft was
-         * started and numbered below [number], other than its base. [releases] are the catalog's
-         * releases with when each was published.
+         * started and numbered below [number], other than its base and those it [merged] (ADR 0032).
+         * [releases] are the catalog's releases with when each was published.
          */
-        fun behind(base: String?, createdAt: OffsetDateTime?, number: String, releases: Collection<Pair<String, OffsetDateTime?>>): List<String> {
+        fun behind(
+            base: String?,
+            createdAt: OffsetDateTime?,
+            number: String,
+            releases: Collection<Pair<String, OffsetDateTime?>>,
+            merged: Collection<String> = emptyList(),
+        ): List<String> {
             val ceiling = SemVer.parseOrNull(number) ?: return emptyList()
             val floor = base?.let(SemVer::parseOrNull)
             return releases.mapNotNull { (r, releasedAt) -> SemVer.parseOrNull(r)?.let { Triple(it, r, releasedAt) } }
@@ -315,7 +341,7 @@ class CatalogDrafts {
                     val below = semVer < ceiling
                     val aboveBase = floor == null || semVer > floor
                     val publishedSince = createdAt != null && releasedAt != null && releasedAt.isAfter(createdAt)
-                    r != base && below && (aboveBase || publishedSince)
+                    r != base && r !in merged && below && (aboveBase || publishedSince)
                 }
                 .sortedBy { it.first }
                 .map { it.second }

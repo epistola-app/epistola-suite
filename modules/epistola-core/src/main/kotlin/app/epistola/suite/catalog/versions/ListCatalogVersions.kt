@@ -167,7 +167,7 @@ class CatalogVersionReader(
                 base = draft.base,
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
-                behind = numbers[draft.key]?.let { number -> CatalogDrafts.behind(draft.base, draft.createdAt, number, publishedAt) }.orEmpty().map { version ->
+                behind = numbers[draft.key]?.let { number -> CatalogDrafts.behind(draft.base, draft.createdAt, number, publishedAt, draft.merged) }.orEmpty().map { version ->
                     BehindRelease(version, changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) })
                 },
                 versionId = draft.key,

@@ -131,6 +131,12 @@ data class ImportCatalogZip(
      * imports did before contract 2.0. Internal so no API can set it.
      */
     internal val restore: Boolean = false,
+    /**
+     * With [intoDraft], a merge (ADR 0032): only these resources (`type/key`) are written, each
+     * marked ready as released content, and the draft's dependency declarations and theme settings
+     * stay as they are. Null writes the whole archive. Internal so no API can set it.
+     */
+    internal val mergeResources: Set<String>? = null,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
@@ -587,7 +593,9 @@ class ImportCatalogZipHandler(
             }
         }
 
-        val ordered = manifest.resources.sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
+        val ordered = manifest.resources
+            .filter { command.mergeResources == null || "${it.type}/${it.key}" in command.mergeResources }
+            .sortedBy { RESOURCE_INSTALL_ORDER[it.type] ?: 99 }
 
         // Pre-parse every stencil detail once. Each detail is routed through the
         // migrator (catalog-wide version gate + chain) before binding; the chain
@@ -686,6 +694,14 @@ class ImportCatalogZipHandler(
             rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
             if (!InstalledReleaseRecording.isDeferred) {
                 RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries)).execute()
+            }
+        } else if (!anyFailed && command.mergeResources != null) {
+            // A merge takes resources only; everything else of the draft stays its own.
+            jdbi.useHandle<Exception> { handle ->
+                for (entry in ordered) {
+                    readyMarks.resourceId(handle, command.tenantKey, catalogKey, entry.type, entry.key)
+                        ?.let { readyMarks.mark(handle, command.tenantKey, it) }
+                }
             }
         } else if (!anyFailed) {
             if (!command.intoDraft) {

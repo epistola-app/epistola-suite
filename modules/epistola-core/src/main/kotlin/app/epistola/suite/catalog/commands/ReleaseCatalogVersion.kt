@@ -223,7 +223,7 @@ class ReleaseCatalogVersionHandler(
         val newVersion = number(command, draft, existing, latest)
         val others = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }.filter { it.versionId != draft.versionId }
         if (command.source == ContentSource.WORKING_COPY && command.imported == null) {
-            val behind = CatalogDrafts.behind(draft.base, draft.createdAt, newVersion.toString(), existing.map { it.version to it.releasedAt })
+            val behind = CatalogDrafts.behind(draft.base, draft.createdAt, newVersion.toString(), existing.map { it.version to it.releasedAt }, draft.merged)
             val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
             if (unacknowledged.isNotEmpty()) throw CatalogVersionBehindException(command.catalogKey, draft.label, unacknowledged)
         }
