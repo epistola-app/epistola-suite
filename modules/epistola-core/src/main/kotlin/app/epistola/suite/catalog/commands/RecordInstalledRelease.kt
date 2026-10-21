@@ -164,11 +164,13 @@ class RecordInstalledReleaseHandler(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, version_key, base_version, base_fingerprint)
+                                              rendering_defaults_version, version_key, base_version, base_fingerprint, released_by_installation)
                 VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId,
-                        :baseVersion, :baseFingerprint)
+                        :baseVersion, :baseFingerprint, :releasedByInstallation)
                 """,
             )
+                // Received: the installation that cut it, as the release names it; nobody here released it.
+                .bind("releasedByInstallation", ReleaseDescription.releasedByInstallation(received?.metadata))
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
                 .bind("version", version)

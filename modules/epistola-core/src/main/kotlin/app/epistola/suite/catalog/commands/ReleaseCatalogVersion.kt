@@ -54,6 +54,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -181,6 +182,7 @@ class ReleaseCatalogVersionHandler(
     private val drafts: CatalogDrafts,
     private val targeting: CatalogVersionTargeting,
     private val handOver: NextVersionHandOver,
+    private val installation: app.epistola.suite.installation.InstallationService,
 ) : CommandHandler<ReleaseCatalogVersion, ReleaseCatalogVersionResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -363,13 +365,14 @@ class ReleaseCatalogVersionHandler(
             handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
         }
         // The release says what it is (wire v8): the draft's id, the rendering defaults it renders
-        // with, and the release it was made from, the draft's base.
+        // with and the installation that cut it, and the release it was made from, the draft's base.
+        val releasedByInstallation = installation.get().id
         val releaseInfo = ReleaseInfo(
             version = newVersion.toString(),
             releasedAt = releasedAt.toString(),
             fingerprint = fingerprint,
             releaseId = ReleaseDescription.releaseId(draft.key),
-            metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version),
+            metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version, releasedByInstallation = releasedByInstallation),
             base = ReleaseDescription.base(draft.base, existing.firstOrNull { it.version == draft.base }?.fingerprint),
         )
         val manifest = content.toManifest(releaseInfo)
@@ -385,11 +388,15 @@ class ReleaseCatalogVersionHandler(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, base_version, base_fingerprint, version_key)
+                                              rendering_defaults_version, base_version, base_fingerprint, version_key,
+                                              released_by, released_by_installation)
                 VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base,
-                        :baseFingerprint, :key)
+                        :baseFingerprint, :key, :releasedBy, :releasedByInstallation)
                 """,
             )
+                // Who released it: the user, and this installation.
+                .bind("releasedBy", currentUserIdOrNull()?.value)
+                .bind("releasedByInstallation", releasedByInstallation)
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
                 .bind("version", newVersion.toString())

@@ -707,6 +707,12 @@ import takes the same path; none names a type.
   (`release.base`) is recorded (`base_version`, `base_fingerprint`), for finding a merge base. Every
   release this suite writes says the same of itself, in its snapshot and every archive of it (an
   export, the Exchange, a registry), and none of it moves its fingerprint.
+- **A release says who released it.** One cut here records the user (`released_by`) and this
+  installation (`released_by_installation`, the installation id in `app_metadata`), and names the
+  installation in its metadata (`app.epistola.suite.releasedByInstallation`). A received release
+  records the installation it names, and nobody here; passed on, it still names the installation
+  that cut it. The release page says "Released here by <user>" or "Released by installation <id>"
+  (`GetCatalogRelease.releasedByLine`); a release recorded before 2.0 wrote them says neither.
 - **The same number with the same fingerprint** is the release the tenant has: nothing changes
   (`newlyInstalled = false`), also in the tenant that released it. The same number with other content
   is refused.

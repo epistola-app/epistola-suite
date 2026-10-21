@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.installation.InstallationService
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
@@ -19,6 +20,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * One release as it was: its resources and the catalog details it carried.
@@ -46,8 +48,25 @@ data class CatalogReleaseDetail(
     val catalog: CatalogInfo,
     /** What the release contained. */
     val resources: List<ReleaseEntry>,
+    /** The installation that cut it; null when nothing says (a release recorded before 2.0 said it). */
+    val releasedByInstallation: UUID? = null,
+    /** Whether [releasedByInstallation] is this installation: the release was cut here. */
+    val releasedHere: Boolean = false,
+    /** The display name of the user who released it here; null for a received release or when unknown. */
+    val releasedByUser: String? = null,
 ) {
     val shortFingerprint: String get() = fingerprint.take(12)
+
+    /**
+     * Who released it, in one sentence for the release page: "Released here by Ann", "Released here"
+     * when the user is not known, "Released by installation <id>" for a received release; null when
+     * nothing says.
+     */
+    val releasedByLine: String? get() = when {
+        releasedHere -> releasedByUser?.let { "Released here by $it" } ?: "Released here"
+        releasedByInstallation != null -> "Released by installation $releasedByInstallation"
+        else -> null
+    }
 }
 
 @Component
@@ -55,14 +74,17 @@ class GetCatalogReleaseHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val releaseEntryStore: ReleaseEntryStore,
+    private val installation: InstallationService,
 ) : QueryHandler<GetCatalogRelease, CatalogReleaseDetail?> {
 
     override fun handle(query: GetCatalogRelease): CatalogReleaseDetail? = jdbi.withHandle<CatalogReleaseDetail?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT version, released_at, notes, fingerprint, manifest_snapshot::text AS snapshot
-            FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+            SELECT r.version, r.released_at, r.notes, r.fingerprint, r.manifest_snapshot::text AS snapshot,
+                   r.released_by_installation, u.display_name AS released_by_name
+            FROM catalog_releases r
+            LEFT JOIN users u ON u.id = r.released_by
+            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
             .bind("t", query.tenantKey)
@@ -76,12 +98,17 @@ class GetCatalogReleaseHandler(
                     fingerprint = rs.getString("fingerprint"),
                     catalog = objectMapper.readValue(rs.getString("snapshot"), CatalogManifest::class.java).catalog,
                     resources = emptyList(),
+                    releasedByInstallation = rs.getObject("released_by_installation", UUID::class.java),
+                    releasedByUser = rs.getString("released_by_name"),
                 )
             }
             .findOne()
             .orElse(null)
             ?: return@withHandle null
 
-        row.copy(resources = releaseEntryStore.entriesOf(handle, query.tenantKey, query.catalogKey, query.version))
+        row.copy(
+            resources = releaseEntryStore.entriesOf(handle, query.tenantKey, query.catalogKey, query.version),
+            releasedHere = row.releasedByInstallation != null && row.releasedByInstallation == installation.get().id,
+        )
     }
 }

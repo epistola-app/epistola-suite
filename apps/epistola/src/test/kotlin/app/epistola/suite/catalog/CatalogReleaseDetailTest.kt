@@ -82,5 +82,8 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
             .doesNotContain("Renamed since", "Described differently since", "later-keyword")
         // The resources are the release's own, listed from what it retained.
         assertThat(body).contains("Brand theme", "brand")
+        // Who released it: here, by the user who released it.
+        assertThat(body.substringAfter("data-testid=\"release-released-by\"").substringBefore("</p>"))
+            .contains("Released here by ${app.epistola.suite.testing.TestPrincipalUser.DISPLAY_NAME}")
     }
 }

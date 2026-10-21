@@ -8,6 +8,7 @@ import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogReleaseIds
 import app.epistola.catalog.protocol.ReleaseBase
 import app.epistola.catalog.protocol.ReleaseInfo
+import java.util.UUID
 
 /**
  * What a release says of itself in every manifest this suite writes for it (catalog wire v8): its id
@@ -22,16 +23,32 @@ object ReleaseDescription {
     /** The member of [NAMESPACE] naming the rendering defaults version a release renders with. */
     const val RENDERING_DEFAULTS_VERSION: String = "renderingDefaultsVersion"
 
+    /** The member of [NAMESPACE] naming the installation that cut the release (its installation id). */
+    const val RELEASED_BY_INSTALLATION: String = "releasedByInstallation"
+
     /**
      * [received] (every namespace kept as it came, member for member) with this suite's namespace
-     * naming [renderingDefaultsVersion]; null when there is nothing to say.
+     * naming [renderingDefaultsVersion] and, when given and [received] names none, the installation
+     * that cut the release; null when there is nothing to say. A received release keeps the
+     * installation it names: it was cut there, not where it is described again.
      */
-    fun metadata(renderingDefaultsVersion: Int?, received: Map<String, Map<String, Any?>>? = null): Map<String, Map<String, Any?>>? {
+    fun metadata(
+        renderingDefaultsVersion: Int?,
+        received: Map<String, Map<String, Any?>>? = null,
+        releasedByInstallation: UUID? = null,
+    ): Map<String, Map<String, Any?>>? {
         val others = received.orEmpty()
-        if (renderingDefaultsVersion == null) return others.ifEmpty { null }
-        val own = others[NAMESPACE].orEmpty() + (RENDERING_DEFAULTS_VERSION to renderingDefaultsVersion)
+        var own = others[NAMESPACE].orEmpty()
+        if (renderingDefaultsVersion != null) own = own + (RENDERING_DEFAULTS_VERSION to renderingDefaultsVersion)
+        if (releasedByInstallation != null && own[RELEASED_BY_INSTALLATION] == null) own = own + (RELEASED_BY_INSTALLATION to releasedByInstallation.toString())
+        if (own.isEmpty()) return others.ifEmpty { null }
         return others + (NAMESPACE to own)
     }
+
+    /** The installation [metadata] says cut the release; null when it names none, or not as an id. */
+    fun releasedByInstallation(metadata: Map<String, Map<String, Any?>>?): UUID? = metadata?.get(NAMESPACE)?.get(RELEASED_BY_INSTALLATION)
+        ?.toString()
+        ?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     /**
      * The rendering defaults version [metadata] names in this suite's namespace: null when it names
@@ -69,7 +86,7 @@ object ReleaseDescription {
      */
     fun complete(info: ReleaseInfo, recorded: RecordedDescription): ReleaseInfo = info.copy(
         releaseId = releaseId(recorded.releaseId) ?: info.releaseId,
-        metadata = metadata(recorded.renderingDefaultsVersion, info.metadata),
+        metadata = metadata(recorded.renderingDefaultsVersion, info.metadata, recorded.releasedByInstallation),
         base = info.base ?: base(recorded.baseVersion, recorded.baseFingerprint),
     )
 
@@ -79,5 +96,7 @@ object ReleaseDescription {
         val renderingDefaultsVersion: Int?,
         val baseVersion: String?,
         val baseFingerprint: String?,
+        /** The installation that cut it, as `catalog_releases.released_by_installation` records it. */
+        val releasedByInstallation: UUID? = null,
     )
 }

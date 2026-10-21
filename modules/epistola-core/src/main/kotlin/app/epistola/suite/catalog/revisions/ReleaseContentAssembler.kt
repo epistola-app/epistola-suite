@@ -303,7 +303,7 @@ class ReleaseContentAssembler(
     private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest = handle
         .createQuery(
             """
-            SELECT r.manifest_snapshot::text AS snapshot, r.version_key, r.rendering_defaults_version, r.base_version,
+            SELECT r.manifest_snapshot::text AS snapshot, r.version_key, r.rendering_defaults_version, r.base_version, r.released_by_installation,
                    COALESCE(r.base_fingerprint, (SELECT b.fingerprint FROM catalog_releases b
                     WHERE b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version)) AS base_fingerprint
             FROM catalog_releases r
@@ -320,6 +320,7 @@ class ReleaseContentAssembler(
                 renderingDefaultsVersion = rs.getObject("rendering_defaults_version") as Int?,
                 baseVersion = rs.getString("base_version"),
                 baseFingerprint = rs.getString("base_fingerprint"),
+                releasedByInstallation = rs.getObject("released_by_installation", java.util.UUID::class.java),
             )
             manifest.copy(release = ReleaseDescription.complete(manifest.release, recorded))
         }

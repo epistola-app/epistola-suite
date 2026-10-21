@@ -55,6 +55,8 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
 
     @Autowired private lateinit var objectMapper: ObjectMapper
 
+    @Autowired private lateinit var installation: app.epistola.suite.installation.InstallationService
+
     private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
 
     internal fun entries(bytes: ByteArray): LinkedHashMap<String, ByteArray> {
@@ -115,7 +117,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             val releases = ListCatalogVersions(a, catalog).query().filter { it.status == CatalogVersionStatus.RELEASED }.associateBy { it.version }
             val first = manifestOf(ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).release
             val second = manifestOf(ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes).release
-            val metadata = mapOf("app.epistola.suite" to mapOf("renderingDefaultsVersion" to RenderingDefaults.CURRENT.version))
+            val metadata = mapOf("app.epistola.suite" to mapOf("renderingDefaultsVersion" to RenderingDefaults.CURRENT.version, "releasedByInstallation" to installation.get().id.toString()))
 
             assertThat(first.releaseId).isEqualTo(releases.getValue("1.0.0").versionId)
             assertThat(first.metadata).isEqualTo(metadata)
