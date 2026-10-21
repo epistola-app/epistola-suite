@@ -127,7 +127,7 @@ class InstallFromCatalogHandler(
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Kept as it says it is, or refused before anything is fetched or written.
-        receivedReleases.require(command.tenantKey, command.catalogKey, manifest.release)
+        receivedReleases.requireKeepable(command.tenantKey, command.catalogKey, manifest.release)
 
         // The whole manifest, always. `DependencyResolver` still runs: it cannot add anything to a
         // set that is already complete, but it validates that every same-catalog reference points at

@@ -44,7 +44,7 @@ class ReceivedReleases(private val jdbi: Jdbi) {
      * release (or a draft) of the catalog here ([CatalogImportConflictException]), or it renders with
      * rendering defaults this installation lacks ([ReleaseRenderingDefaultsTooNewException]).
      */
-    fun require(tenantKey: TenantKey, catalogKey: CatalogKey, release: ReleaseInfo) {
+    fun requireKeepable(tenantKey: TenantKey, catalogKey: CatalogKey, release: ReleaseInfo) {
         renderingDefaultsVersion(catalogKey, release)
         jdbi.useHandle<Exception> { requireIdFree(it, tenantKey, catalogKey, release) }
     }

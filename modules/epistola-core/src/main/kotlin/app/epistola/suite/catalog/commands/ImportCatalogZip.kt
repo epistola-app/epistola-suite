@@ -253,7 +253,7 @@ class ImportCatalogZipHandler(
         if (missing.isNotEmpty()) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
         // The release is kept as it says it is (its id, rendering defaults, base), or refused before
         // anything is written.
-        receivedReleases.require(command.tenantKey, catalogKey, manifest.release)
+        receivedReleases.requireKeepable(command.tenantKey, catalogKey, manifest.release)
 
         val highest = existing?.highestReleaseVersion?.let(SemVer::parseOrNull)
         val incoming = SemVer.parseOrNull(version)
