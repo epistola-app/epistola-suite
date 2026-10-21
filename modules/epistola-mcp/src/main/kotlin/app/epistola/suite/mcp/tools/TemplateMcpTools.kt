@@ -51,7 +51,7 @@ class TemplateMcpTools(
         name = "list_templates",
         description = "List templates in the current tenant. " +
             "Optionally filter by catalog (use `list_catalogs` to discover catalog IDs) " +
-            "or by a name search term. Returns lightweight summaries; use `get_template` " +
+            "or by a name search term. Returns lightweight summaries, each with the template's description; use `get_template` " +
             "for metadata and `get_template_content` for the editable structure.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )

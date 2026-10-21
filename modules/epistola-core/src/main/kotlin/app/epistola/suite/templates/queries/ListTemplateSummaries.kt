@@ -31,6 +31,8 @@ data class TemplateSummary(
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
     val ready: Boolean,
+    /** The template's plain-text notes for its authors ([app.epistola.suite.templates.DocumentTemplate.description]); null when it has none. */
+    val description: String? = null,
 )
 
 /**
@@ -96,6 +98,7 @@ class ListTemplateSummariesHandler(
                     dt.id,
                     c.catalog_key AS catalog_key,
                     dt.name,
+                    dt.description,
                     dt.updated_at,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.version_id = dt.version_id AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
                     -- Ready when every variant's content is marked ready as it is now.
@@ -160,6 +163,7 @@ private data class TemplateSummaryRow(
     val variantCount: Int,
     val ready: Boolean,
     val totalCount: Int,
+    val description: String?,
 ) {
     fun toSummary() = TemplateSummary(
         id = id,
@@ -168,5 +172,6 @@ private data class TemplateSummaryRow(
         updatedAt = updatedAt,
         variantCount = variantCount,
         ready = ready,
+        description = description,
     )
 }

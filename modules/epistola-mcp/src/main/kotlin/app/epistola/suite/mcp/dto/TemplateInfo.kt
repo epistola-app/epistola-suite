@@ -19,6 +19,8 @@ data class TemplateSummaryInfo(
     /** Whether every variant's content is marked ready as it is now. */
     val ready: Boolean,
     val updatedAt: OffsetDateTime,
+    /** Plain-text notes on the template for its authors; null when it has none. Not rendered. */
+    val description: String? = null,
 ) {
     companion object {
         fun from(summary: TemplateSummary): TemplateSummaryInfo = TemplateSummaryInfo(
@@ -28,6 +30,7 @@ data class TemplateSummaryInfo(
             variantCount = summary.variantCount,
             ready = summary.ready,
             updatedAt = summary.updatedAt,
+            description = summary.description,
         )
     }
 }

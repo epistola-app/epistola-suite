@@ -77,6 +77,10 @@
                             <td th:title="${template.name}">
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
                                    th:text="${template.name}" style="font-weight: 500;"></a>
+                                <!-- The template's notes for its authors, one line, cut with an ellipsis; the full text on hover. -->
+                                <div th:if="${template.description != null}" class="text-muted text-xs"
+                                     data-testid="template-description" th:title="${template.description}" th:text="${template.description}"
+                                     style="overflow: hidden; text-overflow: ellipsis;"></div>
                             </td>
                             <td th:title="${template.id}"><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                             <td th:text="${template.variantCount}"></td>

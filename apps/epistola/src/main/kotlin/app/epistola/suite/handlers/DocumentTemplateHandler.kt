@@ -334,6 +334,8 @@ class DocumentTemplateHandler(
             field("name") {
                 required()
             }
+            // Optional; its ceiling is counted in code points, as the command counts it.
+            field("description") {}
         }
 
         // Field validation (incl. catalog/CatalogKey and slug/TemplateKey) and the
@@ -352,6 +354,7 @@ class DocumentTemplateHandler(
                     ),
                     name = form["name"],
                     catalogVersion = segment.ref(tenantId.key),
+                    description = form["description"].takeIf { it.isNotBlank() },
                 ).execute()
             }
         }
