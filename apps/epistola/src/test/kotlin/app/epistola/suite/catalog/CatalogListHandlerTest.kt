@@ -753,6 +753,46 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an import of a release that renders with newer rendering defaults says to upgrade Epistola`() {
+        val consumer = createTenant("Catalog Import Too New Defaults")
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("catalog.json"))
+                zip.write(
+                    """{"schemaVersion":8,"catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"newer","name":"Newer","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},"publisher":{"name":"Test","url":null},"release":{"version":"1.0.0","releasedAt":null,"fingerprint":null,"metadata":{"app.epistola.suite":{"renderingDefaultsVersion":99}}},"compatibility":null,"includes":null,"dependencies":[],"resources":[]}""".toByteArray(),
+                )
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val payload = LinkedMultiValueMap<String, Any>()
+        payload.add(
+            "file",
+            HttpEntity(
+                object : ByteArrayResource(archive) {
+                    override fun getFilename(): String = "newer.zip"
+                },
+                HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+            ),
+        )
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${consumer.id}/catalogs/import",
+            HttpEntity(
+                payload,
+                HttpHeaders().apply {
+                    contentType = MediaType.MULTIPART_FORM_DATA
+                    add("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
+
+        assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+        assertThat(response.body).contains("this release needs a newer Epistola").contains("Upgrade Epistola to receive this release")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("newer")).query() }).isNull()
+    }
+
+    @Test
     fun `authored catalog metadata sections can be edited independently from the catalog's Settings page`() = fixture {
         lateinit var t: Tenant
         lateinit var otherCatalogImageSlug: String

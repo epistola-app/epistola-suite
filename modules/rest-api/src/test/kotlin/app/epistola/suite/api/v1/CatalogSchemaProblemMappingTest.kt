@@ -4,9 +4,11 @@
 
 package app.epistola.suite.api.v1
 
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.common.ids.CatalogKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
@@ -27,6 +29,17 @@ class CatalogSchemaProblemMappingTest {
         assertThat(mapping.problemType.status).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(mapping.extensions(CatalogSchemaTooNewException(version = 9, current = 2)))
             .containsExactlyInAnyOrderEntriesOf(mapOf("version" to 9, "supportedVersion" to 2))
+    }
+
+    @Test
+    fun `a release rendering with defaults this instance lacks maps to CATALOG_RENDERING_DEFAULTS_TOO_NEW`() {
+        val exception = ReleaseRenderingDefaultsTooNewException(CatalogKey.of("invoices"), "1.1.0", "9", supported = 6)
+        val mapping = ApiExceptionMappings.forException(exception)
+        assertThat(mapping).isNotNull
+        assertThat(mapping!!.problemType).isEqualTo(ApiProblemTypes.CATALOG_RENDERING_DEFAULTS_TOO_NEW)
+        assertThat(mapping.problemType.status).isEqualTo(HttpStatus.BAD_REQUEST)
+        assertThat(mapping.problemType.type.toString()).isEqualTo("$PROBLEM_TYPE_BASE_URL/catalog-rendering-defaults-too-new")
+        assertThat(mapping.extensions(exception)).containsExactlyInAnyOrderEntriesOf(mapOf("renderingDefaultsVersion" to "9", "supportedVersion" to 6))
     }
 
     @Test

@@ -9,10 +9,14 @@ import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ReleaseBase
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.CatalogId
@@ -27,6 +31,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -143,6 +148,101 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             assertThat(manifestOf(archive).release.base).isNotNull()
             assertThat(fingerprintOf(archive)).isEqualTo(released.fingerprint).isEqualTo(fingerprintOf(bare))
             assertThat(manifestOf(archive).release.fingerprint).isEqualTo(released.fingerprint)
+        }
+    }
+
+    private data class Lineage(val a: TenantKey, val catalog: CatalogKey, val v100: ByteArray, val v110: ByteArray)
+
+    /** A releases 1.0.0 and then 1.1.0 from it; both archives. */
+    private fun lineage(name: String): Lineage {
+        val a = createTenant("$name A").id
+        val catalog = CatalogKey.of(name.lowercase().replace(' ', '-'))
+        return withMediator {
+            CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
+            CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
+            MarkCatalogReady(a, catalog).execute()
+            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
+            MarkCatalogReady(a, catalog).execute()
+            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            Lineage(a, catalog, ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes, ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes)
+        }
+    }
+
+    private data class Recorded(val versionKey: String, val renderingDefaults: Int?, val baseVersion: String?, val baseFingerprint: String?)
+
+    private fun recorded(tenant: TenantKey, catalog: CatalogKey, version: String): Recorded? = jdbi.withHandle<Recorded?, Exception> { h ->
+        h.createQuery("SELECT version_key, rendering_defaults_version, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+            .bind("t", tenant).bind("c", catalog).bind("v", version)
+            .map { rs, _ -> Recorded(rs.getString(1), rs.getObject(2) as Int?, rs.getString(3), rs.getString(4)) }
+            .findOne().orElse(null)
+    }
+
+    @Test
+    fun `a received release keeps its id, its metadata and the release it was made from, and exports saying so`() {
+        val (a, catalog, v100, v110) = lineage("Received Description")
+        val b = createTenant("Received Description B").id
+        val sent = manifestOf(v110).release
+        // A producer's namespace this suite does not know travels along, member for member.
+        val withForeign = withRelease(v110) { release ->
+            (release.get("metadata") as ObjectNode).putObject("org.example.producer").put("batch", 7)
+        }
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = withForeign).execute()
+            // A release below it is received beside it, and keeps its own id too.
+            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+
+            val received = recorded(b, catalog, "1.1.0")!!
+            assertThat(received.versionKey).isEqualTo(sent.releaseId)
+            assertThat(received.baseVersion).isEqualTo("1.0.0")
+            assertThat(received.baseFingerprint).isEqualTo(sent.base!!.fingerprint)
+            assertThat(received.renderingDefaults).isEqualTo(RenderingDefaults.CURRENT.version)
+            assertThat(recorded(b, catalog, "1.0.0")!!.versionKey).isEqualTo(manifestOf(v100).release.releaseId)
+
+            val again = manifestOf(ExportCatalogZip(b, catalog, "1.1.0").execute().zipBytes).release
+            assertThat(again.releaseId).isEqualTo(sent.releaseId)
+            assertThat(again.base).isEqualTo(sent.base)
+            assertThat(again.metadata).isEqualTo(sent.metadata!! + ("org.example.producer" to mapOf("batch" to 7)))
+            assertThat(again.fingerprint).isEqualTo(sent.fingerprint)
+        }
+        assertThat(recorded(a, catalog, "1.1.0")!!.baseFingerprint).isEqualTo(sent.base!!.fingerprint)
+    }
+
+    @Test
+    fun `a release whose id another release of the catalog has here is refused, the same release is not`() {
+        val (_, catalog, v100, v110) = lineage("Release Id Taken")
+        val b = createTenant("Release Id Taken B").id
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = v110).execute()
+            // The same release again is the release the tenant has.
+            assertThat(ImportCatalogZip(tenantKey = b, zipBytes = v110).execute().newlyInstalled).isFalse()
+
+            val taken = withRelease(v100) { it.put("releaseId", manifestOf(v110).release.releaseId) }
+            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = taken).execute() }
+                .isInstanceOf(CatalogImportConflictException::class.java)
+                .hasMessageContaining("one id names one release")
+        }
+        assertThat(recorded(b, catalog, "1.0.0")).isNull()
+    }
+
+    @Test
+    fun `a release that renders with rendering defaults this installation lacks is refused, an older known one is kept`() {
+        val (_, catalog, v100, v110) = lineage("Rendering Defaults")
+        val b = createTenant("Rendering Defaults B").id
+        fun renderingWith(bytes: ByteArray, version: Int) = withRelease(bytes) { release ->
+            (release.get("metadata").get("app.epistola.suite") as ObjectNode).put("renderingDefaultsVersion", version)
+        }
+        withMediator {
+            assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, RenderingDefaults.CURRENT.version + 1)).execute() }
+                .isInstanceOf(ReleaseRenderingDefaultsTooNewException::class.java)
+                .hasMessageContaining("Upgrade Epistola to receive this release")
+            assertThat(GetCatalog(b, catalog).query()).isNull()
+
+            ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, 5)).execute()
+            assertThat(recorded(b, catalog, "1.1.0")!!.renderingDefaults).isEqualTo(5)
+            // Without metadata a release renders with this installation's current defaults, as before.
+            ImportCatalogZip(tenantKey = b, zipBytes = withRelease(v100) { it.remove("metadata") }).execute()
+            assertThat(recorded(b, catalog, "1.0.0")!!.renderingDefaults).isEqualTo(RenderingDefaults.CURRENT.version)
         }
     }
 }

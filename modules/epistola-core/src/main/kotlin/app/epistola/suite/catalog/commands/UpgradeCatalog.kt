@@ -108,6 +108,7 @@ class UpgradeCatalogHandler(
     private val dependencyStore: CatalogDependencyStore,
     private val importRows: CatalogImportRows,
     private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
+    private val receivedReleases: ReceivedReleases,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -133,6 +134,7 @@ class UpgradeCatalogHandler(
         // 1. Fetch manifest (once — reused for install and stale check)
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
+        receivedReleases.require(command.tenantKey, command.catalogKey, manifest.release)
 
         // 2. Find which resources are currently installed locally
         val installedSlugs = analyzer.installedByType(command.tenantKey, command.catalogKey)
@@ -209,7 +211,7 @@ class UpgradeCatalogHandler(
         importRows.updateThemeSettings(command.tenantKey, command.catalogKey, manifest.catalog, objectMapper)
 
         if (!InstalledReleaseRecording.isDeferred) {
-            RecordInstalledRelease(command.tenantKey, command.catalogKey).execute()
+            RecordInstalledRelease(command.tenantKey, command.catalogKey, received = manifest.release).execute()
         }
 
         val newVersion = manifest.release.version

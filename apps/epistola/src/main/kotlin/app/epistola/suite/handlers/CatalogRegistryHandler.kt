@@ -7,6 +7,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogImportValidationException
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.registry.ConfiguredCatalogRegistries
 import app.epistola.suite.catalog.registry.InstallReleaseFromRegistry
@@ -175,6 +176,8 @@ class CatalogRegistryHandler {
         is CatalogImportValidationException -> "The release's archive does not check out (" + e.message + "). Nothing was installed."
 
         is CatalogSchemaException -> e.message ?: unexpected
+
+        is ReleaseRenderingDefaultsTooNewException -> e.message ?: unexpected
 
         is CatalogVersionNotFoundException -> e.message ?: unexpected
 

@@ -68,6 +68,12 @@ data class RecordInstalledRelease(
      * installed release.
      */
     val release: RecordedRelease? = null,
+    /**
+     * The release as its archive describes it, when the caller has it: its id, its metadata and the
+     * release it was made from are kept ([ReceivedReleases]). Null describes it as this installation
+     * records it now: a new id, the current rendering defaults, no base.
+     */
+    val received: ReleaseInfo? = null,
 ) : Command<String?>,
     SystemInternal
 
@@ -97,6 +103,7 @@ class RecordInstalledReleaseHandler(
     private val dependencyStore: CatalogDependencyStore,
     private val rows: CatalogImportRows,
     private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
+    private val receivedReleases: ReceivedReleases,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -118,6 +125,8 @@ class RecordInstalledReleaseHandler(
         // its own changes are measured from (ADR 0032).
         if (command.release == null) nextVersionChanges.recordBaseline(command.tenantKey, command.catalogKey)
         if (exists) return version
+        val received = command.received?.takeIf { it.version == version }
+        val renderingDefaults = received?.let { receivedReleases.renderingDefaultsVersion(command.catalogKey, it) } ?: RenderingDefaults.CURRENT.version
 
         // The installed version carries the archive's theme settings (contract ADR 0007), so its
         // release, rebuilt or not, renders with its default theme.
@@ -137,24 +146,28 @@ class RecordInstalledReleaseHandler(
 
         jdbi.useTransaction<Exception> { handle ->
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
-            // Its id is chosen here rather than by the column's default, so its snapshot says it too.
-            val releaseId = handle.createQuery("SELECT epistola_version_key()").mapTo(String::class.java).one()
-            val renderingDefaults = RenderingDefaults.CURRENT.version
+            // A received release keeps the id it has everywhere; else it is chosen here rather than by
+            // the column's default, so its snapshot says it too.
+            received?.let { receivedReleases.requireIdFree(handle, command.tenantKey, command.catalogKey, it) }
+            val releaseId = received?.releaseId ?: handle.createQuery("SELECT epistola_version_key()").mapTo(String::class.java).one()
             val manifest = content.toManifest(
                 ReleaseInfo(
                     version = version,
                     releasedAt = releasedAt.toString(),
                     fingerprint = fingerprint,
                     releaseId = releaseId,
-                    metadata = ReleaseDescription.metadata(renderingDefaults),
+                    // Every namespace it came with, kept as it came; this suite's names what it renders with.
+                    metadata = ReleaseDescription.metadata(renderingDefaults, received?.metadata),
+                    base = received?.base,
                 ),
             )
 
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, version_key)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId)
+                                              rendering_defaults_version, version_key, base_version, base_fingerprint)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId,
+                        :baseVersion, :baseFingerprint)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -166,6 +179,9 @@ class RecordInstalledReleaseHandler(
                 .bind("releasedAt", releasedAt)
                 .bind("renderingDefaults", renderingDefaults)
                 .bind("releaseId", releaseId)
+                // The release it was made from, as it named it: its lineage, to find a merge base by.
+                .bind("baseVersion", received?.base?.version)
+                .bind("baseFingerprint", received?.base?.fingerprint)
                 .execute()
 
             // The publisher's pins, as installed: a received release's declarations are its archive's.

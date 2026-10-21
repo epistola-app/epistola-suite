@@ -33,6 +33,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.dependencies.ListCatalogDependents
@@ -1534,6 +1535,19 @@ class CatalogHandler {
                 mapOf(
                     "schemaErrorTitle" to title,
                     "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
+                ),
+            )
+        } catch (e: ReleaseRenderingDefaultsTooNewException) {
+            // The release renders with defaults a newer Epistola has: the same remediation as a wire
+            // format that is too new.
+            logger.warn("Import blocked by rendering defaults version: ${e.message}")
+            fragmentOrPage(
+                request,
+                "catalogs/import",
+                "import-schema-error",
+                mapOf(
+                    "schemaErrorTitle" to "Import blocked: this release needs a newer Epistola",
+                    "schemaErrorDetail" to (e.message ?: "The release renders with rendering defaults this Epistola does not have."),
                 ),
             )
         } catch (e: CatalogMigrationConfirmationRequiredException) {

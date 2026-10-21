@@ -108,6 +108,7 @@ object ApiProblemTypes {
     val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
     val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
     val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
+    val CATALOG_RENDERING_DEFAULTS_TOO_NEW = problem("CATALOG_RENDERING_DEFAULTS_TOO_NEW", "Catalog Rendering Defaults Too New", HttpStatus.BAD_REQUEST, "The release renders with rendering defaults this instance does not have; upgrade this instance to receive it.", listOf("renderingDefaultsVersion", "supportedVersion"))
     val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
     val CATALOG_SCHEMA_UNKNOWN = problem("CATALOG_SCHEMA_UNKNOWN", "Catalog Wire Schema Unrecognised", HttpStatus.BAD_REQUEST, "The uploaded payload is not a recognised catalog wire format (not valid JSON, or a missing or non-integer schemaVersion).", emptyList())
     val CODE_LIST_IN_USE = problem("CODE_LIST_IN_USE", "Code List In Use", HttpStatus.CONFLICT, "The code list cannot be deleted because an attribute still references it.", emptyList())
@@ -189,6 +190,7 @@ object ApiProblemTypes {
         CATALOG_RELEASE_VERSION_INVALID,
         CATALOG_UPGRADE_CONFLICT,
         CATALOG_SCHEMA_TOO_NEW,
+        CATALOG_RENDERING_DEFAULTS_TOO_NEW,
         CATALOG_SCHEMA_TOO_OLD,
         CATALOG_SCHEMA_UNKNOWN,
         CODE_LIST_IN_USE,

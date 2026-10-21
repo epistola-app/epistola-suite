@@ -87,6 +87,7 @@ class InstallFromCatalogHandler(
     private val protocolMapper: ProtocolMapper,
     private val sizeLimits: CatalogSizeLimits,
     private val installedCatalogCheck: InstalledCatalogCheck,
+    private val receivedReleases: ReceivedReleases,
     transactionManager: PlatformTransactionManager,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
@@ -125,6 +126,8 @@ class InstallFromCatalogHandler(
         val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
+        // Kept as it says it is, or refused before anything is fetched or written.
+        receivedReleases.require(command.tenantKey, command.catalogKey, manifest.release)
 
         // The whole manifest, always. `DependencyResolver` still runs: it cannot add anything to a
         // set that is already complete, but it validates that every same-catalog reference points at
@@ -185,7 +188,7 @@ class InstallFromCatalogHandler(
             val published = staged.takeIf { items -> items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
                 publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
             }
-            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published).execute()
+            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
         }
         results
     }

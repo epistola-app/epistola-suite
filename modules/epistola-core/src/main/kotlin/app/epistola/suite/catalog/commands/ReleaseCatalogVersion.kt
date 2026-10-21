@@ -385,8 +385,9 @@ class ReleaseCatalogVersionHandler(
             handle.createUpdate(
                 """
                 INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, base_version, version_key)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base, :key)
+                                              rendering_defaults_version, base_version, base_fingerprint, version_key)
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base,
+                        :baseFingerprint, :key)
                 """,
             )
                 .bind("t", command.tenantKey)
@@ -396,6 +397,7 @@ class ReleaseCatalogVersionHandler(
                 .bind("key", draft.key)
                 // The release keeps the draft's base (ADR 0002), which is gone once the draft is.
                 .bind("base", draft.base)
+                .bind("baseFingerprint", releaseInfo.base?.fingerprint)
                 .bind("fingerprint", fingerprint)
                 .bind("notes", command.notes)
                 .bindJsonb("snapshot", manifest, objectMapper)

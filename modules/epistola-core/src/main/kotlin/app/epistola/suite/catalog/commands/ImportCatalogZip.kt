@@ -190,6 +190,7 @@ class ImportCatalogZipHandler(
     private val rows: CatalogImportRows,
     private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
     private val installer: CatalogResourceInstaller,
+    private val receivedReleases: ReceivedReleases,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -250,6 +251,9 @@ class ImportCatalogZipHandler(
                 .map { app.epistola.suite.environments.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE) }
         }
         if (missing.isNotEmpty()) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
+        // The release is kept as it says it is (its id, rendering defaults, base), or refused before
+        // anything is written.
+        receivedReleases.require(command.tenantKey, catalogKey, manifest.release)
 
         val highest = existing?.highestReleaseVersion?.let(SemVer::parseOrNull)
         val incoming = SemVer.parseOrNull(version)
@@ -268,6 +272,7 @@ class ImportCatalogZipHandler(
                 catalogKey,
                 published = publishedContent(manifest, bound, parsed.entries),
                 release = RecordedRelease(version, published),
+                received = manifest.release,
             ).execute()
             return result(newly = true)
         }
@@ -584,7 +589,7 @@ class ImportCatalogZipHandler(
             rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
             markReady(command.tenantKey, catalogKey, manifest.resources)
             if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries)).execute()
+                RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
             }
         } else if (!anyFailed) {
             if (!command.intoDraft) {
