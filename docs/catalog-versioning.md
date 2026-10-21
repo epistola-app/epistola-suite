@@ -61,9 +61,12 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   and, when the next release has no changes of its own, moves the next release to it (a
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
   others and the next release is behind it, to be merged; an upgrade from a source is refused
-  (`CatalogHasLocalChangesException`), since it would discard them. Changes are measured against what
-  the next release held when the release was put in place (`catalog_versions.base_fingerprints`, set
-  by `RecordInstalledRelease`), else against its base release.
+  (`CatalogHasLocalChangesException`), since it would discard them. Changes are its resources and its
+  catalog settings (`catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`, as a merge
+  compares them), so a next release whose only change is its default theme is not moved along either.
+  They are measured against what the next release held when the release was put in place
+  (`catalog_versions.base_fingerprints`, set by `RecordInstalledRelease`), else against its base
+  release's content, by the [complete fingerprint](#what-changed-resource-by-resource).
 - **The web UI and MCP decide by this, not by type.** A page offers drafts, edit controls and
   Publish for a catalog that can be changed here, received or not, and shows a read-only catalog's
   reason ("Supplied by Epistola", "This installation only runs releases", the reason's `label`) with
@@ -142,14 +145,31 @@ until it is released**; only releases are numbered.
   content. A release that removes something the draft still uses is refused
   (`MergeRefusedException`), as is one the draft already contains. The preview carries a `token`; a
   merge given it is refused once the draft or the release changed since
-  (`MergePreviewOutdatedException`: preview again). The draft records the merge
+  (`MergePreviewOutdatedException`, REST 409 `merge-preview-outdated`: preview again). The draft records the merge
   (`catalog_draft_merges`), which `behind` then leaves out; its base does not move. Merging inside one
   resource is later work; see [Merge internals](#merge-internals).
-- **A release records its base** (`catalog_releases.base_version`, `V20261018200200`): the release
-  its draft started from, which `getCatalogRelease` reports as a released release's `base` and which
-  `behind` measures its changes against. It is null for a catalog's first release, a release installed
-  from elsewhere (`RecordInstalledRelease`; the archive does not carry the publisher's base), and every
-  release cut before the column. Those fall back to the release below them.
+- **The merge base is found by lineage, never guessed** (contract ADR 0005). It is the closest release
+  on the merged release's line (itself, its base, that one's base, …) that the draft contains, each
+  link a base a release records. A release that records none ends its line; the release numbered
+  below it is never taken for one.
+  - Found and installed, and the installed release of that number is the one the line names by
+    fingerprint: merged against its content.
+  - Found by lineage but not installed, or another release under that number: the preview names it
+    (`DraftMergePreview.missingBase`, REST `missingBase`) and classifies nothing, and the merge is
+    refused (`MergeBaseMissingException`, REST 409 `merge-base-missing` with `version` and
+    `fingerprint`). The web UI says "To merge v1.0.1, this installation needs v1.0.0, the release both
+    come from. Get it first (from a registry, the Exchange or a file).", and offers no merge until it
+    is; MCP says the same (`missingBase`, `notice`). Installing it beside the others (an import,
+    `installCatalogRelease`) makes the merge possible.
+  - No common release known (a release from before `release.base`, or from a producer that did not
+    know it): no base, and every entry the two have differently is a choice; the dialog and MCP say so.
+- **A release records its base** (`catalog_releases.base_version`, `V20261018200200`, and
+  `base_fingerprint`, `V20261021104938`): the release its draft started from, which `getCatalogRelease`
+  reports as a released release's `base` and which `behind` measures its changes against. A received
+  release keeps the base its archive names (`release.base`). It is null for a catalog's first release,
+  a release from an archive that names none, and every release cut before the column; for the list of
+  what a behind release changed, those are measured against the release below them, which is only a
+  display.
 - **Releasing** (`ReleaseCatalogVersion`, contract `releaseCatalogDraft`) releases any draft,
   numbered as asked or, without a number, as its changes need against its base
   (`AssessDraftNumber`, contract `previewCatalogDraftRelease`: `base`, `changeKind`, `needed`,
@@ -484,15 +504,22 @@ is the shared primitive (latest version/fingerprint, working fingerprint,
 ### What changed, resource by resource
 
 [`GetCatalogResourceChanges`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogResourceChanges.kt)
-diffs the draft's per-resource digests against the `fingerprint` of each
-`release_entries` row of the draft's base (the release it started from; the highest release below its
-number when it records none), giving each resource one of NEW,
-MODIFIED, RELEASED or REMOVED, and whether its current content is marked ready.
-Both sides come from the same canonicaliser that computes the catalog
-fingerprint, so a per-resource difference is exactly a fingerprint difference
-localised to one resource and the drift check and the detail cannot disagree. It
-is the mirror of the upgrade diff from a source, which reads
-`installed_resource_fingerprints` the same way.
+diffs the draft's resources against those of the draft's base (the release it started from; the
+latest release when it records none), giving each resource one of NEW, MODIFIED, RELEASED or REMOVED,
+and whether its current content is marked ready.
+
+Resources are compared by their **complete fingerprint**,
+`CatalogFingerprintService.resourceFingerprints` (contract `completePerResourceFingerprints`, the
+per-resource form of V5): it covers everything V5 covers of a resource, what wire v8 added included (a
+template's `description`, a variant's `metadata`, a data example's `key`), so a change to only those is
+a change. Every comparison of resources uses it: this one, what a next release changed
+(`NextVersionChanges`), a merge's three sides, what a behind release changed, and what an available
+release changes. The base side is what the draft recorded holding of its base when that was put in
+place (`catalog_versions.base_fingerprints`), else the base's retained content, fingerprinted now;
+`release_entries.fingerprint` (V3, stored per release) is not compared any more. A stored baseline
+names the function that computed it (`{"algorithm": "complete-v5", "entries": …}`); one stored before,
+without it, is as good as none. The upgrade diff from a source still reads
+`installed_resource_fingerprints`, both sides in the V3 form.
 
 A release without those entries (one from 1.x; the 2.0 upgrade removes them) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the
@@ -565,12 +592,17 @@ template per variant or per block, an editor merge tool — adds to it rather th
   `MergeValue` per entry (`type/key`), resources and `CatalogSetting`s alike, each with a fingerprint.
   The draft (ours) is built from its rows; the merge base and the release (theirs) from the content
   each release retained (`ReleaseContentAssembler`). All three are fingerprinted by one function,
-  `CatalogFingerprintService.perResourceFingerprints` (settings by a digest over a fixed shape), not
-  read from `release_entries`, which for a release received from a source holds its publisher's
-  digests. A received release is written into a draft as this suite holds content (a default written
-  out, a slot a stencil needs added), so the draft is compared with the base _as it holds it_
-  (`heldBase`): `catalog_versions.base_fingerprints`, recorded when its base was put in place or copied
-  in, or `catalog_draft_merges.held_fingerprints` for a release it merged; else the base as released.
+  `CatalogFingerprintService.resourceFingerprints`, the complete fingerprint (settings by
+  `settingFingerprint`, a digest over a fixed shape), not read from `release_entries`, which for a
+  release received from a source holds its publisher's digests. A received release is written into a
+  draft as this suite holds content (a default written out, a slot a stencil needs added), so the draft
+  is compared with the base _as it holds it_ (`heldBase`): `catalog_versions.base_fingerprints`,
+  recorded when its base was put in place or copied in, or `catalog_draft_merges.held_fingerprints`
+  for a release it merged; for an older merge base that one descends from, the same wherever the two
+  releases are alike; else the base as released. A baseline another function stored is ignored.
+- **Merge base** (`MergeInputReader`, `DraftMerge.mergeBaseOf`). Found by the lineage releases record
+  (`catalog_releases.base_version`, `base_fingerprint`), checked against the installed release of that
+  number by fingerprint; missing, it is `MergeInputs.missingBase` and the planner classifies nothing.
 - **Mergers** (`ResourceMerger`, found by type in `ResourceMergers`). One classifies an entry from its
   three sides (`MergeEntrySides`) and plans what to write for a `MergeResolution` (`MergeAction`:
   keep, write a value, remove). `WholeResourceMerger`, the whole-entry table above
@@ -585,10 +617,10 @@ template per variant or per block, an editor merge tool — adds to it rather th
   `CatalogDraft.merged` reads it, so the draft contains the release and is not behind it. Copying a
   draft copies its rows; moving the next release onto a new base (releasing it, or a release put in
   place) clears them.
-- **Token.** `DraftMergePlanner.token` digests the release, the merge base and every fingerprint of
-  the three sides. `PreviewDraftMerge` returns it, the UI and MCP send it back, and the merge refuses
-  another (`MergePreviewOutdatedException`). REST does not send one yet: the contract's request has no
-  field for it.
+- **Token.** `DraftMergePlanner.token` digests the release, the merge base (or the missing one) and
+  every fingerprint of the three sides. `PreviewDraftMerge` returns it (REST `token`), the UI, MCP and
+  REST (`expectedToken`) send it back, and the merge refuses another (`MergePreviewOutdatedException`,
+  REST 409 `merge-preview-outdated`).
 
 To merge a type differently, add a Spring bean implementing `ResourceMerger` whose `types` names it:
 `classify` returns the `MergeResource` the preview shows (its outcome decides whether a resolution is
@@ -615,7 +647,9 @@ version is this suite's convention, not the contract's.
 `ExportCatalogZip` exports a **release**: the one named by `version`, or without one the highest
 release. It hands over that release as it was released, rebuilt by `ReleaseContentAssembler` from the
 content it retained, carrying the version, timestamp and fingerprint it was cut with, whatever the
-drafts have done since. An installed release exports the content it was installed with. The export
+drafts have done since, and its id, metadata and base (`release.releaseId`, `.metadata`, `.base`;
+completed from the release's row for a release recorded before it said them). An installed release
+exports the content it was installed with. The export
 dialog offers the versions `ListRetainedReleases` reports, which is the same set the command will
 accept, so the offer cannot fail at download. A catalog with no release has nothing to export.
 
@@ -649,6 +683,17 @@ import takes the same path; none names a type.
   key, name), with the caller's source (an Exchange or registry install) or none (a file). Its release
   is recorded, and its next release is on it. An archive from before wire v8, which names no registry
   or namespace, lands in the importing tenant's namespace on the default registry.
+- **A release keeps what it says it is** (wire v8, `ReceivedReleases`): its id (`release.releaseId`)
+  becomes its id here, so it is the same release everywhere; one another release (or a draft) of the
+  catalog has here refuses the import (`CatalogImportConflictException`: one id names one release).
+  Its metadata is kept, every namespace as it came. This suite's namespace
+  (`{"app.epistola.suite": {"renderingDefaultsVersion": 6}}`) says which rendering defaults it renders
+  with: one this installation lacks, newer or unknown, refuses it before anything is written
+  (`ReleaseRenderingDefaultsTooNewException`, REST 400 `catalog-rendering-defaults-too-new`; the import
+  dialog says to upgrade Epistola); without it, it renders with the current defaults. Its base
+  (`release.base`) is recorded (`base_version`, `base_fingerprint`), for finding a merge base. Every
+  release this suite writes says the same of itself, in its snapshot and every archive of it (an
+  export, the Exchange, a registry), and none of it moves its fingerprint.
 - **The same number with the same fingerprint** is the release the tenant has: nothing changes
   (`newlyInstalled = false`), also in the tenant that released it. The same number with other content
   is refused.
