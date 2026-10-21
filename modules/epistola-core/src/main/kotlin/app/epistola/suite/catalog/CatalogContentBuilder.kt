@@ -198,7 +198,7 @@ class CatalogContentBuilder(
                 availableAssetSlugs = assets.mapTo(mutableSetOf()) { it.key },
                 namespace = catalog.namespace,
                 registry = catalog.registry,
-            ).withThemeSettings(tenantKey, catalogKey),
+            ).withThemeSettings(tenantKey, catalogKey, outbound),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
             dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value)
@@ -488,19 +488,20 @@ private const val PUBLISHED_VARIANT_JOIN =
  * qualified when it lives in another catalog, and the presets it declares. Absent ones leave the
  * details, and so the fingerprint, as they were.
  */
-private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogInfo {
+private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey, outbound: CatalogContentBuilder.Outbound): CatalogInfo {
     val settings = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenantKey, catalogKey).query()
     if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
     val theme = settings.defaultTheme?.let { theme ->
         if (theme.catalogKey == catalogKey) {
             app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value)
         } else {
-            val other = GetCatalog(tenantKey, theme.catalogKey).query()
+            // Qualified as every reference into another catalog is: the registry only where it differs.
+            val (namespace, registry) = outbound.qualifier(theme.catalogKey.value)
             app.epistola.catalog.protocol.CatalogThemeRef(
                 key = theme.themeKey.value,
                 catalogKey = theme.catalogKey.value,
-                namespace = other?.namespace,
-                registry = other?.registry,
+                namespace = namespace,
+                registry = registry,
             )
         }
     }

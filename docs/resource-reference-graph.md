@@ -75,8 +75,8 @@ Stored references name their catalog by key, which is unique in a tenant. On the
 means a catalog in the owning catalog's namespace and registry (contract ADR 0003), so building a
 catalog's content names the namespace, and the registry where it differs, of every reference into a
 catalog of another name: a stencil insertion, a theme override, a `fontFamily` in a template, stencil
-or theme (`ResourceReferenceSites.qualifyOtherCatalogs`), and a template's theme and an attribute's
-code-list binding, which are stored by identity (`CatalogContentBuilder`). A reference that already
+or theme (`ResourceReferenceSites.qualifyOtherCatalogs`), and a template's theme, an attribute's
+code-list binding and a catalog's default theme, which are stored by identity (`CatalogContentBuilder`). A reference that already
 names a namespace, as a received one does, travels as it came. An image reference names its catalog
 by key only: the image component declares no `namespace` or `registry` prop.
 

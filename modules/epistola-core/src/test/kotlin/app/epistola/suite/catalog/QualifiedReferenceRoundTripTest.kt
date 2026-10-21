@@ -12,10 +12,12 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.catalog.versions.CatalogDefaultTheme
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -118,6 +120,7 @@ class QualifiedReferenceRoundTripTest : IntegrationTestBase() {
         CreateDocumentTemplate(template, "Letter").execute().withRequiredDataExample()
         UpdateDocumentTemplate(template, themeId = ThemeKey.of("default"), themeCatalogKey = SYSTEM_CATALOG_KEY).execute()
         UpdateVariantContent(VariantId(VariantKey.INITIAL, template), model()).execute()
+        SetCatalogDefaultTheme(a, letters, CatalogDefaultTheme(ThemeKey.of("default"), SYSTEM_CATALOG_KEY)).execute()
 
         val lettersZip = mediator.exportReleased(own).zipBytes
         Released(parts = mediator.exportReleased(CatalogId(parts, tenant)).zipBytes, letters = lettersZip)
@@ -221,6 +224,32 @@ class QualifiedReferenceRoundTripTest : IntegrationTestBase() {
     @Test
     fun `a stencil in another namespace and registry keeps its qualifier`() {
         roundTrip("Qualified stencil", "template/letter", inParts) { it.get("templateModel").get("nodes").get("header").get("props") }
+    }
+
+    /**
+     * A catalog's default theme (contract ADR 0007) in another namespace: named in the manifest's
+     * `catalog.defaultTheme` like the references in resources are, the registry only where it
+     * differs, and kept by an import and a draft started from the release.
+     */
+    @Test
+    fun `a catalog's default theme in another namespace keeps its qualifier`() {
+        val a = createTenant("Qualified default theme A").id
+        val b = createTenant("Qualified default theme B").id
+        val released = publish(a)
+        fun defaultTheme(manifest: JsonNode) = manifest.get("catalog").get("defaultTheme")
+        val sent = defaultTheme(objectMapper.readTree(entries(released.letters).getValue("catalog.json")))
+        assertThat(qualifier(sent)).isEqualTo(system)
+        assertThat(sent.get("key").asString()).isEqualTo("default")
+
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
+            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(b, letters).catalog.defaultTheme)).isEqualTo(sent)
+
+            val draft = CreateCatalogDraft(b, letters, name = "Redesign", from = releaseVersion(released.letters)).execute()
+            val id = targeting.resolve(CatalogVersionRef(b, letters, DraftRef.Id(draft.versionId)))
+            assertThat(objectMapper.valueToTree<JsonNode>(targeting.within(id) { contentBuilder.build(b, letters) }.catalog.defaultTheme)).isEqualTo(sent)
+        }
     }
 
     @Test
