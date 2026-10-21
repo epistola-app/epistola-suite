@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
  * which decides what receiving a newer release does: an unchanged next version moves to it (a
  * fast-forward), a changed one stays and is behind it, to be merged.
  *
- * Compared per resource, by the same fingerprints a merge uses
- * ([CatalogFingerprintService.resourceFingerprints]), against what the next version held when a
+ * Compared per resource and per catalog setting, by the same fingerprints a merge uses
+ * ([CatalogFingerprintService.entryFingerprints]), against what the next version held when a
  * received release was put in place in it ([recordBaseline]); an installed copy need not fingerprint
  * as its publisher's content does. Without that record (or with one another function computed),
  * against its base release's content, recomputed, which is exact for a next version that continues
@@ -44,7 +44,12 @@ class NextVersionChanges(
 
     fun hasChanges(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = changed(tenantKey, catalogKey).isNotEmpty()
 
-    /** The resources (`type/key`) the next version changed since its base: added, changed or removed. */
+    /**
+     * The entries (`type/key`) the next version changed since its base: added, changed or removed.
+     * Its resources and its catalog settings (`catalog/<key>`, the default theme, presets and
+     * dependency declarations a merge compares too): a setting is a change of its own, which a newer
+     * release must not be fast-forwarded over.
+     */
     fun changed(tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> {
         if (GetCatalogEditability(tenantKey, catalogKey).query().reason == CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA) return emptySet()
         val (next, recorded, hasEntries) = jdbi.withHandle<Triple<CatalogDraft?, Map<String, String>?, Boolean>, Exception> { handle ->
@@ -58,13 +63,13 @@ class NextVersionChanges(
 
             recorded != null -> recorded
 
-            // Nothing under it: what it holds is all its own.
-            next.base == null -> emptyMap()
+            // Nothing under it: what it holds is all its own, and each setting it set.
+            next.base == null -> app.epistola.suite.catalog.merge.CatalogSetting.UNSET.associate { "${app.epistola.suite.catalog.merge.CatalogSetting.TYPE}/${it.key}" to fingerprints.settingFingerprint(it.canonical) }
 
             // A release from before 2.0 recorded no content to compare with.
             !hasEntries -> null
 
-            else -> assembler.assemble(tenantKey, catalogKey, next.base)?.let { fingerprints.resourceFingerprints(it.content) }
+            else -> assembler.assemble(tenantKey, catalogKey, next.base)?.let { fingerprints.entryFingerprints(catalogKey, it.content) }
         }
         if (next == null || base == null) return emptySet()
         val ours = current(tenantKey, catalogKey, next)
@@ -82,5 +87,5 @@ class NextVersionChanges(
         jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, next.versionId, json) }
     }
 
-    private fun current(tenantKey: TenantKey, catalogKey: CatalogKey, next: CatalogDraft): Map<String, String> = targeting.within(next.versionId) { fingerprints.resourceFingerprints(contentBuilder.build(tenantKey, catalogKey)) }
+    private fun current(tenantKey: TenantKey, catalogKey: CatalogKey, next: CatalogDraft): Map<String, String> = targeting.within(next.versionId) { fingerprints.entryFingerprints(catalogKey, contentBuilder.build(tenantKey, catalogKey)) }
 }

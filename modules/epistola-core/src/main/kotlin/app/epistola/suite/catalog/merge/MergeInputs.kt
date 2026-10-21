@@ -66,6 +66,9 @@ sealed interface CatalogSetting {
         /** The entry type settings are merged under. */
         const val TYPE: String = "catalog"
 
+        /** Every setting as a version that set none holds it. */
+        val UNSET: List<CatalogSetting> = listOf(DefaultTheme(null), Presets(emptyList()), Dependencies(emptyList()))
+
         /** The settings [content] of [catalogKey] holds, every one of them, set or not. */
         fun of(catalogKey: CatalogKey, content: CatalogContent): List<CatalogSetting> = listOf(
             DefaultTheme(content.catalog.defaultTheme?.let { CatalogDefaultTheme(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: catalogKey) }),

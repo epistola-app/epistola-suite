@@ -137,6 +137,24 @@ class ReceivedCatalogTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a newer release beside a next version whose only change is a catalog setting is recorded, keeping the setting`() {
+        val author = createTenant("Received Setting A").id
+        val receiver = createTenant("Received Setting B").id
+        val catalog = CatalogKey.of("received-setting")
+        withMediator {
+            ImportCatalogZip(receiver, authored(author, catalog)).execute()
+            // The only change here: the catalog's default theme.
+            SetCatalogDefaultTheme(receiver, catalog, CatalogDefaultTheme(ThemeKey.of("brand"), catalog)).execute()
+            assertThat(nextVersionChanges.changed(receiver, catalog)).containsExactly("catalog/defaultTheme")
+
+            ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
+
+            assertThat(next(receiver, catalog).let { it.base to it.behind.map { b -> b.version } }).isEqualTo("1.0.0" to listOf("1.0.1"))
+            assertThat(GetCatalogThemeSettings(receiver, catalog).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
+        }
+    }
+
+    @Test
     fun `an upgrade from the source is refused while the next version has changes of its own`() {
         val tenant = createTenant("Received Upgrade").id
         withMediator {

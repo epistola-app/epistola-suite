@@ -244,7 +244,7 @@ class CatalogReleaseCopier(
         // What the draft holds of its base, as this suite holds content: a merge compares the draft
         // with this rather than with the release's own fingerprints, which for a release received
         // from elsewhere need not match what this suite computes for the same content.
-        val held = targeting.within(into) { fingerprints.resourceFingerprints(contentBuilder.build(tenantKey, catalogKey)) }
+        val held = targeting.within(into) { fingerprints.entryFingerprints(catalogKey, contentBuilder.build(tenantKey, catalogKey)) }
         jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, into, fingerprints.storeBaseline(held)) }
     }
 }
