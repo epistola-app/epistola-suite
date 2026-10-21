@@ -575,7 +575,7 @@ packages:
     hasBin: true
 
   '@epistola.app/epistola-catalog@file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz':
-    resolution: {integrity: sha512-OAAxHUYBUgoasBppBuPV30+JwZ/fzjhCFQ0XGqilo+qkGS0XqNIQR47ZAqhfPtA3HnuSdIqiI7Qx5ws/MgNmUw==, tarball: file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz}
+    resolution: {integrity: sha512-ILAqNZesKpBLVKwpxiVpYC/AZWqk1v2ALt+gm6t4NMZWUk51qhFS5q1N+GTc2wC/rIJlWZkGrMnol+zj/oPEcg==, tarball: file:../../../../epistola-contract/contracts/catalog/epistola.app-epistola-catalog-2.0.0-SNAPSHOT.tgz}
     version: 2.0.0-SNAPSHOT
 
   '@faker-js/faker@10.6.0':

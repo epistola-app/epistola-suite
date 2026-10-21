@@ -6,7 +6,7 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.catalog.versions.GetReleasedResource
@@ -70,7 +70,8 @@ internal val Catalog.catalogId: CatalogId get() = CatalogId(id, TenantId(tenantK
  */
 internal val ResolvedCatalogVersion.releasedAt: OffsetDateTime get() = version.releasedAt ?: catalog.updatedAt
 
-internal val Catalog.isSubscribed: Boolean get() = type == CatalogType.SUBSCRIBED
+/** Whether this catalog cannot be changed here (ADR 0032): the `readOnly` of a resource DTO in it. */
+internal fun Catalog.readOnlyHere(): Boolean = !GetCatalogEditability(tenantKey, id).query().editable
 
 /** The resource of [type] at [key] the released version holds, or null when it holds none. */
 internal inline fun <reified R : CatalogResource> ResolvedCatalogVersion.releasedResource(type: String, key: String): R? = GetReleasedResource(tenantKey, catalogKey, requireNotNull(version.version), type, key).query() as? R

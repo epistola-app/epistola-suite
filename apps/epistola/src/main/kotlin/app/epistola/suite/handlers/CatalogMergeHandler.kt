@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.merge.DraftMergePreview
 import app.epistola.suite.catalog.merge.MergeChange
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergeOutcome
 import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
@@ -25,7 +26,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.requirePermission
-import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -114,7 +114,7 @@ class CatalogMergeHandler {
             )
         } catch (e: MergeRefusedException) {
             return reRender(e.message)
-        } catch (e: ValidationException) {
+        } catch (e: MergeNotApplicableException) {
             return reRender(e.message)
         } catch (e: CatalogReadOnlyException) {
             return reRender(e.message ?: "This catalog cannot be changed here.")

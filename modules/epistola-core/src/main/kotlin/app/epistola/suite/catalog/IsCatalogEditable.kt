@@ -24,6 +24,10 @@ enum class CatalogReadOnlyReason(val label: String, val explanation: String) {
 
     /** The suite supplies the catalog (a `classpath:` source) and replaces it on every upgrade. */
     SUPPLIED_BY_EPISTOLA("Supplied by Epistola", "Epistola supplies this catalog and replaces it on every upgrade, so it is not changed here."),
+    ;
+
+    /** As the contract names it (`CatalogReadOnlyReason`): `editing-disabled`, `supplied-by-epistola`. */
+    val wire: String get() = name.lowercase().replace('_', '-')
 }
 
 /** Whether a catalog can be changed here, and if not, why. */

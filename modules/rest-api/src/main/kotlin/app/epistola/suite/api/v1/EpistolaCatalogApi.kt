@@ -11,9 +11,12 @@ import app.epistola.api.model.BehindReleaseDto
 import app.epistola.api.model.CatalogChangesDto
 import app.epistola.api.model.CatalogDependencyDto
 import app.epistola.api.model.CatalogDependencyListResponse
+import app.epistola.api.model.CatalogDraftMergePreview
+import app.epistola.api.model.CatalogDraftMergeResource
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
+import app.epistola.api.model.CatalogMergeOutcome
 import app.epistola.api.model.CatalogPresetDto
 import app.epistola.api.model.CatalogReleaseDto
 import app.epistola.api.model.CatalogReleaseListResponse
@@ -22,6 +25,8 @@ import app.epistola.api.model.CatalogThemeReference
 import app.epistola.api.model.CreateCatalogReleaseRequest
 import app.epistola.api.model.ImportCatalogResponse
 import app.epistola.api.model.InstallCatalogReleaseResponse
+import app.epistola.api.model.MergeIntoCatalogDraftRequest
+import app.epistola.api.model.MergeIntoCatalogDraftResponse
 import app.epistola.api.model.ReleaseCatalogDraftRequest
 import app.epistola.api.model.ReleaseCatalogDraftResponse
 import app.epistola.api.model.ReleaseDependencyDto
@@ -51,10 +56,17 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.merge.MergeOutcome
+import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
+import app.epistola.suite.catalog.merge.MergeSide
+import app.epistola.suite.catalog.merge.PreviewDraftMerge
+import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
@@ -114,7 +126,8 @@ class EpistolaCatalogApi(
         val tenant = TenantKey.of(tenantKey)
         val catalogs = ListCatalogs(tenant).query()
         val slice = Pagination.paginate(catalogs, page, size)
-        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto() }))
+        val editability = ListCatalogEditability(tenant).query()
+        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.id)) }))
     }
 
     /**
@@ -172,15 +185,15 @@ class EpistolaCatalogApi(
     }
 
     /**
-     * Installs the release the archive carries, in the catalog it names; naming another registry or
-     * namespace is not supported yet.
+     * Installs the release the archive carries, beside the catalog's others, in the catalog it names;
+     * a catalog it creates is received (ADR 0032). Naming another registry or namespace is not
+     * supported yet.
      */
     override fun importCatalog(
         tenantKey: String,
         file: MultipartFile,
         registry: String?,
         namespace: String?,
-        catalogType: app.epistola.api.model.CatalogType?,
     ): ResponseEntity<ImportCatalogResponse> {
         if (registry != null) throw ApiOperationNotImplementedException("importCatalog.registry")
         if (namespace != null) throw ApiOperationNotImplementedException("importCatalog.namespace")
@@ -188,7 +201,7 @@ class EpistolaCatalogApi(
         val result = ImportCatalogZip(
             tenantKey = tenant,
             zipBytes = file.bytes,
-            catalogType = catalogType?.let { CatalogType.valueOf(it.name) },
+            newCatalogType = CatalogType.SUBSCRIBED,
             // REST is non-interactive: an archive of an older wire version migrates without a prompt.
             confirmMigration = true,
         ).execute()
@@ -316,6 +329,59 @@ class EpistolaCatalogApi(
         )
     }
 
+    /** What merging release [version] into the draft [release] names would do (ADR 0032, alpha). */
+    override fun previewCatalogDraftMerge(
+        version: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        release: String,
+    ): ResponseEntity<CatalogDraftMergePreview> {
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+        val preview = PreviewDraftMerge(draft.tenantKey, draft.catalogKey, version, draft.ref).query()
+        val quiet = setOf(MergeOutcome.UNCHANGED, MergeOutcome.SAME)
+        return ResponseEntity.ok(
+            CatalogDraftMergePreview(
+                draft = draft.version.versionId,
+                base = preview.base,
+                release = preview.release,
+                alreadyMerged = preview.alreadyMerged,
+                resources = preview.resources.filter { it.outcome !in quiet }.map { resource ->
+                    CatalogDraftMergeResource(
+                        resourceType = resource.type,
+                        resourceKey = resource.key,
+                        name = resource.name,
+                        outcome = CatalogMergeOutcome.forValue(resource.outcome.name.lowercase()),
+                        draftChange = resource.ours?.let { CatalogDraftMergeResource.DraftChange.forValue(it.name.lowercase()) },
+                        releaseChange = resource.theirs?.let { CatalogDraftMergeResource.ReleaseChange.forValue(it.name.lowercase()) },
+                    )
+                },
+                unchanged = preview.resources.count { it.outcome in quiet },
+            ),
+        )
+    }
+
+    /** Merges a release into the draft [release] names (ADR 0032, alpha), resolving conflicts as asked. */
+    override fun mergeIntoCatalogDraft(
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        release: String,
+        mergeIntoCatalogDraftRequest: MergeIntoCatalogDraftRequest,
+    ): ResponseEntity<MergeIntoCatalogDraftResponse> {
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+        val merged = MergeReleaseIntoDraft(
+            tenantKey = draft.tenantKey,
+            catalogKey = draft.catalogKey,
+            release = mergeIntoCatalogDraftRequest.release,
+            resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeSide.valueOf(side.name) },
+            catalogVersion = draft.ref,
+        ).execute()
+        return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept))
+    }
+
     /**
      * Releases a draft, numbered as asked or as its changes need against its base. A draft behind
      * releases needs `acknowledgedBehind` to name each one (409 otherwise); one whose declarations
@@ -426,17 +492,19 @@ class EpistolaCatalogApi(
 
     // ================== Helpers ==================
 
-    private fun Catalog.toDto(): CatalogDto {
-        val authored = type == CatalogType.AUTHORED
+    private fun Catalog.toDto(editability: CatalogEditability?): CatalogDto {
+        val reason = editability?.reason ?: if (editability == null) CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA.takeIf { suppliedByEpistola } else null
         return CatalogDto(
             registry = registry,
             namespace = namespace,
             catalogKey = id.value,
             name = name,
             description = description,
-            type = app.epistola.api.model.CatalogType.valueOf(type.name),
-            highestVersion = if (authored) releasedVersion else installedReleaseVersion,
-            fingerprint = if (authored) releasedFingerprint else installedFingerprint,
+            editable = reason == null,
+            readOnlyReason = reason?.let { CatalogDto.ReadOnlyReason.forValue(it.wire) },
+            source = sourceUrl,
+            highestVersion = highestReleaseVersion,
+            fingerprint = highestReleaseFingerprint,
         )
     }
 

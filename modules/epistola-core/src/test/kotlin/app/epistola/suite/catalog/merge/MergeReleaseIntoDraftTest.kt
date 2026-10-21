@@ -32,7 +32,6 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
-import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -166,7 +165,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
                 .hasMessageContaining("theme/thx")
             assertThatThrownBy { MergeReleaseIntoDraft(a, catalog, "2.0.0", resolutions = mapOf("theme/thy" to MergeSide.THEIRS, "theme/thx" to MergeSide.THEIRS)).execute() }
                 .`as`("a resolution for what is no conflict")
-                .isInstanceOf(ValidationException::class.java)
+                .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("theme/thy")
 
             assertThat(themeName(a, catalog, "thw")).isNull()
@@ -197,11 +196,11 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy { MergeReleaseIntoDraft(a, catalog, "1.0.0").execute() }
                 .`as`("its base")
-                .isInstanceOf(ValidationException::class.java)
+                .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("already contains 1.0.0")
             MergeReleaseIntoDraft(a, catalog, "2.0.0", resolutions = mapOf("theme/thx" to MergeSide.OURS)).execute()
             assertThatThrownBy { MergeReleaseIntoDraft(a, catalog, "2.0.0").execute() }
-                .isInstanceOf(ValidationException::class.java)
+                .isInstanceOf(MergeNotApplicableException::class.java)
                 .hasMessageContaining("already contains 2.0.0")
         }
     }

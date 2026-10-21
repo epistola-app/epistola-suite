@@ -24,6 +24,9 @@ import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeNotApplicableException
+import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
@@ -537,8 +540,29 @@ object ApiExceptionMappings {
         builder.register<CatalogReadOnlyException>(
             problemType = ApiProblemTypes.CATALOG_READ_ONLY,
             defaultDetail = "The catalog cannot be changed in this installation",
-            extensions = { listOfNotNull("catalogKey" to it.catalogKey.value, it.reason?.let { reason -> "reason" to reason.name }).toMap() },
+            extensions = { listOfNotNull("catalogKey" to it.catalogKey.value, it.reason?.let { reason -> "readOnlyReason" to reason.wire }).toMap() },
             logMessage = { "Write to read-only catalog rejected: ${it.message}" },
+        )
+
+        builder.register<MergeConflictsUnresolvedException>(
+            problemType = ApiProblemTypes.MERGE_CONFLICTS_UNRESOLVED,
+            defaultDetail = "Every resource changed on both sides needs a resolution",
+            extensions = { mapOf("unresolvedConflicts" to it.conflicts) },
+            logMessage = { "Merge refused, conflicts without a resolution: ${it.message}" },
+        )
+
+        builder.register<MergeRefusedException>(
+            problemType = ApiProblemTypes.MERGE_REFUSED,
+            defaultDetail = "The release removes something the draft still uses",
+            extensions = { emptyMap() },
+            logMessage = { "Merge refused: ${it.message}" },
+        )
+
+        builder.register<MergeNotApplicableException>(
+            problemType = ApiProblemTypes.MERGE_NOT_APPLICABLE,
+            defaultDetail = "The merge does not apply",
+            extensions = { emptyMap() },
+            logMessage = { "Merge not applicable: ${it.message}" },
         )
 
         builder.register<CatalogNotFoundException>(

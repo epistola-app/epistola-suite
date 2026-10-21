@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -28,6 +30,7 @@ import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -361,6 +364,60 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
+    }
+
+    @Test
+    fun `a catalog says whether it can be changed here, why not, and where its releases come from`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val response = restTemplate.exchange("/api/tenants/${tenantKey.value}/catalogs", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(JsonPath.read<List<Boolean>>(body, "$.items[?(@.catalogKey == 'default')].editable")).containsExactly(true)
+        assertThat(JsonPath.read<List<Boolean>>(body, "$.items[?(@.catalogKey == 'system')].editable")).containsExactly(false)
+        assertThat(JsonPath.read<List<String>>(body, "$.items[?(@.catalogKey == 'system')].readOnlyReason")).containsExactly("supplied-by-epistola")
+        assertThat(JsonPath.read<List<String>>(body, "$.items[?(@.catalogKey == 'system')].source").single()).startsWith("classpath:")
+        assertThat(body).doesNotContain("\"type\"")
+    }
+
+    @Test
+    fun `a draft behind a release previews the merge, needs a choice for a conflict, merges, and then does not apply again`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val slug = "merge-api"
+        seedAuthoredCatalog(tenantKey, slug)
+        val catalogKey = CatalogKey.of(slug)
+        val theme = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, TenantId(tenantKey)))
+        withMediator {
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            val fix = CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute()
+            val fixRef = CatalogVersionRef(tenantKey, catalogKey, DraftRef.Id(fix.versionId))
+            UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
+            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            UpdateTheme(theme, name = "Ours").execute()
+        }
+        val next = versionPath(tenantKey, slug, "next")
+
+        val preview = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(preview.body!!, "$.base")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.resources[*].outcome")).containsExactly("conflict")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.resources[*].resourceKey")).containsExactly("tha")
+
+        fun merge(body: String) = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val unresolved = merge("""{"release":"1.0.1"}""")
+        assertThat(unresolved.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(unresolved.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-conflicts-unresolved")
+        assertThat(JsonPath.read<List<String>>(unresolved.body!!, "$.unresolvedConflicts")).containsExactly("theme/tha")
+
+        val merged = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"theirs"}}""")
+        assertThat(merged.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(merged.body!!, "$.taken")).containsExactly("theme/tha")
+
+        val again = merge("""{"release":"1.0.1"}""")
+        assertThat(again.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(JsonPath.read<String>(again.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-not-applicable")
     }
 
     private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }

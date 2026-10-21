@@ -88,7 +88,10 @@ object ApiProblemTypes {
     val UNSUPPORTED_ASSET_TYPE = problem("UNSUPPORTED_ASSET_TYPE", "Unsupported Asset Type", HttpStatus.BAD_REQUEST, "The asset media type is not supported.", emptyList())
     val ASSET_IN_USE = problem("ASSET_IN_USE", "Asset In Use", HttpStatus.CONFLICT, "The asset cannot be deleted because template versions still reference it.", listOf("assetId", "usages"))
     val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
-    val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog cannot be changed in this installation: the installation only receives and runs releases, or Epistola supplies the catalog.", listOf("catalogKey", "reason"))
+    val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog cannot be changed in this installation: the installation only receives and runs releases, or Epistola supplies the catalog.", listOf("catalogKey", "readOnlyReason"))
+    val MERGE_CONFLICTS_UNRESOLVED = problem("MERGE_CONFLICTS_UNRESOLVED", "Merge Conflicts Unresolved", HttpStatus.CONFLICT, "A resource changed in both the draft and the release has no resolution; `unresolvedConflicts` lists them.", listOf("unresolvedConflicts"))
+    val MERGE_REFUSED = problem("MERGE_REFUSED", "Merge Refused", HttpStatus.CONFLICT, "The release removes something the draft still uses.", emptyList())
+    val MERGE_NOT_APPLICABLE = problem("MERGE_NOT_APPLICABLE", "Merge Not Applicable", HttpStatus.UNPROCESSABLE_CONTENT, "The draft already contains the release, or a resolution names something that is not a conflict.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
@@ -166,6 +169,9 @@ object ApiProblemTypes {
         ASSET_IN_USE,
         ENVIRONMENT_IN_USE,
         CATALOG_READ_ONLY,
+        MERGE_CONFLICTS_UNRESOLVED,
+        MERGE_REFUSED,
+        MERGE_NOT_APPLICABLE,
         CATALOG_NOT_FOUND,
         CATALOG_VERSION_NOT_FOUND,
         CATALOG_VERSION_RELEASED,

@@ -31,16 +31,11 @@ internal fun Tenant.toDto() = TenantDto(
     createdAt = createdAt,
 )
 
-internal fun CatalogType.toAttributeCatalogType() = when (this) {
-    CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
-    CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-}
-
 /**
  * An attribute of the working copy. [bindingCatalog] is the catalog of its code list binding, which
  * the binding names in full.
  */
-internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: Catalog?) = AttributeDto(
+internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: Catalog?, readOnly: Boolean = catalog.readOnlyHere()) = AttributeDto(
     key = id.value,
     tenantKey = tenantKey.value,
     registry = catalog.registry,
@@ -48,8 +43,7 @@ internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: 
     catalogKey = catalog.id.value,
     displayName = displayName,
     allowedValues = allowedValues,
-    catalogType = catalogType.toAttributeCatalogType(),
-    readOnly = catalogType == CatalogType.SUBSCRIBED,
+    readOnly = readOnly,
     createdAt = createdAt,
     lastModified = updatedAt,
     // Attributes keep no description.

@@ -25,6 +25,9 @@ import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeNotApplicableException
+import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
@@ -303,6 +306,9 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         AssetInUseException::class,
         EnvironmentInUseException::class,
         CatalogReadOnlyException::class,
+        MergeConflictsUnresolvedException::class,
+        MergeRefusedException::class,
+        MergeNotApplicableException::class,
         CatalogNotFoundException::class,
         CatalogNotUpgradeableException::class,
         CatalogReleaseVersionException::class,

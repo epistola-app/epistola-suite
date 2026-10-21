@@ -18,7 +18,7 @@ import app.epistola.suite.catalog.Catalog
  * for now; this matches the catalog-protocol view where classpath-sourced
  * lists arrive as inline rows in the import path.
  */
-internal fun CodeList.toDto(catalog: Catalog) = CodeListDto(
+internal fun CodeList.toDto(catalog: Catalog, readOnly: Boolean = catalog.readOnlyHere()) = CodeListDto(
     key = slug.value,
     tenantKey = tenantKey.value,
     registry = catalog.registry,
@@ -41,14 +41,7 @@ internal fun CodeList.toDto(catalog: Catalog) = CodeListDto(
         app.epistola.suite.catalog.AuthType.API_KEY -> CodeListDto.AuthType.API_KEY
         app.epistola.suite.catalog.AuthType.BEARER -> CodeListDto.AuthType.BEARER
     },
-    // `catalogType` is loaded via the JOIN in `GetCodeList`/`ListCodeLists`,
-    // so for any row that exists it's non-null. Defaulting to AUTHORED is
-    // the safe fallback for the (theoretical) orphan case.
-    catalogType = when (catalogType) {
-        app.epistola.suite.catalog.CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-        else -> app.epistola.api.model.CatalogType.AUTHORED
-    },
-    readOnly = catalogType == app.epistola.suite.catalog.CatalogType.SUBSCRIBED,
+    readOnly = readOnly,
     createdAt = createdAt,
     lastModified = updatedAt,
     description = description,

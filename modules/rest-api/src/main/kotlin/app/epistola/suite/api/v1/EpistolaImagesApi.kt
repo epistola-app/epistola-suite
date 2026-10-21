@@ -12,6 +12,7 @@ import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
+import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -101,7 +102,7 @@ class EpistolaImagesApi(
         ).query()
         return ResponseEntity.ok(
             ImageListResponse(
-                items = result.items.map { it.toImageDto(at.catalog) },
+                items = at.catalog.readOnlyHere().let { readOnly -> result.items.map { it.toImageDto(at.catalog, readOnly) } },
                 page = Pagination.pageMeta(page, size, result.totalElements),
             ),
         )

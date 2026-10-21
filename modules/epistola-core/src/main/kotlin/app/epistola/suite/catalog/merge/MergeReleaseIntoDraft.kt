@@ -25,7 +25,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -41,7 +40,8 @@ import org.springframework.stereotype.Component
  * default theme, presets and dependency declarations) stay its own. Afterwards the draft has merged
  * [release], so it is not behind it.
  *
- * Refused when the draft already contains [release] (its base, or merged before), when a conflict
+ * Refused when the draft already contains [release] (its base, or merged before;
+ * [MergeNotApplicableException]), when a conflict
  * has no resolution ([MergeConflictsUnresolvedException]), and when a resource the release removed
  * is still used ([MergeRefusedException]).
  */
@@ -73,6 +73,9 @@ data class MergedRelease(
 /** A merge with conflicts that [conflicts] (`type/key`) has no resolution for. */
 class MergeConflictsUnresolvedException(val catalogKey: CatalogKey, val release: String, val conflicts: List<String>) : RuntimeException("Merging $release into '${catalogKey.value}' needs a choice for: ${conflicts.joinToString()}")
 
+/** A merge that does not apply: the draft already contains the release, or a resolution names no conflict. */
+class MergeNotApplicableException(val catalogKey: CatalogKey, override val message: String) : RuntimeException(message)
+
 /** A merge that cannot be applied as asked; [message] says why. */
 class MergeRefusedException(val catalogKey: CatalogKey, override val message: String) : RuntimeException(message)
 
@@ -92,12 +95,12 @@ class MergeReleaseIntoDraftHandler(
             ?: throw CatalogVersionNotFoundException(catalogKey, command.catalogVersion?.draft?.toString() ?: "next")
         val preview = PreviewDraftMerge(tenantKey, catalogKey, command.release, command.catalogVersion).query()
         if (preview.alreadyMerged) {
-            throw ValidationException("release", "${draft.label} of '${catalogKey.value}' already contains ${command.release}")
+            throw MergeNotApplicableException(catalogKey, "${draft.label} of '${catalogKey.value}' already contains ${command.release}")
         }
 
         val conflicts = preview.conflicts.map { it.contentKey }
         val stray = command.resolutions.keys - conflicts.toSet()
-        if (stray.isNotEmpty()) throw ValidationException("resolutions", "Not a conflict of this merge: ${stray.sorted().joinToString()}")
+        if (stray.isNotEmpty()) throw MergeNotApplicableException(catalogKey, "Not a conflict of this merge: ${stray.sorted().joinToString()}")
         val unresolved = conflicts.filter { it !in command.resolutions }
         if (unresolved.isNotEmpty()) throw MergeConflictsUnresolvedException(catalogKey, command.release, unresolved)
 
