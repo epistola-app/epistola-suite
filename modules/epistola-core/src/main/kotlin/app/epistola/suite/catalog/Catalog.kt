@@ -57,7 +57,20 @@ data class Catalog(
     val contentUpdatedAt: OffsetDateTime,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-)
+) {
+    /**
+     * Epistola supplies this catalog (a `classpath:` source: the system and demo catalogs) and
+     * replaces it on every upgrade, so it is never changed here (ADR 0032).
+     */
+    val suppliedByEpistola: Boolean get() = sourceUrl?.startsWith(CLASSPATH_SOURCE) == true
+
+    /** Its releases come from a source that can be asked for newer ones (ADR 0032, section 7). */
+    val hasSource: Boolean get() = sourceUrl != null
+
+    companion object {
+        const val CLASSPATH_SOURCE = "classpath:"
+    }
+}
 
 /** This catalog's full name. */
 val Catalog.catalogName: CatalogName get() = CatalogName(registry, namespace, id)
