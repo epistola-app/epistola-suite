@@ -25,7 +25,6 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
-import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
@@ -630,13 +629,6 @@ object ApiExceptionMappings {
             defaultDetail = "Catalog wire schema version is newer than this instance supports",
             extensions = { mapOf("version" to it.version, "supportedVersion" to it.current) },
             logMessage = { "Catalog import rejected — wire schema too new: ${it.message}" },
-        )
-
-        builder.register<ReleaseRenderingDefaultsTooNewException>(
-            problemType = ApiProblemTypes.CATALOG_RENDERING_DEFAULTS_TOO_NEW,
-            defaultDetail = "The release renders with rendering defaults this instance does not have; upgrade Epistola to receive it",
-            extensions = { mapOf("renderingDefaultsVersion" to it.renderingDefaultsVersion, "supportedVersion" to it.supported) },
-            logMessage = { "Catalog release refused — rendering defaults too new: ${it.message}" },
         )
 
         builder.register<CatalogSchemaTooOldException>(

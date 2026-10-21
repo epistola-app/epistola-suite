@@ -106,6 +106,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import tools.jackson.databind.DatabindException
 import java.sql.SQLException
+import app.epistola.api.error.ProblemDetails as ContractProblemDetails
 
 /**
  * Global exception handler for REST API controllers.
@@ -261,6 +262,24 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     }
 
     /**
+     * A received release renders with rendering defaults this installation lacks (contract
+     * `catalog-rendering-defaults-too-new`, 400), built by the contract's own
+     * [ContractProblemDetails.catalogRenderingDefaultsTooNew], so its members are the contract's.
+     */
+    @ExceptionHandler(ReleaseRenderingDefaultsTooNewException::class)
+    fun handleRenderingDefaultsTooNew(ex: ReleaseRenderingDefaultsTooNewException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        log.warn("Catalog release refused — rendering defaults too new: {}", ex.message)
+        val problem = ContractProblemDetails.catalogRenderingDefaultsTooNew(
+            renderingDefaultsVersion = ex.renderingDefaultsVersion,
+            supportedVersion = ex.supported,
+            detail = ex.message,
+            instance = request.problemInstance(),
+        )
+        problem.title = ApiProblemTypes.CATALOG_RENDERING_DEFAULTS_TOO_NEW.title
+        return ResponseEntity.status(problem.status).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(problem)
+    }
+
+    /**
      * A catalog's source could not be asked (contract `catalog-source-unavailable`): 503, with
      * `Retry-After` when the source gave one, when it could not be reached or did not answer in
      * time; 502 when it answered badly.
@@ -326,7 +345,6 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogReleaseVersionException::class,
         CatalogUpgradeConflictException::class,
         CatalogSchemaTooNewException::class,
-        ReleaseRenderingDefaultsTooNewException::class,
         CatalogSchemaTooOldException::class,
         CatalogSchemaUnknownException::class,
         CodeListInUseException::class,

@@ -93,6 +93,21 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         assertProblem(import(b, keyB, renumbered), HttpStatus.CONFLICT, "release-number-taken")
     }
 
+    @Test
+    fun `a release rendering with defaults this installation lacks names them in the problem`() {
+        val (a, _) = seedTenantAndKey()
+        val (b, keyB) = seedTenantAndKey()
+        val archive = withManifest(release(a, "imp-${UUID.randomUUID().toString().take(8)}", "Brand")) { manifest ->
+            ((manifest.get("release") as ObjectNode).get("metadata").get("app.epistola.suite") as ObjectNode).put("renderingDefaultsVersion", 999)
+        }
+
+        val response = import(b, keyB, archive)
+
+        assertProblem(response, HttpStatus.BAD_REQUEST, "catalog-rendering-defaults-too-new")
+        assertThat(JsonPath.read<String>(response.body!!, "$.renderingDefaultsVersion")).isEqualTo("999")
+        assertThat(JsonPath.read<Int>(response.body!!, "$.supportedVersion")).isEqualTo(app.epistola.generation.pdf.RenderingDefaults.CURRENT.version)
+    }
+
     private fun release(tenant: TenantKey, catalog: String, theme: String, namespace: String? = null): ByteArray = withMediator {
         val key = CatalogKey.of(catalog)
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()

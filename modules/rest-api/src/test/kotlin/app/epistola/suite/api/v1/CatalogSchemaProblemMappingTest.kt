@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletRequest
 
 /**
  * The catalog wire-format migration exceptions map to dedicated RFC 9457
@@ -32,14 +33,18 @@ class CatalogSchemaProblemMappingTest {
     }
 
     @Test
-    fun `a release rendering with defaults this instance lacks maps to CATALOG_RENDERING_DEFAULTS_TOO_NEW`() {
+    fun `a release rendering with defaults this instance lacks is the contract's catalog-rendering-defaults-too-new`() {
         val exception = ReleaseRenderingDefaultsTooNewException(CatalogKey.of("invoices"), "1.1.0", "9", supported = 6)
-        val mapping = ApiExceptionMappings.forException(exception)
-        assertThat(mapping).isNotNull
-        assertThat(mapping!!.problemType).isEqualTo(ApiProblemTypes.CATALOG_RENDERING_DEFAULTS_TOO_NEW)
-        assertThat(mapping.problemType.status).isEqualTo(HttpStatus.BAD_REQUEST)
-        assertThat(mapping.problemType.type.toString()).isEqualTo("$PROBLEM_TYPE_BASE_URL/catalog-rendering-defaults-too-new")
-        assertThat(mapping.extensions(exception)).containsExactlyInAnyOrderEntriesOf(mapOf("renderingDefaultsVersion" to "9", "supportedVersion" to 6))
+        assertThat(ApiExceptionMappings.forException(exception)).`as`("built by the contract's helper, not the generic mapping").isNull()
+
+        val response = ApiExceptionHandler().handleRenderingDefaultsTooNew(exception, MockHttpServletRequest("POST", "/api/tenants/acme/catalogs/import"))
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        val problem = response.body!!
+        assertThat(problem.type.toString()).isEqualTo("$PROBLEM_TYPE_BASE_URL/catalog-rendering-defaults-too-new")
+        assertThat(problem.title).isEqualTo("Catalog Rendering Defaults Too New")
+        assertThat(problem.instance.toString()).isEqualTo("/api/tenants/acme/catalogs/import")
+        assertThat(problem.properties).containsExactlyInAnyOrderEntriesOf(mapOf("renderingDefaultsVersion" to "9", "supportedVersion" to 6))
     }
 
     @Test
