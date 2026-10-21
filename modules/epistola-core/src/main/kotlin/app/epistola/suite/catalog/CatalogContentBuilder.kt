@@ -146,7 +146,8 @@ class CatalogContentBuilder(
         for (theme in themes) addResource("theme", theme.key, theme.name, theme.description, theme)
         for (stencil in stencils) addResource("stencil", stencil.key, stencil.name, stencil.description, stencil)
         for (image in assets) addResource("image", image.key, image.name, null, image)
-        for (template in templates) addResource("template", template.key, template.name, null, template)
+        // The manifest entry's description is the template's own (wire v8: equal when both are present).
+        for (template in templates) addResource("template", template.key, template.name, template.description, template)
 
         // Keyed by the archive path each binary takes, which is what the canonicaliser and the
         // writer both ask for. It used to key by a filename parsed out of contentUrl and recover
@@ -215,13 +216,14 @@ class CatalogContentBuilder(
             val pdfaEnabled: Boolean,
             val dataModel: String?,
             val dataExamples: String?,
+            val description: String?,
         )
-        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean)
+        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean, val metadata: String?)
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
+                SELECT dt.id, dt.name, dt.description, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
                        ${if (published) PUBLISHED_CONTRACT_COLUMNS else "dt.data_model::text, dt.data_examples::text"}
                 FROM document_templates dt
                 ${if (published) PUBLISHED_CONTRACT_JOIN else ""}
@@ -241,6 +243,7 @@ class CatalogContentBuilder(
                         pdfaEnabled = rs.getBoolean("pdfa_enabled"),
                         dataModel = rs.getString("data_model"),
                         dataExamples = rs.getString("data_examples"),
+                        description = rs.getString("description"),
                     )
                 }
                 .list()
@@ -250,7 +253,7 @@ class CatalogContentBuilder(
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default,
+                    SELECT v.id, v.title, v.attributes::text, v.is_default, v.metadata::text,
                            ${if (published) "(pv.payload -> 'templateModel')::text" else "v.template_model::text"} AS template_model
                     FROM template_variants v
                     ${if (published) PUBLISHED_VARIANT_JOIN else ""}
@@ -268,6 +271,7 @@ class CatalogContentBuilder(
                             attributes = rs.getString("attributes"),
                             templateModel = rs.getString("template_model"),
                             isDefault = rs.getBoolean("is_default"),
+                            metadata = rs.getString("metadata"),
                         )
                     }
                     .list()
@@ -317,8 +321,10 @@ class CatalogContentBuilder(
                                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                         },
                         isDefault = v.isDefault,
+                        metadata = v.metadata?.let { objectMapper.readValue(it, VARIANT_METADATA) },
                     )
                 },
+                description = template.description,
             )
         }
     }
@@ -459,3 +465,6 @@ private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: Cata
         presets = settings.presets.map { app.epistola.catalog.protocol.CatalogPresetDeclaration(it.key, it.name, it.description) },
     )
 }
+
+/** A variant's stored `metadata` as the protocol models it ([VariantEntry.metadata]). */
+private val VARIANT_METADATA = object : tools.jackson.core.type.TypeReference<Map<String, Map<String, Any?>>>() {}

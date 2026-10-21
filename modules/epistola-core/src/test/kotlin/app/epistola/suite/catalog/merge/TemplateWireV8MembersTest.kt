@@ -1,0 +1,226 @@
+// SPDX-FileCopyrightText: Epistola Nederland B.V.
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package app.epistola.suite.catalog.merge
+
+import app.epistola.catalog.archive.CatalogArchiveReader
+import app.epistola.catalog.protocol.TemplateResource
+import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.versions.CatalogVersionTargeting
+import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.withRequiredDataExample
+import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
+import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
+
+/**
+ * What wire v8 added to a template -- its `description`, a variant's `metadata`, a data example's
+ * `key` -- is stored, so importing, copying a release into a draft, merging and building content
+ * keep it, and a resource that differs from a release in nothing else compares equal to it.
+ */
+class TemplateWireV8MembersTest : IntegrationTestBase() {
+
+    @Autowired private lateinit var jdbi: Jdbi
+
+    @Autowired private lateinit var objectMapper: ObjectMapper
+
+    @Autowired private lateinit var fingerprints: CatalogFingerprintService
+
+    @Autowired private lateinit var contentBuilder: CatalogContentBuilder
+
+    @Autowired private lateinit var targeting: CatalogVersionTargeting
+
+    private val catalog = CatalogKey.of("wire-members")
+
+    private val metadata = mapOf("com.example.layout" to mapOf("grid" to "a4-two-column", "columns" to 2))
+
+    private fun theme(tenant: TenantKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+
+    private fun entries(bytes: ByteArray): LinkedHashMap<String, ByteArray> {
+        val out = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            var e = zip.nextEntry
+            while (e != null) {
+                if (!e.isDirectory) out[e.name] = zip.readAllBytes()
+                e = zip.nextEntry
+            }
+        }
+        return out
+    }
+
+    private fun zip(entries: Map<String, ByteArray>): ByteArray {
+        val bytes = ByteArrayOutputStream()
+        ZipOutputStream(bytes).use { zip ->
+            entries.forEach { (name, data) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(data)
+                zip.closeEntry()
+            }
+        }
+        return bytes.toByteArray()
+    }
+
+    /**
+     * [archive] with template `letter` changed by [edit] and released as [version] (made from [base]
+     * when given), fingerprinted again: a release from a producer that writes these members.
+     */
+    private fun released(archive: ByteArray, version: String, base: Pair<String, String>?, edit: (ObjectNode) -> Unit): ByteArray {
+        val all = entries(archive)
+        val manifest = objectMapper.readTree(all["catalog.json"]!!) as ObjectNode
+        val entry = manifest.get("resources").first { it.get("type").asString() == "template" && it.get("key").asString() == "letter" } as ObjectNode
+        val detailPath = entry.get("detailUrl").asString().removePrefix("./")
+        val detail = objectMapper.readTree(all[detailPath]!!) as ObjectNode
+        val template = detail.get("resource") as ObjectNode
+        edit(template)
+        // The manifest entry's description is the template's own (wire v8).
+        template.get("description")?.let { entry.set("description", it) } ?: entry.remove("description")
+        all[detailPath] = objectMapper.writeValueAsBytes(detail)
+        val release = manifest.get("release") as ObjectNode
+        release.put("version", version)
+        release.remove(listOf("releaseId", "fingerprint"))
+        if (base != null) release.putObject("base").put("version", base.first).put("fingerprint", base.second) else release.remove("base")
+        all["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+        val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(zip(all))).archive!!.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
+        release.put("fingerprint", fingerprint)
+        all["catalog.json"] = objectMapper.writeValueAsBytes(manifest)
+        return zip(all)
+    }
+
+    private fun ObjectNode.withVariantMetadata(value: Map<String, Map<String, Any>>) = apply {
+        get("variants").forEach { (it as ObjectNode).set("metadata", objectMapper.valueToTree(value)) }
+    }
+
+    private fun letter(content: CatalogContent): TemplateResource = content.resourceDetails.getValue("template/letter").resource as TemplateResource
+
+    private fun archiveFingerprint(zip: ByteArray, key: String): String = CatalogArchiveReader.read(ByteArrayInputStream(zip)).archive!!.use { fingerprints.resourceFingerprints(it).getValue(key) }
+
+    /** Publisher [a]'s release 1.0.0: a described template with a data example, and a theme. */
+    private fun publish(a: TenantKey): ByteArray = withMediator {
+        CreateCatalog(tenantKey = a, id = catalog, name = "Wire Members").execute()
+        CreateTheme(id = theme(a, "brand"), name = "Brand").execute()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(a))), "Letter", description = "For letters to residents").execute()
+            .withRequiredDataExample()
+        MarkCatalogReady(a, catalog).execute()
+        ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+        ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
+    }
+
+    @Test
+    fun `an imported template keeps its description, its variants' metadata and its examples' keys`() {
+        val a = createTenant("Wire Members A").id
+        val b = createTenant("Wire Members B").id
+        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            val built = contentBuilder.build(b, catalog)
+            val template = letter(built)
+
+            assertThat(template.description).isEqualTo("For letters to residents")
+            assertThat(built.resourceEntries.single { it.key == "letter" }.description).isEqualTo("For letters to residents")
+            assertThat(template.variants.single().metadata).isEqualTo(metadata)
+            assertThat(template.dataExamples.orEmpty().map { it.key }).containsExactly("example-1")
+            // Built back from the rows, the template is the one the release holds.
+            assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
+        }
+    }
+
+    @Test
+    fun `a draft started from a release keeps them`() {
+        val a = createTenant("Wire Draft A").id
+        val b = createTenant("Wire Draft B").id
+        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            val draft = CreateCatalogDraft(b, catalog, name = "Redesign", from = "1.0.0").execute()
+            val id = targeting.resolve(CatalogVersionRef(b, catalog, DraftRef.Id(draft.versionId)))
+            val built = targeting.within(id) { contentBuilder.build(b, catalog) }
+
+            assertThat(letter(built).description).isEqualTo("For letters to residents")
+            assertThat(letter(built).variants.single().metadata).isEqualTo(metadata)
+            assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
+        }
+    }
+
+    @Test
+    fun `a release whose only change is a variant's metadata is taken by a merge, and the draft keeps it`() {
+        val a = createTenant("Wire Merge A").id
+        val b = createTenant("Wire Merge B").id
+        val v100 = publish(a)
+        val fingerprint = withMediator { ListCatalogReleases(a, catalog).query().single().fingerprint }
+
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withVariantMetadata(metadata).put("description", "Described again") }).execute()
+
+            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
+            assertThat(MergeReleaseIntoDraft(b, catalog, "1.0.1").execute().taken).containsExactly("template/letter")
+
+            val template = letter(contentBuilder.build(b, catalog))
+            assertThat(template.variants.single().metadata).isEqualTo(metadata)
+            assertThat(template.description).isEqualTo("Described again")
+        }
+    }
+
+    @Test
+    fun `a template that differs from the release in nothing else is no conflict`() {
+        val a = createTenant("Wire Conflict A").id
+        val b = createTenant("Wire Conflict B").id
+        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+        val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(v100)).archive!!.use { it.manifest.release.fingerprint!! }
+
+        withMediator { ImportCatalogZip(tenantKey = b, zipBytes = v100).execute() }
+        // A next version whose baseline is as good as none (one recorded by another function), so it
+        // is compared with the release's content itself: a template that lost a member there is a
+        // change of its own. No command produces that state, so it is put in place directly.
+        jdbi.useHandle<Exception> { h ->
+            h.createUpdate("UPDATE catalog_versions SET base_fingerprints = NULL WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND is_next")
+                .bind("t", b).bind("c", catalog).execute()
+        }
+        withMediator {
+            UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.put("description", "Described again") }).execute()
+
+            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
+        }
+    }
+}

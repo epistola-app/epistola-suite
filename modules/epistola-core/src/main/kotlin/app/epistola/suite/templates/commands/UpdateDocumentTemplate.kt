@@ -21,9 +21,11 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -32,7 +34,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * Updates a template's metadata (name, theme, pdfaEnabled).
+ * Updates a template's metadata (name, description, theme, pdfaEnabled).
  * The data contract is updated with [app.epistola.suite.templates.contracts.commands.UpdateDataContract].
  */
 data class UpdateDocumentTemplate(
@@ -46,6 +48,8 @@ data class UpdateDocumentTemplate(
     override val catalogVersion: CatalogVersionRef? = null,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
+    /** The new description; null keeps the current one, blank removes it. */
+    val description: String? = null,
 ) : CatalogVersionScoped,
     Command<DocumentTemplate?>,
     RequiresPermission {
@@ -58,6 +62,7 @@ data class UpdateDocumentTemplate(
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
         validate("themeCatalogKey", themeId == null || themeCatalogKey != null) { "A theme needs the catalog it lives in" }
+        validate("description", description.fitsTemplateDescription()) { "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less" }
     }
 }
 
@@ -84,6 +89,10 @@ class UpdateDocumentTemplateHandler(
         if (command.name != null) {
             updates.add("name = :name")
             bindings["name"] = command.name
+        }
+        if (command.description != null) {
+            updates.add("description = :description")
+            bindings["description"] = command.description.takeIf { it.isNotBlank() }
         }
         if (command.clearThemeId) {
             updates.add("theme_resource_id = NULL")

@@ -38,7 +38,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.DataExample
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -267,28 +266,7 @@ class InstallFromCatalogHandler(
     }
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
-        val input = ImportTemplateInput(
-            slug = resource.key,
-            name = resource.name,
-            version = releaseVersion,
-            themeId = resource.themeKey,
-            themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: command.catalogKey.value else null,
-            pdfaEnabled = resource.pdfaEnabled,
-            dataModel = protocolMapper.toObjectNode(resource.dataModel),
-            dataExamples = resource.dataExamples?.map {
-                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
-            } ?: emptyList(),
-            templateModel = resource.templateModel,
-            variants = resource.variants.map { variant ->
-                ImportVariantInput(
-                    id = variant.key,
-                    title = variant.title,
-                    attributes = variant.attributes ?: emptyMap(),
-                    templateModel = variant.templateModel,
-                    isDefault = variant.isDefault,
-                )
-            },
-        )
+        val input = templateImportInput(resource, command.catalogKey, releaseVersion, protocolMapper)
 
         val results = ImportTemplates(
             tenantId = TenantId(command.tenantKey),

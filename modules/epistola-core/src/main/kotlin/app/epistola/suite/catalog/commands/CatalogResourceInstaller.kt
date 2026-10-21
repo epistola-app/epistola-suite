@@ -52,28 +52,7 @@ class CatalogResourceInstaller(
         binaries: (String) -> ByteArray?,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
-            val input = ImportTemplateInput(
-                slug = resource.key,
-                name = resource.name,
-                version = version,
-                themeId = resource.themeKey,
-                themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: catalogKey.value else null,
-                pdfaEnabled = resource.pdfaEnabled,
-                dataModel = protocolMapper.toObjectNode(resource.dataModel),
-                dataExamples = resource.dataExamples?.map {
-                    DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
-                } ?: emptyList(),
-                templateModel = resource.templateModel,
-                variants = resource.variants.map { variant ->
-                    ImportVariantInput(
-                        id = variant.key,
-                        title = variant.title,
-                        attributes = variant.attributes ?: emptyMap(),
-                        templateModel = variant.templateModel,
-                        isDefault = variant.isDefault,
-                    )
-                },
-            )
+            val input = templateImportInput(resource, catalogKey, version, protocolMapper)
             val results = ImportTemplates(
                 tenantId = tenantId,
                 catalogKey = catalogKey,
@@ -188,3 +167,38 @@ class CatalogResourceInstaller(
         }
     }
 }
+
+/**
+ * A received template as [ImportTemplates] writes it: every member the protocol carries, the wire v8
+ * ones (description, a variant's metadata, a data example's key) included. The one translation, so
+ * everything that puts a received template in a version stores the same members.
+ */
+internal fun templateImportInput(
+    resource: TemplateResource,
+    catalogKey: CatalogKey,
+    version: String,
+    protocolMapper: ProtocolMapper,
+): ImportTemplateInput = ImportTemplateInput(
+    slug = resource.key,
+    name = resource.name,
+    version = version,
+    themeId = resource.themeKey,
+    themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: catalogKey.value else null,
+    pdfaEnabled = resource.pdfaEnabled,
+    dataModel = protocolMapper.toObjectNode(resource.dataModel),
+    dataExamples = resource.dataExamples?.map {
+        DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
+    } ?: emptyList(),
+    templateModel = resource.templateModel,
+    variants = resource.variants.map { variant ->
+        ImportVariantInput(
+            id = variant.key,
+            title = variant.title,
+            attributes = variant.attributes ?: emptyMap(),
+            templateModel = variant.templateModel,
+            isDefault = variant.isDefault,
+            metadata = variant.metadata,
+        )
+    },
+    description = resource.description,
+)
