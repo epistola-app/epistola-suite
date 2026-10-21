@@ -33,6 +33,12 @@ import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.registry.NamespaceNotGrantedException
+import app.epistola.suite.catalog.registry.RegistryArchiveRejectedException
+import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
+import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
+import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
+import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
 import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
@@ -706,6 +712,42 @@ object ApiExceptionMappings {
             problemType = ApiProblemTypes.ENVIRONMENT_DEPLOYMENT_REFUSED,
             defaultDetail = "The environment cannot serve that version",
             logMessage = { "Environment deployment refused: ${it.message}" },
+        )
+
+        builder.register<ReleaseRegistryNotFoundException>(
+            problemType = ApiProblemTypes.RELEASE_REGISTRY_NOT_FOUND,
+            defaultDetail = "This installation has no release registry of that name",
+            logMessage = { "Release registry not found: ${it.name}" },
+        )
+
+        builder.register<ReleaseNumberTakenException>(
+            problemType = ApiProblemTypes.RELEASE_NUMBER_TAKEN,
+            defaultDetail = "The release registry holds this version with other content",
+            logMessage = { "Release number taken: ${it.message}" },
+        )
+
+        builder.register<NamespaceNotGrantedException>(
+            problemType = ApiProblemTypes.NAMESPACE_NOT_GRANTED,
+            defaultDetail = "The release registry does not grant this installation the catalog's namespace",
+            logMessage = { "Namespace not granted: ${it.message}" },
+        )
+
+        builder.register<RegistryReleaseNotFoundException>(
+            problemType = ApiProblemTypes.NOT_FOUND,
+            defaultDetail = "The release registry does not hold that release",
+            logMessage = { "Registry release not found: ${it.message}" },
+        )
+
+        builder.register<RegistryArchiveRejectedException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The release registry served something that is not the catalog release asked for",
+            logMessage = { "Registry archive rejected: ${it.message}" },
+        )
+
+        builder.register<ReleaseRegistryConflictException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The request conflicts with what the tenant has",
+            logMessage = { "Release registry refused: ${it.message}" },
         )
 
         builder.register<CatalogHasNoSourceException>(

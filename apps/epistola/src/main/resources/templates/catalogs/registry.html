@@ -2,8 +2,9 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--
-    Moving catalog releases through a container registry (alpha, ADR 0032 section 7), rendered by
-    CatalogRegistryHandler. Offered only when the installation has a registry configured.
+    Moving catalog releases through a release registry (alpha, ADR 0032 section 7, contract ADR 0008):
+    a configured container registry, or the Epistola Exchange the tenant is connected to. Rendered by
+    CatalogRegistryHandler; offered only when the tenant has a release registry.
 
       - `get-dialog`     — "Get a release from a registry": registry, namespace and key, then the
                            versions it holds (`releases`, swapped into #registry-releases), then
@@ -23,12 +24,13 @@
         <div class="ep-dialog-body">
             <p style="margin-top: 0;">
                 <span class="badge badge-alpha">Alpha</span>
-                A container registry carries releases between your own installations, for
-                example from acceptance to production.
+                A release registry carries releases between installations: a container registry
+                between your own, for example from acceptance to production, or Epistola Exchange.
             </p>
             <div th:if="${!registries.available}" class="alert alert-info" data-testid="registry-none">
-                No container registry is set up for this installation. An administrator adds one in the
-                configuration (<code>epistola.catalog.registries</code>).
+                No release registry is set up for this tenant. An administrator adds a container
+                registry in the configuration (<code>epistola.catalog.registries</code>), or connects the
+                tenant to Epistola Exchange.
             </div>
             <form th:if="${registries.available}" id="registry-find-form"
                   th:hx-get="@{/tenants/{tenantId}/catalogs/registry/releases(tenantId=${tenantId})}"
@@ -94,7 +96,7 @@
                     <label class="ep-label" for="registry-version">Version</label>
                     <select id="registry-version" name="version" class="ep-select" required data-testid="registry-version">
                         <option th:each="r : ${found.releases}" th:value="${r.version}" th:disabled="${r.present}"
-                                th:text="${'v' + r.version + (r.present ? ' (already here)' : ' — ' + (r.sizeBytes / 1024) + ' KB')}"></option>
+                                th:text="${'v' + r.version + (r.present ? ' (already here)' : (r.sizeBytes != null ? ' — ' + (r.sizeBytes / 1024) + ' KB' : ''))}"></option>
                     </select>
                     <span class="form-hint">
                         The download is checked against the registry's digest, and the release's content
@@ -126,7 +128,8 @@
             </p>
             <p class="form-hint">
                 When the registry has this release already, nothing changes. When it has other content
-                under the same number, publishing is refused: one number names one release.
+                under the same number, publishing is refused: one number names one release. Epistola
+                Exchange queues it and decides later.
             </p>
             <input type="hidden" name="version" th:value="${version}">
             <div class="form-group" th:if="${registries.registries.size() > 1}">
@@ -141,7 +144,7 @@
                 <p>To <strong th:text="${registries.registries[0].location}">registry.example.com</strong>.</p>
             </th:block>
             <div th:if="${!registries.available}" class="alert alert-info">
-                No container registry is set up for this installation.
+                No release registry is set up for this tenant.
             </div>
         </div>
         <div class="ep-dialog-footer">
@@ -156,9 +159,10 @@
         <div class="ep-dialog-body">
             <div class="alert alert-success" data-testid="registry-published">
                 <div>
-                    <th:block th:if="${publication.alreadyPublished}">The registry had this release already; nothing was changed.</th:block>
-                    <th:block th:unless="${publication.alreadyPublished}">Published.</th:block>
-                    Another installation gets it as <code th:text="${publication.reference}">registry/acme/letters:1.0.0</code>.
+                    <th:block th:if="${publication.status.name() == 'ALREADY_PUBLISHED'}">The registry had this release already; nothing was changed.</th:block>
+                    <th:block th:if="${publication.status.name() == 'PUBLISHED'}">Published.</th:block>
+                    <span th:if="${publication.status.name() == 'QUEUED'}" data-testid="registry-queued">Queued: Epistola Exchange decides whether to publish it. Its state is on the catalog's settings.</span>
+                    <th:block th:if="${publication.reference != null}">Another installation gets it as <code th:text="${publication.reference}">registry/acme/letters:1.0.0</code>.</th:block>
                 </div>
             </div>
         </div>

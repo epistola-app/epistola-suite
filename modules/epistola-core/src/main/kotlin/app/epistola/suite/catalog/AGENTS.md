@@ -15,6 +15,9 @@ bytecode, so a fully qualified reference fails too — there is no import line t
 - **Inbound needs no port**: installing calls _into_ `catalog` (`ImportCatalogZip`), and Exchange
   contributes a `CatalogUpstreamProbe`, an interface `catalog` owns. So `exchange → catalog` is the
   only direction.
+- **Release registries**: the Exchange is one kind of release registry (contract ADR 0008) beside
+  the container registries; `exchange` contributes it as a `ReleaseRegistryProvider`, an interface
+  `catalog/registry` owns.
 
 `ExchangeAvailability` is the single answer to "may this tenant publish?" and "may this tenant
 install?" — deployment gate plus the `catalog-publishing` / `catalog-installing` features.

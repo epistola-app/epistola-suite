@@ -161,9 +161,14 @@ class ExchangeCatalogInstaller(
      * Checked before downloading: a collision costs no bandwidth to discover.
      */
     private fun requireNoLocalConflict(tenantKey: TenantKey, catalogKey: String, sourceUri: String) {
+        localConflict(tenantKey, catalogKey, sourceUri)?.let { throw ValidationException("catalogKey", it, ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN) }
+    }
+
+    /** Why installing [sourceUri] here would be refused before a download, as [requireNoLocalConflict] says it; null when it would not. */
+    fun localConflict(tenantKey: TenantKey, catalogKey: String, sourceUri: String): String? {
         val localKey = CatalogKey.of(catalogKey)
-        val existing = GetCatalog(tenantKey, localKey).query() ?: return
-        if (existing.sourceUrl == sourceUri) return
+        val existing = GetCatalog(tenantKey, localKey).query() ?: return null
+        if (existing.sourceUrl == sourceUri) return null
 
         val heldBy = when {
             ExchangeSourceUri.matches(existing.sourceUrl) ->
@@ -173,13 +178,9 @@ class ExchangeCatalogInstaller(
 
             else -> "a catalog made here or imported from a file"
         }
-        throw ValidationException(
-            "catalogKey",
-            "This tenant already uses the catalog ID '${localKey.value}' for $heldBy. " +
-                "A catalog is addressed by that ID, so remove it before installing $sourceUri, " +
-                "or install into a different tenant.",
-            ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN,
-        )
+        return "This tenant already uses the catalog ID '${localKey.value}' for $heldBy. " +
+            "A catalog is addressed by that ID, so remove it before installing $sourceUri, " +
+            "or install into a different tenant."
     }
 
     /**

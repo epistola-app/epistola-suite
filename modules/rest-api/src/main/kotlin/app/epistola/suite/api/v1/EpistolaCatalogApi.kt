@@ -118,6 +118,8 @@ class EpistolaCatalogApi(
     private val identity: CatalogIdentityProperties,
 ) : CatalogsApi {
 
+    private val registries = ReleaseRegistryEndpoints(identity)
+
     override fun listCatalogs(
         tenantKey: String,
         page: Int,
@@ -228,11 +230,11 @@ class EpistolaCatalogApi(
 
     // ================== Release registries (contract ADR 0008, alpha) ==================
 
-    override fun listReleaseRegistries(tenantKey: String): ResponseEntity<ReleaseRegistryListResponse> = throw ApiOperationNotImplementedException("listReleaseRegistries")
+    override fun listReleaseRegistries(tenantKey: String): ResponseEntity<ReleaseRegistryListResponse> = ResponseEntity.ok(registries.list(tenantKey))
 
-    override fun listRegistryReleases(tenantKey: String, name: String, namespace: String, catalogKey: String): ResponseEntity<RegistryReleaseListResponse> = throw ApiOperationNotImplementedException("listRegistryReleases")
+    override fun listRegistryReleases(tenantKey: String, name: String, namespace: String, catalogKey: String): ResponseEntity<RegistryReleaseListResponse> = ResponseEntity.ok(registries.releases(tenantKey, name, namespace, catalogKey))
 
-    override fun installRegistryRelease(tenantKey: String, name: String, namespace: String, catalogKey: String, version: String): ResponseEntity<ImportCatalogResponse> = throw ApiOperationNotImplementedException("installRegistryRelease")
+    override fun installRegistryRelease(tenantKey: String, name: String, namespace: String, catalogKey: String, version: String): ResponseEntity<ImportCatalogResponse> = ResponseEntity.ok(registries.install(tenantKey, name, namespace, catalogKey, version))
 
     override fun publishReleaseToRegistry(
         tenantKey: String,
@@ -241,7 +243,7 @@ class EpistolaCatalogApi(
         catalogKey: String,
         release: String,
         publishReleaseToRegistryRequest: PublishReleaseToRegistryRequest,
-    ): ResponseEntity<ReleasePublicationDto> = throw ApiOperationNotImplementedException("publishReleaseToRegistry")
+    ): ResponseEntity<ReleasePublicationDto> = ResponseEntity.ok(registries.publish(tenantKey, registry, namespace, catalogKey, release, publishReleaseToRegistryRequest.to))
 
     // ================== Releases (a draft is a release in status draft) ==================
 

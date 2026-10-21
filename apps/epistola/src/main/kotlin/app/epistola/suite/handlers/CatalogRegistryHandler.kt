@@ -9,11 +9,12 @@ import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingExcep
 import app.epistola.suite.catalog.commands.CatalogImportValidationException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
-import app.epistola.suite.catalog.registry.ConfiguredCatalogRegistries
-import app.epistola.suite.catalog.registry.InstallReleaseFromRegistry
-import app.epistola.suite.catalog.registry.ListCatalogRegistries
-import app.epistola.suite.catalog.registry.ListRegistryReleases
-import app.epistola.suite.catalog.registry.PublishReleaseToRegistry
+import app.epistola.suite.catalog.registry.InstallReleaseRegistryRelease
+import app.epistola.suite.catalog.registry.ListReleaseRegistries
+import app.epistola.suite.catalog.registry.ListReleaseRegistryReleases
+import app.epistola.suite.catalog.registry.PublishReleaseToReleaseRegistry
+import app.epistola.suite.catalog.registry.ReleaseRegistryException
+import app.epistola.suite.catalog.registry.ReleaseRegistryList
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.TenantKey
@@ -34,11 +35,12 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 /**
- * Moving catalog releases through a container registry (alpha, ADR 0032 section 7): _Get a release
- * from a registry_ beside importing a file, and _Publish to a registry_ on a release. Offered only
- * when the installation has a registry configured.
+ * Moving catalog releases through a release registry (alpha, ADR 0032 section 7, contract ADR 0008):
+ * a configured container registry or the Epistola Exchange the tenant is connected to. _Get a
+ * release from a registry_ beside importing a file, and _Publish to a registry_ on a release.
+ * Offered only when the tenant has a release registry.
  *
- * Getting a release takes [Permission.CATALOG_MANAGE], what [InstallReleaseFromRegistry] and the
+ * Getting a release takes [Permission.CATALOG_MANAGE], what [InstallReleaseRegistryRelease] and the
  * archive import it dispatches require: receiving a release writes no draft. Publishing takes
  * [Permission.CATALOG_PUBLISH].
  */
@@ -84,7 +86,7 @@ class CatalogRegistryHandler {
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return installError(request, "Choose the release to get.")
         return try {
-            val result = InstallReleaseFromRegistry(tenantKey, registry, namespace, catalogKey, version).execute()
+            val result = InstallReleaseRegistryRelease(tenantKey, registry, namespace, catalogKey, version).execute()
             if (result.aborted) {
                 return installError(request, "$version was not installed: a resource in it could not be imported. Nothing was changed.")
             }
@@ -110,7 +112,7 @@ class CatalogRegistryHandler {
                 "tenantId" to tenantKey,
                 "catalogId" to catalogKey.value,
                 "version" to request.param("version").orElse(""),
-                "registries" to ListCatalogRegistries(tenantKey).query(),
+                "registries" to ListReleaseRegistries(tenantKey).query(),
             ),
         )
     }
@@ -122,7 +124,7 @@ class CatalogRegistryHandler {
         val version = request.param("version").orElse("").trim()
         val registry = request.param("registry").orElse("")
         return try {
-            val published = PublishReleaseToRegistry(tenantKey, catalogKey, version, registry).execute()
+            val published = PublishReleaseToReleaseRegistry(tenantKey, catalogKey, version, registry).execute()
             request.htmx {
                 dialogReveal("catalogs/registry", "publish-done", "#registry-publish-form") { "publication" to published }
                 onFullPage { redirect("/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version") }
@@ -136,7 +138,7 @@ class CatalogRegistryHandler {
     }
 
     private fun getDialogModel(request: ServerRequest, tenantKey: TenantKey): Map<String, Any?> {
-        val registries = ListCatalogRegistries(tenantKey).query()
+        val registries = ListReleaseRegistries(tenantKey).query()
         val asked = request.param("namespace").isPresent && request.param("catalogKey").isPresent
         return mapOf(
             "tenantId" to tenantKey,
@@ -149,13 +151,13 @@ class CatalogRegistryHandler {
 
     private fun releasesModel(request: ServerRequest, tenantKey: TenantKey): Map<String, Any?> {
         val registry = request.param("registry").orElse(null)
-            ?: ListCatalogRegistries(tenantKey).query().registries.firstOrNull()?.name.orEmpty()
+            ?: ListReleaseRegistries(tenantKey).query().registries.firstOrNull()?.name.orEmpty()
         val namespace = request.param("namespace").orElse("").trim()
         val catalogKey = request.param("catalogKey").orElse("").trim()
         val base = mapOf("tenantId" to tenantKey, "asked" to true)
         if (namespace.isEmpty() || catalogKey.isEmpty()) return base + ("releasesError" to "Enter the catalog's namespace and key.")
         return try {
-            base + ("found" to ListRegistryReleases(tenantKey, registry, namespace, catalogKey).query())
+            base + ("found" to ListReleaseRegistryReleases(tenantKey, registry, namespace, catalogKey).query())
         } catch (e: Exception) {
             base + ("releasesError" to refusal(e, "The registry could not be asked"))
         }
@@ -164,6 +166,8 @@ class CatalogRegistryHandler {
     /** A refusal in words for the dialog; anything unexpected is logged and named as such. */
     private fun refusal(e: Exception, unexpected: String): String = when (e) {
         is ValidationException -> e.message
+
+        is ReleaseRegistryException -> e.message ?: unexpected
 
         is CatalogSourceUnavailableException -> e.message ?: unexpected
 
@@ -200,13 +204,13 @@ class CatalogRegistryHandler {
 
     companion object {
         /**
-         * Whether the release page offers _Publish to a registry_: a registry is configured, and the
+         * Whether the release page offers _Publish to a registry_: the tenant has a release registry, and the
          * principal may publish. The one name the template gates on.
          */
-        fun canPublish(tenantKey: TenantKey, registries: ConfiguredCatalogRegistries): Boolean = registries.available && SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH)
+        fun canPublish(tenantKey: TenantKey, registries: ReleaseRegistryList): Boolean = registries.available && SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_PUBLISH)
 
         /** Whether the catalogs page offers _Get a release from a registry_. */
-        fun canInstall(tenantKey: TenantKey, registries: ConfiguredCatalogRegistries): Boolean = registries.available &&
+        fun canInstall(tenantKey: TenantKey, registries: ReleaseRegistryList): Boolean = registries.available &&
             SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_MANAGE)
     }
 }

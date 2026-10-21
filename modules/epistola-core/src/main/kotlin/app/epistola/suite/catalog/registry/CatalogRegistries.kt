@@ -42,6 +42,11 @@ class CatalogRegistries(
         .build()
 
     init {
+        // The Epistola Exchange is the release registry of that name (ADR 0008); a container
+        // registry under it would be one name for two places.
+        require(EXCHANGE_RELEASE_REGISTRY_NAME !in registries) {
+            "A catalog registry may not be called '$EXCHANGE_RELEASE_REGISTRY_NAME': that is the Epistola Exchange's name as a release registry"
+        }
         registries.values.forEach { registry ->
             require(registry.baseUri.scheme == "https" || sources.allowHttp) {
                 "Catalog registry '${registry.name}' is plaintext http (${registry.url}); use https, or set epistola.catalog.allow-http=true for a local registry"

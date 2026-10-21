@@ -34,6 +34,12 @@ import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.registry.NamespaceNotGrantedException
+import app.epistola.suite.catalog.registry.RegistryArchiveRejectedException
+import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
+import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
+import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
+import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
@@ -336,6 +342,12 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogDependenciesUnreleasedException::class,
         EnvironmentDeploymentRefusedException::class,
         CatalogHasNoSourceException::class,
+        ReleaseRegistryNotFoundException::class,
+        ReleaseNumberTakenException::class,
+        NamespaceNotGrantedException::class,
+        RegistryReleaseNotFoundException::class,
+        RegistryArchiveRejectedException::class,
+        ReleaseRegistryConflictException::class,
         ResourceModifiedException::class,
         CatalogVersionBehindException::class,
         CatalogVersionHeldException::class,

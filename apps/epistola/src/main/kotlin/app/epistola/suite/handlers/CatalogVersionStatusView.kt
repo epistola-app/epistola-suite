@@ -11,7 +11,7 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.UpstreamAvailability
 import app.epistola.suite.catalog.queries.GetCatalogUpstreamStates
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
-import app.epistola.suite.catalog.registry.ListCatalogRegistries
+import app.epistola.suite.catalog.registry.ListReleaseRegistries
 import app.epistola.suite.catalog.registry.RegistrySourceUri
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.ExchangeSourceUri
@@ -128,5 +128,5 @@ internal fun ModelBuilder.catalogListModel(tenantKey: TenantKey) {
         )
     }
     "exchangeInstallAvailable" to ResolveCatalogInstallAvailability(tenantKey).query()
-    "registryInstallAvailable" to CatalogRegistryHandler.canInstall(tenantKey, ListCatalogRegistries(tenantKey).query())
+    "registryInstallAvailable" to CatalogRegistryHandler.canInstall(tenantKey, ListReleaseRegistries(tenantKey).query())
 }

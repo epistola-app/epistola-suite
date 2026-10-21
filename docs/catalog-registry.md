@@ -16,7 +16,36 @@ installation directly.
   `list_registry_releases` and `install_release_from_registry`: name the catalog's namespace and ID,
   pick a version, and it is installed exactly as importing its archive would.
 
-There is no REST endpoint yet: one needs a change to the external contract and is a follow-up.
+## Release registries: container registries and the Exchange
+
+A container registry is one kind of **release registry** (contract ADR 0008); the Epistola Exchange
+a tenant is connected to is the other (kind `exchange`, named `exchange`, listed when the deployment
+enables Exchange, the tenant is connected and may install from or publish to it). The suite models
+both as one `ReleaseRegistry` (`catalog/registry/ReleaseRegistry.kt`): the container kind is
+`ContainerReleaseRegistries`, the Exchange kind `ExchangeReleaseRegistries`, contributed from the
+`exchange` package through `ReleaseRegistryProvider`, so `catalog` never references `exchange`.
+`ListReleaseRegistries`, `ListReleaseRegistryReleases`, `InstallReleaseRegistryRelease` and
+`PublishReleaseToReleaseRegistry` dispatch to the registry named; the web UI's registry dialogs, the
+MCP tools and REST use them, so the Exchange is offered wherever a container registry is. Publishing
+to the Exchange queues the release in its publication outbox (`queued`, also when it was queued
+already); to a container registry it publishes while asked (`published`, `already-published`).
+
+Over REST (alpha, `x-experimental`):
+
+| Operation                  | Request                                                                                         | Permission        |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| `listReleaseRegistries`    | `GET /api/tenants/{t}/release-registries`                                                       | `CATALOG_VIEW`    |
+| `listRegistryReleases`     | `GET …/release-registries/{name}/catalogs/{namespace}/{catalogKey}/releases`                    | `CATALOG_VIEW`    |
+| `installRegistryRelease`   | `POST …/release-registries/{name}/catalogs/{namespace}/{catalogKey}/releases/{version}/install` | `CATALOG_MANAGE`  |
+| `publishReleaseToRegistry` | `POST …/catalogs/{registry}/{namespace}/{catalogKey}/releases/{release}/publish` `{to}`         | `CATALOG_PUBLISH` |
+
+Refusals: 404 `release-registry-not-found` (no registry of that name), 404 `not-found` (the registry
+does not hold the version), 409 `release-number-taken` (it holds the number with other content),
+409 `namespace-not-granted` (the Exchange does not grant the catalog's namespace), 409 `conflict`
+(a draft, a catalog key held by another catalog here, publishing or installing switched off for
+the tenant), 400 `bad-request` (not the catalog release asked for), 502/503
+`catalog-source-unavailable`, and the import's own refusals. A container registry may not be
+called `exchange`: the application refuses to start.
 
 ## Configuring a registry
 
@@ -60,12 +89,12 @@ unless `allow-http` is on, and the registry's credentials are never sent to anot
 
 ## Permissions
 
-| Action             | Permission                                     | Why                                                                                                             |
-| ------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| See the registries | `CATALOG_VIEW`                                 | Names and hosts only; credentials never leave the configuration.                                                |
-| List versions      | `CATALOG_VIEW`                                 | Reading.                                                                                                        |
-| Publish            | `CATALOG_PUBLISH` (+ `CATALOG_VIEW`)           | As sending a release to Epistola Exchange: the release leaves the installation, which releasing does not cover. |
-| Get a version      | `CATALOG_MANAGE` (+ `TEMPLATE_EDIT` in the UI) | As importing an archive; the UI asks for both, as installing from Exchange does.                                |
+| Action             | Permission                           | Why                                                                                                             |
+| ------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| See the registries | `CATALOG_VIEW`                       | Names and hosts only; credentials never leave the configuration.                                                |
+| List versions      | `CATALOG_VIEW`                       | Reading.                                                                                                        |
+| Publish            | `CATALOG_PUBLISH` (+ `CATALOG_VIEW`) | As sending a release to Epistola Exchange: the release leaves the installation, which releasing does not cover. |
+| Get a version      | `CATALOG_MANAGE`                     | As importing an archive, which writes no draft.                                                                 |
 
 ## What is checked
 
@@ -120,4 +149,4 @@ Basic authentication. The Bearer token flow is tested against a scripted token s
 against a real one; Harbor, GHCR, ECR, ACR and zot are untested by the suite (the design spike
 pushed to and pulled from distribution 2 and 3 and zot). Releases that pin other catalogs' releases
 need those installed first: getting the missing ones from the registry automatically is a
-follow-up, as is a REST endpoint.
+follow-up.

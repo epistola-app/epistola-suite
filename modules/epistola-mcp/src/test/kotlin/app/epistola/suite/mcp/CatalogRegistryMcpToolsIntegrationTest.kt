@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -24,7 +25,6 @@ import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedRegistries
 import app.epistola.suite.themes.commands.CreateTheme
-import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -74,9 +74,10 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         val namespace = withMediator { GetCatalog(a, catalog).query()!!.namespace }
 
         val published = asMember(a) { tools.publishReleaseToRegistry("mcp-registry", "1.0.0", "local") }
-        assertThat(published.alreadyPublished).isFalse()
+        assertThat(published.status).isEqualTo("published")
         assertThat(published.reference).endsWith("/$namespace/mcp-registry:1.0.0")
-        assertThat(asMember(a) { tools.publishReleaseToRegistry("mcp-registry", "1.0.0", "local") }.alreadyPublished).isTrue()
+        assertThat(asMember(a) { tools.publishReleaseToRegistry("mcp-registry", "1.0.0", "local") }.status).isEqualTo("already-published")
+        assertThat(asMember(a) { tools.listReleaseRegistries() }.registries.map { it.name to it.kind }).containsExactly("local" to "container", "secured" to "container")
 
         val listed = asMember(b) { tools.listRegistryReleases("local", namespace, "mcp-registry") }
         assertThat(listed.releases.map { it.version to it.present }).containsExactly("1.0.0" to false)
@@ -97,7 +98,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy { asMember(a, setOf(TenantRole.CONTENT_VIEWER)) { tools.publishReleaseToRegistry("mcp-registry-perm", "1.0.0", "local") } }
             .hasMessageContaining("CATALOG_PUBLISH")
         assertThatThrownBy { asMember(a) { tools.publishReleaseToRegistry("mcp-registry-perm", "1.0.0", null) } }
-            .isInstanceOf(ValidationException::class.java)
-            .hasMessageContaining("Configured: local, secured")
+            .isInstanceOf(ReleaseRegistryNotFoundException::class.java)
+            .hasMessageContaining("There are: local, secured")
     }
 }

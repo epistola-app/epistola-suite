@@ -396,7 +396,7 @@ class CatalogHandler {
             "liveIn" to bar.liveIn[version].orEmpty()
             "keywords" to release.catalog.keywords.sorted()
             // Alpha: only when a registry is configured and the reader may publish.
-            "registryPublishAvailable" to CatalogRegistryHandler.canPublish(tenantId.key, app.epistola.suite.catalog.registry.ListCatalogRegistries(tenantId.key).query())
+            "registryPublishAvailable" to CatalogRegistryHandler.canPublish(tenantId.key, app.epistola.suite.catalog.registry.ListReleaseRegistries(tenantId.key).query())
         }
     }
 
@@ -1466,7 +1466,7 @@ class CatalogHandler {
         return request.htmx {
             fragment("catalogs/import", "dialog") {
                 "tenantId" to tenantId.key
-                "registryInstallAvailable" to CatalogRegistryHandler.canInstall(tenantId.key, app.epistola.suite.catalog.registry.ListCatalogRegistries(tenantId.key).query())
+                "registryInstallAvailable" to CatalogRegistryHandler.canInstall(tenantId.key, app.epistola.suite.catalog.registry.ListReleaseRegistries(tenantId.key).query())
             }
             onFullPage {
                 page("catalogs/list") {
