@@ -4,10 +4,13 @@
 
 package app.epistola.suite.catalog.graph
 
+import app.epistola.suite.catalog.CatalogName
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
 private const val CATALOG_KEY = "catalogKey"
+private const val NAMESPACE = "namespace"
+private const val REGISTRY = "registry"
 
 /**
  * The catalog-resource reference shapes that can appear inside template, stencil, and theme JSON.
@@ -34,9 +37,14 @@ enum class ReferenceSiteKind(
     val nodeType: String? = null,
     /** Field holding the reference object, for references not carried in a node's `props`. */
     val containerField: String? = null,
+    /**
+     * Whether the wire lets the reference name its catalog's namespace and registry (wire v8). The
+     * image component declares no such props, so an image reference names its catalog by key only.
+     */
+    val qualifiable: Boolean = true,
 ) {
     STENCIL_INSERTION(CatalogResourceType.STENCIL, "stencil-insertion", ReferenceSemantics.PROVENANCE, "stencilKey", true, nodeType = "stencil"),
-    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image"),
+    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image", qualifiable = false),
     THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeKey", true, containerField = "themeRef"),
     FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "key", true, containerField = "fontFamily"),
     ;
@@ -60,6 +68,9 @@ class ReferenceSite internal constructor(
     /** The explicitly authored catalog, or null when the reference is unqualified. */
     val catalogKey: String? get() = holder.path(CATALOG_KEY).textOrNull()
 
+    /** The namespace the reference names its catalog in, or null when it names none (the containing catalog's). */
+    val namespace: String? get() = holder.path(NAMESPACE).textOrNull()
+
     /** The pinned version a stencil insertion carries, when it has one. */
     val pinnedVersion: Int? get() = holder.path("version").takeUnless { it.isMissingNode || it.isNull }?.asInt()
 
@@ -73,6 +84,12 @@ class ReferenceSite internal constructor(
 
     fun clearCatalogKey() {
         holder.remove(CATALOG_KEY)
+    }
+
+    /** Names the catalog's [namespace], and its [registry] when given; wire v8 (contract ADR 0003). */
+    fun setQualifier(namespace: String, registry: String?) {
+        holder.put(NAMESPACE, namespace)
+        if (registry != null) holder.put(REGISTRY, registry) else holder.remove(REGISTRY)
     }
 }
 
@@ -116,6 +133,28 @@ object ResourceReferenceSites {
         for (site in scan(root)) {
             if (!site.kind.relativeWhenUnqualified || site.catalogKey != containingCatalogKey) continue
             site.clearCatalogKey()
+        }
+    }
+
+    /**
+     * Names the namespace, and the registry where it differs, of every [qualifiable][ReferenceSiteKind.qualifiable] reference into a catalog
+     * whose name differs from [owner]'s, in place: on the wire an absent namespace or registry
+     * means the containing catalog's (contract ADR 0003), so a reference into the bundled `system`
+     * catalog from a tenant's own catalog says `namespace: epistola`.
+     *
+     * Applied when building a catalog's content. Stored references name their catalog by key alone,
+     * which is unique in a tenant, so its name is what [nameOf] (a catalog key) answers; a
+     * reference that already names a namespace keeps it as it came, so a received release builds
+     * back as it was received. A reference to a catalog the tenant does not have stays as it is.
+     */
+    fun qualifyOtherCatalogs(root: JsonNode, owner: CatalogName, nameOf: (String) -> CatalogName?) {
+        for (site in scan(root)) {
+            if (!site.kind.qualifiable) continue
+            val target = site.catalogKey ?: continue
+            if (site.namespace != null) continue
+            val name = nameOf(target) ?: continue
+            if (name.namespace == owner.namespace && name.registry == owner.registry) continue
+            site.setQualifier(name.namespace, name.registry.takeIf { it != owner.registry })
         }
     }
 

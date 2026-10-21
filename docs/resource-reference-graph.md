@@ -71,6 +71,15 @@ references traverses through it — the graph itself, catalog relocation
 `ReferenceSiteKind`, never as another walker; the shared traversal is what keeps discovery,
 rewriting, and export from disagreeing about what a reference is.
 
+Stored references name their catalog by key, which is unique in a tenant. On the wire a key alone
+means a catalog in the owning catalog's namespace and registry (contract ADR 0003), so building a
+catalog's content names the namespace, and the registry where it differs, of every reference into a
+catalog of another name: a stencil insertion, a theme override, a `fontFamily` in a template, stencil
+or theme (`ResourceReferenceSites.qualifyOtherCatalogs`), and a template's theme and an attribute's
+code-list binding, which are stored by identity (`CatalogContentBuilder`). A reference that already
+names a namespace, as a received one does, travels as it came. An image reference names its catalog
+by key only: the image component declares no `namespace` or `registry` prop.
+
 The explorer uses internal UI handlers only:
 
 - `GET /tenants/{tenantId}/resource-graph`

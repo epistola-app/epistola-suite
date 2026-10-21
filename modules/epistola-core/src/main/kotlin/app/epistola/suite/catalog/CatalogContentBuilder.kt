@@ -109,8 +109,12 @@ class CatalogContentBuilder(
         val catalog = GetCatalog(tenantKey, catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
 
-        val templates = loadTemplates(tenantKey, catalogKey, source)
-        val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query()
+        val outbound = Outbound(catalogKey.value, catalog.catalogName, catalogNames(tenantKey))
+        val templates = loadTemplates(tenantKey, catalogKey, source, outbound)
+        val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query().map { theme ->
+            // A theme's own-catalog font references have always travelled as stored; only the others are qualified.
+            objectMapper.treeToValue(outbound.qualified(objectMapper.valueToTree(theme)), ThemeResource::class.java)
+        }
         val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(tenantKey, catalogKey) else null
         val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().mapNotNull { exported ->
             val stencil = if (published == null) {
@@ -120,10 +124,14 @@ class CatalogContentBuilder(
                 exported.copy(content = version.first, parameterSchema = version.second)
             }
             stencil.copy(
-                content = relativized(objectMapper.valueToTree(stencil.content), catalogKey.value).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
+                content = outbound.content(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
         }
-        val attributes = ExportAttributes(tenantKey, catalogKey = catalogKey).query()
+        val attributes = ExportAttributes(tenantKey, catalogKey = catalogKey).query().map { attribute ->
+            val binding = attribute.codeListBinding ?: return@map attribute
+            val (namespace, registry) = outbound.qualifier(binding.catalogKey)
+            attribute.copy(codeListBinding = binding.copy(namespace = binding.namespace ?: namespace, registry = binding.registry ?: registry))
+        }
         val codeLists = ExportCodeLists(tenantKey, catalogKey = catalogKey).query()
         val fonts = ExportFonts(tenantKey, catalogKey = catalogKey).query()
         val assets = ExportAssets(tenantKey, catalogKey = catalogKey).query()
@@ -206,6 +214,7 @@ class CatalogContentBuilder(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
         source: ContentSource,
+        outbound: Outbound,
     ): List<TemplateResource> {
         val published = source == ContentSource.PUBLISHED_BEFORE_2_0
         data class TemplateRow(
@@ -285,15 +294,18 @@ class CatalogContentBuilder(
 
             val defaultModel = defaultVariant.templateModel
                 ?.let(objectMapper::readTree)
-                ?.let { relativized(it, catalogKey.value) }
+                ?.let(outbound::content)
                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                 ?: return@mapNotNull null
 
+            val (themeNamespace, themeRegistry) = outbound.qualifier(template.themeCatalogKey)
             TemplateResource(
                 key = template.id,
                 name = template.name,
                 themeKey = template.themeKey,
                 themeCatalogKey = template.themeCatalogKey,
+                themeNamespace = themeNamespace,
+                themeRegistry = themeRegistry,
                 pdfaEnabled = template.pdfaEnabled,
                 dataModel = template.dataModel?.let {
                     objectMapper.readValue<Map<String, Any?>>(
@@ -317,7 +329,7 @@ class CatalogContentBuilder(
                         } else {
                             v.templateModel
                                 ?.let(objectMapper::readTree)
-                                ?.let { relativized(it, catalogKey.value) }
+                                ?.let(outbound::content)
                                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                         },
                         isDefault = v.isDefault,
@@ -354,12 +366,44 @@ class CatalogContentBuilder(
             .toMap()
     }
 
+    /** Every catalog of [tenantKey] by key, which is unique in a tenant: what a stored reference names. */
+    private fun catalogNames(tenantKey: TenantKey): Map<String, CatalogName> = jdbi.withHandle<Map<String, CatalogName>, Exception> { handle ->
+        handle.createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t")
+            .bind("t", tenantKey)
+            .map { rs, _ -> rs.getString("catalog_key").let { it to CatalogName(rs.getString("registry"), rs.getString("namespace"), CatalogKey.of(it)) } }
+            .list()
+            .toMap()
+    }
+
     /**
-     * Stored references are absolute so relocation cannot change their meaning; exported ones are
-     * relative to their own catalog so the ZIP stays installable under a different key.
+     * How the references of catalog [catalogKey] (named [owner]) travel: stored ones are absolute
+     * so relocation cannot change their meaning; exported ones are relative to their own catalog,
+     * so the ZIP stays installable under a different key, and name the namespace and registry of
+     * a catalog in another one (contract ADR 0003), since on the wire a key alone means one in the
+     * owner's namespace. [names] is the tenant's catalogs by key.
      */
-    private fun relativized(document: JsonNode, containingCatalog: String): JsonNode = document.deepCopy().also { root ->
-        ResourceReferenceSites.relativizeOwnCatalog(root, containingCatalog)
+    class Outbound(private val catalogKey: String, private val owner: CatalogName, private val names: Map<String, CatalogName>) {
+        /** [document] (template, stencil or theme JSON) with its references as they travel. */
+        fun content(document: JsonNode): JsonNode = document.deepCopy().also { root ->
+            ResourceReferenceSites.relativizeOwnCatalog(root, catalogKey)
+            ResourceReferenceSites.qualifyOtherCatalogs(root, owner, names::get)
+        }
+
+        /** [document] with its references into catalogs of another name qualified, and nothing else changed. */
+        fun qualified(document: JsonNode): JsonNode = document.deepCopy().also { root ->
+            ResourceReferenceSites.qualifyOtherCatalogs(root, owner, names::get)
+        }
+
+        /**
+         * The namespace and registry a relational reference into catalog [target] names (a
+         * template's theme, a code-list binding): each null when it is the owner's, and both for
+         * no catalog, the owner's own or one the tenant does not have.
+         */
+        fun qualifier(target: String?): Pair<String?, String?> {
+            val name = target?.let(names::get) ?: return null to null
+            if (name.namespace == owner.namespace && name.registry == owner.registry) return null to null
+            return name.namespace to name.registry.takeIf { it != owner.registry }
+        }
     }
 
     /**
