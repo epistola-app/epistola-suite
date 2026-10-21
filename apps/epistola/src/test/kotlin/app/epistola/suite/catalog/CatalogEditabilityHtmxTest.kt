@@ -49,7 +49,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
                     MarkCatalogReady(author.id, received).execute()
                     ReleaseCatalogVersion(tenantKey = author.id, catalogKey = received, version = "1.0.0").execute()
                     val archive = ExportCatalogZip(author.id, received, "1.0.0").execute().zipBytes
-                    ImportCatalogZip(tenant.id, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
+                    ImportCatalogZip(tenant.id, archive).execute()
                 }
             }
         }

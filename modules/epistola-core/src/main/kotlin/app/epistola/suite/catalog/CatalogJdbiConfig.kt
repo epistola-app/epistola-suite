@@ -26,13 +26,6 @@ class CatalogJdbiConfig(private val jdbi: Jdbi) {
             },
         )
         jdbi.registerColumnMapper(
-            CatalogType::class.java,
-            ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
-                val value = r.getString(columnNumber)
-                if (r.wasNull()) null else CatalogType.valueOf(value)
-            },
-        )
-        jdbi.registerColumnMapper(
             CatalogPublicationPolicy::class.java,
             ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
                 CatalogPublicationPolicy.valueOf(r.getString(columnNumber))

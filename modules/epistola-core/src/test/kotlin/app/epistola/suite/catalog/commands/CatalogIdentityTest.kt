@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -94,7 +93,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
         val tenant = createTenant("Identity Subscribed")
 
         withMediator {
-            assertThat(GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.suppliedByEpistola).isTrue()
             assertThatThrownBy { ChangeCatalogNamespace(tenant.id, SYSTEM_CATALOG_KEY, "mine").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
         }

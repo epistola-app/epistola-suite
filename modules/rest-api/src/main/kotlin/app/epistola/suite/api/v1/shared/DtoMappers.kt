@@ -16,7 +16,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataContract

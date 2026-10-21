@@ -75,7 +75,7 @@ class ImportFontHandler(
 ) : CommandHandler<ImportFont, InstallStatus> {
 
     override fun handle(command: ImportFont): InstallStatus {
-        // Catalog install and upgrade write fonts into SUBSCRIBED catalogs inside
+        // Catalog install and upgrade write fonts into catalogs that cannot be changed inside
         // CatalogImportContext, which the guard lets through; a user upload must not.
         requireCatalogEditable(command.tenantId.key, command.catalogKey)
         return import(command)

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.stencils
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantKey
@@ -24,7 +23,6 @@ data class Stencil(
     val id: StencilKey,
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val description: String? = null,
     @Json val tags: List<String> = emptyList(),
@@ -64,7 +62,7 @@ internal fun Stencil.withAbsentSchemaAsNull(): Stencil = if (parameterSchema?.is
  * The columns [Stencil] maps from, for a query over `stencils s JOIN catalogs c` ([STENCIL_FROM]).
  */
 internal const val STENCIL_COLUMNS: String =
-    "s.id, s.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, s.name, s.description, s.tags, " +
+    "s.id, s.tenant_key, c.catalog_key AS catalog_key, s.name, s.description, s.tags, " +
         "s.content, s.parameter_schema, s.reads_template_data, s.created_at, s.updated_at, s.created_by, s.updated_by, s.revision"
 
 /** Stencils with their catalog, each in its catalog's current version (`catalog_current_versions`). */

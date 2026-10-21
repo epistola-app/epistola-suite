@@ -7,7 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.catalog.migration.CatalogMigrationNotice
 
 /**
- * Raised by `ImportCatalogZip` when importing an **AUTHORED** ZIP whose catalog
+ * Raised by `ImportCatalogZip` when importing a ZIP whose catalog
  * schema version is below current but a migration chain can bring it to current:
  * migrating mutates the imported content, so the operator must confirm first.
  * Re-run the import with `confirmMigration = true` to proceed.

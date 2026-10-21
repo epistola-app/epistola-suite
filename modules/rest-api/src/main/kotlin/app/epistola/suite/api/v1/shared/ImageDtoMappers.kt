@@ -7,7 +7,6 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.api.model.ImageDto
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 
 /**
  * An image as the API describes it.

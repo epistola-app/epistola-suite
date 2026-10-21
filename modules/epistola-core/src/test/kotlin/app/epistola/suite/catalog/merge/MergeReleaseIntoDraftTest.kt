@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.merge
 
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -70,7 +69,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             val v1 = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
 
-            ImportCatalogZip(tenantKey = b, zipBytes = v1, catalogType = CatalogType.AUTHORED).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = v1).execute()
             UpdateTheme(theme(b, catalog, "thx"), name = "B's x").execute()
             CreateTheme(id = theme(b, catalog, "thw"), name = "B's w").execute()
             DeleteTheme(theme(b, catalog, "thz")).execute()

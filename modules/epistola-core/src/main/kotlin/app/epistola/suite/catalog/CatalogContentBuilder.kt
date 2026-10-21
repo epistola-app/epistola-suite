@@ -184,7 +184,9 @@ class CatalogContentBuilder(
                 slug = catalogKey.value,
                 name = catalog.name,
                 description = catalog.description,
-                availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.key } else null,
+                // The catalog's presentation is catalog-wide, its images belong to a version: only
+                // those this version holds are named (any catalog can hold several versions, ADR 0032).
+                availableAssetSlugs = assets.mapTo(mutableSetOf()) { it.key },
                 namespace = catalog.namespace,
                 registry = catalog.registry,
             ).withThemeSettings(tenantKey, catalogKey),

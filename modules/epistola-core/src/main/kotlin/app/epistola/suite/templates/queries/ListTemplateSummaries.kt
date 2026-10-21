@@ -4,7 +4,6 @@
 
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -28,7 +27,6 @@ import java.time.OffsetDateTime
 data class TemplateSummary(
     val id: TemplateKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
@@ -97,7 +95,6 @@ class ListTemplateSummariesHandler(
                 SELECT
                     dt.id,
                     c.catalog_key AS catalog_key,
-                    c.type AS catalog_type,
                     dt.name,
                     dt.updated_at,
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.version_id = dt.version_id AND tv.template_resource_id = dt.resource_id), 0)::int as variant_count,
@@ -158,7 +155,6 @@ class ListTemplateSummariesHandler(
 private data class TemplateSummaryRow(
     val id: TemplateKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType,
     val name: String,
     val updatedAt: OffsetDateTime,
     val variantCount: Int,
@@ -168,7 +164,6 @@ private data class TemplateSummaryRow(
     fun toSummary() = TemplateSummary(
         id = id,
         catalogKey = catalogKey,
-        catalogType = catalogType,
         name = name,
         updatedAt = updatedAt,
         variantCount = variantCount,

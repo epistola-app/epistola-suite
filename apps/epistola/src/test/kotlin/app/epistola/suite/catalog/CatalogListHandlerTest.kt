@@ -9,7 +9,6 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
@@ -699,11 +698,58 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Redirect"))
                 .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
-            // A catalog the tenant did not have is created received, and can be changed here.
+            // A catalog the tenant did not have is created holding the release, and can be changed here.
             val imported = withMediator { GetCatalog(consumer.id, CatalogKey.of("epistola-demo")).query() }
-            assertThat(imported?.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(imported?.installedReleaseVersion).isNotNull()
             assertThat(withMediator { GetCatalogEditability(consumer.id, CatalogKey.of("epistola-demo")).query().editable }).isTrue()
         }
+    }
+
+    @Test
+    fun `an import whose release fails to install says so and leaves no catalog behind`() {
+        val consumer = createTenant("Catalog Import Broken")
+        // An image the renderer would fetch from a URL is refused on every write path.
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><image href="http://169.254.169.254/latest/meta-data" width="96" height="96"/></svg>"""
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(svg.toByteArray()).joinToString("") { "%02x".format(it) }
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                mapOf(
+                    "catalog.json" to """{"schemaVersion":8,"catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},"publisher":{"name":"Test","url":null},"release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},"compatibility":null,"includes":null,"dependencies":[],"resources":[{"type":"image","key":"mark","name":"Mark","description":null,"updatedAt":null,"detailUrl":"./resources/image/mark.json"}]}""",
+                    "resources/image/mark.json" to """{"schemaVersion":8,"resource":{"key":"mark","name":"Mark","mediaType":"image/svg+xml","width":96,"height":96,"contentHash":"$hash","type":"image"}}""",
+                    "bin/$hash" to svg,
+                ).forEach { (name, body) ->
+                    zip.putNextEntry(java.util.zip.ZipEntry(name))
+                    zip.write(body.toByteArray())
+                    zip.closeEntry()
+                }
+            }
+        }.toByteArray()
+        val payload = LinkedMultiValueMap<String, Any>()
+        payload.add(
+            "file",
+            HttpEntity(
+                object : ByteArrayResource(archive) {
+                    override fun getFilename(): String = "broken.zip"
+                },
+                HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+            ),
+        )
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${consumer.id}/catalogs/import",
+            HttpEntity(
+                payload,
+                HttpHeaders().apply {
+                    contentType = MediaType.MULTIPART_FORM_DATA
+                    add("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
+
+        assertThat(response.headers.getFirst("HX-Redirect")).`as`("no browse page of a catalog that is not there").isNull()
+        assertThat(response.body).contains("could not be installed").contains("image/mark")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("broken")).query() }).isNull()
     }
 
     @Test

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.registry
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CatalogImportValidationException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -135,7 +134,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
                 .`as`("the receiver has the release the publisher released")
                 .isEqualTo(r.fingerprint)
             val catalog = GetCatalog(r.b, r.catalog).query()!!
-            assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(catalog.hasSource).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo("oci:local/${r.namespace}/reg-roundtrip")
             assertThat(catalog.namespace).isEqualTo(r.namespace)
 

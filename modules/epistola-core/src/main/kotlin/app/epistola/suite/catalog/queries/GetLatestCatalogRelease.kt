@@ -16,7 +16,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Cheap read of an AUTHORED catalog's release pointer straight from
+ * Cheap read of a catalog's release pointer straight from
  * `catalog_releases` — **no catalog content build / fingerprint recompute**.
  *
  * Split out of [GetCatalogReleaseStatus] so callers that only need the latest

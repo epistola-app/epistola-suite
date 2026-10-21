@@ -15,7 +15,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.springframework.stereotype.Component
 
 /**
- * Drift-aware release status of an AUTHORED catalog: the latest release (via
+ * Drift-aware release status of a catalog: the latest release (via
  * the cheap [GetLatestCatalogRelease]) **plus** whether the live working copy
  * has unreleased changes (an O(catalog-size) content fingerprint recompute).
  *

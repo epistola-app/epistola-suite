@@ -22,7 +22,6 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.ExportStencils
@@ -88,6 +87,15 @@ class CatalogExportImportTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jsonSchemaValidator: JsonSchemaValidator
 
+    @Autowired
+    private lateinit var contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder
+
+    @Autowired
+    private lateinit var targeting: app.epistola.suite.catalog.versions.CatalogVersionTargeting
+
+    @Autowired
+    private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
+
     @Test
     fun `catalog metadata survives export and import into another tenant`() {
         val source = createTenant("Metadata Source")
@@ -136,7 +144,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
         }
 
         withMediator {
-            ImportCatalogZip(target.id, export.zipBytes, CatalogType.AUTHORED).execute()
+            ImportCatalogZip(target.id, export.zipBytes).execute()
             val imported = GetCatalog(target.id, catalogKey).query()!!
 
             assertThat(imported.name).isEqualTo("Metadata Catalog Renamed")
@@ -150,6 +158,43 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(imported.catalogMetadata.license?.spdxExpression).isEqualTo("CC-BY-4.0")
             assertThat(imported.catalogMetadata.license?.url)
                 .isEqualTo("https://creativecommons.org/licenses/by/4.0/")
+        }
+    }
+
+    @Test
+    fun `a version without the catalog's presentation images names none of them`() {
+        val tenant = createTenant("Presentation Per Version")
+        val catalogKey = CatalogKey.of("presentation-version")
+
+        withMediator {
+            CreateCatalog(tenant.id, catalogKey, "Presentation").execute()
+            val image = UploadAsset(
+                tenantId = tenant.id,
+                name = "Cover",
+                mediaType = AssetMediaType.PNG,
+                content = createMinimalPng(),
+                width = 1,
+                height = 1,
+                catalogKey = catalogKey,
+            ).execute()
+            UpdateCatalogMetadata(
+                tenantKey = tenant.id,
+                catalogKey = catalogKey,
+                name = "Presentation",
+                description = null,
+                presentation = CatalogPresentation(image.id.value, listOf(image.id.value)),
+            ).execute()
+            // A draft of the same catalog started from nothing: the presentation is catalog-wide, the image is not in it.
+            val empty = app.epistola.suite.catalog.versions.CreateCatalogDraft(tenant.id, catalogKey, name = "Empty").execute()
+            val emptyId = targeting.resolve(
+                app.epistola.suite.catalog.versions.CatalogVersionRef(tenant.id, catalogKey, app.epistola.suite.catalog.versions.DraftRef.Id(empty.versionId)),
+            )
+
+            assertThat(contentBuilder.build(tenant.id, catalogKey).catalog.presentation?.iconImageKey).isEqualTo(image.id.value)
+            val inEmpty = org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                .execute { targeting.within(emptyId) { contentBuilder.build(tenant.id, catalogKey) } }.catalog.presentation
+            assertThat(inEmpty?.iconImageKey).isNull()
+            assertThat(inEmpty?.imageKeys.orEmpty()).isEmpty()
         }
     }
 
@@ -239,7 +284,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = tenantKey,
                 zipBytes = exportResult.zipBytes,
-                catalogType = CatalogType.AUTHORED,
             ).execute()
 
             // The import creates the catalog from the manifest slug, which is the same as the original.
@@ -290,7 +334,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
             }
             val finding = exception.findings.single()
@@ -350,7 +393,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
                     zipBytes = zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
             }
             val finding = exception.findings.first { it.code == "TEMPLATE_GRAPH_INVALID" }
@@ -421,7 +463,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = tenantKey,
                 zipBytes = exportResult.zipBytes,
-                catalogType = CatalogType.AUTHORED,
             ).execute()
             assertThat(importResult.catalogKey).isEqualTo(catalogKey)
             assertThat(importResult.results).allSatisfy { result ->
@@ -533,14 +574,14 @@ class CatalogExportImportTest : IntegrationTestBase() {
             assertThat(catalog.id).isEqualTo(catalogKey)
             assertThat(catalog.name).isEqualTo("Test Catalog")
             assertThat(catalog.description).isEqualTo("A test catalog")
-            assertThat(catalog.type).isEqualTo(CatalogType.AUTHORED)
+            assertThat(catalog.hasSource).isFalse()
 
             // Verify via GetCatalog
             val fetched = GetCatalog(tenantKey, catalogKey).query()
             assertThat(fetched).isNotNull
             assertThat(fetched!!.id).isEqualTo(catalogKey)
             assertThat(fetched.name).isEqualTo("Test Catalog")
-            assertThat(fetched.type).isEqualTo(CatalogType.AUTHORED)
+            assertThat(fetched.hasSource).isFalse()
         }
     }
 
@@ -611,7 +652,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
             }
             val importedCatalogId = CatalogId(result.catalogKey, targetId)
@@ -748,7 +788,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
                     ImportCatalogZip(
                         tenantKey = tenant.id,
                         zipBytes = baos.toByteArray(),
-                        catalogType = CatalogType.AUTHORED,
                     ).execute()
                 }
             }.isInstanceOf(IllegalArgumentException::class.java)
@@ -872,7 +911,6 @@ class CatalogExportImportTest : IntegrationTestBase() {
             val importResult = ImportCatalogZip(
                 tenantKey = target.id,
                 zipBytes = zipBytes,
-                catalogType = CatalogType.AUTHORED,
             ).execute()
             assertThat(importResult.results).allSatisfy { result ->
                 assertThat(result.status).isNotEqualTo(InstallStatus.FAILED)

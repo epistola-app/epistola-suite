@@ -17,9 +17,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Cheap "is an upgrade available?" check for a SUBSCRIBED catalog — fetches
+ * Cheap "is an upgrade available?" check for a catalog with a source — fetches
  * **only the manifest** (no per-resource details), so it is safe to lazy-load
- * once per subscribed row on the catalog list. The full ADDED/REMOVED/CHANGED
+ * once per row with a source on the catalog list. The full ADDED/REMOVED/CHANGED
  * breakdown is [PreviewCatalogUpgrade] (heavier; loaded on "Review changes").
  *
  * Uses the same change gate as
@@ -80,7 +80,7 @@ class CheckCatalogUpgradeHandler(
             ?: throw IllegalArgumentException("Catalog not found: ${query.catalogKey}")
 
         val sourceUrl = catalog.sourceUrl
-            ?: throw IllegalStateException("Catalog '${query.catalogKey}' has no source URL — only subscribed catalogs can be upgraded")
+            ?: throw IllegalStateException("Catalog '${query.catalogKey}' has no source URL — only a catalog with a source can be upgraded")
 
         val migrated = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifest = migrated.manifest

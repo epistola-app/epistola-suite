@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.revisions.ReleaseEntry
@@ -27,7 +26,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * What the next release of an AUTHORED catalog would contain that the last one did not — resource
+ * What the next release of a catalog would contain that the last one did not — resource
  * by resource.
  *
  * [GetCatalogReleaseStatus] answers *whether* the working copy has drifted from the release; this

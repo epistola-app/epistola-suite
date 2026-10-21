@@ -6,7 +6,6 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
@@ -62,7 +61,7 @@ class ListImagePageHandler(
     override fun handle(query: ListImagePage): ImagePage = jdbi.withHandle<ImagePage, Exception> { handle ->
         val rows = handle.createQuery(
             """
-            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, a.name, a.media_type,
+            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.name, a.media_type,
                    a.size_bytes, a.width, a.height, a.created_at, a.created_by,
                    COUNT(*) OVER()::bigint AS total_count
             FROM assets a
@@ -85,7 +84,6 @@ class ListImagePageHandler(
                     id = AssetKey.of(rs.getString("id")),
                     tenantKey = TenantKey.of(rs.getString("tenant_key")),
                     catalogKey = CatalogKey.of(rs.getString("catalog_key")),
-                    catalogType = CatalogType.valueOf(rs.getString("catalog_type")),
                     name = rs.getString("name"),
                     mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     sizeBytes = rs.getLong("size_bytes"),

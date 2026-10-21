@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.requireCatalogEditable

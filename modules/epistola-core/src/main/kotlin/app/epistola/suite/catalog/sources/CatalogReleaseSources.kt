@@ -38,8 +38,8 @@ interface CatalogReleaseSource {
     /** The archive of release [version]. @throws CatalogSourceUnavailableException */
     fun archive(catalog: Catalog, version: String): ByteArray
 
-    /** Installs release [version], beside the catalog's others. */
-    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(catalog.tenantKey, archive(catalog, version)).execute()
+    /** Installs release [version], beside the catalog's others; an older wire schema is migrated, as nobody is asked. */
+    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(catalog.tenantKey, archive(catalog, version), confirmMigration = true).execute()
 
     /**
      * Installs release [version] of the catalog named [registry]/[namespace]/[catalogKey], which the

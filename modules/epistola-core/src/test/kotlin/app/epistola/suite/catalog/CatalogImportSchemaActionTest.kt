@@ -10,47 +10,40 @@ import org.junit.jupiter.api.Test
 
 /**
  * Pure decision for what a ZIP import does about an outdated catalog schema
- * version. No Spring, no DB. The migratable-AUTHORED cases are only reachable
- * once a real migration chain exists, so this is their primary coverage.
+ * version. No Spring, no DB. The migratable cases are only reachable once a real
+ * migration chain exists, so this is their primary coverage. The decision is the
+ * same for every import: catalogs have no type (ADR 0032).
  */
 class CatalogImportSchemaActionTest {
 
     private val current = 4
 
     @Test
-    fun `current-version import proceeds for either type`() {
-        assertThat(decide(CatalogType.AUTHORED, sourceVersion = 4, migratedVersion = 4, current = current, confirmed = false))
-            .isEqualTo(CatalogImportSchemaAction.IMPORT)
-        assertThat(decide(CatalogType.SUBSCRIBED, sourceVersion = 4, migratedVersion = 4, current = current, confirmed = false))
+    fun `current-version import proceeds`() {
+        assertThat(decide(sourceVersion = 4, migratedVersion = 4, current = current, confirmed = false))
             .isEqualTo(CatalogImportSchemaAction.IMPORT)
     }
 
     @Test
-    fun `SUBSCRIBED below current is always blocked - never migrated`() {
-        // Even when a chain could upgrade it (migratedVersion == current).
-        assertThat(decide(CatalogType.SUBSCRIBED, sourceVersion = 2, migratedVersion = 4, current = current, confirmed = false))
-            .isEqualTo(CatalogImportSchemaAction.BLOCK_TOO_OLD)
-        assertThat(decide(CatalogType.SUBSCRIBED, sourceVersion = 2, migratedVersion = 2, current = current, confirmed = true))
-            .isEqualTo(CatalogImportSchemaAction.BLOCK_TOO_OLD)
-    }
-
-    @Test
-    fun `AUTHORED below current with no migration path is blocked`() {
+    fun `below current with no migration path is blocked, confirmed or not`() {
         // The migrator left it sub-current (transitional / below baseline).
-        assertThat(decide(CatalogType.AUTHORED, sourceVersion = 2, migratedVersion = 2, current = current, confirmed = false))
+        assertThat(decide(sourceVersion = 2, migratedVersion = 2, current = current, confirmed = false))
+            .isEqualTo(CatalogImportSchemaAction.BLOCK_TOO_OLD)
+        assertThat(decide(sourceVersion = 2, migratedVersion = 2, current = current, confirmed = true))
             .isEqualTo(CatalogImportSchemaAction.BLOCK_TOO_OLD)
     }
 
     @Test
-    fun `AUTHORED below current but migratable asks for confirmation`() {
+    fun `below current but migratable asks for confirmation`() {
         // The migrator upgraded the payload to current (migration available).
-        assertThat(decide(CatalogType.AUTHORED, sourceVersion = 2, migratedVersion = 4, current = current, confirmed = false))
+        assertThat(decide(sourceVersion = 2, migratedVersion = 4, current = current, confirmed = false))
             .isEqualTo(CatalogImportSchemaAction.CONFIRM_MIGRATION)
     }
 
     @Test
-    fun `AUTHORED migratable proceeds once confirmed`() {
-        assertThat(decide(CatalogType.AUTHORED, sourceVersion = 2, migratedVersion = 4, current = current, confirmed = true))
+    fun `migratable proceeds once confirmed, whichever catalog receives it`() {
+        // A received release used to be blocked here, never migrated; it migrates like any import now.
+        assertThat(decide(sourceVersion = 2, migratedVersion = 4, current = current, confirmed = true))
             .isEqualTo(CatalogImportSchemaAction.IMPORT)
     }
 }

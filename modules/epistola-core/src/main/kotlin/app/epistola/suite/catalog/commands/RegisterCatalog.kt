@@ -26,12 +26,16 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.executeOrThrowDuplicate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Subscribes a tenant to the catalog whose manifest is at [sourceUrl].
+ * Adds the catalog whose manifest is at [sourceUrl] to a tenant, with that manifest as its source.
+ *
+ * Refused when the tenant has a catalog under the manifest's key already: it is that catalog's to
+ * receive releases ([UpgradeCatalog], an import), and registering never takes it over (ADR 0032).
  *
  * The URL is checked against the outbound source rules before anything is fetched
  * ([OutboundUrlGuard.checkSource]): `classpath:` only for catalogs Epistola ships, `file:` only
@@ -94,39 +98,41 @@ class RegisterCatalogHandler(
         )
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
 
-        return jdbi.inTransaction<Catalog, Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
-                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
-                ON CONFLICT (tenant_key, catalog_key) DO UPDATE
-                SET registry = :registry, namespace = :namespace,
-                    name = :name, description = :description, source_url = :sourceUrl, source_auth_type = :authType,
-                    source_auth_credential = :authCredential, installed_release_version = :releaseVersion,
-                    installed_fingerprint = :fingerprint, installed_resource_fingerprints = :resourceFingerprints::jsonb,
-                    catalog_metadata = :catalogMetadata::jsonb, installed_at = NOW(),
-                    content_updated_at = NOW(), updated_at = NOW()
-                """,
-            )
-                .bind("id", catalogKey)
-                .bind("tenantKey", command.tenantKey)
-                // A subscribed catalog is named by its publisher (contract ADR 0003).
-                .bind("registry", manifest.catalog.registry ?: identity.defaultRegistry)
-                .bind("namespace", manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
-                .bind("name", manifest.catalog.name)
-                .bind("description", manifest.catalog.description)
-                .bind("sourceUrl", command.sourceUrl)
-                .bind("authType", command.authType.name)
-                .bind("authCredential", command.authCredential?.let(::Secret))
-                .bind("releaseVersion", manifest.release.version)
-                .bind("fingerprint", manifest.release.fingerprint)
-                .bind("resourceFingerprints", resourceFingerprintsJson)
-                .bind("catalogMetadata", catalogMetadataJson)
-                .execute()
-            // What the publisher's release declares and was cut with: the mirror renders with it.
-            dependencyStore.replace(handle, command.tenantKey, catalogKey, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
+        return executeOrThrowDuplicate("catalog", catalogKey.value) { register(command, manifest, catalogKey, resourceFingerprintsJson, catalogMetadataJson) }
+    }
 
-            handle.findCatalog(command.tenantKey, catalogKey)!!
-        }
+    private fun register(
+        command: RegisterCatalog,
+        manifest: app.epistola.catalog.protocol.CatalogManifest,
+        catalogKey: CatalogKey,
+        resourceFingerprintsJson: String,
+        catalogMetadataJson: String,
+    ): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
+        // The database opens the catalog's next version on the release it registers.
+        handle.createUpdate(
+            """
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_fingerprint, installed_resource_fingerprints, installed_at, catalog_metadata, created_at, updated_at)
+                VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
+                """,
+        )
+            .bind("id", catalogKey)
+            .bind("tenantKey", command.tenantKey)
+            // A catalog from a manifest is named by its publisher (contract ADR 0003).
+            .bind("registry", manifest.catalog.registry ?: identity.defaultRegistry)
+            .bind("namespace", manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
+            .bind("name", manifest.catalog.name)
+            .bind("description", manifest.catalog.description)
+            .bind("sourceUrl", command.sourceUrl)
+            .bind("authType", command.authType.name)
+            .bind("authCredential", command.authCredential?.let(::Secret))
+            .bind("releaseVersion", manifest.release.version)
+            .bind("fingerprint", manifest.release.fingerprint)
+            .bind("resourceFingerprints", resourceFingerprintsJson)
+            .bind("catalogMetadata", catalogMetadataJson)
+            .execute()
+        // What the publisher's release declares and was cut with: the mirror renders with it.
+        dependencyStore.replace(handle, command.tenantKey, catalogKey, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
+
+        handle.findCatalog(command.tenantKey, catalogKey)!!
     }
 }

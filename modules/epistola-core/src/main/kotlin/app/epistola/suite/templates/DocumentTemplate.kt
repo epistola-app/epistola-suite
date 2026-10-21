@@ -4,7 +4,6 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -22,7 +21,6 @@ data class DocumentTemplate(
     val id: TemplateKey,
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val themeKey: ThemeKey? = null,
     val themeCatalogKey: CatalogKey? = null,

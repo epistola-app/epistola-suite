@@ -47,6 +47,9 @@ class ReleaseEntryStore {
      *
      * @param revisionDigests each resource's revision, keyed `"type/slug"`, from [ResourceRevisionStore].
      * @param fingerprints each resource's canonical wire digest, keyed the same way.
+     * @param registerNew whether a resource the catalog never held gets an identity here: a release
+     *   received beside the others (ADR 0032) may bring one that no version of the catalog has. A
+     *   release cut here holds only what a version held, so there a gap is a defect.
      */
     fun record(
         handle: Handle,
@@ -56,8 +59,14 @@ class ReleaseEntryStore {
         content: CatalogContent,
         revisionDigests: Map<String, String>,
         fingerprints: Map<String, String>,
+        registerNew: Boolean = false,
     ) {
-        val identities = loadIdentities(handle, tenantKey, catalogKey)
+        val identities = loadIdentities(handle, tenantKey, catalogKey).toMutableMap()
+        if (registerNew) {
+            content.resourceEntries.filter { "${it.type}/${it.key}" !in identities }.forEach { entry ->
+                identities["${entry.type}/${entry.key}"] = register(handle, tenantKey, catalogKey, entry.type, entry.key)
+            }
+        }
 
         for (entry in content.resourceEntries) {
             val key = "${entry.type}/${entry.key}"
@@ -163,6 +172,22 @@ class ReleaseEntryStore {
         .map { rs, _ -> CatalogKey.of(rs.getString("catalog_key")) to rs.getString("version") }
         .list()
         .toMap()
+
+    /** A new identity at [type]/[key] of [catalogKey], which a release holds and no version does. */
+    private fun register(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, type: String, key: String): UUID = handle
+        .createQuery(
+            """
+            INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
+            VALUES (:t, epistola_uuidv7(), :type, ${catalogAt("t", "c")}, :key)
+            RETURNING resource_id
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .bind("type", type)
+        .bind("key", key)
+        .mapTo(UUID::class.java)
+        .one()
 
     private fun loadIdentities(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, UUID> = handle
         .createQuery(

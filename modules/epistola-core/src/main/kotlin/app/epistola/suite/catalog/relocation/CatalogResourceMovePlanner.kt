@@ -4,12 +4,14 @@
 
 package app.epistola.suite.catalog.relocation
 
+import app.epistola.suite.catalog.CatalogEditingProperties
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -25,6 +27,7 @@ import java.security.MessageDigest
 class CatalogResourceMovePlanner(
     private val objectMapper: ObjectMapper,
     private val graphs: TenantResourceGraphBuilder,
+    private val editing: CatalogEditingProperties,
 ) {
     internal fun build(
         handle: Handle,
@@ -41,7 +44,7 @@ class CatalogResourceMovePlanner(
             blockers += blocker("colliding-targets", "More than one resource would land on ${target.id}", group.first().source)
         }
 
-        val catalogTypes = loadCatalogTypes(handle, tenantKey, relocations)
+        val editable = loadEditable(handle, tenantKey, relocations)
         val draftCounts = loadDraftCounts(handle, tenantKey, relocations)
         // An address a batch member is vacating is free for another member to take, so occupancy is
         // judged against the batch rather than against the current state alone.
@@ -74,11 +77,11 @@ class CatalogResourceMovePlanner(
                     blockers += blocker("invalid-target-key", "'${target.key}' cannot be used: $problem", source)
                 }
             }
-            if (catalogTypes[source.catalogKey] != "AUTHORED") {
-                blockers += blocker("source-read-only", "${source.catalogKey} must be authored and editable", source)
+            if (source.catalogKey !in editable) {
+                blockers += blocker("source-read-only", "${source.catalogKey} cannot be changed here", source)
             }
-            if (catalogTypes[target.catalogKey] != "AUTHORED") {
-                blockers += blocker("target-read-only", "${target.catalogKey} must be authored and editable", source)
+            if (target.catalogKey !in editable) {
+                blockers += blocker("target-read-only", "${target.catalogKey} cannot be changed here", source)
             }
             // A resource has one identity, with one address, in every version of its catalog; a move
             // takes the current draft's rows only, so it is refused while either catalog has several.
@@ -202,19 +205,23 @@ class CatalogResourceMovePlanner(
         return ordered
     }
 
-    private fun loadCatalogTypes(
+    /** The catalogs of [relocations] that can be changed here (ADR 0032); one the tenant lacks is not. */
+    private fun loadEditable(
         handle: Handle,
         tenantKey: TenantKey,
         relocations: List<ResourceRelocation>,
-    ): Map<String, String> {
+    ): Set<String> {
         val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
-        if (keys.isEmpty()) return emptyMap()
-        return handle.createQuery("SELECT catalog_key::text, type::text FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key IN (<keys>)")
+        if (keys.isEmpty()) return emptySet()
+        return handle.createQuery(
+            "SELECT catalog_key::text, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key IN (<keys>)",
+        )
             .bind("tenantKey", tenantKey)
             .bindList("keys", keys)
-            .map { rs, _ -> rs.getString("catalog_key") to rs.getString("type") }
+            .map { rs, _ -> rs.getString("catalog_key") to rs.getBoolean("supplied") }
             .list()
-            .toMap()
+            .filter { (_, supplied) -> CatalogEditability.of(supplied, editing.enabled).editable }
+            .mapTo(mutableSetOf()) { it.first }
     }
 
     private fun loadDraftCounts(

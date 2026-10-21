@@ -16,7 +16,6 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -1484,10 +1483,14 @@ class CatalogHandler {
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
                 // An import receives the release (ADR 0032): it is installed beside the catalog's
-                // others, and a catalog the tenant does not have yet is created received.
-                newCatalogType = CatalogType.SUBSCRIBED,
+                // others, and a catalog the tenant does not have yet is created holding it.
                 confirmMigration = confirmMigration,
             ).execute()
+
+            if (result.aborted) {
+                val failed = result.results.filter { it.status == InstallStatus.FAILED }.joinToString(", ") { "${it.type}/${it.slug}" }
+                return importError(request, "The release could not be installed, and nothing was changed: these resources failed: $failed")
+            }
 
             if (request.isHtmx) {
                 request.htmx {

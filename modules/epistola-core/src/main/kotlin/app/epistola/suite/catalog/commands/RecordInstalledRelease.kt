@@ -13,7 +13,6 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
@@ -35,17 +34,17 @@ import tools.jackson.databind.ObjectMapper
 import java.time.OffsetDateTime
 
 /**
- * Records the installed version of a subscribed catalog as a release of it, with the content that
- * install put in place.
+ * Records the installed version of a catalog (a release it received) as a release of it, with the
+ * content that install put in place.
  *
- * Generation renders releases, so a subscribed catalog needs one: its publisher's release arrives
- * as an installed mirror, and this is what turns the mirror into a release that can be rendered.
+ * Generation renders releases, so a received release needs one: it arrives as content put in place
+ * in the next version, and this is what turns that into a release that can be rendered.
  * The release carries the publisher's version and fingerprint, not a recomputation over the mirror,
  * so it is recognisably the publisher's release; only a legacy fingerprint, which names no algorithm,
  * is replaced by the qualified one of the installed content.
  *
  * Idempotent: a release already recorded for the installed version is left alone. Does nothing for
- * an authored catalog, which releases itself, or one with no installed version.
+ * a catalog with no installed version (one only released here, ADR 0032), unless [release] names one.
  *
  * `SystemInternal`: dispatched by the install, upgrade and import commands once their own
  * authorization has passed, and by the bundled-catalog bootstrap, which runs as the system.
@@ -103,7 +102,6 @@ class RecordInstalledReleaseHandler(
 
     override fun handle(command: RecordInstalledRelease): String? {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: return null
-        if (catalog.type != CatalogType.SUBSCRIBED) return null
         val version = command.release?.version ?: catalog.installedReleaseVersion ?: return null
         check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
@@ -157,7 +155,7 @@ class RecordInstalledReleaseHandler(
                 .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
 
-            // The publisher's pins, as installed: a subscribed catalog's declarations are its archive's.
+            // The publisher's pins, as installed: a received release's declarations are its archive's.
             dependencyStore.recordRelease(
                 handle,
                 command.tenantKey,
@@ -166,7 +164,8 @@ class RecordInstalledReleaseHandler(
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, withBundledFaces(handle, command.tenantKey, command.catalogKey, content))
-            releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints)
+            // A release beside the installed one may hold resources no version of the catalog has.
+            releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints, registerNew = command.release != null)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)

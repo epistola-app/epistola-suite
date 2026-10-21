@@ -58,9 +58,9 @@ fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.En
  * builds on, since only releases are exported (contract 2.0).
  */
 fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean = false): app.epistola.suite.catalog.commands.ExportCatalogZipResult {
-    val catalog = requireNotNull(query(app.epistola.suite.catalog.queries.GetCatalog(catalogId.tenantKey, catalogId.key))) { "No catalog ${catalogId.key.value}" }
-    if (catalog.type == app.epistola.suite.catalog.CatalogType.SUBSCRIBED) {
-        // A subscribed catalog's releases are its publisher's: it exports the one it installed.
+    requireNotNull(query(app.epistola.suite.catalog.queries.GetCatalog(catalogId.tenantKey, catalogId.key))) { "No catalog ${catalogId.key.value}" }
+    if (!query(app.epistola.suite.catalog.queries.GetCatalogEditability(catalogId.tenantKey, catalogId.key)).editable) {
+        // A catalog that cannot be changed here (Epistola supplies it) exports its highest release.
         return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId.tenantKey, catalogId.key, includeDependencies = includeDependencies))
     }
     val unreleased = query(app.epistola.suite.catalog.queries.GetCatalogResourceChanges(catalogId.tenantKey, catalogId.key)).resources

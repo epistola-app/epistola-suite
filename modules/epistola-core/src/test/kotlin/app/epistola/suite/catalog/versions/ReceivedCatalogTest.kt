@@ -5,7 +5,6 @@
 package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CatalogHasLocalChangesException
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -19,6 +18,7 @@ import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -85,7 +85,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received B").id
         val catalog = CatalogKey.of("received-edit")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(receiver, authored(author, catalog)).execute()
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
             assertThat(nextVersionChanges.changed(receiver, catalog)).`as`("what was installed is the release").isEmpty()
@@ -105,7 +105,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received FF B").id
         val catalog = CatalogKey.of("received-ff")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(receiver, authored(author, catalog)).execute()
             ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.1")
@@ -120,7 +120,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received Merge B").id
         val catalog = CatalogKey.of("received-merge")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(receiver, authored(author, catalog)).execute()
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
 
             ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
@@ -142,7 +142,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         withMediator {
             val author = createTenant("Received Upgrade A").id
             val catalog = CatalogKey.of("received-upgrade")
-            ImportCatalogZip(tenant, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(tenant, authored(author, catalog)).execute()
             UpdateTheme(theme(tenant, catalog, "brand"), name = "Brand, ours").execute()
 
             assertThatThrownBy { UpgradeCatalog(tenant, catalog).execute() }
@@ -170,7 +170,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val receiver = createTenant("Received List B").id
         val catalog = CatalogKey.of("received-list")
         withMediator {
-            ImportCatalogZip(receiver, authored(author, catalog), CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(receiver, authored(author, catalog)).execute()
 
             val all = ListCatalogEditability(receiver).query()
             assertThat(all.byCatalog.keys).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
@@ -182,18 +182,66 @@ class ReceivedCatalogTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an import that names a type only for a new catalog creates one received, and leaves a catalog the tenant has alone`() {
+    fun `an import creates the catalog it names, editable, with the release recorded, ready, and a next version on it`() {
         val author = createTenant("Received New A").id
         val receiver = createTenant("Received New B").id
         val catalog = CatalogKey.of("received-new")
         withMediator {
             val archive = authored(author, catalog)
-            ImportCatalogZip(receiver, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
-            assertThat(GetCatalog(receiver, catalog).query()?.type).isEqualTo(CatalogType.SUBSCRIBED)
+            val published = ListCatalogReleases(author, catalog).query().single().fingerprint
 
-            // The author's own catalog, made here: the same import is no conflict, and it keeps its type.
-            ImportCatalogZip(author, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
-            assertThat(GetCatalog(author, catalog).query()?.type).isEqualTo(CatalogType.AUTHORED)
+            assertThat(ImportCatalogZip(receiver, archive).execute().newlyInstalled).isTrue()
+
+            val received = GetCatalog(receiver, catalog).query()!!
+            assertThat(received.namespace).`as`("named as its archive names it").isEqualTo(GetCatalog(author, catalog).query()!!.namespace)
+            assertThat(received.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(ListCatalogReleases(receiver, catalog).query().map { it.version to it.fingerprint }).containsExactly("1.0.0" to published)
+            assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
+            assertThat(GetCatalogEditability(receiver, catalog).query().editable).isTrue()
+            assertThat(GetCatalogOverview(receiver).query().single { it.catalogKey == catalog }.notReady)
+                .`as`("what a release brings is released content, ready as it is")
+                .isZero()
+        }
+    }
+
+    @Test
+    fun `importing a release into the tenant that released it changes nothing`() {
+        val author = createTenant("Received Own A").id
+        val catalog = CatalogKey.of("received-own")
+        withMediator {
+            val archive = authored(author, catalog)
+
+            assertThat(ImportCatalogZip(author, archive).execute().newlyInstalled).isFalse()
+
+            val own = GetCatalog(author, catalog).query()!!
+            assertThat(own.releasedVersion to own.installedReleaseVersion).isEqualTo("1.0.0" to null)
+            assertThat(ListCatalogReleases(author, catalog).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(next(author, catalog).base).isEqualTo("1.0.0")
+        }
+    }
+
+    @Test
+    fun `a release imported into a catalog made here, never released, is recorded beside and leaves its work alone`() {
+        val author = createTenant("Received Work A").id
+        val receiver = createTenant("Received Work B").id
+        val catalog = CatalogKey.of("received-work")
+        withMediator {
+            val archive = authored(author, catalog)
+            val namespace = GetCatalog(author, catalog).query()!!.namespace
+            CreateCatalog(tenantKey = receiver, id = catalog, name = "Ours", namespace = namespace).execute()
+            CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
+
+            ImportCatalogZip(receiver, archive).execute()
+
+            assertThat(ListCatalogReleases(receiver, catalog).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(next(receiver, catalog).base).`as`("the next version stays where it was").isNull()
+            assertThat(nextVersionChanges.changed(receiver, catalog)).`as`("everything a next version without a base holds is its own").containsExactly("theme/ours")
+            assertThat(
+                jdbi.withHandle<Int, Exception> { h ->
+                    h.createQuery("SELECT count(*) FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'ours'")
+                        .bind("t", receiver).bind("c", catalog).mapTo(Int::class.java).one()
+                },
+            ).`as`("its work is not pruned").isEqualTo(1)
         }
     }
 }

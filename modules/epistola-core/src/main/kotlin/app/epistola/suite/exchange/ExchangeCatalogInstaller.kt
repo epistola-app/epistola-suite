@@ -6,9 +6,7 @@ package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
-import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -27,8 +25,8 @@ import java.util.HexFormat
  * Turns a release on Epistola Exchange into an installed catalog.
  *
  * Almost none of this is new machinery. An Exchange release *is* a catalog archive, so the install
- * is `ImportCatalogZip` in its SUBSCRIBED mode, which already does mirror-semantic import: stale
- * resources pruned, `installed_*` advanced, and — the part that matters most here — the whole thing
+ * is `ImportCatalogZip`, which receives it as any release arrives (ADR 0032): stale resources
+ * pruned, `installed_*` advanced, and — the part that matters most here — the whole thing
  * abandoned without advancing anything if a single resource fails, so a bad release can never leave
  * a catalog half-upgraded.
  *
@@ -78,8 +76,9 @@ class ExchangeCatalogInstaller(
         val imported = ImportCatalogZip(
             tenantKey = tenantKey,
             zipBytes = archive,
-            catalogType = CatalogType.SUBSCRIBED,
             sourceUrl = sourceUri,
+            // Nobody is asked: an archive of an older wire schema is migrated, as any import may be.
+            confirmMigration = true,
         ).execute()
 
         if (imported.aborted) {
@@ -92,14 +91,9 @@ class ExchangeCatalogInstaller(
                 tenantKey.value,
                 imported.results.count { it.status == InstallStatus.FAILED },
             )
-            // The import creates the catalog row before it installs anything into it, and an abort
-            // does not undo that — so a first install that fails would otherwise leave an empty
-            // catalog behind, claiming nothing had changed while occupying the ID that the retry
-            // needs. Only a catalog this attempt brought into being is removed; an upgrade that
+            // A first install that fails would otherwise leave an empty catalog behind, occupying the
+            // ID that the retry needs; the import removes a catalog it created, and an upgrade that
             // aborts leaves the existing catalog exactly where it was.
-            if (!existedBefore) {
-                DeleteCatalog(tenantKey, imported.catalogKey, force = true).execute()
-            }
             return ExchangeInstallResult(imported, release, aborted = true, rolledBack = !existedBefore)
         }
 
@@ -161,9 +155,8 @@ class ExchangeCatalogInstaller(
      * Refuses an install that would land on a catalog that is already something else.
      *
      * A catalog is addressed within a tenant by the slug in its own manifest, so `acme/invoices` and
-     * `globex/invoices` both want to be `invoices` here. Importing over an authored catalog is
-     * already refused as a type flip, but two *subscribed* catalogs are the same type — so without
-     * this the second install would quietly overwrite the first, which is worse than failing.
+     * `globex/invoices` both want to be `invoices` here, and without this the second install would
+     * quietly land on the first, which is worse than failing.
      *
      * Checked before downloading: a collision costs no bandwidth to discover.
      */
@@ -173,14 +166,12 @@ class ExchangeCatalogInstaller(
         if (existing.sourceUrl == sourceUri) return
 
         val heldBy = when {
-            existing.type == CatalogType.AUTHORED -> "an authored catalog"
-
             ExchangeSourceUri.matches(existing.sourceUrl) ->
                 "a catalog installed from ${ExchangeSourceUri.parse(existing.sourceUrl)}"
 
-            existing.sourceUrl != null -> "a catalog subscribed from ${existing.sourceUrl}"
+            existing.sourceUrl != null -> "a catalog installed from ${existing.sourceUrl}"
 
-            else -> "a catalog imported from a ZIP"
+            else -> "a catalog made here or imported from a file"
         }
         throw ValidationException(
             "catalogKey",

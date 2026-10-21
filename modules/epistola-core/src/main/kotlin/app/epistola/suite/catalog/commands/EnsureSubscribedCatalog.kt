@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Idempotently brings a SUBSCRIBED catalog (identified by its manifest slug at
+ * Idempotently brings a catalog Epistola supplies (identified by its manifest slug at
  * [sourceUrl]) to the bundled/remote content: registers + installs it on first
  * sight, no-ops when the installed content fingerprint and resource set match,
  * and reconciles when either drifted. The single state machine shared by the system
@@ -30,7 +30,7 @@ import org.springframework.stereotype.Component
  * and the demo loader — previously duplicated in both.
  *
  * Runs inside `CatalogImportContext.runAsImport { … }` so `requireCatalogEditable`
- * short-circuits (SUBSCRIBED catalogs are read-only to tenants, but the import
+ * short-circuits (catalogs Epistola supplies are read-only to tenants, but the import
  * path writes through them). `SystemInternal` — callers are framework code
  * (tenant creation, boot loaders), not user requests.
  */

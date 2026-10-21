@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component
  * Deletes a font family and the uploaded binaries it owned.
  *
  * Mirrors `app.epistola.suite.assets.commands.DeleteAsset`:
- *  - `requireCatalogEditable` — SUBSCRIBED catalogs (e.g. `system`) reject the
+ *  - `requireCatalogEditable` — a catalog that cannot be changed here (e.g. `system`) rejects the
  *    delete with `CatalogReadOnlyException`, the same exception every other
  *    catalog-mutating command throws.
  *  - Usage guard — unless [force], a font referenced by a theme or template
@@ -67,7 +67,7 @@ class DeleteFontHandler(
         val catalogKey = command.fontId.catalogKey
         val slug = command.fontId.key
 
-        // Catalog editability — SUBSCRIBED (e.g. `system`) rejects.
+        // Catalog editability — one Epistola supplies (e.g. `system`) rejects.
         requireCatalogEditable(tenantKey, catalogKey)
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->

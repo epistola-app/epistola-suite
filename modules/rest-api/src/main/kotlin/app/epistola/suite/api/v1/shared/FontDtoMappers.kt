@@ -7,7 +7,6 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.api.model.FontDto
 import app.epistola.api.model.FontVariantDto
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.fonts.model.Font
 
 /**

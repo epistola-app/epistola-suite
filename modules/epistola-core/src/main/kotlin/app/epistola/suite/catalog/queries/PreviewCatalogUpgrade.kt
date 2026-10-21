@@ -20,7 +20,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.springframework.stereotype.Component
 
 /**
- * Previews what a subscriber-triggered upgrade of a SUBSCRIBED catalog would
+ * Previews what an upgrade of a catalog from its source would
  * do — **without applying it**. Re-fetches the source manifest and classifies
  * every `(type, slug)` against the live installed working copy:
  *
@@ -95,7 +95,7 @@ class PreviewCatalogUpgradeHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,
-                "not a subscribed catalog (no source URL) — only subscribed catalogs can be upgraded",
+                "it has no source URL — only a catalog with a source can be upgraded",
             )
 
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
@@ -109,7 +109,7 @@ class PreviewCatalogUpgradeHandler(
         // Source-vs-source: the baseline was captured from the source manifest
         // at register/upgrade (same provenance as the incoming side), so a
         // CHANGED verdict means the publisher changed that resource — never
-        // install round-trip noise. SUBSCRIBED catalogs always have it.
+        // install round-trip noise. A catalog registered from a source always has it.
         val installed = catalog.installedResourceFingerprints
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,

@@ -63,6 +63,11 @@ data class SnapshotManifest(
 data class SnapshotCatalogEntry(
     val catalogKey: String,
     val name: String,
+    /**
+     * `SUBSCRIBED` for a catalog with a source, else `AUTHORED`. Catalogs have no type any more
+     * (ADR 0032); the field stays because the snapshot format is shared with the hub. Restore
+     * ignores it.
+     */
     val type: String,
     val catalogFingerprint: String,
     val version: String?,

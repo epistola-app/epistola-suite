@@ -21,7 +21,6 @@ class CatalogHighestReleaseTest {
         registry = "exchange.epistola.app",
         namespace = "acme",
         name = "Letters",
-        type = CatalogType.SUBSCRIBED,
         releasedVersion = released,
         releasedFingerprint = released?.let { "released-$it" },
         installedReleaseVersion = received,

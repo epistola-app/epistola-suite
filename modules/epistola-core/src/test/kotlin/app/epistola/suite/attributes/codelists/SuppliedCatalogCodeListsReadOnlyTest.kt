@@ -131,8 +131,8 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type, source_url, created_at, updated_at)
-                VALUES (:id, :tenantKey, 'exchange.epistola.app', :tenantKey, :name, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, source_url, created_at, updated_at)
+                VALUES (:id, :tenantKey, 'exchange.epistola.app', :tenantKey, :name, :sourceUrl, NOW(), NOW())
                 """,
             )
                 .bind("id", suppliedCatalog)

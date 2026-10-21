@@ -5,8 +5,7 @@
 package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogImportContext
-import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.commands.AuthoredImportMode
+import app.epistola.suite.catalog.commands.DraftFillMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
@@ -108,8 +107,7 @@ class RestoreTenantSnapshotHandler(
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
                 zipBytes = innerZips.getValue(entry.zipPath),
-                catalogType = CatalogType.valueOf(entry.type),
-                authoredMode = AuthoredImportMode.REPLACE,
+                fillMode = DraftFillMode.REPLACE,
                 validateCrossCatalogDeps = false,
                 restore = true,
             ).execute()
@@ -132,8 +130,8 @@ class RestoreTenantSnapshotHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type)
-                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :type)
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name)
+                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name)
                 ON CONFLICT (tenant_key, catalog_key) DO NOTHING
                 """,
             )
@@ -142,7 +140,6 @@ class RestoreTenantSnapshotHandler(
                 .bind("registry", requireNotNull(catalog.registry) { "Snapshot catalog ${entry.catalogKey} names no registry" })
                 .bind("namespace", requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
                 .bind("name", entry.name)
-                .bind("type", entry.type)
                 .execute()
         }
     }

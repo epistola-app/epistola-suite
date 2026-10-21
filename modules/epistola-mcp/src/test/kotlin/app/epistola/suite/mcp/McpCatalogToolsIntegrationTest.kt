@@ -4,7 +4,6 @@
 
 package app.epistola.suite.mcp
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -104,7 +103,7 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
             ReleaseCatalogVersion(tenantKey = author, catalogKey = catalog, version = "1.0.0").execute()
             val archive = ExportCatalogZip(author, catalog, "1.0.0").execute().zipBytes
             // Received from a file, then changed and released here: it is a catalog like any other.
-            ImportCatalogZip(receiver.key, archive, newCatalogType = CatalogType.SUBSCRIBED).execute()
+            ImportCatalogZip(receiver.key, archive).execute()
             UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
             MarkCatalogReady(receiver.key, catalog).execute()
             ReleaseCatalogVersion(tenantKey = receiver.key, catalogKey = catalog, version = "1.0.1").execute()

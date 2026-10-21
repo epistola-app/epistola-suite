@@ -267,8 +267,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
         val target = createTenant("deps-target").id
         withMediator {
-            sharedArchives.forEach { ImportCatalogZip(target, it, CatalogType.SUBSCRIBED).execute() }
-            ImportCatalogZip(target, lettersArchive, CatalogType.SUBSCRIBED).execute()
+            sharedArchives.forEach { ImportCatalogZip(target, it).execute() }
+            ImportCatalogZip(target, lettersArchive).execute()
         }
 
         val pin = withMediator { ListReleaseDependencies(target, letters, "1.0.0").query() }.single()

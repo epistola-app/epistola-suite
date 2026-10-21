@@ -154,7 +154,7 @@ class UpdateDocumentTemplateHandler(
 
         if (rowsUpdated == 0) return null
 
-        // Refetch with full context (catalog_type via JOIN)
+        // Refetch with full context (catalog key via JOIN)
         return GetDocumentTemplate(id = command.id).query()
     }
 

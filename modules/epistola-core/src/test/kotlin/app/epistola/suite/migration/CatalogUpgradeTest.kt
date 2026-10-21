@@ -258,7 +258,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", tenant).bind("c", catalog.key).execute()
-            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp WHERE tenant_key = :t AND catalog_key = :c")
+            // A 1.x subscribed catalog: typed so (the suite no longer writes the column), with a legacy fingerprint.
+            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp, type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
                 .bind("fp", "0".repeat(64)).bind("t", tenant).bind("c", catalog.key).execute()
         }
         return catalog

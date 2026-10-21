@@ -7,7 +7,6 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import tools.jackson.databind.node.JsonNodeFactory
@@ -30,7 +29,6 @@ class VariantSelectionAttributeMappingTest {
         registry = "registry.example",
         namespace = namespace,
         name = key,
-        type = CatalogType.AUTHORED,
         createdAt = AT,
         updatedAt = AT,
         contentUpdatedAt = AT,

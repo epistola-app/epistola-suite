@@ -81,7 +81,7 @@ class BuildTenantSnapshotHandler(
                 SnapshotCatalogEntry(
                     catalogKey = catalog.id.value,
                     name = catalog.name,
-                    type = catalog.type.name,
+                    type = if (catalog.hasSource) "SUBSCRIBED" else "AUTHORED",
                     catalogFingerprint = fingerprint,
                     version = catalog.releasedVersion,
                     zipPath = zipPath,

@@ -6,10 +6,11 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.ContentSource
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.query
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -82,15 +83,9 @@ class MissingDependencyDeclarer(
         pinned.filter { it !in declarations }
     }
 
-    /** [declareMissing] for every authored catalog of [tenantKey]. */
-    fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogKey, List<CatalogDependencyDeclaration>> {
-        val authored = jdbi.withHandle<List<String>, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key FROM catalogs WHERE tenant_key = :t AND type = :type ORDER BY catalog_key")
-                .bind("t", tenantKey)
-                .bind("type", CatalogType.AUTHORED.name)
-                .mapTo(String::class.java)
-                .list()
-        }
-        return authored.map(CatalogKey::of).associateWith { declareMissing(tenantKey, it) }.filterValues { it.isNotEmpty() }
-    }
+    /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032). */
+    fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogKey, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableKeys
+        .sortedBy { it.value }
+        .associateWith { declareMissing(tenantKey, it) }
+        .filterValues { it.isNotEmpty() }
 }

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.stencils.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.CatalogVersionScoped
@@ -55,7 +54,8 @@ data class GetStencilUsagePage(
 
 private val USAGE_CTE = """
     WITH usage AS (
-        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.type AS catalog_type, dt.name AS template_name,
+        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, dt.name AS template_name,
+               COALESCE(c.source_url LIKE 'classpath:%', FALSE) AS supplied,
                tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
         FROM template_variants tv
@@ -66,7 +66,7 @@ private val USAGE_CTE = """
         WHERE tv.tenant_key = :tenantId
           AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, c.catalog_key, c.type, dt.name, tv.id, tv.template_model::text, dt.data_model::text
+        GROUP BY dt.id, c.catalog_key, c.source_url, dt.name, tv.id, tv.template_model::text, dt.data_model::text
     )
 """
 
@@ -91,7 +91,9 @@ class GetStencilUsagePageHandler(
             """
             $USAGE_CTE
             SELECT * FROM usage
-            ORDER BY (CASE WHEN catalog_type = 'AUTHORED' THEN 0 ELSE 1 END), catalog_key, template_name, variant_key
+            -- Uses in catalogs that can be changed here first: a catalog Epistola supplies cannot
+            -- (ADR 0032), and the installation's switch holds for every catalog alike.
+            ORDER BY supplied, catalog_key, template_name, variant_key
             LIMIT :limit OFFSET :offset
             """,
         )
@@ -110,7 +112,6 @@ class GetStencilUsagePageHandler(
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),
                     catalogKey = CatalogKey.of(catalogKey),
-                    catalogType = CatalogType.valueOf(rs.getString("catalog_type")),
                     templateName = rs.getString("template_name"),
                     variantId = VariantKey.of(rs.getString("variant_key")),
                     instanceCount = rs.getInt("instance_count"),

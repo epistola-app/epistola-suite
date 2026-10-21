@@ -11,10 +11,8 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
@@ -178,9 +176,9 @@ class ExportCatalogZipHandler(
 
     /**
      * The current version's content, for a tenant snapshot. Wire v8 numbers every archive's release
-     * `MAJOR.MINOR.PATCH`, so it is labelled by the release it is on (the installed one, for a
-     * subscribed catalog), or `0.0.0` without one; the fingerprint describes exactly what it holds,
-     * which is not necessarily that release.
+     * `MAJOR.MINOR.PATCH`, so it is labelled by the catalog's highest release, released here or
+     * received, or `0.0.0` without one; the fingerprint describes exactly what it holds, which is not
+     * necessarily that release.
      */
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
         val content = contentBuilder.build(command.tenantKey, command.catalogKey)
@@ -188,12 +186,9 @@ class ExportCatalogZipHandler(
         val fingerprint = fingerprintService.fingerprint(content)
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-        val version = if (catalog.type == CatalogType.AUTHORED) {
-            GetLatestCatalogRelease(command.tenantKey, command.catalogKey).query().latestVersion
-        } else {
-            catalog.installedReleaseVersion
-        } ?: UNRELEASED
-        val releasedAt = (if (catalog.type == CatalogType.AUTHORED) null else catalog.installedAt?.toString())
+        val version = catalog.highestReleaseVersion ?: UNRELEASED
+        // When it was received, for a release received from elsewhere; a release made here is not dated.
+        val releasedAt = catalog.installedAt?.takeIf { version == catalog.installedReleaseVersion }?.toString()
         val zipBytes = archiveBuilder.build(
             content,
             ReleaseInfo(version = version, releasedAt = releasedAt, fingerprint = fingerprint),
@@ -208,10 +203,9 @@ class ExportCatalogZipHandler(
         const val UNRELEASED = "0.0.0"
     }
 
-    /** The catalog's highest release: a subscribed catalog's installed one, an authored one's latest. */
+    /** The catalog's highest release, released here or received (ADR 0032). */
     private fun highestRelease(command: ExportCatalogZip): String {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        return (if (catalog.type == CatalogType.AUTHORED) catalog.releasedVersion else catalog.installedReleaseVersion)
-            ?: throw CatalogVersionNotFoundException(command.catalogKey, "release")
+        return catalog.highestReleaseVersion ?: throw CatalogVersionNotFoundException(command.catalogKey, "release")
     }
 }

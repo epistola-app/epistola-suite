@@ -6,7 +6,6 @@ package app.epistola.suite.exchange
 
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -74,7 +73,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThat(result.release.version).isEqualTo("1.0.0")
 
             val installed = GetCatalog(consumer, CatalogKey.of("invoices")).query()!!
-            assertThat(installed.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(installed.hasSource).isTrue()
             assertThat(installed.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(installed.installedAt).isNotNull()
             // The source is the one answer to "where did this come from", for every kind of
@@ -195,7 +194,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
-    fun `an authored catalog of the same name is not overwritten either`() {
+    fun `a catalog made here under the same name is not overwritten either`() {
         val consumer = connectedTenant("install-authored-clash")
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
 
@@ -205,7 +204,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThatThrownBy {
                 InstallExchangeCatalog(consumer, "acme", "invoices").execute()
             }.isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("an authored catalog")
+                .hasMessageContaining("a catalog made here or imported from a file")
         }
     }
 
@@ -433,12 +432,14 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a catalog ZIP whose SVG references an external resource does not install it`() {
         val tenant = connectedTenant("zip-unsafe-svg")
 
-        // Installing a release is all or nothing: the image is refused, and so is the release.
-        assertThatThrownBy {
-            withMediator { ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute() }
-        }.hasMessageContaining("SVG not accepted")
+        // Installing a release is all or nothing: the image is refused, and so is the release, and the
+        // catalog the import would have created is not left behind.
         withMediator {
+            val result = ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG)).execute()
+            assertThat(result.aborted).isTrue()
+            assertThat(result.results.single().errorMessage).contains("SVG not accepted")
             assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
+            assertThat(GetCatalog(tenant, CatalogKey.of("broken")).query()).isNull()
         }
     }
 

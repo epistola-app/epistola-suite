@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
@@ -35,10 +34,10 @@ class V7ZipImportTest : IntegrationTestBase() {
         val tenant = createTenant("V7 zip import")
 
         withMediator {
-            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), CatalogType.AUTHORED).execute() }
+            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive()).execute() }
                 .isInstanceOf(CatalogMigrationConfirmationRequiredException::class.java)
 
-            val result = ImportCatalogZip(tenant.id, v7Archive(), CatalogType.AUTHORED, confirmMigration = true).execute()
+            val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true).execute()
 
             assertThat(result.results.map { it.status }).containsOnly(InstallStatus.INSTALLED)
             val catalog = GetCatalog(tenant.id, CatalogKey.of("letters")).query()!!

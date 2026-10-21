@@ -125,7 +125,7 @@ class UpgradeCatalogHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw CatalogNotUpgradeableException(
                 command.catalogKey,
-                "only subscribed catalogs with a source URL can be upgraded",
+                "only a catalog with a source URL can be upgraded",
             )
 
         val previousVersion = catalog.installedReleaseVersion

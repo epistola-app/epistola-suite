@@ -23,8 +23,8 @@ import org.springframework.stereotype.Component
  * Lists font families owned by a tenant, optionally filtered to a single
  * catalog.
  *
- * Each row carries the owning catalog's `type` so the UI can gate edit
- * affordances (AUTHORED is editable, SUBSCRIBED is read-only). Variants are
+ * Whether a row can be edited is the owning catalog's editability
+ * (`ListCatalogEditability`, ADR 0032), not a field of the row. Variants are
  * not fetched here; use `GetFontVariants` for that.
  */
 data class ListFonts(
@@ -48,8 +48,7 @@ class ListFontsHandler(
             append(
                 """
                 SELECT f.slug, f.tenant_key, c.catalog_key AS catalog_key, f.name, f.kind,
-                       f.created_at, f.updated_at,
-                       c.type AS catalog_type
+                       f.created_at, f.updated_at
                 FROM fonts f
                 JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
                 WHERE f.tenant_key = :tenantId

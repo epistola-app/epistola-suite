@@ -4,7 +4,6 @@
 
 package app.epistola.suite.themes
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -97,7 +96,6 @@ data class Theme(
     val id: ThemeKey,
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val description: String?,
     @Json val documentStyles: DocumentStyles,

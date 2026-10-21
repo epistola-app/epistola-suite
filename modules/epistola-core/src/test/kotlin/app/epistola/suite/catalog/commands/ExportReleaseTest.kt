@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -94,7 +93,7 @@ class ExportReleaseTest : IntegrationTestBase() {
             ExportCatalogZip(publisher.tenantKey, publisher.key).execute()
         }
         val subscriber = createTenant("exp-subscriber").id
-        withMediator { ImportCatalogZip(subscriber, archive.zipBytes, CatalogType.SUBSCRIBED).execute() }
+        withMediator { ImportCatalogZip(subscriber, archive.zipBytes).execute() }
 
         val export = withMediator { ExportCatalogZip(subscriber, publisher.key).execute() }
 

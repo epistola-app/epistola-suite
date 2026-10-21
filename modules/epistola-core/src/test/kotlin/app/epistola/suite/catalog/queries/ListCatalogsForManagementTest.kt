@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -31,11 +30,13 @@ private const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/fixture/catalo
 
 /**
  * The catalog-management list query, focused on its only non-trivial column:
- * the cheap AUTHORED working-copy drift flag (`CatalogListRow.pendingChanges`,
- * the list's `· pending changes` hint). Pins the timestamp baseline
- * `GREATEST(released_at, imported_at)` — in particular that a no-op re-import
- * does **not** register as drift (the false-positive the design was chosen to
- * avoid), and that only AUTHORED + released catalogs are ever flagged.
+ * the cheap next-version drift flag (`CatalogListRow.pendingChanges`, the
+ * list's `· pending changes` hint). Pins the timestamp baseline — the moment
+ * the next version was put on its release, by releasing here or receiving one —
+ * in particular that a no-op re-import does **not** register as drift (the
+ * false-positive the design was chosen to avoid), that a received catalog
+ * changed here is flagged like any other (ADR 0032), and that a catalog
+ * Epistola supplies never is.
  */
 class ListCatalogsForManagementTest : IntegrationTestBase() {
 
@@ -90,7 +91,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
             // Re-import bumps resources' updated_at, but also imported_at (set
             // after the upserts) — so the baseline keeps pace and this is NOT
             // mistaken for drift. (The regression the design targets.)
-            ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip, catalogType = CatalogType.AUTHORED).execute()
+            ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip).execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
@@ -112,7 +113,25 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a SUBSCRIBED catalog is never pending`() {
+    fun `a received catalog is pending once it is changed here, not before`() {
+        val author = createTenant("Drift Received A")
+        val receiver = createTenant("Drift Received B")
+        val key = CatalogKey.of("drift-received")
+        withMediator {
+            CreateCatalog(tenantKey = author.id, id = key, name = "Drift Received").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(author.id))), name = "Brand").execute()
+            val zip = mediator.exportReleased(CatalogId(key, TenantId(author.id))).zipBytes
+
+            ImportCatalogZip(tenantKey = receiver.id, zipBytes = zip).execute()
+            assertThat(pendingKeys(receiver.id)).`as`("what it received is its release").doesNotContain(key)
+
+            CreateTheme(id = ThemeId(ThemeKey.of("ours"), CatalogId(key, TenantId(receiver.id))), name = "Ours").execute()
+            assertThat(pendingKeys(receiver.id)).contains(key)
+        }
+    }
+
+    @Test
+    fun `a catalog Epistola supplies is never pending`() {
         val tenant = createTenant("Drift Subscribed")
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()

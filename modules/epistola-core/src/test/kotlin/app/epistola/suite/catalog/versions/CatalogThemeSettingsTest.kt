@@ -145,7 +145,7 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
 
         val other = createTenant("Theme Settings Import")
         val imported = withMediator {
-            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip, catalogType = app.epistola.suite.catalog.CatalogType.AUTHORED).execute()
+            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip).execute()
             GetCatalogThemeSettings(other.id, letters).query()
         }
 

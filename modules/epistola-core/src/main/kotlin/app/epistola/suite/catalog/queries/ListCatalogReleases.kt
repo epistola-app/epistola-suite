@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 /**
- * The release history of an AUTHORED catalog, newest first.
+ * The release history of a catalog, released here or received, newest first.
  *
  * Every release holds the content it was cut with, so an earlier one can be handed over, rendered
  * or deployed exactly as it was released.

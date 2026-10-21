@@ -4,7 +4,6 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogDependencyGraph
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.CatalogEditability
@@ -18,7 +17,7 @@ import org.junit.jupiter.api.Test
 /** Laying out the catalog dependency graph: what everything builds on stands left, and a focus narrows it. */
 class CatalogGraphViewTest {
 
-    private fun node(key: String) = CatalogGraphNode(key, key.replaceFirstChar { it.uppercase() }, CatalogType.AUTHORED, "r/n/$key")
+    private fun node(key: String) = CatalogGraphNode(key, key.replaceFirstChar { it.uppercase() }, "r/n/$key")
     private fun edge(from: String, to: String?, release: String? = "1.0.0") = CatalogGraphEdge(from, to, "r/n/${to ?: "elsewhere"}", release)
 
     // base <- shared <- letters ; reports -> shared ; unrelated stands alone ; letters -> elsewhere (not in the tenant)
@@ -60,9 +59,9 @@ class CatalogGraphViewTest {
     }
 
     @Test
-    fun `a catalog that cannot be changed here says why under its name, whatever its type`() {
-        // `shared` is typed SUBSCRIBED, as a received catalog is; it can be changed here, so nothing marks it.
-        val received = graph.copy(nodes = graph.nodes.map { if (it.catalogKey == "shared") it.copy(type = CatalogType.SUBSCRIBED) else it })
+    fun `a catalog that cannot be changed here says why under its name`() {
+        // `shared` can be changed here, so nothing marks it; `base` is supplied by Epistola.
+        val received = graph
         val editability = CatalogEditabilities(
             received.nodes.associate { node ->
                 CatalogKey.of(node.catalogKey) to CatalogEditability(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA.takeIf { node.catalogKey == "base" })

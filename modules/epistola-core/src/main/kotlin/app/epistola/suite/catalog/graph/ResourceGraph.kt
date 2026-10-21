@@ -42,7 +42,6 @@ data class ResourceNode(
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,
-    val catalogType: String,
 )
 
 enum class ReferenceSemantics {

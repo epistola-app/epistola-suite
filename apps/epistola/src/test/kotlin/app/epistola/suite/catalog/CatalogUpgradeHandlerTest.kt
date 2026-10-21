@@ -414,7 +414,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             // …then import it into a fresh tenant → a received catalog with no source URL.
             consumer = tenant("Zip Mirror Consumer")
             withMediator {
-                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip).execute()
             }
         }
 

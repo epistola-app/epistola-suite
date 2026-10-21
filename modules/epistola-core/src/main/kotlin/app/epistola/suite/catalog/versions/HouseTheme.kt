@@ -5,10 +5,12 @@
 package app.epistola.suite.catalog.versions
 
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Handle
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Component
 object HouseTheme {
     /**
      * Makes the house theme the default theme of [catalogKey]'s next version, when the tenant has one.
+     * The caller decides that [catalogKey] can be changed (ADR 0032).
      *
      * @return the catalog the house theme lives in, which [catalogKey] now uses; null when the tenant
      *   has no house theme or [catalogKey] has no next version.
@@ -45,7 +48,7 @@ object HouseTheme {
             UPDATE catalog_versions v SET default_theme_resource_id = (SELECT default_theme_resource_id FROM tenants WHERE id = :t)
             FROM catalogs c
             WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
-              AND v.tenant_key = :t AND c.catalog_key = :c AND c.type = 'AUTHORED' AND v.is_next
+              AND v.tenant_key = :t AND c.catalog_key = :c AND v.is_next
             """,
         )
             .bind("t", tenantKey)
@@ -59,9 +62,9 @@ object HouseTheme {
 data class ApplyHouseThemeResult(val applied: List<CatalogKey>, val skipped: List<CatalogKey>)
 
 /**
- * Makes the house theme the default theme of every catalog the tenant authors, in each one's next
- * version; each takes it into a published version on its next publish. Does nothing without a house
- * theme.
+ * Makes the house theme the default theme of every catalog of the tenant that can be changed here
+ * (ADR 0032), in each one's next version; each takes it into a published version on its next
+ * publish. Does nothing without a house theme.
  */
 data class ApplyHouseTheme(
     override val tenantKey: TenantKey,
@@ -76,13 +79,9 @@ class ApplyHouseThemeHandler(
     private val usedCatalogs: UsedCatalogDeclarer,
 ) : CommandHandler<ApplyHouseTheme, ApplyHouseThemeResult> {
     override fun handle(command: ApplyHouseTheme): ApplyHouseThemeResult {
+        val editable = ListCatalogEditability(command.tenantKey).query().editableKeys.sortedBy { it.value }
         val outcome = jdbi.inTransaction<List<Pair<CatalogKey, CatalogKey?>>, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key FROM catalogs WHERE tenant_key = :t AND type = 'AUTHORED' ORDER BY catalog_key")
-                .bind("t", command.tenantKey)
-                .mapTo(String::class.java)
-                .list()
-                .map { CatalogKey.of(it) }
-                .map { catalog -> catalog to HouseTheme.applyTo(handle, command.tenantKey, catalog) }
+            editable.map { catalog -> catalog to HouseTheme.applyTo(handle, command.tenantKey, catalog) }
         }
         // A house theme of another catalog is a use of that catalog, declared as any reference is.
         outcome.forEach { (catalog, themeCatalog) ->

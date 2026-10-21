@@ -6,10 +6,8 @@ package app.epistola.suite.catalog.registry
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.SemVer
-import app.epistola.suite.catalog.commands.DeleteCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -48,9 +46,9 @@ import java.util.zip.ZipInputStream
  * other content, refuses a release whose pinned dependencies are missing, and a catalog format that
  * is too new. Those surface as the import's own exceptions.
  *
- * A catalog the tenant does not have yet is created SUBSCRIBED, with source
- * `oci:<registry>/<namespace>/<catalogKey>`, until catalog types are removed. One it has keeps its
- * type. A first install that fails part-way removes the catalog it created.
+ * A catalog the tenant does not have yet is created with source `oci:<registry>/<namespace>/<catalogKey>`;
+ * one it has receives the release as any import does (ADR 0032). A first install that fails part-way
+ * removes the catalog it created.
  *
  * [Permission.CATALOG_MANAGE], as importing an archive is. `SelfManagedTransaction`: the download
  * must not hold a database connection; the import runs in a transaction of its own.
@@ -133,15 +131,14 @@ class InstallReleaseFromRegistryHandler(
         val imported = ImportCatalogZip(
             tenantKey = command.tenantKey,
             zipBytes = archive,
-            catalogType = if (existing == null) CatalogType.SUBSCRIBED else null,
             sourceUrl = if (existing == null) source.toString() else null,
+            // Nobody is asked: an archive of an older wire schema is migrated, as any import may be.
+            confirmMigration = true,
         ).execute()
 
         if (imported.aborted) {
             log.warn("Install of {} {} into tenant {} aborted", source, version, command.tenantKey.value)
-            // The import creates the catalog before installing into it, and an abort does not undo
-            // that; a first install that failed would otherwise leave an empty catalog in the way.
-            if (existing == null) DeleteCatalog(command.tenantKey, imported.catalogKey, force = true).execute()
+            // A catalog the import created is removed again by the import itself.
             return RegistryInstallResult(catalogKey, version, pulled.digest, newlyInstalled = false, aborted = true, imported = imported)
         }
         if ((existing == null || existing.sourceUrl == source.toString()) && imported.newlyInstalled) {

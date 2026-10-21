@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.system
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -48,7 +47,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         withMediator {
             val catalog = GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()
             assertThat(catalog).isNotNull()
-            assertThat(catalog!!.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(catalog!!.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(SYSTEM_CATALOG_URL)
             assertThat(catalog.installedReleaseVersion).isNotBlank()
         }

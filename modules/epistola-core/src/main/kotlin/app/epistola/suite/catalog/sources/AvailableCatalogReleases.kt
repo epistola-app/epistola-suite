@@ -11,7 +11,6 @@ import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
@@ -134,11 +133,9 @@ class InstallCatalogReleaseHandler(
     }
 }
 
-/** The source of a subscribed catalog, or the refusal the contract names for one without. */
-private fun CatalogReleaseSources.sourceOf(catalog: app.epistola.suite.catalog.Catalog): CatalogReleaseSource {
-    if (catalog.type != CatalogType.SUBSCRIBED) throw CatalogHasNoSourceException(catalog.id, "is not subscribed, so it has no source")
-    return of(catalog) ?: throw CatalogHasNoSourceException(catalog.id, "was imported from an archive and has no source to ask")
-}
+/** The source of a catalog, or the refusal the contract names for one without (made here, or imported from an archive). */
+private fun CatalogReleaseSources.sourceOf(catalog: app.epistola.suite.catalog.Catalog): CatalogReleaseSource = of(catalog)
+    ?: throw CatalogHasNoSourceException(catalog.id, "was imported from an archive and has no source to ask")
 
 /** Reads what an available release's archive holds, against what the tenant has installed. */
 @Component

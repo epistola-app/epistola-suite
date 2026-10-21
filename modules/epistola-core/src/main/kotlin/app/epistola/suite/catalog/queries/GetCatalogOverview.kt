@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionReader
@@ -50,7 +49,6 @@ data class CatalogOverview(
     val catalogKey: CatalogKey,
     val name: String,
     val namespace: String,
-    val type: CatalogType,
     val drafts: List<DraftOverview>,
     val latestRelease: ReleaseOverview?,
     val notReady: Int?,
@@ -96,7 +94,6 @@ class GetCatalogOverviewHandler(
                     catalogKey = catalog.id,
                     name = catalog.name,
                     namespace = catalog.namespace,
-                    type = catalog.type,
                     drafts = drafts.map { DraftOverview(it.versionId, it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
                     latestRelease = (base?.let { b -> releases.firstOrNull { it.version == b } } ?: releases.firstOrNull())
                         ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },

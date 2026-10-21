@@ -28,7 +28,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * Creates a code list in an AUTHORED catalog.
+ * Creates a code list in a catalog that can be changed here.
  *
  * For `INLINE` source the caller passes initial entries directly; for `URL`
  * the caller passes a URL plus optional auth and `entries` is empty (entries

@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component
 /**
  * Lists code lists owned by a tenant, optionally filtered to a single catalog.
  *
- * Each row carries the owning catalog's `type` so the UI can gate edit
- * affordances (AUTHORED is editable, SUBSCRIBED is read-only). Entries are
+ * Whether a row can be edited is the owning catalog's editability
+ * (`ListCatalogEditability`, ADR 0032), not a field of the row. Entries are
  * not fetched here; use `ListCodeListEntries` for that.
  */
 data class ListCodeLists(
@@ -49,8 +49,7 @@ class ListCodeListsHandler(
                 SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, cl.display_name, cl.description,
                        cl.source_type, cl.source_url, cl.auth_type, cl.credential,
                        cl.last_refreshed_at, cl.last_refresh_error,
-                       cl.created_at, cl.updated_at, cl.revision,
-                       c.type AS catalog_type
+                       cl.created_at, cl.updated_at, cl.revision
                 FROM code_lists cl
                 JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
                 WHERE cl.tenant_key = :tenantId

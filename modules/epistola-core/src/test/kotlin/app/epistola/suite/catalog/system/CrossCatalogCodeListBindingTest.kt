@@ -120,7 +120,6 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
-                    catalogType = app.epistola.suite.catalog.CatalogType.AUTHORED,
                 ).execute()
             }
 

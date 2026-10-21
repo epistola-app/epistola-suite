@@ -9,7 +9,6 @@ import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogImportContext
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -104,7 +103,6 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = target.id,
                     zipBytes = zip.zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
             }
             assertThat(result.results).allSatisfy { r ->

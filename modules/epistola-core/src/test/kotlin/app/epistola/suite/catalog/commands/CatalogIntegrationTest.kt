@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -18,6 +17,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -44,9 +44,25 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
             assertThat(catalog.id).isEqualTo(CatalogKey.of("epistola-demo"))
             assertThat(catalog.name).isEqualTo("Epistola Demo Catalog")
-            assertThat(catalog.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(catalog.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(DEMO_CATALOG_URL)
             assertThat(catalog.installedReleaseVersion).isEqualTo("5.17.2")
+        }
+    }
+
+    @Test
+    fun `registering a catalog over one the tenant has under its key is refused and leaves it alone`() {
+        val tenant = createTenant("Register Over")
+        val key = CatalogKey.of("epistola-demo")
+
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Ours").execute()
+
+            assertThatThrownBy { RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute() }
+                .isInstanceOf(DuplicateIdException::class.java)
+
+            val ours = GetCatalog(tenant.id, key).query()!!
+            assertThat(listOf(ours.name, ours.sourceUrl, ours.installedReleaseVersion)).containsExactly("Ours", null, null)
         }
     }
 

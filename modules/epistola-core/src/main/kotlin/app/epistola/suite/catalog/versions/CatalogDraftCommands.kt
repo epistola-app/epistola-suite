@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.versions
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -227,7 +226,6 @@ class CatalogReleaseCopier(
             ImportCatalogZip(
                 tenantKey = tenantKey,
                 zipBytes = archive.zipBytes,
-                catalogType = CatalogType.AUTHORED,
                 validateCrossCatalogDeps = false,
                 confirmMigration = true,
                 intoDraft = true,

@@ -25,7 +25,9 @@ import org.springframework.stereotype.Component
  * fingerprint as its publisher's digests do. Without that record, against its base release, which is
  * exact for a next version that continues on a release made here, and errs towards "changed" (an
  * upgrade refused, never changes lost) otherwise. A catalog the suite supplies cannot have changes of
- * its own; a next version without a base, or whose base has no recorded content, counts as unchanged.
+ * its own. A next version without a base (nothing released or received under it) holds only changes
+ * of its own, so every resource it holds counts as changed; one whose base has no recorded content
+ * (a release from before 2.0) counts as unchanged.
  */
 @Component
 class NextVersionChanges(
@@ -43,16 +45,21 @@ class NextVersionChanges(
     /** The resources (`type/key`) the next version changed since its base: added, changed or removed. */
     fun changed(tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> {
         if (GetCatalogEditability(tenantKey, catalogKey).query().reason == CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA) return emptySet()
-        val (next, base) = jdbi.withHandle<Pair<CatalogDraft?, Map<String, String>>, Exception> { handle ->
+        val (next, base) = jdbi.withHandle<Pair<CatalogDraft?, Map<String, String>?>, Exception> { handle ->
             val next = drafts.next(handle, tenantKey, catalogKey)
             val recorded = next?.let { drafts.baseFingerprints(handle, tenantKey, it.versionId) }
             next to when {
-                next == null -> emptyMap()
+                next == null -> null
+
                 recorded != null -> objectMapper.readValue(recorded, BASELINE)
-                else -> next.base?.let { entries.entriesOf(handle, tenantKey, catalogKey, it).associate { e -> e.contentKey to e.fingerprint } }.orEmpty()
+
+                // Nothing under it: what it holds is all its own.
+                next.base == null -> emptyMap()
+
+                else -> entries.entriesOf(handle, tenantKey, catalogKey, next.base).associate { e -> e.contentKey to e.fingerprint }.takeIf { it.isNotEmpty() }
             }
         }
-        if (next == null || base.isEmpty()) return emptySet()
+        if (next == null || base == null) return emptySet()
         val ours = current(tenantKey, catalogKey, next)
         return (ours.keys + base.keys).filterTo(sortedSetOf()) { ours[it] != base[it] }
     }

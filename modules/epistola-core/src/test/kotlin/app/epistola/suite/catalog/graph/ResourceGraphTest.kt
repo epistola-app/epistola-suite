@@ -18,7 +18,7 @@ class ResourceGraphTest {
 
     private val graph = TenantResourceGraph(
         nodes = listOf(template, theme, font, asset).map {
-            ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey, "AUTHORED")
+            ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey)
         },
         edges = listOf(
             edge("template-theme", template, theme),

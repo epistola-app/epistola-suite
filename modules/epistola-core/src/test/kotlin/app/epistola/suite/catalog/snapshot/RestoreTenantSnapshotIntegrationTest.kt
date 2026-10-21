@@ -16,6 +16,8 @@ import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
@@ -197,6 +199,49 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator { RestoreTenantSnapshot(tenant.id, withAliases).execute() }
 
         assertThat(themeIdentity(tenant.id.value, catalog.value, "brand")).isEqualTo(identityBefore)
+    }
+
+    /**
+     * Snapshots still say `SUBSCRIBED` or `AUTHORED` per catalog, a format the hub shares, but catalogs
+     * have no type (ADR 0032): a restore fills every catalog's next version alike, as it was.
+     */
+    @Test
+    fun `a snapshot's catalog type is ignored, and every catalog's next version is filled as it was`() {
+        val tenant = createTenant("Restore Ignores Type")
+        val catalog = CatalogKey.of("brand")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id))), name = "Brand").execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        assertThat(readManifest(snapshot.bytes).catalogs.single { it.catalogKey == "brand" }.type)
+            .`as`("a catalog without a source is written as AUTHORED, for the hub")
+            .isEqualTo("AUTHORED")
+
+        val typedSubscribed = rewriteEntry(snapshot.bytes, "snapshot.json") { json ->
+            val manifest = objectMapper.readTree(json) as tools.jackson.databind.node.ObjectNode
+            manifest.get("catalogs").forEach { (it as tools.jackson.databind.node.ObjectNode).put("type", "SUBSCRIBED") }
+            objectMapper.writeValueAsBytes(manifest)
+        }
+        withMediator { RestoreTenantSnapshot(tenant.id, typedSubscribed).execute() }
+
+        withMediator {
+            val restored = GetCatalog(tenant.id, catalog).query()!!
+            assertThat(restored.installedReleaseVersion).`as`("not installed as a received release").isNull()
+            assertThat(ListCatalogReleases(tenant.id, catalog).query()).isEmpty()
+            assertThat(GetCatalogEditability(tenant.id, catalog).query().editable).isTrue()
+        }
+        themeIdentity(tenant.id.value, catalog.value, "brand")
+    }
+
+    @Test
+    fun `a snapshot writes SUBSCRIBED for a catalog with a source, for the hub`() {
+        val tenant = createTenant("Snapshot Source Type")
+        withMediator {
+            app.epistola.suite.catalog.commands.RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json").execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        assertThat(readManifest(snapshot.bytes).catalogs.single { it.catalogKey == "epistola-demo" }.type).isEqualTo("SUBSCRIBED")
     }
 
     private fun rewriteEntry(archive: ByteArray, name: String, transform: (ByteArray) -> ByteArray): ByteArray {

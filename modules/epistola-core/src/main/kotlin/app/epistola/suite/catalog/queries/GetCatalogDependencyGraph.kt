@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Component
 data class CatalogGraphNode(
     val catalogKey: String,
     val name: String,
-    val type: CatalogType,
     /** `registry/namespace/key`: how a dependency names it. */
     val identity: String,
 )
@@ -40,8 +38,8 @@ data class CatalogDependencyGraph(val nodes: List<CatalogGraphNode>, val edges: 
 
 /**
  * The catalogs of a tenant and which depends on which (contract ADR 0003): each catalog's current
- * version's declared dependencies -- an authored catalog's next version, a subscribed one's installed
- * release. Two statements, ordered in the database.
+ * version's declared dependencies (its next version, ADR 0032). Two statements, ordered in the
+ * database.
  */
 data class GetCatalogDependencyGraph(
     override val tenantKey: TenantKey,
@@ -57,13 +55,13 @@ class GetCatalogDependencyGraphHandler(
     override fun handle(query: GetCatalogDependencyGraph): CatalogDependencyGraph = jdbi.withHandle<CatalogDependencyGraph, Exception> { handle ->
         val nodes = handle.createQuery(
             """
-            SELECT catalog_key, name, type, registry || '/' || namespace || '/' || catalog_key AS identity
+            SELECT catalog_key, name, registry || '/' || namespace || '/' || catalog_key AS identity
             FROM catalogs WHERE tenant_key = :t
             ORDER BY name, catalog_key
             """,
         )
             .bind("t", query.tenantKey)
-            .map { rs, _ -> CatalogGraphNode(rs.getString("catalog_key"), rs.getString("name"), CatalogType.valueOf(rs.getString("type")), rs.getString("identity")) }
+            .map { rs, _ -> CatalogGraphNode(rs.getString("catalog_key"), rs.getString("name"), rs.getString("identity")) }
             .list()
         val edges = handle.createQuery(
             """

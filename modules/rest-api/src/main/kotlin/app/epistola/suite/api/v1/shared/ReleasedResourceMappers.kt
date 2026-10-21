@@ -31,7 +31,6 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode

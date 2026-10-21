@@ -92,16 +92,16 @@ class CatalogBundleTest : IntegrationTestBase() {
         val bundle = fat(chain("bundle-source")).zipBytes
         val target = withMediator { createTenant("bundle-target").id }
 
-        val imported = withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() }
+        val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
 
         assertThat(imported.catalogKey).isEqualTo(letters)
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
-        assertThat(withMediator { ListCatalogs(target).query() }.filter { it.type == CatalogType.SUBSCRIBED }.map { it.id.value to it.installedReleaseVersion })
+        assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.installedReleaseVersion })
             .contains(base.value to "1.0.0", shared.value to "1.0.0", letters.value to "1.0.0")
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(target)))).query()!! }.themeCatalogKey)
             .isEqualTo(shared)
 
-        val again = withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() }
+        val again = withMediator { ImportCatalogZip(target, bundle).execute() }
         assertThat(again.installedDependencies).isEmpty()
         assertThat(again.presentDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
     }
@@ -116,7 +116,7 @@ class CatalogBundleTest : IntegrationTestBase() {
             target
         }
 
-        assertThatThrownBy { withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() } }
+        assertThatThrownBy { withMediator { ImportCatalogZip(target, bundle).execute() } }
             .isInstanceOf(CatalogImportConflictException::class.java)
             .hasMessageContaining("another catalog")
         assertThat(withMediator { GetCatalog(target, base).query() }).`as`("not even what did not conflict").isNull()

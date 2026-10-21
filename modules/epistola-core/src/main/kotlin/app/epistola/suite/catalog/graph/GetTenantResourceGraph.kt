@@ -64,15 +64,15 @@ class TenantResourceGraphBuilder(
 
     private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
         """
-            SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
+            SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name
             FROM (
-                SELECT a.resource_id, 'image' resource_type, c.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                UNION ALL SELECT l.resource_id, 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
-                UNION ALL SELECT f.resource_id, 'font', c.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
-                UNION ALL SELECT a.resource_id, 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                UNION ALL SELECT t.resource_id, 'theme', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
-                UNION ALL SELECT s.resource_id, 'stencil', c.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
-                UNION ALL SELECT t.resource_id, 'template', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                SELECT a.resource_id, 'image' resource_type, c.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                UNION ALL SELECT l.resource_id, 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
+                UNION ALL SELECT f.resource_id, 'font', c.catalog_key::text, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
+                UNION ALL SELECT a.resource_id, 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                UNION ALL SELECT t.resource_id, 'theme', c.catalog_key::text, t.id::text, t.name, c.name FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                UNION ALL SELECT s.resource_id, 'stencil', c.catalog_key::text, s.id::text, s.name, c.name FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
+                UNION ALL SELECT t.resource_id, 'template', c.catalog_key::text, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
         """,
@@ -84,7 +84,6 @@ class TenantResourceGraphBuilder(
                 address = ResourceAddress(resourceType(rs.getString("resource_type")), rs.getString("catalog_key"), rs.getString("resource_key")),
                 name = rs.getString("resource_name"),
                 catalogName = rs.getString("catalog_name"),
-                catalogType = rs.getString("catalog_type"),
             )
         }.list()
 

@@ -29,9 +29,9 @@ data class RelocatableResource(
  * The resources a relocation batch can be built from.
  *
  * Only types registered in [MovableResource] are listed: offering anything else would produce a
- * preview that cannot execute. Non-authored catalogs are excluded for the same reason — a
- * subscribed or system catalog is not the tenant's to rearrange, so listing its resources would
- * only offer choices that cannot be taken.
+ * preview that cannot execute. Catalogs that cannot be changed here are excluded for the same
+ * reason — one Epistola supplies, or any on a run-only installation (ADR 0032) — so listing their
+ * resources would only offer choices that cannot be taken.
  *
  * A resource whose catalog has been released is still listed, carrying a [RelocatableResource.note]:
  * it can move, but subscribers will not follow it. That is a judgement for the operator rather than
@@ -51,13 +51,22 @@ data class ListRelocatableResources(
 @Component
 class ListRelocatableResourcesHandler(
     private val jdbi: Jdbi,
+    private val editing: app.epistola.suite.catalog.CatalogEditingProperties,
 ) : QueryHandler<ListRelocatableResources, List<RelocatableResource>> {
-    override fun handle(query: ListRelocatableResources): List<RelocatableResource> = jdbi.withHandle<List<RelocatableResource>, Exception> { handle ->
+    override fun handle(query: ListRelocatableResources): List<RelocatableResource> = if (!editing.enabled) {
+        // A run-only installation changes no catalog, so nothing can move (ADR 0032).
+        emptyList()
+    } else {
+        list(query)
+    }
+
+    private fun list(query: ListRelocatableResources): List<RelocatableResource> = jdbi.withHandle<List<RelocatableResource>, Exception> { handle ->
         val types = MovableResource.entries.map { it.type.wireName }
         handle.createQuery(
             """
-            -- Each authored catalog with its current version, whose content is what can move.
-            WITH authored AS (
+            -- Each catalog that can be changed here (not one Epistola supplies, ADR 0032) with its
+            -- current version, whose content is what can move.
+            WITH editable AS (
                 SELECT c.catalog_id, cv.version_id, c.catalog_key, c.name,
                        EXISTS(
                            SELECT 1 FROM catalog_releases r
@@ -65,37 +74,37 @@ class ListRelocatableResourcesHandler(
                        ) released
                 FROM catalogs c
                 JOIN catalog_current_versions cv ON cv.tenant_key = c.tenant_key AND cv.catalog_id = c.catalog_id
-                WHERE c.tenant_key = :tenantKey AND c.type = 'AUTHORED'
+                WHERE c.tenant_key = :tenantKey AND COALESCE(c.source_url NOT LIKE 'classpath:%', TRUE)
             )
             SELECT resource_type, catalog_key, resource_key, resource_name, catalog_name, released
             FROM (
                 SELECT 'stencil' resource_type, c.catalog_key::text, s.id::text resource_key, s.name resource_name,
                        c.name catalog_name, c.released
-                FROM stencils s JOIN authored c ON c.version_id = s.version_id
+                FROM stencils s JOIN editable c ON c.version_id = s.version_id
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name, c.released
-                FROM variant_attribute_definitions a JOIN authored c ON c.version_id = a.version_id
+                FROM variant_attribute_definitions a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'template', c.catalog_key::text, t.id::text, t.name, c.name, c.released
-                FROM document_templates t JOIN authored c ON c.version_id = t.version_id
+                FROM document_templates t JOIN editable c ON c.version_id = t.version_id
                 WHERE t.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name, c.released
-                FROM code_lists l JOIN authored c ON c.version_id = l.version_id
+                FROM code_lists l JOIN editable c ON c.version_id = l.version_id
                 WHERE l.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'image', c.catalog_key::text, a.id::text, a.name, c.name, c.released
-                FROM assets a JOIN authored c ON c.version_id = a.version_id
+                FROM assets a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'font', c.catalog_key::text, f.slug::text, f.name, c.name, c.released
-                FROM fonts f JOIN authored c ON c.version_id = f.version_id
+                FROM fonts f JOIN editable c ON c.version_id = f.version_id
                 WHERE f.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'theme', c.catalog_key::text, th.id::text, th.name, c.name, c.released
-                FROM themes th JOIN authored c ON c.version_id = th.version_id
+                FROM themes th JOIN editable c ON c.version_id = th.version_id
                 WHERE th.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)

@@ -47,7 +47,6 @@ import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -201,10 +200,10 @@ class EpistolaCatalogApi(
         val result = ImportCatalogZip(
             tenantKey = tenant,
             zipBytes = file.bytes,
-            newCatalogType = CatalogType.SUBSCRIBED,
             // REST is non-interactive: an archive of an older wire version migrates without a prompt.
             confirmMigration = true,
         ).execute()
+        if (result.aborted) throw IllegalStateException("Importing ${result.catalogKey.value} ${result.releaseVersion} failed; nothing changed")
 
         val name = GetCatalogNames(tenant, listOf(result.catalogKey)).query()[result.catalogKey]
         return ResponseEntity.ok(

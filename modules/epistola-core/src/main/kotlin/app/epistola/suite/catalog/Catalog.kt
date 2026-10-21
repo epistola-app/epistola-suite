@@ -25,7 +25,6 @@ data class Catalog(
     val namespace: String,
     val name: String,
     val description: String? = null,
-    val type: CatalogType,
     val sourceUrl: String? = null,
     val sourceAuthType: AuthType = AuthType.NONE,
     /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
@@ -36,7 +35,7 @@ data class Catalog(
      * Per-resource source-side digests (`"type/slug"` -> SHA-256) of the
      * installed release, captured from the source manifest at register/upgrade.
      * The source-vs-source baseline for [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade].
-     * Never publisher-authored; null for AUTHORED catalogs.
+     * Never publisher-authored; null for a catalog that never received a release.
      */
     @Json val installedResourceFingerprints: Map<String, String>? = null,
     @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
@@ -47,7 +46,7 @@ data class Catalog(
     val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
-     * [releasedAt] it forms the AUTHORED drift baseline
+     * [releasedAt] it forms the drift baseline
      * `GREATEST(releasedAt, importedAt)`: a resource changed after it = the
      * working copy has unreleased changes (the catalog list's "pending
      * changes" hint). A no-op re-import advances this in lockstep with the
@@ -145,11 +144,6 @@ data class CatalogMetadata(
             license = info.license,
         )
     }
-}
-
-enum class CatalogType {
-    AUTHORED,
-    SUBSCRIBED,
 }
 
 enum class AuthType {

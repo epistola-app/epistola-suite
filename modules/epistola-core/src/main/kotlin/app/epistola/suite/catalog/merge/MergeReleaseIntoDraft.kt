@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.merge
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -117,7 +116,6 @@ class MergeReleaseIntoDraftHandler(
                 val imported = ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = archive.zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                     validateCrossCatalogDeps = false,
                     confirmMigration = true,
                     intoDraft = true,

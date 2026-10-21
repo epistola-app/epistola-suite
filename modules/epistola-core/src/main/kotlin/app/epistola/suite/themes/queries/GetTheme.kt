@@ -35,7 +35,7 @@ class GetThemeHandler(
     override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type
+            SELECT t.*, c.catalog_key AS catalog_key
             FROM themes t
             JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE t.id = :id
