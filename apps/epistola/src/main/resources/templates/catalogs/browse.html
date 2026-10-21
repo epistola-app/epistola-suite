@@ -9,12 +9,16 @@
             actions=~{::catalog-overview-actions}
         )}"></div>
 
-        <!--/* What it is at a glance: its key, keywords and, subscribed, the release installed. */-->
+        <!--/* What it is at a glance: its key, keywords and, read-only here, why and the release it is on. */-->
         <div class="catalog-meta" data-testid="catalog-about">
             <code th:text="${catalog.namespace} + '/' + ${catalog.id}">acme/letters</code>
             <span th:each="keyword : ${keywords}" class="badge badge-outline" th:text="${keyword}">letters</span>
-            <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="text-muted text-sm"
-                  th:text="${catalog.installedReleaseVersion != null} ? 'Installed v' + ${catalog.installedReleaseVersion} : 'Not installed'">Installed v2.0.0</span>
+            <th:block th:if="${draftBar.readOnly}">
+                <span class="badge badge-default" data-testid="catalog-read-only-reason"
+                      th:title="${draftBar.readOnlyExplanation}" th:text="${draftBar.readOnlyLabel}">Supplied by Epistola</span>
+                <span class="text-muted text-sm" data-testid="catalog-shown-release"
+                      th:text="${draftBar.shown != null} ? 'On v' + ${draftBar.shown.version} : 'No release yet'">On v2.0.0</span>
+            </th:block>
         </div>
 
         <div id="catalog-alert"></div>
@@ -29,9 +33,9 @@
 
         <div th:replace="~{catalogs/overview :: counts}"></div>
 
-        <!--/* A subscribed catalog: what its publisher put in it, each linked to Exchange where it came
+        <!--/* A catalog with a source: what the source put in it, each linked to Exchange where it came
                from there, and Install when something is not installed yet. */-->
-        <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+        <th:block th:if="${catalog.hasSource}">
             <th:block th:replace="~{catalogs/content :: contents}"></th:block>
         </th:block>
 
@@ -47,8 +51,8 @@
             </div>
         </dialog>
 
-        <!-- Install preview dialog (subscribed catalogs only) -->
-        <dialog th:if="${catalog.type.name() == 'SUBSCRIBED'}" id="install-preview-dialog" class="ep-dialog">
+        <!-- Install preview dialog (catalogs with a source only) -->
+        <dialog th:if="${catalog.hasSource}" id="install-preview-dialog" class="ep-dialog">
             <div id="install-preview-body">
                 <div class="ep-dialog-body">
                     <p class="text-muted">Loading...</p>
@@ -60,7 +64,7 @@
     <th:block th:fragment="catalog-overview-actions">
         <a class="ep-btn ep-btn-outline" data-testid="catalog-about-settings"
            th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
-           th:text="${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
+           th:text="${draftBar.editable and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
     </th:block>
 
     <!-- Fragment: install preview content (loaded into dialog via HTMX) -->
@@ -185,7 +189,7 @@
                 <th:block th:if="${!deployments.isEmpty()}">
                     <p th:if="${deployableVersions.isEmpty()}" class="text-muted">
                         Nothing is published yet, so nothing can be deployed.
-                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">Publish it first; until then an environment that is not production can follow a draft.</th:block>
+                        <th:block th:if="${catalogEditing.editable(catalog.id)}">Publish it first; until then an environment that is not production can follow a draft.</th:block>
                     </p>
                     <p th:if="${!canDeploy and !deployableVersions.isEmpty()}" class="text-muted">
                         Deploying a version needs the permission to deploy.
@@ -274,11 +278,10 @@
             </div>
         </div>
 
-            <div th:fragment="identity-section" th:if="${catalog.type.name() == 'AUTHORED'}" class="ep-panel detail-section" data-testid="catalog-identity">
+            <div th:fragment="identity-section" th:if="${catalogEditing.editable(catalog.id)}" class="ep-panel detail-section" data-testid="catalog-identity">
                 <div class="detail-section-header catalog-detail-header">
                     <div class="catalog-detail-heading">
                         <h2>Catalog</h2>
-                        <span class="badge badge-info">Authored</span>
                     </div>
                 </div>
                 <div class="catalog-detail-summary">
@@ -294,7 +297,7 @@
             </div>
     
             <div th:fragment="exchange-section" class="ep-panel detail-section" th:if="${publication != null}"
-                 th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
+                 th:with="canEditMetadata=${catalogEditing.editable(catalog.id) and auth.has('CATALOG_MANAGE')}">
                 <div class="detail-section-header catalog-detail-header">
                     <div>
                         <div class="catalog-detail-heading">

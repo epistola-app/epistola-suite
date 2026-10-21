@@ -22,7 +22,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 
 /**
- * Where an authored catalog's next release stands, and which of its actions to offer: the draft's
+ * Where the next release of a catalog that can be changed here stands, and which of its actions to offer: the draft's
  * number, what changed since the last release and whether each change is ready, and the declared
  * dependencies the release is cut with. It is about the draft the page works in, [drafts]`.chosen`;
  * only the next version is published (contract ADR 0002, amendment 2), so parallel work shows what

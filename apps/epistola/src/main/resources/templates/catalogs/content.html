@@ -2,8 +2,8 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <!--/* What one version of a catalog holds, and the details it carries
-           (docs/catalog-workspace-navigation.md): shown on a draft's own page, and on a subscribed
-           catalog's page for its installed release. A published version shows what it froze on its
+           (docs/catalog-workspace-navigation.md): shown on a draft's own page, and on the page of a
+           catalog with a source, with what its source holds. A published version shows what it froze on its
            own page (catalogs/release.html).
 
            Model: `tenantId`, `catalogId` (the segment), `catalog`, `resources`, `usageCounts`,
@@ -150,7 +150,7 @@
                        something is left to install -- a fully installed catalog was still showing a
                        button whose dialog listed nothing to do. Upgrading to a newer release is the
                        separate action above. */-->
-                <button th:if="${catalog.type.name() == 'SUBSCRIBED' and hasUninstalledResources}"
+                <button th:if="${catalog.hasSource and hasUninstalledResources}"
                         type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
                         hx-target="#install-preview-body"
@@ -161,7 +161,7 @@
                 <div class="ep-table-scroll" role="region" aria-label="Catalog resources table" tabindex="0"
                      data-testid="fixed-table-scroll">
                 <table class="ep-table ep-table-fixed">
-                    <!--/* Authored catalogs omit the last two cols; the sub-100% total
+                    <!--/* A catalog without a source omits the last col; the sub-100% total
                            is fine — browsers scale percentage colgroups to fit. */-->
                     <colgroup>
                         <col style="width: 12%" /><!-- Type -->
@@ -169,7 +169,7 @@
                         <col style="width: 16%" /><!-- Slug -->
                         <col style="width: 23%" /><!-- Description -->
                         <col style="width: 8%" /><!-- Used by -->
-                        <col th:if="${catalog.type.name() == 'SUBSCRIBED'}" style="width: 11%" /><!-- Status -->
+                        <col th:if="${catalog.hasSource}" style="width: 11%" /><!-- Status -->
                     </colgroup>
                     <thead>
                         <tr>
@@ -178,7 +178,7 @@
                             <th>Slug</th>
                             <th>Description</th>
                             <th>Used by</th>
-                            <th th:if="${catalog.type.name() == 'SUBSCRIBED'}">Status</th>
+                            <th th:if="${catalog.hasSource}">Status</th>
                         </tr>
                     </thead>
                     <tbody id="resource-table" th:fragment="resource-rows">
@@ -195,8 +195,8 @@
                                       class="badge badge-info" title="Used in the catalog presentation">presentation</span>
                             </td>
                             <td th:title="${resource.name}">
-                                <!-- Authored: link to detail page for templates/themes/stencils -->
-                                <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
+                                <!-- Without a source: link to detail page for templates/themes/stencils -->
+                                <th:block th:unless="${catalog.hasSource}">
                                     <a th:if="${resource.type == 'template'}"
                                        th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
@@ -213,14 +213,14 @@
                                        th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
-                                <!--/* Subscribed: the resource has no local page (it is a read-only
-                                       mirror), but a catalog installed from Exchange has one there —
+                                <!--/* From a source: the resource may not be installed here, but a
+                                       catalog installed from Exchange has a page for it there —
                                        /catalogs/{namespace}/{key}/resources/{type}/{slug}, built by
                                        appending to the catalog root the handler resolved once. A
                                        private catalog's page asks the reader to sign in, which is
                                        Exchange's call to make, not ours to pre-empt. Everything else
-                                       subscribed stays plain text. */-->
-                                <th:block th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+                                       stays plain text. */-->
+                                <th:block th:if="${catalog.hasSource}">
                                     <a th:if="${exchangeCatalogUrl != null}"
                                        th:href="${exchangeCatalogUrl + '/resources/' + resource.type + '/' + resource.slug}"
                                        th:text="${resource.name}"
@@ -247,11 +247,11 @@
                                 </button>
                                 <span th:if="${count == 0}" class="text-muted">-</span>
                             </td>
-                            <!--/* Status only for subscribed catalogs. After an install every row
+                            <!--/* Status only for a catalog with a source. After an install every row
                                    reads Installed; Available means the catalog is registered but has
                                    not been installed yet, or the resource arrived in a release newer
                                    than the one installed here. There is no per-resource action. */-->
-                            <td th:if="${catalog.type.name() == 'SUBSCRIBED'}">
+                            <td th:if="${catalog.hasSource}">
                                 <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
                                 <span th:if="${resource.status.name() == 'AVAILABLE'}" class="badge">Available</span>
                             </td>
@@ -270,13 +270,13 @@
     </th:block>
 
         <div id="catalog-metadata" th:fragment="metadata-card" class="ep-panel detail-section"
-             th:with="canEditMetadata=${catalog.type.name() == 'AUTHORED' and auth.has('CATALOG_MANAGE')}">
+             th:with="canEditMetadata=${catalogEditing.editable(catalog.id) and auth.has('CATALOG_MANAGE')}">
             <div class="detail-section-header catalog-detail-header">
                 <div>
                     <div class="catalog-detail-heading">
                         <h2>Catalog details</h2>
-                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                        <span th:unless="${catalogEditing.editable(catalog.id)}" class="badge badge-default" data-testid="catalog-details-read-only"
+                              th:text="${catalogEditing.readOnlyLabel(catalog.id)}">Supplied by Epistola</span>
                     </div>
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">Identity, discovery, presentation, and usage terms.</p>
                 </div>
@@ -286,13 +286,13 @@
             </div>
 
             <div class="catalog-detail-summary"
-                 th:with="displayVersion=${catalog.type.name() == 'AUTHORED' ? (catalog.releasedVersion != null ? 'v' + catalog.releasedVersion : 'Unreleased') : (catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : 'Unknown')}">
+                 th:with="displayVersion=${draftBar?.shown?.version != null ? 'v' + draftBar.shown.version : null}">
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Catalog ID</span>
                     <code class="catalog-detail-value" th:text="${catalog.id}"></code>
                 </div>
-                <!--/* A draft has no number until it is published, so only a subscribed catalog's installed version is shown. */-->
-                <div th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="catalog-detail-summary-item">
+                <!--/* A draft has no number until it is published, so only a read-only catalog's version, the release its content is on, is shown. */-->
+                <div th:if="${displayVersion != null}" class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Version</span>
                     <p class="catalog-detail-value" th:text="${displayVersion}"></p>
                 </div>

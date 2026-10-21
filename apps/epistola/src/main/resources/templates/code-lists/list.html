@@ -59,7 +59,7 @@
                     </td>
                     <td th:title="${cl.catalogKey}">
                         <span class="badge" th:text="${cl.catalogKey}"
-                              th:classappend="${cl.catalogType?.name() == 'SUBSCRIBED'} ? 'badge-muted' : 'badge-default'"></span>
+                              th:classappend="${catalogEditing.editable(cl.catalogKey)} ? 'badge-default' : 'badge-muted'"></span>
                     </td>
                     <td style="font-weight: 500;" th:text="${cl.displayName}" th:title="${cl.displayName}"></td>
                     <td>

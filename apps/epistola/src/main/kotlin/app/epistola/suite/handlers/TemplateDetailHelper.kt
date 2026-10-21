@@ -4,7 +4,6 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.handlers.CatalogDraftBar
@@ -56,7 +55,7 @@ class TemplateDetailHelper {
         val version = segment.ref(tenantId.key)
 
         val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query() ?: return null
-        val editable = template.catalogType == CatalogType.AUTHORED
+        val editable = draftBar.editable
 
         return TemplateDetailContext(
             tenantId = tenantId.key.value,

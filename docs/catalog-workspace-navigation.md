@@ -62,7 +62,8 @@ A context is `(catalog, version)`:
 
 - an authored catalog's **draft** — editable;
 - an authored catalog's **release** — read-only: view, preview, export, deploy, open a draft from it;
-- a subscribed catalog's **installed release** — read-only.
+- a catalog that cannot be changed here (Epistola supplies it, or the installation only runs
+  releases, ADR 0032) — read-only, on the release its content is on, with the reason.
 
 ### Context bar
 
@@ -105,8 +106,8 @@ The model people see, decided 17 October (see "Simple model" below): one working
 
 - **One short bar** above every catalog content page: `Catalog Letters · Your work · [Publish…]`.
   A fix is a banner instead: "You are fixing Letters v1.4.0, which is live in production. Changes
-  here go only into this fix. [Publish fix…] [Back to your work]". A subscribed catalog: `v2.0.0 ·
-  can't be edited`. No version numbers for your work. `CatalogDraftBar`, `catalogs/drafts.html ::
+  here go only into this fix. [Publish fix…] [Back to your work]". A catalog that cannot be changed here:
+  `v2.0.0 · Supplied by Epistola`. No version numbers for your work. `CatalogDraftBar`, `catalogs/drafts.html ::
   content-draft-bar`.
 - **URLs:** a plain segment (`/themes/letters/house`) is your work; a fix or a published version is
   named by its number (`letters@1.4.1`). An explicit-version redirect was built and dropped the same

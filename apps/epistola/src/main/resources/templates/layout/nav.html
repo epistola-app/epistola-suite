@@ -36,18 +36,18 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-down', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <div class="app-nav-dropdown-menu ws-menu-panel" role="menu" data-testid="ws-catalog-menu">
-                            <th:block th:unless="${ws.authoredCatalogs.isEmpty()}">
-                                <div class="ws-menu-label">Yours</div>
-                                <a th:each="c : ${ws.authoredCatalogs}" th:href="${c.href}" class="app-nav-dropdown-item ws-menu-item"
+                            <th:block th:unless="${ws.editableCatalogs.isEmpty()}">
+                                <div class="ws-menu-label">You can change</div>
+                                <a th:each="c : ${ws.editableCatalogs}" th:href="${c.href}" class="app-nav-dropdown-item ws-menu-item"
                                    role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}">
                                     <span th:text="${c.name}">Letters</span>
                                     <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
                                 </a>
                             </th:block>
-                            <th:block th:unless="${ws.subscribedCatalogs.isEmpty()}">
-                                <div class="ws-menu-label">Subscribed</div>
-                                <a th:each="c : ${ws.subscribedCatalogs}" th:href="${c.href}" class="app-nav-dropdown-item ws-menu-item"
-                                   role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}">
+                            <th:block th:unless="${ws.readOnlyCatalogs.isEmpty()}">
+                                <div class="ws-menu-label">Read-only here</div>
+                                <a th:each="c : ${ws.readOnlyCatalogs}" th:href="${c.href}" class="app-nav-dropdown-item ws-menu-item"
+                                   role="menuitem" th:classappend="${c.current} ? 'active' : ''" th:attr="data-catalog=${c.key}" th:title="${c.readOnlyLabel}">
                                     <span th:text="${c.name}">Epistola Demo</span>
                                     <th:block th:if="${c.current}"><th:block th:replace="~{epistola-web/icon :: icon(name='check', class='ep-icon ep-icon-sm ws-menu-check')}" /></th:block>
                                 </a>
@@ -115,7 +115,8 @@
         <div class="ws-bar-right">
             <!--/* What is not published yet, and Publish: loaded after the page, since working it out
                    builds the catalog. */-->
-            <span th:if="${scope?.readOnly}" class="ws-status-text" data-testid="catalog-version-bar-read-only">Subscribed: it can't be edited here</span>
+            <span th:if="${scope?.readOnly}" class="ws-status-text" data-testid="catalog-version-bar-read-only"
+                  th:title="${scope.bar.readOnlyExplanation}" th:text="${scope.readOnlyLabel}">Supplied by Epistola</span>
             <!--/* Refreshed in place after a navigation that keeps the bar (HX-Trigger), so it never empties. */-->
             <div th:if="${scope?.statusHref != null}" id="ws-status" class="ws-status" data-testid="ws-status"
                  th:hx-get="${scope.statusHref}" hx-trigger="load, ws-status-refresh from:body" hx-swap="innerHTML"></div>
@@ -151,7 +152,8 @@
         <th:block th:if="${scope != null}">
             <div class="ws-nav-title">
                 <strong th:text="${scope.name}">Letters</strong>
-                <span th:if="${scope.readOnly}" class="badge badge-default">Subscribed</span>
+                <span th:if="${scope.readOnly}" class="badge badge-default" data-testid="ws-nav-read-only"
+                      th:title="${scope.bar.readOnlyExplanation}" th:text="${scope.readOnlyLabel}">Supplied by Epistola</span>
             </div>
             <div th:each="section : ${scope.sections}" class="ws-nav-group">
                 <a th:each="item : ${section}" th:href="${item.href}" class="ws-nav-item"
@@ -175,9 +177,9 @@
                 <!--/* The catalogs changed most recently come first in their group; All catalogs lists every one. */-->
                 <th:block th:if="${group.key == 'authoring'}">
                     <a th:each="c : ${ws.recentCatalogs}" th:href="${c.href}" class="ws-nav-item" th:attr="data-catalog=${c.key},data-testid='ws-nav-catalog'"
-                       th:title="${c.authored} ? null : 'Subscribed'">
+                       th:title="${c.readOnlyLabel}">
                         <span th:text="${c.name}">Letters</span>
-                        <span th:unless="${c.authored}" class="ws-nav-note">Subscribed</span>
+                        <span th:unless="${c.editable}" class="ws-nav-note">Read-only</span>
                     </a>
                 </th:block>
                 <a th:each="item : ${group.items}" th:href="@{/tenants/{id}/{p}(id=${ws.tenantKey}, p=${item.pathSuffix})}"

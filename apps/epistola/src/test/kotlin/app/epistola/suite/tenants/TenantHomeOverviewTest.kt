@@ -59,7 +59,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         val body = response.body!!
         // Within the overview: the side nav names the catalogs too.
         val card = body.substringAfter("data-testid=\"catalog-overview\"").substringAfter("data-catalog=\"letters\"").substringBefore("data-testid=\"catalog-overview-card\"")
-        assertThat(card).contains(">Authored<")
+        assertThat(card).`as`("it can be changed here: no read-only badge").doesNotContain("catalog-overview-read-only")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next version<")
         val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
@@ -68,7 +68,8 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).contains("1 change not published yet")
         assertThat(card).contains("v1.0.0")
         assertThat(card).contains(">production</a>")
-        assertThat(body).contains("data-catalog=\"system\"").contains(">Subscribed<")
+        assertThat(body.substringAfter("data-testid=\"catalog-overview\"").substringAfter("data-catalog=\"system\""))
+            .contains("data-testid=\"catalog-overview-read-only\"").contains(">Supplied by Epistola<")
         // There is no page to generate a document from here; a link to one led nowhere.
         assertThat(body).doesNotContain("/tenants/${tenant.id.value}/generate")
     }

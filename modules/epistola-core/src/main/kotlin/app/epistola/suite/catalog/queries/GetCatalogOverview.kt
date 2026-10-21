@@ -27,7 +27,7 @@ import java.util.UUID
  * to be marked ready, and which of its releases each environment serves. The landing page of a
  * tenant, so someone sees what is going on before choosing a catalog version to work in.
  *
- * Authored catalogs first, then subscribed ones, each by name.
+ * The catalogs that can be changed here first, then the read-only ones, each by name.
  */
 data class GetCatalogOverview(
     override val tenantKey: TenantKey,
@@ -38,7 +38,9 @@ data class GetCatalogOverview(
 
 /**
  * @property drafts the open drafts, highest first; the first is the catalog's current version.
- * @property latestRelease the highest release; for a subscribed catalog, its installed release.
+ * @property latestRelease the highest release; for a catalog that cannot be changed here, the one its
+ *   content is on (its next version's base), which is the highest unless it has changes of its own.
+ * @property readOnlyReason why the catalog cannot be changed here; null when it can (ADR 0032).
  * @property notReady how many resources of the current draft wait to be marked ready; null for a
  *   catalog without a draft.
  * @property served per environment, the releases it serves, highest first; environments serving
@@ -53,10 +55,12 @@ data class CatalogOverview(
     val latestRelease: ReleaseOverview?,
     val notReady: Int?,
     val served: Map<String, List<String>>,
+    val readOnlyReason: CatalogReadOnlyReason? = null,
 ) {
-    val authored: Boolean get() = type == CatalogType.AUTHORED
+    /** Whether the catalog can be changed here: it has drafts to work in, and releases them. */
+    val editable: Boolean get() = readOnlyReason == null
 
-    /** Its next version, where everyday work goes; null for a subscribed catalog, or one without. */
+    /** Its next version, where everyday work goes; null for a catalog that cannot be changed here, or one without. */
     val next: DraftOverview? get() = drafts.firstOrNull { it.isNext }
 }
 
@@ -75,27 +79,31 @@ class GetCatalogOverviewHandler(
     private val readyMarks: ReadyMarks,
 ) : QueryHandler<GetCatalogOverview, List<CatalogOverview>> {
     override fun handle(query: GetCatalogOverview): List<CatalogOverview> {
+        val editability = ListCatalogEditability(query.tenantKey).query()
         val catalogs = ListCatalogs(query.tenantKey).query()
-            .sortedWith(compareBy({ it.type != CatalogType.AUTHORED }, { it.name.lowercase() }))
+            .sortedWith(compareBy({ !editability.editable(it.id) }, { it.name.lowercase() }))
         return jdbi.withHandle<List<CatalogOverview>, Exception> { handle ->
             catalogs.map { catalog ->
                 val all = versions.all(handle, query.tenantKey, catalog.id)
                 // A catalog that cannot be changed here has a next version only to hold what it
                 // received (ADR 0032): there is no draft for anyone to work in.
-                val editable = GetCatalogEditability(query.tenantKey, catalog.id).query().editable
+                val reason = editability.of(catalog.id)?.reason
+                val editable = reason == null
                 val drafts = if (editable) all.filter { it.status == CatalogVersionStatus.DRAFT } else emptyList()
                 val releases = all.filter { it.status == CatalogVersionStatus.RELEASED }
+                val base = all.firstOrNull { it.isNext }?.base?.takeUnless { editable }
                 CatalogOverview(
                     catalogKey = catalog.id,
                     name = catalog.name,
                     namespace = catalog.namespace,
                     type = catalog.type,
                     drafts = drafts.map { DraftOverview(it.versionId, it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
-                    latestRelease = (catalog.installedReleaseVersion?.let { installed -> releases.firstOrNull { it.version == installed } } ?: releases.firstOrNull())
+                    latestRelease = (base?.let { b -> releases.firstOrNull { it.version == b } } ?: releases.firstOrNull())
                         ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
                     // The current version's readiness: the next version's.
                     notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, query.tenantKey, catalog.id).count { !it.value },
                     served = servedBy(releases),
+                    readOnlyReason = reason,
                 )
             }
         }

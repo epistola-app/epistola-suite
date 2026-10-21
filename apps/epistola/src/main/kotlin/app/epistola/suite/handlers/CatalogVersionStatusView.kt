@@ -6,7 +6,6 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheck
 import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.UpstreamAvailability
@@ -19,7 +18,8 @@ import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.mediator.query
 
 /**
- * What the Version cell of the catalogs list says about one subscribed catalog.
+ * What the Version cell of the catalogs list says about one catalog with a source: the release it
+ * is on, and what its source offers ([Catalog.hasSource], ADR 0032).
  *
  * Resolved on the server so the template asks by property name rather than re-deriving the rule.
  * It is the same shape whether the answer came from the recorded background check (first paint) or
@@ -63,18 +63,19 @@ data class CatalogVersionStatusView(
             currentSchemaVersion: Int,
             fromExchange: Boolean,
         ): CatalogVersionStatusView {
+            // What was last received decides whether the source offers something newer; the cell
+            // shows the catalog's highest release, received or released here.
             val installed = catalog.installedReleaseVersion
             val base = CatalogVersionStatusView(
                 state = UNCHECKED,
-                installedVersion = installed,
+                installedVersion = catalog.highestReleaseVersion,
                 availableVersion = null,
                 sourceSchemaVersion = null,
                 currentSchemaVersion = currentSchemaVersion,
                 detail = null,
                 fromExchange = fromExchange,
             )
-            if (catalog.type != CatalogType.SUBSCRIBED) return base
-            if (catalog.sourceUrl == null) return base.copy(state = ZIP_MANAGED)
+            if (!catalog.hasSource) return base.copy(state = ZIP_MANAGED)
             if (check == null) return base
 
             val sourceSchema = check.availableSchemaVersion

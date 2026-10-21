@@ -74,6 +74,14 @@ made here and `SUBSCRIBED` received from a source or an archive.
   (`CatalogHasLocalChangesException`), since it would discard them. Changes are measured against what
   the next version held when the release was put in place (`catalog_versions.base_fingerprints`, set
   by `RecordInstalledRelease`), else against its base release.
+- **The web UI and MCP decide by this, not by type.** A page offers drafts, edit controls and
+  Publish for a catalog that can be changed here, received or not, and shows a read-only catalog's
+  reason ("Supplied by Epistola", "This installation only runs releases", the reason's `label`) with
+  the release its content is on. What depends on a source stays keyed on having one
+  (`Catalog.hasSource`): checking for and installing newer releases. Lists ask once per page
+  (`ListCatalogEditability`), and a catalog's version is its highest release, released here or
+  received (`Catalog.highestReleaseVersion`). The web UI's import no longer asks for a type: it
+  receives the release, creating a catalog it does not have as received.
 
 ## Catalog versions and drafts
 

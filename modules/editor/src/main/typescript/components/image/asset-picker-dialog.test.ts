@@ -7,8 +7,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { openAssetPickerDialog, type AssetInfo, type CatalogInfo } from './asset-picker-dialog.js';
 
 const catalogs: CatalogInfo[] = [
-  { key: 'epistola-demo', name: 'Demo', type: 'AUTHORED' },
-  { key: 'system', name: 'System', type: 'SUBSCRIBED' },
+  { key: 'epistola-demo', name: 'Demo', editable: true },
+  { key: 'system', name: 'System', editable: false },
 ];
 
 const demoAssets: AssetInfo[] = [
@@ -115,7 +115,7 @@ describe('openAssetPickerDialog catalog selector', () => {
     expect(picked?.catalogKey).toBe('system');
   });
 
-  it('disables uploads while a subscribed catalog is selected', async () => {
+  it('disables uploads while a catalog that cannot be changed here is selected', async () => {
     const cb = makeCallbacks();
     openAssetPickerDialog(cb);
     await flush();
@@ -128,6 +128,26 @@ describe('openAssetPickerDialog catalog selector', () => {
 
     const uploadZone = document.querySelector<HTMLElement>('#asset-picker-upload')!;
     expect(uploadZone.classList.contains('disabled')).toBe(true);
+
+    // Back to one that can be changed: uploads open again.
+    select.value = 'epistola-demo';
+    select.dispatchEvent(new Event('change'));
+    await flush();
+    expect(uploadZone.classList.contains('disabled')).toBe(false);
+  });
+
+  it('allows uploads into a received catalog that can be changed here', async () => {
+    const cb = makeCallbacks();
+    // Whether it can be changed decides it, not where its releases come from (ADR 0032).
+    cb.listCatalogs.mockResolvedValue([{ key: 'epistola-demo', name: 'Received', editable: true }]);
+    openAssetPickerDialog(cb);
+    await flush();
+    await flush();
+
+    const uploadZone = document.querySelector<HTMLElement>('#asset-picker-upload')!;
+    const fileInput = document.querySelector<HTMLInputElement>('#asset-picker-file')!;
+    expect(uploadZone.classList.contains('disabled')).toBe(false);
+    expect(fileInput.disabled).toBe(false);
   });
 
   it('disables uploads when the catalog list fails to load', async () => {
@@ -137,7 +157,7 @@ describe('openAssetPickerDialog catalog selector', () => {
     await flush();
     await flush();
 
-    // The default catalog's type is unknown, so uploads stay locked rather
+    // Whether the default catalog can be changed is unknown, so uploads stay locked rather
     // than defaulting to enabled. Assets are still loaded for browsing.
     const uploadZone = document.querySelector<HTMLElement>('#asset-picker-upload')!;
     const fileInput = document.querySelector<HTMLInputElement>('#asset-picker-file')!;
@@ -197,7 +217,7 @@ describe('openAssetPickerDialog XSS hardening (#644)', () => {
   it('renders a crafted catalog name as inert text in the catalog select', async () => {
     const cb = makeCallbacks();
     cb.listCatalogs.mockResolvedValue([
-      { key: 'epistola-demo', name: MALICIOUS_CATALOG_NAME, type: 'AUTHORED' },
+      { key: 'epistola-demo', name: MALICIOUS_CATALOG_NAME, editable: true },
     ]);
 
     openAssetPickerDialog(cb);

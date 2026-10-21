@@ -11,7 +11,6 @@ import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.AttributeId
@@ -57,10 +56,7 @@ class AttributeHandler {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
         // Fragment models are lazy, so only the branch that renders evaluates —
-        // one ListCatalogs and one ListCodeLists per request, shared by the list
-        // filter and the dialog's two <select>s.
-        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
+        // one ListCodeLists per request, shared by the list and the dialog's <select>.
         // Opened from a list filtered to a draft, the dialog creates in that draft.
         val selected = request.catalogParam()
         val codeLists by lazy { ListCodeLists(tenantId, catalogVersion = selected?.ref(tenantId.key)).query() }
@@ -68,7 +64,6 @@ class AttributeHandler {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("attributes/new", "dialog") {
                 "tenantId" to tenantId.key
-                "authoredCatalogs" to authoredCatalogs
                 "codeLists" to codeLists
                 // The catalog it was opened on, a draft or plain (see ThemeHandler.newForm).
                 "draftSegment" to selected
@@ -79,7 +74,6 @@ class AttributeHandler {
                 page("attributes/list") {
                     attributePageModel(request)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                     "codeLists" to codeLists
                 }
             }
@@ -142,15 +136,13 @@ class AttributeHandler {
         }
 
         if (result.hasErrors()) {
-            // Prefill shared by both render paths — one catalog + code-list query.
-            val allCatalogs = ListCatalogs(tenantId.key).query()
-            val authored = allCatalogs.filter { it.type == CatalogType.AUTHORED }
+            // Prefill shared by both render paths — one code-list query.
             val codeLists = ListCodeLists(tenantId).query()
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
-                // the list) with inline errors + preserved values. `tenantId`,
-                // `authoredCatalogs`, and `codeLists` are the prefill the form
-                // fragment needs to rebuild its action URL and the two <select>s.
+                // the list) with inline errors + preserved values. `tenantId` and
+                // `codeLists` are the prefill the form fragment needs to rebuild
+                // its action URL and the code-list <select>.
                 dialogFieldErrors(
                     template = "attributes/new",
                     fragmentName = "attribute-form",
@@ -159,14 +151,12 @@ class AttributeHandler {
                 ) {
                     "tenantId" to tenantId.key
                     "draftSegment" to request.catalogParam()
-                    "authoredCatalogs" to authored
                     "codeLists" to codeLists
                 }
                 onFullPage {
                     page(422, "attributes/list") {
                         attributePageModel(request)
                         "openDialog" to true
-                        "authoredCatalogs" to authored
                         "codeLists" to codeLists
                         "formData" to result.formData
                         "errors" to result.errors

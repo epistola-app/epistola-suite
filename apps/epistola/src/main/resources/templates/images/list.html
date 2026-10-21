@@ -65,8 +65,8 @@
                             </div>
                         </div>
                         <div class="asset-card-actions">
-                            <span th:if="${asset.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <th:block th:if="${asset.catalogType.name() == 'AUTHORED'}">
+                            <span th:unless="${catalogEditing.editable(asset.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(asset.catalogKey)}">Read-only</span>
+                            <th:block th:if="${catalogEditing.editable(asset.catalogKey)}">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"

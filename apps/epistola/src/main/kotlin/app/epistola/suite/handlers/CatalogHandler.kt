@@ -46,9 +46,11 @@ import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
+import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.GetCatalogRelease
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogReleases
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
@@ -132,6 +134,7 @@ class CatalogHandler {
     private fun catalogGraph(tenantKey: TenantKey, focus: CatalogKey?): CatalogGraphView = CatalogGraphView.of(
         GetCatalogDependencyGraph(tenantKey).query(),
         focus = focus?.value,
+        readOnlyLabel = CatalogGraphView.readOnlyLabels(ListCatalogEditability(tenantKey).query()),
     ) { key -> "/tenants/${tenantKey.value}/catalogs/$key/dependencies" }
 
     fun list(request: ServerRequest): ServerResponse {
@@ -856,8 +859,8 @@ class CatalogHandler {
 
     /**
      * `GET /{catalogId}/draft`: a draft's own page — what is not published yet, its contents and its
-     * details. A plain segment is the next version; `key@<draft id>` parallel work. A subscribed
-     * catalog has no drafts, and a catalog with nothing open goes to its catalog page, which offers to
+     * details. A plain segment is the next version; `key@<draft id>` parallel work. A catalog that
+     * cannot be changed here shows no drafts, and a catalog with nothing open goes to its catalog page, which offers to
      * start.
      */
     fun draftPage(request: ServerRequest): ServerResponse {
@@ -913,7 +916,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
-        val readiness = if (bar.authored && bar.chosen != null) CatalogReleaseReadiness.of(bar) else null
+        val readiness = if (bar.editable && bar.chosen != null) CatalogReleaseReadiness.of(bar) else null
         return request.htmx {
             fragment("catalogs/workspace", "bar-status") {
                 "tenantId" to tenantId.key
@@ -971,39 +974,40 @@ class CatalogHandler {
             val usageCounts = usages.mapValues { it.value.size }
             val images = catalogImages(tenantId.key, catalogKey, version)
             val imagesBySlug = images.associateBy { it.id.value }
-            val publication = if (result.catalog.type == CatalogType.AUTHORED) {
+            // Releases are cut, and so published, only where the catalog can be changed.
+            val publication = if (drafts.editable) {
                 GetCatalogPublicationState(tenantId.key, catalogKey).query()
             } else {
                 null
             }
-            // An authored catalog's releases are the ones it cut; a subscribed catalog's are the ones
-            // it installed (each install records its release). Either can be deployed.
+            // The releases cut here and the ones received (each install records its release), side
+            // by side. Any of them can be deployed.
             val releases = ListCatalogReleases(tenantId.key, catalogKey).query()
             val deployments = deploymentRows(tenantId.key, catalogKey)
             // Every release can be deployed. Newest first, as the list is.
             val deployableVersions = releases.map { it.version }
             // The open drafts an environment can follow (not production): the next version and parallel work.
-            val followableDrafts = if (result.catalog.type == CatalogType.AUTHORED) {
+            val followableDrafts = if (drafts.editable) {
                 ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT }
             } else {
                 emptyList()
             }
             val releaseViews = releaseViews(releases, publication)
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
-            // subscription, a ZIP import, or an authored catalog — the view falls back to the text
+            // source, a ZIP import, or a catalog only released here — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
             val exchangeCatalogUrl = GetExchangeCatalogLink(tenantId.key, result.catalog.sourceUrl).query()
-            // Installing a subscribed catalog installs the whole manifest (#850), so the action
-            // means something only while the manifest holds something this installation does not.
-            // Gated on that rather than on the catalog being subscribed, which was always true and
+            // Installing from a source installs the whole manifest (#850), so the action means
+            // something only while the manifest holds something this installation does not.
+            // Gated on that rather than on the catalog having a source, which was always true and
             // left the button offering to install what was already installed.
             val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
-            // Only an authored catalog has a next release to prepare.
-            val authored = result.catalog.type == CatalogType.AUTHORED
-            val readiness = if (authored) CatalogReleaseReadiness.of(drafts) else null
+            // Only a catalog that can be changed here has a next release to prepare.
+            val editable = drafts.editable
+            val readiness = if (editable) CatalogReleaseReadiness.of(drafts) else null
             val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
             // From a new catalog to an application generating from it; until something is live.
-            val gettingStarted = if (authored) {
+            val gettingStarted = if (editable) {
                 CatalogGettingStarted(
                     namespace = result.catalog.namespace,
                     catalogKey = catalogKey.value,
@@ -1023,7 +1027,7 @@ class CatalogHandler {
             val changeStates = readiness?.changes?.resources.orEmpty().associateBy({ "${it.type}/${it.slug}" }, { it.state })
             // Only the Dependencies page says who depends on this catalog; the others skip the lookup.
             val dependents = if (template == "catalogs/dependencies") ListCatalogDependents(tenantId.key, catalogKey).query() else emptyList()
-            val editsDependencies = authored && drafts.chosen != null
+            val editsDependencies = editable && drafts.chosen != null
             ServerResponse.ok().page(template) {
                 "pageTitle" to when (template) {
                     "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
@@ -1046,13 +1050,13 @@ class CatalogHandler {
                 "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
                 "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
                 // What the version holds, by kind, with a way to add each kind there; nothing is
-                // added to a subscribed catalog, whose content is its publisher's.
+                // added to a catalog that cannot be changed here.
                 "contents" to CatalogContents.of(
                     tenantId.key,
                     segment,
                     result.resources,
                     changeStates,
-                ) { authored && auth.has(it) }
+                ) { editable && auth.has(it) }
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
@@ -1159,7 +1163,7 @@ class CatalogHandler {
             ).execute()
 
             // Details go out with a version, so they are edited on a draft's page: back to it.
-            val back = if (catalog.type == CatalogType.AUTHORED) {
+            val back = if (GetCatalogEditability(tenantId.key, catalog.id).query().editable) {
                 CatalogPages.draft(tenantId, request.catalogSegment())
             } else {
                 CatalogPages.browse(tenantId, request.catalogSegment())
@@ -1270,7 +1274,10 @@ class CatalogHandler {
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         catalogKey: CatalogKey,
     ) = GetCatalog(tenantKey, catalogKey).query()
-        ?.also { require(it.type == CatalogType.AUTHORED) { "Subscribed catalog metadata is read-only." } }
+        ?.also { catalog ->
+            val editability = GetCatalogEditability(tenantKey, catalog.id).query()
+            require(editability.editable) { editability.reason?.explanation ?: "This catalog cannot be changed here." }
+        }
         ?: throw IllegalArgumentException("Catalog not found: ${catalogKey.value}")
 
     private enum class CatalogMetadataSection(val value: String, val title: String) {
@@ -1460,16 +1467,7 @@ class CatalogHandler {
 
         val zipBytes = filePart.inputStream.use { it.readAllBytes() }
 
-        val catalogTypeStr = multipartData["catalogType"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim()
-        } ?: "AUTHORED"
-        val catalogType = try {
-            CatalogType.valueOf(catalogTypeStr)
-        } catch (_: Exception) {
-            return importError(request, "Invalid catalog type: $catalogTypeStr")
-        }
-
-        // Set when the operator confirmed updating an AUTHORED ZIP that is below the
+        // Set when the operator confirmed updating a ZIP that is below the
         // current catalog schema version but migratable (re-submitted from the
         // "update?" prompt).
         val confirmMigration = multipartData["confirmMigration"]?.firstOrNull()?.let {
@@ -1480,7 +1478,9 @@ class CatalogHandler {
             val result = ImportCatalogZip(
                 tenantKey = tenantId.key,
                 zipBytes = zipBytes,
-                catalogType = catalogType,
+                // An import receives the release (ADR 0032): it is installed beside the catalog's
+                // others, and a catalog the tenant does not have yet is created received.
+                newCatalogType = CatalogType.SUBSCRIBED,
                 confirmMigration = confirmMigration,
             ).execute()
 
@@ -1513,7 +1513,7 @@ class CatalogHandler {
                 ),
             )
         } catch (e: CatalogMigrationConfirmationRequiredException) {
-            // AUTHORED ZIP below the current catalog schema version but migratable:
+            // A ZIP below the current catalog schema version but migratable:
             // updating mutates the imported content, so prompt before importing. The
             // "Update" button re-submits the same form with confirmMigration=true.
             fragmentOrPage(

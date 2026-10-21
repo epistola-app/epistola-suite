@@ -51,7 +51,7 @@ import org.springframework.http.HttpStatus
  * Every catalog content page says, in the context bar, what is being changed (docs/workspace-shell.md):
  * the catalog and the next version, with what is not published yet and Publish; side work, named by
  * what it fixes and where that is live, with a strip saying the next version is not affected; or a
- * subscribed catalog that cannot be edited.
+ * catalog that cannot be changed here, and why.
  */
 class CatalogVersionBarTest : BaseIntegrationTest() {
 
@@ -145,14 +145,14 @@ class CatalogVersionBarTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `a subscribed catalog's page shows its version and that it cannot be edited, with nothing to publish`() {
-        val tenant = seed("Version Bar Subscribed")
+    fun `the system catalog's page shows the release it is on and that Epistola supplies it, with nothing to publish`() {
+        val tenant = seed("Version Bar Supplied")
         val installed: String = withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.installedReleaseVersion!! }
         val theme: String = withMediator { ListThemes(TenantId(tenant.id)).query().first { it.catalogKey == SYSTEM_CATALOG_KEY }.id.value }
 
         val body = get(tenant, "/catalogs/system/themes/$theme")
         assertThat(body.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">v$installed<")
-        assertThat(body).contains("data-testid=\"catalog-version-bar-read-only\"").contains("it can't be edited here")
+        assertThat(body.substringAfter("data-testid=\"catalog-version-bar-read-only\"").substringBefore("</span>")).contains(">Supplied by Epistola")
         assertThat(body).doesNotContain("/bar-status").doesNotContain(">Next version<")
     }
 

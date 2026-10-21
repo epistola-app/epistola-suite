@@ -9,6 +9,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
@@ -17,6 +18,7 @@ import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -590,7 +592,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // An import adds the archive's release as it is; there is nothing to merge or replace.
             assertThat(body).doesNotContain("name=\"authoredMode\"")
             assertThat(body).contains("type=\"file\"")
-            assertThat(body).contains("name=\"catalogType\"")
+            // An import receives the release, whatever the catalog: there is no type to choose (ADR 0032).
+            assertThat(body).doesNotContain("name=\"catalogType\"").doesNotContain("Subscribed").doesNotContain("Authored")
+            assertThat(body).contains("Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next version afterwards.")
             // It is a fragment, not the whole page (no app shell).
             assertThat(body).doesNotContain("<html")
         }
@@ -602,9 +606,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         given { t = tenant("Catalog Import No File") }
 
         whenever {
-            // Multipart POST with a catalogType part but NO file part.
+            // Multipart POST with another part but NO file part.
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "AUTHORED")
+            payload.add("confirmMigration", "false")
             val headers = HttpHeaders().apply {
                 contentType = MediaType.MULTIPART_FORM_DATA
                 add("HX-Request", "true")
@@ -666,7 +670,6 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "SUBSCRIBED")
             payload.add(
                 "file",
                 HttpEntity(
@@ -696,6 +699,10 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Redirect"))
                 .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
+            // A catalog the tenant did not have is created received, and can be changed here.
+            val imported = withMediator { GetCatalog(consumer.id, CatalogKey.of("epistola-demo")).query() }
+            assertThat(imported?.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(withMediator { GetCatalogEditability(consumer.id, CatalogKey.of("epistola-demo")).query().editable }).isTrue()
         }
     }
 

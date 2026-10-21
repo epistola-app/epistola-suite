@@ -153,7 +153,7 @@ class ExchangeCatalogHandler {
     /**
      * The upgrade dialog for an Exchange catalog.
      *
-     * Release metadata only, not the resource-by-resource diff a URL-subscribed catalog gets: that
+     * Release metadata only, not the resource-by-resource diff a catalog from a manifest URL gets: that
      * diff is built by walking a manifest, and an Exchange release is an archive. What the dialog
      * can say instead is the guarantee — a failed resource abandons the whole upgrade — which is
      * the thing a reader actually needs before pressing the button.
@@ -176,6 +176,8 @@ class ExchangeCatalogHandler {
                 "tenantId" to tenantKey,
                 "catalogId" to catalogKey.value,
                 "catalog" to catalog,
+                // The catalog's highest release, received or released here, as the catalog list shows it.
+                "highestRelease" to catalog?.highestReleaseVersion,
                 "detail" to detail,
                 "canInstall" to canInstall(tenantKey),
             ),

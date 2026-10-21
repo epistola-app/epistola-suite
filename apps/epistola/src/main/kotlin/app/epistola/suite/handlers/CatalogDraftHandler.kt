@@ -41,7 +41,7 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 /**
- * Starting and discarding drafts of an authored catalog (contract ADR 0002), from the catalog page. Publishing is
+ * Starting and discarding drafts of a catalog that can be changed here (contract ADR 0002), from the catalog page. Publishing is
  * [CatalogHandler]; which draft a page works in is the route's catalog segment ([CatalogSegment]).
  */
 @Component

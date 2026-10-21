@@ -4,7 +4,9 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.queries.CatalogEditabilities
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListRecentCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
@@ -44,17 +46,19 @@ class WorkspaceBuilder {
             ?: (model["workspaceCatalog"] as? CatalogSegment)?.let { segment ->
                 runCatching { CatalogDraftBar.of(tenantKey, segment) { VersionSwitch.samePage(path, tenantKey.value, it) ?: "$path?catalog=${it.value}" } }.getOrNull()
             }
+        // One read of which catalogs can be changed here, for both lists.
+        val editability by lazy { ListCatalogEditability(tenantKey).query() }
+        fun link(catalog: Catalog) = catalogLink(tenantKey, catalog, editability, current = catalog.id == bar?.catalogKey)
         val recent = if (auth.has(Permission.CATALOG_VIEW)) {
-            ListRecentCatalogs(tenantKey).query()
-                .map { CatalogLink(it.id.value, it.name, it.type == CatalogType.AUTHORED, CatalogPages.browse(TenantId(tenantKey), CatalogSegment(it.id)), it.id == bar?.catalogKey) }
+            ListRecentCatalogs(tenantKey).query().map(::link)
         } else {
             emptyList()
         }
         val catalogs = if (auth.has(Permission.CATALOG_VIEW)) {
             ListCatalogs(tenantKey).query()
                 .filter { it.id != SYSTEM_CATALOG_KEY }
-                .sortedWith(compareBy({ it.type != CatalogType.AUTHORED }, { it.name.lowercase() }))
-                .map { CatalogLink(it.id.value, it.name, it.type == CatalogType.AUTHORED, CatalogPages.browse(TenantId(tenantKey), CatalogSegment(it.id)), it.id == bar?.catalogKey) }
+                .map(::link)
+                .sortedWith(compareBy({ !it.editable }, { it.name.lowercase() }))
         } else {
             emptyList()
         }
@@ -71,6 +75,12 @@ class WorkspaceBuilder {
     }
 
     companion object {
+        /** A catalog for the switcher and the tenant nav, saying whether it can be changed here. */
+        fun catalogLink(tenantKey: TenantKey, catalog: Catalog, editability: CatalogEditabilities, current: Boolean): CatalogLink {
+            val reason = editability.of(catalog.id)?.reason
+            return CatalogLink(catalog.id.value, catalog.name, editability.editable(catalog.id), CatalogPages.browse(TenantId(tenantKey), CatalogSegment(catalog.id)), current, reason?.label)
+        }
+
         private const val LAST_CATALOG = "epistola.workspace.lastCatalog"
         private const val SEPARATOR = "\u001F"
 
@@ -82,10 +92,10 @@ class WorkspaceBuilder {
             val tenant = "/tenants/${bar.tenantKey.value}"
             val label = when {
                 publishedVersion != null -> publishedVersion
-                !bar.authored -> bar.shown?.let { "v${it.version}" } ?: "Not installed"
+                !bar.editable -> bar.shown?.let { "v${it.version}" } ?: "No release yet"
                 else -> bar.draftTitle ?: CatalogDraft.NEXT_LABEL
             }
-            val versions = if (bar.authored) {
+            val versions = if (bar.editable) {
                 bar.draftLinks.map { link ->
                     VersionLink(
                         label = link.label,
@@ -108,7 +118,7 @@ class WorkspaceBuilder {
                 sideWork = bar.onParallelWork,
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
-                statusHref = if (bar.authored && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
+                statusHref = if (bar.editable && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
                 versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/versions",
             )
         }

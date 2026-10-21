@@ -6,7 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.GetAvailablePresets
 import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
@@ -270,10 +270,7 @@ class DocumentTemplateHandler(
 
     /**
      * The full-page list model, used by the newForm / create non-HTMX branches
-     * so the list renders behind the embedded create dialog. `authoredCatalogs`
-     * (the dialog's catalog `<select>` source) is threaded separately — the list
-     * already puts *all* `catalogs` in the model for its filter, so the dialog
-     * uses a distinct key to avoid rendering the wrong (non-authored) options.
+     * so the list renders behind the embedded create dialog.
      */
     private fun ModelBuilder.templatePageModel(
         request: ServerRequest,
@@ -290,10 +287,8 @@ class DocumentTemplateHandler(
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         // Fragment models are lazy, so only the branch that renders evaluates —
-        // one ListCatalogs per request, shared by the list filter and the
-        // dialog's authored-only <select>.
+        // one ListCatalogs per request, for the list behind the dialog.
         val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         // The catalog the list is filtered to, carried by every trigger. Without it the dialog
         // opens on whichever catalog happens to sort first, which is rarely the one being looked
         // at — so the choice on screen is silently dropped on the way into the form.
@@ -304,7 +299,6 @@ class DocumentTemplateHandler(
                 "tenantId" to tenantId.key
                 // Opened inside a catalog (or a draft of one), the dialog creates there.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
                 "selectedCatalog" to selectedCatalog
             }
             // Direct navigation / boost: the host list page with the dialog
@@ -315,7 +309,6 @@ class DocumentTemplateHandler(
                     // The embedded dialog creates in this catalog, draft or not.
                     "draftSegment" to request.catalogSegment()
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -366,12 +359,10 @@ class DocumentTemplateHandler(
         if (result.hasErrors()) {
             // One ListCatalogs whichever branch renders (fragment models are lazy).
             val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
-                // the list) with inline errors + preserved values. `tenantId` and
-                // `authoredCatalogs` are the prefill the form fragment needs to
-                // rebuild its action URL and catalog <select>.
+                // the list) with inline errors + preserved values. `tenantId` is the
+                // prefill the form fragment needs to rebuild its action URL.
                 dialogFieldErrors(
                     template = "templates/new",
                     fragmentName = "template-form",
@@ -380,7 +371,6 @@ class DocumentTemplateHandler(
                 ) {
                     "tenantId" to tenantId.key
                     "draftSegment" to request.catalogParam()
-                    "authoredCatalogs" to authoredCatalogs
                 }
                 onFullPage {
                     page(422, "templates/list") {
@@ -390,7 +380,6 @@ class DocumentTemplateHandler(
                         // The embedded dialog creates in this catalog, draft or not.
                         "draftSegment" to request.catalogSegment()
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }
@@ -560,7 +549,7 @@ class DocumentTemplateHandler(
                 "catalogId" to catalogId.value
                 "catalogSegment" to request.catalogSegment().value
                 "template" to template
-                "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
             }
             onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
@@ -600,7 +589,7 @@ class DocumentTemplateHandler(
             "catalogId" to catalogId.value
             "catalogSegment" to request.catalogSegment().value
             "template" to template
-            "editable" to (template.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+            "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
         }
         return request.htmx {
             fragment("templates/detail/settings", "name-input", model)
@@ -668,7 +657,7 @@ class DocumentTemplateHandler(
                 "template" to updated
                 "themes" to themes
                 "themeCatalogs" to themeCatalogs
-                "editable" to (updated.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED)
+                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
             }
             onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")

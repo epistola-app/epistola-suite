@@ -84,8 +84,8 @@
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${attr.createdAt}" th:title="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions" th:if="${auth.has('TENANT_SETTINGS')}">
-                            <span th:if="${attr.catalogType.name() == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <th:block th:if="${attr.catalogType.name() == 'AUTHORED'}">
+                            <span th:unless="${catalogEditing.editable(attr.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(attr.catalogKey)}">Read-only</span>
+                            <th:block th:if="${catalogEditing.editable(attr.catalogKey)}">
                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
                                         th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/edit(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogKey) ?: attr.catalogKey},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"

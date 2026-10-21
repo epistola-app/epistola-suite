@@ -15,7 +15,7 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * The catalog page's view of an authored catalog's versions (docs/catalog-working-model.md, contract
+ * The catalog page's view of the versions of a catalog that can be changed here (docs/catalog-working-model.md, contract
  * ADR 0002 amendment 2): the next version, parallel work next to it, and the published versions.
  */
 class CatalogDraftBarVersionsTest {
@@ -46,7 +46,7 @@ class CatalogDraftBarVersionsTest {
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,
         catalogName = "Letters",
-        authored = true,
+        editable = true,
         segment = segment,
         drafts = drafts,
         releases = releases,
@@ -133,5 +133,19 @@ class CatalogDraftBarVersionsTest {
             "/tenants/acme/catalogs/letters@$redesignId/drafts/discard",
             "/tenants/acme/catalogs/letters/releases/1.2.0/delete",
         )
+    }
+
+    @Test
+    fun `the releases of a catalog Epistola supplies are not offered for deleting, those of a received catalog are`() {
+        val releases = listOf(release("1.2.0"))
+        val supplied = bar(emptyList(), releases).copy(editable = false, suppliedByEpistola = true, mayDeleteReleases = true)
+        assertThat(supplied.versionRows.map { it.label to it.offerRemove }).containsExactly("v1.2.0" to false)
+        assertThat(supplied.removalWithheld).`as`("nothing for a role to fix").isFalse()
+
+        // Read-only because the installation only runs releases: its own releases can still be removed.
+        val runOnly = bar(emptyList(), releases).copy(editable = false, mayDeleteReleases = true)
+        assertThat(runOnly.versionRows.single().offerRemove).isTrue()
+        assertThat(runOnly.offerCreateDraft).isFalse()
+        assertThat(runOnly.offerRelease).isFalse()
     }
 }

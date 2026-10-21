@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.versions.CatalogVersion
 import app.epistola.suite.catalog.versions.CatalogVersionStatus
 import app.epistola.suite.common.ids.CatalogKey
@@ -41,13 +42,13 @@ class WorkspaceScopeTest {
         drafts: List<CatalogVersion>,
         releases: List<CatalogVersion>,
         segment: CatalogSegment = CatalogSegment(letters),
-        authored: Boolean = true,
+        readOnlyReason: CatalogReadOnlyReason? = null,
         installed: CatalogVersion? = null,
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,
         catalogName = "Letters",
-        authored = authored,
+        editable = readOnlyReason == null,
         segment = segment,
         drafts = drafts,
         releases = releases,
@@ -55,6 +56,7 @@ class WorkspaceScopeTest {
         mayOpenDrafts = true,
         mayDiscardDrafts = true,
         installed = installed,
+        readOnlyReason = readOnlyReason,
         pageAt = { "/tenants/acme/catalogs/${it.value}/templates" },
     )
 
@@ -75,14 +77,20 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `a published version's page and a subscribed catalog each say so`() {
+    fun `a published version's page and a catalog that cannot be changed here each say so`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), "v1.1.0, published", "/tenants/acme/catalogs/letters/releases/1.1.0", everything).versionLabel)
             .isEqualTo("v1.1.0, published")
 
-        val subscribed = WorkspaceBuilder.scope(bar(emptyList(), published, authored = false, installed = release("1.2.0")), null, "/", everything)
-        assertThat(subscribed.versionLabel).isEqualTo("v1.2.0")
-        assertThat(subscribed.readOnly).isTrue()
-        assertThat(subscribed.statusHref).`as`("nothing to publish in a subscribed catalog").isNull()
+        val supplied = WorkspaceBuilder.scope(bar(emptyList(), published, readOnlyReason = CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA, installed = release("1.2.0")), null, "/", everything)
+        assertThat(supplied.versionLabel).isEqualTo("v1.2.0")
+        assertThat(supplied.readOnly).isTrue()
+        assertThat(supplied.readOnlyLabel).isEqualTo("Supplied by Epistola")
+        assertThat(supplied.offerVersionMenu).isFalse()
+        assertThat(supplied.statusHref).`as`("nothing to publish in a catalog that cannot be changed here").isNull()
+
+        val runOnly = WorkspaceBuilder.scope(bar(emptyList(), emptyList(), readOnlyReason = CatalogReadOnlyReason.EDITING_DISABLED), null, "/", everything)
+        assertThat(runOnly.versionLabel).isEqualTo("No release yet")
+        assertThat(runOnly.readOnlyLabel).isEqualTo("This installation only runs releases")
     }
 
     @Test

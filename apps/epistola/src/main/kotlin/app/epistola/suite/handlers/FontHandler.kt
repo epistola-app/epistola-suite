@@ -9,7 +9,6 @@ import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.versions.CatalogVersionRef
@@ -70,8 +69,8 @@ class FontHandler(
     /**
      * Font management list page (mirrors `AssetHandler.list`). Lists font
      * families for the tenant (optionally filtered by catalog), each annotated
-     * with its weight/italic faces and whether its catalog is editable
-     * (AUTHORED) or read-only (SUBSCRIBED, e.g. `system`).
+     * with its weight/italic faces; whether its catalog can be changed here
+     * the template asks `catalogEditing`.
      */
     fun list(request: ServerRequest): ServerResponse = ServerResponse.ok().page("fonts/list") { fontPageModel(request) }
 
@@ -79,16 +78,10 @@ class FontHandler(
      * Upload dialog (mirrors `AssetHandler.newForm`). URL-addressable create
      * convention: an in-app trigger (hx-get) gets just the dialog fragment;
      * direct navigation / boost gets the host list page with the dialog embedded
-     * and opened. Only AUTHORED catalogs are offered as upload targets —
-     * SUBSCRIBED catalogs reject writes — under the distinct `authoredCatalogs`
-     * key so it doesn't collide with the list's own `catalogs` filter var.
+     * and opened, uploading into the catalog it was opened on.
      */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        // One ListCatalogs whichever branch renders (fragment models are lazy):
-        // the list filter uses all catalogs, the dialog's <select> the authored subset.
-        val allCatalogs by lazy { ListCatalogs(tenantKey).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             fragment("fonts/new", "dialog") {
                 "tenantId" to tenantKey.value
@@ -96,13 +89,11 @@ class FontHandler(
                 // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
                 // creates there, rather than in whichever catalog sorts first.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
             }
             onFullPage {
                 page("fonts/list") {
                     fontPageModel(request)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -141,7 +132,7 @@ class FontHandler(
      * Upload handler: creates an `assets` row per provided face, then upserts
      * the family + variants via [ImportFont]. The form submits a repeating set
      * of faces — parallel `file` / `weight` / `italic` fields, one entry per
-     * row. At least one face file is required. AUTHORED catalogs only.
+     * row. At least one face file is required. Only in a catalog that can be changed here.
      */
     fun upload(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
@@ -263,7 +254,7 @@ class FontHandler(
         if (faceError != null) errors["faces"] = faceError
 
         // Persist only when everything validated. UploadAsset/ImportFont can still
-        // reject a read-only (SUBSCRIBED) catalog — fold that onto the catalog field.
+        // reject a catalog that cannot be changed here — fold that onto the catalog field.
         if (errors.isEmpty()) {
             try {
                 val importVariants = rows.map { row ->
@@ -302,9 +293,6 @@ class FontHandler(
             // Browser dialog (HTMX): OOB-swap the per-field spans only — never
             // re-render the form body (file inputs + added face rows would be lost).
             if (request.isHtmx) {
-                val authoredCatalogs by lazy {
-                    ListCatalogs(tenantKey).query().filter { it.type == CatalogType.AUTHORED }
-                }
                 return request.htmx {
                     dialogFieldErrorsOob("fonts/new", "field-errors", errors)
                     // Boosted full-page submit: re-render the host page with the
@@ -314,7 +302,6 @@ class FontHandler(
                         page(422, "fonts/list") {
                             fontPageModel(request)
                             "openDialog" to true
-                            "authoredCatalogs" to authoredCatalogs
                             "errors" to errors
                         }
                     }
@@ -347,7 +334,7 @@ class FontHandler(
     }
 
     /**
-     * Delete a font family + its uploaded binaries (AUTHORED only). Surfaces
+     * Delete a font family + its uploaded binaries (a catalog that can be changed here only). Surfaces
      * [FontInUseException] the same way `AssetHandler.delete` surfaces
      * `AssetInUseException` — a JSON 400 the confirm dialog renders inline.
      */
@@ -407,7 +394,6 @@ class FontHandler(
             "name" to font.name,
             "kind" to font.kind.wire,
             "catalogKey" to font.catalogKey.value,
-            "catalogType" to (font.catalogType?.name ?: CatalogType.AUTHORED.name),
             "variants" to faces,
         )
     }

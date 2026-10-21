@@ -6,8 +6,12 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogDependencyGraph
+import app.epistola.suite.catalog.queries.CatalogEditabilities
+import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.CatalogGraphEdge
 import app.epistola.suite.catalog.queries.CatalogGraphNode
+import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
+import app.epistola.suite.common.ids.CatalogKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -53,5 +57,19 @@ class CatalogGraphViewTest {
 
         assertThat(view(focus = "unrelated").nodes.map { it.key }).containsExactly("unrelated")
         assertThat(view(focus = "unrelated").edges).isEmpty()
+    }
+
+    @Test
+    fun `a catalog that cannot be changed here says why under its name, whatever its type`() {
+        // `shared` is typed SUBSCRIBED, as a received catalog is; it can be changed here, so nothing marks it.
+        val received = graph.copy(nodes = graph.nodes.map { if (it.catalogKey == "shared") it.copy(type = CatalogType.SUBSCRIBED) else it })
+        val editability = CatalogEditabilities(
+            received.nodes.associate { node ->
+                CatalogKey.of(node.catalogKey) to CatalogEditability(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA.takeIf { node.catalogKey == "base" })
+            },
+        )
+        val details = CatalogGraphView.of(received, readOnlyLabel = CatalogGraphView.readOnlyLabels(editability)) { "/c/$it" }.nodes.associate { it.key to it.detail }
+        assertThat(details.getValue("base")).isEqualTo("Supplied by Epistola · base")
+        assertThat(details.getValue("shared")).`as`("received, and can be changed here").isEqualTo("shared")
     }
 }

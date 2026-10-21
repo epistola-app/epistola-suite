@@ -22,7 +22,6 @@ export interface ResourceNode {
   key: string;
   name: string;
   catalogName: string;
-  catalogType: string;
 }
 
 /**

@@ -135,7 +135,6 @@ class ResourceGraphHandler {
         "key" to node.address.key,
         "name" to node.name,
         "catalogName" to node.catalogName,
-        "catalogType" to node.catalogType,
     )
 
     private fun edgeDto(edge: ResourceEdge) = mapOf(

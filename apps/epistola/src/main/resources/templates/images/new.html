@@ -31,7 +31,7 @@
           hx-encoding="multipart/form-data"
           hx-target="#asset-list" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='upload-image-error')}"></div>
-        <!--/* The catalog it uploads into refusing (a subscribed one is read-only): said above the fields. */-->
+        <!--/* The catalog it uploads into refusing (one that cannot be changed here): said above the fields. */-->
         <span th:replace="~{epistola-web/form-error :: field-error(id='image-catalog-error', message=${errors?.get('catalog')}, oob=${false})}"></span>
         <div class="ep-dialog-body">
             <div class="form-group">

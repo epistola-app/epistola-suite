@@ -226,7 +226,7 @@ epistola:
       # Redirects one fetch follows; each is checked as if it were the first request.
       max-redirects: 3
     upstream-check:
-      # Ask each subscribed catalog's source, on a schedule, whether it has published anything
+      # Ask each catalog's source, on a schedule, whether it has published anything
       # newer, so a release can be noticed without anyone opening the catalogs page. On by
       # default: subscribing to a catalog is already a decision to talk to its source, and the
       # on-demand check has always made the same request. Turn it off to make every check manual.

@@ -15,11 +15,11 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 
 /**
- * A subscribed catalog cannot be changed here, so its lists offer nothing to create
- * (.agents/rules/ui-affordances.md): the bar says why. They used to offer New and Upload, and the
- * form was refused only once filled in. An authored catalog's lists still offer them.
+ * A catalog Epistola supplies (a `classpath:` source, ADR 0032) cannot be changed here, so its lists
+ * offer nothing to create (.agents/rules/ui-affordances.md): the bar says why. They used to offer New
+ * and Upload, and the form was refused only once filled in. A catalog made here still offers them.
  */
-class SubscribedCatalogListsHtmxTest : BaseIntegrationTest() {
+class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
@@ -29,10 +29,10 @@ class SubscribedCatalogListsHtmxTest : BaseIntegrationTest() {
     private val create = Regex(""">\s*(New (Template|Theme|Stencil|Attribute|Code List)|Upload (Image|Font))\s*<""")
 
     @Test
-    fun `a subscribed catalog's lists offer nothing to create, an authored one's do`() = fixture {
+    fun `a supplied catalog's lists offer nothing to create and say why, one made here offers them`() = fixture {
         lateinit var tenantKey: String
         given {
-            val tenant = tenant("Subscribed Lists")
+            val tenant = tenant("Supplied Lists")
             tenantKey = tenant.id.value
             withMediator {
                 RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
@@ -43,12 +43,13 @@ class SubscribedCatalogListsHtmxTest : BaseIntegrationTest() {
         then {
             val pages = result<Map<String, String>>()
             pages.forEach { (list, page) ->
-                assertThat(page).`as`(list).contains("Subscribed: it can't be edited here")
-                assertThat(create.find(page)?.value).`as`("$list offers to create in a subscribed catalog").isNull()
+                assertThat(page).`as`(list).contains("data-testid=\"catalog-version-bar-read-only\"").contains(">Supplied by Epistola<")
+                assertThat(create.find(page)?.value).`as`("$list offers to create in a supplied catalog").isNull()
             }
             lists.forEach { list ->
-                val authored = restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/$list", String::class.java).body!!
-                assertThat(create.find(authored)).`as`("$list in the authored catalog").isNotNull()
+                val own = restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/$list", String::class.java).body!!
+                assertThat(create.find(own)).`as`("$list in a catalog made here").isNotNull()
+                assertThat(own).doesNotContain("data-testid=\"catalog-version-bar-read-only\"")
             }
             assertThat(pages.getValue("templates")).`as`("the list is the catalog's, not every template").contains("The templates in this catalog.")
         }

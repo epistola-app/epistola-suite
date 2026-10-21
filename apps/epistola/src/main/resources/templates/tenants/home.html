@@ -102,13 +102,13 @@
                         <div class="catalog-tile-title">
                             <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}"
                                th:text="${catalog.name}" data-testid="catalog-overview-name">Letters</a>
-                            <span class="badge" th:classappend="${catalog.authored} ? 'badge-info' : 'badge-default'"
-                                  th:text="${catalog.authored} ? 'Authored' : 'Subscribed'">Authored</span>
+                            <span th:unless="${catalog.editable}" class="badge badge-default" data-testid="catalog-overview-read-only"
+                                  th:title="${catalog.readOnlyReason.explanation}" th:text="${catalog.readOnlyReason.label}">Supplied by Epistola</span>
                         </div>
                         <div class="text-muted text-xs" th:text="${catalog.namespace} + '/' + ${catalog.catalogKey}">acme/letters</div>
                     </div>
                     <dl class="description-list catalog-tile-body">
-                        <th:block th:if="${catalog.authored}">
+                        <th:block th:if="${catalog.editable}">
                             <dt>Working on</dt>
                             <dd>
                                 <div th:if="${catalog.next == null}" data-testid="catalog-overview-no-draft">

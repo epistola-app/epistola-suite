@@ -11,8 +11,8 @@
  * A catalog chooser lets the author pick images from any catalog the tenant
  * can access (defaulting to the template's own catalog). The chosen asset
  * carries its `catalogKey`, so the reference works across catalogs. Uploads
- * are only possible into AUTHORED catalogs, so the upload zone is disabled
- * while a read-only (SUBSCRIBED) catalog is selected.
+ * are only possible into a catalog that can be changed here, so the upload
+ * zone is disabled while a read-only catalog is selected.
  */
 
 export interface AssetInfo {
@@ -29,8 +29,8 @@ export interface AssetInfo {
 export interface CatalogInfo {
   key: string;
   name: string;
-  /** AUTHORED catalogs accept uploads; SUBSCRIBED ones are read-only. */
-  type: string;
+  /** Whether the catalog can be changed here, and so accepts uploads. */
+  editable: boolean;
 }
 
 export interface AssetPickerCallbacks {
@@ -89,7 +89,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     let selectedAsset: AssetInfo | null = null;
     let currentCatalogKey = callbacks.defaultCatalogKey;
-    const catalogTypeByKey = new Map<string, string>();
+    const editableByKey = new Map<string, boolean>();
 
     const close = (result: AssetInfo | null) => {
       dialog.close();
@@ -163,11 +163,9 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         });
     }
 
-    /** Uploads need an AUTHORED catalog; lock the zone for read-only catalogs. */
+    /** Uploads need a catalog that can be changed here; lock the zone for read-only catalogs. */
     function applyUploadAvailability(catalogKey: string) {
-      const readOnly =
-        catalogTypeByKey.get(catalogKey) !== undefined &&
-        catalogTypeByKey.get(catalogKey) !== 'AUTHORED';
+      const readOnly = editableByKey.get(catalogKey) === false;
       uploadZone.classList.toggle('disabled', readOnly);
       fileInput.disabled = readOnly;
     }
@@ -178,7 +176,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       .then((catalogs) => {
         catalogSelect.innerHTML = '';
         for (const catalog of catalogs) {
-          catalogTypeByKey.set(catalog.key, catalog.type);
+          editableByKey.set(catalog.key, catalog.editable);
           const option = document.createElement('option');
           option.value = catalog.key;
           option.textContent = catalog.name;
@@ -197,8 +195,8 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       })
       .catch(() => {
         // Chooser stays empty; fall back to loading the template's catalog.
-        // We couldn't enumerate catalogs, so the default catalog's type is
-        // unknown — disable uploads rather than assume it's editable (the
+        // We couldn't enumerate catalogs, so whether the default catalog can be
+        // changed is unknown — disable uploads rather than assume it's editable (the
         // backend guards too). loadAssets still shows whatever it can read.
         uploadZone.classList.add('disabled');
         fileInput.disabled = true;

@@ -160,9 +160,9 @@
             <div th:replace="~{epistola-web/form-error :: form-error(id='exchange-install-error')}"></div>
             <div class="ep-dialog-body">
                 <div class="form-group">
-                    <span class="ep-label">Installed</span>
+                    <span class="ep-label">Highest release here</span>
                     <p style="margin: var(--ep-space-1) 0 0;">
-                        <strong th:text="${catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : '—'}"></strong>
+                        <strong th:text="${highestRelease != null ? 'v' + highestRelease : '—'}"></strong>
                     </p>
                 </div>
                 <div class="form-group" th:if="${!detail.installable.isEmpty()}">

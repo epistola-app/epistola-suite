@@ -26,7 +26,7 @@
                 <th:block th:replace="~{epistola-web/icon :: icon(name='book-open', class='ep-icon ep-icon-xl')}" />
             </div>
             <div class="empty-state-title">No catalogs yet</div>
-            <div class="empty-state-description">Create an authored catalog for your own resources, or subscribe to an external catalog to import templates, themes, and more.</div>
+            <div class="empty-state-description">Create a catalog for your own templates, themes and more, or install one from a source or a file.</div>
         </div>
 
         <div th:if="${!catalogs.isEmpty()}"
@@ -36,7 +36,7 @@
             <colgroup>
                 <col style="width: 18%" /><!-- Name -->
                 <col style="width: 15%" /><!-- ID -->
-                <col style="width: 13%" /><!-- Type -->
+                <col style="width: 13%" /><!-- Editing -->
                 <col style="width: 20%" /><!-- Version -->
                 <col style="width: 17%" /><!-- Last Modified -->
                 <col style="width: 17%" /><!-- Actions -->
@@ -45,7 +45,7 @@
                 <tr>
                     <th>Name</th>
                     <th>ID</th>
-                    <th>Type</th>
+                    <th>Editing</th>
                     <th>Version</th>
                     <th>Last Modified</th>
                     <th></th>
@@ -59,20 +59,24 @@
                     </td>
                     <td th:title="${catalog.id}"><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                     <td>
-                        <span th:if="${catalog.type.name() == 'AUTHORED'}" class="badge badge-info">Authored</span>
-                        <span th:if="${catalog.type.name() == 'SUBSCRIBED'}" class="badge badge-default">Subscribed</span>
+                        <!--/* Whether it can be changed here, not where its releases come from (ADR 0032). */-->
+                        <span th:if="${catalogEditing.editable(catalog.id)}" class="badge badge-info" data-testid="catalog-list-editable">Can be changed</span>
+                        <span th:unless="${catalogEditing.editable(catalog.id)}" class="badge badge-default" data-testid="catalog-list-read-only"
+                              th:text="${catalogEditing.readOnlyLabel(catalog.id)}">Supplied by Epistola</span>
                     </td>
                     <td>
-                        <th:block th:if="${catalog.type.name() == 'AUTHORED'}">
-                            <th:block th:if="${catalog.releasedVersion}">
-                                <span th:text="'v' + ${catalog.releasedVersion}"></span>
+                        <!--/* Without a source: its highest release, and whether it has changed since. */-->
+                        <th:block th:unless="${catalog.hasSource}" th:with="highest=${versionStatus[catalog.id]?.installedVersion}">
+                            <th:block th:if="${highest}">
+                                <span th:text="'v' + ${highest}"></span>
                                 <span th:if="${row.pendingChanges}"
                                       class="text-muted"
-                                      th:title="'Working copy changed since the last release — Export will download v' + ${catalog.releasedVersion} + '-dev'">· pending changes</span>
+                                      th:title="'Working copy changed since the last release — Export will download v' + ${highest} + '-dev'">· pending changes</span>
                             </th:block>
-                            <span th:unless="${catalog.releasedVersion}" class="text-muted">unreleased</span>
+                            <span th:unless="${highest}" class="text-muted">unreleased</span>
                         </th:block>
-                        <th:block th:unless="${catalog.type.name() == 'AUTHORED'}"
+                        <!--/* With a source: what it is on, and whether the source offers something newer. */-->
+                        <th:block th:if="${catalog.hasSource}"
                                   th:with="catalogId=${catalog.id}, status=${versionStatus[catalog.id]}">
                             <span th:id="${'catver-' + catalog.id}">
                                 <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
@@ -92,14 +96,14 @@
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <button type="button" th:if="${catalog.type.name() == 'AUTHORED'}"
+                        <button type="button" th:if="${catalogEditing.editable(catalog.id)}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Release new version"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
-                                th:if="${catalog.type.name() == 'SUBSCRIBED' and catalog.sourceUrl != null}"
+                                th:if="${catalog.hasSource}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
@@ -108,8 +112,8 @@
                         <button type="button"
                                 class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                 th:disabled="${catalog.id == 'system'}"
-                                th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : (${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog and all its resources' : 'Remove catalog')"
-                                th:attr="data-confirm-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog &quot;' + ${catalog.name} + '&quot; and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.' : 'Remove this subscribed catalog and all imported resources? This cannot be undone.'"
+                                th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : 'Delete catalog and all its resources'"
+                                th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every version of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
                                 th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 data-confirm-target="#catalog-list">
@@ -472,7 +476,7 @@
         </dialog>
     </th:block>
 
-    <!-- Per-row SUBSCRIBED version + update status, rendered into the Version
+    <!-- Per-row version + update status of a catalog with a source, rendered into the Version
          cell's #catver-<id> span. Explicit/user-driven: the row's
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
          returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
@@ -483,7 +487,7 @@
          Review dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
          schema version than this Epistola and must republish it. CSP-safe
          (hx-get only). -->
-    <!-- The Version cell for a subscribed catalog. `status` is a CatalogVersionStatusView
+    <!-- The Version cell for a catalog with a source. `status` is a CatalogVersionStatusView
          resolved on the server, so this switch is the only place the states are rendered and
          the list and the check button cannot disagree about what any of them look like. -->
     <th:block th:fragment="version-status" th:switch="${status?.state}">
@@ -531,7 +535,7 @@
         </span>
 
         <span th:case="'ZIP_MANAGED'" class="text-muted"
-              title="ZIP-managed — no source URL. Import a newer ZIP as a Subscribed catalog to upgrade it.">
+              title="No source to ask for newer releases: import a newer ZIP to receive one.">
             <span th:text="${status.installedVersion != null ? 'v' + status.installedVersion : '-'}">-</span>
             <span style="font-size: var(--ep-text-xs);">· ZIP</span>
         </span>

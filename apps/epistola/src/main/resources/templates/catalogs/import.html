@@ -49,20 +49,7 @@
                 <input type="file" id="import-file" name="file" class="ep-input"
                        accept=".zip,application/zip" required />
             </div>
-            <div class="form-group">
-                <label class="ep-label">Catalog type</label>
-                <div class="ep-row ep-gap-4" style="margin-top: var(--ep-space-2);">
-                    <label class="ep-row">
-                        <input type="radio" name="catalogType" value="AUTHORED" checked />
-                        Authored
-                    </label>
-                    <label class="ep-row">
-                        <input type="radio" name="catalogType" value="SUBSCRIBED" />
-                        Subscribed (read-only)
-                    </label>
-                </div>
-                <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only. Chosen once: importing into a catalog you have keeps its type and adds the archive's release.</span>
-            </div>
+            <p class="form-hint" data-testid="catalog-import-hint">Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next version afterwards.</p>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
@@ -92,12 +79,12 @@
          (CatalogHandler.importError). -->
     <div th:fragment="import-error-reset" id="import-error" hx-swap-oob="outerHTML"></div>
 
-    <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
+    <!-- Inline "update?" prompt for the Import ZIP dialog: a ZIP below
          the current catalog schema version that the migration chain can upgrade.
          Importing migrates (mutates) the content, so we confirm first. The button
          is a submit inside the import form (this renders into the in-form
          `#import-error` slot), so it re-submits the same file with
-         confirmMigration=true. SUBSCRIBED is never offered this — it is blocked. -->
+         confirmMigration=true. -->
     <th:block th:fragment="import-migration-confirm">
         <div class="alert alert-warning">
             <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />

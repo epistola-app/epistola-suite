@@ -4,9 +4,10 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogDependencyGraph
+import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.CatalogGraphEdge
+import app.epistola.suite.common.ids.CatalogKey
 
 /**
  * The catalog dependency graph laid out for drawing as SVG on the server (the CSP allows no graph
@@ -45,9 +46,15 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
 
         /**
          * Lays out [graph]. With [focus], only that catalog, what it depends on and what depends on it,
-         * each followed transitively. [hrefOf] links a catalog the tenant has.
+         * each followed transitively. [hrefOf] links a catalog the tenant has; [readOnlyLabel] says why
+         * one cannot be changed here ("Supplied by Epistola"), or null when it can.
          */
-        fun of(graph: CatalogDependencyGraph, focus: String? = null, hrefOf: (String) -> String): CatalogGraphView {
+        fun of(
+            graph: CatalogDependencyGraph,
+            focus: String? = null,
+            readOnlyLabel: (String) -> String? = { null },
+            hrefOf: (String) -> String,
+        ): CatalogGraphView {
             val missingKey = { edge: CatalogGraphEdge -> edge.to ?: "missing:${edge.toIdentity}" }
             var edges = graph.edges.filter { it.from != missingKey(it) }
             val names = graph.nodes.associate { it.catalogKey to it }
@@ -56,10 +63,13 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
                 val usedBy = reach(focus, edges.groupBy({ missingKey(it) }, { it.from }))
                 val keep = uses + usedBy + focus
                 edges = edges.filter { (it.from in uses + focus && missingKey(it) in uses) || (it.from in usedBy && missingKey(it) in usedBy + focus) }
-                return place(names.keys.filter { it in keep } + edges.map(missingKey).filter { it !in names }.distinct(), edges, missingKey, names, focus, hrefOf)
+                return place(names.keys.filter { it in keep } + edges.map(missingKey).filter { it !in names }.distinct(), edges, missingKey, names, focus, readOnlyLabel, hrefOf)
             }
-            return place(names.keys.toList() + edges.map(missingKey).filter { it !in names }.distinct(), edges, missingKey, names, null, hrefOf)
+            return place(names.keys.toList() + edges.map(missingKey).filter { it !in names }.distinct(), edges, missingKey, names, null, readOnlyLabel, hrefOf)
         }
+
+        /** [of]'s `readOnlyLabel` for a tenant's catalogs: why each cannot be changed here. */
+        fun readOnlyLabels(editability: CatalogEditabilities): (String) -> String? = { key -> CatalogKey.validateOrNull(key)?.let { editability.of(it)?.reason?.label } }
 
         /** Every key reachable from [start] along [next], [start] excluded. */
         private fun reach(start: String, next: Map<String, List<String>>): Set<String> {
@@ -78,6 +88,7 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
             target: (CatalogGraphEdge) -> String,
             names: Map<String, app.epistola.suite.catalog.queries.CatalogGraphNode>,
             focus: String?,
+            readOnlyLabel: (String) -> String?,
             hrefOf: (String) -> String,
         ): CatalogGraphView {
             if (keys.isEmpty()) return CatalogGraphView(0, 0, emptyList(), emptyList())
@@ -98,8 +109,7 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
                         label = label(key),
                         detail = when {
                             node == null -> "Not in this tenant: ${key.removePrefix("missing:")}"
-                            node.type == CatalogType.SUBSCRIBED -> "Subscribed · ${node.catalogKey}"
-                            else -> node.catalogKey
+                            else -> readOnlyLabel(node.catalogKey)?.let { "$it · ${node.catalogKey}" } ?: node.catalogKey
                         },
                         x = MARGIN + col * (BOX_WIDTH + COLUMN_GAP),
                         y = MARGIN + row * (BOX_HEIGHT + ROW_GAP),

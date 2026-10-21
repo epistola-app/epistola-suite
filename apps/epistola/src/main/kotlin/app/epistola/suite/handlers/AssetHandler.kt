@@ -11,7 +11,7 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.AssetKey
@@ -111,16 +111,19 @@ class AssetHandler(
 
     /**
      * Catalogs the tenant can pick images from, as JSON for the editor asset
-     * picker's catalog chooser. Same data source as the Images list dropdown
+     * picker's catalog chooser, each saying whether it can be changed here, which
+     * an upload needs. Same data source as the Images list dropdown
      * ([ListCatalogs]); a UI handler, never the REST API.
      */
     fun catalogs(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val editability = ListCatalogEditability(tenantId).query()
         val catalogList = ListCatalogs(tenantId).query().map { catalog ->
             mapOf(
                 "key" to catalog.id.value,
                 "name" to catalog.name,
-                "type" to catalog.type.name,
+                // Uploads go only into a catalog that can be changed here (ADR 0032).
+                "editable" to editability.editable(catalog.id),
             )
         }
         return ServerResponse.ok()
@@ -132,14 +135,10 @@ class AssetHandler(
      * Upload dialog (mirrors `FontHandler.newForm`). URL-addressable create
      * convention: an in-app trigger (hx-get) gets just the dialog fragment;
      * direct navigation / boost gets the host list page with the dialog embedded
-     * and opened. Only AUTHORED catalogs are offered as upload targets (under the
-     * distinct `authoredCatalogs` key so it doesn't collide with the list's own
-     * `catalogs` filter var).
+     * and opened, uploading into the catalog it was opened on.
      */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val allCatalogs by lazy { ListCatalogs(tenantId).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             fragment("images/new", "dialog") {
                 "tenantId" to tenantId.value
@@ -147,13 +146,11 @@ class AssetHandler(
                 // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
                 // creates there, rather than in whichever catalog sorts first.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
             }
             onFullPage {
                 page("images/list") {
                     imagePageModel(request)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -256,16 +253,12 @@ class AssetHandler(
             // Browser dialog (HTMX): OOB-swap the per-field spans only — never
             // re-render the form body (the chosen file would be lost).
             if (request.isHtmx) {
-                val authoredCatalogs by lazy {
-                    ListCatalogs(tenantId).query().filter { it.type == CatalogType.AUTHORED }
-                }
                 return request.htmx {
                     dialogFieldErrorsOob("images/new", "field-errors", errors)
                     onFullPage {
                         page(422, "images/list") {
                             imagePageModel(request)
                             "openDialog" to true
-                            "authoredCatalogs" to authoredCatalogs
                             "errors" to errors
                         }
                     }
