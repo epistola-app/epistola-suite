@@ -103,7 +103,7 @@
                             <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
-                                th:if="${catalog.hasSource}"
+                                th:if="${catalog.hasSource and !#strings.startsWith(catalog.sourceUrl, 'oci:')}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
                                 th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
@@ -506,10 +506,12 @@
                   th:text="${status.installedVersion != null ? 'v' + status.installedVersion : '—'}">v1.0.0</span>
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-breathe" style="font-weight: 500;"
                     th:title="${'Update available' + (status.availableVersion != null ? ' — v' + status.availableVersion : '') + '. Review the changes before applying.'}"
-                    th:hx-get="${status.fromExchange}
+                    th:hx-get="${status.registrySource != null}
+                        ? @{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId},registry=${status.registrySource?.registry},namespace=${status.registrySource?.namespace},catalogKey=${status.registrySource?.catalogKey})}
+                        : (${status.fromExchange}
                         ? @{/tenants/{tenantId}/catalogs/{catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}
-                        : @{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})}"
-                    hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
+                        : @{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})})"
+                    th:attr="hx-target=${status.registrySource != null ? '#dialog-mount' : '#upgrade-dialog-container'}" hx-swap="innerHTML"
                     data-testid="catalog-upgrade-review">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='circle-arrow-up', class='ep-icon ep-icon-sm')}" />
                 <span th:text="${status.availableVersion != null ? 'v' + status.availableVersion : 'update available'}">v1.1.0</span>
@@ -630,6 +632,15 @@
                 data-testid="catalog-import-open">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
             Import ZIP
+        </button>
+        <!-- Alpha: only when the installation has a container registry configured (registryInstallAvailable). -->
+        <button type="button" class="ep-btn ep-btn-outline"
+                th:if="${registryInstallAvailable}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId})}"
+                hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                data-testid="catalog-registry-open">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon')}" />
+            From a registry
         </button>
         <button type="button" class="ep-btn ep-btn-outline"
                 th:if="${auth.has('CATALOG_MANAGE')}"

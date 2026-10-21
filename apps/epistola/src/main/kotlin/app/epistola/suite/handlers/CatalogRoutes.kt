@@ -19,6 +19,7 @@ class CatalogRoutes(
     private val drafts: CatalogDraftHandler,
     private val themeSettings: CatalogThemeSettingsHandler,
     private val merge: CatalogMergeHandler,
+    private val registry: CatalogRegistryHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -32,6 +33,11 @@ class CatalogRoutes(
             GET("/exchange/search", exchange::search)
             GET("/exchange/{namespace}/{catalogKey}", exchange::detail)
             POST("/exchange/{namespace}/{catalogKey}/install", exchange::install)
+            // Getting a release from a container registry (alpha). Before the {catalogId} routes,
+            // like Exchange: `registry` is a legal catalog slug, and `/{catalogId}/install` exists.
+            GET("/registry", registry::getDialog)
+            GET("/registry/releases", registry::releases)
+            POST("/registry/install", registry::install)
             GET("/new", handler::newForm)
             GET("/subscribe", handler::registerForm)
             POST("/subscribe", handler::register)
@@ -90,6 +96,8 @@ class CatalogRoutes(
             GET("/{catalogId}/usages", handler::resourceUsages)
             GET("/{catalogId}/export-check", handler::exportCheck)
             GET("/{catalogId}/export", handler::export)
+            GET("/{catalogId}/registry-publish", registry::publishDialog)
+            POST("/{catalogId}/registry-publish", registry::publish)
             GET("/{catalogId}/install-preview", handler::installPreview)
             POST("/{catalogId}/install", handler::install)
             GET("/{catalogId}/upgrade-check", handler::upgradeCheck)

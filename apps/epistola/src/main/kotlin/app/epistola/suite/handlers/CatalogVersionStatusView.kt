@@ -11,6 +11,8 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.UpstreamAvailability
 import app.epistola.suite.catalog.queries.GetCatalogUpstreamStates
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
+import app.epistola.suite.catalog.registry.ListCatalogRegistries
+import app.epistola.suite.catalog.registry.RegistrySourceUri
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.exchange.ExchangeSourceUri
 import app.epistola.suite.exchange.ResolveCatalogInstallAvailability
@@ -38,6 +40,8 @@ data class CatalogVersionStatusView(
     val detail: String?,
     /** Whether applying an upgrade goes through the Exchange dialog rather than the manifest diff. */
     val fromExchange: Boolean,
+    /** Where a catalog installed from a container registry gets its releases; null for any other. */
+    val registrySource: RegistrySourceUri? = null,
 ) {
     companion object {
         const val UNCHECKED = "UNCHECKED"
@@ -120,8 +124,9 @@ internal fun ModelBuilder.catalogListModel(tenantKey: TenantKey) {
                 upstream[row.catalog.id],
                 CATALOG_SCHEMA_VERSION,
                 fromExchange = ExchangeSourceUri.matches(row.catalog.sourceUrl),
-            ),
+            ).copy(registrySource = RegistrySourceUri.parse(row.catalog.sourceUrl)),
         )
     }
     "exchangeInstallAvailable" to ResolveCatalogInstallAvailability(tenantKey).query()
+    "registryInstallAvailable" to CatalogRegistryHandler.canInstall(tenantKey, ListCatalogRegistries(tenantKey).query())
 }

@@ -18,6 +18,11 @@
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
                title="One file with the versions of the other catalogs it uses, to install where they are not"
                hx-boost="false" download>Export with what it uses</a>
+            <button th:if="${registryPublishAvailable}" type="button" class="ep-btn ep-btn-outline"
+                    data-testid="release-registry-publish"
+                    title="Put this version in a container registry, so another installation can get it"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Publish to registry&hellip;</button>
         </th:block>
 
         <!--/* What a published version is for: where it is live, and what can still be done with it.

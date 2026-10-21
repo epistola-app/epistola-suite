@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Moving catalog releases through a container registry (alpha, ADR 0032 section 7), rendered by
+    CatalogRegistryHandler. Offered only when the installation has a registry configured.
+
+      - `get-dialog`     — "Get a release from a registry": registry, namespace and key, then the
+                           versions it holds (`releases`, swapped into #registry-releases), then
+                           install one. Success refreshes the catalog list (dialogSuccess).
+      - `publish-dialog` — "Publish to registry" for one release; success swaps `publish-done` in
+                           place of the form (dialogReveal), so the reader sees where it went.
+    -->
+    <th:block th:fragment="get-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='registry-get-dialog',
+            title='Get a release from a registry',
+            closeUrl=@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            content=~{::registry-get-body})}"></div>
+    </th:block>
+
+    <th:block th:fragment="registry-get-body">
+        <div class="ep-dialog-body">
+            <p style="margin-top: 0;">
+                <span class="badge badge-alpha">Alpha</span>
+                A container registry carries released versions between your own installations, for
+                example from acceptance to production.
+            </p>
+            <div th:if="${!registries.available}" class="alert alert-info" data-testid="registry-none">
+                No container registry is set up for this installation. An administrator adds one in the
+                configuration (<code>epistola.catalog.registries</code>).
+            </div>
+            <form th:if="${registries.available}" id="registry-find-form"
+                  th:hx-get="@{/tenants/{tenantId}/catalogs/registry/releases(tenantId=${tenantId})}"
+                  hx-target="#registry-releases" hx-swap="innerHTML">
+                <div class="form-group" th:if="${registries.registries.size() > 1}">
+                    <label class="ep-label" for="registry-name">Registry</label>
+                    <select id="registry-name" name="registry" class="ep-select" data-testid="registry-name">
+                        <option th:each="r : ${registries.registries}" th:value="${r.name}"
+                                th:selected="${r.name == registry}"
+                                th:text="${r.name + ' (' + r.location + ')'}"></option>
+                    </select>
+                </div>
+                <th:block th:if="${registries.registries.size() == 1}">
+                    <input type="hidden" name="registry" th:value="${registries.registries[0].name}">
+                    <p class="text-muted text-sm">From <strong th:text="${registries.registries[0].location}">registry.example.com</strong>.</p>
+                </th:block>
+                <div class="form-group">
+                    <label class="ep-label" for="registry-namespace">Namespace</label>
+                    <input type="text" id="registry-namespace" name="namespace" class="ep-input" required
+                           minlength="3" maxlength="63" th:value="${namespace}" data-testid="registry-namespace">
+                    <span class="form-hint">The namespace the catalog is published under, shown on its details in the other installation.</span>
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="registry-catalog-key">Catalog ID</label>
+                    <input type="text" id="registry-catalog-key" name="catalogKey" class="ep-input" required
+                           minlength="3" maxlength="50" th:value="${catalogKey}" data-testid="registry-catalog-key">
+                </div>
+                <button type="submit" class="ep-btn ep-btn-outline" data-testid="registry-find">Show versions</button>
+            </form>
+            <div id="registry-releases" style="margin-top: var(--ep-space-4);">
+                <th:block th:if="${asked}">
+                    <th:block th:replace="~{catalogs/registry :: releases}"></th:block>
+                </th:block>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="registry-get-dialog">Close</button>
+        </div>
+    </th:block>
+
+    <!-- The versions a registry holds of one catalog, and the form that gets one. -->
+    <th:block th:fragment="releases">
+        <div th:if="${releasesError != null}" class="alert alert-error" data-testid="registry-releases-error"
+             th:text="${releasesError}">The registry could not be asked.</div>
+        <th:block th:if="${found != null}">
+            <div th:if="${found.conflict != null}" class="alert alert-error" data-testid="registry-conflict"
+                 th:text="${found.conflict}"></div>
+            <p th:if="${found.releases.isEmpty()}" data-testid="registry-no-releases">
+                The registry has no versions of <code th:text="${found.namespace + '/' + found.catalogKey}">acme/letters</code>.
+                Check the namespace and ID, or publish a version to it from the other installation first.
+            </p>
+            <p th:if="${found.conflict == null and !found.releases.isEmpty() and !found.installable}" data-testid="registry-all-present">
+                This tenant has every version the registry holds already.
+            </p>
+            <form th:if="${found.installable}" id="registry-install-form"
+                  th:hx-post="@{/tenants/{tenantId}/catalogs/registry/install(tenantId=${tenantId})}"
+                  hx-swap="none">
+                <div th:replace="~{epistola-web/form-error :: form-error(id='registry-install-error')}"></div>
+                <input type="hidden" name="registry" th:value="${found.registry}">
+                <input type="hidden" name="namespace" th:value="${found.namespace}">
+                <input type="hidden" name="catalogKey" th:value="${found.catalogKey}">
+                <div class="form-group">
+                    <label class="ep-label" for="registry-version">Version</label>
+                    <select id="registry-version" name="version" class="ep-select" required data-testid="registry-version">
+                        <option th:each="r : ${found.releases}" th:value="${r.version}" th:disabled="${r.present}"
+                                th:text="${'v' + r.version + (r.present ? ' (already here)' : ' — ' + (r.sizeBytes / 1024) + ' KB')}"></option>
+                    </select>
+                    <span class="form-hint">
+                        The download is checked against the registry's digest, and the version's content
+                        against its fingerprint. If anything does not match, nothing is installed.
+                    </span>
+                </div>
+                <button type="submit" class="ep-btn ep-btn-primary" data-testid="registry-install-submit">Get this version</button>
+            </form>
+        </th:block>
+    </th:block>
+
+    <!-- Publishing one release. -->
+    <th:block th:fragment="publish-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='registry-publish-dialog',
+            title='Publish to a registry',
+            content=~{::registry-publish-form})}"></div>
+    </th:block>
+
+    <form th:fragment="registry-publish-form" id="registry-publish-form"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId})}"
+          hx-swap="none">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='registry-publish-error')}"></div>
+        <div class="ep-dialog-body">
+            <p style="margin-top: 0;">
+                <span class="badge badge-alpha">Alpha</span>
+                <strong th:text="'v' + ${version}">v1.0.0</strong> is put in the registry, exactly as
+                published here, where another installation can get it.
+            </p>
+            <p class="form-hint">
+                When the registry has this version already, nothing changes. When it has other content
+                under the same number, publishing is refused: one number names one version.
+            </p>
+            <input type="hidden" name="version" th:value="${version}">
+            <div class="form-group" th:if="${registries.registries.size() > 1}">
+                <label class="ep-label" for="registry-publish-name">Registry</label>
+                <select id="registry-publish-name" name="registry" class="ep-select" data-testid="registry-publish-name">
+                    <option th:each="r : ${registries.registries}" th:value="${r.name}"
+                            th:text="${r.name + ' (' + r.location + ')'}"></option>
+                </select>
+            </div>
+            <th:block th:if="${registries.registries.size() == 1}">
+                <input type="hidden" name="registry" th:value="${registries.registries[0].name}">
+                <p>To <strong th:text="${registries.registries[0].location}">registry.example.com</strong>.</p>
+            </th:block>
+            <div th:if="${!registries.available}" class="alert alert-info">
+                No container registry is set up for this installation.
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="registry-publish-dialog">Cancel</button>
+            <button th:if="${registries.available}" type="submit" class="ep-btn ep-btn-primary"
+                    data-testid="registry-publish-submit" th:text="'Publish v' + ${version}">Publish</button>
+        </div>
+    </form>
+
+    <!-- In place of the publish form once it is done. -->
+    <div th:fragment="publish-done" id="registry-publish-form">
+        <div class="ep-dialog-body">
+            <div class="alert alert-success" data-testid="registry-published">
+                <div>
+                    <th:block th:if="${publication.alreadyPublished}">The registry had this version already; nothing was changed.</th:block>
+                    <th:block th:unless="${publication.alreadyPublished}">Published.</th:block>
+                    Another installation gets it as <code th:text="${publication.reference}">registry/acme/letters:1.0.0</code>.
+                </div>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-primary" data-close-dialog="registry-publish-dialog">Close</button>
+        </div>
+    </div>
+</body>
+</html>
