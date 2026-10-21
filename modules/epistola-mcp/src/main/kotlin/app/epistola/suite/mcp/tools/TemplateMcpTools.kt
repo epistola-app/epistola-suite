@@ -153,7 +153,7 @@ class TemplateMcpTools(
 
     @McpTool(
         name = "create_template",
-        description = "Create a template in an AUTHORED catalog. The template starts with a default variant " +
+        description = "Create a template in a catalog that can be changed here. The template starts with a default variant " +
             "holding an empty document, and an empty data contract. Fill the document with " +
             "`update_variant_content`, describe its input data with `update_data_contract`, and add " +
             "further variants with `create_variant`. Optionally pick a theme and the default variant's " +
@@ -162,7 +162,7 @@ class TemplateMcpTools(
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createTemplate(
-        @McpToolParam(description = "Catalog key to create the template in. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to create the template in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Key for the new template: lowercase letters, digits and hyphens, e.g. `invoice-letter`.")
         templateId: String,

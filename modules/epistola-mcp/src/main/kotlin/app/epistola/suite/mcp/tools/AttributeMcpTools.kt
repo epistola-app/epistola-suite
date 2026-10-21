@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mcp.dto.AttributeInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -36,7 +37,7 @@ class AttributeMcpTools(
         description = "List variant attribute definitions in the current tenant. " +
             "Optionally narrow by catalog. Returns the full definition: " +
             "constraint kind (allowedValues / codeListBinding / free), " +
-            "catalog origin, and readOnly flag for SUBSCRIBED-catalog attributes.",
+            "catalog origin, and `editable` / `readOnly`: whether its catalog can be changed here.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listAttributes(
@@ -48,7 +49,10 @@ class AttributeMcpTools(
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
         return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
-            .map { AttributeInfo.from(it) }
+            .let { definitions ->
+                val editability = catalogEditability()
+                definitions.map { AttributeInfo.from(it, editability.editable(it.catalogKey)) }
+            }
     }
 
     @McpTool(
@@ -67,6 +71,6 @@ class AttributeMcpTools(
     ): AttributeInfo? {
         val tenantId = TenantId(mcpTenantKey())
         val id = AttributeId(AttributeKey.of(attributeKey), CatalogId(CatalogKey.of(catalogId), tenantId))
-        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it) }
+        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogKey)) }
     }
 }

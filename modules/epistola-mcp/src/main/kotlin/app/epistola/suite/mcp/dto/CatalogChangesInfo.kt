@@ -7,7 +7,7 @@ package app.epistola.suite.mcp.dto
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 
 /**
- * What an authored catalog's next release would contain that its last one did not, resource by
+ * What the next release of a catalog that can be changed here would contain that its last one did not, resource by
  * resource, and whether each changed resource is marked ready. [releasable] is false while a changed
  * resource is not ready.
  */

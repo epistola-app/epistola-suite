@@ -10,7 +10,9 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
+import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.sources.AvailableCatalogReleases
@@ -19,10 +21,12 @@ import app.epistola.suite.mcp.dto.CatalogDependencyInfo
 import app.epistola.suite.mcp.dto.CatalogDependencyInput
 import app.epistola.suite.mcp.dto.CatalogInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
@@ -37,15 +41,20 @@ class CatalogMcpTools(
         description = "List catalogs available in the current tenant. " +
             "Catalogs hold templates, themes, and stencils; most other tools " +
             "require a `catalogId` argument that comes from this list. " +
-            "AUTHORED catalogs are editable; SUBSCRIBED catalogs are read-only mirrors of remote sources.",
+            "Each says whether it can be changed here (`editable`), and if not why (`readOnlyReason`): the catalogs " +
+            "Epistola supplies never are, and none are in an installation that only runs releases. `source` says " +
+            "where its releases come from; `releasedVersion` is its highest release, released here or received.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
-    fun listCatalogs(): List<CatalogInfo> = mediator.query(ListCatalogs(mcpTenantKey()))
-        .map { CatalogInfo.from(it) }
+    fun listCatalogs(): List<CatalogInfo> {
+        val editability = catalogEditability()
+        return mediator.query(ListCatalogs(mcpTenantKey()))
+            .map { CatalogInfo.from(it, editability.of(it.id) ?: CatalogEditability(null)) }
+    }
 
     @McpTool(
         name = "create_catalog",
-        description = "Create an empty AUTHORED catalog in the current tenant, to hold the templates, themes, " +
+        description = "Create an empty catalog in the current tenant, to hold the templates, themes, " +
             "stencils and images you then create in it (pass its key as `catalogId`). Fails when a catalog " +
             "with that key exists. Requires the CATALOG_MANAGE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
@@ -60,26 +69,27 @@ class CatalogMcpTools(
         name: String,
         @McpToolParam(description = "Optional description.", required = false)
         description: String?,
-    ): CatalogInfo = CatalogInfo.from(
-        CreateCatalog(
+    ): CatalogInfo {
+        val catalog = CreateCatalog(
             tenantKey = mcpTenantKey(),
             id = CatalogKey.of(catalogId),
             name = name,
             description = description?.takeIf { it.isNotBlank() },
-        ).execute(),
-    )
+        ).execute()
+        return CatalogInfo.from(catalog, GetCatalogEditability(catalog.tenantKey, catalog.id).query())
+    }
 
     @McpTool(
         name = "list_available_catalog_releases",
-        description = "List the releases a SUBSCRIBED catalog's source offers that this tenant has not installed, " +
+        description = "List the releases a catalog's source offers that this tenant has not installed, " +
             "lowest first, older lines included (a fix 1.4.1 while 2.0.0 is installed). Each is compared to the " +
             "closest installed release below it (`comparedTo`), with the resources it added, modified or removed " +
             "against that one and the releases of other catalogs it pins, each with whether it is here. Read-only: " +
-            "installing one is not available over MCP. `catalogId` comes from `list_catalogs` (SUBSCRIBED catalogs only).",
+            "installing one is not available over MCP. `catalogId` comes from `list_catalogs` (catalogs with a `source` only).",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listAvailableCatalogReleases(
-        @McpToolParam(description = "Catalog key of a SUBSCRIBED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog with a `source`. From `list_catalogs`.")
         catalogId: String,
     ): AvailableCatalogReleases = mediator.query(ListAvailableCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId)))
 
@@ -101,7 +111,7 @@ class CatalogMcpTools(
 
     @McpTool(
         name = "update_catalog_dependencies",
-        description = "Replace the catalogs an AUTHORED catalog depends on, in the order given. Each names " +
+        description = "Replace the catalogs a catalog that can be changed here depends on, in the order given. Each names " +
             "another catalog of this tenant by key and pins the exact `release` of it to render with (not a " +
             "range), or, to build on work not released yet, one of its drafts by `draftId`. Neither: its highest " +
             "release. Using another catalog's resource declares that catalog by itself, naming its next version. " +
@@ -110,7 +120,7 @@ class CatalogMcpTools(
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun updateCatalogDependencies(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here. From `list_catalogs`.")
         catalogId: String,
         @McpToolParam(description = "Every dependency, as `{catalogId, release?, draftId?}`; an empty list declares none.")
         dependencies: List<CatalogDependencyInput>,
@@ -127,7 +137,7 @@ class CatalogMcpTools(
                 target.registry,
                 target.namespace,
                 key.value,
-                releaseVersion = release ?: if (draft == null) target.releasedVersion ?: target.installedReleaseVersion else null,
+                releaseVersion = release ?: if (draft == null) target.highestReleaseVersion else null,
                 versionId = draft,
             )
         }
@@ -136,13 +146,13 @@ class CatalogMcpTools(
 
     @McpTool(
         name = "upgrade_catalog_dependencies",
-        description = "Move every dependency pin of an AUTHORED catalog to the highest release of it, as " +
+        description = "Move every dependency pin of a catalog that can be changed here to the highest release of it, as " +
             "upgrading a library does; a dependency naming a draft stays on that draft. The catalog's next " +
             "release is cut with the result, and its drafts render with it. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun upgradeCatalogDependencies(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here. From `list_catalogs`.")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,

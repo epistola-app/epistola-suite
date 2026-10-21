@@ -4,7 +4,9 @@
 
 package app.epistola.suite.mcp.support
 
+import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
@@ -38,10 +40,15 @@ internal fun catalogFilter(catalogId: String?): CatalogKey? {
     return key
 }
 
+/**
+ * Whether each of the tenant's catalogs can be changed here (ADR 0032), read once for a tool that
+ * returns resources of several catalogs.
+ */
+internal fun catalogEditability(): CatalogEditabilities = ListCatalogEditability(mcpTenantKey()).query()
+
 /** The description of the optional `catalogVersion` argument of every tool that addresses catalog content. */
 internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or parallel work by its " +
-    "`draftId` from `list_catalog_versions`. Omit for the catalog's current version: its next version (a SUBSCRIBED " +
-    "catalog's installed release)."
+    "`draftId` from `list_catalog_versions`. Omit for the catalog's current version: its next version."
 
 /**
  * The draft a tool's `catalogVersion` argument names, of catalog [catalogId], or null for its current

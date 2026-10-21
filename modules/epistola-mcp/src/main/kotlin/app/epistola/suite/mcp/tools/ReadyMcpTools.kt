@@ -38,13 +38,13 @@ class ReadyMcpTools {
 
     @McpTool(
         name = "get_catalog_changes",
-        description = "List what an AUTHORED catalog's next release would contain that its last one did not: " +
+        description = "List what the next release of a catalog that can be changed here would contain that its last one did not: " +
             "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`) and whether it " +
             "is marked ready. `releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getCatalogChanges(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
@@ -111,13 +111,13 @@ class ReadyMcpTools {
 
     @McpTool(
         name = "mark_catalog_ready",
-        description = "Mark every new or modified resource of an AUTHORED catalog ready in one action, and return " +
+        description = "Mark every new or modified resource of a catalog that can be changed here ready in one action, and return " +
             "the changes that remain. Stops at the first resource that cannot be marked. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun markCatalogReady(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,

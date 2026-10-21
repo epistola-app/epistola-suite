@@ -96,14 +96,14 @@ class ThemeMcpTools(
 
     @McpTool(
         name = "create_theme",
-        description = "Create a theme in an AUTHORED catalog: document-level styles, page settings and named " +
+        description = "Create a theme in a catalog that can be changed here: document-level styles, page settings and named " +
             "block style presets that templates share. Each styling argument is a JSON string in the shape " +
             "`get_theme` returns for the same field. Apply it to a template with `update_template`. " +
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createTheme(
-        @McpToolParam(description = "Catalog key to create the theme in. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to create the theme in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Key for the new theme: lowercase letters, digits and hyphens, e.g. `corporate`.")
         themeId: String,

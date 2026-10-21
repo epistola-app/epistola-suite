@@ -33,7 +33,7 @@ import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
 
 /**
- * The versions of an AUTHORED catalog (contract ADR 0002): its drafts, each released on its own, and
+ * The versions of a catalog that can be changed here (contract ADR 0002): its drafts, each released on its own, and
  * its releases. Every version has a `versionId`, which a draft keeps when it is released. Which draft
  * is the next version, where everyday work goes and which the content tools address by default, is a
  * convention of this suite. Each tool dispatches the command the UI and REST API use, so the same
@@ -61,7 +61,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "start_draft",
-        description = "Start a draft of an AUTHORED catalog, named (e.g. \"Redesign 2027\" or \"Fixes 1.4\"), released on " +
+        description = "Start a draft of a catalog that can be changed here, named (e.g. \"Redesign 2027\" or \"Fixes 1.4\"), released on " +
             "its own. With `from` a release (its number), it starts as a copy of that release, its base: a fix to an older " +
             "line is a draft from a release of that line. With `from` a draft (`next` or its `versionId`), it starts as a " +
             "copy of that draft, unreleased changes included. Without `from`, a copy of the highest release. Fails when " +
@@ -69,7 +69,7 @@ class CatalogVersionMcpTools {
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun startDraft(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "What people call the draft. Unique among the catalog's drafts.")
         name: String,
@@ -85,7 +85,7 @@ class CatalogVersionMcpTools {
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun renameDraft(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "The draft's `versionId`. From `list_catalog_versions`.")
         draft: String,
@@ -97,7 +97,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "discard_draft",
-        description = "Discard a draft of an AUTHORED catalog and everything changed in it. Discarding the next version " +
+        description = "Discard a draft of a catalog that can be changed here and everything changed in it. Discarding the next version " +
             "(`next`) throws its changes away: it starts again as a copy of the latest release. Releases cannot be " +
             "deleted here. Refused while another catalog's draft builds on it, and while the draft alone holds something " +
             "used outside it, such as the tenant's default theme; the error names it. Confirm with the user first: this " +
@@ -105,7 +105,7 @@ class CatalogVersionMcpTools {
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = true, idempotentHint = false),
     )
     fun discardDraft(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "`next`, or a draft's `versionId`. From `list_catalog_versions`.")
         draft: String,
@@ -124,7 +124,7 @@ class CatalogVersionMcpTools {
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun previewReleaseNumber(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
@@ -136,7 +136,7 @@ class CatalogVersionMcpTools {
 
     @McpTool(
         name = "release_draft",
-        description = "Release a draft of an AUTHORED catalog (the next version unless `draft` names another), numbered " +
+        description = "Release a draft of a catalog that can be changed here (the next version unless `draft` names another), numbered " +
             "as its changes need against its base (`preview_release_number`) unless `version` asks for a higher free " +
             "number. Its changed resources must be marked ready (`get_catalog_changes`). A draft behind releases is " +
             "released only when `acknowledgedBehind` names every one. One that builds on drafts of other catalogs is " +
@@ -148,7 +148,7 @@ class CatalogVersionMcpTools {
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun releaseDraft(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,

@@ -21,6 +21,7 @@ import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mcp.dto.FontInfo
 import app.epistola.suite.mcp.dto.FontVariantInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
 import app.epistola.suite.mcp.support.mcpTenantKey
@@ -56,8 +57,8 @@ class FontMcpTools(
             "roboto, lato, source-sans-3, source-serif-4, merriweather, lora, " +
             "jetbrains-mono, and liberation-sans, metric-compatible with Helvetica " +
             "and Arial). Each entry carries the family's faces as " +
-            "{weight (1-1000), italic} pairs and a `readOnly` flag for " +
-            "SUBSCRIBED-catalog (e.g. `system`) families.",
+            "{weight (1-1000), italic} pairs and `editable` / `readOnly`: whether its catalog " +
+            "can be changed here (never `system`).",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listFonts(
@@ -72,6 +73,7 @@ class FontMcpTools(
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
         val version = catalogVersionRef(catalogId, catalogVersion)
+        val editability = catalogEditability()
         return mediator.query(ListFonts(tenantId = tenantId, catalogKey = filter, catalogVersion = version))
             .map { font ->
                 val variants = mediator.query(
@@ -80,13 +82,13 @@ class FontMcpTools(
                         catalogVersion = version,
                     ),
                 ).map { FontVariantInfo(it.weight, it.italic) }
-                FontInfo.from(font, variants)
+                FontInfo.from(font, variants, editability.editable(font.catalogKey))
             }
     }
 
     @McpTool(
         name = "upload_font",
-        description = "Create or replace a font family in an AUTHORED catalog from TTF/OTF files, one per face " +
+        description = "Create or replace a font family in a catalog that can be changed here from TTF/OTF files, one per face " +
             "(weight + italic). Uploading an existing family replaces all of its faces. Every face must be an " +
             "embeddable TTF or OTF; WOFF/WOFF2 and embedding-restricted fonts are rejected. Use the family in " +
             "styles as `fontFamily: {\"slug\": \"<fontId>\", \"catalogKey\": \"<catalogId>\"}`. " +
@@ -94,7 +96,7 @@ class FontMcpTools(
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun uploadFont(
-        @McpToolParam(description = "Catalog key to upload into. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to upload into. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Family slug: starts with a letter, then lowercase letters, digits, hyphens, e.g. `acme-sans`.")
         fontId: String,
@@ -146,7 +148,7 @@ class FontMcpTools(
         val font = ListFonts(tenantId = tenantId, catalogKey = catalogKey, catalogVersion = version).query().first { it.slug == slug }
         val stored = GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId)), catalogVersion = version).query()
             .map { FontVariantInfo(it.weight, it.italic) }
-        return FontInfo.from(font, stored)
+        return FontInfo.from(font, stored, catalogEditability().editable(catalogKey))
     }
 
     private class Face(val weight: Int, val italic: Boolean, val bytes: ByteArray, val mediaType: AssetMediaType) {
