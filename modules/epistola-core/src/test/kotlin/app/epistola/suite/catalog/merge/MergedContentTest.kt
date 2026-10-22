@@ -221,6 +221,43 @@ class MergedContentTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `merged content awaits review until every part of it is marked ready, and an edit alone does not end it`() {
+        val tenant = bothRetitled("Merge Merged Review")
+        fun awaiting() = GetCatalogResourceChanges(tenant, letters).query().mergedForReview.map { "${it.type}/${it.slug}" }
+        withMediator {
+            assertThat(awaiting()).`as`("nothing merged yet").isEmpty()
+            val sides = GetDraftMergeSides(tenant, letters, "1.1.0", "template/invoice").query()
+            MergeReleaseIntoDraft(tenant, letters, "1.1.0", expectedToken = sides.token, mergedContent = mapOf("template/invoice" to combined(sides))).execute()
+        }
+        withMediator { assertThat(awaiting()).containsExactly("template/invoice") }
+
+        withMediator { retitle(tenant, "initial", "Standard, edited") }
+        withMediator { assertThat(awaiting()).`as`("an edit leaves the rest of the merged content unreviewed").containsExactly("template/invoice") }
+
+        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "initial")).execute() }
+        withMediator { assertThat(awaiting()).`as`("one of its two variants marked").containsExactly("template/invoice") }
+
+        withMediator { app.epistola.suite.templates.commands.variants.MarkVariantReady(variant(tenant, "english")).execute() }
+        withMediator { assertThat(awaiting()).isEmpty() }
+
+        withMediator { retitle(tenant, "english", "English, edited after review") }
+        withMediator {
+            val template = GetCatalogResourceChanges(tenant, letters).query().resources.single { it.type == "template" && it.slug == "invoice" }
+            assertThat(template.ready).isFalse()
+            assertThat(template.mergedForReview).`as`("reviewed since the merge; now an ordinary change").isFalse()
+        }
+    }
+
+    @Test
+    fun `a conflict resolved to a side is not merged content to review`() {
+        val tenant = bothRetitled("Merge Side Not Merged")
+        withMediator {
+            MergeReleaseIntoDraft(tenant, letters, "1.1.0", resolutions = mapOf("template/invoice" to MergeResolution.Ours)).execute()
+            assertThat(GetCatalogResourceChanges(tenant, letters).query().mergedForReview).isEmpty()
+        }
+    }
+
+    @Test
     fun `merged content using a stencil the result does not have refuses the merge`() {
         val tenant = bothRetitled("Merge Merged Missing Stencil")
         withMediator {

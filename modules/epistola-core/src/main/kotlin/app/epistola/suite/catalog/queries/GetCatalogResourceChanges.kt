@@ -73,6 +73,12 @@ data class CatalogResourceChange(
      * needs it; a removed one has no content to mark.
      */
     val ready: Boolean = false,
+    /**
+     * Whether a merge into this draft wrote it as merged content that nobody has reviewed since
+     * ([ReadyMarks.mergedAwaitingReview]): neither side's, so it is reviewed before it is published.
+     * Only a changed resource is.
+     */
+    val mergedForReview: Boolean = false,
 ) {
     /** Whether releasing waits on this resource: it changed and is not ready. */
     val blocksRelease: Boolean get() = state in CHANGED && !ready
@@ -97,6 +103,9 @@ data class CatalogResourceChanges(
 
     /** The changed resources not marked ready, which a release refuses. */
     val notReady: List<CatalogResourceChange> get() = resources.filter { it.blocksRelease }
+
+    /** The changed resources a merge wrote as merged content that await review. */
+    val mergedForReview: List<CatalogResourceChange> get() = resources.filter { it.mergedForReview }
 
     private fun inState(state: CatalogResourceState) = resources.filter { it.state == state }
 }
@@ -130,6 +139,7 @@ class GetCatalogResourceChangesHandler(
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
         val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.tenantKey, query.catalogKey) }
+        val mergedForReview = jdbi.withHandle<Set<String>, Exception> { readyMarks.mergedAwaitingReview(it, query.tenantKey, query.catalogKey) }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
@@ -137,6 +147,7 @@ class GetCatalogResourceChangesHandler(
             name = names[key],
             state = state,
             ready = readiness[key] == true,
+            mergedForReview = state != CatalogResourceState.RELEASED && state != CatalogResourceState.REMOVED && key in mergedForReview,
         )
 
         // Nothing released yet: every resource is new, and that is a complete answer.
