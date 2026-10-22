@@ -40,7 +40,8 @@ class ReadyMcpTools {
         name = "get_catalog_changes",
         description = "List what the next release of a catalog that can be changed here would contain that its last one did not: " +
             "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`) and whether it " +
-            "is marked ready. `releasable` is false while a changed resource is not ready.",
+            "is marked ready; `mergedForReview` marks merged content a merge wrote that nobody has marked ready since, " +
+            "to review with the user. `releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getCatalogChanges(

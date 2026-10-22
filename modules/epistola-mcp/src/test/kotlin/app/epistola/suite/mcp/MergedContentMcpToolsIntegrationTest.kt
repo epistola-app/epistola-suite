@@ -126,6 +126,7 @@ class MergedContentMcpToolsIntegrationTest : IntegrationTestBase() {
             val invoice = readyTools.getCatalogChanges("letters").resources.single { it.type == "template" && it.key == "invoice" }
             assertThat(invoice.state).isEqualTo("MODIFIED")
             assertThat(invoice.ready).`as`("to be reviewed before releasing").isFalse()
+            assertThat(invoice.mergedForReview).`as`("merged content, flagged for review").isTrue()
             assertThat(versionTools.previewMerge("letters", "1.1.0", null).alreadyMerged).isTrue()
         }
     }
