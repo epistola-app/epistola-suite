@@ -59,8 +59,8 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   released, but it still manages its releases. It receives (installs), deploys, rolls back and
   deletes them: those are operating the installation, not editing a catalog, so they check their
   own permission (`CATALOG_MANAGE`) and never editability (`RunOnlyInstallationTest`). Where
-  releases come from does not matter: a received catalog can be changed and released like one made
-  here.
+  releases come from does not matter: a received catalog can be changed like one made here, and is
+  released once its tenant holds its namespace ([below](#who-names-a-catalog-namespaces-granted-to-tenants)).
 - **Receiving a newer release** (an import, an Exchange install, an upgrade from a source) records it
   and, when the next release has no changes of its own, moves the next release to it (a
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
@@ -86,6 +86,59 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
 - **A tenant snapshot** still writes `SUBSCRIBED` for a catalog with a source and `AUTHORED` for any
   other in `snapshot.json`, because the hub shares the format; a restore ignores it and fills every
   catalog's next release.
+
+## Who names a catalog: namespaces granted to tenants
+
+ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority is the contract's
+`registry` member, a domain (`exchange.epistola.app`, an organisation's own `gemeente-x.nl`) or
+`local`. A tenant names catalogs, and issues releases, only in a namespace it holds.
+
+- **Grants** (`tenant_namespace_grants`, [`NamespaceGrantStore`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/namespaces/NamespaceGrants.kt)):
+  one row per tenant, authority and namespace, with how it came to be held (`EXCHANGE_CONNECTION`,
+  `ADMINISTRATOR`, `EXISTING`), when, and who granted it. Several tenants may hold one namespace,
+  and a tenant several; one tenant holds a namespace token under one authority only (ADR 0034,
+  section 2), an application rule over the full-name key, so it can be relaxed without a migration.
+- **How a tenant comes to hold one.** Its Exchange connection grants each namespace the connection
+  grants, under the Exchange's authority (the default registry), when the authorization completes. A
+  grant outlives the connection: a namespace the Exchange stops listing, or a disconnect, leaves the
+  catalogs named in it able to release here, while publishing still asks the connection what it
+  grants now. A platform administrator grants and revokes them (`GrantTenantNamespace`,
+  `RevokeTenantNamespace`, `TENANT_MANAGER`) on the tenant list's **Namespaces** page, and grants one
+  when creating a tenant, whose default catalog is named in it. A tenant created without one (the
+  demo's personal tenants) gets its default catalog under `local/default`. Existing tenants hold,
+  from the migration (`V20261022180032`), the namespaces their Exchange connection grants and those
+  of the catalogs they author: no source (not supplied by Epistola, not installed from the Exchange,
+  a registry or a manifest URL), not a 1.x subscribed copy, and not a file another installation
+  released (a release naming another installation, and none cut here; a release recorded before
+  releases named their installation counts as cut here).
+- **Revoking** is refused while catalogs the tenant authors (no source) are named in the namespace,
+  and the refusal names them (`CATALOG_NAMESPACE_IN_USE`); a received catalog does not block it.
+- **Creating a catalog** (`CreateCatalog`; the create dialog, MCP `create_catalog`): the namespace is
+  chosen, one the tenant holds or `local` with a namespace it picks. Given none, it is the one the
+  tenant holds, or the Exchange default of several; a tenant holding none or several is asked to
+  name one (`CATALOG_NAMESPACE_REQUIRED`), one it does not hold is refused
+  (`CATALOG_NAMESPACE_NOT_HELD`). Nothing is derived from the tenant key. `ChangeCatalogNamespace`
+  moves a catalog only into a namespace its tenant holds under the catalog's authority, or within
+  `local`. The REST API has no create operation; `importCatalog` receives.
+- **Releasing** (`ReleaseCatalogDraft`, so the UI, REST `releaseCatalogDraft` and MCP `release_draft`)
+  needs the tenant to hold the catalog's namespace: the holder issues normal numbers (ADR 0034,
+  section 2). A catalog received from another namespace can be changed here but is released only
+  once the namespace is granted; patch numbers, which a non-holder would issue, wait for phase 5. The
+  page and the release dialog say so instead of offering Publish
+  (`CatalogReleaseReadiness.namespaceRefusal`, from `GetCatalogNamespaceHolding`): "This tenant does
+  not hold the namespace acme (gemeente-x.nl); an administrator can grant it." The 2.0 upgrade's
+  re-recording of what 1.x published is not held to it.
+- **Receiving** (import, install, upgrade, a registry install) needs no grant.
+- **`local`** (ADR 0034, section 7) needs no grant: any tenant names a catalog under it with a
+  namespace it picks, unless it holds that namespace token under another authority. A local catalog
+  is created, changed, released and deployed here, and never published to Epistola Exchange
+  (`CATALOG_NAMESPACE_LOCAL`, also when the connection grants the same token). The contract does not
+  carry `local` yet (its registry rule wants a dot, in the catalog format and in the API's paths), so
+  releasing passes over the format's registry finding for it (`CatalogFingerprintService.requireReleasable`)
+  and nothing makes a local catalog into an archive: export, a container registry, a tenant snapshot
+  and starting a draft from a release (which copies through an archive) are refused in words, and its
+  REST addresses are refused by the API's own pattern. Container registries have no notion of an
+  outside registry, so nothing more is refused there.
 
 ## Catalog versions and drafts
 

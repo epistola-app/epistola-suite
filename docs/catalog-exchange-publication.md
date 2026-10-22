@@ -61,6 +61,10 @@ Suite refuses that action when the working-copy fingerprint differs from the
 release fingerprint, because publishing mutable content under an old version
 would violate the release contract.
 
+A catalog named under `local` (ADR 0034, section 7) is never published: it is not queued when it is
+released, and publishing it is refused (`CATALOG_NAMESPACE_LOCAL`), even when the connection grants
+a namespace of the same name.
+
 A namespace chosen by mistake can be corrected until a release of that catalog has reached
 Exchange; after that the catalog's published coordinates cannot move. That fact is recorded on the
 binding, and the binding deliberately outlives the local catalog: Exchange keeps what was published
@@ -195,7 +199,11 @@ state and S256 PKCE:
    stable human reference such as
    `tc_01HW9TGZT1FCF9Y2CE4XP3Y79M`. The UUID remains the internal and protocol
    identity.
-8. If exactly one namespace is allowed, Suite selects it as the tenant default.
+8. The tenant holds every namespace the connection grants, as a grant through its Exchange
+   connection (ADR 0034, section 3; `docs/catalog-versioning.md`, "Who names a catalog"): it may
+   name new catalogs and issue releases in them. A grant outlives the connection; publishing still
+   checks what the connection grants now.
+9. If exactly one namespace is allowed, Suite selects it as the tenant default.
    If several are allowed, the administrator must choose a default on the same
    Exchange settings page before an unbound catalog can publish.
 

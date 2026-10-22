@@ -1,6 +1,6 @@
 # ADR 0034: Releases are content-addressed; names point at them
 
-- **Status:** Proposed (direction agreed 2026-10-22; implemented in phases)
+- **Status:** Proposed (direction agreed 2026-10-22; implemented in phases, 1 to 3 done)
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -211,7 +211,33 @@ then bindings are trusted as the installation receives them, and the hash still 
      SemVer says; issuing them stays phase 5;
    - `catalog_releases` stays the record of a release under its catalog and number, which is the
      binding; storage is ADR 0033's.
-3. **Namespace grants** per tenant; new catalogs only in a held namespace.
+3. **Namespace grants** per tenant; new catalogs only in a held namespace. _Done_ (22 October 2026,
+   branch `feat/namespace-grants`; `docs/catalog-versioning.md`, "Who names a catalog"):
+   - `tenant_namespace_grants` records each tenant's namespaces by authority, how they came to be
+     held (Exchange connection, administrator, existing) and when; a platform administrator grants
+     and revokes them on the tenant list's Namespaces page, and a tenant is created with one, in
+     which its default catalog is named. One tenant holds a namespace token under one authority,
+     as an application rule.
+   - **Existing data**: each tenant holds the namespaces its Exchange connection grants, and those
+     of the catalogs it authors, by ADR 0032's source rule: no source (so neither supplied by
+     Epistola nor installed from the Exchange, a registry or a manifest URL), not a 1.x subscribed
+     copy, and not a file another installation released (a release naming another installation and
+     none cut here). A release recorded before releases named their installation counts as cut
+     here, since every such catalog could be released here until then.
+   - **`local`**: any tenant names catalogs under it with a namespace it picks, without a grant,
+     since nothing outside depends on it, unless it holds that token under another authority. A
+     local catalog is never published to the Exchange. The contract does not carry `local` yet (its
+     registry rule wants a domain, in the catalog format and in the API's paths): a local catalog is
+     released and deployed here, but not made into an archive (export, container registry,
+     snapshot, a draft copied from a release) and not addressable over REST, until the contract
+     accepts it. Container registries have no notion of being outside, so nothing more is refused
+     there. A tenant created without a namespace names its default catalog `local/default/default`.
+   - **Revoking** a namespace that catalogs the tenant authors are named in is refused, naming them;
+     a received catalog does not block it. An Exchange grant outlives the connection; publishing
+     still checks what the connection grants.
+   - Releasing needs the namespace; a received catalog in another namespace is changed here and
+     released once the namespace is granted (patch numbers stay phase 5). Receiving needs no grant.
+     The REST API has no create operation, so it is unchanged.
 4. **Namespace + key** as the unique name in a tenant; key-only lookups removed in steps.
 5. **The patch rule** in releasing.
 6. **Sources per tenant**, changeable; **mirroring**; container paths with the authority.
