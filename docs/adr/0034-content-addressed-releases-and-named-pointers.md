@@ -191,8 +191,25 @@ then bindings are trusted as the installation receives them, and the hash still 
 ## Phasing
 
 1. **Contract:** the V6 fingerprint, aliases, dependencies by hash, lineage by hash, bindings in the
-   manifest.
+   manifest. _Done_ (contract `feature/v2`, `18813c5`..`15de68a`: aliases, V6, patch numbers, 128
+   characters).
 2. **Suite:** releases identified by hash; receiving and moving by hash; numbers as bindings.
+   _Done_ (22 October 2026, branch `refactor/catalog-releases`):
+   - content names other catalogs by alias; the suite declares every dependency under its key
+     (`catalog_dependencies.alias`, `catalog_release_dependencies.alias`) and stores references by
+     catalog key, which is the alias, until phase 4 lets two catalogs share a key; an archive that
+     declares another alias is refused on import (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`), since
+     storing it would rewrite its references and so its content hash. Stored qualifiers were
+     dropped by a migration, resolving as before;
+   - every release records its **content hash** (`catalog_releases.content_hash`, V6): new releases
+     are fingerprinted with V6, older ones keep their fingerprint and get the hash from what they
+     retained (a startup cluster task, or on first use); `ReleaseIdentity` decides every "same
+     release?" question by it, lineage is by hash, pins copy the hash, and every archive names a
+     release by it;
+   - patch release numbers (`1.3.1-gemeente-x.1`, up to 128 characters) are received and ordered as
+     SemVer says; issuing them stays phase 5;
+   - `catalog_releases` stays the record of a release under its catalog and number, which is the
+     binding; storage is ADR 0033's.
 3. **Namespace grants** per tenant; new catalogs only in a held namespace.
 4. **Namespace + key** as the unique name in a tenant; key-only lookups removed in steps.
 5. **The patch rule** in releasing.
@@ -203,8 +220,11 @@ then bindings are trusted as the installation receives them, and the hash still 
 
 ## Open questions
 
-- Exactly what the V6 hash leaves out besides the own name and the release block (catalog
-  description and presentation are content today; are they per release?).
+- ~~Exactly what the V6 hash leaves out besides the own name and the release block (catalog
+  description and presentation are content today; are they per release?).~~ Answered by the
+  contract (ADR 0003, amendment of 2026-10-22): V6 leaves out the catalog's presentation (name,
+  description, keywords, presentation, attributes, publisher, includes) and the wire version; the most
+  recently received presentation wins.
 - How a binding is carried in an archive and in a container registry (a signed statement beside the
   layer, as cosign does, or in the manifest).
 - The signature scheme and key distribution per authority.
