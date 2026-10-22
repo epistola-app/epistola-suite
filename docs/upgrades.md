@@ -132,7 +132,7 @@ migration that is not rollback-compatible. The migration step logs it on every r
 
 ```sql
 SELECT version, recorded_by
-  FROM schema_rollback_compatibility
+  FROM flyway_rollback_compatibility
  WHERE NOT rollback_compatible
  ORDER BY version DESC
  LIMIT 1;

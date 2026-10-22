@@ -170,9 +170,10 @@ object RollbackCompatibility {
  * - [requireCompatible] runs before Flyway touches anything. When the database holds migrations this
  *   build does not ship, each must be recorded as rollback-compatible, or it throws
  *   [SchemaAheadException] and the process exits non-zero.
- * - [recordApplied] runs after a migration step, successful or not. It copies the declaration of
- *   every applied migration this build ships into `schema_rollback_compatibility`, because an older
- *   build does not ship those files and can only read what was recorded. Rows are written once
+ * - [recordApplied] runs after a migration step, successful or not. It records the declaration of
+ *   every applied migration this build ships in `flyway_rollback_compatibility`, keyed by its
+ *   `installed_rank` in `flyway_schema_history` and with its version, because an older build does
+ *   not ship those files and can only read what was recorded. Rows are written once
  *   (`ON CONFLICT DO NOTHING`): a header is part of the migration's checksum, so it never changes.
  */
 class SchemaRollbackGuard(
@@ -186,7 +187,8 @@ class SchemaRollbackGuard(
     }
 
     fun requireCompatible() {
-        when (val verdict = RollbackCompatibility.judge(appliedVersions(), declarations.keys, recorded())) {
+        val applied = appliedMigrations().map { it.version }
+        when (val verdict = RollbackCompatibility.judge(applied, declarations.keys, recorded())) {
             RollbackVerdict.Shipped -> Unit
 
             is RollbackVerdict.AheadCompatible -> logger.warn(
@@ -201,18 +203,19 @@ class SchemaRollbackGuard(
     }
 
     fun recordApplied() {
-        val applied = appliedVersions().filter { it in declarations }
+        val applied = appliedMigrations().filter { it.version in declarations }
         flyway.configuration.dataSource.connection.use { connection ->
             // Absent only when the step failed before the migration that creates it.
             if (!tableExists(connection)) return
             connection.prepareStatement(
-                "INSERT INTO $TABLE (version, rollback_compatible, recorded_by) VALUES (?, ?, ?) " +
-                    "ON CONFLICT (version) DO NOTHING",
+                "INSERT INTO $TABLE (installed_rank, version, rollback_compatible, recorded_by) VALUES (?, ?, ?, ?) " +
+                    "ON CONFLICT (installed_rank) DO NOTHING",
             ).use { statement ->
-                for (version in applied) {
-                    statement.setString(1, version)
-                    statement.setBoolean(2, declarations[version] == true)
-                    statement.setString(3, buildVersion)
+                for (migration in applied) {
+                    statement.setInt(1, migration.installedRank)
+                    statement.setString(2, migration.version)
+                    statement.setBoolean(3, declarations[migration.version] == true)
+                    statement.setString(4, buildVersion)
                     statement.addBatch()
                 }
                 statement.executeBatch()
@@ -248,9 +251,15 @@ class SchemaRollbackGuard(
     }
 
     /** Successfully applied versioned migrations, those this build does not ship included. */
-    private fun appliedVersions(): List<String> = flyway.info().applied()
+    private fun appliedMigrations(): List<AppliedMigration> = flyway.info().applied()
         .filter { it.isVersioned && !it.type.isSynthetic && !it.state.isFailed }
-        .map { it.version.version }
+        .map { AppliedMigration(it.installedRank, it.version.version) }
+
+    /** One applied migration: its row in Flyway's history, and the version that row holds. */
+    private data class AppliedMigration(
+        val installedRank: Int,
+        val version: String,
+    )
 
     private fun recorded(): Map<String, RecordedDeclaration> = flyway.configuration.dataSource.connection.use { connection ->
         if (!tableExists(connection)) return emptyMap()
@@ -271,7 +280,7 @@ class SchemaRollbackGuard(
     }
 
     companion object {
-        const val TABLE = "schema_rollback_compatibility"
+        const val TABLE = "flyway_rollback_compatibility"
 
         /**
          * The version from `META-INF/build-info.properties`, read directly rather than through

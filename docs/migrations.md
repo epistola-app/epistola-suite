@@ -213,9 +213,14 @@ What the declaration drives, all in `FlywayConfig`'s migration strategy, so it
 covers `embedded`, `migrate` and `validate` alike (`SchemaRollbackGuard`):
 
 - **Recording.** After a migration step — also one that fails partway — the build
-  copies each applied migration's declaration into `schema_rollback_compatibility`.
+  copies each applied migration's declaration into `flyway_rollback_compatibility`.
   An older build does not ship the newer migration files, so the recorded rows
-  are all it can read. Rows are written once and never changed. The step logs the
+  are all it can read. Each row carries the migration's `version` and the
+  `installed_rank` of its row in `flyway_schema_history`, so it joins to Flyway's
+  history. That is not a foreign key: Flyway writes its history row on a second
+  connection while the migration's transaction is open, and a migration that
+  creates a foreign key to `flyway_schema_history` blocks that write forever.
+  Rows are written once and never changed. The step logs the
   result as the _rollback floor_: the newest applied migration that is not
   rollback-compatible.
 - **The startup check.** Before Flyway touches the schema, the build compares the
