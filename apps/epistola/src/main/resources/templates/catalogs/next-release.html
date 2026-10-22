@@ -186,12 +186,18 @@
                 <thead>
                     <tr>
                         <th>Catalog</th>
+                        <!--/* The name this catalog's content uses for it (ADR 0034): a reference into it
+                               names this alias and a resource key. Here it is always the catalog's
+                               key, and it is still what the content says. */-->
+                        <th title="What the templates, themes and stencils of this catalog call it">Named in content as</th>
                         <th>Renders with</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="dependency : ${readiness.dependencies}" data-testid="catalog-dependency-row">
+                    <tr th:each="dependency : ${readiness.dependencies}" data-testid="catalog-dependency-row"
+                        th:attr="data-catalog=${dependency.catalogKey}">
                         <td><code th:text="${dependency.namespace + '/' + dependency.catalogKey}"></code></td>
+                        <td data-testid="catalog-dependency-alias"><code th:text="${dependency.alias}">shared</code></td>
                         <td>
                             <span th:if="${dependency.pinned}" th:text="'v' + ${dependency.releaseVersion}"></span>
                             <span th:if="${dependency.namesDraft}" class="badge badge-muted"

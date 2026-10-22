@@ -6,6 +6,8 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
@@ -200,6 +202,36 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val declared = withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }.single()
             assertThat(declared.catalogKey).isEqualTo("shared")
             assertThat(declared.releaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    /**
+     * Each dependency with the name the catalog's content uses for it (ADR 0034), next to its
+     * namespace and key: always the key here, and still what a reference into it says.
+     */
+    @Test
+    fun `the draft's dependencies show the name the content uses for each`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Dependencies Alias")
+            seedCatalogWithTemplate(tenant, "letters", "letter")
+            val shared = seedCatalogWithTemplate(tenant, "shared", "header")
+            withMediator {
+                mediator.publishAndRelease(shared)
+                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
+                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+
+        then {
+            val table = result<ResponseEntity<String>>().body!!.substringAfter("data-testid=\"catalog-dependencies\"").substringBefore("</table>")
+            assertThat(table).contains("<th title=\"What the templates, themes and stencils of this catalog call it\">Named in content as</th>")
+            val row = table.substringAfter("data-testid=\"catalog-dependency-row\" data-catalog=\"shared\"").substringBefore("</tr>")
+            assertThat(row.substringAfter("data-testid=\"catalog-dependency-alias\"").substringBefore("</td>")).isEqualTo("><code>shared</code>")
+            assertThat(row).contains("v1.0.0")
         }
     }
 
