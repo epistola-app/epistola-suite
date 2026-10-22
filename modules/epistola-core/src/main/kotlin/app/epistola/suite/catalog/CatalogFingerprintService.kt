@@ -58,6 +58,9 @@ class CatalogFingerprintService(
 
     fun fingerprint(content: CatalogContent): String = canonicalizer.fingerprint(content)
 
+    /** The content hash of [content] ([CatalogCanonicalizer.contentHash]): what identifies a release. */
+    fun contentHash(content: CatalogContent): String = canonicalizer.contentHash(content)
+
     fun matchesFingerprint(content: CatalogContent, expected: String): Boolean = canonicalizer.matchesFingerprint(content, expected)
 
     fun requirePublishable(content: CatalogContent) = canonicalizer.requirePublishable(content)

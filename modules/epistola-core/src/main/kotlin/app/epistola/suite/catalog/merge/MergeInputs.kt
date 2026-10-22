@@ -210,6 +210,7 @@ class MergeInputReader(
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprints: CatalogFingerprintService,
     private val dependencyStore: CatalogDependencyStore,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) {
 
     /**
@@ -246,12 +247,13 @@ class MergeInputReader(
         )
     }
 
-    /** Whether the release installed as [version] with [installed] is the one [expected] names. */
+    /**
+     * Whether the release installed as [version] with [installed] is the one [expected] names: by its
+     * content hash, or another algorithm's fingerprint of the same content ([ReleaseIdentity]).
+     */
     private fun sameRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, installed: String, expected: String): Boolean {
         if (installed == expected) return true
-        // Another algorithm's fingerprint of the same content (a release from before V5, say): check the content.
-        val content = assembler.assemble(tenantKey, catalogKey, version)?.content ?: return false
-        return fingerprints.matchesFingerprint(content, expected)
+        return jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, tenantKey, catalogKey, version, expected) }
     }
 
     /**

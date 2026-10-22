@@ -89,6 +89,8 @@ class PreviewCatalogUpgradeHandler(
     private val analyzer: CatalogUpgradeAnalyzer,
     private val catalogClient: CatalogClient,
     private val assembler: ReleaseContentAssembler,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : QueryHandler<PreviewCatalogUpgrade, UpgradeDiff> {
 
     override fun handle(query: PreviewCatalogUpgrade): UpgradeDiff {
@@ -173,9 +175,12 @@ class PreviewCatalogUpgradeHandler(
     ): Map<String, String>? {
         fingerprintService.readBaseline(catalog.installedResourceFingerprints)?.let { return it }
         val sourceServesInstalled = catalog.installedReleaseVersion == offered.version &&
-            (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint)
+            (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
         if (sourceServesInstalled) return incoming
         val version = catalog.installedReleaseVersion ?: return null
         return assembler.assemble(query.tenantKey, query.catalogKey, version)?.content?.let(fingerprintService::resourceFingerprints)
     }
+
+    /** Whether release [version] the tenant has is the one [fingerprint] names, by content (ADR 0034). */
+    private fun isInstalled(query: PreviewCatalogUpgrade, version: String, fingerprint: String): Boolean = jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.tenantKey, query.catalogKey, version, fingerprint) }
 }

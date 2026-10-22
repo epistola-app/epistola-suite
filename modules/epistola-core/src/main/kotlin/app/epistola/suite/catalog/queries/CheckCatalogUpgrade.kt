@@ -71,6 +71,8 @@ enum class CatalogSchemaSyncState {
 @Component
 class CheckCatalogUpgradeHandler(
     private val catalogClient: CatalogClient,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : QueryHandler<CheckCatalogUpgrade, CatalogUpgradeAvailability> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -88,7 +90,9 @@ class CheckCatalogUpgradeHandler(
         val manifestFingerprint = manifest.release.fingerprint
 
         val available = if (manifestFingerprint != null) {
-            catalog.installedFingerprint != manifestFingerprint
+            // Another release unless the installed one is the release it names, by content (ADR 0034).
+            catalog.installedFingerprint != manifestFingerprint &&
+                catalog.installedReleaseVersion?.let { installed -> jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.tenantKey, query.catalogKey, installed, manifestFingerprint) } } != true
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection for upgrade availability (tenant {})",

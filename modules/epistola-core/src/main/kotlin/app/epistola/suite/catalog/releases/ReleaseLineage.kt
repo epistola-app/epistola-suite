@@ -12,7 +12,8 @@ import org.jdbi.v3.core.Handle
 
 /**
  * A release a release was made from or took in ([version]), named by the [fingerprint] the release
- * recorded for it, when it did.
+ * recorded for it, when it did: its content hash (ADR 0034), or for a parent recorded before, the
+ * fingerprint it had then.
  */
 data class ReleaseParent(val version: String, val fingerprint: String?)
 
@@ -26,6 +27,8 @@ data class LineageRelease(
     val fingerprint: String,
     val base: ReleaseParent?,
     val merged: List<ReleaseParent> = emptyList(),
+    /** Its content hash (ADR 0034), when recorded. */
+    val contentHash: String? = null,
 ) {
     /** Its parents: its base first, then what it merged, in the order recorded. */
     val parents: List<ReleaseParent> get() = listOfNotNull(base) + merged
@@ -34,8 +37,14 @@ data class LineageRelease(
 /**
  * The lineage of a catalog's releases: what each release contains, by what it records (its base and
  * its merge parents), never guessed from the numbers. A release that records neither ends its line.
+ *
+ * Lineage is by hash (ADR 0034): a parent named by a fingerprint is the release of this catalog
+ * recorded with that fingerprint or content hash, whatever number it has here, so a line survives a
+ * release received under another number. A parent whose fingerprint names no release here is its
+ * number, as it was recorded ([closestIn] then finds it missing or another release).
  */
-class ReleaseLineage(val releases: Map<String, LineageRelease>) {
+class ReleaseLineage(releases: Map<String, LineageRelease>) {
+    val releases: Map<String, LineageRelease> = byHash(releases)
 
     /** [release]'s parents, base first; empty for one that records none, or one this catalog lacks. */
     fun parentsOf(release: String): List<ReleaseParent> = releases[release]?.parents.orEmpty()
@@ -98,6 +107,26 @@ class ReleaseLineage(val releases: Map<String, LineageRelease>) {
     }
 
     companion object {
+        /**
+         * [releases] with every parent named by a fingerprint that the release of its number here does
+         * not have resolved to the release here that has it, by fingerprint or content hash. Several
+         * numbers may name one content (a notes-only re-release); a parent whose number has it stays.
+         */
+        private fun byHash(releases: Map<String, LineageRelease>): Map<String, LineageRelease> {
+            val named = mutableMapOf<String, String>()
+            releases.values.sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it.version) }).forEach { r ->
+                named.putIfAbsent(r.fingerprint, r.version)
+                r.contentHash?.let { named.putIfAbsent(it, r.version) }
+            }
+            fun local(parent: ReleaseParent): ReleaseParent {
+                val fingerprint = parent.fingerprint ?: return parent
+                val atNumber = releases[parent.version]
+                if (atNumber != null && (atNumber.fingerprint == fingerprint || atNumber.contentHash == fingerprint)) return parent
+                return named[fingerprint]?.let { ReleaseParent(it, fingerprint) } ?: parent
+            }
+            return releases.mapValues { (_, r) -> r.copy(base = r.base?.let(::local), merged = r.merged.map(::local)) }
+        }
+
         /** The lineage of [catalogKey]'s releases. */
         fun read(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseLineage {
             val merges = handle.createQuery(
@@ -112,7 +141,7 @@ class ReleaseLineage(val releases: Map<String, LineageRelease>) {
                 .list()
                 .groupBy({ it.first }, { it.second })
             val releases = handle.createQuery(
-                "SELECT version, fingerprint, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
+                "SELECT version, fingerprint, content_hash, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
             )
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
@@ -123,6 +152,7 @@ class ReleaseLineage(val releases: Map<String, LineageRelease>) {
                         fingerprint = rs.getString("fingerprint"),
                         base = rs.getString("base_version")?.let { ReleaseParent(it, rs.getString("base_fingerprint")) },
                         merged = merges[version].orEmpty(),
+                        contentHash = rs.getString("content_hash"),
                     )
                 }
                 .list()

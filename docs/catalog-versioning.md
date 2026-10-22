@@ -225,7 +225,7 @@ until it is released**; only releases are numbered.
 - **A release records its merge parents** (`catalog_release_merges`, `V20261022052418`): the releases
   merged into its draft (`catalog_draft_merges`) when it is released, each with its fingerprint. The
   manifest says them too, in `release.metadata` under `app.epistola.suite` as
-  `merged: [{"version": "1.0.1", "fingerprint": "v5:…"}]` (a bare version is read as well), so an
+  `merged: [{"version": "1.0.1", "fingerprint": "v6:…"}]` (a bare version is read as well), so an
   archive, an installation receiving it and a tenant snapshot keep them: receiving records them, and an
   export of a release recorded without them in its snapshot names them from the table. Lineage is base
   plus merge parents (`ReleaseLineage`); the merge base and `behind` both follow it.
@@ -334,6 +334,45 @@ release a draft and make one the next release (see [`mcp.md`](mcp.md)).
   of the version label — "is this actually new?" is a fingerprint comparison,
   not a string compare.
 
+### A release is identified by its content hash
+
+A release's identity is its **content hash** (contract ADR 0003, amendment of 2026-10-22; ADR 0034,
+phase 2): the **V6** fingerprint (`v6:<hex>`), which covers the release's content only — its
+resources, the resource index, its default theme, presets and license, its dependencies by alias and
+the pins of each, and `compatibility` — and not the catalog's name, the release block (number, id,
+metadata, base, release time), the catalog's presentation (name, description, keywords, presentation,
+attributes, publisher, includes) or the wire version. Two releases with the same content hash are the
+same release, whatever number, name or route they came by; the number stays what people,
+deployments and version ranges use.
+
+- **New releases** are fingerprinted with V6, so their fingerprint is their content hash. Every
+  archive this installation writes (an export, the Exchange, a registry, a tenant snapshot) names
+  the release by its content hash, as wire v8 requires (`ReleaseIdentity.travelling`), whatever
+  fingerprint the release was cut with.
+- **Existing releases** keep the fingerprint they were cut or received with (V5 or older: immutable
+  and verifiable with the algorithm it names), and record their content hash beside it:
+  `catalog_releases.content_hash` (`V20261022104231`), set from the fingerprint when that is V6, else
+  computed from what the release retained by `ReleaseContentHashBackfill`, a single-owner cluster
+  task at startup, or on first use (`ReleaseIdentity.contentHash`). The hash needs the contract
+  library's canonical form, which SQL cannot reproduce, and reading every retained revision back,
+  which a Kotlin migration would do inside the upgrade transaction on the startup path, so it is not a
+  migration.
+- **"Is this the same release?"** is `ReleaseIdentity.isRelease`: the release's recorded fingerprint
+  or content hash, or, for a fingerprint of another algorithm (a pin or base recorded as V5), that
+  algorithm over its retained content. It decides receiving a release the tenant has (the same
+  number with the same content hash is a no-op, however either side was fingerprinted), whether a
+  dependency pin holds (importing, deploying, releasing), rendering a pinned release, the merge base,
+  whether a source or registry offers a release the tenant has (`CheckCatalogUpgrade`,
+  `PreviewCatalogUpgrade`, the bundled catalogs, `PublishReleaseToRegistry`), and the lineage below.
+- **Lineage is by hash.** A release cut here names its base and merge parents by their content hash
+  (`base_fingerprint`, `catalog_release_merges.merged_fingerprint`), the number kept for people, and
+  `ReleaseLineage` resolves a parent named by a fingerprint to the release here recorded with that
+  fingerprint or content hash, whatever its number: a line survives a release received under
+  another number.
+- **Pins** copy the pinned release's content hash.
+- The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release
+  under its catalog and number, which in ADR 0034's terms is the binding of that number to the hash.
+
 ### Fingerprint algorithm
 
 Hashes, in order: the complete portable catalog identity and discovery metadata
@@ -422,8 +461,9 @@ and so change its content hash. A reference resolves through the declaration of 
 catalog, by its full name, and to the release the declaration pins. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
-each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
-fingerprint (a release cut before 2.0 has none) or a draft it has. The pin stays when the dependency
+each must name a catalog the tenant has, not itself, not twice, and a release it has with a
+fingerprint that names its algorithm (a release cut before 2.0 has none) or a draft it has; the pin
+copies that release's content hash. The pin stays when the dependency
 releases again; `UpgradeCatalogDependencies` moves every pin to the highest release, the way a
 library upgrade does, and leaves a declaration naming a draft as it is (the UI's _Use the latest
 versions_). Renaming the dependency's namespace carries the declarations that name it.
@@ -468,7 +508,7 @@ not declare. The release records each declaration with its pin (`version` and
 
 **Rendering** a release reads another catalog from the release it pinned, whatever was released or
 deployed since; a catalog only a dependency uses comes from the release that dependency pinned,
-nearest first. A pinned release the tenant no longer has, or has with another fingerprint, fails the
+nearest first. A pinned release the tenant no longer has, or has as another release (another content hash), fails the
 render. Only a release cut before 2.0, which pinned nothing, still reads other catalogs from the
 environment's deployment or their latest release.
 
@@ -762,7 +802,7 @@ version is this suite's convention, not the contract's.
 
 `ExportCatalogZip` exports a **release**: the one named by `version`, or without one the highest
 release. It hands over that release as it was released, rebuilt by `ReleaseContentAssembler` from the
-content it retained, carrying the version, timestamp and fingerprint it was cut with, whatever the
+content it retained, carrying the version and timestamp it was cut with and named by its content hash (V6, whatever fingerprint it was cut with), whatever the
 drafts have done since, and its id, metadata and base (`release.releaseId`, `.metadata`, `.base`;
 completed from the release's row for a release recorded before it said them). An installed release
 exports the content it was installed with. The export
@@ -771,7 +811,7 @@ accept, so the offer cannot fail at download. A catalog with no release has noth
 
 `requirePublishable` does not run for a release. It describes a draft; the release passed it when it
 was cut, it is immutable, and a rule that has tightened since must not retroactively make a
-published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
+published release unexportable. The content _is_ checked against its recorded content hash (or, for a release without one yet, its fingerprint) and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
 A version the catalog does not have refuses with `CatalogReleaseNotFoundException` rather than
@@ -786,8 +826,8 @@ receives catalogs as files. Refused while a pinned release is not here. The expo
 _Include the catalogs it uses_; a published version's page has _Export with what it uses_.
 
 Importing one receives every carried release first, creating its catalog when the tenant lacks it;
-one the tenant has at that release with the same fingerprint is left alone, and one with another
-fingerprint, or another catalog under its key, refuses the whole import
+one the tenant has at that release with the same content hash is left alone, and one with another
+content hash, or another catalog under its key, refuses the whole import
 (`CatalogImportConflictException`, REST `conflict`, 409). The catalog is then received as asked.
 
 ## Importing installs a release
@@ -821,7 +861,7 @@ import takes the same path; none names a type.
   records the installation it names, and nobody here; passed on, it still names the installation
   that cut it. The release page says "Released here by <user>" or "Released by installation <id>"
   (`GetCatalogReleaseDetail.releasedByLine`); a release recorded before 2.0 wrote them says neither.
-- **The same number with the same fingerprint** is the release the tenant has: nothing changes
+- **The same number with the same content hash** is the release the tenant has: nothing changes
   (`newlyInstalled = false`), also in the tenant that released it. The same number with other content
   is refused.
 - **A lower number than the catalog's highest release, or a next release with changes of its own**

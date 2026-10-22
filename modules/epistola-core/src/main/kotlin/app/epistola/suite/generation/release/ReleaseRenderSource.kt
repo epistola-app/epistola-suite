@@ -94,6 +94,7 @@ class ReleaseRenderSource(
     private val entryStore: ReleaseEntryStore,
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) {
 
     private val resources = Caffeine.newBuilder()
@@ -335,20 +336,16 @@ class ReleaseRenderSource(
             }
         }
 
-        /** The pinned release, refused unless the tenant has it with the fingerprint the pin recorded. */
+        /**
+         * The pinned release, refused unless the tenant has it as the release the pin names: by its
+         * content hash or the fingerprint it was recorded with (ADR 0034, [ReleaseIdentity]).
+         */
         private fun pinned(catalog: CatalogKey, version: String, fingerprint: String): ReleaseRef {
-            val stored = jdbi.withHandle<String?, Exception> { handle ->
-                handle.createQuery(
-                    "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
-                )
-                    .bind("t", tenantKey)
-                    .bind("c", catalog)
-                    .bind("v", version)
-                    .mapTo(String::class.java)
-                    .findOne()
-                    .orElse(null)
+            val (stored, same) = jdbi.withHandle<Pair<String?, Boolean>, Exception> { handle ->
+                val recorded = identity.recorded(handle, tenantKey, catalog, version)
+                recorded?.fingerprint to (recorded != null && identity.isRelease(handle, tenantKey, catalog, recorded, fingerprint))
             }
-            if (stored != fingerprint) {
+            if (!same) {
                 throw ReleaseRenderException(
                     "Release ${release.label()} is pinned to ${catalog.value}@$version ($fingerprint), " +
                         if (stored == null) "which this tenant does not have with its content" else "but this tenant has that release as $stored",

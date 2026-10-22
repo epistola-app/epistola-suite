@@ -61,6 +61,24 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
     }.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
 
     /**
+     * The content hash of [content] (contract ADR 0003, amendment of 2026-10-22; ADR 0034): its V6
+     * fingerprint, `v6:<hex>`, over its content only (no name, release block or presentation). Two
+     * releases with the same content hash are the same release. Pinned to V6 rather than "current", so
+     * a later algorithm cannot silently change what a recorded content hash means.
+     */
+    fun contentHash(content: CatalogContent): String = archive(
+        content.catalog,
+        content.resourceDetails.mapValues { (_, detail) -> objectMapper.writeValueAsBytes(detail) },
+        content.dependencies,
+        content.catalogDependencies,
+        content.resourceEntries,
+        includeSerializedDetails = false,
+        publisher = content.publisher,
+    ) { contentPath ->
+        content.assetContents[contentPath]
+    }.use(Companion::contentHash)
+
+    /**
      * The complete per-resource fingerprint of every `type/key` resource of [content]
      * ([PortableCatalogCanonicalizer.completePerResourceFingerprints], the per-resource form of V5):
      * what a resource is compared by, between releases, drafts and merges.
@@ -243,5 +261,14 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
 
     companion object {
         private val PLACEHOLDER_CATALOG = CatalogInfo("fingerprints", "Fingerprints")
+
+        /** The algorithm a content hash is computed with. */
+        val CONTENT_HASH_ALGORITHM: app.epistola.catalog.canonical.CatalogFingerprintVersion = app.epistola.catalog.canonical.CatalogFingerprintVersion.V6
+
+        /** The content hash ([contentHash]) of [archive], as an archive holds the release. */
+        fun contentHash(archive: CatalogArchive): String = PortableCatalogCanonicalizer.qualifiedFingerprint(archive, CONTENT_HASH_ALGORITHM).toString()
+
+        /** Whether [fingerprint] is a content hash: a fingerprint of the content-hash algorithm. */
+        fun isContentHash(fingerprint: String?): Boolean = fingerprint != null && QualifiedCatalogFingerprint.parse(fingerprint)?.version == CONTENT_HASH_ALGORITHM
     }
 }

@@ -39,6 +39,33 @@ class ReleaseLineageTest {
         assertThat(lineage(release("9.0.0"), release("1.0.0")).closestIn("9.0.0", setOf("1.0.0"))).isNull()
     }
 
+    /** Lineage is by hash (ADR 0034): a parent is the release with its content hash, whatever its number here. */
+    @Test
+    fun `a parent named by its content hash is the release here that has it, under any number`() {
+        val renumbered = lineage(
+            LineageRelease("0.9.0", fingerprint = "v6:x", base = null, contentHash = "v6:x"),
+            LineageRelease("1.1.0", fingerprint = "v6:y", base = ReleaseParent("1.0.0", "v6:x"), contentHash = "v6:y"),
+        )
+        assertThat(renumbered.parentsOf("1.1.0")).containsExactly(ReleaseParent("0.9.0", "v6:x"))
+        assertThat(renumbered.closestIn("1.1.0", setOf("0.9.0"))?.version).isEqualTo("0.9.0")
+
+        // A release recorded with its V5 fingerprint and its content hash is found by either.
+        val old = lineage(LineageRelease("1.0.0", fingerprint = "v5:old", base = null, contentHash = "v6:x"), LineageRelease("1.1.0", "v6:y", ReleaseParent("1.0.0", "v6:x")))
+        assertThat(old.parentsOf("1.1.0")).containsExactly(ReleaseParent("1.0.0", "v6:x"))
+    }
+
+    /** Several numbers may name one content (a notes-only re-release): a parent whose number has its hash stays. */
+    @Test
+    fun `a parent whose own number has its content hash stays that number`() {
+        val reReleased = lineage(
+            LineageRelease("1.0.0", "v6:x", null, contentHash = "v6:x"),
+            LineageRelease("1.0.1", "v6:x", ReleaseParent("1.0.0", "v6:x"), contentHash = "v6:x"),
+            LineageRelease("1.1.0", "v6:z", ReleaseParent("1.0.1", "v6:x"), contentHash = "v6:z"),
+        )
+        assertThat(reReleased.parentsOf("1.1.0")).containsExactly(ReleaseParent("1.0.1", "v6:x"))
+        assertThat(reReleased.parentsOf("1.0.1")).containsExactly(ReleaseParent("1.0.0", "v6:x"))
+    }
+
     @Test
     fun `a release naming no base ends its line`() {
         // 2.0.1 records no base: 2.0.0 below it is not taken for one.

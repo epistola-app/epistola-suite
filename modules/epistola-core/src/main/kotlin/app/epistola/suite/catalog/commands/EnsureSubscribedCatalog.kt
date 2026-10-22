@@ -58,6 +58,8 @@ data class EnsureSubscribedCatalogResult(
 class EnsureSubscribedCatalogHandler(
     private val catalogClient: CatalogClient,
     private val upgradeAnalyzer: CatalogUpgradeAnalyzer,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<EnsureSubscribedCatalog, EnsureSubscribedCatalogResult> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -98,7 +100,9 @@ class EnsureSubscribedCatalogHandler(
         // (legacy / hand-rolled external) can't be drift-detected, so fall
         // back to the version string instead of re-upgrading on every boot.
         val contentCurrent = if (bundledFingerprint != null) {
-            existing.installedFingerprint == bundledFingerprint
+            // The installed release is the bundled one when their content is (ADR 0034), however each was fingerprinted.
+            existing.installedFingerprint == bundledFingerprint ||
+                (existing.installedReleaseVersion == bundledVersion && jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, command.tenantKey, catalogKey, bundledVersion, bundledFingerprint) })
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection (no content drift detection) for tenant {}",

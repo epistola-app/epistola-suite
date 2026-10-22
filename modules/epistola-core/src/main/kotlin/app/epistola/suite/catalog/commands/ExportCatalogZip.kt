@@ -84,6 +84,7 @@ class ExportCatalogZipHandler(
     private val archiveBuilder: CatalogArchiveBuilder,
     private val assembler: ReleaseContentAssembler,
     private val objectMapper: ObjectMapper,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<ExportCatalogZip, ExportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -144,10 +145,10 @@ class ExportCatalogZipHandler(
      * when it was cut, it is immutable, and a rule that has tightened since must not retroactively
      * make an already-published release unexportable.
      *
-     * The fingerprint is recomputed rather than trusted, and a mismatch refuses the export. It
-     * should be impossible — that equality is what `ReleaseRoundTripTest` pins — so if it happens,
-     * something has corrupted a revision, and handing over an archive whose contents do not match
-     * the fingerprint it advertises would spread that rather than stop it.
+     * The content is checked rather than trusted, and a mismatch refuses the export. It should be
+     * impossible — that equality is what `ReleaseRoundTripTest` pins — so if it happens, something
+     * has corrupted a revision, and handing over an archive whose contents do not match the
+     * fingerprint it advertises would spread that rather than stop it.
      */
     private fun exportRelease(command: ExportCatalogZip, version: String): ExportCatalogZipResult {
         val retained = retainedRelease(command.tenantKey, command.catalogKey, version)
@@ -157,22 +158,13 @@ class ExportCatalogZipHandler(
         )
     }
 
-    /** Release [version] of [catalogKey] as it retained it, its fingerprint checked. */
-    private fun retainedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease {
-        val retained = assembler.assemble(tenantKey, catalogKey, version)
-            ?: throw CatalogReleaseNotFoundException(catalogKey, version)
-
-        val rebuilt = fingerprintService.fingerprint(retained.content)
-        val released = retained.release.fingerprint
-        // A release recorded before 2.0 names no algorithm; match it rather than compare strings.
-        if (released != null && !fingerprintService.matchesFingerprint(retained.content, released)) {
-            throw IllegalStateException(
-                "Release $version of catalog '${catalogKey.value}' rebuilds to fingerprint $rebuilt " +
-                    "but was released as $released; its retained content has been altered.",
-            )
-        }
-        return retained
-    }
+    /**
+     * Release [version] of [catalogKey] as it retained it, checked against what identifies it, and
+     * named by its content hash (ADR 0034): a wire-v8 archive's fingerprint is V6, whatever algorithm
+     * the release was cut with ([ReleaseIdentity.travelling]).
+     */
+    private fun retainedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease = identity.travelling(tenantKey, catalogKey, version)
+        ?: throw CatalogReleaseNotFoundException(catalogKey, version)
 
     /**
      * The current version's content, for a tenant snapshot. Wire v8 numbers every archive's release

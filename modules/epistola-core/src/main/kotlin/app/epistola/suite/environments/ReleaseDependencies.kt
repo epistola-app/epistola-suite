@@ -108,8 +108,9 @@ class ReleaseDependencies(
                 if (catalog == catalogKey) continue
                 if (!visited.add("${pin.registry}/${pin.namespace}/${pin.catalogKey}" to pinnedVersion)) continue
 
+                // The pinned release, by its content (ADR 0034): a pin taken as V5 holds for the same release received as V6.
                 val release = catalog?.let { release(handle, tenantKey, it, pinnedVersion) }
-                    ?.takeIf { pin.releaseFingerprint == null || it.fingerprint == pin.releaseFingerprint }
+                    ?.takeIf { pin.releaseFingerprint == null || dependencyStore.pinHolds(handle, tenantKey, pin) }
                 val reason = when {
                     catalog == null || release == null -> MissingDependencyReason.NOT_INSTALLED
                     serves(handle, tenantKey, environmentKey, catalog, pinnedVersion) -> null

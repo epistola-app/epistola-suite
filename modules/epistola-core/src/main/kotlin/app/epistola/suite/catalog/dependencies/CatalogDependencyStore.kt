@@ -64,7 +64,10 @@ data class CatalogDependencyDeclaration(
     }
 }
 
-/** A release of a dependency, as a declaration pins it. */
+/**
+ * A release of a dependency, as a declaration pins it: its number and the fingerprint a pin copies,
+ * its content hash (ADR 0034), or the fingerprint it was recorded with while it has none.
+ */
 data class CatalogDependencyRelease(val version: String, val fingerprint: String)
 
 /**
@@ -72,7 +75,7 @@ data class CatalogDependencyRelease(val version: String, val fingerprint: String
  * transaction: every method takes the handle it runs on.
  */
 @Component
-class CatalogDependencyStore {
+class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity) {
 
     fun declarations(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = handle
         .createQuery(
@@ -286,25 +289,37 @@ class CatalogDependencyStore {
      * its algorithm, which a pin copies. A release installed with a legacy fingerprint has a bare one
      * and is not a candidate.
      */
-    fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> {
+    fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> = recordedCandidates(handle, tenantKey, declaration)
+        .map { CatalogDependencyRelease(it.version, it.contentHash ?: it.fingerprint) }
+
+    private fun recordedCandidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
         return handle
-            .createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalog)
-            .map { rs, _ -> CatalogDependencyRelease(rs.getString("version"), rs.getString("fingerprint")) }
+            .map { rs, _ -> app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
             .list()
             .filter { QualifiedCatalogFingerprint.parse(it.fingerprint) != null }
     }
 
+    /** [recorded] as a pin takes it: by its content hash, computed now when it has none yet. */
+    private fun pinOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, recorded: app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded): CatalogDependencyRelease {
+        val hash = recorded.contentHash ?: catalogNamed(handle, tenantKey, declaration)?.let { identity.contentHash(handle, tenantKey, it, recorded) }
+        return CatalogDependencyRelease(recorded.version, hash ?: recorded.fingerprint)
+    }
+
     /** The highest release of the catalog [declaration] names that can be pinned, or null when there is none. */
-    fun highest(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyRelease? = candidates(handle, tenantKey, declaration)
+    fun highest(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyRelease? = recordedCandidates(handle, tenantKey, declaration)
         .mapNotNull { release -> Semver.parse(release.version)?.let { release to it } }
         .maxWithOrNull { a, b -> a.second.compareTo(b.second) }
         ?.first
+        ?.let { pinOf(handle, tenantKey, declaration, it) }
 
     /** The release [version] of the catalog [declaration] names, when the tenant has it and it can be pinned. */
-    fun release(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, version: String): CatalogDependencyRelease? = candidates(handle, tenantKey, declaration).firstOrNull { it.version == version }
+    fun release(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, version: String): CatalogDependencyRelease? = recordedCandidates(handle, tenantKey, declaration)
+        .firstOrNull { it.version == version }
+        ?.let { pinOf(handle, tenantKey, declaration, it) }
 
     /**
      * The open draft [draftKey] of the catalog [declaration] names, by its internal `version_id`, with
@@ -382,12 +397,17 @@ class CatalogDependencyStore {
         .list()
 
     /**
-     * Whether [declaration]'s pin still holds: the tenant still has the pinned release, with the
-     * fingerprint the pin recorded.
+     * Whether [declaration]'s pin still holds: the tenant still has the pinned release, the one the
+     * pin's fingerprint names, by its content hash or the fingerprint it was recorded with
+     * ([app.epistola.suite.catalog.revisions.ReleaseIdentity.isRelease]), so a pin taken as V5 and a
+     * release received as V6, or the other way round, are one release when their content is.
      */
     fun pinHolds(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): Boolean {
         val version = declaration.releaseVersion ?: return false
-        return release(handle, tenantKey, declaration, version)?.fingerprint == declaration.releaseFingerprint
+        val pin = declaration.releaseFingerprint ?: return false
+        val catalog = catalogNamed(handle, tenantKey, declaration) ?: return false
+        val recorded = recordedCandidates(handle, tenantKey, declaration).firstOrNull { it.version == version } ?: return false
+        return identity.isRelease(handle, tenantKey, catalog, recorded, pin)
     }
 
     private companion object {

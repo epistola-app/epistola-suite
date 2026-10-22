@@ -232,6 +232,7 @@ class ImportCatalogZipHandler(
     private val installer: CatalogResourceInstaller,
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
+    private val releaseIdentity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -283,9 +284,20 @@ class ImportCatalogZipHandler(
             presentDependencies = presentDependencies,
         )
 
+        // What the archive's release is (ADR 0034): its content hash, the V6 fingerprint it names, else
+        // computed from what it carries (an archive migrated from before V6).
+        val bound by lazy {
+            parsed.manifest.resources.associate { entry ->
+                val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
+                    ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
+                "${entry.type}/${entry.key}" to schemaMigrator.migrateAndBindResourceDetail(entry.type, detail, parsed.catalogCtx).resource
+            }
+        }
+        val incomingHash by lazy { published?.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: releaseIdentity.contentHashOf(publishedContent(manifest, bound, parsed.entries)) }
         val present = existing?.let { ListCatalogReleaseSummaries(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
         if (present != null) {
-            if (published == null || present.fingerprint == published) return result(newly = false)
+            // The same release, by its content, whatever fingerprint either side was recorded with.
+            if (published == null || jdbi.withHandle<Boolean, Exception> { releaseIdentity.isRelease(it, command.tenantKey, catalogKey, version, incomingHash) }) return result(newly = false)
             throw CatalogReleaseTakenException(
                 "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
             )
@@ -308,11 +320,6 @@ class ImportCatalogZipHandler(
         // archive as published; the next version stays, behind it.
         val older = highest != null && incoming != null && incoming < highest
         if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChanges(command.tenantKey, catalogKey))) {
-            val bound = parsed.manifest.resources.associate { entry ->
-                val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
-                    ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")
-                "${entry.type}/${entry.key}" to schemaMigrator.migrateAndBindResourceDetail(entry.type, detail, parsed.catalogCtx).resource
-            }
             RecordInstalledRelease(
                 command.tenantKey,
                 catalogKey,

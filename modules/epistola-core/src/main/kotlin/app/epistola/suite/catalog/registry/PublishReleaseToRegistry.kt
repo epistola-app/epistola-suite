@@ -80,6 +80,8 @@ data class RegistryPublication(
 class PublishReleaseToRegistryHandler(
     private val registries: CatalogRegistries,
     private val mapper: ObjectMapper,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<PublishReleaseToRegistry, RegistryPublication> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -95,7 +97,11 @@ class PublishReleaseToRegistryHandler(
         fun result(digest: String, already: Boolean) = RegistryPublication(registry.name, repository, version, digest, already, "${registry.baseUri.authority}/$repository:$version")
 
         client.manifest(repository, version)?.let { existing ->
-            if (existing.manifest.isCatalogRelease && existing.manifest.fingerprint == release.fingerprint) {
+            // The same release when the registry's names it by its content (ADR 0034), however this one was fingerprinted.
+            val same = existing.manifest.fingerprint?.let { label ->
+                label == release.fingerprint || jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, command.tenantKey, command.catalogKey, version, label) }
+            } == true
+            if (existing.manifest.isCatalogRelease && same) {
                 return result(existing.digest, already = true)
             }
             throw ValidationException(
@@ -108,7 +114,9 @@ class PublishReleaseToRegistryHandler(
         }
 
         val archive = ExportCatalogZip(command.tenantKey, command.catalogKey, version).execute()
-        val labels = ReleaseLabels(version, release.fingerprint, catalog.registry, catalog.namespace, catalog.id.value)
+        // Labelled as the archive names it: by its content hash (ADR 0034).
+        val contentHash = jdbi.withHandle<String?, Exception> { identity.contentHash(it, command.tenantKey, command.catalogKey, version) } ?: release.fingerprint
+        val labels = ReleaseLabels(version, contentHash, catalog.registry, catalog.namespace, catalog.id.value)
         val config = client.pushBlob(repository, OciMediaTypes.CONFIG, ReleaseArtifact.config(mapper, labels))
         val layer = client.pushBlob(repository, OciMediaTypes.ARCHIVE, archive.zipBytes, mapOf(OciAnnotations.IMAGE_TITLE to archive.filename))
         val digest = client.pushManifest(repository, version, ReleaseArtifact.manifest(mapper, labels, config, layer))

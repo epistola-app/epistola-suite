@@ -185,6 +185,7 @@ class ReleaseCatalogDraftHandler(
     private val targeting: CatalogReleaseTargeting,
     private val handOver: NextVersionHandOver,
     private val installation: app.epistola.suite.installation.InstallationService,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -343,11 +344,13 @@ class ReleaseCatalogDraftHandler(
         fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val fingerprint = fingerprintService.fingerprint(content)
+        // Its identity (ADR 0034): the fingerprint, which is V6, a content hash.
+        val contentHash = fingerprint.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: fingerprintService.contentHash(content)
         // What this release contains, resource by resource. Recorded here because it cannot be
         // recovered afterwards: `manifest_snapshot` holds the manifest entries, not the payloads
         // they were built from. It is what lets the next release say which resources changed.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
-        val unchanged = existing.any { fingerprintService.matchesFingerprint(content, it.fingerprint) }
+        val unchanged = existing.any { it.contentHash == contentHash || fingerprintService.matchesFingerprint(content, it.fingerprint) }
 
         if (unchanged) {
             logger.warn(
@@ -370,16 +373,21 @@ class ReleaseCatalogDraftHandler(
         // The release says what it is (wire v8): the draft's id, the rendering defaults it renders
         // with and the installation that cut it, and the release it was made from, the draft's base.
         val releasedByInstallation = installation.get().id
+
         // The releases merged into the draft (ADR 0032) are its merge parents: the release contains
         // them, and says so wherever it goes, so it is not behind them after it is released either.
-        val mergeParents = draft.merged.sortedBy { SemVer.parseOrNull(it) }.map { merged -> ReleaseParent(merged, existing.firstOrNull { it.version == merged }?.fingerprint) }
+        // Lineage is by hash (ADR 0034): a parent is named by its content hash, its number kept for people.
+        fun hashOf(version: String?): String? = version?.let { v ->
+            existing.firstOrNull { it.version == v }?.let { row -> row.contentHash ?: jdbi.withHandle<String?, Exception> { identity.contentHash(it, command.tenantKey, command.catalogKey, v) } ?: row.fingerprint }
+        }
+        val mergeParents = draft.merged.sortedBy { SemVer.parseOrNull(it) }.map { merged -> ReleaseParent(merged, hashOf(merged)) }
         val releaseInfo = ReleaseInfo(
             version = newVersion.toString(),
             releasedAt = releasedAt.toString(),
             fingerprint = fingerprint,
             releaseId = ReleaseDescription.releaseId(draft.key),
             metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version, releasedByInstallation = releasedByInstallation, merged = mergeParents),
-            base = ReleaseDescription.base(draft.base, existing.firstOrNull { it.version == draft.base }?.fingerprint),
+            base = ReleaseDescription.base(draft.base, hashOf(draft.base)),
         )
         val manifest = content.toManifest(releaseInfo)
         // Building the archive is expensive, so only do it when the release will actually be
@@ -393,13 +401,14 @@ class ReleaseCatalogDraftHandler(
         jdbi.useTransaction<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, notes, manifest_snapshot, released_at,
                                               rendering_defaults_version, base_version, base_fingerprint, version_key,
                                               released_by, released_by_installation)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base,
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base,
                         :baseFingerprint, :key, :releasedBy, :releasedByInstallation)
                 """,
             )
+                .bind("contentHash", contentHash)
                 // Who released it: the user, and this installation.
                 .bind("releasedBy", currentUserIdOrNull()?.value)
                 .bind("releasedByInstallation", releasedByInstallation)
@@ -566,15 +575,15 @@ class ReleaseCatalogDraftHandler(
         return catalog.exchangePublicationPolicy.resolve(tenantDefault, override)
     }
 
-    private data class ReleaseRow(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime?)
+    private data class ReleaseRow(val version: String, val fingerprint: String, val releasedAt: OffsetDateTime?, val contentHash: String? = null)
 
     private fun loadReleases(tenantKey: TenantKey, catalogKey: CatalogKey): List<ReleaseRow> = jdbi.withHandle<List<ReleaseRow>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version, fingerprint, released_at FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
+            "SELECT version, fingerprint, released_at, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenantKey)
             .bind("c", catalogKey)
-            .map { rs, _ -> ReleaseRow(rs.getString("version"), rs.getString("fingerprint"), rs.getObject("released_at", OffsetDateTime::class.java)) }
+            .map { rs, _ -> ReleaseRow(rs.getString("version"), rs.getString("fingerprint"), rs.getObject("released_at", OffsetDateTime::class.java), rs.getString("content_hash")) }
             .list()
     }
 }

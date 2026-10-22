@@ -91,6 +91,7 @@ class PublishCurrentCatalogReleaseHandler(
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : CommandHandler<PublishCurrentCatalogRelease, ExchangePublicationOutcome> {
 
     override fun handle(command: PublishCurrentCatalogRelease): ExchangePublicationOutcome {
@@ -193,13 +194,9 @@ class PublishCurrentCatalogReleaseHandler(
      * the fingerprint it advertises would spread that rather than stop it.
      */
     private fun buildReleaseArchive(command: PublishCurrentCatalogRelease, release: Release): ByteArray {
-        val content = requireNotNull(assembler.assemble(command.tenantKey, command.catalogKey, release.version)) {
+        // Checked against what identifies it, and named by its content hash (ADR 0034).
+        val content = requireNotNull(identity.travelling(command.tenantKey, command.catalogKey, release.version)) {
             "Release ${release.version} of catalog '${command.catalogKey.value}' is gone"
-        }
-        val rebuilt = fingerprintService.fingerprint(content.content)
-        check(fingerprintService.matchesFingerprint(content.content, release.fingerprint)) {
-            "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
-                "$rebuilt but was released as ${release.fingerprint}; its content has been altered."
         }
         return archiveBuilder.build(content.content, content.release)
     }

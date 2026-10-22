@@ -139,6 +139,9 @@ class RecordInstalledReleaseHandler(
         val publisherFingerprint = if (command.release != null) command.release.fingerprint else catalog.installedFingerprint
         val fingerprint = publisherFingerprint?.takeIf { QualifiedCatalogFingerprint.parse(it) != null }
             ?: fingerprintService.fingerprint(content)
+        // Its identity (ADR 0034): a V6 fingerprint is its content hash, verified on receipt; a release
+        // received with an older one is hashed from the content it brings.
+        val contentHash = fingerprint.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: fingerprintService.contentHash(content)
         // `release_entries.fingerprint` keeps the V3 form, of what the release holds. The installed
         // baseline is of another function (the complete form), so it is not mixed in.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
@@ -163,12 +166,13 @@ class RecordInstalledReleaseHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, notes, manifest_snapshot, released_at,
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, notes, manifest_snapshot, released_at,
                                               rendering_defaults_version, version_key, base_version, base_fingerprint, released_by_installation)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId,
+                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId,
                         :baseVersion, :baseFingerprint, :releasedByInstallation)
                 """,
             )
+                .bind("contentHash", contentHash)
                 // Received: the installation that cut it, as the release names it; nobody here released it.
                 .bind("releasedByInstallation", ReleaseDescription.releasedByInstallation(received?.metadata))
                 .bind("t", command.tenantKey)

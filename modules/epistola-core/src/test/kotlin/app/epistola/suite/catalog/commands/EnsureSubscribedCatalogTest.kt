@@ -51,11 +51,19 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
             assertThat(second.newVersion).isEqualTo(first.newVersion)
         }
 
-        // Simulate content drift by stamping a stale installed fingerprint.
+        // Simulate content drift: what is installed is another release than the bundle's, by its
+        // fingerprint and by its content hash (a stale fingerprint alone names the same release when
+        // its content is the bundle's, ADR 0034).
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 "UPDATE catalogs SET installed_fingerprint = 'stale' WHERE tenant_key = :t AND catalog_key = 'epistola-demo'",
             ).bind("t", tenant.id).execute()
+            handle.createUpdate(
+                """
+                UPDATE catalog_releases r SET fingerprint = :f, content_hash = :f FROM catalogs c
+                WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = 'epistola-demo'
+                """,
+            ).bind("t", tenant.id).bind("f", "v6:" + "0".repeat(64)).execute()
         }
 
         withMediator {
