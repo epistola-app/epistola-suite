@@ -199,11 +199,12 @@ immutable as the SQL below it.
 
 - **`true`** — the previous release keeps working on the new schema: a new table,
   a nullable column or one with a default, a new index, seeded rows old code
-  ignores, a widened column type.
+  ignores.
 - **`false`** — it does not: a dropped or renamed column or table that old code
-  reads, a narrowed type, a `NOT NULL` column without a default (old code's
+  reads, a changed type, a `NOT NULL` column without a default (old code's
   `INSERT`s fail), a new constraint old code's writes can violate, a data rewrite
-  old code misreads.
+  old code misreads. A widened column counts here too when the newer build will
+  write values the old code's own validation rejects.
 
 When unsure, choose `false`. A wrong `true` lets an old build start on a schema
 it cannot read; a wrong `false` only blocks a rollback.
