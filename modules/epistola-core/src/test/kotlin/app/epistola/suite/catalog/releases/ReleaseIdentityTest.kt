@@ -37,6 +37,7 @@ import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -253,6 +254,35 @@ class ReleaseIdentityTest : IntegrationTestBase() {
 
         assertThat(recorded(a, lines, "1.1.0").second).isEqualTo(fingerprintIn(released.v110))
         assertThat(backfill.run()).`as`("nothing left").isZero()
+    }
+
+    /**
+     * A release whose retained content is no longer what its fingerprint names gets no content hash:
+     * the hash of what is left would make it another release here than where it was kept intact, and
+     * the export's own check, which refuses to hand it on, would then pass it.
+     */
+    @Test
+    fun `the backfill gives no content hash to a release that no longer holds what its fingerprint names`() {
+        val a = createTenant("Identity altered").id
+        val released = withMediator { mediator.parallelReleaseLines(a, lines) }
+        recordedBeforeV6(a, lines, "1.1.0", v5Of(released.v110))
+        // The release loses a resource it was cut with. No command alters what a release retained.
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                DELETE FROM release_entries e USING catalogs c
+                WHERE c.tenant_key = e.tenant_key AND c.catalog_id = e.catalog_id
+                  AND e.tenant_key = :t AND c.catalog_key = :c AND e.version = '1.1.0' AND e.resource_key = 'added'
+                """,
+            ).bind("t", a).bind("c", lines).execute()
+        }
+
+        backfill.run()
+
+        assertThat(recorded(a, lines, "1.1.0").second).`as`("no content hash for what is no longer the release").isNull()
+        assertThatThrownBy { withMediator { ExportCatalogZip(a, lines, "1.1.0").execute() } }
+            .`as`("nor is it handed on")
+            .hasMessageContaining("has been altered")
     }
 
     private fun entries(bytes: ByteArray): Map<String, ByteArray> = buildMap {

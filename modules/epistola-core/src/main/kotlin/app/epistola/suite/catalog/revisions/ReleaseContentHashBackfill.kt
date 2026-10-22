@@ -29,6 +29,9 @@ import org.springframework.stereotype.Component
  * be read back is logged and left for the next run. Until a release has its hash, whatever asks for
  * it computes and records it on the spot ([ReleaseIdentity.contentHash]), so no decision waits for
  * this task.
+ *
+ * A release whose retained content no longer reproduces the fingerprint it was recorded with gets
+ * none, here or on the spot, and is logged each run ([ReleaseIdentity.contentHash] says why).
  */
 @Component
 class ReleaseContentHashBackfill(
@@ -63,7 +66,16 @@ class ReleaseContentHashBackfill(
                 .getOrNull()
             if (hash != null) hashed++
         }
-        logger.info("Content hashes: {} of {} release(s) without one got theirs", hashed, pending.size)
+        if (hashed < pending.size) {
+            logger.warn(
+                "Content hashes: {} of {} release(s) without one got theirs; the other {} could not be read back or no longer hold what their fingerprint names (see above)",
+                hashed,
+                pending.size,
+                pending.size - hashed,
+            )
+        } else {
+            logger.info("Content hashes: {} of {} release(s) without one got theirs", hashed, pending.size)
+        }
         return hashed
     }
 

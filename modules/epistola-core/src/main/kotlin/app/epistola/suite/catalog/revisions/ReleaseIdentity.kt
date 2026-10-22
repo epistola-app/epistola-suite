@@ -59,8 +59,13 @@ class ReleaseIdentity(
 
     /**
      * The content hash of release [version] of [catalogKey]: recorded, else computed from what it
-     * retained and recorded now. Null when the catalog has no such release, or when its retained
-     * content cannot be read back (logged).
+     * retained and recorded now. Null when the catalog has no such release, when its retained content
+     * cannot be read back, or when that content no longer reproduces the fingerprint the release was
+     * cut or received with (each logged).
+     *
+     * The last is refused rather than hashed: a content hash says which release this is, and the hash
+     * of content that is no longer the release would give it another identity here than it has where
+     * it was kept intact, and would let [travelling] hand on what its own check refuses.
      */
     fun contentHash(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String? {
         val recorded = recorded(handle, tenantKey, catalogKey, version) ?: return null
@@ -77,6 +82,16 @@ class ReleaseIdentity(
             logger.warn("Release {}@{} of tenant {} has no readable content to hash: {}", catalogKey.value, recorded.version, tenantKey.value, e.message)
             null
         } ?: return null
+        if (!canonicalizer.matchesFingerprint(content, recorded.fingerprint)) {
+            logger.warn(
+                "Release {}@{} of tenant {} no longer holds what its fingerprint {} names, so it gets no content hash: its retained content has been altered",
+                catalogKey.value,
+                recorded.version,
+                tenantKey.value,
+                recorded.fingerprint,
+            )
+            return null
+        }
         return record(handle, tenantKey, catalogKey, recorded.version, contentHashOf(content))
     }
 
