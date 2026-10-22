@@ -68,6 +68,18 @@ class SchemaRollbackGuardIT {
 
         val recorded = recorded(database)
         assertThat(recorded.keys).isEqualTo(appliedVersions(database))
+        // Every row points at Flyway's history row for its migration: same installed_rank, same version.
+        val unlinked = connect(database).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery(
+                    "SELECT declared.version FROM flyway_rollback_compatibility declared " +
+                        "LEFT JOIN flyway_schema_history history " +
+                        "ON history.installed_rank = declared.installed_rank AND history.version = declared.version " +
+                        "WHERE history.installed_rank IS NULL",
+                ).use { rows -> buildList { while (rows.next()) add(rows.getString(1)) } }
+            }
+        }
+        assertThat(unlinked).describedAs("rows that do not match Flyway's history row by installed_rank and version").isEmpty()
         assertThat(recorded[PROBE]).isFalse()
         assertThat(recorded[RollbackCompatibilityDeclarationTest.FIRST_DECLARING]).isTrue()
         // Before the header existed: counted as not compatible, which every build with the check ships anyway.
@@ -80,7 +92,11 @@ class SchemaRollbackGuardIT {
         assertThat(migrate(database, "classpath:rollback-probe/compatible")).isZero()
         // Raw SQL on purpose: an infrastructure table with no command. Stands in for a migration
         // step that was killed between applying the migration and recording it.
-        connect(database).use { it.createStatement().execute("DELETE FROM schema_rollback_compatibility WHERE version = '$PROBE'") }
+        connect(database).use {
+            it.createStatement().execute(
+                "DELETE FROM flyway_rollback_compatibility WHERE version = '$PROBE'",
+            )
+        }
 
         assertThatThrownBy { boot(database, "validate") }
             .hasStackTraceContaining("29990101000000 (no declaration recorded)")
@@ -123,7 +139,7 @@ class SchemaRollbackGuardIT {
 
     private fun recorded(database: String): Map<String, Boolean> = connect(database).use { connection ->
         connection.createStatement().use { statement ->
-            statement.executeQuery("SELECT version, rollback_compatible FROM schema_rollback_compatibility").use { rows ->
+            statement.executeQuery("SELECT version, rollback_compatible FROM flyway_rollback_compatibility").use { rows ->
                 buildMap { while (rows.next()) put(rows.getString(1), rows.getBoolean(2)) }
             }
         }

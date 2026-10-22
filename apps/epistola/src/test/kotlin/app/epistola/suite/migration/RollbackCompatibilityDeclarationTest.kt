@@ -43,7 +43,7 @@ class RollbackCompatibilityDeclarationTest {
     }
 
     companion object {
-        /** `V20261022152421__core_schema_rollback_compatibility.sql`, which created the table the check reads. */
+        /** `V20261022152421__core_flyway_rollback_compatibility.sql`, which created the table the check reads. */
         const val FIRST_DECLARING = "20261022152421"
     }
 }
