@@ -116,6 +116,13 @@ data class ReleaseCatalogDraft(
      * next version as it is. A convention of this suite; the contract does not know it.
      */
     val continueEverydayWork: ContinueEverydayWork? = null,
+    /**
+     * Refuse a draft with nothing to release: on a base it changed nothing against, no resource and no
+     * catalog-level content (`CatalogDraftUnchangedException`). The contract's `releaseCatalogDraft`
+     * and MCP `release_draft` ask for it (ADR 0034: a release is new content, not another number for
+     * its base's). False keeps a notes-only re-release possible for the callers that cut one on purpose.
+     */
+    val requireChange: Boolean = false,
 ) : CatalogReleaseScoped,
     Command<ReleaseCatalogDraftResult>,
     RequiresPermission {
@@ -206,6 +213,16 @@ class ReleaseCatalogDraftHandler(
 
         // Drafts of other catalogs this one builds on are released first, or the release is refused.
         val releasedDependencies = targeting.within(draft.versionId) { releaseDependencies(command, draft) }
+
+        // A release is a change when asked (contract `releaseCatalogDraft`, ADR 0034): a draft on a base
+        // that changed nothing against it, no resource and no catalog-level content, has nothing to
+        // release. A draft without a base always has its first release.
+        val base = draft.base
+        if (command.requireChange && command.source == ContentSource.WORKING_COPY && base != null &&
+            !GetCatalogResourceChanges(command.tenantKey, command.catalogKey, catalogVersion = app.epistola.suite.catalog.releases.CatalogReleaseRef(command.tenantKey, command.catalogKey, draft.ref)).query().hasUnreleasedChanges
+        ) {
+            throw app.epistola.suite.catalog.releases.CatalogDraftUnchangedException(command.catalogKey, draft.label, base)
+        }
 
         val existing = loadReleases(command.tenantKey, command.catalogKey)
         val latest = existing.mapNotNull { SemVer.parseOrNull(it.version) }.maxOrNull()

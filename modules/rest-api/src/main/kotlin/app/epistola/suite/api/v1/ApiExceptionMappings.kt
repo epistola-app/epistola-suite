@@ -528,6 +528,13 @@ object ApiExceptionMappings {
             logMessage = { "Import refused, another name: ${it.message}" },
         )
 
+        builder.register<app.epistola.suite.catalog.releases.CatalogDraftUnchangedException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The draft has nothing to release: nothing changed against its base",
+            extensions = { mapOf("base" to it.base) },
+            logMessage = { "Release refused: ${it.message}" },
+        )
+
         builder.register<CatalogDraftInUseException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Another catalog's draft builds on this draft",

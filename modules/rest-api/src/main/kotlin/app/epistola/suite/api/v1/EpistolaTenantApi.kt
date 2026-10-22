@@ -51,6 +51,7 @@ import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
@@ -91,6 +92,7 @@ import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.commands.RenameTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
 import org.springframework.http.HttpStatus
@@ -194,14 +196,12 @@ class EpistolaTenantApi(
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
-            val bindingCatalogs = bindingCatalogsOf(at)
             val readOnly = at.catalog.readOnlyHere()
             ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
-                .map { it.toDto(at.catalog, it.codeListCatalogKey?.let(bindingCatalogs::get), readOnly) }
+                .map { it.toDto(at.catalog, readOnly) }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            val bindingCatalog = releasedBindingCatalogs(at)
-            at.releasedResources<AttributeResource>(ATTRIBUTE).map { it.toDto(at, bindingCatalog) }
+            at.releasedResources<AttributeResource>(ATTRIBUTE).map { it.toDto(at) }
         }
         val slice = Pagination.paginate(items, page, size)
         return ResponseEntity.ok(AttributeListResponse(items = slice.items, page = slice.page))
@@ -221,7 +221,7 @@ class EpistolaTenantApi(
         // The constraint XOR check (allowedValues vs codeListBinding) is enforced in
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
-            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
+            draft.codeListAt(binding.catalogKey, binding.key)
         }
         val attribute = CreateAttributeDefinition(
             id = draft.attributeId(createAttributeRequest.key),
@@ -243,7 +243,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<AttributeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
-            return ResponseEntity.ok(at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at, releasedBindingCatalogs(at)) ?: throw at.attributeNotFound(attributeKey))
+            return ResponseEntity.ok(at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at) ?: throw at.attributeNotFound(attributeKey))
         }
         val attribute = GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.ref).query() ?: throw at.attributeNotFound(attributeKey)
         return okWithETag(attribute.revision, attribute.toDto(at))
@@ -270,7 +270,7 @@ class EpistolaTenantApi(
         // client sent. UpdateAttributeDefinition isn't itself partial.
         val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
         val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
-            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
+            draft.codeListAt(binding.catalogKey, binding.key)
         } ?: current.codeListId.takeUnless { clearsBinding }
         val attribute = UpdateAttributeDefinition(
             id = id,
@@ -302,33 +302,22 @@ class EpistolaTenantApi(
     private fun ResolvedCatalogRelease.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
 
     /**
-     * The code list a binding names. A binding's registry and namespace left out are the attribute's
-     * own catalog's; the catalog must exist by that name.
+     * The code list a binding names: in the attribute's own catalog when it names no alias or the
+     * catalog's own key, else in the catalog the draft declares under that alias (contract ADR 0003,
+     * ADR 0034). An alias the draft does not declare is refused, as the contract says.
      */
-    private fun ResolvedCatalogRelease.codeListAt(registry: String?, namespace: String?, catalogKey: String, key: String): CodeListId {
-        val catalog = catalogAt(
-            tenantKey.value,
-            registry ?: this.catalog.registry,
-            namespace ?: this.catalog.namespace,
-            catalogKey,
-        )
-        return CodeListId(key = CodeListKey.of(key), catalogId = catalog.catalogId)
+    private fun ResolvedCatalogRelease.codeListAt(alias: String?, key: String): CodeListId {
+        if (alias == null || alias == catalogKey.value) return CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
+        val declared = ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = ref).query().firstOrNull { it.alias == alias }
+            ?: throw ValidationException(
+                "codeListBinding.catalogKey",
+                "'$alias' is not an alias this draft declares a dependency under: declare the catalog the code list is in first (updateCatalogDependencies)",
+                ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED,
+            )
+        return CodeListId(key = CodeListKey.of(key), catalogId = app.epistola.suite.common.ids.CatalogId(CatalogKey.of(declared.catalogKey), TenantId(tenantKey)))
     }
 
-    /** The catalogs the draft's attributes bind code lists from, by key. */
-    private fun bindingCatalogsOf(at: ResolvedCatalogRelease): Map<CatalogKey, Catalog> = ListCatalogs(at.catalog.tenantKey).query().associateBy { it.id }
-
-    /** The catalogs a release declares, by the alias its content names each by, in full. */
-    private fun releasedBindingCatalogs(at: ResolvedCatalogRelease): (String) -> Triple<String, String, String>? {
-        val declared = ListReleaseDependencies(at.tenantKey, at.catalogKey, requireNotNull(at.version.version) { "A release has a number" }).query()
-            .associate { it.alias to Triple(it.registry, it.namespace, it.catalogKey) }
-        return declared::get
-    }
-
-    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogRelease) = toDto(
-        at.catalog,
-        codeListCatalogKey?.let { key -> if (key == at.catalogKey) at.catalog else GetCatalog(at.catalog.tenantKey, key).query() },
-    )
+    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogRelease) = toDto(at.catalog)
 
     // ================== Environment operations ==================
 

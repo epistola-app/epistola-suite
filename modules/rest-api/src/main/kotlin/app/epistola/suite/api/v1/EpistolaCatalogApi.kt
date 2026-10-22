@@ -16,6 +16,7 @@ import app.epistola.api.model.CatalogDraftMergeResource
 import app.epistola.api.model.CatalogDraftMergeSides
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDto
+import app.epistola.api.model.CatalogLevelChangeDto
 import app.epistola.api.model.CatalogListResponse
 import app.epistola.api.model.CatalogMergeBaseRef
 import app.epistola.api.model.CatalogMergeOutcome
@@ -51,6 +52,7 @@ import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
@@ -73,8 +75,10 @@ import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListReleaseContentHashes
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.catalog.queries.ReleaseContentHashes
 import app.epistola.suite.catalog.releases.AssessDraftNumber
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogPreset
@@ -140,7 +144,8 @@ class EpistolaCatalogApi(
         val catalogs = ListCatalogs(tenant).query()
         val slice = Pagination.paginate(catalogs, page, size)
         val editability = ListCatalogEditability(tenant).query()
-        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.id)) }))
+        val hashes = ListReleaseContentHashes(tenant).query()
+        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.id), hashes) }))
     }
 
     /**
@@ -261,13 +266,16 @@ class EpistolaCatalogApi(
         namespace: String,
         catalogKey: String,
         status: ApiCatalogReleaseStatus?,
+        contentHash: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<CatalogReleaseListResponse> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         // The versions come in SemVer order, which SQL does not sort by; a catalog's version count
-        // is bounded by its release history, so the page is cut here.
+        // is bounded by its release history, so the page is cut here. A release is found by its
+        // content (ADR 0034) as a filter: several numbers can name one content, and none is an empty list.
         val versions = ListCatalogReleases(catalog.tenantKey, catalog.id, status?.toDomain()).query()
+            .filter { contentHash == null || it.contentHash == contentHash }
         val slice = Pagination.paginate(versions, page, size)
         return ResponseEntity.ok(CatalogReleaseListResponse(items = slice.items.map { it.toDto(catalog) }, page = slice.page))
     }
@@ -393,7 +401,7 @@ class EpistolaCatalogApi(
                 },
                 unchanged = preview.resources.count { it.outcome in quiet },
                 token = preview.token,
-                missingBase = preview.missingBase?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint) },
+                missingBase = preview.missingBase?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint, contentHash = it.fingerprint.takeIf(CatalogCanonicalizer::isContentHash)) },
             ),
         )
     }
@@ -474,6 +482,8 @@ class EpistolaCatalogApi(
             acknowledgedBehind = releaseCatalogDraftRequest.acknowledgedBehind.orEmpty().toSet(),
             catalogVersion = draft.ref,
             releaseDependencies = releaseCatalogDraftRequest.releaseDependencies == true,
+            // A draft with no change against its base is refused with 409 `conflict` (contract).
+            requireChange = true,
         ).execute()
         val released = GetCatalogRelease(draft.tenantKey, draft.catalogKey, result.version).query()
             ?: throw CatalogReleaseNotFoundException(draft.catalogKey, result.version)
@@ -501,7 +511,7 @@ class EpistolaCatalogApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         if (!at.isDraft) {
             // A released version has no changes, and nothing to release.
-            return ResponseEntity.ok(CatalogChangesDto(releasable = false, dependenciesChanged = false, changes = emptyList(), base = baseOf(at)))
+            return ResponseEntity.ok(CatalogChangesDto(releasable = false, dependenciesChanged = false, changes = emptyList(), catalogChanges = emptyList(), base = baseOf(at)))
         }
         return ResponseEntity.ok(GetCatalogResourceChanges(at.tenantKey, at.catalogKey, catalogVersion = at.ref).query().toDto(at))
     }
@@ -527,7 +537,8 @@ class EpistolaCatalogApi(
         release: String,
     ): ResponseEntity<CatalogDependencyListResponse> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        return okWithETag(at.version.revision, CatalogDependencyListResponse(items = dependenciesOf(at).map { it.toDependencyDto() }))
+        val hashes = ListReleaseContentHashes(at.tenantKey).query()
+        return okWithETag(at.version.revision, CatalogDependencyListResponse(items = dependenciesOf(at).map { it.toDependencyDto(hashes) }))
     }
 
     /** A dependency without a registry is on the default registry, as the contract says. */
@@ -541,6 +552,15 @@ class EpistolaCatalogApi(
         ifMatch: String?,
     ): ResponseEntity<CatalogDependencyListResponse> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+        // A declaration's alias is what content names the catalog by (contract ADR 0003). This
+        // installation names every catalog a catalog uses by that catalog's key until catalogs are
+        // told apart by namespace and key (ADR 0034, phase 4): another alias is refused, not ignored.
+        updateCatalogDependenciesRequest.dependencies.forEachIndexed { index, requirement ->
+            app.epistola.suite.validation.validate("dependencies[$index].alias", requirement.alias == null || requirement.alias == requirement.catalogKey, app.epistola.suite.validation.ValidationCode.CATALOG_DEPENDENCY_INVALID) {
+                "This installation names every catalog a catalog uses by that catalog's key: alias '${requirement.alias}' for '${requirement.catalogKey}' " +
+                    "is not supported until catalogs are told apart by namespace and key; leave it out, or give the catalog's key"
+            }
+        }
         val declared = UpdateCatalogDependencies(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
@@ -557,12 +577,13 @@ class EpistolaCatalogApi(
             expectedRevision = ETags.expected(ifMatch),
         ).execute()
         val revision = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release).version.revision
-        return okWithETag(revision, CatalogDependencyListResponse(items = declared.map { it.toDependencyDto() }))
+        val hashes = ListReleaseContentHashes(draft.tenantKey).query()
+        return okWithETag(revision, CatalogDependencyListResponse(items = declared.map { it.toDependencyDto(hashes) }))
     }
 
     // ================== Helpers ==================
 
-    private fun Catalog.toDto(editability: CatalogEditability?): CatalogDto {
+    private fun Catalog.toDto(editability: CatalogEditability?, hashes: ReleaseContentHashes? = null): CatalogDto {
         val reason = editability?.reason ?: if (editability == null) CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA.takeIf { suppliedByEpistola } else null
         return CatalogDto(
             registry = registry,
@@ -575,6 +596,7 @@ class EpistolaCatalogApi(
             source = sourceUrl,
             highestVersion = highestReleaseVersion,
             fingerprint = highestReleaseFingerprint,
+            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(id, highestReleaseVersion),
         )
     }
 
@@ -593,6 +615,8 @@ class EpistolaCatalogApi(
         } else {
             ListReleaseDependencies(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
         }
+        // Read only when a pin needs it: a list maps every release through here.
+        val hashes by lazy { ListReleaseContentHashes(catalog.tenantKey).query() }
         return CatalogReleaseDto(
             version = version,
             releaseId = versionId,
@@ -607,11 +631,13 @@ class EpistolaCatalogApi(
             dependencies = dependencies.mapNotNull { dependency ->
                 dependency.releaseVersion?.let {
                     ReleaseDependencyDto(
+                        alias = dependency.alias,
                         registry = dependency.registry,
                         namespace = dependency.namespace,
                         catalogKey = dependency.catalogKey,
                         version = it,
                         direct = true,
+                        contentHash = hashes.pinnedBy(dependency),
                     )
                 }
             },
@@ -622,6 +648,8 @@ class EpistolaCatalogApi(
             releasedAt = releasedAt,
             notes = notes,
             fingerprint = fingerprint,
+            // Its identity (ADR 0034); a draft has none.
+            contentHash = contentHash.takeUnless { draft },
             defaultTheme = themeSettings(catalog).defaultTheme?.let { theme ->
                 CatalogThemeReference(key = theme.themeKey.value, catalogKey = theme.catalogKey.value.takeUnless { theme.catalogKey == catalog.id })
             },
@@ -636,12 +664,14 @@ class EpistolaCatalogApi(
         GetReleasedThemeSettings(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
     }
 
-    private fun CatalogDependencyDeclaration.toDependencyDto() = CatalogDependencyDto(
+    private fun CatalogDependencyDeclaration.toDependencyDto(hashes: ReleaseContentHashes) = CatalogDependencyDto(
+        alias = alias,
         registry = registry,
         namespace = namespace,
         catalogKey = catalogKey,
         version = releaseVersion,
         releaseId = draftId,
+        contentHash = hashes.pinnedBy(this),
     )
 
     /** For a draft, the dependencies declared now, with their locks; for a release, its pins. */
@@ -653,7 +683,10 @@ class EpistolaCatalogApi(
 
     /**
      * A draft's changes against its base. A resource changed and marked ready is `ready`; one the last
-     * release has unchanged is not listed. Releasing waits on every changed resource not marked ready.
+     * release has unchanged is not listed. Beside the resources, what the content hash covers at the
+     * catalog level (ADR 0034): each dependency declaration by its alias, the default theme, presets
+     * and license. A draft is releasable when something changed against its base (a draft without one
+     * always has), every changed resource is marked ready and no merged content awaits review.
      */
     private fun CatalogResourceChanges.toDto(draft: ResolvedCatalogRelease): CatalogChangesDto {
         val changes = resources.mapNotNull { resource ->
@@ -668,20 +701,25 @@ class EpistolaCatalogApi(
                     else -> ResourceChangeDto.Change.MODIFIED
                 }
             }
-            change?.let { ResourceChangeDto(type = resource.type, key = resource.slug, change = it) }
+            change?.let { ResourceChangeDto(type = resource.type, key = resource.slug, change = it, mergedForReview = resource.mergedForReview) }
+        }
+        val catalogChanges = settings.map { setting ->
+            val change = when (setting.state) {
+                CatalogResourceState.NEW -> CatalogLevelChangeDto.Change.ADDED
+                CatalogResourceState.REMOVED -> CatalogLevelChangeDto.Change.REMOVED
+                else -> CatalogLevelChangeDto.Change.MODIFIED
+            }
+            CatalogLevelChangeDto(type = setting.type, key = setting.key, change = change)
         }
         val base = draft.version.base
-        val declared = ListCatalogDependencies(draft.tenantKey, draft.catalogKey, catalogVersion = draft.ref).query().map { it.requirement }.toSet()
-        val released = base?.let { ListReleaseDependencies(draft.tenantKey, draft.catalogKey, it).query() }.orEmpty().map { it.requirement }.toSet()
         return CatalogChangesDto(
-            releasable = notReady.isEmpty(),
-            dependenciesChanged = declared != released,
+            releasable = (base == null || hasUnreleasedChanges) && notReady.isEmpty() && mergedForReview.isEmpty(),
+            dependenciesChanged = settings.any { it.isDependency },
             changes = changes,
+            catalogChanges = catalogChanges,
             base = base,
         )
     }
-
-    private val CatalogDependencyDeclaration.requirement get() = listOf(registry, namespace, catalogKey, releaseVersion, draftId)
 
     /**
      * A released version's base: the one it recorded, else (a release cut before releases recorded

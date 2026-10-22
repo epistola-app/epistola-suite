@@ -30,6 +30,13 @@ class CatalogReleaseHeldException(val catalogKey: CatalogKey, val version: Strin
             "${holders.joinToString("; ")} ${if (holders.size == 1) "uses" else "use"}. Change ${if (holders.size == 1) "it" else "them"} first.",
     )
 
+/**
+ * Draft [version] has nothing to release: nothing changed against its base [base], no resource and no
+ * catalog-level content (contract `releaseCatalogDraft`, ADR 0034). Its release would be the base
+ * again under another number.
+ */
+class CatalogDraftUnchangedException(val catalogKey: CatalogKey, val version: String, val base: String) : RuntimeException("Draft $version of catalog '${catalogKey.value}' has nothing to release: nothing changed against $base")
+
 /** A draft of another catalog that a dependency declaration names, which a release cannot pin. */
 data class UnreleasedDependency(val registry: String, val namespace: String, val catalogKey: String, val versionId: String, val draftName: String)
 

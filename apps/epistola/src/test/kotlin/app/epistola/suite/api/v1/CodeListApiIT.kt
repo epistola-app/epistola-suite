@@ -347,8 +347,10 @@ class CodeListApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
         assertThat(body).doesNotContain("catalogType")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.key")).isEqualTo("bcp-47")
+        // A code list of the attribute's own catalog: bound without an alias (contract `codeListBinding`).
+        val binding = JsonPath.read<Map<String, Any?>>(body, "$.codeListBinding")
+        assertThat(binding["catalogKey"]).isNull()
+        assertThat(binding["key"]).isEqualTo("bcp-47")
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {

@@ -353,6 +353,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogNotFoundException::class,
         CatalogNotUpgradeableException::class,
         CatalogReleaseVersionException::class,
+        app.epistola.suite.catalog.releases.CatalogDraftUnchangedException::class,
         CatalogUpgradeConflictException::class,
         CatalogSchemaTooNewException::class,
         CatalogSchemaTooOldException::class,

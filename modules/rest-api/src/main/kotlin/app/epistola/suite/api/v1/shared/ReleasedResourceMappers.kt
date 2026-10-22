@@ -144,11 +144,10 @@ internal fun ThemeResource.toDto(at: ResolvedCatalogRelease) = ThemeDto(
 )
 
 /**
- * A binding that names no catalog is to the attribute's own; one that names another names it by the
- * alias the release declares it under (contract ADR 0003), which [bindingCatalog] names in full: the
- * release's declaration of it, by registry, namespace and key.
+ * A binding names the code list's catalog by the alias the release declares it under (contract ADR
+ * 0003), as the release's content does; null for the attribute's own catalog.
  */
-internal fun AttributeResource.toDto(at: ResolvedCatalogRelease, bindingCatalog: (String) -> Triple<String, String, String>? = { null }) = AttributeDto(
+internal fun AttributeResource.toDto(at: ResolvedCatalogRelease) = AttributeDto(
     key = key,
     tenantKey = at.tenantKey.value,
     registry = at.catalog.registry,
@@ -161,14 +160,7 @@ internal fun AttributeResource.toDto(at: ResolvedCatalogRelease, bindingCatalog:
     lastModified = at.releasedAt,
     description = null,
     codeListBinding = codeListBinding?.let { binding ->
-        val (registry, namespace, catalogKey) = binding.catalogKey?.takeIf { it != at.catalogKey.value }?.let { alias -> bindingCatalog(alias) ?: Triple(at.catalog.registry, at.catalog.namespace, alias) }
-            ?: Triple(at.catalog.registry, at.catalog.namespace, at.catalogKey.value)
-        AttributeDtoCodeListBinding(
-            registry = registry,
-            namespace = namespace,
-            catalogKey = catalogKey,
-            key = binding.key,
-        )
+        AttributeDtoCodeListBinding(catalogKey = binding.catalogKey?.takeUnless { it == at.catalogKey.value }, key = binding.key)
     },
 )
 

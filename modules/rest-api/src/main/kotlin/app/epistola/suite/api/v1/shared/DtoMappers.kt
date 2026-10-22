@@ -30,11 +30,8 @@ internal fun Tenant.toDto() = TenantDto(
     createdAt = createdAt,
 )
 
-/**
- * An attribute of the working copy. [bindingCatalog] is the catalog of its code list binding, which
- * the binding names in full.
- */
-internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: Catalog?, readOnly: Boolean = catalog.readOnlyHere()) = AttributeDto(
+/** An attribute of a draft; its code-list binding names another catalog by alias. */
+internal fun VariantAttributeDefinition.toDto(catalog: Catalog, readOnly: Boolean = catalog.readOnlyHere()) = AttributeDto(
     key = id.value,
     tenantKey = tenantKey.value,
     registry = catalog.registry,
@@ -47,13 +44,10 @@ internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: 
     lastModified = updatedAt,
     // Attributes keep no description.
     description = null,
+    // By the alias the draft's declarations give the code list's catalog (contract ADR 0003): its key,
+    // in this installation; null for the attribute's own catalog.
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(
-            registry = bindingCatalog?.registry ?: catalog.registry,
-            namespace = bindingCatalog?.namespace ?: catalog.namespace,
-            catalogKey = id.catalogKey.value,
-            key = id.key.value,
-        )
+        AttributeDtoCodeListBinding(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
     },
 )
 

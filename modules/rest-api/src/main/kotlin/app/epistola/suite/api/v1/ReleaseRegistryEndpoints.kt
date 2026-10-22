@@ -45,11 +45,13 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
             namespace = listed.namespace,
             catalogKey = listed.catalogKey,
             items = listed.releases.map { release ->
+                // The registry's labels, never trusted: a V6 fingerprint is the release's content hash (ADR 0034).
                 RegistryReleaseDto(
                     version = release.version,
                     fingerprint = release.fingerprint,
+                    contentHash = release.fingerprint?.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash),
                     releaseId = release.releaseId,
-                    base = release.base?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint) },
+                    base = release.base?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint, contentHash = it.fingerprint.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash)) },
                 )
             },
         )
