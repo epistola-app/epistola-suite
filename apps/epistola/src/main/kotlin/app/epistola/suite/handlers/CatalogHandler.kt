@@ -41,6 +41,9 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.namespaces.ListHeldNamespaces
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
@@ -156,16 +159,19 @@ class CatalogHandler {
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        val namespaces = ListHeldNamespaces(tenantId.key).query()
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("catalogs/new", "dialog") {
                 "tenantId" to tenantId.key
+                "namespaces" to namespaces
             }
             // Direct navigation / boost: the host list page with the create
             // dialog embedded in its mount (openDialog=true), opened on load by JS.
             onFullPage {
                 page("catalogs/list") {
                     catalogPageModel(request)
+                    "namespaces" to namespaces
                     "openDialog" to true
                     "openDialogFragment" to "catalogs/new :: dialog"
                 }
@@ -197,13 +203,21 @@ class CatalogHandler {
             form
         } else {
             form.executeOrFormError {
+                // Named where the person chose (ADR 0034, section 3): a held namespace, or local with one of
+                // its own; nothing chosen leaves it to the command, which takes the one the tenant holds.
+                val choice = form["namespaceChoice"].trim()
+                val local = LocalAuthority.isLocal(choice)
+                val held = if (local) null else NamespaceName.parse(choice)
                 CreateCatalog(
                     tenantKey = tenantId.key,
                     id = CatalogKey.of(form["slug"]),
                     name = form["name"],
+                    registry = if (local) LocalAuthority.NAME else held?.authority,
+                    namespace = if (local) form["localNamespace"].trim().ifEmpty { null } else held?.namespace,
                 ).execute()
             }
         }
+        val namespaces = ListHeldNamespaces(tenantId.key).query()
 
         if (result.hasErrors()) {
             return request.htmx {
@@ -216,10 +230,12 @@ class CatalogHandler {
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "namespaces" to namespaces
                 }
                 onFullPage {
                     page(422, "catalogs/list") {
                         catalogPageModel(request)
+                        "namespaces" to namespaces
                         "openDialog" to true
                         "openDialogFragment" to "catalogs/new :: dialog"
                         "formData" to result.formData

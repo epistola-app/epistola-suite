@@ -97,6 +97,8 @@ class TenantRoutesTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "new-tenant")
             formData.add("name", "New Tenant")
+            formData.add("namespace", "new-tenant")
+            formData.add("authority", "gemeente-x.nl")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants", request, String::class.java)
         }

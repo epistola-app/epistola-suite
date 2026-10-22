@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Namespaces - Epistola'">Namespaces</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
+</head>
+<body>
+    <!--/*
+    The namespaces a tenant holds (ADR 0034, section 3), for a platform administrator: what it may
+    name catalogs in and release under. Reached from the tenant list. Model: `tenant`, `grants`,
+    `defaultAuthority`; `openDialog` with `formData`/`errors` to show the grant dialog open.
+    */-->
+    <main class="regular">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Namespaces of ' + ${tenant.name},
+            pageDescription='The namespaces this tenant names catalogs in and releases under. Every tenant may also name catalogs under local, which never leaves this organisation.'
+        )}"></div>
+
+        <p class="platform-actions">
+            <a th:href="@{/}" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="namespaces-back">&larr; Back to tenants</a>
+            <button type="button" class="ep-btn ep-btn-primary ep-btn-sm"
+                    th:hx-get="@{/platform/tenants/{tenantId}/namespaces/new(tenantId=${tenant.id})}"
+                    hx-target="#dialog-mount" hx-swap="innerHTML"
+                    data-testid="namespace-grant-open">
+                <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
+                Grant a namespace
+            </button>
+        </p>
+
+        <section id="namespace-section" th:fragment="namespace-section"
+                 th:attr="hx-swap-oob=${oob} ? 'outerHTML' : null" data-testid="namespace-section">
+            <div th:if="${revokeError != null}" class="alert alert-error" role="alert" data-testid="namespace-revoke-error"
+                 th:text="${revokeError}">acme is not revoked: the catalog letters is named in it.</div>
+
+            <div th:if="${#lists.isEmpty(grants)}" class="empty-state" data-testid="namespaces-empty">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No namespaces yet</div>
+                <div class="empty-state-description">
+                    This tenant names its catalogs under local until it holds a namespace. Grant one, or connect the tenant to Epistola Exchange.
+                </div>
+            </div>
+
+            <div th:unless="${#lists.isEmpty(grants)}" class="ep-table-scroll" role="region" aria-label="Namespaces table" tabindex="0"
+                 data-testid="fixed-table-scroll">
+                <table class="ep-table ep-table-fixed">
+                    <colgroup>
+                        <col style="width: 38%" /><!-- Namespace -->
+                        <col style="width: 20%" /><!-- How -->
+                        <col style="width: 30%" /><!-- When, by whom -->
+                        <col style="width: 12%" /><!-- Actions -->
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Namespace</th>
+                            <th>Granted through</th>
+                            <th>Granted</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="grant : ${grants}" data-testid="namespace-row"
+                            th:attr="data-namespace=${grant.authority + '/' + grant.namespace}">
+                            <td th:title="${grant.authority + '/' + grant.namespace}">
+                                <strong th:text="${grant.namespace}">acme</strong>
+                                <span class="text-muted text-sm" th:text="${grant.authority}">gemeente-x.nl</span>
+                            </td>
+                            <td th:text="${grant.grantedThrough.label}">Administrator</td>
+                            <td>
+                                <span th:text="${#temporals.format(grant.grantedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${grant.grantedAt}">2026-10-22 10:00</span>
+                                <span th:if="${grant.grantedByName != null}" class="text-muted text-sm" th:text="'by ' + ${grant.grantedByName}">by Local Admin</span>
+                            </td>
+                            <td class="actions">
+                                <form method="post"
+                                      th:action="@{/platform/tenants/{tenantId}/namespaces/revoke(tenantId=${tenant.id})}"
+                                      th:hx-post="@{/platform/tenants/{tenantId}/namespaces/revoke(tenantId=${tenant.id})}"
+                                      hx-target="#namespace-section" hx-swap="outerHTML">
+                                    <input type="hidden" name="authority" th:value="${grant.authority}">
+                                    <input type="hidden" name="namespace" th:value="${grant.namespace}">
+                                    <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
+                                            title="Revoke namespace" data-testid="namespace-revoke"
+                                            data-confirm-submit data-confirm-submit-title="Revoke namespace" data-confirm-submit-label="Revoke"
+                                            th:attr="data-confirm-submit-message='Revoke ' + ${grant.namespace} + ' (' + ${grant.authority} + ') from ' + ${tenant.name} + '? It can no longer name new catalogs there or release them. A namespace still used by its catalogs is not revoked.'">
+                                        <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="dialog-mount" data-dialog-mount>
+            <th:block th:if="${openDialog}">
+                <th:block th:replace="~{platform/namespaces :: grant-dialog}"></th:block>
+            </th:block>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+    <th:block th:replace="~{fragments/footer :: footer}" />
+
+    <!--/* The grant dialog; `grant-form` is re-rendered in place on field errors. */-->
+    <th:block th:fragment="grant-dialog">
+        <div th:replace="~{epistola-web/dialog :: dialog-shell(
+            dialogId='grant-namespace-dialog',
+            title='Grant a namespace',
+            closeUrl=@{/platform/tenants/{tenantId}/namespaces(tenantId=${tenant.id})},
+            content=~{platform/namespaces :: grant-form})}"></div>
+    </th:block>
+
+    <form th:fragment="grant-form" id="grant-namespace-form"
+          method="post" th:action="@{/platform/tenants/{tenantId}/namespaces(tenantId=${tenant.id})}"
+          th:hx-post="@{/platform/tenants/{tenantId}/namespaces(tenantId=${tenant.id})}"
+          hx-target="#namespace-section" hx-swap="outerHTML">
+        <div th:replace="~{epistola-web/form-error :: form-error(id='grant-namespace-error')}"></div>
+        <div class="ep-dialog-body">
+            <div class="form-group" th:classappend="${errors?.containsKey('authority')} ? 'error' : ''">
+                <label class="ep-label" for="grantAuthority">Authority</label>
+                <input type="text" id="grantAuthority" name="authority" class="ep-input" required maxlength="253"
+                       data-testid="namespace-grant-authority"
+                       th:value="${formData?.get('authority') ?: defaultAuthority}">
+                <span class="form-hint">The domain the namespace is granted under: the organisation's own, such as gemeente-x.nl, or exchange.epistola.app for a namespace on Epistola Exchange.</span>
+                <span class="form-error" th:if="${errors?.containsKey('authority')}" th:text="${errors.authority}"></span>
+            </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
+                <label class="ep-label" for="grantNamespace">Namespace</label>
+                <input type="text" id="grantNamespace" name="namespace" class="ep-input" required
+                       pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
+                       placeholder="acme" data-testid="namespace-grant-namespace"
+                       th:value="${formData?.get('namespace')}">
+                <span class="form-hint">3-63 characters, lowercase letters, numbers and single hyphens, starting with a letter</span>
+                <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
+            </div>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="ep-btn ep-btn-ghost" data-close-dialog="grant-namespace-dialog">Cancel</button>
+            <button type="submit" class="ep-btn ep-btn-primary" data-testid="namespace-grant-submit">Grant</button>
+        </div>
+    </form>
+</body>
+</html>

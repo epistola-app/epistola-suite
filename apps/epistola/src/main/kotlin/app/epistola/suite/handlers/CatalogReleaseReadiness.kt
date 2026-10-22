@@ -7,6 +7,8 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.dependencies.CatalogBorrowing
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
+import app.epistola.suite.catalog.namespaces.CatalogNamespaceHolding
+import app.epistola.suite.catalog.namespaces.GetCatalogNamespaceHolding
 import app.epistola.suite.catalog.queries.CatalogResourceChange
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
@@ -53,7 +55,15 @@ data class CatalogReleaseReadiness(
     val numbering: DraftNumberAssessment? = null,
     /** What the draft takes from other catalogs, and whether each is declared. */
     val borrowing: CatalogBorrowing = CatalogBorrowing(emptyList(), emptyList()),
+    /** Whether the tenant holds the catalog's namespace, which releasing needs (ADR 0034, section 2); null when not read. */
+    val namespaceHolding: CatalogNamespaceHolding? = null,
 ) {
+    /**
+     * Why this tenant cannot release the catalog: it does not hold its namespace. In words, naming who
+     * can change that; null when it does, or the catalog is under local.
+     */
+    val namespaceRefusal: String? get() = namespaceHolding?.refusal
+
     /**
      * Catalogs used here but not declared, which releasing refuses: using a resource declares its
      * catalog, so only a catalog the tenant lacks, or one left undeclared by an upgrade, is here.
@@ -104,7 +114,7 @@ data class CatalogReleaseReadiness(
      * but something blocks it, [releaseBlocked] says so and the page names what, instead of offering
      * a release that would be refused.
      */
-    val offerRelease: Boolean get() = mayRelease && publishable && notReady.isEmpty() && unresolvedDependencies.isEmpty()
+    val offerRelease: Boolean get() = mayRelease && publishable && notReady.isEmpty() && unresolvedDependencies.isEmpty() && namespaceRefusal == null
 
     /** The viewer may release, but a resource is not ready or a dependency is unresolved. */
     val releaseBlocked: Boolean get() = mayRelease && publishable && !offerRelease
@@ -159,7 +169,8 @@ data class CatalogReleaseReadiness(
             !nothingToPublish &&
             unresolvedDependencies.isEmpty() &&
             (notReady.isEmpty() || mayMarkReady) &&
-            blockingBorrowed.isEmpty()
+            blockingBorrowed.isEmpty() &&
+            namespaceRefusal == null
 
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && publishable && !nothingToPublish && !offerPublish
@@ -272,6 +283,7 @@ data class CatalogReleaseReadiness(
                 // The number this draft needs against its own base: a fix to an older line is numbered on that line.
                 numbering = draft?.draftRef?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
                 borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
+                namespaceHolding = GetCatalogNamespaceHolding(tenantKey, catalogKey).query(),
             )
         }
     }

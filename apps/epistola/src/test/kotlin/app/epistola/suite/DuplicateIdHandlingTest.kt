@@ -57,6 +57,8 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", existingTenant.id.value)
             formData.add("name", "Duplicate Tenant")
+            formData.add("namespace", "duplicate")
+            formData.add("authority", "gemeente-x.nl")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants", request, String::class.java)
         }

@@ -259,6 +259,9 @@
                         <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
                         <div>
                             <div class="alert-title">This cannot be published yet</div>
+                            <p th:if="${readiness.namespaceRefusal != null}" style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="release-blocked-namespace" th:text="${readiness.namespaceRefusal}">
+                                This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.</p>
                             <p th:if="${!readiness.unresolvedDependencies.isEmpty()}" style="margin: var(--ep-space-1) 0 0;"
                                data-testid="release-blocked-dependencies"
                                th:text="'It uses ' + ${#strings.listJoin(readiness.unresolvedDependencies.![catalogKey], ', ')} + ', which has no published release that fits yet. Publish that first.'">

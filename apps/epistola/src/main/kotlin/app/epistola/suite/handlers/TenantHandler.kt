@@ -4,6 +4,9 @@
 
 package app.epistola.suite.tenants
 
+import app.epistola.catalog.protocol.CatalogNamespaces
+import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.changelog.ChangelogAudience
 import app.epistola.suite.changelog.ChangelogService
@@ -41,12 +44,13 @@ class TenantHandler(
     private val changelogService: ChangelogService,
     private val homeNoticeResolver: HomeNoticeResolver,
     private val buildProperties: BuildProperties?,
+    private val identity: CatalogIdentityProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
         val tenants = ListTenants().query()
         val auth = AuthContext.platformOnly(SecurityContext.current())
-        return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants, "auth" to auth))
+        return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants, "auth" to auth, "defaultAuthority" to identity.defaultRegistry))
     }
 
     /**
@@ -118,12 +122,25 @@ class TenantHandler(
                 required()
                 maxLength(100)
             }
+            // The namespace its catalogs are named in, granted when it is created (ADR 0034, section 3):
+            // chosen here, never derived from the tenant's key.
+            field("namespace") {
+                required()
+                pattern(CatalogNamespaces.PATTERN)
+                minLength(CatalogNamespaces.MIN_LENGTH)
+                maxLength(CatalogNamespaces.MAX_LENGTH)
+            }
+            field("authority") {
+                required()
+                maxLength(CatalogNamespaces.REGISTRY_MAX_LENGTH)
+            }
         }
 
         // A refusal re-renders the form in place with the errors by their fields (422).
         fun refused(formData: FormData): ServerResponse = request.htmx {
             dialogFieldErrors(template = "tenants/list", fragmentName = "create-form", formTarget = "#create-form", formData = formData) {
                 "auth" to auth
+                "defaultAuthority" to identity.defaultRegistry
             }
             onFullPage { redirect("/") }
         }
@@ -136,7 +153,7 @@ class TenantHandler(
         val name = form["name"]
 
         val result = form.executeOrFormError {
-            CreateTenant(id = tenantId, name = name).execute()
+            CreateTenant(id = tenantId, name = name, namespaces = listOf(NamespaceName(form["authority"].trim(), form["namespace"].trim()))).execute()
         }
 
         if (result.hasErrors()) return refused(result)
