@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.namespaces.ListHeldNamespaces
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
@@ -23,6 +24,7 @@ import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.mcp.dto.CatalogDependencyInfo
 import app.epistola.suite.mcp.dto.CatalogDependencyInput
 import app.epistola.suite.mcp.dto.CatalogInfo
+import app.epistola.suite.mcp.dto.NamespacesInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
@@ -60,8 +62,11 @@ class CatalogMcpTools(
     @McpTool(
         name = "create_catalog",
         description = "Create an empty catalog in the current tenant, to hold the templates, themes, " +
-            "stencils and images you then create in it (pass its key as `catalogId`). Fails when a catalog " +
-            "with that key exists. Requires the CATALOG_MANAGE permission.",
+            "stencils and images you then create in it (pass its key as `catalogId`). It is named in a namespace " +
+            "the tenant holds (`list_namespaces`), or under `local` with a namespace you choose (`authority` " +
+            "`local`), which never leaves this organisation. Without a namespace it is named in the one the " +
+            "tenant holds; when it holds none or several, name one. Fails when a catalog with that key exists. " +
+            "Requires the CATALOG_MANAGE permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createCatalog(
@@ -74,15 +79,39 @@ class CatalogMcpTools(
         name: String,
         @McpToolParam(description = "Optional description.", required = false)
         description: String?,
+        @McpToolParam(
+            description = "The namespace to name it in: one this tenant holds (`list_namespaces`), or one of your own " +
+                "under `local`. Omit it for the one the tenant holds.",
+            required = false,
+        )
+        namespace: String? = null,
+        @McpToolParam(
+            description = "The authority of `namespace`: `local` for a namespace of your own; omit it for the one the " +
+                "tenant holds the namespace under.",
+            required = false,
+        )
+        authority: String? = null,
     ): CatalogInfo {
         val catalog = CreateCatalog(
             tenantKey = mcpTenantKey(),
             id = CatalogKey.of(catalogId),
             name = name,
             description = description?.takeIf { it.isNotBlank() },
+            namespace = namespace?.trim()?.takeIf { it.isNotEmpty() },
+            registry = authority?.trim()?.takeIf { it.isNotEmpty() },
         ).execute()
         return CatalogInfo.from(catalog, GetCatalogEditability(catalog.tenantKey, catalog.id).query(), ReleaseContentHashes(emptyMap()))
     }
+
+    @McpTool(
+        name = "list_namespaces",
+        description = "List the namespaces the current tenant holds, which `create_catalog` names a new catalog in, " +
+            "and the one it uses when given none (`default`). Any tenant may also name a catalog under `local` with a " +
+            "namespace of its own (`localInUse` lists those its catalogs use); a local catalog never leaves this " +
+            "organisation. Releasing a catalog needs its namespace to be held. A platform administrator grants namespaces.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
+    )
+    fun listNamespaces(): NamespacesInfo = NamespacesInfo.from(ListHeldNamespaces(mcpTenantKey()).query())
 
     @McpTool(
         name = "list_available_catalog_releases",

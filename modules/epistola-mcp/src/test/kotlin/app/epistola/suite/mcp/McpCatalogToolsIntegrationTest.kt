@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.mcp.dto.NamespaceNameInfo
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mcp.tools.ImageMcpTools
 import app.epistola.suite.mcp.tools.StencilMcpTools
@@ -26,8 +27,11 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -106,6 +110,8 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
             ImportCatalogZip(receiver.key, archive).execute()
             UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
             MarkCatalogReady(receiver.key, catalog).execute()
+            // Releasing it here needs its namespace: the two tenants share it.
+            TestNamespaces.share(author, receiver.key).execute()
             ReleaseCatalogDraft(tenantKey = receiver.key, catalogKey = catalog, version = "1.0.1").execute()
         }
 
@@ -119,6 +125,32 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
         assertThat(system.editable).isFalse
         assertThat(system.readOnlyReason).contains("Epistola supplies this catalog")
         assertThat(system.source).startsWith("classpath:")
+    }
+
+    @Test
+    fun `create_catalog names a catalog in a namespace the tenant holds or under local, and list_namespaces says which`() {
+        val tenantId = newTenant()
+        val own = TestNamespaces.of(tenantId.key)
+        withMediator { TestNamespaces.grant(tenantId.key, "acme", authority = "gemeente-x.nl").execute() }
+
+        val namespaces = runAsApiKey(tenantId) { catalogTools.listNamespaces() }
+        assertThat(namespaces.held).containsExactly(NamespaceNameInfo("gemeente-x.nl", "acme"), NamespaceNameInfo(own.authority, own.namespace))
+        assertThat(namespaces.default).`as`("several, none preferred").isNull()
+
+        assertThatThrownBy { runAsApiKey(tenantId) { catalogTools.createCatalog("brieven", "Brieven", null) } }
+            .isInstanceOfSatisfying(ValidationException::class.java) {
+                assertThat(it.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_REQUIRED)
+                assertThat(it.message).contains("holds several namespaces")
+            }
+        val held = runAsApiKey(tenantId) { catalogTools.createCatalog("brieven", "Brieven", null, namespace = "acme") }
+        assertThat(held.authority to held.namespace).isEqualTo("gemeente-x.nl" to "acme")
+
+        val local = runAsApiKey(tenantId) { catalogTools.createCatalog("notities", "Notities", null, namespace = "personnel", authority = "local") }
+        assertThat(local.authority to local.namespace).isEqualTo("local" to "personnel")
+        assertThat(runAsApiKey(tenantId) { catalogTools.listNamespaces() }.localInUse).containsExactly("personnel")
+
+        assertThatThrownBy { runAsApiKey(tenantId) { catalogTools.createCatalog("elders", "Elders", null, namespace = "elsewhere") } }
+            .hasMessage("This tenant does not hold the namespace elsewhere (exchange.epistola.app); an administrator can grant it.")
     }
 
     @Test

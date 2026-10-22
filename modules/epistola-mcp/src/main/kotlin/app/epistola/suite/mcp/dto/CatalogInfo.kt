@@ -17,6 +17,10 @@ import java.time.OffsetDateTime
 data class CatalogInfo(
     /** Catalog key (slug). Used as `catalogId` arg to other tools. */
     val id: String,
+    /** The authority of its name (the contract's `registry`): a domain, or `local` (ADR 0034). */
+    val authority: String,
+    /** The namespace it is named in, under [authority]. */
+    val namespace: String,
     val name: String,
     val description: String?,
     val attributes: List<CatalogAttributeInfo>,
@@ -52,6 +56,8 @@ data class CatalogInfo(
     companion object {
         fun from(catalog: Catalog, editability: CatalogEditability, hashes: ReleaseContentHashes): CatalogInfo = CatalogInfo(
             id = catalog.id.value,
+            authority = catalog.registry,
+            namespace = catalog.namespace,
             name = catalog.name,
             description = catalog.description,
             attributes = catalog.catalogMetadata.attributes.map {
