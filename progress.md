@@ -21,6 +21,74 @@ against those ADRs.
 
 ## Touched
 
+### Catalog-level changes are changes of the next release (22 October; branch `feat/release-visibility`, not pushed)
+
+Reported in the demo: `default` (everything published) declared `system` (locked to 2.0.1), and its
+draft page still said "Everything is published. What you change from now on shows up here.", so
+the dependency could not be published. `GetCatalogResourceChanges`, which the draft page, the
+publish dialog, the bar, the overview and `ReleaseCatalogDraft` all ask "has the draft changed?",
+compared resources only.
+
+| Change                                                                                                                                                                                                                                                                                                                                                                                                                                 | Where                                                                                                        | Coverage                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CatalogResourceChanges.settings` (`CatalogSettingChange`: entry, state, name, dependency `lock`/`baseLock`) by `CatalogSettingDiff`, against the base's manifest (`ReleaseContentAssembler.readManifest`): dependencies by alias and pin (number and fingerprint; a named draft as its base; not registry/namespace), default theme, presets, license; presentation not; `hasUnreleasedChanges` counts them                           | `catalog/queries/CatalogSettingChange.kt`, `GetCatalogResourceChanges.kt`, `ReleaseContentAssembler.kt`      | ✅ `CatalogSettingChangesTest` (10: dependency added/removed/re-pinned, default theme, presets, license changed; presentation-only unchanged; dependency-only draft publishes with another content hash; a named draft compared as its base); 8 of the first 9 failed before, the presentation guard passed before as it must; the named-draft case fails with the strict pin rule (mutation) |
+| A dependency's named draft whose only change is a catalog setting has something to publish: published along (`GetCatalogBorrowing.unpublished`), and `ReleaseCatalogDraft.unchangedBase` releases it instead of pinning its base                                                                                                                                                                                                       | `GetCatalogBorrowing.kt`                                                                                     | ✅ `CatalogSettingChangesTest` along case (failed before: pinned `1.1.0`, the base)                                                                                                                                                                                                                                                                                                           |
+| Number rules: preset removed breaking, added additive, renamed a fix; default theme and license a fix (reasons at `NONE`)                                                                                                                                                                                                                                                                                                              | `releases/ChangeKind.kt`                                                                                     | ✅ `ChangeKindEvaluatorTest` +2 (both failed before), `CatalogSettingChangesTest` (presets minor then major, default theme patch)                                                                                                                                                                                                                                                             |
+| Draft page rows and publish dialog: "Added: Shared (Dependency) — locked to v1.0.0", "Changed: … — now locked to v1.1.0 (was v1.0.0)", "Removed: … — was locked to v1.0.0", "… — its draft Next release, published along", "Default theme / Presets / License (Catalog setting)"; counts on the bar and overview include them (`changeCount`); `typeLabel("catalogDependency")` is "Dependency" (merge dialog too, was "Catalog used") | `CatalogReleaseReadiness`, `next-release.html`, `list.html`, `overview.html`, `workspace.html`, `merge.html` | ✅ `CatalogNextReleaseHandlerHtmxTest` +1 (failed before: the page showed `catalog-no-changes`)                                                                                                                                                                                                                                                                                               |
+| MCP `get_catalog_changes` returns `settings` (`entry`, `state`, `name`, `releaseVersion`, `draftName`, `baseReleaseVersion`)                                                                                                                                                                                                                                                                                                           | `mcp/dto/CatalogChangesInfo.kt`, `ReadyMcpTools`, `docs/mcp.md`                                              | ✅ `McpReadyToolsIntegrationTest` +1 (fails with the mapping removed, checked by mutation)                                                                                                                                                                                                                                                                                                    |
+| Dependencies page ("Depends on"): a "Named in content as" column, same header and title as the draft's table (`BorrowedCatalog.alias`: the declaration's alias, else the key the references name)                                                                                                                                                                                                                                      | `GetCatalogBorrowing.kt`, `catalogs/content.html`                                                            | ✅ `CatalogWorkspacePagesHtmxTest` +1 (failed before)                                                                                                                                                                                                                                                                                                                                         |
+| Docs: catalog-level changes, ready marks, number rules, the Dependencies page (`catalog-versioning.md`), `settings` (`mcp.md`); changelog fragment `20261022124839-catalog-setting-changes.md`, alias entry extended                                                                                                                                                                                                                   | docs, changelog                                                                                              | ➖                                                                                                                                                                                                                                                                                                                                                                                            |
+
+**Decisions where the task left room:**
+
+- **Ready marks:** a catalog setting never needs one and never blocks a release. `ReadyMarks`
+  already said settings carry no marks; a mark records a resource's content digest, and choosing a
+  dependency, default theme, presets or license is one deliberate act with nothing half-done to
+  review. So a draft whose only changes are settings publishes as it is.
+- **Numbers:** dependency rules unchanged (added minor, removed or moved-and-fits patch, moved-and-
+  breaks-what-is-used major). Presets follow the resource rule, since other catalogs' content may
+  name them (ADR 0007): removed major, added minor, renamed patch. Default theme and license are a
+  patch: a theme's own content changing is a fix, and the default theme only decides which theme
+  this catalog's templates that name none render with; nothing another catalog or a caller relies on
+  changes. (The task guessed "at least a minor" for the default theme; one line in
+  `ChangeKindEvaluator.settings` changes it.)
+- **"Same pin":** number and fingerprint; registry and namespace are left out (a rename or mirror
+  is no change, ADR 0034). A declaration naming a draft is compared as the release it pins when
+  that draft has nothing to publish, its base, as `ReleaseCatalogDraft` pins it; what that draft
+  changed itself stays the other catalog's change, published along (`onlyOthersChanged`). The
+  strict rule (a named draft differs from any pin) broke `PublishDialogHtmxTest`'s "a change only in
+  the catalog it uses" case, which is how this was found. A move between two numbers with the same
+  fingerprint (a notes-only re-release) counts as a change although the content hash would not
+  differ.
+- Settings are a separate list, not entries in `resources`: REST maps `resources` to
+  `ResourceChangeDto`, whose `type` is a resource type.
+- Before a first release every setting the draft has is listed as added.
+
+**Runs** (`--no-watch-fs`): before the fix, `CatalogSettingChangesTest` 8 of 9 failed,
+`ChangeKindEvaluatorTest` 2 of 8, `CatalogNextReleaseHandlerHtmxTest` and
+`CatalogWorkspacePagesHtmxTest` 1 each (the new cases); the MCP case fails with its mapping
+removed, the named-draft case with the strict pin rule. After: core `--tests
+"app.epistola.suite.catalog.*"` 545, core unit 1033, app integration 777 (775 green,
+`DataPreservationMigrationIT` ×2 known: `UpgradePreflightRefused`), of which `*Catalog*` 192 and the
+`catalog` package 160, `:modules:epistola-mcp:integrationTest` 94, `:modules:guards:test` 28,
+`ktlintCheck` green. The running demo was not restarted, so it still shows the old page.
+
+**Noticed, left alone:**
+
+- **REST (contract):** `getCatalogChanges` lists resources only; `dependenciesChanged` covers
+  dependencies, the default theme, presets and license have no field. Its `releasable` is
+  `notReady.isEmpty()`, while the contract says "… and something changed".
+- `NextVersionChanges` (fast-forward on receiving) compares dependencies by their full declaration,
+  registry and namespace included, and not the license, which is catalog-wide here: a received
+  release overwrites a license edited in the next version without it counting as a change of its own.
+- What a behind release changed (`ListCatalogReleases.changesOf`, "it changed …") lists resources only.
+- A setting resolved with merged content still gets no "Merged, review before publishing" badge (no
+  mark to end it).
+- A received release that carries `compatibility` hashes it; a draft built here has none, which no
+  change lists.
+- The same release pinned under two fingerprint algorithms (V5 in the base, the content hash after a
+  re-pin) is listed as "now locked to v2.0.0 (was v2.0.0)".
+
 ### ADR 0034 phase 2 made visible (22 October; branch `feat/release-visibility` from `ff5e0dd68`, not pushed)
 
 What phase 2 records, shown to people: a release's content hash and the releases it is the same as

@@ -256,8 +256,12 @@ until it is released**; only releases are numbered.
   needing at least a minor: a resource, variant, placeholder or optional parameter added; a contract
   widened or dropped; a parameter no longer required or removed (a binding of it is ignored); values
   allowed or a restriction lifted; a code-list entry added or its label, order or hidden flag changed;
-  a dependency added (an installation brings it along). Everything else is a fix, including a
-  dependency removed: it changes nothing others rely on. The same rules
+  a dependency added (an installation brings it along). Presets (contract ADR 0007) follow the
+  resource rule, since content of a catalog that uses this one may name them: one removed is
+  breaking, one added additive, one renamed or described differently a fix. Everything else is a
+  fix, including a dependency removed (it changes nothing others rely on), another default theme
+  (it decides how this catalog's templates that name no theme look, as a theme's own content does)
+  and another license. The same rules
   decide whether a newer release of a catalog this one uses fits what it uses (`GetCatalogBorrowing`).
 - **Relocation** moves the next release's rows, so it is refused (`several-drafts`) while the source
   or target catalog has another draft.
@@ -483,7 +487,9 @@ declares every dependency under its key, the contract's default (`catalog_depend
 `catalog_release_dependencies.alias`, `V20261022101420`), and refuses an archive that declares one
 under another alias (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would rewrite its references
 and so change its content hash. The draft page's Dependencies table shows each declaration's alias
-("Named in content as") next to its namespace and key. A reference resolves through the declaration of its alias to that
+("Named in content as") next to its namespace and key, and so does the catalog's Dependencies page
+("Depends on"), where people add one; a catalog used there but not declared shows the key its
+references name. A reference resolves through the declaration of its alias to that
 catalog, by its full name, and to the release the declaration pins. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
@@ -518,7 +524,8 @@ draft shows is what its release is cut with. A catalog nothing declares (one the
 left undeclared by hand) is read live from its current version.
 
 **Releasing** is cut with the pins. A declaration that names a draft with nothing of its own to
-release (no resource changed against its base, no draft named, the same pins as its base) pins that
+release (no resource or catalog setting changed against its base, no draft named, the same pins as
+its base) pins that
 base instead, with or without asking. Any other named draft must be released first:
 `releaseDependencies` releases each such draft first, recursively, each numbered as its changes need;
 without it the release is refused (`CatalogDependenciesUnreleasedException`, REST
@@ -605,6 +612,12 @@ and `MarkCatalogReady` (every changed resource of the catalog) set them; MCP has
 modified since the last release — of any type — is not ready. `GetCatalogResourceChanges` (below)
 reports each resource's state and whether it is `ready`.
 
+**Catalog settings carry no ready mark.** A dependency added, removed or locked to another release,
+another default theme, other presets or another license is a change of the release (below), and
+never waits on a mark: choosing one is a single deliberate act with nothing half-done to review, and
+a mark records a resource's content digest, which a setting does not have. So a draft whose only
+changes are catalog settings is publishable as it is, and "Mark all ready" has nothing to mark.
+
 The 2.0 upgrade (`V20261018200600__core_working_copy.sql`) gives each variant its
 draft model, else its latest published, else its latest archived; each template its draft contract,
 else its latest published. What was publishable before is marked ready: a variant with no unfinished
@@ -614,7 +627,8 @@ draft, a stencil without a draft, and every other resource. `template_versions` 
 ## Cutting a release
 
 The page of a catalog that can be changed here has a **Next release** section (`catalogs/next-release.html`): every
-resource that changed since the draft's base with its state and whether it is ready, **Mark all
+resource that changed since the draft's base with its state and whether it is ready, then every
+catalog setting that changed (below), **Mark all
 ready**, and the declared **Dependencies** with their locks (edited in a dialog: the catalogs it uses,
 each tied to its latest published version, which a newer one replaces once it fits what is used;
 **Resolve to latest** moves the locks). The next release has no number until it is published; the
@@ -622,7 +636,8 @@ release dialog picks it from the kind of change and may raise it under Advanced.
 section says which resources are not ready or which dependencies match no release, and where to fix
 it. The page and the release dialog gate on the same read model, `CatalogReleaseReadiness`. The
 dialog (also reachable from the catalog list) pre-fills the draft's number, offers Patch / Minor /
-Major quick-picks and release notes, and names what this release will add, update and drop. It dispatches
+Major quick-picks and release notes, and names what this release will add, update and drop, catalog
+settings included. It dispatches
 [`ReleaseCatalogDraft`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogDraft.kt):
 refuses for a catalog that cannot be changed here and while a changed resource is not [ready](#ready-marks),
 parses + monotonic-checks the SemVer, computes the fingerprint,
@@ -671,6 +686,39 @@ still matches its released fingerprint the working digests _are_ that release's
 digests, so the answer stays exact; once it has drifted the query reports
 UNKNOWN and says it has no baseline rather than calling everything new. The
 next release records one.
+
+**Beside the resources.** A draft has changes when its **content** differs from the release it is
+based on (ADR 0034), and the content hash covers more than resources: each catalog it declares it
+uses, its default theme, its presets and its license. `GetCatalogResourceChanges` compares those too
+(`CatalogSettingDiff`) and lists each that differs as a `CatalogSettingChange` in `settings`, by entry
+as a merge names it (`catalogDependency/<alias>`, `catalog/defaultTheme`, `catalog/presets`, and
+`catalog/license`, which a merge does not take since the license is catalog-wide here), against the
+catalog details and dependencies the base's manifest froze. They are compared as the content hash
+compares them: a dependency by its alias and the release it pins (number and fingerprint; a
+declaration naming a draft as the release it pins when that draft has nothing to publish, its base,
+since what the draft changed itself is the other catalog's change, published along), not by its
+registry or namespace, so renaming or mirroring one is no change; the default theme by theme and alias, the own catalog named or not; the
+presets in any order. The catalog's presentation (name, description, keywords, presentation,
+attributes) is not content, so changing it is not a change of the release. `hasUnreleasedChanges`
+counts both, so a draft whose only change is a dependency is something to publish: the draft's page
+lists it and offers Publish, and the dialog names it, in the words of the change rows:
+
+| Change                        | Shown as                                                         |
+| ----------------------------- | ---------------------------------------------------------------- |
+| a dependency added            | Added: Shared (Dependency) — locked to v1.0.0                    |
+| one locked to another release | Changed: Shared (Dependency) — now locked to v1.1.0 (was v1.0.0) |
+| one naming a draft of it      | … (Dependency) — its draft Next release, published along         |
+| one removed                   | Removed: Shared (Dependency) — was locked to v1.0.0              |
+| the default theme             | Added / Changed / Removed: Default theme (Catalog setting)       |
+| the presets, the license      | Added / Changed / Removed: Presets / License (Catalog setting)   |
+
+The bar's and the overview's counts include them. A draft of another catalog that this one names
+counts as having something to publish (and is published along) when only its settings changed too
+(`GetCatalogBorrowing`), and `ReleaseCatalogDraft` releases such a draft first rather than pinning
+its base. MCP `get_catalog_changes` returns them as `settings` (`entry`, `state`, `name`, and for a
+dependency `releaseVersion`, `draftName`, `baseReleaseVersion`). The REST API's `getCatalogChanges`
+lists resources only: its `dependenciesChanged` says the declarations differ, and the default theme,
+presets and license have no field in the contract yet.
 
 ## What an environment uses
 
