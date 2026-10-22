@@ -365,28 +365,76 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    /** [diverged], with the brand conflict merged as merged content (neither side's name), letterhead taken. */
+    private fun mergedWithMergedContent(tenant: Tenant): String {
+        val work = diverged(tenant)
+        withMediator {
+            val ref = work(tenant, work)
+            MarkCatalogReady(tenant.id, letters, catalogVersion = ref).execute()
+            val sides = GetDraftMergeSides(tenant.id, letters, "1.0.1", "theme/brand", ref).query()
+            MergeReleaseIntoDraft(tenant.id, letters, "1.0.1", catalogVersion = ref, mergedContent = mapOf("theme/brand" to sides.draft!! + ("name" to "Brand, redesigned and fixed"))).execute()
+        }
+        return work
+    }
+
+    private fun row(page: String, resource: String) = page.substringAfter("data-resource=\"$resource\"").substringBefore("</tr>")
+
     @Test
-    fun `a conflict merged with merged content shows on the draft's page as a change not marked ready`() = fixture {
+    fun `a conflict merged with merged content is marked on the draft's page for review`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
         given {
             tenant = tenant("Merge Merged Content")
-            work = diverged(tenant)
-            withMediator { MarkCatalogReady(tenant.id, letters, catalogVersion = work(tenant, work)).execute() }
+            work = mergedWithMergedContent(tenant)
         }
-        whenever {
-            withMediator {
-                val ref = work(tenant, work)
-                val sides = GetDraftMergeSides(tenant.id, letters, "1.0.1", "theme/brand", ref).query()
-                MergeReleaseIntoDraft(tenant.id, letters, "1.0.1", catalogVersion = ref, mergedContent = mapOf("theme/brand" to sides.draft!! + ("name" to "Brand, redesigned and fixed"))).execute()
-            }
-            get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
-        }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!! }
         then {
             val page = result<String>()
-            assertThat(page).contains("data-resource=\"theme/brand\"")
-            assertThat(page.substringAfter("data-resource=\"theme/brand\"").substringBefore("</tr>")).contains("Changed").contains("Brand, redesigned and fixed")
+            assertThat(row(page, "theme/brand")).contains("Changed").contains("Brand, redesigned and fixed")
+                .contains("data-testid=\"catalog-change-merged\"").contains("Merged, review before publishing")
+            assertThat(row(page, "theme/letterhead")).`as`("taken from the release, not merged").contains("Letterhead, fixed").doesNotContain("catalog-change-merged")
             assertThat(page).contains("data-testid=\"catalog-not-ready-hint\"").contains("1 change is not marked ready yet")
+        }
+    }
+
+    @Test
+    fun `merged content is no longer marked once it is marked ready`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Merged Reviewed")
+            work = mergedWithMergedContent(tenant)
+        }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/letters@$work/ready", emptyMap()) }
+        then {
+            val marked = result<ResponseEntity<String>>()
+            assertThat(marked.statusCode.value()).isEqualTo(200)
+            assertThat(marked.body!!).doesNotContain("catalog-change-merged")
+            val page = get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
+            assertThat(row(page, "theme/brand")).contains("Brand, redesigned and fixed").doesNotContain("catalog-change-merged")
+            assertThat(page).doesNotContain("catalog-not-ready-hint")
+        }
+    }
+
+    @Test
+    fun `the publish dialog names merged content to review before publishing it`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Merged Publish")
+            work = mergedWithMergedContent(tenant)
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release") }
+        then {
+            val dialog = result<ResponseEntity<String>>()
+            assertThat(dialog.statusCode.value()).isEqualTo(200)
+            val body = dialog.body!!
+            assertThat(body).contains("data-testid=\"publish-merged\"")
+            assertThat(body.substringAfter("data-testid=\"publish-merged-names\"").substringBefore("</p>"))
+                .contains("These were merged, review them: Brand, redesigned and fixed (Theme).")
+            val changes = body.split("data-testid=\"publish-change\"").drop(1).map { it.substringBefore("</li>") }
+            assertThat(changes.single { "Brand, redesigned and fixed" in it }).contains("data-testid=\"publish-change-merged\"")
+            assertThat(changes.single { "Letterhead, fixed" in it }).doesNotContain("publish-change-merged")
         }
     }
 

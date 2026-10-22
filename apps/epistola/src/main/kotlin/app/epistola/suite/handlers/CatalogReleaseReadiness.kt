@@ -70,6 +70,13 @@ data class CatalogReleaseReadiness(
     /** The changed resources not marked ready; releasing refuses while there is one. */
     val notReady: List<CatalogResourceChange> get() = changes.notReady
 
+    /**
+     * The changed resources a merge wrote as merged content, neither side's, that nobody has marked
+     * ready since: the page badges each and the publish dialog names them, so publishing them (which
+     * marks them ready) is a deliberate act.
+     */
+    val mergedForReview: List<CatalogResourceChange> get() = changes.mergedForReview
+
     /** Every resource that differs from the last release, in manifest order. */
     val changed: List<CatalogResourceChange> get() = changes.resources.filter { it.state != CatalogResourceState.RELEASED }
 
@@ -147,13 +154,19 @@ data class CatalogReleaseReadiness(
 
     /** The changed resources, with a readable kind, for the "what changes" list. */
     val changedForPeople: List<PublishedChange>
-        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state) }
+        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state, it.mergedForReview) }
 
     /** A resource type as people say it, for templates. */
     fun labelOf(type: String): String = typeLabel(type)
 
-    /** One line of "what changes": the kind of resource in words, its name, and how it changed. */
-    data class PublishedChange(val kind: String, val name: String, val state: CatalogResourceState)
+    /** The [changedForPeople] a merge wrote as merged content, for "these were merged, review them". */
+    val mergedForPeople: List<PublishedChange> get() = changedForPeople.filter { it.mergedForReview }
+
+    /**
+     * One line of "what changes": the kind of resource in words, its name, how it changed, and
+     * whether it is merged content awaiting review ([mergedForReview]).
+     */
+    data class PublishedChange(val kind: String, val name: String, val state: CatalogResourceState, val mergedForReview: Boolean = false)
 
     /** Whether to offer "Mark all ready": the viewer may mark, and a changed resource is not ready. */
     val offerMarkAllReady: Boolean get() = mayMarkReady && hasDraft && notReady.isNotEmpty()

@@ -105,6 +105,9 @@
                                 <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
                                       th:text="${change.name ?: change.slug}"></span>
                                 <span class="text-muted" th:text="'(' + ${readiness.labelOf(change.type)} + ')'">(Template)</span>
+                                <!--/* Merged content (ADR 0032): neither side's, written by a merge and not marked ready since. */-->
+                                <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="catalog-change-merged"
+                                      title="A merge combined both sides here. Check it before you publish; publishing or marking it ready ends this.">Merged, review before publishing</span>
                             </td>
                         </tr>
                     </tbody>

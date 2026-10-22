@@ -184,11 +184,26 @@
                                 <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
                                 <strong th:text="${change.name}">Invoice</strong>
                                 <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Template)</span>
+                                <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="publish-change-merged">Merged, review before publishing</span>
                             </li>
                             <li th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}">
                                 Everything in the catalog: this is its first release.
                             </li>
                         </ul>
+                    </div>
+
+                    <!--/* Merged content (ADR 0032) is neither side's: publishing marks it ready, so the dialog names it first. */-->
+                    <div th:unless="${readiness.mergedForPeople.isEmpty()}" class="alert alert-warning" data-testid="publish-merged">
+                        <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+                        <div>
+                            <div class="alert-title">Merged content</div>
+                            <p style="margin: var(--ep-space-1) 0 0;"
+                               data-testid="publish-merged-names"
+                               th:text="'These were merged, review them: ' + ${#strings.listJoin(readiness.mergedForPeople.![name + ' (' + kind + ')'], ', ')} + '.'">
+                                These were merged, review them: Brand (Theme).</p>
+                            <p th:if="${readiness.marksReadyOnPublish}" style="margin: var(--ep-space-1) 0 0;">
+                                Publishing marks them ready as they are now.</p>
+                        </div>
                     </div>
 
                     <div th:if="${readiness.impact != null and readiness.impact.name() == 'BREAKING'}" class="alert alert-warning" data-testid="publish-impact-breaking">
