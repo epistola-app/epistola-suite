@@ -131,7 +131,12 @@ class RecordInstalledReleaseHandler(
         // The installed version carries the archive's theme settings (contract ADR 0007), so its
         // release, rebuilt or not, renders with its default theme.
         if (command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
-        val content = command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey)
+        // What the release keeps, with the bundled faces of its fonts, and so what everything recorded of
+        // it is computed over: each entry's fingerprint, and a fingerprint or content hash computed here.
+        // Computed over the content without them, those named fonts without faces that the release holds.
+        val content = jdbi.withHandle<CatalogContent, Exception> { handle ->
+            withBundledFaces(handle, command.tenantKey, command.catalogKey, command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey))
+        }
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
@@ -199,7 +204,7 @@ class RecordInstalledReleaseHandler(
                 version,
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
-            val revisionDigests = revisionStore.retain(handle, command.tenantKey, withBundledFaces(handle, command.tenantKey, command.catalogKey, content))
+            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             // A release beside the installed one may hold resources no version of the catalog has.
             releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints, registerNew = command.release != null)
         }
@@ -210,7 +215,7 @@ class RecordInstalledReleaseHandler(
 }
 
 /**
- * [content] with the bundled faces of its fonts, for retaining it.
+ * [content] with the bundled faces of its fonts, for recording it as a release.
  *
  * The wire form carries only asset-backed faces, so content built from the installed rows lists a
  * seeded font (the system catalog's) without any. A release keeps them by hash instead: rendering
