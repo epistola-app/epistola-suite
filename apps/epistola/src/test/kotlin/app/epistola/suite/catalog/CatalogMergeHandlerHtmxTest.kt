@@ -105,6 +105,36 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the catalog's page offers merging a version the next release lacks, as the draft's page does`() = fixture {
+        lateinit var tenant: Tenant
+        given {
+            tenant = tenant("Merge Offer Overview")
+            withMediator {
+                CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
+                CreateTheme(theme(tenant, "brand"), "Brand").execute()
+                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
+                MarkCatalogReady(tenant.id, letters).execute()
+                ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
+
+                // A fix published from separate work: the next release does not have it.
+                val fix = CreateCatalogDraft(tenant.id, letters, "Fix").execute().versionId
+                UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed", catalogVersion = work(tenant, fix)).execute()
+                MarkCatalogReady(tenant.id, letters, work(tenant, fix)).execute()
+                ReleaseCatalogDraft(tenant.id, letters, "1.0.1", catalogVersion = work(tenant, fix)).execute()
+            }
+        }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters/browse").body!! }
+        then {
+            val page = result<String>()
+            assertThat(page).contains("data-testid=\"catalog-draft-behind-release\"")
+            assertThat(page).contains("data-testid=\"catalog-merge-open\"")
+                .contains("/tenants/${tenant.id}/catalogs/letters/merge?release=1.0.1")
+                .contains("Merge it to bring its changes in")
+                .doesNotContain("data-testid=\"catalog-merge-withheld\"")
+        }
+    }
+
+    @Test
     fun `the merge dialog shows the conflict with both choices, what is taken, and that it is alpha`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String

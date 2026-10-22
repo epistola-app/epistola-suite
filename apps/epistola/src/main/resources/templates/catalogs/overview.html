@@ -34,7 +34,18 @@
                        data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
                         <strong th:text="'v' + ${release.version}">v1.2.1</strong> was published in between and is not in the next release<span th:unless="${release.changes.isEmpty()}"
                             th:text="': it changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
-                        Make the same change here if it belongs in it too.
+                        <th:block th:if="${readiness.offerMerge}">Merge it to bring its changes in, or make the same change here yourself.</th:block>
+                        <th:block th:unless="${readiness.offerMerge}">Make the same change here if it belongs in it too.</th:block>
+                        <!--/* The same offer as the draft's page: merging (ADR 0032) is alpha and shows what it would do first. */-->
+                        <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                style="margin-left: var(--ep-space-2);"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${release.version})}"
+                                hx-target="#dialog-mount" hx-swap="innerHTML"
+                                data-testid="catalog-merge-open" th:data-version="${release.version}">Merge…</button>
+                    </p>
+                    <p th:if="${readiness.mergeWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
+                       data-testid="catalog-merge-withheld">
+                        Merging a published release into this draft needs the content author role.
                     </p>
                 </div>
             </div>
