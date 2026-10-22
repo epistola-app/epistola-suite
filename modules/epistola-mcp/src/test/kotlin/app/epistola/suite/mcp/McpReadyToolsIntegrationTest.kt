@@ -4,13 +4,21 @@
 
 package app.epistola.suite.mcp
 
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.mcp.dto.CatalogChangesInfo
 import app.epistola.suite.mcp.tools.DataContractMcpTools
 import app.epistola.suite.mcp.tools.ReadyMcpTools
 import app.epistola.suite.mcp.tools.StencilMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
 import app.epistola.suite.mcp.tools.VariantContentMcpTools
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
@@ -111,6 +119,28 @@ class McpReadyToolsIntegrationTest : IntegrationTestBase() {
         assertThat(after.resources.filter { it.state == "NEW" || it.state == "MODIFIED" }).isNotEmpty.allSatisfy {
             assertThat(it.ready).isTrue
         }
+    }
+
+    /** A dependency is content of the release (ADR 0034): listed under `settings`, without a ready mark to wait on. */
+    @Test
+    fun `get_catalog_changes lists a dependency added to a published catalog under settings`() {
+        val tenantId = newTenant()
+        seedTemplateOnStencil(tenantId, fill = "body")
+        val system = runAsApiKey(tenantId) {
+            readyTools.markCatalogReady("default")
+            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("default"), "1.0.0").execute()
+            val system = GetCatalog(tenantId.key, CatalogKey.of("system")).query()!!
+            UpdateCatalogDependencies(tenantId.key, CatalogKey.of("default"), listOf(DeclaredCatalogDependency(system.registry, system.namespace, "system", system.installedReleaseVersion))).execute()
+            system
+        }
+
+        val changes = runAsApiKey(tenantId) { readyTools.getCatalogChanges("default") }
+
+        assertThat(changes.resources.map { it.state }).containsOnly("RELEASED")
+        assertThat(changes.settings).containsExactly(
+            CatalogChangesInfo.Setting("catalogDependency/system", "NEW", system.name, releaseVersion = system.installedReleaseVersion),
+        )
+        assertThat(changes.releasable).isTrue
     }
 
     @Test

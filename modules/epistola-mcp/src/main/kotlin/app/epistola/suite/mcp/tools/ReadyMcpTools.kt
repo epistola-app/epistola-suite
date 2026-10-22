@@ -41,7 +41,10 @@ class ReadyMcpTools {
         description = "List what the next release of a catalog that can be changed here would contain that its last one did not: " +
             "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`) and whether it " +
             "is marked ready; `mergedForReview` marks merged content a merge wrote that nobody has marked ready since, " +
-            "to review with the user. `releasable` is false while a changed resource is not ready.",
+            "to review with the user. `settings` lists what changed beside the resources, which is content of the release too: " +
+            "a dependency added, removed or locked to another release (`catalogDependency/<alias>`), the default theme, " +
+            "the presets, the license (`catalog/<key>`); these need no ready mark. " +
+            "`releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getCatalogChanges(
