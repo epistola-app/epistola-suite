@@ -96,6 +96,22 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a release renders its theme's own spacing unit`() {
+        val catalog = authoredCatalog("rr-spacing")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f).execute()
+            invoice(catalog, theme = ThemeKey.of("airy"), nodeId = "body")
+            release(catalog, "1.0.0")
+        }
+
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+
+        assertThat(inputs.resolvedTheme.spacingUnit)
+            .`as`("the theme's spacing unit, not the default the renderer falls back to")
+            .isEqualTo(8f)
+    }
+
+    @Test
     fun `a template that names no theme renders with the default theme its release was published with`() {
         val catalog = authoredCatalog("rr-catalog-default")
         withMediator {

@@ -5,6 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.catalog.protocol.FontResource
+import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogFingerprintService
@@ -41,7 +42,8 @@ import java.sql.DriverManager
  * Then every release the tenant has must hold what its record says it holds:
  *
  * - every font it retained carries its faces: the system catalog's bundled ones, which live on the
- *   classpath and not in its archive, and an authored font's uploaded one;
+ *   classpath and not in its archive, and an authored font's uploaded one; and the authored theme
+ *   keeps its spacing unit;
  * - every entry's recorded fingerprint is the fingerprint of the revision it points at;
  * - its content hash, and the fingerprint it was cut with, reproduce from what it retained. The
  *   system catalog is the one exception, by decision (findings G6, ADR 0032 section 8): its release
@@ -117,6 +119,11 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
                 .associate { font -> font.key to font.variants.map { Face(it.weight, it.italic, it.contentHash) }.toSet() }
             softly.assertThat(faces).`as`("the faces of every font $name retained").isEqualTo(expectedFaces.getValue(release.catalogKey))
 
+            if (release.catalogKey == LETTERS) {
+                val themes = retained.resourceDetails.values.mapNotNull { it.resource as? ThemeResource }.associate { it.key to it.spacingUnit }
+                softly.assertThat(themes).`as`("the spacing unit of every theme $name retained").isEqualTo(mapOf("house" to 8f))
+            }
+
             val reproduced = fingerprints.perResourceFingerprints(retained)
             for (entry in jdbi.withHandle<List<app.epistola.suite.catalog.revisions.ReleaseEntry>, Exception> { entries.entriesOf(it, TENANT, release.catalogKey, release.version) }) {
                 softly.assertThat(entry.fingerprint)
@@ -141,7 +148,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
     /** The faces each catalog's fonts have, as 1.x left them: the bundled ones by their files' hashes, and the uploaded one. */
     private val expectedFaces: Map<CatalogKey, Map<String, Set<Face>>> = mapOf(
         SYSTEM_CATALOG_KEY to SYSTEM_FONTS.associate { font -> font.slug to BUNDLED_FACES.map { (weight, italic, token) -> Face(weight, italic, sha256Hex(classpathBytes(font.location(token)))) }.toSet() },
-        CatalogKey.of("letters") to mapOf("brand" to setOf(Face(400, false, sha256Hex(classpathBytes(BRAND_FACE))))),
+        LETTERS to mapOf("brand" to setOf(Face(400, false, sha256Hex(classpathBytes(BRAND_FACE))))),
     )
 
     private fun releases(): List<Recorded> = jdbi.withHandle<List<Recorded>, Exception> { handle ->
@@ -172,6 +179,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         private const val LAST_1X = "20260923150918"
 
         private val TENANT = TenantKey.of("acme")
+        private val LETTERS = CatalogKey.of("letters")
 
         /** The system catalog this suite ships (`catalogs/system/catalog.json`). */
         private const val BUNDLED_SYSTEM_VERSION = "2.0.1"
@@ -200,7 +208,8 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
          * A 1.x tenant as 1.5.0 left it (compare a real 1.5.0 database): the system catalog subscribed
          * at the release 1.x shipped (1.3.0, with its bare-hex fingerprint), its bundled fonts seeded
          * beside it with classpath faces; and an authored catalog with an uploaded font, a theme in
-         * the system catalog's Inter, and a template with a published version and contract. The
+         * the system catalog's Inter with a spacing unit of its own, and a template with a published
+         * version and contract. The
          * system catalog's other resources are its manifest's, which the bootstrap puts in place at
          * the bundled release either way; its fonts are what the manifest does not carry.
          */
@@ -215,8 +224,8 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
                     INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind) VALUES
                     ${SYSTEM_FONTS.joinToString(",\n") { "('${it.slug}', 'acme', 'system', '${it.name}', '${it.kind}')" }};
                     INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED');
-                    INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles)
-                    VALUES ('house', 'acme', 'letters', 'House', '{"fontFamily": {"slug": "inter", "catalogKey": "system"}}');
+                    INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles, spacing_unit)
+                    VALUES ('house', 'acme', 'letters', 'House', '{"fontFamily": {"slug": "inter", "catalogKey": "system"}}', 8);
                     INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind) VALUES ('brand', 'acme', 'letters', 'Brand', 'sans');
                     INSERT INTO document_templates (id, tenant_key, catalog_key, name, theme_resource_id)
                     SELECT 'invoice', 'acme', 'letters', 'Invoice', resource_id FROM themes WHERE tenant_key = 'acme' AND id = 'house';

@@ -154,6 +154,25 @@ class CatalogThemeSettingsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a theme's spacing unit travels with its release through export and import`() {
+        val catalog = lettersIn("Spacing Unit Export")
+        val zip = withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f).execute()
+            app.epistola.suite.catalog.commands.MarkCatalogReady(catalog.tenantKey, letters).execute()
+            app.epistola.suite.catalog.commands.ReleaseCatalogDraft(catalog.tenantKey, letters, "1.0.0").execute()
+            app.epistola.suite.catalog.commands.ExportCatalogZip(catalog.tenantKey, letters, "1.0.0").execute().zipBytes
+        }
+
+        val other = createTenant("Spacing Unit Import")
+        val imported = withMediator {
+            app.epistola.suite.catalog.commands.ImportCatalogZip(other.id, zip).execute()
+            app.epistola.suite.themes.queries.GetTheme(ThemeId(ThemeKey.of("airy"), CatalogId(letters, TenantId(other.id)))).query()
+        }
+
+        assertThat(imported?.spacingUnit as Any?).`as`("the imported theme's spacing unit").isEqualTo(8f)
+    }
+
+    @Test
     fun `parallel work starts with the theme settings of the version it copies`() {
         val catalog = lettersIn("Theme Settings Parallel")
         withMediator {

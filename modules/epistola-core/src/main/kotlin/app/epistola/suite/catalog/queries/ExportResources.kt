@@ -62,7 +62,8 @@ class ExportThemesHandler(
                 documentStyles = rs.getString("document_styles")?.let { objectMapper.readValue(it, DocumentStyles::class.java) } ?: emptyMap(),
                 pageSettings = rs.getString("page_settings")?.let { objectMapper.readValue(it, PageSettings::class.java) },
                 blockStylePresets = rs.getString("block_style_presets")?.let { objectMapper.readValue(it, BlockStylePresets::class.java) },
-                spacingUnit = rs.getObject("spacing_unit") as? Float,
+                // NUMERIC, so the driver answers a BigDecimal: read as a Float, it was always null.
+                spacingUnit = rs.getBigDecimal("spacing_unit")?.toFloat(),
             )
         }.list()
     }
