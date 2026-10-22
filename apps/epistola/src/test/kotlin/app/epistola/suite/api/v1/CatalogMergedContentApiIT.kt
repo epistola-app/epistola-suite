@@ -10,9 +10,6 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
-import app.epistola.suite.catalog.merge.MergeBaseMissingException
-import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
-import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
@@ -37,7 +34,6 @@ import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
@@ -51,13 +47,12 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.util.AopTestUtils
 import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /**
  * Resolving a merge conflict with merged content over REST (contract ADR 0005, alpha):
- * `getCatalogDraftMergeSides`, and `mergeIntoCatalogDraft` with `mergedContent`.
+ * `getCatalogDraftMergeSides` over HTTP, and `mergeIntoCatalogDraft` with `mergedContent`.
  *
  * The catalog's 1.0.0 has the theme `tha`; parallel work made from it renames the theme and adds a
  * template on it, released as 1.1.0, while the next release renames the theme differently.
@@ -117,19 +112,24 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/$type")
     }
 
-    @Autowired
-    private lateinit var catalogApi: EpistolaCatalogApi
+    /** One entry's sides as `getCatalogDraftMergeSides` answers them; a side is null when absent. */
+    private data class Sides(val entry: String, val mergeBase: String?, val token: String, val base: Map<String, Any?>?, val draft: Map<String, Any?>?, val release: Map<String, Any?>?)
 
-    /**
-     * `getCatalogDraftMergeSides`, called on the controller itself. The contract's generated
-     * interface declares `entry`'s pattern as `^[A-Za-z][A-Za-z0-9-]*_/[^/]+$` (the generator writes
-     * the `*` and `/` of the contract's pattern apart, as `*_/`), which no entry matches, so over HTTP
-     * every entry is refused with 400 until the contract fixes it.
-     */
-    private fun sides(seeded: Seeded, version: String, entry: String) = withMediator {
-        val target = AopTestUtils.getTargetObject<EpistolaCatalogApi>(catalogApi)
-        val catalog = GetCatalog(seeded.tenantKey, seeded.catalogKey).query()!!
-        target.getCatalogDraftMergeSides(version, entry, seeded.tenantKey.value, catalog.registry, catalog.namespace, seeded.catalogKey.value, "next").body!!
+    private fun sidesResponse(seeded: Seeded, version: String, entry: String) = get(seeded, "merge-sides?version=$version&entry=$entry")
+
+    @Suppress("UNCHECKED_CAST")
+    private fun sides(seeded: Seeded, version: String, entry: String): Sides {
+        val response = sidesResponse(seeded, version, entry)
+        assertThat(response.statusCode).`as`(response.body).isEqualTo(HttpStatus.OK)
+        val body = objectMapper.readValue(response.body!!, Map::class.java) as Map<String, Any?>
+        return Sides(
+            entry = body["entry"] as String,
+            mergeBase = body["mergeBase"] as String?,
+            token = body["token"] as String,
+            base = body["base"] as Map<String, Any?>?,
+            draft = body["draft"] as Map<String, Any?>?,
+            release = body["release"] as Map<String, Any?>?,
+        )
     }
 
     @Test
@@ -152,7 +152,7 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
         assertThat(added.draft).isNull()
         assertThat(added.release).containsEntry("key", "letter")
 
-        assertThatThrownBy { sides(seeded, "1.1.0", "theme/nothing") }.isInstanceOf(MergeEntryNotFoundException::class.java)
+        problem(sidesResponse(seeded, "1.1.0", "theme/nothing"), HttpStatus.NOT_FOUND, "not-found")
     }
 
     @Test
@@ -175,8 +175,9 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
         }
         val seeded = Seeded(tenantKey, apiKey, CatalogKey.of(slug), withMediator { CatalogApiPaths.version(tenantKey, slug, "next") })
 
-        assertThatThrownBy { sides(seeded, "1.0.1", "theme/brand") }
-            .isInstanceOfSatisfying(MergeBaseMissingException::class.java) { assertThat(it.version).isEqualTo("1.0.0") }
+        val missing = sidesResponse(seeded, "1.0.1", "theme/brand")
+        problem(missing, HttpStatus.CONFLICT, "merge-base-missing")
+        assertThat(missing.body).contains("1.0.0")
     }
 
     @Test

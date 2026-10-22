@@ -191,9 +191,7 @@ until it is released**; only releases are numbered.
   content is written as given and **not marked ready**, unlike taken content: the draft's page lists
   it as a change not ready yet, to be reviewed before release. The merge returns it as `merged`.
   Surfaces: MCP `get_merge_sides` and `merge_release`'s `mergedContent`; REST `getCatalogDraftMergeSides`
-  (`GET …/releases/{draft}/merge-sides?version=&entry=`; with contract `2.0.0-SNAPSHOT` at `8aabab7` its generated
-  interface declares `entry`'s pattern so that no entry matches, so over HTTP it answers 400 until the contract fixes it)
-  and `mergeIntoCatalogDraft`'s
+  (`GET …/releases/{draft}/merge-sides?version=&entry=`) and `mergeIntoCatalogDraft`'s
   `mergedContent`; the web UI's merge dialog shows a conflict's three sides read-only ("Compare") and
   still resolves it to one side.
 - **The merge base is found by lineage, never guessed** (contract ADR 0005). It is the closest release
