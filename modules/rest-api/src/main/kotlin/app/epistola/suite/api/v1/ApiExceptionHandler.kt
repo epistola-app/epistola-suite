@@ -23,6 +23,8 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
+import app.epistola.suite.catalog.commands.CatalogNameMismatchException
+import app.epistola.suite.catalog.commands.CatalogNameRequiredException
 import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -357,6 +359,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CatalogDraftIsNextException::class,
         CatalogImportConflictException::class,
         CatalogReleaseTakenException::class,
+        CatalogNameRequiredException::class,
+        CatalogNameMismatchException::class,
         CatalogImportDependenciesMissingException::class,
         CatalogDraftInUseException::class,
         CatalogDependenciesUnreleasedException::class,

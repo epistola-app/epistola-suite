@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.exportReleased
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -20,9 +21,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /**
- * A catalog ZIP from wire v7 or earlier names no registry or namespace. Importing it migrates it
- * into the importing tenant's namespace on the default registry (contract ADR 0003), after the
- * author confirms the migration of authored content.
+ * A catalog ZIP from wire v7 or earlier names no registry or namespace, which are its name: the
+ * import is told both, never invents them (contract ADR 0003), and the author confirms migrating
+ * authored content. A v8 archive names its own, and an import never renames it.
  */
 class V7ZipImportTest : IntegrationTestBase() {
 
@@ -30,19 +31,43 @@ class V7ZipImportTest : IntegrationTestBase() {
     private lateinit var identity: CatalogIdentityProperties
 
     @Test
-    fun `a wire-v7 ZIP asks to confirm the migration, then lands in the tenant's namespace`() {
+    fun `a wire-v7 ZIP needs its registry and namespace named, then the migration confirmed, and lands under that name`() {
         val tenant = createTenant("V7 zip import")
 
         withMediator {
-            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive()).execute() }
+            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true).execute() }
+                .isInstanceOfSatisfying(CatalogNameRequiredException::class.java) { assertThat(it.missing).containsExactlyInAnyOrder("registry", "namespace") }
+            assertThatThrownBy { ImportCatalogZip(tenant.id, v7Archive(), registry = identity.defaultRegistry, namespace = "letters-ns").execute() }
                 .isInstanceOf(CatalogMigrationConfirmationRequiredException::class.java)
 
-            val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true).execute()
+            val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns").execute()
 
             assertThat(result.results.map { it.status }).containsOnly(InstallStatus.INSTALLED)
             val catalog = GetCatalog(tenant.id, CatalogKey.of("letters")).query()!!
-            assertThat(catalog.namespace).isEqualTo(CatalogIdentityProperties.defaultNamespace(tenant.id))
+            assertThat(catalog.namespace).isEqualTo("letters-ns")
             assertThat(catalog.registry).isEqualTo(identity.defaultRegistry)
+        }
+    }
+
+    @Test
+    fun `a wire-v8 ZIP keeps the name it has, and naming another is refused`() {
+        val producer = createTenant("V8 zip producer").id
+        val consumer = createTenant("V8 zip consumer").id
+        val catalog = CatalogKey.of("v8-named")
+        val archive = withMediator {
+            CreateCatalog(producer, catalog, "V8 named", namespace = "v8-named-ns").execute()
+            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalog, app.epistola.suite.common.ids.TenantId(producer))).zipBytes
+        }
+
+        withMediator {
+            assertThatThrownBy { ImportCatalogZip(consumer, archive, namespace = "another-ns").execute() }
+                .isInstanceOfSatisfying(CatalogNameMismatchException::class.java) { assertThat(it.named).isEqualTo("v8-named-ns") }
+            assertThatThrownBy { ImportCatalogZip(consumer, archive, registry = "registry.elsewhere.example").execute() }
+                .isInstanceOf(CatalogNameMismatchException::class.java)
+            assertThat(GetCatalog(consumer, catalog).query()).isNull()
+
+            ImportCatalogZip(consumer, archive, registry = identity.defaultRegistry, namespace = "v8-named-ns").execute()
+            assertThat(GetCatalog(consumer, catalog).query()!!.namespace).isEqualTo("v8-named-ns")
         }
     }
 

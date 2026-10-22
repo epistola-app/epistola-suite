@@ -120,6 +120,11 @@ class EpistolaCatalogApi(
 
     private val registries = ReleaseRegistryEndpoints(identity)
 
+    private companion object {
+        /** How a request names the installation's default registry. */
+        const val DEFAULT_REGISTRY_SEGMENT = "~"
+    }
+
     override fun listCatalogs(
         tenantKey: String,
         page: Int,
@@ -192,8 +197,9 @@ class EpistolaCatalogApi(
 
     /**
      * Installs the release the archive carries, beside the catalog's others, in the catalog it names;
-     * a catalog it creates is received (ADR 0032). Naming another registry or namespace is not
-     * supported yet.
+     * a catalog it creates is received (ADR 0032). An archive from before wire v8 names no catalog:
+     * [registry] (`~` for the default) and [namespace] name it, and are required; for a v8 archive,
+     * given, they must be what it names, since an import never renames.
      */
     override fun importCatalog(
         tenantKey: String,
@@ -201,14 +207,14 @@ class EpistolaCatalogApi(
         registry: String?,
         namespace: String?,
     ): ResponseEntity<ImportCatalogResponse> {
-        if (registry != null) throw ApiOperationNotImplementedException("importCatalog.registry")
-        if (namespace != null) throw ApiOperationNotImplementedException("importCatalog.namespace")
         val tenant = TenantKey.of(tenantKey)
         val result = ImportCatalogZip(
             tenantKey = tenant,
             zipBytes = file.bytes,
             // REST is non-interactive: an archive of an older wire version migrates without a prompt.
             confirmMigration = true,
+            registry = registry?.let { if (it == DEFAULT_REGISTRY_SEGMENT) identity.defaultRegistry else it },
+            namespace = namespace,
         ).execute()
         if (result.aborted) throw IllegalStateException("Importing ${result.catalogKey.value} ${result.releaseVersion} failed; nothing changed")
 

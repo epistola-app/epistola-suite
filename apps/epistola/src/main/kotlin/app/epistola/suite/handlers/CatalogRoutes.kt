@@ -20,6 +20,7 @@ class CatalogRoutes(
     private val themeSettings: CatalogThemeSettingsHandler,
     private val merge: CatalogMergeHandler,
     private val registry: CatalogRegistryHandler,
+    private val importer: CatalogImportHandler,
 ) {
     @Bean
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
@@ -42,8 +43,8 @@ class CatalogRoutes(
             GET("/subscribe", handler::registerForm)
             POST("/subscribe", handler::register)
             POST("/create", handler::createCatalog)
-            GET("/import", handler::importForm)
-            POST("/import", handler::importZip)
+            GET("/import", importer::importForm)
+            POST("/import", importer::importZip)
             POST("/{catalogId}/delete", handler::deleteCatalog)
             GET("/{catalogId}/release", handler::releaseDialog)
             POST("/{catalogId}/release", handler::release)

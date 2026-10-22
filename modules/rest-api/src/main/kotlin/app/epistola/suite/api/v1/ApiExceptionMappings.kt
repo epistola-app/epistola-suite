@@ -22,6 +22,8 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
+import app.epistola.suite.catalog.commands.CatalogNameMismatchException
+import app.epistola.suite.catalog.commands.CatalogNameRequiredException
 import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
@@ -511,6 +513,18 @@ object ApiExceptionMappings {
             problemType = ApiProblemTypes.RELEASE_NUMBER_TAKEN,
             defaultDetail = "The tenant has this release as another: its number with other content, or its id",
             logMessage = { "Import refused, release taken: ${it.message}" },
+        )
+
+        builder.register<CatalogNameRequiredException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The archive is from before catalogs named their registry and namespace; name both",
+            logMessage = { "Import refused, catalog unnamed: ${it.message}" },
+        )
+
+        builder.register<CatalogNameMismatchException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The archive names another registry or namespace; an import never renames a catalog",
+            logMessage = { "Import refused, another name: ${it.message}" },
         )
 
         builder.register<CatalogDraftInUseException>(

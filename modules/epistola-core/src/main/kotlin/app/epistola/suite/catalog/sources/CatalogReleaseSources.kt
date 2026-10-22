@@ -38,7 +38,13 @@ interface CatalogReleaseSource {
     fun archive(catalog: Catalog, version: String): ByteArray
 
     /** Installs release [version], beside the catalog's others; an older wire schema is migrated, as nobody is asked. */
-    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(catalog.tenantKey, archive(catalog, version), confirmMigration = true).execute()
+    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(
+        catalog.tenantKey,
+        archive(catalog, version),
+        confirmMigration = true,
+        // A release from before wire v8 names no catalog: it is this one.
+        legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(catalog.registry, catalog.namespace),
+    ).execute()
 
     /**
      * Installs release [version] of the catalog named [registry]/[namespace]/[catalogKey], which the

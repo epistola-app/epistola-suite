@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
@@ -104,12 +105,15 @@ class RestoreTenantSnapshotHandler(
         identityStore.plantIdentities(command.tenantKey, identities.resources)
 
         for (entry in ordered) {
+            val restored = requireNotNull(app.epistola.suite.catalog.queries.GetCatalog(command.tenantKey, CatalogKey.of(entry.catalogKey)).query())
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
                 zipBytes = innerZips.getValue(entry.zipPath),
                 fillMode = DraftFillMode.REPLACE,
                 validateCrossCatalogDeps = false,
                 restore = true,
+                // An archive from before wire v8 is named as its catalog row was created above.
+                legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
             ).execute()
         }
 

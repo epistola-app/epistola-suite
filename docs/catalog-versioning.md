@@ -694,11 +694,16 @@ import takes the same path; none names a type.
 
 - **A catalog the tenant does not have** is created as the archive names it (registry, namespace,
   key, name), with the caller's source (an Exchange or registry install) or none (a file). Its release
-  is recorded, and its next release is on it. An archive from before wire v8, which names no registry
-  or namespace, lands in the importing tenant's namespace on the default registry.
+  is recorded, and its next release is on it. An archive from before wire v8 names no registry or
+  namespace, which are its name, so the importer never decides them: it is refused
+  (`CatalogNameRequiredException`) until the caller names both. The web UI asks, proposing the default
+  registry and the tenant's namespace; REST `importCatalog` takes them as `registry` (`~` for the
+  default) and `namespace`, 400 without. Installs whose source names the catalog (the Exchange, a
+  registry, a catalog's source, a snapshot) give it that name. A v8 archive names its own: given
+  ones must match, since an import never renames (`CatalogNameMismatchException`, REST 400).
 - **A release keeps what it says it is** (wire v8, `ReceivedReleases`): its id (`release.releaseId`)
   becomes its id here, so it is the same release everywhere; one another release (or a draft) of the
-  catalog has here refuses the import (`CatalogImportConflictException`: one id names one release).
+  catalog has here refuses the import (`CatalogReleaseTakenException`, REST 409 `release-number-taken`: one id names one release).
   Its metadata is kept, every namespace as it came. This suite's namespace
   (`{"app.epistola.suite": {"renderingDefaultsVersion": 6}}`) says which rendering defaults it renders
   with: one this installation lacks, newer or unknown, refuses it before anything is written

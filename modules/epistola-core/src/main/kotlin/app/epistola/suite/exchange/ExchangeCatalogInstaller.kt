@@ -48,6 +48,7 @@ class ExchangeCatalogInstaller(
     private val client: ExchangeClient,
     private val sizeLimits: CatalogSizeLimits,
     private val upstreamChecks: CatalogUpstreamCheckStore,
+    private val identity: app.epistola.suite.catalog.CatalogIdentityProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -79,6 +80,8 @@ class ExchangeCatalogInstaller(
             sourceUrl = sourceUri,
             // Nobody is asked: an archive of an older wire schema is migrated, as any import may be.
             confirmMigration = true,
+            // One from before wire v8 names no catalog; the Exchange names it: its namespace there.
+            legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(identity.defaultRegistry, namespace),
         ).execute()
 
         if (imported.aborted) {

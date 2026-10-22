@@ -108,6 +108,49 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Int>(response.body!!, "$.supportedVersion")).isEqualTo(app.epistola.generation.pdf.RenderingDefaults.CURRENT.version)
     }
 
+    @Test
+    fun `an archive from before wire v8 is imported under the registry and namespace named, and refused without them`() {
+        val (b, keyB) = seedTenantAndKey()
+        val catalog = "imp-${UUID.randomUUID().toString().take(8)}"
+        val archive = v7Archive(catalog)
+
+        assertProblem(import(b, keyB, archive), HttpStatus.BAD_REQUEST, "bad-request")
+        assertProblem(import(b, keyB, archive, "namespace" to "named-here"), HttpStatus.BAD_REQUEST, "bad-request")
+
+        val imported = import(b, keyB, archive, "registry" to "~", "namespace" to "named-here")
+        assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(imported.body!!, "$.namespace")).isEqualTo("named-here")
+        assertThat(JsonPath.read<String>(imported.body!!, "$.registry")).isEqualTo("exchange.epistola.app")
+        assertThat(withMediator { GetCatalog(b, CatalogKey.of(catalog)).query()!!.namespace }).isEqualTo("named-here")
+    }
+
+    @Test
+    fun `a wire v8 archive keeps its name, and another registry or namespace is refused`() {
+        val (a, _) = seedTenantAndKey()
+        val (b, keyB) = seedTenantAndKey()
+        val catalog = "imp-${UUID.randomUUID().toString().take(8)}"
+        val archive = release(a, catalog, "Brand", namespace = "v8-own-ns")
+
+        assertProblem(import(b, keyB, archive, "namespace" to "another-ns"), HttpStatus.BAD_REQUEST, "bad-request")
+        assertProblem(import(b, keyB, archive, "registry" to "registry.elsewhere.example"), HttpStatus.BAD_REQUEST, "bad-request")
+        assertThat(withMediator { GetCatalog(b, CatalogKey.of(catalog)).query() }).isNull()
+
+        val imported = import(b, keyB, archive, "registry" to "~", "namespace" to "v8-own-ns")
+        assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(imported.body!!, "$.namespace")).isEqualTo("v8-own-ns")
+    }
+
+    /** A wire v7 archive of [catalog], with no resources: it names no registry or namespace. */
+    private fun v7Archive(catalog: String): ByteArray {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("catalog.json"))
+            zip.write("""{"schemaVersion":7,"catalog":{"slug":"$catalog","name":"Old"},"publisher":{"name":"Test"},"release":{"version":"1.0.0"},"resources":[]}""".toByteArray())
+            zip.closeEntry()
+        }
+        return out.toByteArray()
+    }
+
     private fun release(tenant: TenantKey, catalog: String, theme: String, namespace: String? = null): ByteArray = withMediator {
         val key = CatalogKey.of(catalog)
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()

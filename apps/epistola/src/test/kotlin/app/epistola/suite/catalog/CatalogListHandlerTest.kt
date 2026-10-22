@@ -753,6 +753,55 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an archive from before wire v8 is not installed until its registry and namespace are named`() {
+        val consumer = createTenant("Catalog Import Pre V8")
+        val manifest = """{"schemaVersion":7,"catalog":{"slug":"old-letters","name":"Old letters"},"publisher":{"name":"Test"},"release":{"version":"1.0.0"},"resources":[]}"""
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("catalog.json"))
+                zip.write(manifest.toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        fun upload(vararg fields: Pair<String, String>): org.springframework.http.ResponseEntity<String> {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(archive) {
+                        override fun getFilename(): String = "old.zip"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+                ),
+            )
+            fields.forEach { (k, v) -> payload.add(k, v) }
+            return restTemplate.postForEntity(
+                "/tenants/${consumer.id}/catalogs/import",
+                HttpEntity(
+                    payload,
+                    HttpHeaders().apply {
+                        contentType = MediaType.MULTIPART_FORM_DATA
+                        add("HX-Request", "true")
+                    },
+                ),
+                String::class.java,
+            )
+        }
+
+        val asked = upload()
+        assertThat(asked.headers.getFirst("HX-Redirect")).isNull()
+        val prompt = asked.body!!.substringAfter("data-testid=\"import-name-required\"")
+        assertThat(prompt).`as`("proposed: the default registry and this tenant's namespace")
+            .contains("name=\"registry\"", "value=\"exchange.epistola.app\"", "name=\"namespace\"", "value=\"${app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(consumer.id)}\"")
+            .contains("name=\"confirmMigration\" value=\"true\"")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query() }).`as`("nothing decided silently").isNull()
+
+        val named = upload("registry" to "exchange.epistola.app", "namespace" to "old-letters-ns", "confirmMigration" to "true")
+        assertThat(named.headers.getFirst("HX-Redirect")).`as`(named.body).contains("/catalogs/old-letters/browse")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query()!!.namespace }).isEqualTo("old-letters-ns")
+    }
+
+    @Test
     fun `an import of a release that renders with newer rendering defaults says to upgrade Epistola`() {
         val consumer = createTenant("Catalog Import Too New Defaults")
         val archive = java.io.ByteArrayOutputStream().also { out ->

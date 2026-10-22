@@ -24,12 +24,12 @@ class CatalogSchemaMigrator(
     /**
      * [namespace] is what a catalog from before wire v8 gets as its namespace, since it names none:
      * the importing tenant's key, or [CatalogIdentityProperties.BUNDLED_NAMESPACE] for a catalog
-     * Epistola ships. Null refuses such a catalog. Its registry is the configured default.
+     * Epistola ships. Null refuses such a catalog. Its [registry] is the configured default unless given.
      */
-    fun migrateAndBindManifest(rawManifest: ByteArray, namespace: String?): MigratedManifest {
+    fun migrateAndBindManifest(rawManifest: ByteArray, namespace: String?, registry: String? = identity.defaultRegistry): MigratedManifest {
         val result = PortableSchemaMigrator.migrateManifest(
             ByteArrayInputStream(rawManifest),
-            CatalogMigrationOptions(namespace = namespace, registry = identity.defaultRegistry),
+            CatalogMigrationOptions(namespace = namespace, registry = registry),
         )
         val manifest = result.value ?: throw result.findings.first().asSuiteException()
         val sourceVersion = requireNotNull(result.sourceVersion)

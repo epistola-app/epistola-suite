@@ -125,6 +125,21 @@ data class ImportCatalogZip(
      * did before contract 2.0. Internal so no API can set it.
      */
     internal val restore: Boolean = false,
+    /**
+     * The registry and namespace the caller names the catalog by (contract `importCatalog`'s
+     * `registry` and `namespace`). An archive from before wire v8 names neither, and they are its
+     * name, which an import never invents: both are required for it
+     * ([CatalogNameRequiredException] without them). An archive at wire v8 names its own; given, they
+     * must be what it names, since an import never renames ([CatalogNameMismatchException]).
+     */
+    val registry: String? = null,
+    val namespace: String? = null,
+    /**
+     * The name an archive from before wire v8 gets when [registry] and [namespace] are not given,
+     * for an install whose source names the catalog (an Exchange or registry install, a catalog's
+     * source, a snapshot): only such an archive takes it, and a v8 one is not held to it. Internal.
+     */
+    internal val legacyName: LegacyCatalogName? = null,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
@@ -141,6 +156,18 @@ open class CatalogImportConflictException(message: String) : RuntimeException(me
  * `release-number-taken`).
  */
 class CatalogReleaseTakenException(message: String) : CatalogImportConflictException(message)
+
+/** The registry and namespace an install's source gives a catalog whose archive is from before wire v8. */
+data class LegacyCatalogName(val registry: String, val namespace: String)
+
+/**
+ * The archive is from before wire v8 ([sourceVersion]) and names no registry or namespace; the
+ * import must be told both, since they are the catalog's name and are never invented.
+ */
+class CatalogNameRequiredException(val missing: List<String>) : RuntimeException("This archive is from before catalogs named their registry and namespace; name both (${missing.joinToString(" and ")} missing) to import it.")
+
+/** The registry or namespace the import was given is not what the archive names: an import never renames a catalog. */
+class CatalogNameMismatchException(val field: String, val given: String, val named: String) : RuntimeException("The archive names its catalog's $field '$named', not '$given'; an import never renames a catalog.")
 
 /** The archive's release pins releases the tenant does not have ([missing]), and the archive does not carry them. */
 class CatalogImportDependenciesMissingException(
@@ -212,8 +239,13 @@ class ImportCatalogZipHandler(
         val parsed = parse(command)
         val manifest = parsed.manifest
         val catalogKey = CatalogKey.of(manifest.catalog.key)
-        val registry = manifest.catalog.registry ?: identity.defaultRegistry
-        val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
+        // The archive's name: its own (wire v8), or the one the caller gave a migrated one.
+        // Both are required from wire v8, and a migrated archive has the caller's (the migrator and the
+        // validator enforce it), so neither is null here.
+        val registry = requireNotNull(manifest.catalog.registry) { "The archive's catalog names no registry" }
+        val namespace = requireNotNull(manifest.catalog.namespace) { "The archive's catalog names no namespace" }
+        command.registry?.let { if (it != registry) throw CatalogNameMismatchException("registry", it, registry) }
+        command.namespace?.let { if (it != namespace) throw CatalogNameMismatchException("namespace", it, namespace) }
         val existing = GetCatalog(command.tenantKey, catalogKey).query()
         if (existing != null && (existing.registry != registry || existing.namespace != namespace)) {
             throw CatalogImportConflictException(
@@ -229,7 +261,8 @@ class ImportCatalogZipHandler(
         val presentDependencies = mutableListOf<String>()
         for ((release, bytes) in parsed.carried) {
             val label = "${release.catalogKey} v${release.releaseVersion}"
-            val dependency = install(ImportCatalogZip(tenantKey = command.tenantKey, zipBytes = bytes, confirmMigration = true))
+            // A release it carries from before wire v8 is in the namespace the caller named for it.
+            val dependency = install(ImportCatalogZip(tenantKey = command.tenantKey, zipBytes = bytes, confirmMigration = true, legacyName = LegacyCatalogName(registry, namespace)))
             if (dependency.newlyInstalled) installedDependencies += label else presentDependencies += label
         }
 
@@ -314,12 +347,12 @@ class ImportCatalogZipHandler(
         // epistola-catalog owns ZIP safety and path normalization. Suite
         // materializes the already-checked entries because the persistence
         // orchestration below consumes them more than once.
-        // An archive from before wire v8 names no registry or namespace: it lands in the importing
-        // tenant's namespace on the default registry (contract ADR 0003). The reader migrates it, so
-        // it is told here, not only the manifest binding below.
+        // An archive from before wire v8 names no registry or namespace: it takes the ones the caller
+        // names, and without them is refused (contract ADR 0003: the migrator never invents them).
+        // The reader migrates it, so it is told here, not only the manifest binding below.
         val migration = CatalogMigrationOptions(
-            namespace = CatalogIdentityProperties.defaultNamespace(command.tenantKey),
-            registry = identity.defaultRegistry,
+            namespace = command.namespace ?: command.legacyName?.namespace,
+            registry = command.registry ?: command.legacyName?.registry,
         )
         val read = CatalogArchiveReader.read(
             ByteArrayInputStream(command.zipBytes),
@@ -329,6 +362,10 @@ class ImportCatalogZipHandler(
             ),
             migration,
         )
+        val unnamed = read.findings.filter { it.code == CatalogMigrationCodes.REGISTRY_MISSING || it.code == CatalogMigrationCodes.NAMESPACE_MISSING }
+        if (unnamed.isNotEmpty()) {
+            throw CatalogNameRequiredException(unnamed.map { if (it.code == CatalogMigrationCodes.REGISTRY_MISSING) "registry" else "namespace" }.distinct())
+        }
         val migrationFinding = read.findings.firstOrNull {
             it.code == CatalogMigrationCodes.SCHEMA_UNKNOWN ||
                 it.code == CatalogMigrationCodes.SCHEMA_TOO_OLD ||
@@ -380,8 +417,8 @@ class ImportCatalogZipHandler(
         // schemaVersion and every resource detail echoes it, so details are gated
         // against the same version below. The chain is empty today, so
         // current-shape payloads pass straight through to binding.
-        // An archive from before wire v8 lands in the importing tenant's namespace (ADR 0003).
-        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace)
+        // An archive from before wire v8 takes the name the caller gave it (ADR 0003).
+        val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace, migration.registry)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Decide what to do about an outdated-schema archive (a source-less transport we can't

@@ -5,11 +5,13 @@
 package app.epistola.suite.catalog.registry
 
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
+import app.epistola.suite.catalog.commands.LegacyCatalogName
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -105,6 +107,7 @@ class InstallReleaseFromRegistryHandler(
     private val sizeLimits: CatalogSizeLimits,
     private val upstreamChecks: CatalogUpstreamCheckStore,
     private val mapper: ObjectMapper,
+    private val identity: CatalogIdentityProperties,
 ) : CommandHandler<InstallReleaseFromRegistry, RegistryInstallResult> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -134,6 +137,9 @@ class InstallReleaseFromRegistryHandler(
             sourceUrl = if (existing == null) source.toString() else null,
             // Nobody is asked: an archive of an older wire schema is migrated, as any import may be.
             confirmMigration = true,
+            // One from before wire v8 names no catalog: the namespace it is published under here, on
+            // the default registry, which every catalog was on then.
+            legacyName = LegacyCatalogName(identity.defaultRegistry, namespace),
         ).execute()
 
         if (imported.aborted) {
