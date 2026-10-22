@@ -13,24 +13,19 @@ import org.semver4j.Semver
  * The grammar is checked here, against npm's own BNF, because the library that evaluates a range
  * also accepts other syntaxes (Ivy's `[1.0,2.0)`) that another implementation of the contract would
  * not. Evaluation follows npm: a pre-release only matches a range that names a pre-release of the
- * same version, and build metadata (a hotfix's `+hotfix.1`) does not affect precedence. A patch
- * release's label is no pre-release ([matches]).
+ * same version, a patch release's label included ([matches]), and build metadata (a hotfix's
+ * `+hotfix.1`) does not affect precedence.
  */
 class CatalogReleaseSelector private constructor(val value: String) {
 
     /**
      * Whether release [version] satisfies this selector; a version that is not SemVer never does.
      *
-     * A patch release (`1.3.1-gemeente-x.1`, ADR 0034) is a release, numbered with a pre-release label
-     * only so that it sorts above `1.3.0` and below the `1.3.1` that supersedes it: it satisfies a range
-     * by precedence, as a release does (`^1.3.0` matches it, `~1.3.1` and `1.3.1` do not), where npm
-     * would leave a pre-release out of a range that names none.
+     * A patch release (`1.3.1-gemeente-x.1`, ADR 0034) is matched as npm matches a pre-release, as the
+     * contract says ("Version ranges"): only by a range with a comparator naming a pre-release of the
+     * same `MAJOR.MINOR.PATCH` (`>=1.3.1-gemeente-x.1`, or the exact number); `^1.3.0` never takes it.
      */
-    fun matches(version: String): Boolean {
-        val parsed = Semver.parse(version) ?: return false
-        // npm's includePrerelease, for a patch release only: compared by precedence like a release.
-        return parsed.satisfies(value, SemVer.parseOrNull(version)?.isPatchRelease == true)
-    }
+    fun matches(version: String): Boolean = Semver.parse(version)?.satisfies(value) ?: false
 
     /** The highest of [versions] this selector matches, by SemVer precedence, or null when none does. */
     fun highestMatch(versions: Collection<String>): String? = versions
@@ -46,8 +41,11 @@ class CatalogReleaseSelector private constructor(val value: String) {
     override fun toString(): String = value
 
     companion object {
-        /** Longest selector a request may give (the contract's `version` on generation and preview). */
-        const val MAX_LENGTH = 100
+        /**
+         * Longest selector a request may give (the contract's `versionRange` on generation, preview and
+         * validation): 256, so that an exact release number of any valid length, 128, fits.
+         */
+        const val MAX_LENGTH = 256
 
         /** Parses [value], or null when it is not an npm range of at most [MAX_LENGTH] characters. */
         fun parseOrNull(value: String): CatalogReleaseSelector? {

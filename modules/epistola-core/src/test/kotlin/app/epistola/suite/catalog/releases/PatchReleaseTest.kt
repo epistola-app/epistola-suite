@@ -50,8 +50,9 @@ import java.util.zip.ZipOutputStream
  * A patch release (ADR 0034; contract ADR 0003, amendment of 2026-10-22): someone who does not hold a
  * catalog's namespace numbers a release `MAJOR.MINOR.PATCH-<namespace>.<N>`. This installation
  * receives one and orders it as SemVer does, above the release it fixes and below the holder's next,
- * wherever releases are ordered: the catalog's highest release, the latest, the release list, what a
- * version range picks. A release number may be up to 128 characters. Issuing one is ADR 0034's
+ * wherever releases are ordered: the catalog's highest release, the latest, the release list; a
+ * version range takes one as npm takes a pre-release, only when it names one (contract "Version
+ * ranges"). A release number may be up to 128 characters. Issuing one is ADR 0034's
  * phase 5: releasing here still takes `MAJOR.MINOR.PATCH`.
  */
 class PatchReleaseTest : IntegrationTestBase() {
@@ -129,15 +130,18 @@ class PatchReleaseTest : IntegrationTestBase() {
             assertThat(GetCatalog(receiver, letters).query()!!.highestReleaseVersion).isEqualTo("1.0.1-municipality.1")
             assertThat(GetLatestCatalogRelease(receiver, letters).query().latestVersion).isEqualTo("1.0.1-municipality.1")
         }
-        assertThat(generate(receiver, "^1.0.0")).`as`("a range picks it as the highest release that fits").isEqualTo("1.0.1-municipality.1")
-        assertThat(generate(receiver, "1.0.0")).isEqualTo("1.0.0")
+        // A range takes a patch release as npm takes a pre-release (contract "Version ranges").
+        assertThat(generate(receiver, "^1.0.0")).`as`("a range naming no patch release does not take one").isEqualTo("1.0.0")
+        assertThat(generate(receiver, ">=1.0.1-municipality.1")).isEqualTo("1.0.1-municipality.1")
+        assertThat(generate(receiver, "1.0.1-municipality.1")).`as`("the exact number").isEqualTo("1.0.1-municipality.1")
+        assertThat(generate(receiver, null)).`as`("no range: the highest").isEqualTo("1.0.1-municipality.1")
 
         // The holder's 1.0.1 supersedes it.
         withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1")).execute() }
         assertThat(versions(receiver)).containsExactly("1.0.1", "1.0.1-municipality.1", "1.0.0")
         withMediator { assertThat(GetCatalog(receiver, letters).query()!!.highestReleaseVersion).isEqualTo("1.0.1") }
         assertThat(generate(receiver, "^1.0.0")).isEqualTo("1.0.1")
-        assertThat(generate(receiver, "~1.0.0 <1.0.1")).isEqualTo("1.0.1-municipality.1")
+        assertThat(generate(receiver, ">=1.0.1-municipality.1 <1.0.1")).isEqualTo("1.0.1-municipality.1")
     }
 
     @Test

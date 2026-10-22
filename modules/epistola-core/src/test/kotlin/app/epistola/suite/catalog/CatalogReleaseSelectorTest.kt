@@ -41,14 +41,15 @@ class CatalogReleaseSelectorTest {
         "^1.4.0, 1.5.0-rc.1, false",
         "^1.5.0-rc.0, 1.5.0-rc.1, true",
         "^1.4.0, not-semver, false",
-        // A patch release (ADR 0034) is a release, sorted between the core it fixes and the next.
-        "^1.3.0, 1.3.1-gemeente-x.1, true",
-        "~1.3.0, 1.3.1-gemeente-x.1, true",
-        "~1.3.1, 1.3.1-gemeente-x.1, false",
+        // A patch release (ADR 0034) matches as npm matches a pre-release (contract "Version ranges"):
+        // only a range naming a pre-release of the same MAJOR.MINOR.PATCH takes it.
+        "^1.3.0, 1.3.1-gemeente-x.1, false",
+        "~1.3.0, 1.3.1-gemeente-x.1, false",
         "1.3.1, 1.3.1-gemeente-x.1, false",
         "1.3.1-gemeente-x.1, 1.3.1-gemeente-x.1, true",
-        ">=1.3.0 <1.3.1, 1.3.1-gemeente-x.1, true",
-        "^2.0.0, 1.3.1-gemeente-x.1, false",
+        ">=1.3.1-gemeente-x.1 <1.3.1, 1.3.1-gemeente-x.2, true",
+        "^1.3.1-gemeente-x.1, 1.3.1-gemeente-x.2, true",
+        "^1.3.1-gemeente-x.1, 1.3.1, true",
     )
     fun `matches like npm`(selector: String, version: String, expected: Boolean) {
         assertThat(CatalogReleaseSelector.parseOrNull(selector)!!.matches(version)).isEqualTo(expected)
@@ -62,7 +63,8 @@ class CatalogReleaseSelectorTest {
 
     @org.junit.jupiter.api.Test
     fun `rejects a selector longer than the contract allows`() {
-        assertThat(CatalogReleaseSelector.parseOrNull("^1.0.0 || ".repeat(11) + "^1.0.0")).isNull()
+        assertThat(CatalogReleaseSelector.parseOrNull("^1.0.0 || ".repeat(25) + "^1.0.0")).`as`("256 characters").isNotNull()
+        assertThat(CatalogReleaseSelector.parseOrNull("^1.0.0 || ".repeat(26) + "^1.0.0")).`as`("over 256 characters").isNull()
     }
 
     @org.junit.jupiter.api.Test
@@ -74,11 +76,15 @@ class CatalogReleaseSelectorTest {
     }
 
     @org.junit.jupiter.api.Test
-    fun `a patch release is picked above the release it fixes and below the next one`() {
-        val selector = CatalogReleaseSelector.parseOrNull("^1.3.0")!!
+    fun `a patch release is picked only by a range that names one, by precedence`() {
+        assertThat(CatalogReleaseSelector.parseOrNull("^1.3.0")!!.highestMatch(listOf("1.3.0", "1.3.1-gemeente-x.1"))).isEqualTo("1.3.0")
+        assertThat(CatalogReleaseSelector.parseOrNull(">=1.3.1-gemeente-x.1 <1.3.1")!!.highestMatch(listOf("1.3.1-gemeente-x.1", "1.3.1-gemeente-x.2", "1.3.1")))
+            .isEqualTo("1.3.1-gemeente-x.2")
+    }
 
-        assertThat(selector.highestMatch(listOf("1.3.0", "1.3.1-gemeente-x.1"))).isEqualTo("1.3.1-gemeente-x.1")
-        assertThat(selector.highestMatch(listOf("1.3.0", "1.3.1-gemeente-x.1", "1.3.1"))).isEqualTo("1.3.1")
-        assertThat(selector.highestMatch(listOf("1.3.1-gemeente-x.1", "1.3.1-gemeente-x.2", "1.3.1-bureau.9"))).isEqualTo("1.3.1-gemeente-x.2")
+    @org.junit.jupiter.api.Test
+    fun `an exact release number of any valid length is a selector`() {
+        val longest = "1.3.1-m" + "a".repeat(62) + ".1"
+        assertThat(CatalogReleaseSelector.parseOrNull(longest)?.matches(longest)).isTrue()
     }
 }
