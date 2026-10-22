@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.DraftFillMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
@@ -106,6 +107,23 @@ class RestoreTenantSnapshotHandler(
 
         for (entry in ordered) {
             val restored = requireNotNull(app.epistola.suite.catalog.queries.GetCatalog(command.tenantKey, CatalogKey.of(entry.catalogKey)).query())
+            // Its releases first, lowest first, each recorded beside as it says it is (schema 3), so
+            // the next version the working copy fills is not moved onto them.
+            for (release in entry.releases) {
+                val zip = release.zipPath?.let(innerZips::get)
+                if (zip == null) {
+                    logger.warn("Snapshot release {} {} carries no archive; not restored", entry.catalogKey, release.version)
+                    continue
+                }
+                ImportCatalogZip(
+                    tenantKey = command.tenantKey,
+                    zipBytes = zip,
+                    validateCrossCatalogDeps = false,
+                    confirmMigration = true,
+                    legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
+                    restoreRelease = true,
+                ).execute()
+            }
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
                 zipBytes = innerZips.getValue(entry.zipPath),
@@ -117,6 +135,8 @@ class RestoreTenantSnapshotHandler(
             ).execute()
         }
 
+        ordered.forEach { entry -> restoreReleaseState(command.tenantKey, entry) }
+
         reapplyDefaultTheme(command.tenantKey, prior)
 
         logger.info("Restored tenant {} from snapshot ({} catalogs)", command.tenantKey.value, ordered.size)
@@ -125,8 +145,10 @@ class RestoreTenantSnapshotHandler(
 
     /**
      * The catalog row for [entry], with the registry and namespace its archive records; the import
-     * that follows fills its next version, which the database opens with the row on no release, since
-     * a restore keeps no releases. A catalog that already exists (the system catalog) is left alone.
+     * that follows fills its next version, which the database opens with the row on no release; its
+     * releases, and the release the next version is on, are restored after (schema 3). The row
+     * gets the catalog's source, without a credential. A catalog that already exists (the system
+     * catalog) is left alone.
      * The entry's `type`, which snapshots still carry for the hub (ADR 0032), is not read.
      */
     private fun createCatalogRow(tenantKey: TenantKey, entry: SnapshotCatalogEntry, zip: ByteArray) {
@@ -134,8 +156,8 @@ class RestoreTenantSnapshotHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name)
-                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name)
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, source_url, source_auth_type)
+                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :sourceUrl, :sourceAuthType)
                 ON CONFLICT (tenant_key, catalog_key) DO NOTHING
                 """,
             )
@@ -144,7 +166,63 @@ class RestoreTenantSnapshotHandler(
                 .bind("registry", requireNotNull(catalog.registry) { "Snapshot catalog ${entry.catalogKey} names no registry" })
                 .bind("namespace", requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
                 .bind("name", entry.name)
+                // Where it receives releases from (schema 3); its credential is not in a snapshot.
+                .bind("sourceUrl", entry.source?.url)
+                .bind("sourceAuthType", entry.source?.authType ?: "NONE")
                 .execute()
+        }
+    }
+
+    /**
+     * What the snapshot says of a catalog's releases beyond their content (schema 3): when and by
+     * whom each was released and its notes, the catalog's released and installed releases, and the
+     * release its next release is on. Raw SQL: these are the rows' own columns, which no command
+     * sets to a past value; the trigger on `installed_release_version` moves the next version, so
+     * its base is set after.
+     */
+    private fun restoreReleaseState(tenantKey: TenantKey, entry: SnapshotCatalogEntry) {
+        jdbi.useHandle<Exception> { handle ->
+            for (release in entry.releases) {
+                handle.createUpdate(
+                    """
+                    UPDATE catalog_releases
+                    SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", release.version)
+                    .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
+                    .execute()
+            }
+            if (entry.version != null) {
+                handle.createUpdate(
+                    """
+                    UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
+                    FROM catalog_releases r
+                    WHERE c.tenant_key = :t AND c.catalog_key = :c AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", entry.version)
+                    .execute()
+            }
+            entry.installed?.let { installed ->
+                handle.createUpdate(
+                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_key = :c",
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", installed.version).bind("f", installed.fingerprint)
+                    .execute()
+            }
+            entry.nextBase?.let { base ->
+                handle.createUpdate(
+                    """
+                    UPDATE catalog_versions SET base_version = :b
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND is_next
+                      AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("b", base)
+                    .execute()
+            }
         }
     }
 
@@ -238,6 +316,6 @@ class RestoreTenantSnapshotHandler(
 
     private companion object {
         /** Highest snapshot manifest schema version this suite can restore. */
-        const val SUPPORTED_SCHEMA_VERSION = 2
+        const val SUPPORTED_SCHEMA_VERSION = 3
     }
 }

@@ -736,7 +736,16 @@ import takes the same path; none names a type.
 too.
 
 A tenant snapshot exports each catalog's next release as a working copy, labelled with its highest
-release or `0.0.0`; that is the only export of a draft.
+release or `0.0.0`; that is the only export of a draft. From snapshot schema 3 it also carries, per
+catalog, where it receives releases from (`source`: its URI and auth type; never the credential, as
+a snapshot carries no secrets, so a source that needs one is given it again), the release it
+received last (`installed`), the release its next release is on (`nextBase`), and its releases
+(`releases`: number, id, fingerprint, base, when and by whom, notes), each with its archive at
+`catalogs/<key>/releases/<version>.zip`. A restore records each release beside the others as it says
+it is (`ImportCatalogZip.restoreRelease`), fills the next release from the working copy, and puts
+it back on its base, so the restored catalog renders, merges and releases on as it did. Every member
+is optional: a schema 2 snapshot restores with no sources and no releases, as before. The rolled-up
+snapshot fingerprint covers the releases too, so a new release makes a new backup.
 
 ## Publishing a release to Epistola Exchange
 

@@ -140,6 +140,12 @@ data class ImportCatalogZip(
      * source, a snapshot): only such an archive takes it, and a v8 one is not held to it. Internal.
      */
     internal val legacyName: LegacyCatalogName? = null,
+    /**
+     * A tenant snapshot's release of a catalog it restores: recorded beside the others from the
+     * archive, as it says it is, and never put in the next version, which the snapshot's working
+     * copy fills. Its pins are not checked: the snapshot restores what was. Internal.
+     */
+    internal val restoreRelease: Boolean = false,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
     // Installing a release is managing catalogs (contract `importCatalog`); copying a release into a
@@ -289,7 +295,7 @@ class ImportCatalogZipHandler(
                 .filter { it.pinned && !dependencyStore.pinHolds(handle, command.tenantKey, it) }
                 .map { app.epistola.suite.environments.MissingReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE) }
         }
-        if (missing.isNotEmpty()) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
+        if (missing.isNotEmpty() && !command.restoreRelease) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
         // The release is kept as it says it is (its id, rendering defaults, base), or refused before
         // anything is written.
         receivedReleases.requireKeepable(command.tenantKey, catalogKey, manifest.release)
@@ -300,7 +306,7 @@ class ImportCatalogZipHandler(
         // one, or any while the next version has changes of its own (ADR 0032), is recorded from the
         // archive as published; the next version stays, behind it.
         val older = highest != null && incoming != null && incoming < highest
-        if (existing != null && (older || nextVersionChanges.hasChanges(command.tenantKey, catalogKey))) {
+        if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChanges(command.tenantKey, catalogKey))) {
             val bound = parsed.manifest.resources.associate { entry ->
                 val detail = parsed.entries[entry.detailUrl.removePrefix("./")]
                     ?: throw IllegalArgumentException("Missing resource detail: ${entry.detailUrl}")

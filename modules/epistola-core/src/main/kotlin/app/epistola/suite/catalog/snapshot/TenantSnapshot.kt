@@ -46,7 +46,9 @@ data class TenantSnapshot(
  * Tenant-level manifest written as `snapshot.json` at the root of the snapshot archive.
  *
  * From schema version 2 the archive also carries `identities.json`: the tenant's identity
- * registry. It sits beside the catalog ZIPs rather than inside them because
+ * registry. From schema version 3 each catalog entry says where the catalog comes from and lists its
+ * releases, whose archives sit at `catalogs/<key>/releases/<version>.zip`; every member it added is
+ * optional, so a schema 2 snapshot reads as one with no sources and no releases. It sits beside the catalog ZIPs rather than inside them because
  * `resource_id` is deliberately absent from catalog exchange -- it is tenant-local, and a snapshot
  * is the one place a tenant's own state travels whole.
  */
@@ -79,4 +81,42 @@ data class SnapshotCatalogEntry(
      * (each dependency before its dependents) so the database FKs resolve.
      */
     val dependsOnCatalogKeys: List<String> = emptyList(),
+    /**
+     * Where the catalog receives releases from (schema 3): its source and how it authenticates. The
+     * credential is not in it: a snapshot carries no secrets, so a source that needs one is given
+     * it again after a restore. Null for a catalog without a source, and in older snapshots.
+     */
+    val source: SnapshotCatalogSource? = null,
+    /** The release it received last, as `catalogs.installed_*` records it (schema 3); null for none. */
+    val installed: SnapshotInstalledRelease? = null,
+    /** The release its next release is on (schema 3); null when it is on none. */
+    val nextBase: String? = null,
+    /**
+     * Its releases (schema 3), lowest first, each with its archive at [SnapshotRelease.zipPath] so a
+     * restored catalog renders and merges them; empty in older snapshots, which restore with none.
+     */
+    val releases: List<SnapshotRelease> = emptyList(),
+)
+
+/** A catalog's source in a snapshot: its URI (`catalogs.source_url`) and auth type, never its credential. */
+data class SnapshotCatalogSource(val url: String, val authType: String = "NONE")
+
+/** The release a catalog received last: its number and the publisher's fingerprint. */
+data class SnapshotInstalledRelease(val version: String, val fingerprint: String? = null)
+
+/**
+ * One release of a catalog in a snapshot: what it is (its number, id, fingerprint and base), when
+ * and by whom it was released, and its archive ([zipPath], null when its content could not be
+ * exported, and then it is not restored).
+ */
+data class SnapshotRelease(
+    val version: String,
+    val releaseId: String? = null,
+    val fingerprint: String,
+    val baseVersion: String? = null,
+    val baseFingerprint: String? = null,
+    val releasedAt: String? = null,
+    val releasedBy: String? = null,
+    val notes: String? = null,
+    val zipPath: String? = null,
 )
