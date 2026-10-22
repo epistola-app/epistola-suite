@@ -41,16 +41,16 @@ import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
 import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
 import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
 import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
+import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.releases.CatalogDraftInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
-import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
-import app.epistola.suite.catalog.versions.CatalogDraftInUseException
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
-import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
@@ -679,14 +679,14 @@ object ApiExceptionMappings {
             logMessage = { "API operation not implemented: ${it.operation}" },
         )
 
-        builder.register<CatalogVersionNotFoundException>(
+        builder.register<CatalogReleaseNotFoundException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_NOT_FOUND,
             defaultDetail = "Catalog version not found",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
             logMessage = { "Catalog version not found: catalog=${it.catalogKey} version=${it.version}" },
         )
 
-        builder.register<CatalogVersionReleasedException>(
+        builder.register<CatalogReleaseIsReleasedException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_RELEASED,
             defaultDetail = "The catalog version is released and cannot change",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
@@ -769,14 +769,14 @@ object ApiExceptionMappings {
             logMessage = { "No catalog source: ${it.message}" },
         )
 
-        builder.register<CatalogVersionBehindException>(
+        builder.register<CatalogReleaseBehindException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_BEHIND,
             defaultDetail = "The draft is behind releases it does not contain",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "behind" to it.behind) },
             logMessage = { "Release refused, behind not acknowledged: ${it.message}" },
         )
 
-        builder.register<CatalogVersionHeldException>(
+        builder.register<CatalogReleaseHeldException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_HELD,
             defaultDetail = "The draft alone holds resources something outside it still uses",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },

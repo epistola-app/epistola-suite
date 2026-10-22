@@ -9,7 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -135,9 +135,9 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, CatalogKey.of("rr-granted"), "Granted").execute()
             ChangeCatalogNamespace(tenant, CatalogKey.of("rr-granted"), "public-services").execute()
-            ReleaseCatalogVersion(tenant, CatalogKey.of("rr-granted"), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant, CatalogKey.of("rr-granted"), "1.0.0", publication = ReleasePublication.SKIP).execute()
             CreateCatalog(tenant, CatalogKey.of("rr-other"), "Other", namespace = "not-granted").execute()
-            ReleaseCatalogVersion(tenant, CatalogKey.of("rr-other"), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant, CatalogKey.of("rr-other"), "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
         val publish = withMediator { "${CatalogApiPaths.version(tenant, "rr-granted", "1.0.0")}/publish" }
 
@@ -168,7 +168,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
             CreateCatalog(publisher, key, "Letters", namespace = "acme").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(key, TenantId(publisher))), name = "Theme").execute()
             MarkCatalogReady(publisher, key).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = key, version = "1.0.0").execute()
             mediator.exportReleased(CatalogId(key, TenantId(publisher))).zipBytes
         }
     }

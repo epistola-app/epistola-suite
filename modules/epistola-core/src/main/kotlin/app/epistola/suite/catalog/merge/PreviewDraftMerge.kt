@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog.merge
 
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -22,15 +22,15 @@ import org.springframework.stereotype.Component
  * as [DraftMergePlanner] works it out; nothing is changed. Its [DraftMergePreview.token] names the
  * state it shows, for [MergeReleaseIntoDraft.expectedToken].
  *
- * @throws CatalogVersionNotFoundException when the catalog has no such draft, or no such release.
+ * @throws CatalogReleaseNotFoundException when the catalog has no such draft, or no such release.
  */
 data class PreviewDraftMerge(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val release: String,
     /** The draft to merge into; null for the catalog's next version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<DraftMergePreview>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW

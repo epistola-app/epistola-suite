@@ -15,8 +15,8 @@ import app.epistola.suite.catalog.registry.ListReleaseRegistryReleases
 import app.epistola.suite.catalog.registry.PublishReleaseToReleaseRegistry
 import app.epistola.suite.catalog.registry.ReleaseRegistryException
 import app.epistola.suite.catalog.registry.ReleaseRegistryList
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
@@ -183,7 +183,7 @@ class CatalogRegistryHandler {
 
         is ReleaseRenderingDefaultsTooNewException -> e.message ?: unexpected
 
-        is CatalogVersionNotFoundException -> e.message ?: unexpected
+        is CatalogReleaseNotFoundException -> e.message ?: unexpected
 
         is IllegalArgumentException -> e.message ?: unexpected
 

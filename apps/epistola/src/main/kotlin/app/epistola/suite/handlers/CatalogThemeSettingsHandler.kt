@@ -7,11 +7,11 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey

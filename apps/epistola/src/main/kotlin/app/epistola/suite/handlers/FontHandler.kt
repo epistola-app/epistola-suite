@@ -10,8 +10,8 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -378,7 +378,7 @@ class FontHandler(
     }
 
     /** List-row view model: family metadata + its weight/italic faces. */
-    private fun toFontView(tenantId: TenantId, font: Font, version: CatalogVersionRef? = null): Map<String, Any?> {
+    private fun toFontView(tenantId: TenantId, font: Font, version: CatalogReleaseRef? = null): Map<String, Any?> {
         val faces = GetFontVariants(
             fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
             catalogVersion = version,

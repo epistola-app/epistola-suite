@@ -7,7 +7,7 @@ package app.epistola.suite.generation.release
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -132,7 +132,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
             MarkVariantReady(id).execute()
         }
         MarkCatalogReady(tenantKey, catalog.key).execute()
-        ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+        ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         catalog
     }
 }

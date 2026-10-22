@@ -151,7 +151,7 @@ The context is in the path, so links, tabs and back buttons keep it, and the ser
   UI keeps the key-only catalog segment it uses today.
 - Today's `letters@2.0.0` segment and the tenant-level resource routes redirect to the new form, so
   existing links keep working.
-- Every handler passes the context's `CatalogVersionRef` to every message, as the `@version` segment
+- Every handler passes the context's `CatalogReleaseRef` to every message, as the `@version` segment
   does today; a release context reads release content (`GetReleasedResource`,
   `ListReleasedResources`, the release render path), which the core already provides.
 
@@ -205,7 +205,7 @@ either way.
 
 ## What exists and what is new
 
-Exists in core and REST: version-scoped messages (`CatalogVersionRef`), release reads, change lists,
+Exists in core and REST: version-scoped messages (`CatalogReleaseRef`), release reads, change lists,
 behind, the draft lifecycle, the draft-number check. Exists in the UI but moves: the draft bar
 (`CatalogDraftBar`), next release (`CatalogReleaseHandler`, `next-release.html`), the catalog
 segment. New: the context bar and its pickers, context routes and redirects, read-only rendering of

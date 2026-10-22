@@ -6,8 +6,8 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -44,7 +44,7 @@ class ExportReleaseTest : IntegrationTestBase() {
         val released = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released").execute()
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
         withMediator {
@@ -75,12 +75,12 @@ class ExportReleaseTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
         assertThatThrownBy {
             withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "9.9.9").execute() }
-        }.isInstanceOf(CatalogVersionNotFoundException::class.java)
+        }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
     }
 
     @Test
@@ -89,7 +89,7 @@ class ExportReleaseTest : IntegrationTestBase() {
         val archive = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), publisher), name = "Brand").execute()
             MarkCatalogReady(publisher.tenantKey, publisher.key).execute()
-            ReleaseCatalogVersion(tenantKey = publisher.tenantKey, catalogKey = publisher.key, version = "1.2.0").execute()
+            ReleaseCatalogDraft(tenantKey = publisher.tenantKey, catalogKey = publisher.key, version = "1.2.0").execute()
             ExportCatalogZip(publisher.tenantKey, publisher.key).execute()
         }
         val subscriber = createTenant("exp-subscriber").id

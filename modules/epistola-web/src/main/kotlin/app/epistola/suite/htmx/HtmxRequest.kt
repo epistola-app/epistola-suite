@@ -4,9 +4,9 @@
 
 package app.epistola.suite.htmx
 
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -130,7 +130,7 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
     val value: String get() = draft?.let { "${key.value}@$it" } ?: key.value
 
     /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
-    fun ref(tenantKey: TenantKey): CatalogVersionRef? = draft?.let { CatalogVersionRef(tenantKey, key, DraftRef.Id(it)) }
+    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(tenantKey, key, DraftRef.Id(it)) }
 
     /** The same catalog at draft [draft], or at its current version when that is null. */
     fun at(draft: String?): CatalogSegment = copy(draft = draft)
@@ -146,7 +146,7 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
     companion object {
         /**
          * Parses `key` or `key@<version id>`. Throws [IllegalArgumentException] for an invalid key, and
-         * [CatalogVersionNotFoundException] for a draft part that is not a version id: a link naming a
+         * [CatalogReleaseNotFoundException] for a draft part that is not a version id: a link naming a
          * release number (`letters@1.0.1`) is a draft that is not there, not a bad request.
          */
         fun parse(raw: String): CatalogSegment {
@@ -154,7 +154,7 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
             if (at < 0) return CatalogSegment(CatalogKey.of(raw))
             val key = CatalogKey.of(raw.substring(0, at))
             val draft = raw.substring(at + 1).trim()
-            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogVersionNotFoundException(key, draft)
+            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogReleaseNotFoundException(key, draft)
             return CatalogSegment(key, draft)
         }
 
@@ -177,7 +177,7 @@ fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
     catalogSegment().key
 } catch (_: IllegalArgumentException) {
     null
-} catch (e: CatalogVersionNotFoundException) {
+} catch (e: CatalogReleaseNotFoundException) {
     e.catalogKey
 }
 
@@ -185,7 +185,7 @@ fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
  * The draft the `catalogId` path variable names (`letters@<draft id>`), for a message's
  * `catalogVersion`; null when it names none, which means the catalog's next version.
  */
-fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(tenantId().key)
+fun ServerRequest.catalogVersion(): CatalogReleaseRef? = catalogSegment().ref(tenantId().key)
 
 /**
  * The catalog a request is in: the `catalogId` path variable of a page or action under

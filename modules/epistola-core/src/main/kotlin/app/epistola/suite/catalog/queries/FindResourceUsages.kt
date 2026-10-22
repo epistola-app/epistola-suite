@@ -7,9 +7,9 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -26,8 +26,8 @@ data class FindResourceUsages(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<Map<String, List<ResourceUsage>>>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW

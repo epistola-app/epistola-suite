@@ -9,7 +9,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -47,7 +47,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
                     CreateCatalog(tenantKey = author.id, id = received, name = "Received").execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(received, TenantId(author.id))), name = "Brand").execute()
                     MarkCatalogReady(author.id, received).execute()
-                    ReleaseCatalogVersion(tenantKey = author.id, catalogKey = received, version = "1.0.0").execute()
+                    ReleaseCatalogDraft(tenantKey = author.id, catalogKey = received, version = "1.0.0").execute()
                     val archive = ExportCatalogZip(author.id, received, "1.0.0").execute().zipBytes
                     ImportCatalogZip(tenant.id, archive).execute()
                 }

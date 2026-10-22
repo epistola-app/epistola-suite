@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -15,7 +15,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -43,7 +43,7 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
             CreateCatalogDraft(tenant, letters, "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in the next version
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val overview = withMediator { GetCatalogOverview(tenant).query() }

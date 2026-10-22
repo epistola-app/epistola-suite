@@ -68,7 +68,7 @@ class CatalogRegistryMcpTools {
     fun publishReleaseToRegistry(
         @McpToolParam(description = "Catalog key. From `list_catalogs`.")
         catalogId: String,
-        @McpToolParam(description = "The release number, MAJOR.MINOR.PATCH. From `list_catalog_versions`.")
+        @McpToolParam(description = "The release number, MAJOR.MINOR.PATCH. From `list_catalog_releases`.")
         version: String,
         @McpToolParam(description = "The release registry's name, from `list_release_registries`. Optional when there is exactly one.", required = false)
         registry: String?,

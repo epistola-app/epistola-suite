@@ -5,7 +5,7 @@
 package app.epistola.suite.environments.queries
 
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey

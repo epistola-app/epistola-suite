@@ -8,9 +8,9 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -168,7 +168,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("needs at least 2.0.0").contains("template &#39;letter&#39;: removed")
-            assertThat(withMediator { ListCatalogReleases(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
+            assertThat(withMediator { ListCatalogReleaseSummaries(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
         }
     }
 

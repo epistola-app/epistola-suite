@@ -6,10 +6,10 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.ApplyHouseTheme
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.ApplyHouseTheme
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey

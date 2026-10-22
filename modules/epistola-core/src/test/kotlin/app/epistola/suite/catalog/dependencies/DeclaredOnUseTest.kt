@@ -11,7 +11,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
@@ -66,7 +66,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer").execute()
         CreateCodeList(CodeListId(CodeListKey.of("colours"), catalog), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         tenant
     }

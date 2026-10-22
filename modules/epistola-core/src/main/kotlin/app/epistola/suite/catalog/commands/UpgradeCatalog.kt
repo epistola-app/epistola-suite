@@ -107,7 +107,7 @@ class UpgradeCatalogHandler(
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val importRows: CatalogImportRows,
-    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
+    private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
     private val receivedReleases: ReceivedReleases,
 ) : CommandHandler<UpgradeCatalog, UpgradeCatalogResult> {
 

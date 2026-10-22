@@ -30,7 +30,7 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListImagePage
-import app.epistola.suite.catalog.versions.GetReleasedBinary
+import app.epistola.suite.catalog.releases.GetReleasedBinary
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute

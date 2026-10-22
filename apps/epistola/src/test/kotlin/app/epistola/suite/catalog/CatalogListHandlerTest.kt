@@ -14,7 +14,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
@@ -442,14 +442,14 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("ct1"), CatalogId(clean, TenantId(t.id))), name = "C1").execute()
                 MarkCatalogReady(t.id, clean).execute()
-                ReleaseCatalogVersion(t.id, clean, version = "1.0.0").execute()
+                ReleaseCatalogDraft(t.id, clean, version = "1.0.0").execute()
 
                 // Drifted: released, then edited.
                 val drift = CatalogKey.of("drift-cat")
                 CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt1"), CatalogId(drift, TenantId(t.id))), name = "D1").execute()
                 MarkCatalogReady(t.id, drift).execute()
-                ReleaseCatalogVersion(t.id, drift, version = "2.0.0").execute()
+                ReleaseCatalogDraft(t.id, drift, version = "2.0.0").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt2"), CatalogId(drift, TenantId(t.id))), name = "D2 (post-release)").execute()
             }
         }
@@ -536,7 +536,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(t.id))), name = "Brand").execute()
                 MarkCatalogReady(t.id, catalogKey).execute()
-                ReleaseCatalogVersion(t.id, catalogKey, version = "1.0.0").execute()
+                ReleaseCatalogDraft(t.id, catalogKey, version = "1.0.0").execute()
             }
         }
 

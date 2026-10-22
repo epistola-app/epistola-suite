@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -100,13 +100,13 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = author, id = catalog, name = "Received").execute()
             CreateTheme(id = brand(author), name = "Brand").execute()
             MarkCatalogReady(author, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = author, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = author, catalogKey = catalog, version = "1.0.0").execute()
             val archive = ExportCatalogZip(author, catalog, "1.0.0").execute().zipBytes
             // Received from a file, then changed and released here: it is a catalog like any other.
             ImportCatalogZip(receiver.key, archive).execute()
             UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
             MarkCatalogReady(receiver.key, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = receiver.key, catalogKey = catalog, version = "1.0.1").execute()
+            ReleaseCatalogDraft(tenantKey = receiver.key, catalogKey = catalog, version = "1.0.1").execute()
         }
 
         val catalogs = runAsApiKey(receiver) { catalogTools.listCatalogs() }.associateBy { it.id }

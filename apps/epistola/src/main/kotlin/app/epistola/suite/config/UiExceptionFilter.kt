@@ -118,17 +118,17 @@ class UiExceptionFilter(
                 UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
             }
 
-            "CatalogVersionNotFoundException" -> {
+            "CatalogReleaseNotFoundException" -> {
                 log.warn("Catalog version not found: {}", cause.message)
                 UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
             }
 
-            "CatalogVersionReleasedException" -> {
+            "CatalogReleaseIsReleasedException" -> {
                 log.warn("Write to a released catalog version: {}", cause.message)
                 UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
             }
 
-            "CatalogVersionHeldException" -> {
+            "CatalogReleaseHeldException" -> {
                 log.warn("Discarding a draft refused: {}", cause.message)
                 UiError(409, ApiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
             }

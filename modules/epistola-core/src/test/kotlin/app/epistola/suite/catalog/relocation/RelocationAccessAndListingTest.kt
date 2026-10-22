@@ -5,7 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
@@ -85,7 +85,7 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
         create(tenant, MovableResource.STENCIL, letters, "header")
         create(tenant, MovableResource.STENCIL, shared, "footer")
         withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
 
         val listed = withMediator { ListRelocatableResources(tenant).query() }.associateBy { it.address.key }
 

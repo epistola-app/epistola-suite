@@ -8,9 +8,9 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.registry.InstallReleaseFromRegistry
 import app.epistola.suite.catalog.registry.PublishReleaseToRegistry
 import app.epistola.suite.common.ids.CatalogId
@@ -65,7 +65,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         CreateCatalog(tenantKey = tenant, id = catalog, name = name).execute()
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))), name = "Brand").execute()
         MarkCatalogReady(tenant, catalog).execute()
-        ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
+        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
         tenant to GetCatalog(tenant, catalog).query()!!.namespace
     }
 
@@ -99,7 +99,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(installed.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(installed.headers.getFirst("HX-Trigger")).contains("closeDialog")
         assertThat(installed.body).contains("ui-registry")
-        assertThat(withMediator { ListCatalogReleases(b, CatalogKey.of("ui-registry")).query().map { it.version } }).containsExactly("1.0.0")
+        assertThat(withMediator { ListCatalogReleaseSummaries(b, CatalogKey.of("ui-registry")).query().map { it.version } }).containsExactly("1.0.0")
 
         val again = get("/tenants/${b.value}/catalogs/registry/releases?registry=local&namespace=$namespace&catalogKey=ui-registry")
         assertThat(again.body).contains("registry-all-present").doesNotContain("id=\"registry-install-form\"")
@@ -115,7 +115,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
             InstallReleaseFromRegistry(b, "local", namespace, "ui-update", "1.0.0").execute()
             UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(a))), name = "Brand 1.1").execute()
             MarkCatalogReady(a, key).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = key, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = key, version = "1.1.0").execute()
             PublishReleaseToRegistry(a, key, "1.1.0", "local").execute()
             CheckCatalogUpstream(b, key).execute()
         }
@@ -170,7 +170,7 @@ class CatalogRegistryAbsentHandlerHtmxTest : BaseIntegrationTest() {
             CreateCatalog(tenantKey = t, id = CatalogKey.of("no-registry"), name = "No registry").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("no-registry"), TenantId(t))), name = "Brand").execute()
             MarkCatalogReady(t, CatalogKey.of("no-registry")).execute()
-            ReleaseCatalogVersion(tenantKey = t, catalogKey = CatalogKey.of("no-registry"), version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = t, catalogKey = CatalogKey.of("no-registry"), version = "1.0.0").execute()
             t
         }
 

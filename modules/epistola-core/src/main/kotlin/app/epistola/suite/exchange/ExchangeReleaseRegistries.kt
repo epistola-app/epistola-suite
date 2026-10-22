@@ -4,7 +4,7 @@
 
 package app.epistola.suite.exchange
 
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.registry.EXCHANGE_RELEASE_REGISTRY_NAME
 import app.epistola.suite.catalog.registry.NamespaceNotGrantedException
 import app.epistola.suite.catalog.registry.RegistryArchiveRejectedException
@@ -61,7 +61,7 @@ class ExchangeReleaseRegistries(
                 ?: throw CatalogSourceUnavailableException("Epistola Exchange would not issue an access token for this tenant. Reconnect it on the Exchange page.")
             val offered = translate { client.releases(connection.baseUrl, token, namespace, catalogKey) }.filter { it.installable }.associateBy { it.version }
             val conflict = installer.localConflict(tenantKey, catalogKey, ExchangeSourceUri.of(namespace, catalogKey))
-            val here = if (conflict == null) ListCatalogReleases(tenantKey, CatalogKey.of(catalogKey)).query().map { it.version }.toSet() else emptySet()
+            val here = if (conflict == null) ListCatalogReleaseSummaries(tenantKey, CatalogKey.of(catalogKey)).query().map { it.version }.toSet() else emptySet()
             ReleaseRegistryListing(
                 registry = name,
                 kind = ReleaseRegistryKind.EXCHANGE,

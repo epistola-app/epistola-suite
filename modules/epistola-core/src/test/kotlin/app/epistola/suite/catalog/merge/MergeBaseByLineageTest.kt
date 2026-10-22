@@ -9,8 +9,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -67,7 +67,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("lineage")
         withMediator {
             val lines = mediator.parallelReleaseLines(a, catalog)
-            val v100 = ListCatalogReleases(a, catalog).query().single { it.version == "1.0.0" }
+            val v100 = ListCatalogReleaseSummaries(a, catalog).query().single { it.version == "1.0.0" }
 
             // B received 1.1.0 only, then the fix 1.0.1, made from 1.0.0 on the other line.
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v110).execute()
@@ -109,10 +109,10 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "No Lineage").execute()
             listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
             // An archive from before releases named their base.
             val v110 = withoutBase(ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes)
 

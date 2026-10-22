@@ -5,8 +5,8 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -34,8 +34,8 @@ data class ResolveTemplateTheme(
     /** The template's catalog, whose draft's declarations say where another catalog's theme comes from. */
     val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<Theme?>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW

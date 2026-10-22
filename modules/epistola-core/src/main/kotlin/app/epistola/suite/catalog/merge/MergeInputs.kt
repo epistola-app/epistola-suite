@@ -11,12 +11,12 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDrafts
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogDraft
-import app.epistola.suite.catalog.versions.CatalogDrafts
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -157,13 +157,13 @@ class MergeInputReader(
      * The inputs of merging [release] into the draft the running message targets (else the catalog's
      * next version).
      *
-     * @throws CatalogVersionNotFoundException when the catalog has no such draft, or no such release.
+     * @throws CatalogReleaseNotFoundException when the catalog has no such draft, or no such release.
      */
     fun read(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftName: String): MergeInputs {
         val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, tenantKey, catalogKey) }
-            ?: throw CatalogVersionNotFoundException(catalogKey, draftName)
+            ?: throw CatalogReleaseNotFoundException(catalogKey, draftName)
         val lines = jdbi.withHandle<Map<String, ReleaseLine>, Exception> { releaseLines(it, tenantKey, catalogKey) }
-        if (release !in lines) throw CatalogVersionNotFoundException(catalogKey, release)
+        if (release !in lines) throw CatalogReleaseNotFoundException(catalogKey, release)
         val madeFrom = { r: String -> lines[r]?.let { line -> line.baseVersion?.let { DraftMerge.MadeFrom(it, line.baseFingerprint) } } }
         val baseOf = { r: String -> madeFrom(r)?.version }
         val contained = DraftMerge.contained(draft.base, draft.merged, baseOf)
@@ -250,7 +250,7 @@ class MergeInputReader(
     private fun withSettings(held: Map<String, String>, base: MergeInput): Map<String, String> = held + base.fingerprints.filterKeys { it.startsWith("${CatalogSetting.TYPE}/") && it !in held }
 
     private fun releaseInput(tenantKey: TenantKey, catalogKey: CatalogKey, release: String): MergeInput {
-        val retained = assembler.assemble(tenantKey, catalogKey, release) ?: throw CatalogVersionNotFoundException(catalogKey, release)
+        val retained = assembler.assemble(tenantKey, catalogKey, release) ?: throw CatalogReleaseNotFoundException(catalogKey, release)
         return input(catalogKey, retained.content)
     }
 

@@ -11,13 +11,13 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -72,7 +72,7 @@ class QualifiedReferenceRoundTripTest : IntegrationTestBase() {
 
     @Autowired private lateinit var fingerprints: CatalogFingerprintService
 
-    @Autowired private lateinit var targeting: CatalogVersionTargeting
+    @Autowired private lateinit var targeting: CatalogReleaseTargeting
 
     private val letters = CatalogKey.of("letters")
     private val parts = CatalogKey.of("parts")
@@ -163,7 +163,7 @@ class QualifiedReferenceRoundTripTest : IntegrationTestBase() {
             assertThat(fingerprints.resourceFingerprints(received).getValue(key)).isEqualTo(archiveFingerprints(released.letters).getValue(key))
 
             val draft = CreateCatalogDraft(b, letters, name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogVersionRef(b, letters, DraftRef.Id(draft.versionId)))
+            val id = targeting.resolve(CatalogReleaseRef(b, letters, DraftRef.Id(draft.versionId)))
             val drafted = targeting.within(id) { contentBuilder.build(b, letters) }
             assertThat(qualifier(reference(detail(drafted, key)))).isEqualTo(expected)
         }
@@ -247,7 +247,7 @@ class QualifiedReferenceRoundTripTest : IntegrationTestBase() {
             assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(b, letters).catalog.defaultTheme)).isEqualTo(sent)
 
             val draft = CreateCatalogDraft(b, letters, name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogVersionRef(b, letters, DraftRef.Id(draft.versionId)))
+            val id = targeting.resolve(CatalogReleaseRef(b, letters, DraftRef.Id(draft.versionId)))
             assertThat(objectMapper.valueToTree<JsonNode>(targeting.within(id) { contentBuilder.build(b, letters) }.catalog.defaultTheme)).isEqualTo(sent)
         }
     }

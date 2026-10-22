@@ -11,9 +11,9 @@ import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.GetCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment

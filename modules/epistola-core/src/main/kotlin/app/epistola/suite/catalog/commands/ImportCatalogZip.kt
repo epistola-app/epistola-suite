@@ -38,7 +38,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -227,7 +227,7 @@ class ImportCatalogZipHandler(
     private val dependencyStore: CatalogDependencyStore,
     private val readyMarks: ReadyMarks,
     private val rows: CatalogImportRows,
-    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
+    private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
     private val installer: CatalogResourceInstaller,
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
@@ -282,7 +282,7 @@ class ImportCatalogZipHandler(
             presentDependencies = presentDependencies,
         )
 
-        val present = existing?.let { ListCatalogReleases(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
+        val present = existing?.let { ListCatalogReleaseSummaries(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
         if (present != null) {
             if (published == null || present.fingerprint == published) return result(newly = false)
             throw CatalogReleaseTakenException(

@@ -4,7 +4,7 @@
 
 package app.epistola.suite.environments
 
-import app.epistola.suite.catalog.versions.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey

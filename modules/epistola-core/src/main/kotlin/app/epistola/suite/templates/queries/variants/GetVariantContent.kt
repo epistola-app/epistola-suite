@@ -4,9 +4,9 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
@@ -26,8 +26,8 @@ import tools.jackson.databind.ObjectMapper
 data class GetVariantContent(
     val variantId: VariantId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<TemplateDocument?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_VIEW
@@ -67,8 +67,8 @@ data class VariantContentAtRevision(val templateModel: TemplateDocument, val rev
 data class GetVariantContentAtRevision(
     val variantId: VariantId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<VariantContentAtRevision?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_VIEW

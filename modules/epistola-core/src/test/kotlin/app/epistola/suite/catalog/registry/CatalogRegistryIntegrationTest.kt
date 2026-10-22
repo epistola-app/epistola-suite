@@ -8,9 +8,9 @@ import app.epistola.suite.catalog.commands.CatalogImportValidationException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
@@ -85,7 +85,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Registry $key").execute()
             CreateTheme(id = theme(a, catalog), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            val release = ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = version).execute()
+            val release = ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = version).execute()
             Released(a, b, catalog, GetCatalog(a, catalog).query()!!.namespace, release.fingerprint)
         }
     }
@@ -95,7 +95,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     private fun releaseNext(r: Released, version: String, themeName: String): String = withMediator {
         UpdateTheme(theme(r.a, r.catalog), name = themeName).execute()
         MarkCatalogReady(r.a, r.catalog).execute()
-        ReleaseCatalogVersion(tenantKey = r.a, catalogKey = r.catalog, version = version).execute().fingerprint
+        ReleaseCatalogDraft(tenantKey = r.a, catalogKey = r.catalog, version = version).execute().fingerprint
     }
 
     /** Pushes [archive] as `version` of [r]'s catalog, labelled with [fingerprint], as anyone with push rights could. */
@@ -130,7 +130,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             assertThat(installed.newlyInstalled).isTrue()
             assertThat(installed.digest).isEqualTo(published.digest)
 
-            assertThat(ListCatalogReleases(r.b, r.catalog).query().single { it.version == "1.0.0" }.fingerprint)
+            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single { it.version == "1.0.0" }.fingerprint)
                 .`as`("the receiver has the release the publisher released")
                 .isEqualTo(r.fingerprint)
             val catalog = GetCatalog(r.b, r.catalog).query()!!
@@ -246,7 +246,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
 
             assertThat(ListAvailableCatalogReleases(r.b, r.catalog).query().available.map { it.releaseVersion }).containsExactly("1.1.0")
             InstallCatalogRelease(r.b, r.catalog, "1.1.0").execute()
-            assertThat(ListCatalogReleases(r.b, r.catalog).query().single { it.version == "1.1.0" }.fingerprint).isEqualTo(later)
+            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single { it.version == "1.1.0" }.fingerprint).isEqualTo(later)
         }
     }
 
@@ -258,7 +258,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             assertThat(published.repository).isEqualTo("${SharedRegistries.SECURED_PREFIX}/${r.namespace}/reg-secured")
 
             InstallReleaseFromRegistry(r.b, "secured", r.namespace, "reg-secured", "1.0.0").execute()
-            assertThat(ListCatalogReleases(r.b, r.catalog).query().single().fingerprint).isEqualTo(r.fingerprint)
+            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single().fingerprint).isEqualTo(r.fingerprint)
         }
 
         val anonymous = OciRegistryClient(

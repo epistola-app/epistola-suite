@@ -9,7 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -156,7 +156,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), name = theme).execute()
         MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogVersion(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute()
+        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute()
         ExportCatalogZip(tenant, key, "1.0.0").execute().zipBytes
     }
 

@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -51,7 +51,7 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Outage").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // Exchange goes away entirely — not an error response, no response at all.
             exchange.close()

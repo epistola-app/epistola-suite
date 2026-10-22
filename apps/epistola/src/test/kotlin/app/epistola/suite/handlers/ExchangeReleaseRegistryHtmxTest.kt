@@ -6,7 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -63,7 +63,7 @@ class ExchangeReleaseRegistryHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             CreateCatalog(tenant, catalog, "UI exchange publish").execute()
             ChangeCatalogNamespace(tenant, catalog, "public-services").execute()
-            ReleaseCatalogVersion(tenant, catalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant, catalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/${catalog.value}/releases/1.0.0", String::class.java).body!!

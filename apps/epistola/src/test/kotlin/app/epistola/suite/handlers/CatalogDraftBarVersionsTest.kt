@@ -4,8 +4,8 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.CatalogSegment
@@ -24,13 +24,13 @@ class CatalogDraftBarVersionsTest {
     private val redesignId = "k7m2x9qa"
     private val nextId = "n3xtv3rs"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = nextId, isNext = true)
+    private fun next(base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = nextId, isNext = true)
 
-    private fun work(name: String, base: String?, id: String = redesignId) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = id, name = name)
+    private fun work(name: String, base: String?, id: String = redesignId) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = id, name = name)
 
-    private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
+    private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogRelease(
         version,
-        CatalogVersionStatus.RELEASED,
+        CatalogReleaseStatus.RELEASED,
         versionId = "r" + version.replace(".", ""),
         base = base,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
@@ -38,8 +38,8 @@ class CatalogDraftBarVersionsTest {
     )
 
     private fun bar(
-        drafts: List<CatalogVersion>,
-        releases: List<CatalogVersion>,
+        drafts: List<CatalogRelease>,
+        releases: List<CatalogRelease>,
         segment: CatalogSegment = CatalogSegment(letters),
         mayEdit: Boolean = true,
     ) = CatalogDraftBar(

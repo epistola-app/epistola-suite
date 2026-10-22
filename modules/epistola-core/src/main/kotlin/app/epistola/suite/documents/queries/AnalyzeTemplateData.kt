@@ -4,8 +4,8 @@
 
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -93,7 +93,7 @@ class AnalyzeTemplateDataHandler(
     }
 
     private fun analyzeDraft(query: AnalyzeTemplateData, selection: CatalogSelection.Draft): TemplateDataAnalysis {
-        val draft = CatalogVersionRef(query.tenantKey, query.catalogKey, DraftRef.Id(selection.source.draftId))
+        val draft = CatalogReleaseRef(query.tenantKey, query.catalogKey, DraftRef.Id(selection.source.draftId))
         val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantKey)))
         val variant = targetResolver.resolveIn(query.tenantKey, query.catalogKey, selection, query.templateId, query.variantId, query.variantSelectionCriteria).variantKey
         val contract = mediator.query(GetDataContract(templateId, draft))

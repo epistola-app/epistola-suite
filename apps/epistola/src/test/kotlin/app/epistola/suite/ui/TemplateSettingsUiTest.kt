@@ -5,7 +5,7 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -151,7 +151,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             createTemplate().also { (tenant, _) ->
                 MarkCatalogReady(tenant.id, CatalogKey.DEFAULT).execute()
-                ReleaseCatalogVersion(tenant.id, CatalogKey.DEFAULT).execute()
+                ReleaseCatalogDraft(tenant.id, CatalogKey.DEFAULT).execute()
             }
         }
 

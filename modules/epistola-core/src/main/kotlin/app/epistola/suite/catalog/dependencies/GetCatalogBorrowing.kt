@@ -9,16 +9,16 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogResourceState
-import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.AssessDraftNumber
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.AssessDraftNumber
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -42,8 +42,8 @@ data class GetCatalogBorrowing(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<CatalogBorrowing>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -143,7 +143,7 @@ class GetCatalogBorrowingHandler(
             val catalog = catalogs.firstOrNull { it.id.value == key } ?: return@mapNotNull null
             val declaration = declared.firstOrNull { it.catalogKey == key }
             val release = declaration?.releaseVersion
-            val offers = release?.let { GetCatalogRelease(query.tenantKey, catalog.id, it).query() }?.resources.orEmpty()
+            val offers = release?.let { GetCatalogReleaseDetail(query.tenantKey, catalog.id, it).query() }?.resources.orEmpty()
                 .filter { it.resourceType in BORROWABLE }
                 .map { BorrowedResource(it.resourceType, it.resourceKey, it.name) }
                 .sortedWith(compareBy({ BORROWABLE.indexOf(it.type) }, { it.name?.lowercase() ?: it.key }))
@@ -156,7 +156,7 @@ class GetCatalogBorrowingHandler(
                 used.copy(name = name)
             }
             // A named draft: what it has not published, and the number publishing it along gives it.
-            val namedDraft = declaration?.draftId?.let { CatalogVersionRef(query.tenantKey, catalog.id, DraftRef.Id(it)) }
+            val namedDraft = declaration?.draftId?.let { CatalogReleaseRef(query.tenantKey, catalog.id, DraftRef.Id(it)) }
             val unpublished = namedDraft?.let { ref ->
                 GetCatalogResourceChanges(query.tenantKey, catalog.id, ref).query().resources
                     .filter { it.state != CatalogResourceState.RELEASED }
@@ -184,7 +184,7 @@ class GetCatalogBorrowingHandler(
         return a > b
     }
 
-    private fun latestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleases(tenantKey, catalogKey, limit = 1).query().firstOrNull()?.version
+    private fun latestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleaseSummaries(tenantKey, catalogKey, limit = 1).query().firstOrNull()?.version
 
     private fun DependencyRef.toBorrowed(): Pair<String, BorrowedResource> = when (this) {
         is DependencyRef.Theme -> catalogKey to BorrowedResource("theme", key, null)

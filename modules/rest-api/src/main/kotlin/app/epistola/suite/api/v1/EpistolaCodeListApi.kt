@@ -39,7 +39,7 @@ import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -229,9 +229,9 @@ class EpistolaCodeListApi : CodeListsApi {
         return okWithETag(list.revision, entry.toDto())
     }
 
-    private fun ResolvedCatalogVersion.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
+    private fun ResolvedCatalogRelease.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
 
-    private fun ResolvedCatalogVersion.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
+    private fun ResolvedCatalogRelease.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
 
     private fun CreateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
         CreateCodeListRequest.AuthType.NONE -> AuthType.NONE

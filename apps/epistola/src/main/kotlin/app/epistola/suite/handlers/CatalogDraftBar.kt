@@ -8,12 +8,12 @@ import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.GetCatalogDraft
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.GetCatalogDraft
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -53,16 +53,16 @@ data class CatalogDraftBar(
     /** Whether the catalog can be changed here (ADR 0032); [readOnlyReason] says why not. */
     val editable: Boolean,
     val segment: CatalogSegment,
-    val drafts: List<CatalogVersion>,
-    val releases: List<CatalogVersion>,
-    val chosen: CatalogVersion?,
+    val drafts: List<CatalogRelease>,
+    val releases: List<CatalogRelease>,
+    val chosen: CatalogRelease?,
     val mayOpenDrafts: Boolean,
     val mayDiscardDrafts: Boolean,
     /**
      * For a catalog that cannot be changed here, the release its pages show: the one its next version
      * is on, else its latest. Null for a catalog that can be changed.
      */
-    val installed: CatalogVersion? = null,
+    val installed: CatalogRelease? = null,
     /** Why the catalog cannot be changed here; null when it can. */
     val readOnlyReason: CatalogReadOnlyReason? = null,
     /** Epistola supplies the catalog, so its releases are the suite's too: nothing to delete here. */
@@ -86,10 +86,10 @@ data class CatalogDraftBar(
     }
 
     /** The catalog's current version: its next version, or the release a read-only catalog is on. */
-    val current: CatalogVersion? get() = if (editable) drafts.firstOrNull { it.isNext } else installed
+    val current: CatalogRelease? get() = if (editable) drafts.firstOrNull { it.isNext } else installed
 
     /** The version the page shows: the chosen draft, or the release a read-only catalog is on. */
-    val shown: CatalogVersion? get() = chosen ?: installed
+    val shown: CatalogRelease? get() = chosen ?: installed
 
     /** Nothing on the page changes the catalog: it cannot be changed here ([readOnlyReason]). */
     val readOnly: Boolean get() = !editable
@@ -101,7 +101,7 @@ data class CatalogDraftBar(
     val readOnlyExplanation: String? get() = readOnlyReason?.explanation
 
     /** The version messages on this page name; null for the next version. */
-    val ref: CatalogVersionRef? get() = segment.ref(tenantKey)
+    val ref: CatalogReleaseRef? get() = segment.ref(tenantKey)
 
     /** The segment links on this page carry, as it appears in a URL. */
     val segmentValue: String get() = segment.value
@@ -209,7 +209,7 @@ data class CatalogDraftBar(
      * The releases the chosen draft is behind for the number it would be released as, lowest first,
      * each with what it changed. Measured when a page shows it: it compares the draft with its base.
      */
-    val behind: List<app.epistola.suite.catalog.versions.BehindRelease> by lazy {
+    val behind: List<app.epistola.suite.catalog.releases.BehindRelease> by lazy {
         chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query()?.behind }.orEmpty()
     }
 
@@ -243,7 +243,7 @@ data class CatalogDraftBar(
     /** What parallel work can start from: the next version (null), or a release. */
     val createFromOptions: List<String> get() = releases.mapNotNull { it.version }
 
-    private val latestRelease: CatalogVersion? get() = releases.firstOrNull()
+    private val latestRelease: CatalogRelease? get() = releases.firstOrNull()
 
     /** A draft to switch to: the [next] version, or parallel work by [label] and [draftId]. */
     data class DraftLink(val label: String, val next: Boolean, val draftId: String, val base: String?, val href: String, val active: Boolean)
@@ -256,13 +256,13 @@ data class CatalogDraftBar(
          */
         fun of(tenantKey: TenantKey, segment: CatalogSegment, pageAt: (CatalogSegment) -> String): CatalogDraftBar {
             val catalog = GetCatalog(tenantKey, segment.key).query()
-            val versions = ListCatalogVersions(tenantKey, segment.key).query()
+            val versions = ListCatalogReleases(tenantKey, segment.key).query()
             // Whether it can be changed here decides it, not where its releases come from (ADR 0032).
             val editability = if (catalog != null) GetCatalogEditability(tenantKey, segment.key).query() else CatalogEditability(null)
             val editable = catalog != null && editability.editable
-            val releases = versions.filter { it.status == CatalogVersionStatus.RELEASED }
+            val releases = versions.filter { it.status == CatalogReleaseStatus.RELEASED }
             // A read-only catalog offers no drafts; its pages show the release its next version is on.
-            val drafts = if (editable) versions.filter { it.status == CatalogVersionStatus.DRAFT } else emptyList()
+            val drafts = if (editable) versions.filter { it.status == CatalogReleaseStatus.DRAFT } else emptyList()
             val installed = if (editable) {
                 null
             } else {
@@ -271,10 +271,10 @@ data class CatalogDraftBar(
             }
             val chosen = when (val draft = segment.draft) {
                 null -> drafts.firstOrNull { it.isNext }
-                else -> drafts.firstOrNull { it.versionId == draft } ?: throw CatalogVersionNotFoundException(segment.key, draft)
+                else -> drafts.firstOrNull { it.versionId == draft } ?: throw CatalogReleaseNotFoundException(segment.key, draft)
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
-            val followedBy = chosen?.versionId?.takeIf { editable && chosen.status == CatalogVersionStatus.DRAFT }?.let { draftId ->
+            val followedBy = chosen?.versionId?.takeIf { editable && chosen.status == CatalogReleaseStatus.DRAFT }?.let { draftId ->
                 val following = ListDraftDeployments(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
                 if (following.isEmpty()) {
                     emptyList()

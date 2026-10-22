@@ -487,7 +487,7 @@
          Review dialog. NOT_IN_SYNC (amber) means the source publishes an older catalog
          schema version than this Epistola and must republish it. CSP-safe
          (hx-get only). -->
-    <!-- The Version cell for a catalog with a source. `status` is a CatalogVersionStatusView
+    <!-- The Version cell for a catalog with a source. `status` is a CatalogReleaseStatusView
          resolved on the server, so this switch is the only place the states are rendered and
          the list and the check button cannot disagree about what any of them look like. -->
     <th:block th:fragment="version-status" th:switch="${status?.state}">

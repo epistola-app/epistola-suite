@@ -223,7 +223,7 @@ modules/
 
 Business logic is organised around **commands** (mutations) and **queries** (reads), dispatched through a central `Mediator` interface. Each domain (templates, themes, environments, documents) defines its own command/query handlers. This decouples the UI/API layer from business logic and makes operations independently testable.
 
-Examples: `CreateDocumentTemplate`, `MarkVariantReady`, `ReleaseCatalogVersion`, `DeployRelease`, `GenerateDocument`, `ListDeployments`.
+Examples: `CreateDocumentTemplate`, `MarkVariantReady`, `ReleaseCatalogDraft`, `DeployRelease`, `GenerateDocument`, `ListDeployments`.
 
 ### UI Handlers vs REST API
 

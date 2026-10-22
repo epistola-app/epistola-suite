@@ -5,10 +5,10 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -45,12 +45,12 @@ data class UpdateDocumentTemplate(
     val clearThemeId: Boolean = false,
     val pdfaEnabled: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
     /** The new description; null keeps the current one, blank removes it. */
     val description: String? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<DocumentTemplate?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT

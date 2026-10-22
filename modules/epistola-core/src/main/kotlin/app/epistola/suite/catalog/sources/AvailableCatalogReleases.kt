@@ -16,9 +16,9 @@ import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.GetCatalogRelease
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.MissingDependencyReason
@@ -82,7 +82,7 @@ class ListAvailableCatalogReleasesHandler(
     override fun handle(query: ListAvailableCatalogReleases): AvailableCatalogReleases {
         val catalog = GetCatalog(query.tenantKey, query.catalogKey).query() ?: throw CatalogNotFoundException(query.catalogKey)
         val source = sources.sourceOf(catalog)
-        val installed = ListCatalogReleases(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
+        val installed = ListCatalogReleaseSummaries(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
         val available = source.offered(catalog).filter { it !in installed }
             .sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it) })
             .map { version -> archives.describe(catalog.tenantKey, catalog.id, version, source.archive(catalog, version), installed) }
@@ -116,7 +116,7 @@ class InstallCatalogReleaseHandler(
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
         val source = sources.sourceOf(catalog)
         val version = command.releaseVersion.trim()
-        if (version !in source.offered(catalog)) throw CatalogVersionNotFoundException(command.catalogKey, version)
+        if (version !in source.offered(catalog)) throw CatalogReleaseNotFoundException(command.catalogKey, version)
         // The releases it pins that are not here, first, each from the source serving its registry.
         val missing = archives.pins(source.archive(catalog, version)).filter { !archives.present(command.tenantKey, it) }
         val unavailable = missing.filterNot { sources.installByName(command.tenantKey, it.registry, it.namespace, it.catalogKey, requireNotNull(it.releaseVersion)) }
@@ -157,7 +157,7 @@ class AvailableReleaseArchives(
         val comparedTo = installed.mapNotNull { v -> SemVer.parseOrNull(v)?.let { v to it } }
             .filter { number != null && it.second < number }
             .maxByOrNull { it.second }?.first
-        val baseline = comparedTo?.let { GetCatalogRelease(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
+        val baseline = comparedTo?.let { GetCatalogReleaseDetail(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
         val before = comparedTo?.let { assembler.assemble(tenantKey, catalogKey, it) }?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
         val names = manifest.resources.associate { "${it.type}/${it.key}" to it.name }
         val changes = buildList {

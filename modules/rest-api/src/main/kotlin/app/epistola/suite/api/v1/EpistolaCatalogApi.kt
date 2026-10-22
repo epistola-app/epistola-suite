@@ -21,7 +21,6 @@ import app.epistola.api.model.CatalogMergeOutcome
 import app.epistola.api.model.CatalogPresetDto
 import app.epistola.api.model.CatalogReleaseDto
 import app.epistola.api.model.CatalogReleaseListResponse
-import app.epistola.api.model.CatalogReleaseStatus
 import app.epistola.api.model.CatalogThemeReference
 import app.epistola.api.model.CreateCatalogReleaseRequest
 import app.epistola.api.model.ImportCatalogResponse
@@ -56,7 +55,7 @@ import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
@@ -74,27 +73,27 @@ import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
+import app.epistola.suite.catalog.releases.AssessDraftNumber
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.CatalogThemeSettings
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DeleteCatalogDraft
+import app.epistola.suite.catalog.releases.GetCatalogDraft
+import app.epistola.suite.catalog.releases.GetCatalogNames
+import app.epistola.suite.catalog.releases.GetCatalogRelease
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.GetReleasedThemeSettings
+import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.RenameCatalogDraft
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
+import app.epistola.suite.catalog.releases.UpdateCatalogDraft
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
-import app.epistola.suite.catalog.versions.AssessDraftNumber
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.CatalogThemeSettings
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DeleteCatalogDraft
-import app.epistola.suite.catalog.versions.GetCatalogDraft
-import app.epistola.suite.catalog.versions.GetCatalogNames
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.GetCatalogVersion
-import app.epistola.suite.catalog.versions.GetReleasedThemeSettings
-import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.RenameCatalogDraft
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
-import app.epistola.suite.catalog.versions.UpdateCatalogDraft
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -106,6 +105,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder
 import app.epistola.api.model.AvailableCatalogReleases as AvailableCatalogReleasesDto
+import app.epistola.api.model.CatalogReleaseStatus as ApiCatalogReleaseStatus
 
 /**
  * Catalogs and their versions (contract ADR 0002/0003). An authored catalog has any number of open
@@ -258,14 +258,14 @@ class EpistolaCatalogApi(
         registry: String,
         namespace: String,
         catalogKey: String,
-        status: CatalogReleaseStatus?,
+        status: ApiCatalogReleaseStatus?,
         page: Int,
         size: Int,
     ): ResponseEntity<CatalogReleaseListResponse> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         // The versions come in SemVer order, which SQL does not sort by; a catalog's version count
         // is bounded by its release history, so the page is cut here.
-        val versions = ListCatalogVersions(catalog.tenantKey, catalog.id, status?.toDomain()).query()
+        val versions = ListCatalogReleases(catalog.tenantKey, catalog.id, status?.toDomain()).query()
         val slice = Pagination.paginate(versions, page, size)
         return ResponseEntity.ok(CatalogReleaseListResponse(items = slice.items.map { it.toDto(catalog) }, page = slice.page))
     }
@@ -348,7 +348,7 @@ class EpistolaCatalogApi(
     ): ResponseEntity<CatalogDraftReleasePreview> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val assessment = AssessDraftNumber(draft.tenantKey, draft.catalogKey, draft.draftRef).query()
-            ?: throw CatalogVersionNotFoundException(draft.catalogKey, release)
+            ?: throw CatalogReleaseNotFoundException(draft.catalogKey, release)
         return ResponseEntity.ok(
             CatalogDraftReleasePreview(
                 base = assessment.base,
@@ -430,7 +430,7 @@ class EpistolaCatalogApi(
         releaseCatalogDraftRequest: ReleaseCatalogDraftRequest,
     ): ResponseEntity<ReleaseCatalogDraftResponse> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
-        val result = ReleaseCatalogVersion(
+        val result = ReleaseCatalogDraft(
             tenantKey = draft.tenantKey,
             catalogKey = draft.catalogKey,
             version = releaseCatalogDraftRequest.version,
@@ -439,8 +439,8 @@ class EpistolaCatalogApi(
             catalogVersion = draft.ref,
             releaseDependencies = releaseCatalogDraftRequest.releaseDependencies == true,
         ).execute()
-        val released = GetCatalogVersion(draft.tenantKey, draft.catalogKey, result.version).query()
-            ?: throw CatalogVersionNotFoundException(draft.catalogKey, result.version)
+        val released = GetCatalogRelease(draft.tenantKey, draft.catalogKey, result.version).query()
+            ?: throw CatalogReleaseNotFoundException(draft.catalogKey, result.version)
         return ResponseEntity.ok(
             ReleaseCatalogDraftResponse(
                 release = released.toDto(draft.catalog),
@@ -548,12 +548,12 @@ class EpistolaCatalogApi(
      * only through another is not recorded, so every one listed counts as direct. A draft lists the
      * releases it is behind, each with what it changed against the release below it.
      */
-    private fun CatalogVersion.toDto(catalog: Catalog): CatalogReleaseDto {
-        val draft = status == CatalogVersionStatus.DRAFT
+    private fun CatalogRelease.toDto(catalog: Catalog): CatalogReleaseDto {
+        val draft = status == CatalogReleaseStatus.DRAFT
         // What a draft is behind depends on the number it would be released as, measured on request.
         val behindNow = if (draft) GetCatalogDraft(catalog.tenantKey, catalog.id, requireNotNull(draftRef), withBehind = true).query()?.behind.orEmpty() else behind
         val dependencies = if (draft) {
-            ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
+            ListCatalogDependencies(catalog.tenantKey, catalog.id, catalogVersion = CatalogReleaseRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
         } else {
             ListReleaseDependencies(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
         }
@@ -561,7 +561,7 @@ class EpistolaCatalogApi(
             version = version,
             releaseId = versionId,
             name = if (draft) label else null,
-            status = if (draft) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+            status = if (draft) ApiCatalogReleaseStatus.DRAFT else ApiCatalogReleaseStatus.RELEASED,
             behind = behindNow.map { release ->
                 BehindReleaseDto(
                     version = release.version,
@@ -594,8 +594,8 @@ class EpistolaCatalogApi(
     }
 
     /** The version's theme settings (contract ADR 0007): a draft's own, a release's as it froze them. */
-    private fun CatalogVersion.themeSettings(catalog: Catalog): CatalogThemeSettings = if (status == CatalogVersionStatus.DRAFT) {
-        GetCatalogThemeSettings(catalog.tenantKey, catalog.id, CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
+    private fun CatalogRelease.themeSettings(catalog: Catalog): CatalogThemeSettings = if (status == CatalogReleaseStatus.DRAFT) {
+        GetCatalogThemeSettings(catalog.tenantKey, catalog.id, CatalogReleaseRef(catalog.tenantKey, catalog.id, requireNotNull(draftRef))).query()
     } else {
         GetReleasedThemeSettings(catalog.tenantKey, catalog.id, requireNotNull(version)).query()
     }
@@ -609,7 +609,7 @@ class EpistolaCatalogApi(
     )
 
     /** For a draft, the dependencies declared now, with their locks; for a release, its pins. */
-    private fun dependenciesOf(at: ResolvedCatalogVersion): List<CatalogDependencyDeclaration> = if (at.isDraft) {
+    private fun dependenciesOf(at: ResolvedCatalogRelease): List<CatalogDependencyDeclaration> = if (at.isDraft) {
         ListCatalogDependencies(at.tenantKey, at.catalogKey, catalogVersion = at.ref).query()
     } else {
         ListReleaseDependencies(at.tenantKey, at.catalogKey, requireNotNull(at.version.version)).query()
@@ -619,7 +619,7 @@ class EpistolaCatalogApi(
      * A draft's changes against its base. A resource changed and marked ready is `ready`; one the last
      * release has unchanged is not listed. Releasing waits on every changed resource not marked ready.
      */
-    private fun CatalogResourceChanges.toDto(draft: ResolvedCatalogVersion): CatalogChangesDto {
+    private fun CatalogResourceChanges.toDto(draft: ResolvedCatalogRelease): CatalogChangesDto {
         val changes = resources.mapNotNull { resource ->
             val change = when (resource.state) {
                 CatalogResourceState.RELEASED -> null
@@ -651,10 +651,10 @@ class EpistolaCatalogApi(
      * A released version's base: the one it recorded, else (a release cut before releases recorded
      * it) the highest released version below it.
      */
-    private fun baseOf(at: ResolvedCatalogVersion): String? {
+    private fun baseOf(at: ResolvedCatalogRelease): String? {
         at.version.base?.let { return it }
         val own = at.version.version?.let(SemVer::parseOrNull) ?: return null
-        return ListCatalogVersions(at.tenantKey, at.catalogKey, CatalogVersionStatus.RELEASED).query()
+        return ListCatalogReleases(at.tenantKey, at.catalogKey, CatalogReleaseStatus.RELEASED).query()
             .mapNotNull { version -> version.version?.let { number -> SemVer.parseOrNull(number)?.let { it to number } } }
             .filter { (semVer, _) -> semVer < own }
             .maxByOrNull { (semVer, _) -> semVer }
@@ -666,8 +666,8 @@ class EpistolaCatalogApi(
         current.resolve("${current.path.removeSuffix("/")}/$segment")
     }
 
-    private fun CatalogReleaseStatus.toDomain() = when (this) {
-        CatalogReleaseStatus.DRAFT -> CatalogVersionStatus.DRAFT
-        CatalogReleaseStatus.RELEASED -> CatalogVersionStatus.RELEASED
+    private fun ApiCatalogReleaseStatus.toDomain() = when (this) {
+        ApiCatalogReleaseStatus.DRAFT -> CatalogReleaseStatus.DRAFT
+        ApiCatalogReleaseStatus.RELEASED -> CatalogReleaseStatus.RELEASED
     }
 }

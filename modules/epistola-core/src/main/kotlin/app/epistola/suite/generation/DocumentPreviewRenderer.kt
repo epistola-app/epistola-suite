@@ -13,7 +13,7 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.fontFamilyResolver

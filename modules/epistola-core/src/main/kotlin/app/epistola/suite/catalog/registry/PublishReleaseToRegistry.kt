@@ -8,8 +8,8 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -88,8 +88,8 @@ class PublishReleaseToRegistryHandler(
         val registry = registries.named(command.registry)
         val version = command.version.trim()
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        val release = ListCatalogReleases(command.tenantKey, command.catalogKey).query().firstOrNull { it.version == version }
-            ?: throw CatalogVersionNotFoundException(command.catalogKey, version)
+        val release = ListCatalogReleaseSummaries(command.tenantKey, command.catalogKey).query().firstOrNull { it.version == version }
+            ?: throw CatalogReleaseNotFoundException(command.catalogKey, version)
         val repository = registries.repository(registry, catalog.namespace, catalog.id.value)
         val client = registries.client(registry)
         fun result(digest: String, already: Boolean) = RegistryPublication(registry.name, repository, version, digest, already, "${registry.baseUri.authority}/$repository:$version")

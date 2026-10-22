@@ -10,10 +10,10 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.CodeListId
@@ -36,10 +36,10 @@ data class UpdateAttributeDefinition(
     val allowedValues: List<String> = emptyList(),
     val codeListId: CodeListId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The attribute's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<VariantAttributeDefinition?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT

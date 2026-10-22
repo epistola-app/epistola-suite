@@ -5,9 +5,9 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
@@ -37,9 +37,9 @@ internal object CatalogApiPaths {
 
     /** How an address names the catalog's current version: `next`, or its highest release when it has no next version. */
     fun currentVersion(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String {
-        val versions = ListCatalogVersions(tenantKey, CatalogKey.of(catalogKey)).query()
+        val versions = ListCatalogReleases(tenantKey, CatalogKey.of(catalogKey)).query()
         if (versions.any { it.isNext }) return DraftRef.NEXT
-        return versions.firstOrNull { it.status == CatalogVersionStatus.RELEASED }?.version
+        return versions.firstOrNull { it.status == CatalogReleaseStatus.RELEASED }?.version
             ?: error("Catalog $catalogKey of tenant ${tenantKey.value} has no version: an authored catalog should always have its next version")
     }
 

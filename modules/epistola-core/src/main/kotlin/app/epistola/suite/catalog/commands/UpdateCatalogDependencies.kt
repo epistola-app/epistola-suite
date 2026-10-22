@@ -10,10 +10,10 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -50,10 +50,10 @@ data class UpdateCatalogDependencies(
     val catalogKey: CatalogKey,
     val dependencies: List<DeclaredCatalogDependency>,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-    /** The revision of the version the caller read ([CatalogVersion.revision]); null: no check. */
+    override val catalogVersion: CatalogReleaseRef? = null,
+    /** The revision of the version the caller read ([CatalogRelease.revision]); null: no check. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
     // Which releases of its dependencies the next release is cut with is part of releasing.
@@ -96,7 +96,7 @@ data class UpdateCatalogDependencies(
 class UpdateCatalogDependenciesHandler(
     private val jdbi: Jdbi,
     private val store: CatalogDependencyStore,
-    private val drafts: app.epistola.suite.catalog.versions.CatalogDrafts,
+    private val drafts: app.epistola.suite.catalog.releases.CatalogDrafts,
 ) : CommandHandler<UpdateCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(command: UpdateCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->

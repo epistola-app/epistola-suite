@@ -14,12 +14,12 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -63,7 +63,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
     @Autowired private lateinit var contentBuilder: CatalogContentBuilder
 
-    @Autowired private lateinit var targeting: CatalogVersionTargeting
+    @Autowired private lateinit var targeting: CatalogReleaseTargeting
 
     private val catalog = CatalogKey.of("wire-members")
 
@@ -136,7 +136,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(a))), "Letter", description = "For letters to residents").execute()
             .withRequiredDataExample()
         MarkCatalogReady(a, catalog).execute()
-        ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+        ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
         ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
     }
 
@@ -169,7 +169,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
             val draft = CreateCatalogDraft(b, catalog, name = "Redesign", from = "1.0.0").execute()
-            val id = targeting.resolve(CatalogVersionRef(b, catalog, DraftRef.Id(draft.versionId)))
+            val id = targeting.resolve(CatalogReleaseRef(b, catalog, DraftRef.Id(draft.versionId)))
             val built = targeting.within(id) { contentBuilder.build(b, catalog) }
 
             assertThat(letter(built).description).isEqualTo("For letters to residents")
@@ -183,7 +183,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val a = createTenant("Wire Merge A").id
         val b = createTenant("Wire Merge B").id
         val v100 = publish(a)
-        val fingerprint = withMediator { ListCatalogReleases(a, catalog).query().single().fingerprint }
+        val fingerprint = withMediator { ListCatalogReleaseSummaries(a, catalog).query().single().fingerprint }
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()

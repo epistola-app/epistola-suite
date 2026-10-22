@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -61,10 +61,10 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Hist").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
             MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
             MarkCatalogReady(tenant.id, catalogKey).execute()
-            val v110 = ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.1.0").execute()
+            val v110 = ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.1.0").execute()
 
             val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
             assertThat(r.latestVersion).isEqualTo("1.1.0")
@@ -90,10 +90,10 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Minor").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
             MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.9.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
             MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.10.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.10.0").execute()
 
             val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
 

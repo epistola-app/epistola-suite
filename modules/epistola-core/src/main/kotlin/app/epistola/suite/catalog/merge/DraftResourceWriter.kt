@@ -12,8 +12,8 @@ import app.epistola.suite.catalog.commands.CatalogResourceInstaller
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.ready.ReadyMarks
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute

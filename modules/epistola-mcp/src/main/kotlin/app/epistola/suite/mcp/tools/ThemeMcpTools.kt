@@ -4,15 +4,15 @@
 
 package app.epistola.suite.mcp.tools
 
-import app.epistola.suite.catalog.versions.ApplyHouseTheme
-import app.epistola.suite.catalog.versions.ApplyHouseThemeResult
-import app.epistola.suite.catalog.versions.AvailablePreset
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.GetAvailablePresets
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.releases.ApplyHouseTheme
+import app.epistola.suite.catalog.releases.ApplyHouseThemeResult
+import app.epistola.suite.catalog.releases.AvailablePreset
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.GetAvailablePresets
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.ThemeId

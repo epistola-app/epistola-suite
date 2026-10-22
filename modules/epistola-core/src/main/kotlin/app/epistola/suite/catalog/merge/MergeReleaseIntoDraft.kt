@@ -5,11 +5,11 @@
 package app.epistola.suite.catalog.merge
 
 import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.releases.CatalogDrafts
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versions.CatalogDrafts
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -46,10 +46,10 @@ data class MergeReleaseIntoDraft(
     val release: String,
     val resolutions: Map<String, MergeResolution> = emptyMap(),
     /** The draft to merge into; null for the catalog's next version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The [DraftMergePreview.token] the merge was confirmed against; null merges whatever the state is now. */
     val expectedToken: String? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<MergedRelease>,
     RequiresPermission {
     // Merging changes the draft's content, which is editing it.
@@ -97,7 +97,7 @@ class MergeRefusedException(val catalogKey: CatalogKey, override val message: St
 class MergeReleaseIntoDraftHandler(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
-    private val targeting: CatalogVersionTargeting,
+    private val targeting: CatalogReleaseTargeting,
     private val planner: DraftMergePlanner,
     private val mergers: ResourceMergers,
     private val writer: DraftResourceWriter,

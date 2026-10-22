@@ -9,7 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -185,7 +185,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
             MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
             val target = GetCatalog(tenant, shared).query()!!
             UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
@@ -261,7 +261,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
             exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
         }
-        val next = withMediator { app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
+        val next = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
 
         // Production serves only releases.
         val marked = exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":true}""")

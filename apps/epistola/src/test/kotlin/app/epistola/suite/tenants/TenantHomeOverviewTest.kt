@@ -7,8 +7,8 @@ package app.epistola.suite.tenants
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeleteCatalog
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployableReleases
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -50,7 +50,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
             CreateCatalogDraft(tenant.id, letters, "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val response = restTemplate.getForEntity("/tenants/${tenant.id.value}", String::class.java)
@@ -62,7 +62,7 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(card).`as`("it can be changed here: no read-only badge").doesNotContain("catalog-overview-read-only")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\"")
         assertThat(card).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/draft\"").contains(">Next release<")
-        val redesign = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
+        val redesign = withMediator { ListCatalogReleases(tenant.id, letters).query() }.single { it.name == "Redesign" }.versionId
         assertThat(card).`as`("parallel work, by its name").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters@$redesign/draft\"")
             .contains(">Redesign<").contains("parallel work")
         assertThat(card).contains("1 change not published yet")
@@ -89,10 +89,10 @@ class TenantHomeOverviewTest : BaseIntegrationTest() {
         assertThat(notice()).contains("Production and Test use no catalog yet, so documents requested there fail.")
             .contains("href=\"/tenants/${tenant.id.value}/environments\"").contains("Deploy a release")
 
-        withMediator { DeployCatalogVersion(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        withMediator { DeployCatalogRelease(production, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).contains("Test uses no catalog yet").contains("href=\"/tenants/${tenant.id.value}/environments/test\"")
 
-        withMediator { DeployCatalogVersion(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
+        withMediator { DeployCatalogRelease(test, CatalogKey.of("system"), ListDeployableReleases(tenant.id).query().first { it.catalogKey == CatalogKey.of("system") }.version).execute() }
         assertThat(notice()).`as`("everything can make documents: no notice").isEmpty()
     }
 

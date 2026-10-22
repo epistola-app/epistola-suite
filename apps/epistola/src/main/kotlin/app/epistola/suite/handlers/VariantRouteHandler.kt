@@ -6,7 +6,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.queries.IsCatalogEditable
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -319,7 +319,7 @@ class VariantRouteHandler {
  * `offerMarkAllReady` is the one name the template gates "Mark all variants ready" on: the viewer
  * may mark (`TEMPLATE_EDIT`), the catalog is editable, and a variant is not ready yet.
  */
-internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext, version: CatalogVersionRef? = null): Map<String, Any?> {
+internal fun variantsModel(templateId: TemplateId, editable: Boolean, auth: AuthContext, version: CatalogReleaseRef? = null): Map<String, Any?> {
     val variants = GetVariantSummaries(templateId = templateId, catalogVersion = version).query()
     val attributeDefinitions = ListAttributeDefinitions(tenantId = templateId.tenantId, catalogVersion = version).query()
     val attributeDescriptors = buildAttributeDescriptors(attributeDefinitions)

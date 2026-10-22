@@ -10,7 +10,7 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -70,7 +70,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         val released = withMediator {
             seedResources(catalog)
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
         val rebuilt = assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")
@@ -85,7 +85,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         val (image, first) = withMediator {
             val seeded = seedResources(catalog)
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            seeded to ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            seeded to ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
         }
 
         // Everything the release named, changed or gone: the theme edited, the image deleted, the
@@ -97,7 +97,7 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             UpdateVariantContent(variant, model("changed")).execute()
             MarkVariantReady(variant).execute()
             MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "2.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "2.0.0").execute()
         }
 
         assertThat(second.fingerprint).`as`("the working copy really did change").isNotEqualTo(first.fingerprint)

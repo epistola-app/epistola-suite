@@ -102,7 +102,7 @@ class RecordInstalledReleaseHandler(
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val rows: CatalogImportRows,
-    private val nextVersionChanges: app.epistola.suite.catalog.versions.NextVersionChanges,
+    private val nextVersionChanges: app.epistola.suite.catalog.releases.NextVersionChanges,
     private val receivedReleases: ReceivedReleases,
 ) : CommandHandler<RecordInstalledRelease, String?> {
 

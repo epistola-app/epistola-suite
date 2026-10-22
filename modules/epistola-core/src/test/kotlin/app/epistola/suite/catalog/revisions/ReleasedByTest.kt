@@ -10,8 +10,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -64,10 +64,10 @@ class ReleasedByTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Released By").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(a))), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
 
             assertThat(releasedBy(a, catalog, "1.0.0")).isEqualTo(TestPrincipalUser.ID.value to here)
-            val detail = GetCatalogRelease(a, catalog, "1.0.0").query()!!
+            val detail = GetCatalogReleaseDetail(a, catalog, "1.0.0").query()!!
             assertThat(detail.releasedHere).isTrue()
             assertThat(detail.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
 
@@ -87,7 +87,7 @@ class ReleasedByTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Released By").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(a))), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             // As another installation would have released it.
             val all = archives.entries(ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes)
             val manifest = objectMapper.readTree(all["catalog.json"]!!) as ObjectNode
@@ -98,7 +98,7 @@ class ReleasedByTest : IntegrationTestBase() {
             assertThat(ImportCatalogZip(tenantKey = b, zipBytes = archives.zip(all)).execute().aborted).isFalse()
 
             assertThat(releasedBy(b, catalog, "1.0.0")).isEqualTo(null to elsewhere)
-            val detail = GetCatalogRelease(b, catalog, "1.0.0").query()!!
+            val detail = GetCatalogReleaseDetail(b, catalog, "1.0.0").query()!!
             assertThat(detail.releasedHere).isFalse()
             assertThat(detail.releasedByLine).isEqualTo("Released by installation $elsewhere")
 

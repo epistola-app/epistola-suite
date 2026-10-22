@@ -7,7 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.registry.InstallReleaseRegistryRelease
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
@@ -85,7 +85,7 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, granted, "Granted").execute()
             ChangeCatalogNamespace(tenant, granted, "public-services").execute()
-            ReleaseCatalogVersion(tenant, granted, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant, granted, "1.0.0", publication = ReleasePublication.SKIP).execute()
 
             val first = PublishReleaseToReleaseRegistry(tenant, granted, "1.0.0", "exchange").execute()
             assertThat(first.status).isEqualTo(ReleaseRegistryPublication.Status.QUEUED)
@@ -94,7 +94,7 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
             assertThat(GetCatalogPublicationState(tenant, granted).query()!!.publications).hasSize(1)
 
             CreateCatalog(tenant, other, "Other", namespace = "not-granted").execute()
-            ReleaseCatalogVersion(tenant, other, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant, other, "1.0.0", publication = ReleasePublication.SKIP).execute()
             assertThatThrownBy { PublishReleaseToReleaseRegistry(tenant, other, "1.0.0", "exchange").execute() }
                 .isInstanceOf(NamespaceNotGrantedException::class.java)
         }
@@ -119,7 +119,7 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
             CreateCatalog(publisher, catalogKey, "Letters", namespace = "acme").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))), name = "Theme $version").execute()
             MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
+            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             mediator.exportReleased(CatalogId(catalogKey, TenantId(publisher))).zipBytes
         }
     }

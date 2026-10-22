@@ -5,9 +5,9 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.ready.ReadyMarks
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionReader
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseReader
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -73,7 +73,7 @@ data class ReleaseOverview(val version: String, val releasedAt: OffsetDateTime?)
 @Component
 class GetCatalogOverviewHandler(
     private val jdbi: Jdbi,
-    private val versions: CatalogVersionReader,
+    private val versions: CatalogReleaseReader,
     private val readyMarks: ReadyMarks,
 ) : QueryHandler<GetCatalogOverview, List<CatalogOverview>> {
     override fun handle(query: GetCatalogOverview): List<CatalogOverview> {
@@ -87,8 +87,8 @@ class GetCatalogOverviewHandler(
                 // received (ADR 0032): there is no draft for anyone to work in.
                 val reason = editability.of(catalog.id)?.reason
                 val editable = reason == null
-                val drafts = if (editable) all.filter { it.status == CatalogVersionStatus.DRAFT } else emptyList()
-                val releases = all.filter { it.status == CatalogVersionStatus.RELEASED }
+                val drafts = if (editable) all.filter { it.status == CatalogReleaseStatus.DRAFT } else emptyList()
+                val releases = all.filter { it.status == CatalogReleaseStatus.RELEASED }
                 val base = all.firstOrNull { it.isNext }?.base?.takeUnless { editable }
                 CatalogOverview(
                     catalogKey = catalog.id,
@@ -106,7 +106,7 @@ class GetCatalogOverviewHandler(
         }
     }
 
-    private fun servedBy(releases: List<CatalogVersion>): Map<String, List<String>> = releases
+    private fun servedBy(releases: List<CatalogRelease>): Map<String, List<String>> = releases
         .flatMap { release -> release.deployedTo.map { environment -> environment to requireNotNull(release.version) } }
         .groupBy({ it.first }, { it.second })
         .toSortedMap()

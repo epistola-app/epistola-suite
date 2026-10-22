@@ -289,10 +289,10 @@ class ThemeQueriesTest : IntegrationTestBase() {
         CreateTheme(id = targetTheme, name = "Brand").execute()
         CreateTheme(id = otherTheme, name = "Other").execute()
         // A template that names no theme uses its catalog's default theme (contract ADR 0007).
-        app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+        app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
             tenant.id,
             catalogId.key,
-            app.epistola.suite.catalog.versions.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogKey),
+            app.epistola.suite.catalog.releases.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogKey),
         ).execute()
 
         val catalogDefaultTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)

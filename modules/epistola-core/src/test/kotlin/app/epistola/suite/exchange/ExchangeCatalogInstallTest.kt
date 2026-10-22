@@ -13,9 +13,9 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.catalog.sources.ResourceChangeKind
@@ -155,12 +155,12 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         val installed = withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }
 
         assertThat(installed.newlyInstalled).isTrue()
-        assertThat(withMediator { ListCatalogReleases(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
+        assertThat(withMediator { ListCatalogReleaseSummaries(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
         assertThat(withMediator { GetCatalog(consumer, invoices).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
         assertThat(withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
         assertThat(withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }.available).isEmpty()
         assertThatThrownBy { withMediator { InstallCatalogRelease(consumer, invoices, "9.9.9").execute() } }
-            .isInstanceOf(app.epistola.suite.catalog.versions.CatalogVersionNotFoundException::class.java)
+            .isInstanceOf(app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException::class.java)
     }
 
     /**
@@ -378,7 +378,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
                 name = "Theme $version",
             ).execute()
             MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
+            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }

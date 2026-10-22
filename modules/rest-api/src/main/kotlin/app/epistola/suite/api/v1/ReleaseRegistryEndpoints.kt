@@ -21,7 +21,7 @@ import app.epistola.suite.catalog.registry.ListReleaseRegistryReleases
 import app.epistola.suite.catalog.registry.PublishReleaseToReleaseRegistry
 import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
 import app.epistola.suite.catalog.registry.ReleaseRegistryPublication
-import app.epistola.suite.catalog.versions.GetCatalogNames
+import app.epistola.suite.catalog.releases.GetCatalogNames
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query

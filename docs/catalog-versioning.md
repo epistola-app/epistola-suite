@@ -120,7 +120,7 @@ until it is released**; only releases are numbered.
 - **Discarding.** `DeleteCatalogDraft` discards a draft and everything in it. Another draft is gone;
   the **next release** starts again as a copy of the latest release (`NextVersionOpener`), so everyday
   work always has somewhere to go. It is refused while a draft of another catalog names it as a dependency
-  (`CatalogDraftInUseException`), and (`CatalogVersionHeldException`, REST
+  (`CatalogDraftInUseException`), and (`CatalogReleaseHeldException`, REST
   `CATALOG_VERSION_HELD`, 409, `heldBy`) while the draft alone holds a resource something outside it
   still references: the tenant's house theme, a code list an attribute of another version or
   catalog binds, or a theme a template of another version or catalog uses. Discarding would delete the
@@ -137,7 +137,7 @@ until it is released**; only releases are numbered.
   it is released as, so in the ordinary course it is behind only fixes to older lines; another draft
   is behind every release since it started. Releasing a draft that is behind is refused
   (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one. Behind is computed only
-  when asked for (`ListCatalogVersions(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
+  when asked for (`ListCatalogReleases(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
   every release's content.
 - **Merging** (alpha, ADR 0032). A draft takes in a release it is behind with
   `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, and per
@@ -174,7 +174,7 @@ until it is released**; only releases are numbered.
   a release from an archive that names none, and every release cut before the column; for the list of
   what a behind release changed, those are measured against the release below them, which is only a
   display.
-- **Releasing** (`ReleaseCatalogVersion`, contract `releaseCatalogDraft`) releases any draft,
+- **Releasing** (`ReleaseCatalogDraft`, contract `releaseCatalogDraft`) releases any draft,
   numbered as asked or, without a number, as its changes need against its base
   (`AssessDraftNumber`, contract `previewCatalogDraftRelease`: `base`, `changeKind`, `needed`,
   `suggested`): breaking changes the next major, additions the next minor, anything else the next
@@ -219,10 +219,10 @@ the caller means:
 2. else the catalog's **next release**. Another draft is reached only by targeting it.
 
 A command or query that addresses one draft implements
-[`CatalogVersionScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/versions/CatalogVersionScoped.kt)
-and carries a `CatalogVersionRef` (tenant, catalog, `DraftRef`: `Next` or `Id`). `SpringMediator`
-resolves it before the handler runs (an unknown draft is `CatalogVersionNotFoundException`), runs a
-query that names one in a read-only transaction, and `CatalogVersionTargeting` sets the PostgreSQL
+[`CatalogReleaseScoped`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/releases/CatalogReleaseScoped.kt)
+and carries a `CatalogReleaseRef` (tenant, catalog, `DraftRef`: `Next` or `Id`). `SpringMediator`
+resolves it before the handler runs (an unknown draft is `CatalogReleaseNotFoundException`), runs a
+query that names one in a read-only transaction, and `CatalogReleaseTargeting` sets the PostgreSQL
 setting `epistola.content_version` to the draft's `version_id`, transaction-locally. Handlers written
 for "the" version of a catalog then work on that draft unchanged, and every message they dispatch
 inherits it; the caller's target is restored when the message ends. A message that names no version
@@ -230,8 +230,8 @@ works on the next release. A self-managed command (`RefreshCodeList`) applies th
 transaction it opens.
 
 The REST API's `…/releases/{release}/…` paths take `next`, a draft's release id or a release number
-(`ResolveCatalogVersion`), pass the draft they name to every message they dispatch
-(`ResolvedCatalogVersion.ref`), and read a released version from its retained content.
+(`ResolveCatalogRelease`), pass the draft they name to every message they dispatch
+(`ResolvedCatalogRelease.ref`), and read a released version from its retained content.
 
 ### Choosing a draft in the UI
 
@@ -471,7 +471,7 @@ and `MarkCatalogReady` (every changed resource of the catalog) set them; MCP has
 - A catalog that cannot be changed here is read-only: nothing in it can be marked.
 - Receiving a release marks everything it put in the next release ready — it is released content.
 
-`ReleaseCatalogVersion` refuses with `CATALOG_RESOURCES_NOT_READY` while any resource that is new or
+`ReleaseCatalogDraft` refuses with `CATALOG_RESOURCES_NOT_READY` while any resource that is new or
 modified since the last release — of any type — is not ready. `GetCatalogResourceChanges` (below)
 reports each resource's state and whether it is `ready`.
 
@@ -493,7 +493,7 @@ section says which resources are not ready or which dependencies match no releas
 it. The page and the release dialog gate on the same read model, `CatalogReleaseReadiness`. The
 dialog (also reachable from the catalog list) pre-fills the draft's number, offers Patch / Minor /
 Major quick-picks and release notes, and names what this release will add, update and drop. It dispatches
-[`ReleaseCatalogVersion`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogVersion.kt):
+[`ReleaseCatalogDraft`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/commands/ReleaseCatalogDraft.kt):
 refuses for a catalog that cannot be changed here and while a changed resource is not [ready](#ready-marks),
 parses + monotonic-checks the SemVer, computes the fingerprint,
 inserts the `catalog_releases` row (with the manifest snapshot and the
@@ -544,7 +544,7 @@ next release records one.
 
 ## What an environment uses
 
-Deploying (`DeployCatalogVersion`, contract `deployCatalogRelease`) names a catalog release by its
+Deploying (`DeployCatalogRelease`, contract `deployCatalogRelease`) names a catalog release by its
 number or its `releaseId`, and adds it beside what the environment serves, in the UI as over
 REST; `replace` (the UI's _Stop using the catalog's other versions here_) stops serving the others.
 Each release deployment counts the generation requests accepted through the environment for it and
@@ -644,7 +644,7 @@ combined from both sides. A new kind of resolution is a new case of `MergeResolu
 
 Which draft is the next release is only a default: any draft is released as it is. There is no
 separate operation to move the mark. Parallel work takes it over when it is published for everyday
-work to continue from (`ReleaseCatalogVersion.continueEverydayWork`, `NextVersionHandOver`): the
+work to continue from (`ReleaseCatalogDraft.continueEverydayWork`, `NextVersionHandOver`): the
 release is made, and the draft continues on it as the next release, as the next release does on its
 own release. The draft that was the next release is discarded with its changes (held resources and
 other catalogs' drafts naming it refuse that, as discarding does) or kept as parallel work under
@@ -671,7 +671,7 @@ was cut, it is immutable, and a rule that has tightened since must not retroacti
 published release unexportable. The fingerprint _is_ recomputed and a mismatch refuses the export
 — it should be impossible, and if it happens the retained content has been altered.
 
-A version the catalog does not have refuses with `CatalogVersionNotFoundException` rather than
+A version the catalog does not have refuses with `CatalogReleaseNotFoundException` rather than
 quietly substituting the working copy.
 
 ### With what it uses
@@ -717,7 +717,7 @@ import takes the same path; none names a type.
   installation in its metadata (`app.epistola.suite.releasedByInstallation`). A received release
   records the installation it names, and nobody here; passed on, it still names the installation
   that cut it. The release page says "Released here by <user>" or "Released by installation <id>"
-  (`GetCatalogRelease.releasedByLine`); a release recorded before 2.0 wrote them says neither.
+  (`GetCatalogReleaseDetail.releasedByLine`); a release recorded before 2.0 wrote them says neither.
 - **The same number with the same fingerprint** is the release the tenant has: nothing changes
   (`newlyInstalled = false`), also in the tenant that released it. The same number with other content
   is refused.
@@ -811,7 +811,7 @@ To regenerate after an intentional change: run the test, paste the reported
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Web UI   | Version column (`v<version>` / `unreleased`); drafts (start, discard, make the next release, publish any with `acknowledgedBehind`)                                                     |
 | REST     | Catalog releases: list (drafts with `?status=draft`), create a draft, rename, discard, preview a draft's release number, release a draft (`…/releases/{next, release id or number}/…`)  |
-| MCP      | `list_catalog_versions`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft` (with `continueEverydayWork`); `catalogVersion` on the content tools |
+| MCP      | `list_catalog_releases`, `start_draft`, `rename_draft`, `discard_draft`, `preview_release_number`, `release_draft` (with `continueEverydayWork`); `catalogVersion` on the content tools |
 | Exchange | `ReleaseInfo.fingerprint` in the manifest; `schemaVersion` 4                                                                                                                            |
 
 ## Roadmap

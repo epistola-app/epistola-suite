@@ -5,9 +5,9 @@
 package app.epistola.suite.documents.queries
 
 import app.epistola.generation.pdf.PdfMetadata
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -75,8 +75,8 @@ data class PreviewDocument(
      */
     val workingCopy: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -122,7 +122,7 @@ class PreviewDocumentHandler(
                 templateId = query.templateId,
                 variantId = target.variantKey,
                 data = query.data,
-                catalogVersion = CatalogVersionRef(query.tenantId, query.catalogKey, DraftRef.Id(selection.source.draftId)),
+                catalogVersion = CatalogReleaseRef(query.tenantId, query.catalogKey, DraftRef.Id(selection.source.draftId)),
             ),
         )
     }

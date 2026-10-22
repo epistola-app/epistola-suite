@@ -91,7 +91,7 @@ class CatalogExportImportTest : IntegrationTestBase() {
     private lateinit var contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder
 
     @Autowired
-    private lateinit var targeting: app.epistola.suite.catalog.versions.CatalogVersionTargeting
+    private lateinit var targeting: app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 
     @Autowired
     private lateinit var transactionManager: org.springframework.transaction.PlatformTransactionManager
@@ -185,9 +185,9 @@ class CatalogExportImportTest : IntegrationTestBase() {
                 presentation = CatalogPresentation(image.id.value, listOf(image.id.value)),
             ).execute()
             // A draft of the same catalog started from nothing: the presentation is catalog-wide, the image is not in it.
-            val empty = app.epistola.suite.catalog.versions.CreateCatalogDraft(tenant.id, catalogKey, name = "Empty").execute()
+            val empty = app.epistola.suite.catalog.releases.CreateCatalogDraft(tenant.id, catalogKey, name = "Empty").execute()
             val emptyId = targeting.resolve(
-                app.epistola.suite.catalog.versions.CatalogVersionRef(tenant.id, catalogKey, app.epistola.suite.catalog.versions.DraftRef.Id(empty.versionId)),
+                app.epistola.suite.catalog.releases.CatalogReleaseRef(tenant.id, catalogKey, app.epistola.suite.catalog.releases.DraftRef.Id(empty.versionId)),
             )
 
             assertThat(contentBuilder.build(tenant.id, catalogKey).catalog.presentation?.iconImageKey).isEqualTo(image.id.value)

@@ -7,10 +7,10 @@ package app.epistola.suite.testing
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -44,17 +44,17 @@ fun Mediator.parallelReleaseLines(producer: TenantKey, catalogKey: CatalogKey): 
     send(CreateTheme(theme("brand"), "Brand"))
     send(CreateTheme(theme("letterhead"), "Letterhead"))
     send(MarkCatalogReady(producer, catalogKey))
-    send(ReleaseCatalogVersion(tenantKey = producer, catalogKey = catalogKey, version = "1.0.0"))
+    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.0.0"))
 
     send(CreateTheme(theme("added"), "Added"))
     send(MarkCatalogReady(producer, catalogKey))
-    send(ReleaseCatalogVersion(tenantKey = producer, catalogKey = catalogKey, version = "1.1.0"))
+    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.1.0"))
 
     val fix = send(CreateCatalogDraft(producer, catalogKey, "Fix", "1.0.0"))
-    val fixRef = CatalogVersionRef(producer, catalogKey, DraftRef.Id(fix.versionId))
+    val fixRef = CatalogReleaseRef(producer, catalogKey, DraftRef.Id(fix.versionId))
     send(UpdateTheme(theme("brand"), name = "Brand, fixed", catalogVersion = fixRef))
     send(MarkCatalogReady(producer, catalogKey, catalogVersion = fixRef))
-    send(ReleaseCatalogVersion(tenantKey = producer, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef))
+    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef))
 
     fun archive(version: String) = send(ExportCatalogZip(producer, catalogKey, version)).zipBytes
     return ParallelReleaseLines(catalogKey, archive("1.0.0"), archive("1.1.0"), archive("1.0.1"))

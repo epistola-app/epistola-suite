@@ -8,7 +8,7 @@ import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -55,7 +55,7 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                     ).execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
                     MarkCatalogReady(tenant.id, catalogKey).execute()
-                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
+                    ReleaseCatalogDraft(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(

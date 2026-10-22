@@ -12,10 +12,10 @@ import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.AssessDraftNumber
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.ChangeKind
-import app.epistola.suite.catalog.versions.DraftNumberAssessment
+import app.epistola.suite.catalog.releases.AssessDraftNumber
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.DraftNumberAssessment
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -39,7 +39,7 @@ import app.epistola.suite.security.SecurityContext
 data class CatalogReleaseReadiness(
     val catalogKey: CatalogKey,
     /** The draft the page works in; null for a catalog with no open draft. */
-    val draft: CatalogVersion?,
+    val draft: CatalogRelease?,
     /** Which draft this is, its siblings, and what may be done to them. */
     val drafts: CatalogDraftBar,
     val changes: CatalogResourceChanges,

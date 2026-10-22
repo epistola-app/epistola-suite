@@ -4,8 +4,8 @@
 
 package app.epistola.suite.mediator
 
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.security.Authorized
 import app.epistola.suite.security.RequiresAuthentication
@@ -46,9 +46,9 @@ import kotlin.reflect.full.allSupertypes
  * JDBI joins this transaction via SpringConnectionFactory + SpringAwareTransactionHandler,
  * so nested `jdbi.inTransaction { }` in handlers participates instead of committing early.
  *
- * A message that names a catalog version ([CatalogVersionScoped]) runs on that version: the version is
+ * A message that names a catalog version ([CatalogReleaseScoped]) runs on that version: the version is
  * resolved before the handler runs, a query that names one runs in a read-only transaction, and
- * [CatalogVersionTargeting] makes that transaction's content SQL answer the named version for its
+ * [CatalogReleaseTargeting] makes that transaction's content SQL answer the named version for its
  * catalog. Messages it dispatches inherit it; the caller's target is restored afterwards.
  *
  * Uses lazy handler discovery to support handlers that are initialized late
@@ -62,7 +62,7 @@ class SpringMediator(
     private val commandListeners: List<CommandListener>,
     private val queryListeners: List<QueryListener>,
     private val transactionManager: PlatformTransactionManager?,
-    private val versionTargeting: CatalogVersionTargeting? = null,
+    private val versionTargeting: CatalogReleaseTargeting? = null,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -218,7 +218,7 @@ class SpringMediator(
         }
     }
 
-    private fun targetOf(message: Any) = (message as? CatalogVersionScoped)?.catalogVersion?.takeIf { versionTargeting != null }
+    private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }
 
     /** Runs [block] on the catalog version [message] names, if it names one. */
     private fun <R> inTargetedVersion(message: Any, block: () -> R): R {

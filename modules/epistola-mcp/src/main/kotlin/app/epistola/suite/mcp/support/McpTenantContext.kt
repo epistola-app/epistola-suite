@@ -7,8 +7,8 @@ package app.epistola.suite.mcp.support
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogEditability
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -48,19 +48,19 @@ internal fun catalogEditability(): CatalogEditabilities = ListCatalogEditability
 
 /** The description of the optional `catalogVersion` argument of every tool that addresses catalog content. */
 internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or parallel work by its " +
-    "`draftId` from `list_catalog_versions`. Omit for the next release, where everyday work goes."
+    "`draftId` from `list_catalog_releases`. Omit for the next release, where everyday work goes."
 
 /**
  * The draft a tool's `catalogVersion` argument names, of catalog [catalogId], or null for its current
  * version. A version belongs to one catalog, so naming one without a catalog is refused.
  */
-internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): CatalogVersionRef? {
+internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): CatalogReleaseRef? {
     val version = catalogVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     val catalog = catalogId?.takeIf { it.isNotBlank() }
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is a draft or release of one catalog; give `catalogId` too")
     val draft = DraftRef.parse(version)
-        ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_versions`; a draft has no number until it is released")
-    return CatalogVersionRef(mcpTenantKey(), CatalogKey.of(catalog), draft)
+        ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_releases`; a draft has no number until it is released")
+    return CatalogReleaseRef(mcpTenantKey(), CatalogKey.of(catalog), draft)
 }
 
 /**

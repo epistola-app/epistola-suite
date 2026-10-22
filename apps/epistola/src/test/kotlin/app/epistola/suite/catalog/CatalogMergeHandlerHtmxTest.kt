@@ -8,14 +8,14 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -62,7 +62,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
 
     private fun theme(tenant: Tenant, key: String) = ThemeId(ThemeKey.of(key), catalogId(tenant))
 
-    private fun work(tenant: Tenant, id: String) = CatalogVersionRef(tenant.id, letters, DraftRef.Id(id))
+    private fun work(tenant: Tenant, id: String) = CatalogReleaseRef(tenant.id, letters, DraftRef.Id(id))
 
     /** The scenario above; the work's draft id. */
     private fun diverged(tenant: Tenant, alsoDefaultTheme: Boolean = false): String = withMediator {
@@ -71,7 +71,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
         CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
         MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogVersion(tenant.id, letters, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
 
         val work = CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId
         UpdateTheme(theme(tenant, "brand"), name = "Brand redesigned", catalogVersion = work(tenant, work)).execute()
@@ -80,7 +80,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed").execute()
         if (alsoDefaultTheme) SetCatalogDefaultTheme(tenant.id, letters, CatalogDefaultTheme(ThemeKey.of("letterhead"), letters)).execute()
         MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogVersion(tenant.id, letters, "1.0.1").execute()
+        ReleaseCatalogDraft(tenant.id, letters, "1.0.1").execute()
         work
     }
 

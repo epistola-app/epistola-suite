@@ -13,9 +13,9 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -179,7 +179,7 @@ class ContentRevisionsTest : IntegrationTestBase() {
         withMediator {
             val atNext = UpdateVariantContent(variant, document("next")).execute().revision
             val draft = CreateCatalogDraft(catalog.tenantKey, catalog.key, "Redesign", from = DraftRef.NEXT).execute()
-            val inDraft = CatalogVersionRef(catalog.tenantKey, catalog.key, DraftRef.Id(draft.versionId))
+            val inDraft = CatalogReleaseRef(catalog.tenantKey, catalog.key, DraftRef.Id(draft.versionId))
 
             assertThat(GetVariant(variant, catalogVersion = inDraft).query()!!.revision).`as`("a copy keeps the revision").isEqualTo(atNext)
             UpdateVariantContent(variant, document("redesign"), catalogVersion = inDraft, expectedRevision = atNext).execute()

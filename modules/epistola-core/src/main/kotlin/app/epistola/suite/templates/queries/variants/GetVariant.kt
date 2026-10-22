@@ -4,9 +4,9 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
@@ -25,8 +25,8 @@ import org.springframework.stereotype.Component
 data class GetVariant(
     val variantId: VariantId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<TemplateVariant?>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
@@ -62,8 +62,8 @@ class GetVariantHandler(
 data class GetVariantSummaries(
     val templateId: TemplateId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<List<VariantSummary>>,
     RequiresPermission {
     override val permission: Permission get() = Permission.TEMPLATE_VIEW

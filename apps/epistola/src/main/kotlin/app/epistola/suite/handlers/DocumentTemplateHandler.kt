@@ -8,8 +8,8 @@ import app.epistola.suite.api.v1.toValidationProblemBody
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.GetAvailablePresets
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.GetAvailablePresets
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey

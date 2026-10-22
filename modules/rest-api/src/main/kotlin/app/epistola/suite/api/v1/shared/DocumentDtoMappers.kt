@@ -15,8 +15,8 @@ import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -247,6 +247,6 @@ internal fun PreviewDocumentRequest.toQuery(
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         // The draft it names: the next version, or parallel work by its id.
-        catalogVersion = draft?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
+        catalogVersion = draft?.let { CatalogReleaseRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
     )
 }

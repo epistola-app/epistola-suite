@@ -14,11 +14,11 @@ import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -81,8 +81,8 @@ data class PrepareDraftRender(
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val data: ObjectNode,
-    override val catalogVersion: CatalogVersionRef,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef,
+) : CatalogReleaseScoped,
     Query<PreparedDraftRender>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -177,7 +177,7 @@ class DraftDocumentRenderer(
     data class Rendered(val pdf: ByteArray, val templateResourceId: UUID?)
 
     fun render(tenantKey: TenantKey, catalogKey: CatalogKey, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String): Rendered {
-        val draft = CatalogVersionRef(tenantKey, catalogKey, DraftRef.Id(draftId))
+        val draft = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(draftId))
         val prepared = mediator.query(PrepareDraftRender(tenantKey, catalogKey, templateKey, variantKey, data, draft))
 
         val assets = draftAssetResolver(tenantKey, draft, prepared.dependencies)

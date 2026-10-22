@@ -6,11 +6,11 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -57,7 +57,7 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
             TemplateId(TemplateKey.of("letter"), CatalogId(CatalogKey.of(user), TenantId(tenant))),
             themeId = ThemeKey.of("theme"),
             themeCatalogKey = CatalogKey.of(used),
-            catalogVersion = CatalogVersionRef(tenant, CatalogKey.of(user), at),
+            catalogVersion = CatalogReleaseRef(tenant, CatalogKey.of(user), at),
         ).execute()
     }
 
@@ -101,7 +101,7 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
         val tenant = catalogs("Cycle Parallel", "letters", "shared")
         withMediator {
             MarkCatalogReady(tenant, CatalogKey.of("shared")).execute()
-            ReleaseCatalogVersion(tenant, CatalogKey.of("shared"), "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, CatalogKey.of("shared"), "1.0.0").execute()
         }
         val redesign = withMediator { requireNotNull(CreateCatalogDraft(tenant, CatalogKey.of("shared"), "Redesign").execute().versionId) }
         // shared's parallel draft starts using letters...

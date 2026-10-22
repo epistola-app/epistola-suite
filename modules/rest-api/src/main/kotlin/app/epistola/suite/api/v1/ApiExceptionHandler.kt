@@ -43,17 +43,17 @@ import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
 import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
 import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
 import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
+import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.releases.CatalogDraftInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
-import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
-import app.epistola.suite.catalog.versions.CatalogDraftInUseException
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
-import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
@@ -352,8 +352,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CodeListInUseException::class,
         CodeListNotRefreshableException::class,
         ApiOperationNotImplementedException::class,
-        CatalogVersionNotFoundException::class,
-        CatalogVersionReleasedException::class,
+        CatalogReleaseNotFoundException::class,
+        CatalogReleaseIsReleasedException::class,
         CatalogDraftNameInUseException::class,
         CatalogBundleException::class,
         CatalogDraftIsNextException::class,
@@ -373,8 +373,8 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         RegistryArchiveRejectedException::class,
         ReleaseRegistryConflictException::class,
         ResourceModifiedException::class,
-        CatalogVersionBehindException::class,
-        CatalogVersionHeldException::class,
+        CatalogReleaseBehindException::class,
+        CatalogReleaseHeldException::class,
     )
     fun handleMappedApiException(
         ex: Throwable,

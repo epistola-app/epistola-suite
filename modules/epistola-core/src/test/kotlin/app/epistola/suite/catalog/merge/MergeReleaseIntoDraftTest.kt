@@ -11,10 +11,10 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -66,7 +66,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
             listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             val v1 = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
 
             ImportCatalogZip(tenantKey = b, zipBytes = v1).execute()
@@ -74,7 +74,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             CreateTheme(id = theme(b, catalog, "thw"), name = "B's w").execute()
             DeleteTheme(theme(b, catalog, "thz")).execute()
             MarkCatalogReady(b, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
             val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
 
             UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
@@ -118,9 +118,9 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     fun `a merge takes what only the release changed, applies the chosen side of a conflict, and the draft is no longer behind`() {
         val (a, catalog) = diverged("Merge Apply")
         withMediator {
-            assertThatThrownBy { ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "2.1.0").execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "2.1.0").execute() }
                 .`as`("behind 2.0.0 before the merge")
-                .isInstanceOf(CatalogVersionBehindException::class.java)
+                .isInstanceOf(CatalogReleaseBehindException::class.java)
 
             val merged = MergeReleaseIntoDraft(a, catalog, "2.0.0", resolutions = mapOf("theme/thx" to MergeResolution.Theirs)).execute()
 
@@ -136,11 +136,11 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             assertThat(after.alreadyMerged).isTrue()
             assertThat(after.base).`as`("merged, the release is on the draft's line: its own merge base").isEqualTo("2.0.0")
             assertThat(after.resources.filter { it.key in setOf("thw", "thx", "thz") }.map { it.outcome }).containsOnly(MergeOutcome.UNCHANGED)
-            assertThat(ListCatalogVersions(a, catalog, CatalogVersionStatus.DRAFT, withBehind = true).query().single { it.isNext }.behind).isEmpty()
+            assertThat(ListCatalogReleases(a, catalog, CatalogReleaseStatus.DRAFT, withBehind = true).query().single { it.isNext }.behind).isEmpty()
 
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "2.1.0").execute()
-            assertThat(ListCatalogVersions(a, catalog, CatalogVersionStatus.RELEASED).query().map { it.version }).contains("2.1.0")
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "2.1.0").execute()
+            assertThat(ListCatalogReleases(a, catalog, CatalogReleaseStatus.RELEASED).query().map { it.version }).contains("2.1.0")
         }
     }
 
@@ -201,15 +201,15 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Merge lines").execute()
             CreateTheme(id = theme(tenant, catalog, "thx"), name = "base x").execute()
             MarkCatalogReady(tenant, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
-            val fix = app.epistola.suite.catalog.versions.CreateCatalogDraft(tenant, catalog, "Fix", "1.0.0").execute()
-            val fixRef = app.epistola.suite.catalog.versions.CatalogVersionRef(tenant, catalog, app.epistola.suite.catalog.versions.DraftRef.Id(fix.versionId))
+            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
+            val fix = app.epistola.suite.catalog.releases.CreateCatalogDraft(tenant, catalog, "Fix", "1.0.0").execute()
+            val fixRef = app.epistola.suite.catalog.releases.CatalogReleaseRef(tenant, catalog, app.epistola.suite.catalog.releases.DraftRef.Id(fix.versionId))
             CreateTheme(id = theme(tenant, catalog, "thw"), name = "w").execute()
             MarkCatalogReady(tenant, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = "1.1.0").execute()
             UpdateTheme(theme(tenant, catalog, "thx"), name = "fixed x", catalogVersion = fixRef).execute()
             MarkCatalogReady(tenant, catalog, catalogVersion = fixRef).execute()
-            ReleaseCatalogVersion(tenantKey = tenant, catalogKey = catalog, version = "1.0.1", catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = "1.0.1", catalogVersion = fixRef).execute()
 
             val preview = PreviewDraftMerge(tenant, catalog, "1.0.1").query()
 
@@ -261,10 +261,10 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             }
             assertThat(recorded).containsExactly("""2.0.0 1.0.0 {"theme/thx": "OURS"}""")
 
-            val copy = app.epistola.suite.catalog.versions.CreateCatalogDraft(a, catalog, "Copy", "next").execute()
-            val copyRef = app.epistola.suite.catalog.versions.CatalogVersionRef(a, catalog, app.epistola.suite.catalog.versions.DraftRef.Id(copy.versionId))
+            val copy = app.epistola.suite.catalog.releases.CreateCatalogDraft(a, catalog, "Copy", "next").execute()
+            val copyRef = app.epistola.suite.catalog.releases.CatalogReleaseRef(a, catalog, app.epistola.suite.catalog.releases.DraftRef.Id(copy.versionId))
             assertThat(PreviewDraftMerge(a, catalog, "2.0.0", copyRef).query().alreadyMerged).isTrue()
-            assertThat(ListCatalogVersions(a, catalog, CatalogVersionStatus.DRAFT, withBehind = true).query().single { it.name == "Copy" }.behind).isEmpty()
+            assertThat(ListCatalogReleases(a, catalog, CatalogReleaseStatus.DRAFT, withBehind = true).query().single { it.name == "Copy" }.behind).isEmpty()
         }
     }
 

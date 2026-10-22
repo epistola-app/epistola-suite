@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CatalogNamespaceFixedException
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.features.KnownFeatures
@@ -80,7 +80,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant revoked").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // The organization withdraws the namespace. Suite is not told and cannot know: the granted
             // list is only ever written when a tenant authorizes.
@@ -115,7 +115,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Connection refused").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // Refused while the namespace is still granted: the connection itself is the problem.
             exchange.submitResponse = { FakeExchangeServer.Response(403, """{"error":"forbidden"}""") }
@@ -135,7 +135,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant withdrawn").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("public-services")
 
             // Exchange withdraws the namespace; the binding stays, because bindings are permanent.
@@ -163,7 +163,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind me").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("public-services")
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
 

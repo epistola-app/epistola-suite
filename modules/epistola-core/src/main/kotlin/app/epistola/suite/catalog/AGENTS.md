@@ -9,7 +9,7 @@ primitives in `snapshot/`, and reference discovery in `graph/`. There is no sepa
 `catalog` must **not** reference `exchange`. `CatalogExchangeIndependenceTest` checks this in
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
 
-- **Outbound**: `ReleaseCatalogVersion` records publication intent through
+- **Outbound**: `ReleaseCatalogDraft` records publication intent through
   `CatalogReleasePublicationPort` (owned by `catalog`), handed the open release transaction so the
   outbox write stays atomic without inverting the dependency.
 - **Inbound needs no port**: installing calls _into_ `catalog` (`ImportCatalogZip`), and Exchange

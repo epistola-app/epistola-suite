@@ -15,10 +15,10 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.RetainedRelease
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -122,7 +122,7 @@ class ExportCatalogZipHandler(
             val key = CatalogKey.of(pin.catalogKey)
             val retained = try {
                 retainedRelease(command.tenantKey, key, pinned)
-            } catch (e: CatalogVersionNotFoundException) {
+            } catch (e: CatalogReleaseNotFoundException) {
                 throw CatalogBundleException("${pin.catalogKey} v$pinned is not here, so it cannot be carried.")
             }
             ListReleaseDependencies(command.tenantKey, key, pinned).query().forEach { add(it, "${pin.catalogKey} v$pinned") }
@@ -160,7 +160,7 @@ class ExportCatalogZipHandler(
     /** Release [version] of [catalogKey] as it retained it, its fingerprint checked. */
     private fun retainedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease {
         val retained = assembler.assemble(tenantKey, catalogKey, version)
-            ?: throw CatalogVersionNotFoundException(catalogKey, version)
+            ?: throw CatalogReleaseNotFoundException(catalogKey, version)
 
         val rebuilt = fingerprintService.fingerprint(retained.content)
         val released = retained.release.fingerprint
@@ -206,6 +206,6 @@ class ExportCatalogZipHandler(
     /** The catalog's highest release, released here or received (ADR 0032). */
     private fun highestRelease(command: ExportCatalogZip): String {
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        return catalog.highestReleaseVersion ?: throw CatalogVersionNotFoundException(command.catalogKey, "release")
+        return catalog.highestReleaseVersion ?: throw CatalogReleaseNotFoundException(command.catalogKey, "release")
     }
 }

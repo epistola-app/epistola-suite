@@ -13,7 +13,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -57,7 +57,7 @@ class AssetHandler(
         tenantId: TenantKey,
         searchTerm: String? = null,
         catalogKey: CatalogKey? = null,
-        version: CatalogVersionRef? = null,
+        version: CatalogReleaseRef? = null,
     ): List<Asset> = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogKey, catalogVersion = version)
         .query()
         .filter { it.mediaType.category != AssetMediaCategory.FONT }

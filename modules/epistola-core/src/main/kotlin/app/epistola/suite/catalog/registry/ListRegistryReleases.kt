@@ -5,7 +5,7 @@
 package app.epistola.suite.catalog.registry
 
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -77,7 +77,7 @@ class ListRegistryReleasesHandler(
 
         val local = GetCatalog(query.tenantKey, catalogKey).query()
         val conflict = RegistryInstallRules.conflict(local, RegistrySourceUri(registry.name, namespace, catalogKey.value))
-        val here = if (local != null && conflict == null) ListCatalogReleases(query.tenantKey, catalogKey).query().associate { it.version to it.fingerprint } else emptyMap()
+        val here = if (local != null && conflict == null) ListCatalogReleaseSummaries(query.tenantKey, catalogKey).query().associate { it.version to it.fingerprint } else emptyMap()
 
         val releases = releaseVersionsNewestFirst(client.tags(repository)).take(ListRegistryReleases.MAX_LISTED).mapNotNull { version ->
             val pulled = client.manifest(repository, version) ?: return@mapNotNull null

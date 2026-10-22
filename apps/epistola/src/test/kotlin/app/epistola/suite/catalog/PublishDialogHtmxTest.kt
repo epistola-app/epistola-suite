@@ -14,9 +14,9 @@ import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.GetCatalogDraft
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.GetCatalogDraft
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -29,7 +29,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -138,7 +138,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
 
-        val released = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query().map { it.version } }
+        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query().map { it.version } }
         assertThat(released).contains("1.1.0")
     }
 
@@ -158,7 +158,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "liveIn" to "test"))
 
-        val live = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
+        val live = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
         assertThat(live).containsExactly("test")
     }
 
@@ -168,7 +168,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
         withMediator {
             CreateEnvironment(production, "Production", production = true).execute()
-            DeployCatalogVersion(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
                 .execute().withRequiredDataExample()
         }
@@ -202,7 +202,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
 
-        val released = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.first { it.version == "1.1.0" }
+        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }
         assertThat(released.deployedTo).isEmpty()
     }
 
@@ -235,7 +235,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
-        assertThat(withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
+        assertThat(withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
         assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
     }

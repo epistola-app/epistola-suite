@@ -9,7 +9,6 @@ import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
 import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeListResponse
-import app.epistola.api.model.CatalogReleaseStatus
 import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
@@ -53,12 +52,12 @@ import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogNames
-import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogNames
+import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -75,8 +74,8 @@ import app.epistola.suite.environments.CatalogDeployment
 import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.CountDeploymentHistory
 import app.epistola.suite.environments.queries.GetEnvironment
@@ -97,6 +96,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import app.epistola.api.model.CatalogReleaseStatus as ApiCatalogReleaseStatus
 
 @RestController
 @RequestMapping("/api")
@@ -295,15 +295,15 @@ class EpistolaTenantApi(
         return ResponseEntity.noContent().build()
     }
 
-    private fun ResolvedCatalogVersion.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
+    private fun ResolvedCatalogRelease.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
 
-    private fun ResolvedCatalogVersion.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
+    private fun ResolvedCatalogRelease.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
 
     /**
      * The code list a binding names. A binding's registry and namespace left out are the attribute's
      * own catalog's; the catalog must exist by that name.
      */
-    private fun ResolvedCatalogVersion.codeListAt(registry: String?, namespace: String?, catalogKey: String, key: String): CodeListId {
+    private fun ResolvedCatalogRelease.codeListAt(registry: String?, namespace: String?, catalogKey: String, key: String): CodeListId {
         val catalog = catalogAt(
             tenantKey.value,
             registry ?: this.catalog.registry,
@@ -314,9 +314,9 @@ class EpistolaTenantApi(
     }
 
     /** The catalogs the draft's attributes bind code lists from, by key. */
-    private fun bindingCatalogsOf(at: ResolvedCatalogVersion): Map<CatalogKey, Catalog> = ListCatalogs(at.catalog.tenantKey).query().associateBy { it.id }
+    private fun bindingCatalogsOf(at: ResolvedCatalogRelease): Map<CatalogKey, Catalog> = ListCatalogs(at.catalog.tenantKey).query().associateBy { it.id }
 
-    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogVersion) = toDto(
+    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogRelease) = toDto(
         at.catalog,
         codeListCatalogKey?.let { key -> if (key == at.catalogKey) at.catalog else GetCatalog(at.catalog.tenantKey, key).query() },
     )
@@ -419,7 +419,7 @@ class EpistolaTenantApi(
         replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployCatalogVersion(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
+        val deployment = DeployCatalogRelease(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
@@ -434,7 +434,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployCatalogVersion(environment, catalog.id, release).execute()) {
+        if (!UndeployCatalogRelease(environment, catalog.id, release).execute()) {
             throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
         }
         return ResponseEntity.noContent().build()
@@ -464,7 +464,7 @@ class EpistolaTenantApi(
                             DeploymentAction.RELEASED -> DeploymentEventDto.Action.RELEASED
                         },
                         releaseId = entry.versionKey.orEmpty(),
-                        status = if (entry.version == null) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+                        status = if (entry.version == null) ApiCatalogReleaseStatus.DRAFT else ApiCatalogReleaseStatus.RELEASED,
                         version = entry.version,
                         releaseName = if (entry.version == null || entry.action == DeploymentAction.RELEASED) entry.draftLabel else null,
                         changedAt = entry.changedAt,
@@ -489,7 +489,7 @@ class EpistolaTenantApi(
         namespace = catalog.namespace,
         catalogKey = catalogKey.value,
         releaseId = versionId.orEmpty(),
-        status = if (isDraft) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+        status = if (isDraft) ApiCatalogReleaseStatus.DRAFT else ApiCatalogReleaseStatus.RELEASED,
         version = version,
         releaseName = draftName,
         deployedAt = deployedAt,

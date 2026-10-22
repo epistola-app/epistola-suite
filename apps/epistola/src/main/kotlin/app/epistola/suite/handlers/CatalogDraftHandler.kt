@@ -4,21 +4,21 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.versions.CatalogDraftInUseException
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
-import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DeleteCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogDraftInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DeleteCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.CatalogSegment
@@ -99,7 +99,7 @@ class CatalogDraftHandler(
             CreateCatalogDraft(tenantId.key, segment.key, form.formData["name"].orEmpty(), from).execute()
         } catch (e: CatalogDraftNameInUseException) {
             return refused("name", "Other work is called that already. Choose another name.")
-        } catch (e: CatalogVersionNotFoundException) {
+        } catch (e: CatalogReleaseNotFoundException) {
             return refused("from", e.message ?: "There is no such release or draft to start from.")
         } catch (e: ValidationException) {
             return refused(if (e.field == "from") "from" else "name", e.message)
@@ -131,7 +131,7 @@ class CatalogDraftHandler(
                 CatalogPages.browse(tenantId, segment.at(null))
             }
             redirect(back)
-        } catch (e: CatalogVersionHeldException) {
+        } catch (e: CatalogReleaseHeldException) {
             catalogs.browseWithError(request, segment, e.message ?: "The draft cannot be discarded.")
         }
     }
@@ -173,9 +173,9 @@ class CatalogDraftHandler(
         return try {
             // Trying a draft on an environment is deploying it there (contract ADR 0003).
             if (follow) {
-                DeployCatalogVersion(environmentId, segment.key, draftId).execute()
+                DeployCatalogRelease(environmentId, segment.key, draftId).execute()
             } else {
-                UndeployCatalogVersion(environmentId, segment.key, draftId).execute()
+                UndeployCatalogRelease(environmentId, segment.key, draftId).execute()
             }
             val target = CatalogPages.draft(tenantId, segment)
             request.htmx {

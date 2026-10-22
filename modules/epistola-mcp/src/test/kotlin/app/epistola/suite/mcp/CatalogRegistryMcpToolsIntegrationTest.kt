@@ -6,9 +6,9 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -69,7 +69,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "MCP registry").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(a))), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute().fingerprint
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute().fingerprint
         }
         val namespace = withMediator { GetCatalog(a, catalog).query()!!.namespace }
 
@@ -84,7 +84,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
 
         val installed = asMember(b) { tools.installReleaseFromRegistry("local", namespace, "mcp-registry", "1.0.0") }
         assertThat(installed.newlyInstalled).isTrue()
-        assertThat(withMediator { ListCatalogReleases(b, catalog).query().single().fingerprint }).isEqualTo(fingerprint)
+        assertThat(withMediator { ListCatalogReleaseSummaries(b, catalog).query().single().fingerprint }).isEqualTo(fingerprint)
     }
 
     @Test

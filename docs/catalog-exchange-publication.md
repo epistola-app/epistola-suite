@@ -332,7 +332,7 @@ so there is never a queue of work waiting on configuration.
 
 ## Release and publication transaction
 
-`ReleaseCatalogVersion` first builds and validates the catalog's draft,
+`ReleaseCatalogDraft` first builds and validates the catalog's draft,
 computes its canonical fingerprint, and constructs the same portable ZIP used
 by export. When the resolved policy says publish, one database transaction:
 
@@ -359,7 +359,7 @@ is no network call in the release transaction. Consequently:
 imported release never republishes it accidentally. Stable REST release calls
 use `DEFAULT`; the Suite release dialog can send `PUBLISH` or `SKIP` where the
 catalog policy permits it. The dispositions are the `ReleasePublication` values
-on `ReleaseCatalogVersion`.
+on `ReleaseCatalogDraft`.
 
 ## Worker state machine
 

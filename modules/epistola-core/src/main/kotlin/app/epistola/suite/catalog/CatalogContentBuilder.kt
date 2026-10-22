@@ -489,7 +489,7 @@ private const val PUBLISHED_VARIANT_JOIN =
  * details, and so the fingerprint, as they were.
  */
 private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey, outbound: CatalogContentBuilder.Outbound): CatalogInfo {
-    val settings = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenantKey, catalogKey).query()
+    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(tenantKey, catalogKey).query()
     if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
     val theme = settings.defaultTheme?.let { theme ->
         if (theme.catalogKey == catalogKey) {

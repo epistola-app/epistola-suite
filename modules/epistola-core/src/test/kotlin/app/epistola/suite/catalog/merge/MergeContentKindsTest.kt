@@ -17,10 +17,10 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -65,12 +65,12 @@ class MergeContentKindsTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
             listOf("tha", "thb").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
 
             inB(b, catalog)
             MarkCatalogReady(b, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
             val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
 
             // A change of A's own, so 2.0.0 is received beside its releases rather than moved to.

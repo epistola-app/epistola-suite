@@ -10,7 +10,7 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -64,7 +64,7 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
             // A installs 1.0.0 from its source.
             RegisterCatalog(tenantKey = a, sourceUrl = v1, authType = AuthType.NONE).execute()
             assertThat(InstallFromCatalog(tenantKey = a, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
-            val v1Fingerprint = ListCatalogReleases(a, depKey).query().single { it.version == "1.0.0" }.fingerprint
+            val v1Fingerprint = ListCatalogReleaseSummaries(a, depKey).query().single { it.version == "1.0.0" }.fingerprint
             // B installs 1.1.0, which changed the theme and says it was made from 1.0.0, from another.
             val v2 = fixture(tmp.resolve("v2"), "1.1.0") { dir ->
                 val theme = dir.resolve("resources/themes/test-theme.json")

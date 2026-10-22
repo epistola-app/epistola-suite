@@ -198,7 +198,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade",
                 HttpEntity(
                     org.springframework.util.LinkedMultiValueMap<String, String>().apply {
-                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
+                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
                     },
                     htmxForm(),
                 ),

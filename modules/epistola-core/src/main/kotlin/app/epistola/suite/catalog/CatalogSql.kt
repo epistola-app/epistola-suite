@@ -29,9 +29,9 @@ fun catalogAt(tenantParam: String, catalogParam: String): String = "(SELECT cata
  * Content rows belong to a catalog version (contract ADR 0002), so every statement on content names
  * one (`ContentVersionSqlTest`). A message that addresses one version -- the contract's
  * `…/versions/{catalogVersion}/…` paths -- implements
- * [CatalogVersionScoped][app.epistola.suite.catalog.versions.CatalogVersionScoped]; the mediator then
+ * [CatalogReleaseScoped][app.epistola.suite.catalog.releases.CatalogReleaseScoped]; the mediator then
  * sets the PostgreSQL setting `epistola.content_version` to that version for the message's
- * transaction ([CatalogVersionTargeting][app.epistola.suite.catalog.versions.CatalogVersionTargeting]),
+ * transaction ([CatalogReleaseTargeting][app.epistola.suite.catalog.releases.CatalogReleaseTargeting]),
  * and this answers it for that catalog, in the handler and in every message it dispatches. A caller
  * that names none -- the UI, MCP, tenant-wide reads -- gets the current version. A catalog that does
  * not exist yields NULL, which matches no row on a read and violates the NOT NULL `version_id` on a

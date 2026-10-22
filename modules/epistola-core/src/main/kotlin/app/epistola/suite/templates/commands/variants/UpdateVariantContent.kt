@@ -6,11 +6,11 @@ package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.PresetUse
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.PresetUse
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
@@ -42,10 +42,10 @@ data class UpdateVariantContent(
     val variantId: VariantId,
     val templateModel: TemplateDocument,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The variant's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<SavedVariantContent>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT

@@ -5,8 +5,8 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.CatalogSegment
@@ -26,24 +26,24 @@ class WorkspaceScopeTest {
 
     private val redesignId = "k7m2x9qa"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
+    private fun next(base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
 
-    private fun parallel(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = redesignId, name = name)
+    private fun parallel(name: String, base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = redesignId, name = name)
 
-    private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogVersion(
+    private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogRelease(
         version,
-        CatalogVersionStatus.RELEASED,
+        CatalogReleaseStatus.RELEASED,
         versionId = "r" + version.replace(".", ""),
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
         deployedTo = liveIn,
     )
 
     private fun bar(
-        drafts: List<CatalogVersion>,
-        releases: List<CatalogVersion>,
+        drafts: List<CatalogRelease>,
+        releases: List<CatalogRelease>,
         segment: CatalogSegment = CatalogSegment(letters),
         readOnlyReason: CatalogReadOnlyReason? = null,
-        installed: CatalogVersion? = null,
+        installed: CatalogRelease? = null,
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,

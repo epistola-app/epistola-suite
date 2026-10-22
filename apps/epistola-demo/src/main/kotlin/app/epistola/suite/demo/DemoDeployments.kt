@@ -10,7 +10,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.Mediator
 
 /** The environments every demo tenant gets. */
@@ -26,7 +26,7 @@ internal val DEMO_ENVIRONMENTS = listOf("staging", "production")
 internal fun Mediator.deployDemoCatalog(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) {
     for (environment in DEMO_ENVIRONMENTS) {
         try {
-            send(DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), TenantId(tenantKey)), catalogKey, version, includeDependencies = true))
+            send(DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), TenantId(tenantKey)), catalogKey, version, includeDependencies = true))
         } catch (_: EnvironmentNotFoundException) {
             // A tenant whose environments were removed by hand keeps it that way.
         }

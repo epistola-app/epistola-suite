@@ -8,7 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -67,7 +67,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                     CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer").execute()
                     CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand").execute()
                     MarkCatalogReady(tenant.id, shared).execute()
-                    ReleaseCatalogVersion(tenant.id, shared, "1.0.0").execute()
+                    ReleaseCatalogDraft(tenant.id, shared, "1.0.0").execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id)))
                     CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
                     UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
@@ -207,7 +207,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             // Shared 1.1.0 only adds something: everything Letters uses still fits.
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(shared, TenantId(tenant.id))), "Seasonal").execute()
             MarkCatalogReady(tenant.id, shared).execute()
-            ReleaseCatalogVersion(tenant.id, shared, "1.1.0").execute()
+            ReleaseCatalogDraft(tenant.id, shared, "1.1.0").execute()
         }
 
         val page = get(tenant, "/catalogs/letters/dependencies")

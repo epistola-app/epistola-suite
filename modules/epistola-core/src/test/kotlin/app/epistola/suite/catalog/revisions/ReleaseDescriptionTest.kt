@@ -14,11 +14,11 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -109,12 +109,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
 
-            val releases = ListCatalogVersions(a, catalog).query().filter { it.status == CatalogVersionStatus.RELEASED }.associateBy { it.version }
+            val releases = ListCatalogReleases(a, catalog).query().filter { it.status == CatalogReleaseStatus.RELEASED }.associateBy { it.version }
             val first = manifestOf(ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).release
             val second = manifestOf(ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes).release
             val metadata = mapOf("app.epistola.suite" to mapOf("renderingDefaultsVersion" to RenderingDefaults.CURRENT.version, "releasedByInstallation" to installation.get().id.toString()))
@@ -139,10 +139,10 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description FP").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
             MarkCatalogReady(a, catalog).execute()
-            val released = ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            val released = ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
             val archive = ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes
             val bare = withRelease(archive) { it.remove(listOf("releaseId", "metadata", "base")) }
 
@@ -163,10 +163,10 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
             Lineage(a, catalog, ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes, ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes)
         }
     }

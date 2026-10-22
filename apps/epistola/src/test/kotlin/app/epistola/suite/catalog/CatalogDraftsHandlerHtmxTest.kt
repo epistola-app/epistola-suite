@@ -9,12 +9,12 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -81,7 +81,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
 
     private fun invoice(tenant: Tenant) = TemplateId(TemplateKey.of("invoice"), catalogId(tenant))
 
-    private fun at(tenant: Tenant, draft: DraftRef) = CatalogVersionRef(tenant.id, letters, draft)
+    private fun at(tenant: Tenant, draft: DraftRef) = CatalogReleaseRef(tenant.id, letters, draft)
 
     private fun next(tenant: Tenant) = at(tenant, DraftRef.Next)
 
@@ -91,7 +91,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         CreateTheme(brand(tenant), "Brand").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
         MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogVersion(tenant.id, letters, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
     }
 
     /** [released], then parallel work "Redesign", and the invoice named differently in each; its id. */
@@ -105,7 +105,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    private fun drafts(tenant: Tenant) = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }.map { it.label }
+    private fun drafts(tenant: Tenant) = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.DRAFT).query() }.map { it.label }
 
     @Test
     fun `the next version's page says it is numbered when published, and the Versions page offers parallel work`() = fixture {
@@ -355,7 +355,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         then {
             val response = result<ResponseEntity<String>>()
-            val fromOne = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "From one" }
+            val fromOne = withMediator { ListCatalogReleases(tenant.id, letters).query() }.single { it.name == "From one" }
             assertThat(fromOne.base).isEqualTo("1.0.0")
             assertThat(drafts(tenant)).containsExactly("Next release", "Redesign", "From one")
             assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@${fromOne.versionId}/draft")
@@ -448,7 +448,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant) // from 1.0.0
             withMediator {
                 MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogVersion(tenant.id, letters, version = "2.0.0").execute()
+                ReleaseCatalogDraft(tenant.id, letters, version = "2.0.0").execute()
             }
         }
         whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!! }
@@ -468,7 +468,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant)
             withMediator {
                 MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogVersion(tenant.id, letters).execute() // 1.0.1, which the work does not contain
+                ReleaseCatalogDraft(tenant.id, letters).execute() // 1.0.1, which the work does not contain
             }
         }
         whenever {

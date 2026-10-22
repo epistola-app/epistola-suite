@@ -6,8 +6,8 @@ package app.epistola.suite.environments
 
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.GetReleasedResource
-import app.epistola.suite.catalog.versions.ListReleasedResources
+import app.epistola.suite.catalog.releases.GetReleasedResource
+import app.epistola.suite.catalog.releases.ListReleasedResources
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateKey
@@ -17,8 +17,8 @@ import app.epistola.suite.environments.DeploymentLogEntry
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.environments.queries.GetEnvironmentLatest
@@ -322,7 +322,7 @@ class EnvironmentHandler(
         // Beside what the environment serves, unless the deployer chose to stop using the others.
         val replace = request.param("replace").orElse("") == "true"
         return try {
-            DeployCatalogVersion(environmentId, catalogKey, version, includeDependencies, replace = replace).execute()
+            DeployCatalogRelease(environmentId, catalogKey, version, includeDependencies, replace = replace).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)
@@ -346,7 +346,7 @@ class EnvironmentHandler(
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
         val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
         ListDraftDeployments(tenantId.key, environmentId.key, catalogKey).query().singleOrNull()?.let {
-            UndeployCatalogVersion(environmentId, catalogKey, it.draftId).execute()
+            UndeployCatalogRelease(environmentId, catalogKey, it.draftId).execute()
         }
         return redirectTo(environmentId)
     }
@@ -378,7 +378,7 @@ class EnvironmentHandler(
         val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return detail(request, error = "Choose a release to undeploy.")
-        UndeployCatalogVersion(environmentId, catalogKey, version).execute()
+        UndeployCatalogRelease(environmentId, catalogKey, version).execute()
         return redirectTo(environmentId)
     }
 

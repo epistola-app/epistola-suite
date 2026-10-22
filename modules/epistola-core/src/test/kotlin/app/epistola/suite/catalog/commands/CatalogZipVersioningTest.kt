@@ -16,11 +16,11 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CheckCatalogUpgrade
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.PreviewCatalogUpgrade
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.GetReleasedResource
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.GetReleasedResource
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListId
@@ -157,7 +157,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThat(catalog.installedReleaseVersion).`as`("received, not released here").isEqualTo("1.0.0")
             assertThat(catalog.releasedVersion).isNull()
             assertThat(catalog.sourceUrl).isNull()
-            assertThat(ListCatalogVersions(tenant.id, catalogKey, CatalogVersionStatus.DRAFT).query().map { it.isNext to it.base })
+            assertThat(ListCatalogReleases(tenant.id, catalogKey, CatalogReleaseStatus.DRAFT).query().map { it.isNext to it.base })
                 .`as`("its next version continues on the release")
                 .containsExactly(true to "1.0.0")
 
@@ -222,7 +222,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThatThrownBy { ImportCatalogZip(consumer.id, conflicting).execute() }
                 .isInstanceOf(CatalogImportConflictException::class.java)
                 .hasMessageContaining("one number names one release")
-            assertThat(ListCatalogReleases(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(ListCatalogReleaseSummaries(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.0")
         }
     }
 
@@ -242,7 +242,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
             ImportCatalogZip(tenantKey = consumer.id, zipBytes = v2).execute()
 
-            assertThat(ListCatalogReleases(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
+            assertThat(ListCatalogReleaseSummaries(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
             assertThat(themeName(consumer.id, catalogKey, "thm")).`as`("the draft is not filled").isEqualTo("Our edit")
             assertThat(GetReleasedResource(consumer.id, catalogKey, "1.0.1", "theme", "thm").query()?.name).isEqualTo("Pub Th 2")
         }
@@ -256,7 +256,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         CreateCatalog(tenantKey = publisherTenant, id = catalogKey, name = slug).execute()
         themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), CatalogId(catalogKey, TenantId(publisherTenant))), name = n).execute() }
         MarkCatalogReady(publisherTenant, catalogKey).execute()
-        ReleaseCatalogVersion(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
+        ReleaseCatalogDraft(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
         return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute().zipBytes
     }
 
@@ -422,7 +422,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
             ).execute()
             MarkCatalogReady(pub.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
             val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute().zipBytes
 
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()

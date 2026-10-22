@@ -7,7 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -234,7 +234,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
             ChangeCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("epistola")
@@ -318,7 +318,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
         CreateCatalog(tenant.id, catalogKey, catalogKey.value).execute()
         namespace?.let { ChangeCatalogNamespace(tenant.id, catalogKey, it).execute() }
-        ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+        ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 
     private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())

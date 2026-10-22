@@ -11,11 +11,11 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.NextVersionChanges
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.NextVersionChanges
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -120,9 +120,9 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(a))), "Letter").execute().withRequiredDataExample()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             val v100 = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
-            val fingerprint = ListCatalogReleases(a, catalog).query().single().fingerprint
+            val fingerprint = ListCatalogReleaseSummaries(a, catalog).query().single().fingerprint
 
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
             UpdateTheme(theme(b, catalog, "brand"), name = "B's brand").execute()
@@ -144,7 +144,7 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Legacy Baseline").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
         }
         // What a next version recorded before baselines named their function: V3 values, a plain map.

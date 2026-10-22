@@ -11,10 +11,10 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.contentRevision
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
@@ -50,10 +50,10 @@ data class UpdateCodeList(
     val credential: String? = null,
     val entries: List<CodeListEntry>? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The code list's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<CodeList?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT

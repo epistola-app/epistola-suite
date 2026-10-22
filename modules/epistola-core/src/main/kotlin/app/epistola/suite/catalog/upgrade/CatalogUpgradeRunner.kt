@@ -9,12 +9,12 @@ import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogDraft
-import app.epistola.suite.catalog.versions.CatalogDrafts
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -157,10 +157,10 @@ class CatalogUpgradeRunner(
             }
             // What was published before 2.0 becomes the next patch after its latest release, 1.x ones
             // included, or the first version.
-            val released = ListCatalogReleases(catalog.tenantKey, catalog.catalogKey).query().map { it.version }
+            val released = ListCatalogReleaseSummaries(catalog.tenantKey, catalog.catalogKey).query().map { it.version }
             val version = CatalogDrafts.latest(released + listOfNotNull(catalog.continuesAfter))
                 ?.let { SemVer.parse(it).bumpPatch().toString() } ?: CatalogDrafts.FIRST
-            ReleaseCatalogVersion(
+            ReleaseCatalogDraft(
                 tenantKey = catalog.tenantKey,
                 catalogKey = catalog.catalogKey,
                 version = version,

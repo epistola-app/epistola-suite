@@ -9,7 +9,7 @@ import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -359,7 +359,7 @@ class StencilHandler(
     }
 
     /** The stencil, whether the viewer may change it here, and its readiness. */
-    private fun ModelBuilder.stencilModel(stencil: Stencil, error: String? = null, version: CatalogVersionRef? = null) {
+    private fun ModelBuilder.stencilModel(stencil: Stencil, error: String? = null, version: CatalogReleaseRef? = null) {
         val catalogEditable = IsCatalogEditable(stencil.tenantKey, stencil.catalogKey).query()
         val editable = catalogEditable && AuthContext.from(SecurityContext.current(), stencil.tenantKey).has(Permission.STENCIL_EDIT)
         "stencil" to stencil
@@ -368,7 +368,7 @@ class StencilHandler(
         if (error != null) "readinessError" to error
     }
 
-    private fun readinessOf(stencil: Stencil, catalogEditable: Boolean, editable: Boolean, version: CatalogVersionRef?): StencilReadiness {
+    private fun readinessOf(stencil: Stencil, catalogEditable: Boolean, editable: Boolean, version: CatalogReleaseRef?): StencilReadiness {
         // A catalog that cannot be changed here has no next release to get ready.
         if (!catalogEditable) return StencilReadiness(state = null, ready = false, offerMarkReady = false)
         val change = GetCatalogResourceChanges(stencil.tenantKey, stencil.catalogKey, catalogVersion = version).query()

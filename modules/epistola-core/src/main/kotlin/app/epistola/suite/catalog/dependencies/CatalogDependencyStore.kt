@@ -7,8 +7,8 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.validation.ValidationCode

@@ -6,14 +6,14 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DeleteCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DeleteCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -36,8 +36,8 @@ import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironmentLatest
 import app.epistola.suite.environments.queries.ListDeploymentHistory
@@ -138,8 +138,8 @@ class DraftDeploymentTest : IntegrationTestBase() {
         mediator.publishAndRelease(variant)
         for (key in listOf(test, production)) {
             CreateEnvironment(EnvironmentId(key, TenantId(tenant)), key.value, production = key == production).execute()
-            DeployCatalogVersion(EnvironmentId(key, TenantId(tenant)), default, "1.0.0").execute()
-            DeployCatalogVersion(EnvironmentId(key, TenantId(tenant)), default, "1.0.1").execute()
+            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.0").execute()
+            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.1").execute()
         }
         Setup(tenant, variant)
     }
@@ -149,7 +149,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
     private fun nextVersion(setup: Setup): String = withMediator { GetCatalogDraft(setup.tenant, default).query()!!.versionId }
 
     /** Deploys draft [draftId] (the next version by default) to [environment]. */
-    private fun deployDraft(setup: Setup, environment: EnvironmentKey, draftId: String = nextVersion(setup)) = withMediator { DeployCatalogVersion(env(setup, environment), default, draftId).execute() }
+    private fun deployDraft(setup: Setup, environment: EnvironmentKey, draftId: String = nextVersion(setup)) = withMediator { DeployCatalogRelease(env(setup, environment), default, draftId).execute() }
 
     private fun generate(setup: Setup, environment: EnvironmentKey?, selector: String? = null, field: String = "name"): DocumentGenerationRequest = withMediator {
         GenerateDocument(
@@ -170,7 +170,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat(generate(setup, production).releaseVersion).`as`("the highest it serves").isEqualTo("1.0.1")
         assertThat(generate(setup, production, "1.0.0").releaseVersion).`as`("an exact release").isEqualTo("1.0.0")
 
-        withMediator { UndeployCatalogVersion(env(setup, production), default, "1.0.1").execute() }
+        withMediator { UndeployCatalogRelease(env(setup, production), default, "1.0.1").execute() }
 
         assertThat(generate(setup, production).releaseVersion).isEqualTo("1.0.0")
         assertThat(generate(setup, production, "^1.0.0").releaseVersion).isEqualTo("1.0.0")
@@ -194,7 +194,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
             Triple(DeploymentAction.UNDEPLOYED, null, "Next release"),
             Triple(DeploymentAction.DEPLOYED, null, "Next release"),
         )
-        assertThat(withMediator { UndeployCatalogVersion(env(setup, test), default, work.versionId).execute() }).isTrue()
+        assertThat(withMediator { UndeployCatalogRelease(env(setup, test), default, work.versionId).execute() }).isTrue()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
     }
 
@@ -285,9 +285,9 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
 
         withMediator {
-            val at = CatalogVersionRef(setup.tenant, default, DraftRef.Id(work.versionId))
+            val at = CatalogReleaseRef(setup.tenant, default, DraftRef.Id(work.versionId))
             MarkCatalogReady(setup.tenant, default, catalogVersion = at).execute()
-            ReleaseCatalogVersion(setup.tenant, default, catalogVersion = at, continueEverydayWork = ContinueEverydayWork(keepPreviousAs = "Old next")).execute()
+            ReleaseCatalogDraft(setup.tenant, default, catalogVersion = at, continueEverydayWork = ContinueEverydayWork(keepPreviousAs = "Old next")).execute()
         }
 
         val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.single { it.isDraft }
@@ -305,7 +305,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query() }.getValue(default) as CatalogSelection.Draft).source.label)
             .isEqualTo("Next release")
 
-        withMediator { UndeployCatalogVersion(env(setup, test), default, nextVersion(setup)).execute() }
+        withMediator { UndeployCatalogRelease(env(setup, test), default, nextVersion(setup)).execute() }
         assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query() })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
     }
@@ -327,14 +327,14 @@ class DraftDeploymentTest : IntegrationTestBase() {
     fun `releasing a deployed draft keeps the deployment, as the release that keeps its id, logged as released`() {
         val setup = setup("deploy-released")
         val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        val ref = CatalogVersionRef(setup.tenant, default, DraftRef.Id(work.versionId))
+        val ref = CatalogReleaseRef(setup.tenant, default, DraftRef.Id(work.versionId))
         withMediator {
             app.epistola.suite.templates.commands.variants.UpdateVariantContent(setup.variant, TestTemplateBuilder.buildMinimal(name = "Letter 3"), catalogVersion = ref).execute()
             MarkCatalogReady(setup.tenant, default, catalogVersion = ref).execute()
         }
         deployDraft(setup, test, work.versionId)
 
-        val released = withMediator { ReleaseCatalogVersion(setup.tenant, default, catalogVersion = ref).execute() }
+        val released = withMediator { ReleaseCatalogDraft(setup.tenant, default, catalogVersion = ref).execute() }
 
         val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.first()
         assertThat(deployed.isDraft).isFalse()

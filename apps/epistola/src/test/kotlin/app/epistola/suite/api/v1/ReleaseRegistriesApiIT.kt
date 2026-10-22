@@ -8,8 +8,8 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -115,7 +115,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(installed.body!!, "$.catalogKey")).isEqualTo(catalog)
         assertThat(JsonPath.read<String>(installed.body!!, "$.namespace")).isEqualTo(namespace)
         assertThat(JsonPath.read<Boolean>(installed.body!!, "$.newlyInstalled")).isTrue()
-        assertThat(withMediator { ListCatalogReleases(b, CatalogKey.of(catalog)).query().single().fingerprint }).isEqualTo(fingerprint)
+        assertThat(withMediator { ListCatalogReleaseSummaries(b, CatalogKey.of(catalog)).query().single().fingerprint }).isEqualTo(fingerprint)
 
         val repeated = call(HttpMethod.POST, "$releases/1.0.0/install", keyB)
         assertThat(JsonPath.read<Boolean>(repeated.body!!, "$.newlyInstalled")).isFalse()
@@ -147,7 +147,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
             CreateCatalog(tenantKey = c, id = key, name = catalog, namespace = namespace).execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(c))), name = "Another brand").execute()
             MarkCatalogReady(c, key).execute()
-            ReleaseCatalogVersion(tenantKey = c, catalogKey = key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = c, catalogKey = key, version = "1.0.0").execute()
         }
         val theirs = withMediator { "${CatalogApiPaths.version(c, catalog, "1.0.0")}/publish" }
         assertThat(call(HttpMethod.POST, theirs, keyC, """{"to": "local"}""").statusCode).isEqualTo(HttpStatus.OK)
@@ -165,7 +165,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         CreateCatalog(tenantKey = tenant, id = key, name = catalog).execute()
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), name = "Brand").execute()
         MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogVersion(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute().fingerprint
+        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute().fingerprint
     }
 
     private fun call(method: HttpMethod, url: String, apiKey: String, body: String? = null): ResponseEntity<String> = restTemplate.exchange(url, method, HttpEntity(body, headers(apiKey)), String::class.java)

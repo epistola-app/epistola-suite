@@ -7,7 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.common.ids.CatalogId
@@ -73,7 +73,7 @@ class ReadyMarksTest : IntegrationTestBase() {
 
     private fun readiness(catalog: CatalogId, type: String, key: String) = changes(catalog).resources.single { it.type == type && it.slug == key }
 
-    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogVersion(catalog.tenantKey, catalog.key, version).execute() }
+    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogDraft(catalog.tenantKey, catalog.key, version).execute() }
 
     // ── Whether a mark holds ──
 

@@ -14,21 +14,21 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
-import app.epistola.suite.catalog.queries.GetCatalogRelease
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -139,8 +139,8 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
 
             // A restored authored catalog has a draft to keep working in.
-            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.label to it.status })
-                .containsExactly("Next release" to CatalogVersionStatus.DRAFT)
+            assertThat(ListCatalogReleases(tenant.id, main).query().map { it.label to it.status })
+                .containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()
@@ -235,7 +235,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator {
             val restored = GetCatalog(tenant.id, catalog).query()!!
             assertThat(restored.installedReleaseVersion).`as`("not installed as a received release").isNull()
-            assertThat(ListCatalogReleases(tenant.id, catalog).query()).isEmpty()
+            assertThat(ListCatalogReleaseSummaries(tenant.id, catalog).query()).isEmpty()
             assertThat(GetCatalogEditability(tenant.id, catalog).query().editable).isTrue()
         }
         themeIdentity(tenant.id.value, catalog.value, "brand")
@@ -260,10 +260,10 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Released").execute()
             CreateTheme(id = theme, name = "Brand 1").execute()
             MarkCatalogReady(tenant.id, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
             UpdateTheme(theme, name = "Brand 2").execute()
             MarkCatalogReady(tenant.id, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.1.0").execute()
             UpdateTheme(theme, name = "Brand 3, not released").execute()
         }
         val before = withMediator { releasesOf(tenant.id, catalog) }
@@ -273,15 +273,15 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(releasesOf(tenant.id, catalog)).`as`("number, id, fingerprint and base of each").isEqualTo(before)
-            val next = ListCatalogVersions(tenant.id, catalog).query().single { it.isNext }
+            val next = ListCatalogReleases(tenant.id, catalog).query().single { it.isNext }
             assertThat(next.base).`as`("the next release is on the release it was on").isEqualTo("1.1.0")
             assertThat(GetCatalog(tenant.id, catalog).query()!!.releasedVersion).isEqualTo("1.1.0")
             assertThat(GetTheme(theme).query()!!.name).`as`("the working copy as it was").isEqualTo("Brand 3, not released")
-            assertThat(GetCatalogRelease(tenant.id, catalog, "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
+            assertThat(GetCatalogReleaseDetail(tenant.id, catalog, "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
             // The releases kept their content: they export, and the next one is cut on 1.1.0.
             assertThat(ExportCatalogZip(tenant.id, catalog, "1.0.0").execute().zipBytes).isNotEmpty()
             MarkCatalogReady(tenant.id, catalog).execute()
-            assertThat(ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog, version = "1.2.0").execute().version).isEqualTo("1.2.0")
+            assertThat(ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.2.0").execute().version).isEqualTo("1.2.0")
         }
     }
 
@@ -314,7 +314,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Older").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id))), name = "Brand").execute()
             MarkCatalogReady(tenant.id, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
         }
         val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
         val schemaTwo = rewriteEntry(snapshot.bytes, "snapshot.json") { json ->
@@ -327,15 +327,15 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator { RestoreTenantSnapshot(tenant.id, schemaTwo).execute() }
 
         withMediator {
-            assertThat(ListCatalogReleases(tenant.id, catalog).query()).isEmpty()
+            assertThat(ListCatalogReleaseSummaries(tenant.id, catalog).query()).isEmpty()
             assertThat(GetCatalog(tenant.id, catalog).query()!!.sourceUrl).isNull()
         }
     }
 
     private data class RestoredRelease(val version: String, val releaseId: String, val fingerprint: String, val baseVersion: String?, val baseFingerprint: String?)
 
-    private fun releasesOf(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<RestoredRelease> = ListCatalogVersions(tenant, catalog).query()
-        .filter { it.status == CatalogVersionStatus.RELEASED }
+    private fun releasesOf(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<RestoredRelease> = ListCatalogReleases(tenant, catalog).query()
+        .filter { it.status == CatalogReleaseStatus.RELEASED }
         .map { RestoredRelease(it.version!!, it.versionId, it.fingerprint!!, it.base, null) }
         .sortedBy { it.version }
         .zip(baseFingerprints(tenant, catalog)) { release, fingerprint -> release.copy(baseFingerprint = fingerprint) }

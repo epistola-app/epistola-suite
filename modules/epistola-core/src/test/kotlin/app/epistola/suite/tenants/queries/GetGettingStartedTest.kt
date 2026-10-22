@@ -13,7 +13,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
@@ -48,7 +48,7 @@ class GetGettingStartedTest : IntegrationTestBase() {
 
         val staging = EnvironmentId(EnvironmentKey.of("staging"), tenantId)
         mediator.send(CreateEnvironment(staging, "Staging"))
-        mediator.send(DeployCatalogVersion(staging, templateId.catalogId.key, version))
+        mediator.send(DeployCatalogRelease(staging, templateId.catalogId.key, version))
         assertThat(steps().hasDeployed).isTrue()
         assertThat(steps().complete).isFalse()
 

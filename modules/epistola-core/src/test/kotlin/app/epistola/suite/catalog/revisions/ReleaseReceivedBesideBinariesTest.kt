@@ -11,7 +11,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -44,11 +44,11 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = a, id = catalog, name = "Beside bytes").execute()
             CreateTheme(id = theme(a), name = "base").execute()
             MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
             UploadAsset(b, "Mark", AssetMediaType.PNG, PNG, 1, 1, catalog).execute()
             MarkCatalogReady(b, catalog).execute()
-            ReleaseCatalogVersion(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
             val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
 
             UpdateTheme(theme(a), name = "A's own").execute()

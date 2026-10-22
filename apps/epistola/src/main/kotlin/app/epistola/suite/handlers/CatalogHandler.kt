@@ -31,7 +31,7 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
@@ -47,24 +47,24 @@ import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
 import app.epistola.suite.catalog.queries.GetCatalogEditability
-import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogEditability
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
+import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogDraft
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -73,8 +73,8 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
@@ -378,12 +378,12 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val version = request.pathVariable("version")
 
-        val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
+        val release = GetCatalogReleaseDetail(tenantId.key, catalogKey, version).query()
             ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
 
         // What may be done with it: the same decisions the catalog page used to make per row.
         val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
-        val summary = ListCatalogReleases(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
+        val summary = ListCatalogReleaseSummaries(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
         val bar = draftBar(tenantId, CatalogSegment(catalogKey, null))
         return ServerResponse.ok().page("catalogs/release") {
             "pageTitle" to "${release.catalog.name} v$version - Published release - Epistola"
@@ -537,10 +537,10 @@ class CatalogHandler {
                 // So are the drafts of other catalogs it builds on, which publishing publishes first.
                 readiness.publishedAlong.forEach { other ->
                     val otherKey = CatalogKey.of(other.catalogKey)
-                    MarkCatalogReady(tenantId.key, otherKey, catalogVersion = CatalogVersionRef(tenantId.key, otherKey, DraftRef.Id(requireNotNull(other.draftId)))).execute()
+                    MarkCatalogReady(tenantId.key, otherKey, catalogVersion = CatalogReleaseRef(tenantId.key, otherKey, DraftRef.Id(requireNotNull(other.draftId)))).execute()
                 }
             }
-            val result = ReleaseCatalogVersion(
+            val result = ReleaseCatalogDraft(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
                 version = form["version"],
@@ -562,7 +562,7 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
+                    DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
@@ -583,7 +583,7 @@ class CatalogHandler {
             }
         } catch (e: CatalogReleaseVersionException) {
             reRenderWithError(e.message ?: "Invalid version number.")
-        } catch (e: CatalogVersionBehindException) {
+        } catch (e: CatalogReleaseBehindException) {
             reRenderWithError(
                 "Confirm that this draft may be released without " +
                     e.behind.joinToString { "v$it" } + ", which it is behind.",
@@ -640,7 +640,7 @@ class CatalogHandler {
         val draft = version.removePrefix("draft:").takeIf { it != version }
         if (draft != null && !DraftRef.isKey(draft)) return deployments(request, error = "Choose a draft of this catalog to deploy.")
         return try {
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft ?: version, includeDependencies, replace = replace && draft == null).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft ?: version, includeDependencies, replace = replace && draft == null).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
         } catch (failure: EnvironmentDeploymentRefusedException) {
             deployments(request, error = failure.message)
@@ -667,7 +667,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
-        UndeployCatalogVersion(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
+        UndeployCatalogRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
@@ -678,7 +678,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val environment = EnvironmentKey.of(request.pathVariable("environmentId"))
         ListDraftDeployments(tenantId.key, environment, catalogKey).query().singleOrNull()?.let { deployed ->
-            UndeployCatalogVersion(EnvironmentId(environment, tenantId), catalogKey, deployed.draftId).execute()
+            UndeployCatalogRelease(EnvironmentId(environment, tenantId), catalogKey, deployed.draftId).execute()
         }
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
@@ -712,10 +712,10 @@ class CatalogHandler {
             DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
             redirect(CatalogPages.releases(tenantId, catalogKey))
         } catch (failure: ReleaseInUseException) {
-            section(request, "catalogs/versions", failure.message)
+            section(request, "catalogs/releases", failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            section(request, "catalogs/versions", failure.message)
+            section(request, "catalogs/releases", failure.message)
         }
     }
 
@@ -763,7 +763,7 @@ class CatalogHandler {
             logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
             null
         }
-        val status = CatalogVersionStatusView.of(
+        val status = CatalogReleaseStatusView.of(
             catalog,
             check,
             CATALOG_SCHEMA_VERSION,
@@ -874,11 +874,11 @@ class CatalogHandler {
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
         if (bar.chosen == null) return redirect(CatalogPages.browse(tenantId, segment))
-        return catalogPage(request, "catalogs/version", segment, bar, error = null)
+        return catalogPage(request, "catalogs/draft", segment, bar, error = null)
     }
 
     /** `GET /{catalogId}/releases`: every release and draft of the catalog, each to its own page. */
-    fun releasesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
+    fun releasesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/releases", catalogWide = true)
 
     /**
      * `GET /{catalogId}/versions`: where Releases was before releases were called releases. A
@@ -954,7 +954,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val bar = draftBar(tenantId, segment)
         return if (bar.chosen != null) {
-            catalogPage(request, "catalogs/version", segment, bar, error = null, draftError = message)
+            catalogPage(request, "catalogs/draft", segment, bar, error = null, draftError = message)
         } else {
             catalogPage(request, "catalogs/browse", segment.at(null), draftBar(tenantId, segment.at(null)), error = null, draftError = message)
         }
@@ -1000,13 +1000,13 @@ class CatalogHandler {
             }
             // The releases cut here and the ones received (each install records its release), side
             // by side. Any of them can be deployed.
-            val releases = ListCatalogReleases(tenantId.key, catalogKey).query()
+            val releases = ListCatalogReleaseSummaries(tenantId.key, catalogKey).query()
             val deployments = deploymentRows(tenantId.key, catalogKey)
             // Every release can be deployed. Newest first, as the list is.
             val deployableVersions = releases.map { it.version }
             // The open drafts an environment can follow (not production): the next version and parallel work.
             val followableDrafts = if (drafts.editable) {
-                ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT }
+                ListCatalogReleases(tenantId.key, catalogKey).query().filter { it.status == CatalogReleaseStatus.DRAFT }
             } else {
                 emptyList()
             }
@@ -1048,8 +1048,8 @@ class CatalogHandler {
             val editsDependencies = editable && drafts.chosen != null
             ServerResponse.ok().page(template) {
                 "pageTitle" to when (template) {
-                    "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
-                    "catalogs/versions" -> "Releases - ${result.catalog.name} - Epistola"
+                    "catalogs/draft" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
+                    "catalogs/releases" -> "Releases - ${result.catalog.name} - Epistola"
                     "catalogs/deployments" -> "Deployments - ${result.catalog.name} - Epistola"
                     "catalogs/dependencies" -> "Dependencies - ${result.catalog.name} - Epistola"
                     "catalogs/settings" -> "Settings - ${result.catalog.name} - Epistola"
@@ -1284,7 +1284,7 @@ class CatalogHandler {
     private fun catalogImages(
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         catalogKey: CatalogKey,
-        version: app.epistola.suite.catalog.versions.CatalogVersionRef? = null,
+        version: app.epistola.suite.catalog.releases.CatalogReleaseRef? = null,
     ) = ListAssets(tenantKey, catalogKey = catalogKey, catalogVersion = version).query()
         .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
 
@@ -1465,7 +1465,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
                 // Every release can be handed over exactly as released.
-                "releases" to ListCatalogReleases(tenantId.key, catalogKey).query().map { it.version },
+                "releases" to ListCatalogReleaseSummaries(tenantId.key, catalogKey).query().map { it.version },
             ),
         )
     }

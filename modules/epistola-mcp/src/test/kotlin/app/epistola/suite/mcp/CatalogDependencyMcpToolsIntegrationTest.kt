@@ -5,7 +5,7 @@
 package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mcp.dto.CatalogDependencyInput
@@ -53,8 +53,8 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
             catalogTools.createCatalog("shared", "Shared", null)
         }
         withMediator {
-            ReleaseCatalogVersion(tenantId.key, CatalogKey.of("shared"), "1.0.0").execute()
-            ReleaseCatalogVersion(tenantId.key, CatalogKey.of("shared"), "1.1.0").execute()
+            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("shared"), "1.0.0").execute()
+            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("shared"), "1.1.0").execute()
         }
         return tenantId
     }

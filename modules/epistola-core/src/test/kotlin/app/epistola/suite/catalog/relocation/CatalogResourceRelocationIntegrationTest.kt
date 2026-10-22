@@ -13,7 +13,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.GetTenantResourceGraph
@@ -668,7 +668,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
             MarkCatalogReady(tenant.id, sourceCatalog).execute()
-            ReleaseCatalogVersion(tenant.id, sourceCatalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(tenant.id, sourceCatalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
 
         // A subscriber cannot follow the move, but that is the operator's judgement, not something
