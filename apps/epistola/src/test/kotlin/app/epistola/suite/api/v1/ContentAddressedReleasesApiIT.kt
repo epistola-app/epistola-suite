@@ -148,8 +148,16 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val malformed = exchange(HttpMethod.GET, "$catalog/releases?contentHash=v5:${"0".repeat(64)}", seeded)
         assertThat(malformed.statusCode).`as`("anything but a content hash").isEqualTo(HttpStatus.BAD_REQUEST)
 
+        // Two numbers for one content: 1.1.1 re-releases 1.1.0 with new notes only. Paged as found.
+        withMediator { ReleaseCatalogDraft(seeded.tenant, letters, "1.1.1", notes = "Notes only").execute() }
+        val firstPage = get("$catalog/releases?contentHash=${hashes[1]}&size=1", seeded)
+        assertThat(JsonPath.read<List<String>>(firstPage, "$.items[*].version")).containsExactly("1.1.1")
+        assertThat(JsonPath.read<Int>(firstPage, "$.page.total")).isEqualTo(2)
+        assertThat(JsonPath.read<List<String>>(get("$catalog/releases?contentHash=${hashes[1]}&size=1&page=1", seeded), "$.items[*].version")).containsExactly("1.1.0")
+        assertThat(JsonPath.read<List<Any>>(get("$catalog/releases?contentHash=${hashes[1]}&status=draft", seeded), "$.items")).`as`("a draft has no content hash").isEmpty()
+
         val catalogs = get("/api/tenants/${seeded.tenant.value}/catalogs", seeded)
-        assertThat(JsonPath.read<List<String?>>(catalogs, "$.items[?(@.catalogKey == 'letters')].contentHash")).containsExactly(hashes[1])
+        assertThat(JsonPath.read<List<String?>>(catalogs, "$.items[?(@.catalogKey == 'letters')].contentHash")).`as`("its highest release, 1.1.1").containsExactly(hashes[1])
     }
 
     @Test

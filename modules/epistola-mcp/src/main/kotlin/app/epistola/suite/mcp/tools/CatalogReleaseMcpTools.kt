@@ -19,6 +19,7 @@ import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.DeleteCatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ListReleasesByContentHash
 import app.epistola.suite.catalog.releases.RenameCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.CatalogReleaseInfo
@@ -69,9 +70,17 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         if (wanted != null && !(CONTENT_HASH.matches(wanted) && CatalogCanonicalizer.isContentHash(wanted))) {
             throw ValidationException("contentHash", "'$wanted' is not a content hash: `v6:` followed by 64 lowercase hex digits, as a release's `contentHash`")
         }
-        return ListCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId), status(status), withBehind = true).query()
-            .filter { wanted == null || it.contentHash == wanted }
-            .map(CatalogReleaseInfo::from)
+        val only = status(status)
+        val releases = when {
+            wanted == null -> ListCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId), only, withBehind = true).query()
+
+            // A draft has no content hash.
+            only == CatalogReleaseStatus.DRAFT -> emptyList()
+
+            // Found in the database, as REST does it.
+            else -> ListReleasesByContentHash(mcpTenantKey(), CatalogKey.of(catalogId), wanted).query().items
+        }
+        return releases.map(CatalogReleaseInfo::from)
     }
 
     @McpTool(

@@ -55,8 +55,14 @@ touched").
   speaks for the API. Say if the UI should refuse too.
 - A release whose recorded fingerprint is V5 shows its backfilled `content_hash` (null until the
   backfill reaches it); `contentHash` is never the V5 fingerprint.
-- The filter runs over the release list in memory, as the listing already pages in memory (SemVer
-  order); see "No in-memory pagination" below.
+- The filter is answered by the database: `ListReleasesByContentHash` filters on
+  `catalog_releases.content_hash` (`idx_catalog_releases_content_hash`), orders by
+  `releaseNumberOrder` and pages with `LIMIT`/`OFFSET` and a windowed count; a release whose hash is
+  not computed yet is no match, a `status=draft` filter an empty page. (First built as an in-memory
+  filter over the listing; moved the same day.) ✅ `ListReleasesByContentHashTest` (3: matches only,
+  highest first, deployments; paging with the count; pending is no match), each failing with its
+  part of the SQL removed; `ContentAddressedReleasesApiIT` pages the filter over HTTP. The unfiltered
+  listing still pages in memory (SemVer order), as before.
 
 **Noticed, left alone:**
 

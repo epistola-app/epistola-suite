@@ -415,7 +415,9 @@ deployments and version ranges use.
   result of `releaseCatalogDraft`, a registry's releases, a merge base, a dependency's pinned release,
   a catalog's highest release; null for a draft and while one is being computed), and
   `listCatalogReleases?contentHash=` lists the releases with that content: a filter, so none is an
-  empty list, and anything but a `v6:` hash is a 400. MCP `list_catalog_releases` (with the same
+  empty list, and anything but a `v6:` hash is a 400. The database answers it
+  (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), so a
+  release whose hash is not computed yet is no match. MCP `list_catalog_releases` (with the same
   `contentHash` filter), `release_draft`, `list_catalogs` and `list_catalog_dependencies` return it
   likewise.
 - The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release

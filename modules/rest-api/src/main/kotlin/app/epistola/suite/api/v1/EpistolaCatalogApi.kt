@@ -95,6 +95,7 @@ import app.epistola.suite.catalog.releases.GetCatalogRelease
 import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
 import app.epistola.suite.catalog.releases.GetReleasedThemeSettings
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ListReleasesByContentHash
 import app.epistola.suite.catalog.releases.RenameCatalogDraft
 import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.catalog.releases.UpdateCatalogDraft
@@ -271,11 +272,24 @@ class EpistolaCatalogApi(
         size: Int,
     ): ResponseEntity<CatalogReleaseListResponse> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
+        if (contentHash != null) {
+            // A release found by its content (ADR 0034): several numbers can name one content, and
+            // none is an empty list. Filtered, ordered and paged in the database; a draft has no hash.
+            val found = if (status == ApiCatalogReleaseStatus.DRAFT) {
+                null
+            } else {
+                ListReleasesByContentHash(catalog.tenantKey, catalog.id, contentHash, limit = Pagination.limitOf(size), offset = Pagination.offsetOf(page, size)).query()
+            }
+            return ResponseEntity.ok(
+                CatalogReleaseListResponse(
+                    items = found?.items.orEmpty().map { it.toDto(catalog) },
+                    page = Pagination.pageMeta(page, size, found?.total?.toLong() ?: 0L),
+                ),
+            )
+        }
         // The versions come in SemVer order, which SQL does not sort by; a catalog's version count
-        // is bounded by its release history, so the page is cut here. A release is found by its
-        // content (ADR 0034) as a filter: several numbers can name one content, and none is an empty list.
+        // is bounded by its release history, so the page is cut here.
         val versions = ListCatalogReleases(catalog.tenantKey, catalog.id, status?.toDomain()).query()
-            .filter { contentHash == null || it.contentHash == contentHash }
         val slice = Pagination.paginate(versions, page, size)
         return ResponseEntity.ok(CatalogReleaseListResponse(items = slice.items.map { it.toDto(catalog) }, page = slice.page))
     }
