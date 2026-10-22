@@ -21,6 +21,67 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0034 phase 2 made visible (22 October; branch `feat/release-visibility` from `ff5e0dd68`, not pushed)
+
+What phase 2 records, shown to people: a release's content hash and the releases it is the same as
+on the release page, a dependency's alias on the draft's page, and the content hash over MCP.
+
+| Change                                                                                                                                                                                                                                                                                                                                                                                                         | Where                                                                                  | Coverage                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ListReleasesWithSameContent` (`CATALOG_VIEW`): the other releases of the tenant with the same content hash, any catalog, any number, the catalog's own first (highest first), then other catalogs by name; reads only what is recorded, so a release without its hash is `pending` and lists none, and is not listed for others                                                                               | `catalog/queries/ListReleasesWithSameContent.kt`                                       | ✅ `ListReleasesWithSameContentTest` (4: notes-only re-release both ways and a changed one not; another catalog after the own, another tenant not; pending, found after the backfill; unknown release null). The tenant test failed with the tenant filter removed (mutation) |
+| The release detail carries `contentHash`, `shortContentHash` and `recordedBeforeContentHashes` (its fingerprint is not V6)                                                                                                                                                                                                                                                                                     | `GetCatalogReleaseDetail.kt`                                                           | ✅ `CatalogReleaseReadQueriesTest` (+1: cut now, recorded before, given by the backfill)                                                                                                                                                                                      |
+| Release page: "Content fingerprint" (short, whole in the title, copy button via `data-copy-source`), "Being computed" while null; "Original fingerprint" with "This release was recorded before content fingerprints and has been given one." (or "; it is being given one."); "The same release as" with links (`v1.0.0`, `Forms v1.0.0`) and "The same content, under another number or in another catalog." | `CatalogHandler.releaseDetail` (`sameAs`), `catalogs/release.html`                     | ✅ `CatalogReleaseIdentityHtmxTest` (2; both failed against the previous template)                                                                                                                                                                                            |
+| Draft page, Dependencies under Advanced: a "Named in content as" column with each declaration's alias                                                                                                                                                                                                                                                                                                          | `catalogs/next-release.html`                                                           | ✅ `CatalogNextReleaseHandlerHtmxTest` (+1; failed against the previous template)                                                                                                                                                                                             |
+| MCP `list_catalog_releases` returns `contentHash` per release (null for a draft and while being computed); `CatalogRelease.contentHash` read by `CatalogReleaseReader`                                                                                                                                                                                                                                         | `CatalogReleaseInfo.kt`, `CatalogReleases.kt`, `ListCatalogReleases.kt`, `docs/mcp.md` | ✅ `CatalogReleaseMcpToolsIntegrationTest` (+1, on the result as JSON; failed with the mapping removed)                                                                                                                                                                       |
+| Test helper `recordBeforeContentHashes`: plays a release recorded before content hashes (V5 fingerprint, no content hash) by SQL, since no command produces that state                                                                                                                                                                                                                                         | `modules/testing/.../TestReleaseIdentity.kt`                                           | ➖ used by the tests above                                                                                                                                                                                                                                                    |
+| Docs: the release page and the alias column (`catalog-versioning.md`), `contentHash` (`mcp.md`); changelog fragment `20261022115928-release-content-fingerprint.md`                                                                                                                                                                                                                                            | docs, changelog                                                                        | ➖                                                                                                                                                                                                                                                                            |
+
+**Decisions where the task left room:**
+
+- The Releases list (`catalogs/overview.html :: versions`) gets no content hash on hover: a title
+  is invisible on touch and to keyboard users, a hash string means nothing to an author scanning
+  numbers, and the release page, one click away, shows it with a copy button and the releases it is
+  the same as.
+- "The same release as" stays inside the tenant, as asked, and reads only recorded hashes: the page
+  is a GET and computes nothing; the backfill fills the gaps.
+- The recorded fingerprint is shown only when it is of an older kind than the content hash (a V6
+  release's fingerprint is its content hash, so one value), under "Original fingerprint".
+- Demo catalog: nothing added. Every release page of the demo tenant shows its content
+  fingerprint; "The same release as" needs two releases with the same content in one tenant, which a
+  bundled catalog (one release per number, cut elsewhere) cannot stage.
+- REST: unchanged; the contract's release DTOs have no content hash field (follow-up below).
+
+**Runs** (`--no-watch-fs`): the new tests (`ListReleasesWithSameContentTest` 4, `CatalogReleaseReadQueriesTest` 6 with
+the new one, `CatalogReleaseIdentityHtmxTest` 2, `CatalogNextReleaseHandlerHtmxTest` 10 with the new
+one) green; the three new handler tests failed against the previous templates, the MCP test with
+the mapping removed, the same-content tests with the tenant filter removed. Core
+`--tests "app.epistola.suite.catalog.*"` 535, app `--tests "*Catalog*"` 190,
+`:modules:epistola-mcp:integrationTest` 93, `:modules:guards:test` 28, `ktlintCheck`, all green
+(0 failed, 0 skipped).
+
+**Noticed, left alone:**
+
+- **API follow-up (contract):** REST release DTOs (`CatalogVersion` and the release list) have no
+  content hash; add `contentHash` beside `fingerprint`, and later address a release by it (ADR 0034
+  "Consequences, Contract (API)").
+- `idx_catalog_releases_content_hash` is `(tenant_key, catalog_id, content_hash)`; the tenant-wide
+  lookup uses only its tenant prefix. A `(tenant_key, content_hash)` index if tenants hold many
+  releases.
+- Releases with no content in two catalogs share a content hash, so they are "the same release";
+  true by the model, and possibly surprising.
+- The release page does not list the release's own dependencies (what it pinned, under which alias),
+  although its content hash covers them.
+- The Dependencies page's "Depends on" table (`catalogs/content.html :: borrowed`) shows no alias: it
+  names catalogs by display name and lists catalogs used but not declared.
+- MCP `release_draft` returns `fingerprint` (V6, so the content hash, for a release cut now) and no
+  `contentHash`; `list_catalogs`' `fingerprint` is the highest release's recorded one, possibly V5.
+- The copy button's fallback without the Clipboard API (plain HTTP off localhost) cannot select a
+  hidden input and says "Copy failed — select the value and copy it manually"; the whole value is
+  then only in the title.
+- `ReleaseIdentityTest` keeps its own copy of the V5 rewrite that `recordBeforeContentHashes` now
+  shares.
+- The Releases list does not mark a release published again with only new notes.
+
 ### Release integrity: a release holds what its record says (22 October; branch `refactor/catalog-releases`, not pushed)
 
 Started from the local demo database: tenant `demo`'s `system 2.0.0` kept all nine fonts with
@@ -171,7 +232,8 @@ seen failing with its fix reverted. Runs: those two classes, `:modules:rest-api:
   than stored (phase 4).
 - REST `ReleaseVersion` and `CatalogReleaseRef` are core-only in the contract: a patch release cannot
   be named in a REST path or request; REST and MCP release DTOs show the recorded fingerprint, not the
-  content hash; the UI shows no content hash either.
+  content hash; the UI shows no content hash either. (UI and MCP since "phase 2 made visible"; REST
+  still open.)
 - "The most recently received presentation wins" (contract): a release recorded beside the others
   (not fast-forwarded) does not update the catalog's name, description or metadata.
 - Releases retained on this branch between 21 and 22 October with qualified references into another
