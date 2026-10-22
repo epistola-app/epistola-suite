@@ -73,22 +73,26 @@ class CatalogCanonicalizerTest {
         )
     }
 
+    /**
+     * V6, a release's content hash (ADR 0034): the catalog's name and presentation are not content,
+     * so a catalog renamed, or presented otherwise, has the same fingerprint; its license is content.
+     */
     @Test
-    fun `fingerprint changes when catalog identity changes`() {
+    fun `fingerprint covers content, not the catalog's name or presentation`() {
         val details = linkedMapOf("theme/x" to theme("x", 4f))
-        val renamedCatalog = CatalogInfo.create(
-            key = catalog.key,
-            name = "Renamed",
-            description = catalog.description,
+        fun variant(name: String = catalog.name, key: String = catalog.key, license: app.epistola.catalog.protocol.CatalogLicense? = catalog.license) = CatalogInfo.create(
+            key = key,
+            name = name,
+            description = "presented otherwise",
             attributes = catalog.attributes,
-            keywords = catalog.keywords,
+            keywords = setOf("other"),
             presentation = catalog.presentation,
-            license = catalog.license,
+            license = license,
         )
-        assertNotEquals(
-            canonicalizer.fingerprint(catalog, details, null) { null },
-            canonicalizer.fingerprint(renamedCatalog, details, null) { null },
-        )
+        val original = canonicalizer.fingerprint(catalog, details, null) { null }
+        assertEquals(original, canonicalizer.fingerprint(variant(name = "Renamed"), details, null) { null })
+        assertEquals(original, canonicalizer.fingerprint(variant(key = "other-key"), details, null) { null })
+        assertNotEquals(original, canonicalizer.fingerprint(variant(license = app.epistola.catalog.protocol.CatalogLicense("MIT")), details, null) { null })
     }
 
     @Test
