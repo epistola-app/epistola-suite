@@ -53,6 +53,7 @@ import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListReleasesWithSameContent
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.releases.CatalogDraft
@@ -391,6 +392,8 @@ class CatalogHandler {
             "activeNavSection" to "catalogs"
             "catalogId" to catalogKey.value
             "release" to release
+            // The other releases in the tenant with its content: "The same release as" (ADR 0034).
+            "sameAs" to ListReleasesWithSameContent(tenantId.key, catalogKey, version).query()?.releases.orEmpty()
             "releaseView" to summary?.let { releaseViews(listOf(it), publication).single() }
             "draftBar" to bar
             "liveIn" to bar.liveIn[version].orEmpty()
