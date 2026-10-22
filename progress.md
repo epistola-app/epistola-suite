@@ -21,6 +21,49 @@ against those ADRs.
 
 ## Touched
 
+### Which releases a draft lacks, drawn (22 October; branch `refactor/catalog-releases`, not pushed)
+
+Reported in the demo (`test`/`default`, next release on 1.2.1, lacking 1.0.1 and 1.1.1): both pages
+printed one sentence per release ("v1.0.1 was published in between and is not in the next release
+…"), and two of them read as a puzzle ("why two?"). The catalog's page and the draft's page each had
+their own copy of that block, which had already drifted once (Merge… only on one).
+
+| Change                                                                                                                                                                                                                                                                                                                                                                               | Where                                                                                                           | Coverage                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ReleaseLineage.behindLine` → `BehindLine` (`line`: first parents from the oldest release a lacking one hangs off up to the base; `joined`: merge parents on that stretch and the draft's own merges, `JoinedRelease(version, into)`; `behind`: `BehindBranch(version, madeOn)`, null when made on nothing drawn here)                                                               | `releases/ReleaseLineage.kt`, `releases/BehindLine.kt`                                                          | ✅ `BehindLineTest` (7, unit: demo shape, one missing, merged into the line, merged into the draft, received from elsewhere / no base, a chain of missing ones, from nothing)                                                                           |
+| `BehindRelease.base` (as its line names it) and `releasedAt`; `ReleasedChange.name` (the release's name for it, a removed one by its base's); `CatalogRelease.behindLine`, filled with `behind`                                                                                                                                                                                      | `releases/CatalogReleases.kt`, `releases/ListCatalogReleases.kt`                                                | ✅ `ReleaseMergeParentsTest` +2 (the demo's shape through `GetCatalogDraft(withBehind)`, and with 1.0.1 merged into 1.2.0); `ReleaseBaseTest`, `SeveralDraftsTest` now assert the names                                                                 |
+| One fragment for both pages, `catalogs/behind.html` (testids kept): one release a sentence ("v1.0.1 was made on v1.0.0 and is not in the next release: it changed Brand 2."); several a group: title with the count, why, a server-drawn SVG (`role="img"`, `aria-label`), a row each (version linked to its page, made on, published, what changed, Merge…), the withheld hint once | `catalogs/behind.html`, `overview.html`, `next-release.html`, `CatalogBehindView.kt`, `CatalogDraftBar.missing` | ✅ `CatalogBehindHtmxTest` (3, both pages each: one missing, two missing, a viewer without the content author role); all 3 failed before. `CatalogBehindViewTest` (6, unit: wording, layout without overlaps, joined above, folding, unattached dashed) |
+| Measuring what a draft is behind reads each release's content on the handle it already holds (`ReleaseContentAssembler.assemble(handle, …)`), not a second connection: with the new pages, concurrent page loads held one connection each and waited for a second, and the test pool (8) ran dry | `revisions/ReleaseContentAssembler.kt`, `releases/ListCatalogReleases.kt` | ✅ the app set below (26 classes, 173 tests) failed twice with 7 `HikariPool … Connection is not available` (in tenant setup) before, passed twice after; without `CatalogBehindHtmxTest` it passed before too |
+| Docs (`catalog-versioning.md`, Behind), changelog (merge fragment, one sentence)                                                                                                                                                                                                                                                                                                     | docs, changelog                                                                                                 | ➖                                                                                                                                                                                                                                                      |
+
+**Decisions where the task left room:**
+
+- **The "why" line** does not say "after it started": in the demo 1.0.1 was published before 1.2.0,
+  and behind is by lineage, not time. It says "They were published from separate work on earlier
+  releases and never taken into the next release."
+- **Where it was made:** "made on v1.0.0"; for a base this catalog does not have "received from
+  elsewhere, made on v0.9.0"; for none "started from nothing", as the Releases table says.
+- **The drawing:** the line in a row ending in the draft; lacking releases below, off the release
+  they were made on (dashed amber edge, amber box, "not in it"); merged-in releases above, joined
+  where they were taken in ("merged in"); a lacking release made on nothing drawn here is a dashed box
+  without an edge; three or more line releases in a row with nothing off them fold into "n more". A
+  merged-in release's own base is not connected: the extra edge shared a vertical with another join
+  and read as a T-junction. Captions carry a halo so an edge through them stays readable.
+- **Names:** what a release changed is said by name (from its content), grouped as changed, added
+  and removed, at most five names per kind.
+
+**Noticed, left alone:**
+
+- The overview's next-release box says "Everything is published, as v1.1.1." when the highest
+  release is a fix from other work the next release lacks (`CatalogDraftBar.latestPublished` is the
+  highest release, not the next release's base). Seen in `CatalogBehindHtmxTest`'s catalog; in the
+  demo the highest release is the base, so it does not show there.
+- MCP `list_catalog_releases` `behind` and REST `BehindReleaseDto` still carry only the version and
+  changes; the base and publication time are web UI only (REST needs a contract change).
+- Running `:apps:epistola:integrationTest` rebuilds `apps/epistola/build/libs/epistola-dev-plain.jar`,
+  which a demo started with `bootRun` from the same worktree reads: its static files answered 500
+  afterwards until restarted.
+
 ### Catalog-level changes are changes of the next release (22 October; branch `feat/release-visibility`, not pushed)
 
 Reported in the demo: `default` (everything published) declared `system` (locked to 2.0.1), and its

@@ -63,7 +63,7 @@ data class MergeSideView(val label: String, val json: String?, val testId: Strin
 
 /**
  * Merging a published version into the draft a page works in (ADR 0032, section 5; alpha), from
- * the "Published since you started" list on the draft's page (`catalogs/next-release.html`). The
+ * the releases a draft lacks on its page and the catalog's page (`catalogs/behind.html`). The
  * dialog previews what merging does per resource ([PreviewDraftMerge]) and asks a side for each
  * conflict; submitting runs [MergeReleaseIntoDraft]. A conflict can be compared on its three sides
  * ([GetDraftMergeSides]), read-only: combining them is for MCP and REST, as merged content.

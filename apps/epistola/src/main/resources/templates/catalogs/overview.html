@@ -25,30 +25,8 @@
                 <span th:text="${nextReleaseError}"></span>
             </div>
 
-            <!--/* Published in between and not in the next release: said plainly, with what changed. */-->
-            <div th:unless="${bar.behind.isEmpty()}" class="alert alert-warning" style="margin-bottom: var(--ep-space-4);"
-                 data-testid="catalog-draft-behind-list">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                <div>
-                    <p th:each="release : ${bar.behind}" style="margin: 0;"
-                       data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
-                        <strong th:text="'v' + ${release.version}">v1.2.1</strong> was published in between and is not in the next release<span th:unless="${release.changes.isEmpty()}"
-                            th:text="': it changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
-                        <th:block th:if="${readiness.offerMerge}">Merge it to bring its changes in, or make the same change here yourself.</th:block>
-                        <th:block th:unless="${readiness.offerMerge}">Make the same change here if it belongs in it too.</th:block>
-                        <!--/* The same offer as the draft's page: merging (ADR 0032) is alpha and shows what it would do first. */-->
-                        <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                style="margin-left: var(--ep-space-2);"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${release.version})}"
-                                hx-target="#dialog-mount" hx-swap="innerHTML"
-                                data-testid="catalog-merge-open" th:data-version="${release.version}">Merge…</button>
-                    </p>
-                    <p th:if="${readiness.mergeWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
-                       data-testid="catalog-merge-withheld">
-                        Merging a published release into this draft needs the content author role.
-                    </p>
-                </div>
-            </div>
+            <!--/* Published releases the next release lacks, as the draft's page shows them (catalogs/behind.html). */-->
+            <th:block th:replace="~{catalogs/behind :: behind}"></th:block>
 
             <div class="ep-auto-grid catalog-boxes">
                 <!--/* Nothing open: the way to start again. */-->

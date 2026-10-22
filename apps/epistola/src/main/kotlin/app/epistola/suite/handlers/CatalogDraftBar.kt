@@ -205,12 +205,32 @@ data class CatalogDraftBar(
     /** Publishing is withheld because the viewer may not publish; the bar says so instead of hiding it. */
     val publishWithheld: Boolean get() = isNext && !mayDiscardDrafts
 
+    /** The chosen draft measured for what it is behind. Measured when a page shows it: it compares the draft with its base. */
+    private val measured: CatalogRelease? by lazy {
+        chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query() }
+    }
+
     /**
      * The releases the chosen draft is behind for the number it would be released as, lowest first,
-     * each with what it changed. Measured when a page shows it: it compares the draft with its base.
+     * each with what it changed.
      */
-    val behind: List<app.epistola.suite.catalog.releases.BehindRelease> by lazy {
-        chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query()?.behind }.orEmpty()
+    val behind: List<app.epistola.suite.catalog.releases.BehindRelease> get() = measured?.behind.orEmpty()
+
+    /**
+     * The releases the chosen draft lacks as its own page and the catalog's page both show them
+     * (`catalogs/behind.html`): a sentence for one, a group with a drawing of its line for several.
+     */
+    val missing: CatalogBehindView by lazy {
+        val draft = chosen ?: return@lazy CatalogBehindView.NONE
+        CatalogBehindView.of(
+            tenantKey = tenantKey,
+            catalogKey = catalogKey,
+            draftLabel = draft.label,
+            isNext = draft.isNext,
+            behind = behind,
+            line = measured?.behindLine,
+            released = releases.mapNotNull { it.version }.toSet(),
+        )
     }
 
     /** Whether to offer starting parallel work. */

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* The published releases a draft lacks (ADR 0032), from one place for the catalog's page
+           (catalogs/overview.html) and the draft's page (catalogs/next-release.html), so the two
+           cannot drift apart. One release is a sentence with Merge…. Several are a group: a title with
+           the count, why, a drawing of the line the draft continues with each of them off the release
+           it was made on (drawn on the server, CatalogBehindView), and a row each saying the same as
+           text, oldest first.
+
+           Model: `tenantId`, `catalogId` (the catalog segment), `readiness` (CatalogReleaseReadiness).
+           What is shown comes from `readiness.drafts.missing`; Merge… gates on `readiness.offerMerge`
+           and the hint for a viewer who may not merge on `readiness.mergeWithheld`. */-->
+    <th:block th:fragment="behind" th:with="missing=${readiness.drafts.missing}">
+
+        <!--/* One release: said in a sentence, with where it was made and what it changed. */-->
+        <div th:if="${missing.single != null}" th:with="row=${missing.single}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+             data-testid="catalog-draft-behind-list">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <p style="margin: 0;" data-testid="catalog-draft-behind-release" th:data-version="${row.version}">
+                    <a th:href="${row.href}"><strong th:text="'v' + ${row.version}">v1.0.1</strong></a>
+                    <span th:text="${row.summary}">was made on v1.0.0 and is not in the next release: it changed Invoice.</span>
+                    <th:block th:if="${readiness.offerMerge}">Merge it to bring its changes in, or make the same change here yourself.</th:block>
+                    <th:block th:unless="${readiness.offerMerge}">Make the same change here if it belongs in it too.</th:block>
+                    <!--/* Merging is alpha: it opens a dialog that shows what it would do first. */-->
+                    <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                            style="margin-left: var(--ep-space-2);"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
+                            hx-target="#dialog-mount" hx-swap="innerHTML"
+                            data-testid="catalog-merge-open" th:data-version="${row.version}">Merge…</button>
+                </p>
+                <p th:if="${readiness.mergeWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
+                   data-testid="catalog-merge-withheld">
+                    Merging a published release into this draft needs the content author role.
+                </p>
+            </div>
+        </div>
+
+        <!--/* Several: the count, why, the drawing, and a row each with Merge…. */-->
+        <div th:if="${missing.several}" class="alert alert-warning" style="margin-bottom: var(--ep-space-3);"
+             data-testid="catalog-draft-behind-list">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <!--/* min-width: 0, so the drawing scrolls inside its own box instead of widening the page. */-->
+            <div style="flex: 1 1 auto; min-width: 0;">
+                <div class="alert-title" data-testid="catalog-draft-behind-title" th:text="${missing.title}">2 releases are not in the next release yet</div>
+                <p style="margin: 0;">
+                    <th:block th:text="${missing.why}">They were published from separate work on earlier releases and never taken into the next release.</th:block>
+                    <th:block th:if="${readiness.offerMerge}">Merge the ones that belong in it.</th:block>
+                    <th:block th:unless="${readiness.offerMerge}">Make the same changes here for the ones that belong in it.</th:block>
+                </p>
+
+                <div th:replace="~{catalogs/behind :: diagram(view=${missing.diagram})}"></div>
+
+                <ul style="list-style: none; margin: var(--ep-space-2) 0 0; padding: 0;">
+                    <li th:each="row : ${missing.rows}" data-testid="catalog-draft-behind-release" th:data-version="${row.version}"
+                        style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ep-space-1) var(--ep-space-3); padding: var(--ep-space-2) 0; border-top: 1px solid var(--ep-amber-200);">
+                        <div style="min-width: 0;">
+                            <a th:href="${row.href}"><strong th:text="'v' + ${row.version}">v1.0.1</strong></a>
+                            <span data-testid="catalog-draft-behind-made-on" th:text="${row.madeOn}">made on v1.0.0</span><th:block th:if="${row.publishedAt != null}"> ·
+                            <span th:text="'published ' + ${#temporals.format(row.publishedAt, 'yyyy-MM-dd')}">published 2026-10-01</span></th:block>
+                            <div th:if="${row.changed != null}" th:text="${#strings.capitalize(row.changed)}">Changed Invoice</div>
+                        </div>
+                        <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
+                                hx-target="#dialog-mount" hx-swap="innerHTML"
+                                data-testid="catalog-merge-open" th:data-version="${row.version}">Merge…</button>
+                    </li>
+                </ul>
+                <p th:if="${readiness.mergeWithheld}" class="form-hint" style="margin: var(--ep-space-1) 0 0;"
+                   data-testid="catalog-merge-withheld">
+                    Merging a published release into this draft needs the content author role.
+                </p>
+            </div>
+        </div>
+    </th:block>
+
+    <!--/* The line the draft continues, left to right and ending in the draft; each release it lacks
+           below, off the release it was made on, in the warning colour and marked "not in it"; each
+           release merged in above, joined where it was taken in. Its box scrolls sideways when the
+           drawing is wider than the page. `view` is a BehindDiagram, or null for none. */-->
+    <th:block th:fragment="diagram(view)">
+        <div th:if="${view != null}" role="region" aria-label="Where these releases were made" tabindex="0"
+             style="overflow-x: auto; margin: var(--ep-space-3) 0 var(--ep-space-1); background: var(--ep-card); border: 1px solid var(--ep-amber-200); border-radius: var(--ep-radius-md);"
+             data-testid="catalog-draft-behind-diagram">
+            <svg xmlns="http://www.w3.org/2000/svg" role="img"
+                 th:attr="aria-label=${view.description},viewBox='0 0 ' + ${view.width} + ' ' + ${view.height},width=${view.width},height=${view.height}"
+                 style="display: block; max-width: none; font-family: inherit;">
+                <path th:each="edge : ${view.edges}" th:attr="d=${edge.path}"
+                      th:style="${edge.toBehind} ? 'fill: none; stroke: var(--ep-warning); stroke-width: 1.5; stroke-dasharray: 4 3;' : 'fill: none; stroke: var(--ep-muted-foreground); stroke-width: 1.5;'"/>
+                <g th:each="node : ${view.nodes}" data-testid="catalog-draft-behind-node"
+                   th:attr="data-version=${node.version},data-kind=${#strings.toLowerCase(node.kind.name())}">
+                    <title th:text="${node.title}">v1.0.1, made on v1.0.0: not in it</title>
+                    <th:block th:switch="${node.kind.name()}">
+                        <rect th:case="'LINE'" th:attr="x=${node.x},y=${node.y},width=${node.width},height=${node.height}" rx="6"
+                              style="fill: var(--ep-card); stroke: var(--ep-border-color);"/>
+                        <rect th:case="'FOLDED'" th:attr="x=${node.x},y=${node.y},width=${node.width},height=${node.height}" rx="6"
+                              style="fill: var(--ep-card); stroke: var(--ep-border-color); stroke-dasharray: 3 3;"/>
+                        <rect th:case="'DRAFT'" th:attr="x=${node.x},y=${node.y},width=${node.width},height=${node.height}" rx="6"
+                              style="fill: var(--ep-terracotta-50); stroke: var(--ep-primary); stroke-width: 2;"/>
+                        <rect th:case="'JOINED'" th:attr="x=${node.x},y=${node.y},width=${node.width},height=${node.height}" rx="6"
+                              style="fill: var(--ep-muted); stroke: var(--ep-border-color);"/>
+                        <rect th:case="'BEHIND'" th:attr="x=${node.x},y=${node.y},width=${node.width},height=${node.height}" rx="6"
+                              th:style="'fill: var(--ep-amber-100); stroke: var(--ep-warning); stroke-width: 2;' + (${node.unattached} ? ' stroke-dasharray: 4 3;' : '')"/>
+                    </th:block>
+                    <text th:attr="x=${node.centerX},y=${node.textY}" text-anchor="middle"
+                          th:style="'font-size: 12px; font-weight: ' + (${node.kind.name() == 'DRAFT' or node.kind.name() == 'BEHIND'} ? '600' : '500') + '; fill: ' + (${node.kind.name() == 'BEHIND'} ? 'var(--ep-amber-800)' : (${node.kind.name() == 'FOLDED'} ? 'var(--ep-muted-foreground)' : 'var(--ep-card-foreground)')) + ';'"
+                          th:text="${node.label}">v1.0.1</text>
+                    <text th:if="${node.caption != null}" th:attr="x=${node.centerX},y=${node.captionY}" text-anchor="middle"
+                          th:style="'font-size: 11px; paint-order: stroke; stroke: var(--ep-card); stroke-width: 4px; stroke-linejoin: round; fill: ' + (${node.kind.name() == 'BEHIND'} ? 'var(--ep-amber-800)' : 'var(--ep-muted-foreground)') + ';'"
+                          th:text="${node.caption}">not in it</text>
+                </g>
+            </svg>
+        </div>
+    </th:block>
+</body>
+</html>
