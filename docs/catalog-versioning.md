@@ -385,6 +385,16 @@ deployments and version ranges use.
   fingerprint or content hash, whatever its number: a line survives a release received under
   another number.
 - **Pins** copy the pinned release's content hash.
+- **People see it on the release page.** "Content fingerprint" shows the content hash, short with the
+  whole of it in the title and a copy button, or "Being computed" while a release recorded before
+  content hashes waits for the backfill (the page computes nothing). Such a release also shows its
+  "Original fingerprint", saying it "was recorded before content fingerprints and has been given
+  one". "The same release as" links the other releases of the tenant with the same content hash, in
+  any catalog and under any number (a release re-released with only new notes, the same content in
+  another catalog): `ListReleasesWithSameContent`, which reads only what is recorded, so a release
+  whose hash is not computed yet is not listed. MCP `list_catalog_releases` returns each release's
+  `contentHash`; the REST API's release DTOs show the recorded fingerprint only (no field in the
+  contract yet).
 - The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release
   under its catalog and number, which in ADR 0034's terms is the binding of that number to the hash.
 
@@ -472,7 +482,8 @@ or namespace, so renaming or mirroring a dependency changes the declaration, not
 declares every dependency under its key, the contract's default (`catalog_dependencies.alias`,
 `catalog_release_dependencies.alias`, `V20261022101420`), and refuses an archive that declares one
 under another alias (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would rewrite its references
-and so change its content hash. A reference resolves through the declaration of its alias to that
+and so change its content hash. The draft page's Dependencies table shows each declaration's alias
+("Named in content as") next to its namespace and key. A reference resolves through the declaration of its alias to that
 catalog, by its full name, and to the release the declaration pins. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
