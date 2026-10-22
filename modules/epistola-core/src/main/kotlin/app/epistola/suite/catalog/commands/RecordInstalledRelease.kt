@@ -121,6 +121,10 @@ class RecordInstalledReleaseHandler(
                 .mapTo(Boolean::class.java)
                 .one()
         }
+        // The installed version carries the archive's theme settings (contract ADR 0007), so its
+        // release, rebuilt or not, renders with its default theme. Before the baseline: they are the
+        // release's, not changes of the next version's own.
+        if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
         // The installed release is in place in the next version: what it holds now is the baseline
         // its own changes are measured from (ADR 0032).
         if (command.release == null) nextVersionChanges.recordBaseline(command.tenantKey, command.catalogKey)
@@ -128,9 +132,6 @@ class RecordInstalledReleaseHandler(
         val received = command.received?.takeIf { it.version == version }
         val renderingDefaults = received?.let { receivedReleases.renderingDefaultsVersion(command.catalogKey, it) } ?: RenderingDefaults.CURRENT.version
 
-        // The installed version carries the archive's theme settings (contract ADR 0007), so its
-        // release, rebuilt or not, renders with its default theme.
-        if (command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
         // What the release keeps, with the bundled faces of its fonts, and so what everything recorded of
         // it is computed over: each entry's fingerprint, and a fingerprint or content hash computed here.
         // Computed over the content without them, those named fonts without faces that the release holds.
