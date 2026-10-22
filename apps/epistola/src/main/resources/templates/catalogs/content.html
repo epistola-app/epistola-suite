@@ -103,11 +103,14 @@
             <p th:if="${dependenciesWithheld}" class="form-hint" data-testid="catalog-dependencies-edit-withheld">Changing dependencies needs the content author role.</p>
             <table th:unless="${readiness.borrowing.catalogs.isEmpty()}" class="ep-table">
                 <thead>
-                    <tr><th>Catalog</th><th>Used here</th><th>Release</th></tr>
+                    <!--/* "Named in content as" as on the draft's Dependencies table (ADR 0034): what a
+                           reference into the catalog names, its alias. Here always its key. */-->
+                    <tr><th>Catalog</th><th title="What the templates, themes and stencils of this catalog call it">Named in content as</th><th>Used here</th><th>Release</th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="borrowed : ${readiness.borrowing.catalogs}" data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
                         <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.catalogKey})}" th:text="${borrowed.name}">Shared</a></td>
+                        <td data-testid="catalog-borrowed-alias"><code th:text="${borrowed.alias}">shared</code></td>
                         <td data-testid="catalog-borrowed-uses">
                             <th:block th:if="${borrowed.used}" th:each="used, stat : ${borrowed.uses}"><span th:text="${used.name ?: used.key}">Brand</span>
                                 <span class="text-muted" th:text="'(' + ${readiness.labelOf(used.type)} + ')'">(Theme)</span><th:block th:unless="${stat.last}">, </th:block></th:block>

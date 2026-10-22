@@ -96,6 +96,11 @@ data class BorrowedCatalog(
      * changes the interface of something nobody here uses still fits.
      */
     val newerBreaks: List<UseBreak> = emptyList(),
+    /**
+     * The name this version's content uses for it (ADR 0034): the alias it is declared under, or, for
+     * a catalog used but not declared, the key its references name.
+     */
+    val alias: String = catalogKey,
 ) {
     val used: Boolean get() = uses.isNotEmpty()
 
@@ -173,7 +178,7 @@ class GetCatalogBorrowingHandler(
             } else {
                 emptyList()
             }
-            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, declaration?.draftId, declaration?.draftName, latest, newerBreaks)
+            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, declaration?.draftId, declaration?.draftName, latest, newerBreaks, alias = declaration?.alias ?: key)
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
         val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }

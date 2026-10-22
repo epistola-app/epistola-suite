@@ -107,6 +107,21 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             .`as`("creating is the catalog's: there is no create outside one").isEqualTo(404)
     }
 
+    /**
+     * Where people add a dependency, its "Depends on" table names it as the content does (ADR 0034),
+     * in the same column, with the same header, as the draft's Dependencies table.
+     */
+    @Test
+    fun `the Dependencies page shows the name the content uses for each catalog it depends on`() {
+        val tenant = seed("Workspace Dependency Alias")
+
+        val table = get(tenant, "/catalogs/letters/dependencies").substringAfter("data-testid=\"catalog-borrowed\"").substringBefore("</table>")
+
+        assertThat(table).contains("<th title=\"What the templates, themes and stencils of this catalog call it\">Named in content as</th>")
+        val row = table.substringAfter("data-testid=\"catalog-borrowed-catalog\" data-catalog=\"shared\"").substringBefore("</tr>")
+        assertThat(row.substringAfter("data-testid=\"catalog-borrowed-alias\"").substringBefore("</td>")).isEqualTo("><code>shared</code>")
+    }
+
     @Test
     fun `the Dependencies page says what a catalog depends on and what depends on it, and changing them lands back there`() {
         val tenant = seed("Workspace Dependencies")
