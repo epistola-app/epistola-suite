@@ -203,8 +203,9 @@ until it is released**; only releases are numbered.
   comes from the draft's merges (`MERGED` in `catalog_draft_merges.resolutions`, read by
   `ReadyMarks.mergedAwaitingReview`) and lasts until every part of the resource is marked ready at or
   after the latest merge that merged it; an edit alone does not end it, and a later merge that takes
-  the release's side marks it ready. MCP `get_catalog_changes` returns it as `mergedForReview`; REST
-  `getCatalogChanges` has no such field in the contract yet. The merge returns it as `merged`.
+  the release's side marks it ready. MCP `get_catalog_changes` and REST `getCatalogChanges` return it
+  per resource as `mergedForReview`, and neither calls the draft `releasable` while one awaits review.
+  The merge returns it as `merged`.
   Surfaces: MCP `get_merge_sides` and `merge_release`'s `mergedContent`; REST `getCatalogDraftMergeSides`
   (`GET …/releases/{draft}/merge-sides?version=&entry=`) and `mergeIntoCatalogDraft`'s
   `mergedContent`; the web UI's merge dialog shows a conflict's three sides read-only ("Compare") and
@@ -347,14 +348,18 @@ release a draft and make one the next release (see [`mcp.md`](mcp.md)).
   releases (an import, the Exchange, a registry) and orders them as SemVer does wherever releases
   are ordered or compared: above the release they fix and below the holder's next (`1.3.0` <
   `1.3.1-bureau.9` < `1.3.1-gemeente-x.1` < `1.3.1-gemeente-x.2` < `1.3.1`), in the catalog's highest
-  release, the latest, the release lists, behind and the merge base, and what a version range picks:
-  a patch release satisfies a range as a release does, by precedence (`^1.3.0` matches it, `1.3.1`
-  and `~1.3.1` do not), not as an npm pre-release, which a range naming none leaves out
-  (`CatalogReleaseSelector`). SQL orders by the generated `version_major`, `version_minor`,
-  `version_patch`, `version_label` (ASCII) and `version_label_number` (`releaseNumberOrder`).
-  **Issuing** one is ADR 0034's phase 5, with the rule of who may issue which: releasing here, in
-  the UI, over REST and MCP, still takes `MAJOR.MINOR.PATCH` (`CatalogReleaseVersionException`), and
-  the REST API's `ReleaseVersion` cannot name a patch release yet (contract follow-up).
+  release, the latest, the release lists, behind and the merge base. What a version range picks
+  follows the contract (`versionRange`, amendment of 2026-10-22): a patch release satisfies a range as
+  an npm pre-release does, only when a comparator names a patch release of the same `MAJOR.MINOR.PATCH`
+  (`>=1.3.1-gemeente-x.1`, `^1.3.1-gemeente-x.1`, or its exact number), and then by precedence;
+  `^1.3.0`, `~1.3.0` and `1.3.1` never pick one (`CatalogReleaseSelector`; a range is up to 256
+  characters, `CatalogReleaseSelector.MAX_LENGTH`). SQL orders by the generated `version_major`,
+  `version_minor`, `version_patch`, `version_label` (ASCII) and `version_label_number`
+  (`releaseNumberOrder`). REST names a patch release wherever it names a release, in a path
+  (`…/releases/1.3.1-gemeente-x.1`, a deployment) and in a query (`?version=`). **Issuing** one is ADR
+  0034's phase 5, with the rule of who may issue which: releasing here, in the UI, over REST and MCP,
+  still takes `MAJOR.MINOR.PATCH`, and REST `releaseCatalogDraft` refuses a patch number with 400
+  (`CatalogReleaseVersionException`).
 - **Content fingerprint** is a deterministic lowercase-hex SHA-256 of the
   catalog's canonical content, computed by
   [`CatalogCanonicalizer`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogCanonicalizer.kt)
@@ -405,9 +410,14 @@ deployments and version ranges use.
   one". "The same release as" links the other releases of the tenant with the same content hash, in
   any catalog and under any number (a release re-released with only new notes, the same content in
   another catalog): `ListReleasesWithSameContent`, which reads only what is recorded, so a release
-  whose hash is not computed yet is not listed. MCP `list_catalog_releases` returns each release's
-  `contentHash`; the REST API's release DTOs show the recorded fingerprint only (no field in the
-  contract yet).
+  whose hash is not computed yet is not listed.
+- **The APIs carry it.** REST gives every release its `contentHash` (the release list and page, the
+  result of `releaseCatalogDraft`, a registry's releases, a merge base, a dependency's pinned release,
+  a catalog's highest release; null for a draft and while one is being computed), and
+  `listCatalogReleases?contentHash=` lists the releases with that content: a filter, so none is an
+  empty list, and anything but a `v6:` hash is a 400. MCP `list_catalog_releases` (with the same
+  `contentHash` filter), `release_draft`, `list_catalogs` and `list_catalog_dependencies` return it
+  likewise.
 - The storage is unchanged (ADR 0033 is separate): `catalog_releases` stays the record of a release
   under its catalog and number, which in ADR 0034's terms is the binding of that number to the hash.
 
@@ -499,7 +509,13 @@ and so change its content hash. The draft page's Dependencies table shows each d
 ("Named in content as") next to its namespace and key, and so does the catalog's Dependencies page
 ("Depends on"), where people add one; a catalog used there but not declared shows the key its
 references name. A reference resolves through the declaration of its alias to that
-catalog, by its full name, and to the release the declaration pins. A draft may instead name a **draft** of that catalog
+catalog, by its full name, and to the release the declaration pins. The REST API speaks of
+references the same way (contract ADR 0003): a `CatalogThemeReference` is `{key, catalogKey}`, an
+attribute's `codeListBinding` `{catalogKey, key}` (no `catalogKey` for a code list of the attribute's
+own catalog), a `VariantSelectionAttribute`'s `catalogKey` the alias, none of them with a registry or
+namespace; binding a code list by an alias the draft declares no dependency under is a 400
+(`codeListBinding.catalogKey`). A dependency DTO says its `alias`, and in `updateCatalogDependencies`
+the alias defaults to the key: another one is a 400 (`dependencies[i].alias`) until phase 4. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a
@@ -652,8 +668,11 @@ refuses for a catalog that cannot be changed here and while a changed resource i
 parses + monotonic-checks the SemVer, computes the fingerprint,
 inserts the `catalog_releases` row (with the manifest snapshot and the
 per-resource digests) and advances the catalog pointer — one transaction.
-Releasing content byte-identical to a prior release is allowed (notes-only
-re-release) but logged.
+Over REST (`releaseCatalogDraft`) and MCP (`release_draft`), a draft that changed nothing against its
+base, no resource and no catalog-level content, has nothing to release and is refused
+(`ReleaseCatalogDraft.requireChange`, `CatalogDraftUnchangedException`, REST 409 `conflict` naming the
+`base`), as the contract says. The web UI still releases content byte-identical to a prior release
+(a notes-only re-release), and logs it.
 
 [`GetCatalogReleaseStatus`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/GetCatalogReleaseStatus.kt)
 is the shared primitive (latest version/fingerprint, working fingerprint,
@@ -725,9 +744,12 @@ The bar's and the overview's counts include them. A draft of another catalog tha
 counts as having something to publish (and is published along) when only its settings changed too
 (`GetCatalogBorrowing`), and `ReleaseCatalogDraft` releases such a draft first rather than pinning
 its base. MCP `get_catalog_changes` returns them as `settings` (`entry`, `state`, `name`, and for a
-dependency `releaseVersion`, `draftName`, `baseReleaseVersion`). The REST API's `getCatalogChanges`
-lists resources only: its `dependenciesChanged` says the declarations differ, and the default theme,
-presets and license have no field in the contract yet.
+dependency `releaseVersion`, `draftName`, `baseReleaseVersion`); REST `getCatalogChanges` as
+`catalogChanges` (`type` `catalogDependency` with the alias as `key`, or `catalog` with
+`defaultTheme`, `presets` or `license`; `change` `added`, `modified` or `removed`). Both say
+`dependenciesChanged` when a dependency is among them, and call a draft `releasable` only when
+something changed against its base (a draft without one always has), no changed resource is unready
+and no merged content awaits review.
 
 ## What an environment uses
 
