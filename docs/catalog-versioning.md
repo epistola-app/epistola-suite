@@ -66,8 +66,8 @@ ADR 0032 replaced the catalog types (`AUTHORED`, `SUBSCRIBED`) with the rules be
   fast-forward). With changes of its own (`NextVersionChanges`), the release is recorded beside the
   others and the next release is behind it, to be merged; an upgrade from a source is refused
   (`CatalogHasLocalChangesException`), since it would discard them. Changes are its resources and its
-  catalog settings (`catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`, as a merge
-  compares them), so a next release whose only change is its default theme is not moved along either.
+  catalog settings (`catalog/defaultTheme`, `catalog/presets` and one `catalogDependency/<catalogKey>`
+  per catalog it uses, as a merge compares them), so a next release whose only change is its default theme is not moved along either.
   They are measured against what the next release held when the release was put in place
   (`catalog_versions.base_fingerprints`, set by `RecordInstalledRelease`), else against its base
   release's content, by the [complete fingerprint](#what-changed-resource-by-resource).
@@ -145,8 +145,10 @@ until it is released**; only releases are numbered.
   content.
 - **Merging** (alpha, ADR 0032). A draft takes in a release it is behind with
   `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, and per
-  catalog setting (the default theme, the presets and the dependency declarations, each one entry
-  `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`), against the merge base, the
+  catalog setting (the default theme and the presets, entries `catalog/defaultTheme` and
+  `catalog/presets`, and each catalog it declares it uses, one entry `catalogDependency/<catalogKey>`
+  valued by its declaration: the release it pins with its fingerprint, or the draft it names), against
+  the merge base, the
   closest release both descend from: what only the release changed is taken (written as the release
   has it, or removed), what only the draft changed stays, and an entry both changed differently is a
   conflict the person resolves to one side. Taken resources are marked ready, since they are released
@@ -632,10 +634,20 @@ template per variant or per block, an editor merge tool — adds to it rather th
   keep, write a value, remove). `WholeResourceMerger`, the whole-entry table above
   (`DraftMerge.classifyOne`), serves every type today. `DraftMergePlanner` reads the inputs and
   classifies every entry; the preview shows that plan and the merge applies it, so the two agree.
+- **Dependencies, one entry per catalog** (`CatalogSetting.Dependency`, type `catalogDependency`, keyed
+  by the catalog's key). Adding, removing or re-pinning a dependency is a change of its own, so a
+  release that adds one and a draft that re-pins another merge cleanly; only both sides changing the
+  same catalog differently is a conflict. The entry key is the catalog key, not its full name: the
+  contract's `resourceKey` holds at most 50 characters, which a catalog key always fits, and a key is
+  unique in a tenant; registry and namespace are part of the value. The draft's side reads its own
+  declarations (`MergeInputReader.draftInput`), so one naming a draft of another catalog is valued
+  by that draft. A baseline recorded while the declarations were one entry (`catalog/dependencies`)
+  takes the base's dependency entries in its place (`CatalogSetting.completeBaseline`).
 - **Writer** (`DraftResourceWriter`). Applies the actions to the draft: resources through
   `CatalogResourceInstaller` (the import's own per-type code), marked ready; removals refused while
-  another catalog or the draft itself uses one; settings last, through `SetCatalogDefaultTheme`,
-  `SetCatalogPresets` and the dependency store.
+  another catalog or the draft itself uses one; then the dependency entries, taken or dropped in one
+  replacement of the draft's declarations (the order of the ones it keeps stays); settings last,
+  through `SetCatalogDefaultTheme` and `SetCatalogPresets`.
 - **Merges** (`catalog_draft_merges`). One row per release a draft merged: its merge base, the
   resolutions chosen, what the draft then held of the release (`held_fingerprints`), who and when.
   `CatalogDraft.merged` reads it, so the draft contains the release and is not behind it. Copying a

@@ -188,6 +188,7 @@ data class CatalogReleaseReadiness(
             "font" -> "Font"
             "image" -> "Image"
             "catalog" -> "Catalog setting"
+            "catalogDependency" -> "Catalog used"
             else -> type.replaceFirstChar { it.uppercase() }
         }
 

@@ -22,8 +22,8 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Merges [release] into a draft (ADR 0032, alpha): the draft the command targets, or the catalog's
- * next version. Per resource and per catalog setting (its default theme, presets and dependency
- * declarations, [CatalogSetting]), as [PreviewDraftMerge] classifies it:
+ * next version. Per resource and per catalog setting (its default theme, its presets and each catalog
+ * it declares it uses, [CatalogSetting]), as [PreviewDraftMerge] classifies it:
  *
  * - what only the release changed is taken from it: written as the release has it, or removed;
  * - what only the draft changed stays;
@@ -128,7 +128,7 @@ class MergeReleaseIntoDraftHandler(
             sides.contentKey to mergers.of(sides.type).plan(sides, classified, command.resolutions[sides.contentKey])
         }.filterValues { it != MergeAction.Keep }
         val (writes, after) = targeting.within(draft.versionId) {
-            writer.apply(tenantKey, catalogKey, command.release, draft.label, actions) to inputs.input(catalogKey, contentBuilder.build(tenantKey, catalogKey))
+            writer.apply(tenantKey, catalogKey, command.release, draft.label, actions) to inputs.draftInput(tenantKey, catalogKey)
         }
         val resolutions = objectMapper.writeValueAsString(command.resolutions.toSortedMap().mapValues { it.value.wire })
         val held = fingerprints.storeBaseline(held(plan, actions, after.fingerprints))

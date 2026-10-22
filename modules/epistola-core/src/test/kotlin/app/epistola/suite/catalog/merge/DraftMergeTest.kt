@@ -57,4 +57,19 @@ class DraftMergeTest {
             mapOf("theme/x" to MergeOutcome.CONFLICT, "theme/y" to MergeOutcome.OURS, "theme/z" to MergeOutcome.THEIRS),
         )
     }
+
+    @Test
+    fun `a baseline recorded while the dependencies were one entry takes the base's dependency entries`() {
+        val base = mapOf("theme/a" to "1", "catalog/defaultTheme" to "d", "catalog/presets" to "p", "catalogDependency/shared" to "s1")
+
+        val legacy = mapOf("theme/a" to "held", "catalog/defaultTheme" to "d", "catalog/presets" to "p", "catalog/dependencies" to "all")
+        assertThat(CatalogSetting.completeBaseline(legacy, base))
+            .isEqualTo(mapOf("theme/a" to "held", "catalog/defaultTheme" to "d", "catalog/presets" to "p", "catalogDependency/shared" to "s1"))
+
+        val beforeSettings = mapOf("theme/a" to "held")
+        assertThat(CatalogSetting.completeBaseline(beforeSettings, base)).`as`("one from before settings were merged").isEqualTo(base + ("theme/a" to "held"))
+
+        val current = mapOf("theme/a" to "held", "catalog/defaultTheme" to "d", "catalog/presets" to "p")
+        assertThat(CatalogSetting.completeBaseline(current, base)).`as`("a dependency it did not hold stays absent").isEqualTo(current)
+    }
 }

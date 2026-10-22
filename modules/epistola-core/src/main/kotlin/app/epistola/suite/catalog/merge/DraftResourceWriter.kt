@@ -60,15 +60,38 @@ class DraftResourceWriter(
         val resources = writes.mapNotNull { (key, value) -> (value as? MergeValue.Resource)?.let { key to it } }
             .sortedBy { (_, value) -> RESOURCE_INSTALL_ORDER[value.resource.type] ?: 99 }
         val settings = writes.mapNotNull { (key, value) -> (value as? MergeValue.Setting)?.let { key to it.setting } }
-        val removals = actions.filterValues { it == MergeAction.Remove }.keys.toList()
+        val removed = actions.filterValues { it == MergeAction.Remove }.keys.toList()
+        val (droppedDependencies, removals) = removed.partition(CatalogSetting::isSettingKey)
+        val (dependencies, otherSettings) = settings.partition { (_, setting) -> setting is CatalogSetting.Dependency }
 
         resources.forEach { (key, value) -> write(tenantKey, catalogKey, release, key, value) }
         remove(tenantKey, catalogKey, release, draftLabel, removals)
-        // Declarations before the default theme, which declares the catalog of a theme it names.
-        settings.sortedBy { (_, setting) -> if (setting is CatalogSetting.Dependencies) 0 else 1 }
-            .forEach { (key, setting) -> writeSetting(tenantKey, catalogKey, release, key, setting) }
+        // Declarations before the default theme, which may name a theme of a catalog they declare.
+        writeDependencies(tenantKey, catalogKey, release, dependencies.map { it.second as CatalogSetting.Dependency }, droppedDependencies)
+        otherSettings.forEach { (key, setting) -> writeSetting(tenantKey, catalogKey, release, key, setting) }
 
-        DraftWrites(written = resources.map { it.first } + settings.map { it.first }, removed = removals)
+        DraftWrites(written = resources.map { it.first } + settings.map { it.first }, removed = removed)
+    }
+
+    /**
+     * The draft's dependency declarations with [taken] written as the release declares them (in place
+     * of the draft's declaration of that catalog, or added after the others) and [dropped]
+     * (`catalogDependency/<catalogKey>`) removed, in one replacement, so a cycle is refused once.
+     */
+    private fun writeDependencies(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, taken: List<CatalogSetting.Dependency>, dropped: List<String>) {
+        if (taken.isEmpty() && dropped.isEmpty()) return
+        val gone = dropped.map { it.substringAfter('/') }.toSet()
+        val byCatalog = taken.associate { it.declaration.catalogKey to it.declaration }
+        try {
+            jdbi.useHandle<Exception> { handle ->
+                val current = dependencyStore.declarations(handle, tenantKey, catalogKey)
+                val kept = current.filter { it.catalogKey !in gone }.map { byCatalog[it.catalogKey] ?: it }
+                val added = taken.map { it.declaration }.filter { declaration -> current.none { it.catalogKey == declaration.catalogKey } }
+                dependencyStore.replace(handle, tenantKey, catalogKey, kept + added)
+            }
+        } catch (e: ValidationException) {
+            throw MergeRefusedException(catalogKey, "Could not take the catalogs $release uses: ${e.message}")
+        }
     }
 
     /** Writes one resource as [value] holds it, and marks it ready. */
@@ -123,7 +146,7 @@ class DraftResourceWriter(
             when (setting) {
                 is CatalogSetting.DefaultTheme -> SetCatalogDefaultTheme(tenantKey, catalogKey, setting.theme).execute()
                 is CatalogSetting.Presets -> SetCatalogPresets(tenantKey, catalogKey, setting.presets).execute()
-                is CatalogSetting.Dependencies -> jdbi.useHandle<Exception> { dependencyStore.replace(it, tenantKey, catalogKey, setting.declarations) }
+                is CatalogSetting.Dependency -> error("dependencies are written together")
             }
         } catch (e: ValidationException) {
             throw MergeRefusedException(catalogKey, "Could not take ${setting.label.lowercase()} ($key) of $release: ${e.message}")

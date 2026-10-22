@@ -69,7 +69,7 @@ data class MergeResource(
     val contentKey: String get() = "$type/$key"
 
     /** Whether this is one of the catalog's settings ([CatalogSetting]) rather than a resource. */
-    val isSetting: Boolean get() = type == CatalogSetting.TYPE
+    val isSetting: Boolean get() = CatalogSetting.isSettingType(type)
 }
 
 /**

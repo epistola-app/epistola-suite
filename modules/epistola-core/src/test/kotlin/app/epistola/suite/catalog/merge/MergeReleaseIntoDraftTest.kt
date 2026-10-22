@@ -284,7 +284,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     }
 
     private companion object {
-        /** The catalog settings a merge compares beside the resources, here changed by neither side. */
-        val UNCHANGED_SETTINGS = listOf("defaultTheme", "presets", "dependencies").associate { "catalog/$it" to MergeOutcome.UNCHANGED }
+        /** The catalog settings a merge compares beside the resources, here changed by neither side (no catalog declares a dependency). */
+        val UNCHANGED_SETTINGS = listOf("defaultTheme", "presets").associate { "catalog/$it" to MergeOutcome.UNCHANGED }
     }
 }

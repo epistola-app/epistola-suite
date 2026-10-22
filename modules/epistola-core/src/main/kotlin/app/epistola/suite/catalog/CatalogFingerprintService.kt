@@ -95,10 +95,11 @@ class CatalogFingerprintService(
 
     /**
      * Every entry of [content] a merge compares, by `type/key`: its resources ([resourceFingerprints])
-     * and its settings (`catalog/<key>`, [app.epistola.suite.catalog.merge.CatalogSetting]).
+     * and its settings ([app.epistola.suite.catalog.merge.CatalogSetting]: `catalog/<key>`, and
+     * `catalogDependency/<catalogKey>` per catalog it declares).
      */
     fun entryFingerprints(catalogKey: CatalogKey, content: CatalogContent): Map<String, String> = resourceFingerprints(content) +
-        app.epistola.suite.catalog.merge.CatalogSetting.of(catalogKey, content).associate { "${app.epistola.suite.catalog.merge.CatalogSetting.TYPE}/${it.key}" to settingFingerprint(it.canonical) }
+        app.epistola.suite.catalog.merge.CatalogSetting.of(catalogKey, content).associate { it.contentKey to settingFingerprint(it.canonical) }
 
     /**
      * [fingerprints] as a stored baseline (`catalog_versions.base_fingerprints`,

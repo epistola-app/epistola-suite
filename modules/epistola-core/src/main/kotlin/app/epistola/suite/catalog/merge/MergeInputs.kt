@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDrafts
@@ -26,12 +27,19 @@ import org.springframework.stereotype.Component
 
 /**
  * A setting of a catalog version that a release holds beside its resources (contract ADR 0007 and
- * 0003), merged as one entry `catalog/<key>` like a resource. The catalog's name, description and
- * presentation are catalog-wide, not a version's, so they are not merged.
+ * 0003), merged as one entry like a resource: `catalog/<key>` for the default theme and the presets,
+ * `catalogDependency/<catalogKey>` for each catalog it declares it uses. The catalog's name,
+ * description and presentation are catalog-wide, not a version's, so they are not merged.
  */
 sealed interface CatalogSetting {
-    /** Its key under [TYPE]: `catalog/<key>` names it in a merge. */
+    /** The entry type it is merged under: [TYPE], or [DEPENDENCY_TYPE] for a dependency. */
+    val type: String get() = TYPE
+
+    /** Its key under [type]. */
     val key: String
+
+    /** `type/key`, as a merge names it. */
+    val contentKey: String get() = "$type/$key"
 
     /** What people call it. */
     val label: String
@@ -53,28 +61,77 @@ sealed interface CatalogSetting {
         override val canonical get() = presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) }
     }
 
-    /** The catalogs it uses, each with the release it pins. */
-    data class Dependencies(val declarations: List<CatalogDependencyDeclaration>) : CatalogSetting {
-        override val key get() = "dependencies"
-        override val label get() = "Catalogs used"
-        override val canonical get() = declarations.sortedBy { "${it.registry}/${it.namespace}/${it.catalogKey}" }.map {
-            mapOf("registry" to it.registry, "namespace" to it.namespace, "catalogKey" to it.catalogKey, "releaseVersion" to it.releaseVersion, "releaseFingerprint" to it.releaseFingerprint)
-        }
+    /**
+     * One catalog the version uses, as it declares it: the release it pins, or, in a draft, the
+     * draft of that catalog it names. Keyed by the catalog's key, which is unique in a tenant (a
+     * merge entry's key holds at most 50 characters, which a catalog key always fits and its full
+     * name need not); its registry and namespace are part of its value.
+     */
+    data class Dependency(val declaration: CatalogDependencyDeclaration) : CatalogSetting {
+        override val type get() = DEPENDENCY_TYPE
+        override val key get() = declaration.catalogKey
+        override val label get() = declaration.catalogKey
+        override val canonical get() = mapOf(
+            "registry" to declaration.registry,
+            "namespace" to declaration.namespace,
+            "catalogKey" to declaration.catalogKey,
+            "releaseVersion" to declaration.releaseVersion,
+            "releaseFingerprint" to declaration.releaseFingerprint,
+        ) + (declaration.draftId?.let { mapOf("draft" to it) } ?: emptyMap())
     }
 
     companion object {
-        /** The entry type settings are merged under. */
+        /** The entry type the default theme and the presets are merged under. */
         const val TYPE: String = "catalog"
 
-        /** Every setting as a version that set none holds it. */
-        val UNSET: List<CatalogSetting> = listOf(DefaultTheme(null), Presets(emptyList()), Dependencies(emptyList()))
+        /** The entry type each declared dependency is merged under, keyed by the catalog's key. */
+        const val DEPENDENCY_TYPE: String = "catalogDependency"
 
-        /** The settings [content] of [catalogKey] holds, every one of them, set or not. */
-        fun of(catalogKey: CatalogKey, content: CatalogContent): List<CatalogSetting> = listOf(
+        /**
+         * The one entry every dependency declaration was merged as before each catalog was an entry of
+         * its own: a baseline recorded then still names it, and [completeBaseline] replaces it.
+         */
+        const val LEGACY_DEPENDENCIES: String = "catalog/dependencies"
+
+        /** Whether [type] is that of a setting entry rather than a resource. */
+        fun isSettingType(type: String): Boolean = type == TYPE || type == DEPENDENCY_TYPE
+
+        /** Whether [contentKey] (`type/key`) names a setting entry rather than a resource. */
+        fun isSettingKey(contentKey: String): Boolean = isSettingType(contentKey.substringBefore('/'))
+
+        /** The entry key of the dependency on [catalogKey]. */
+        fun dependencyKey(catalogKey: String): String = "$DEPENDENCY_TYPE/$catalogKey"
+
+        /** Every setting as a version that set none holds it: no default theme, no presets, no dependency. */
+        val UNSET: List<CatalogSetting> = listOf(DefaultTheme(null), Presets(emptyList()))
+
+        /**
+         * The settings [content] of [catalogKey] holds: its default theme and presets, set or not, and
+         * one entry per dependency it declares, from [declarations] when given (a draft's own, which
+         * may name a draft of another catalog; the wire form cannot), else from the content.
+         */
+        fun of(catalogKey: CatalogKey, content: CatalogContent, declarations: List<CatalogDependencyDeclaration>? = null): List<CatalogSetting> = listOf(
             DefaultTheme(content.catalog.defaultTheme?.let { CatalogDefaultTheme(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: catalogKey) }),
             Presets(content.catalog.presets.map { CatalogPreset(it.key, it.name, it.description) }),
-            Dependencies(content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)),
-        )
+        ) + (declarations ?: content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)).distinctBy { it.catalogKey }.map(::Dependency)
+
+        /**
+         * [held], a baseline a draft recorded (what it held of a release, by entry), completed from
+         * [base], the same release as released: a setting entry it does not name (one recorded before
+         * settings were merged) is the base's, and one recorded while every dependency was a single
+         * entry ([LEGACY_DEPENDENCIES]) gets the base's dependency entries in place of it.
+         */
+        fun completeBaseline(held: Map<String, String>, base: Map<String, String>): Map<String, String> {
+            val beforeEachDependency = LEGACY_DEPENDENCIES in held || held.keys.none(::isSettingKey)
+            val filled = base.filterKeys { key ->
+                when (key.substringBefore('/')) {
+                    TYPE -> key !in held
+                    DEPENDENCY_TYPE -> beforeEachDependency
+                    else -> false
+                }
+            }
+            return held - LEGACY_DEPENDENCIES + filled
+        }
     }
 }
 
@@ -152,6 +209,7 @@ class MergeInputReader(
     private val assembler: ReleaseContentAssembler,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprints: CatalogFingerprintService,
+    private val dependencyStore: CatalogDependencyStore,
 ) {
 
     /**
@@ -181,7 +239,7 @@ class MergeInputReader(
             mergeBase = mergeBase,
             contained = contained,
             base = base,
-            ours = input(catalogKey, contentBuilder.build(tenantKey, catalogKey)),
+            ours = draftInput(tenantKey, catalogKey),
             theirs = releaseInput(tenantKey, catalogKey, release),
             heldBase = mergeBase?.let { heldBase(tenantKey, catalogKey, draft, it, base, lineage) }.orEmpty(),
             missingBase = missing,
@@ -213,12 +271,12 @@ class MergeInputReader(
         for (anchor in anchors) {
             if (!lineage.descendsFrom(anchor, mergeBase)) continue
             val held = recordedHeld(tenantKey, draft, anchor) ?: continue
-            if (anchor == mergeBase) return withSettings(held, base)
+            if (anchor == mergeBase) return CatalogSetting.completeBaseline(held, base.fingerprints)
             // What the draft holds of the anchor is what it holds of the merge base wherever the two
             // releases are alike; elsewhere the anchor changed it, and the base as released is compared.
             val anchorReleased = releaseInput(tenantKey, catalogKey, anchor).fingerprints
-            val translated = base.fingerprints.mapValues { (key, released) -> if (anchorReleased[key] == released) held[key] ?: released else released }
-            return translated
+            val complete = CatalogSetting.completeBaseline(held, anchorReleased)
+            return base.fingerprints.mapValues { (key, released) -> if (anchorReleased[key] == released) complete[key] ?: released else released }
         }
         return base.fingerprints
     }
@@ -236,23 +294,30 @@ class MergeInputReader(
         return fingerprints.readBaseline(recorded)
     }
 
-    /** A recording from before settings were merged holds resources only; its settings are the base's. */
-    private fun withSettings(held: Map<String, String>, base: MergeInput): Map<String, String> = held + base.fingerprints.filterKeys { it.startsWith("${CatalogSetting.TYPE}/") && it !in held }
-
     private fun releaseInput(tenantKey: TenantKey, catalogKey: CatalogKey, release: String): MergeInput {
         val retained = assembler.assemble(tenantKey, catalogKey, release) ?: throw CatalogReleaseNotFoundException(catalogKey, release)
         return input(catalogKey, retained.content)
     }
 
-    /** One side: every resource and setting of [content], fingerprinted. */
-    fun input(catalogKey: CatalogKey, content: CatalogContent): MergeInput {
+    /**
+     * The draft the running message targets, as one side: its content and its own dependency
+     * declarations (which may name a draft of another catalog), fingerprinted.
+     */
+    fun draftInput(tenantKey: TenantKey, catalogKey: CatalogKey): MergeInput {
+        val content = contentBuilder.build(tenantKey, catalogKey)
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, tenantKey, catalogKey) }
+        return input(catalogKey, content, declarations)
+    }
+
+    /** One side: every resource and setting of [content], fingerprinted; dependencies from [declarations] when given. */
+    fun input(catalogKey: CatalogKey, content: CatalogContent, declarations: List<CatalogDependencyDeclaration>? = null): MergeInput {
         val resourceFingerprints = fingerprints.resourceFingerprints(content)
         val resources = content.resourceDetails.mapNotNull { (contentKey, detail) ->
             val fingerprint = resourceFingerprints[contentKey] ?: return@mapNotNull null
             contentKey to MergeValue.Resource(detail.resource, fingerprint, binariesOf(detail.resource, content))
         }
-        val settings = CatalogSetting.of(catalogKey, content).map { setting ->
-            "${CatalogSetting.TYPE}/${setting.key}" to MergeValue.Setting(setting, fingerprints.settingFingerprint(setting.canonical))
+        val settings = CatalogSetting.of(catalogKey, content, declarations).map { setting ->
+            setting.contentKey to MergeValue.Setting(setting, fingerprints.settingFingerprint(setting.canonical))
         }
         return MergeInput(content, (resources + settings).toMap())
     }

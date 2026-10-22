@@ -46,8 +46,9 @@ class NextVersionChanges(
 
     /**
      * The entries (`type/key`) the next version changed since its base: added, changed or removed.
-     * Its resources and its catalog settings (`catalog/<key>`, the default theme, presets and
-     * dependency declarations a merge compares too): a setting is a change of its own, which a newer
+     * Its resources and its catalog settings (`catalog/<key>`, the default theme and presets, and
+     * `catalogDependency/<catalogKey>` per declared dependency, as a merge compares them too): a
+     * setting is a change of its own, which a newer
      * release must not be fast-forwarded over.
      */
     fun changed(tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> {
@@ -61,10 +62,15 @@ class NextVersionChanges(
         val base = when {
             next == null -> null
 
-            recorded != null -> recorded
+            // A baseline recorded while every dependency was one entry takes the base's dependency entries.
+            recorded != null -> if (next.base == null || app.epistola.suite.catalog.merge.CatalogSetting.LEGACY_DEPENDENCIES !in recorded) {
+                recorded
+            } else {
+                app.epistola.suite.catalog.merge.CatalogSetting.completeBaseline(recorded, assembler.assemble(tenantKey, catalogKey, next.base)?.let { fingerprints.entryFingerprints(catalogKey, it.content) }.orEmpty())
+            }
 
             // Nothing under it: what it holds is all its own, and each setting it set.
-            next.base == null -> app.epistola.suite.catalog.merge.CatalogSetting.UNSET.associate { "${app.epistola.suite.catalog.merge.CatalogSetting.TYPE}/${it.key}" to fingerprints.settingFingerprint(it.canonical) }
+            next.base == null -> app.epistola.suite.catalog.merge.CatalogSetting.UNSET.associate { it.contentKey to fingerprints.settingFingerprint(it.canonical) }
 
             // A release from before 2.0 recorded no content to compare with.
             !hasEntries -> null

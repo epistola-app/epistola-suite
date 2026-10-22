@@ -179,7 +179,7 @@ class GetCatalogResourceChangesHandler(
         val held = jdbi.withHandle<String?, Exception> { handle ->
             drafts.draft(handle, tenantKey, catalogKey)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, tenantKey, it.versionId) }
         }
-        fingerprintService.readBaseline(held)?.let { recorded -> return recorded.filterKeys { !it.startsWith("catalog/") } }
+        fingerprintService.readBaseline(held)?.let { recorded -> return recorded.filterKeys { !app.epistola.suite.catalog.merge.CatalogSetting.isSettingKey(it) } }
         return assembler.assemble(tenantKey, catalogKey, version)?.let { fingerprintService.resourceFingerprints(it.content) }.orEmpty()
     }
 

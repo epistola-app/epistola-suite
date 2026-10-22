@@ -186,7 +186,8 @@ class CatalogReleaseMcpTools {
         description = "Alpha. What merging a release of the catalog into a draft (the next release unless `draft` names " +
             "another) would do, without changing anything: per resource a side changed, `THEIRS` (only the release " +
             "changed it: taken), `OURS` (only the draft did: it stays) or `CONFLICT` (both did: the user chooses). The " +
-            "catalog's settings are entries too: `catalog/defaultTheme`, `catalog/presets`, `catalog/dependencies`. Use it " +
+            "catalog's settings are entries too: `catalog/defaultTheme`, `catalog/presets`, and one `catalogDependency/<catalogKey>` " +
+            "per catalog it uses (adding, removing or re-pinning one is a change of its own). Use it " +
             "for a release the draft is `behind` (`list_catalog_releases`), and show the user the conflicts before " +
             "`merge_release`; pass its `token` there. When this installation lacks the release both come from, " +
             "`missingBase` names it and nothing is compared: get it first. Without any release both come from, every " +
