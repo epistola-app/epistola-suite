@@ -18,12 +18,16 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /** The MCP tools that declare, list and resolve the catalogs a catalog depends on. */
 class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
 
     @Autowired private lateinit var catalogTools: CatalogMcpTools
+
+    @Autowired private lateinit var objectMapper: ObjectMapper
 
     private fun <T> runAsApiKey(
         tenantId: TenantId,
@@ -72,6 +76,22 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(runAsApiKey(tenantId) { catalogTools.upgradeCatalogDependencies("letters") }.single().release).isEqualTo("1.1.0")
         assertThat(runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared"))) }.single().release)
             .`as`("none named: the highest").isEqualTo("1.1.0")
+    }
+
+    /**
+     * A declaration says the alias the catalog's content names the dependency by (contract ADR 0003,
+     * ADR 0034): its key, in this installation. Asserted on the tool's result as JSON, as MCP sends it.
+     */
+    @Test
+    fun `a dependency is listed with the alias the content names it by`() {
+        val tenantId = setUp()
+        runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared", release = "1.0.0"))) }
+
+        val listed = objectMapper.valueToTree<JsonNode>(runAsApiKey(tenantId) { catalogTools.listCatalogDependencies("letters") })
+
+        assertThat(listed.size()).isEqualTo(1)
+        assertThat(listed[0].path("catalogId").asString()).isEqualTo("shared")
+        assertThat(listed[0].path("alias").asString(null)).isEqualTo("shared")
     }
 
     @Test
