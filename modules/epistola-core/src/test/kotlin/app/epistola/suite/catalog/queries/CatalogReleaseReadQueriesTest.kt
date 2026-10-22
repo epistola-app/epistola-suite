@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -16,9 +17,12 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.recordBeforeContentHashes
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * The queries the release list and the release detail page read from.
@@ -28,6 +32,10 @@ import org.junit.jupiter.api.Test
  * way, and the order is what makes "latest" mean anything -- so it is pinned here, once.
  */
 class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
+
+    @Autowired private lateinit var jdbi: Jdbi
+
+    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
 
     // ── GetCatalogReleaseDetail ─────────────────────────────────────────────────
 
@@ -82,6 +90,41 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
                 .`as`("the catalog key is part of the identity, so a sibling's release is not this one's")
                 .isNull()
         }
+    }
+
+    /**
+     * What identifies a release (ADR 0034): its content hash, which a release cut now has as its
+     * fingerprint. One recorded before content hashes keeps its older fingerprint and has no content
+     * hash until the backfill gives it one; the page shows both then, and says why.
+     */
+    @Test
+    fun `a release reports its content hash, and whether it was recorded before content hashes`() {
+        val tenant = createTenant("Release Detail Content Hash")
+        val key = CatalogKey.of("hashed-cat")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = key, name = "Hashed").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, key).execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+        }
+        val cut = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        assertThat(cut.contentHash).startsWith("v6:").isEqualTo(cut.fingerprint)
+        assertThat(cut.shortContentHash).isEqualTo(cut.contentHash!!.take(12))
+        assertThat(cut.recordedBeforeContentHashes).isFalse()
+
+        val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, tenant.id, key, "1.0.0") }
+        val recordedBefore = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        assertThat(recordedBefore.fingerprint).isEqualTo(v5).startsWith("v5:")
+        assertThat(recordedBefore.contentHash).`as`("being computed").isNull()
+        assertThat(recordedBefore.shortContentHash).isNull()
+        assertThat(recordedBefore.recordedBeforeContentHashes).isTrue()
+
+        backfill.run()
+
+        val given = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        assertThat(given.contentHash).`as`("given the content hash of what it retained").isEqualTo(cut.contentHash)
+        assertThat(given.fingerprint).isEqualTo(v5)
+        assertThat(given.recordedBeforeContentHashes).isTrue()
     }
 
     // ── ListCatalogReleaseSummaries ───────────────────────────────────────────────

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
+import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
@@ -54,8 +55,23 @@ data class CatalogReleaseDetail(
     val releasedHere: Boolean = false,
     /** The display name of the user who released it here; null for a received release or when unknown. */
     val releasedByUser: String? = null,
+    /**
+     * What identifies it (ADR 0034): the V6 fingerprint of its content alone. Null while it is being
+     * computed, for a release recorded before content hashes that the backfill has not reached.
+     */
+    val contentHash: String? = null,
 ) {
     val shortFingerprint: String get() = fingerprint.take(12)
+
+    /** [contentHash] as short as [shortFingerprint]; null while it is being computed. */
+    val shortContentHash: String? get() = contentHash?.take(12)
+
+    /**
+     * It was recorded with a fingerprint of an older algorithm than the content hash (V5 or a bare
+     * one), before releases were identified by their content: the page shows that fingerprint
+     * beside the content hash the release has been given, and says why there are two.
+     */
+    val recordedBeforeContentHashes: Boolean get() = !CatalogCanonicalizer.isContentHash(fingerprint)
 
     /**
      * Who released it, in one sentence for the release page: "Released here by Ann", "Released here"
@@ -80,7 +96,7 @@ class GetCatalogReleaseDetailHandler(
     override fun handle(query: GetCatalogReleaseDetail): CatalogReleaseDetail? = jdbi.withHandle<CatalogReleaseDetail?, Exception> { handle ->
         val row = handle.createQuery(
             """
-            SELECT r.version, r.released_at, r.notes, r.fingerprint, r.manifest_snapshot::text AS snapshot,
+            SELECT r.version, r.released_at, r.notes, r.fingerprint, r.content_hash, r.manifest_snapshot::text AS snapshot,
                    r.released_by_installation, u.display_name AS released_by_name
             FROM catalog_releases r
             LEFT JOIN users u ON u.id = r.released_by
@@ -100,6 +116,7 @@ class GetCatalogReleaseDetailHandler(
                     resources = emptyList(),
                     releasedByInstallation = rs.getObject("released_by_installation", UUID::class.java),
                     releasedByUser = rs.getString("released_by_name"),
+                    contentHash = rs.getString("content_hash"),
                 )
             }
             .findOne()
