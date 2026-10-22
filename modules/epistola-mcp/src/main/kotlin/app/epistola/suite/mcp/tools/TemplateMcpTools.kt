@@ -19,6 +19,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -193,7 +194,7 @@ class TemplateMcpTools(
             template = UpdateDocumentTemplate(
                 id = id,
                 themeId = ThemeKey.of(themeId),
-                themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+                themeCatalogKey = mcpCatalogKey(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
                 catalogVersion = version,
             ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
         }
@@ -246,7 +247,7 @@ class TemplateMcpTools(
             id = templateId(catalogId, templateId),
             name = name?.takeIf { it.isNotBlank() },
             themeId = theme?.let { ThemeKey.of(it) },
-            themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+            themeCatalogKey = theme?.let { mcpCatalogKey(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
             clearThemeId = clearTheme == true,
             pdfaEnabled = pdfaEnabled,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
@@ -337,7 +338,7 @@ class TemplateMcpTools(
         }
 
     private fun templateId(catalogId: String, templateId: String): TemplateId {
-        val catalog = CatalogId(CatalogKey.of(catalogId), mcpTenantId())
+        val catalog = CatalogId(mcpCatalogKey(catalogId), mcpTenantId())
         return TemplateId(TemplateKey.of(templateId), catalog)
     }
 

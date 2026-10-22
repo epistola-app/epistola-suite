@@ -15,6 +15,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -212,5 +213,5 @@ class StencilMcpTools(
         expectedRevision = expectedRevision,
     ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
 
-    private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 }

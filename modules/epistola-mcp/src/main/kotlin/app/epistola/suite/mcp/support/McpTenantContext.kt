@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.support
 
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogEditability
@@ -30,11 +31,30 @@ internal fun mcpTenantKey(): TenantKey = SecurityContext.current().currentTenant
 internal fun mcpTenantId(): TenantId = TenantId(mcpTenantKey())
 
 /**
+ * The catalog a tool's `catalogId` names: its key, or `namespace/key` when the key alone does not
+ * say which (ADR 0034, phase 4: within a tenant a catalog is unique by namespace and key). The
+ * namespace holds for the rest of the tool call, so the key means that catalog in everything the tool
+ * does. A key that names several catalogs without one is refused, naming them.
+ */
+internal fun mcpCatalogKey(catalogId: String): CatalogKey {
+    val value = catalogId.trim()
+    val namespace = value.substringBeforeLast('/', "")
+    val key = CatalogKey.of(value.substringAfterLast('/'))
+    if (namespace.isNotEmpty() && !CatalogNames.name(key, namespace)) {
+        throw ValidationException("catalogId", "A catalog named `namespace/key` is not taken outside an MCP request.")
+    }
+    return key
+}
+
+/** The description of a tool's `catalogId`: its key, or `namespace/key`. */
+internal const val CATALOG_ID_NAMESPACE_HINT = "Write it `namespace/key` (from `list_catalogs`) when two catalogs share the key."
+
+/**
  * The catalog a list tool filters by, or null for "all catalogs". A catalog that does not exist
  * fails rather than filtering to nothing: an empty list would read as "this catalog is empty".
  */
 internal fun catalogFilter(catalogId: String?): CatalogKey? {
-    val key = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) } ?: return null
+    val key = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalogKey(it) } ?: return null
     GetCatalog(mcpTenantKey(), key).query()
         ?: throw NoSuchElementException("Catalog '$catalogId' not found. Use `list_catalogs` to see the catalogs in this tenant.")
     return key
@@ -60,7 +80,7 @@ internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): Cat
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is a draft or release of one catalog; give `catalogId` too")
     val draft = DraftRef.parse(version)
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_releases`; a draft has no number until it is released")
-    return CatalogReleaseRef(mcpTenantKey(), CatalogKey.of(catalog), draft)
+    return CatalogReleaseRef(mcpTenantKey(), mcpCatalogKey(catalog), draft)
 }
 
 /**

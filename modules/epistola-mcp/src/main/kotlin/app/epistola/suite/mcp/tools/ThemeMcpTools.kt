@@ -23,6 +23,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -90,7 +91,7 @@ class ThemeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): ThemeInfo? {
-        val id = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+        val id = ThemeId(ThemeKey.of(themeId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
         return mediator.query(GetTheme(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
     }
 
@@ -210,7 +211,7 @@ class ThemeMcpTools(
     @Suppress("UNCHECKED_CAST")
     private fun parseDocumentStyles(json: String?): DocumentStyles? = objectMapper.parseOptionalArgument("documentStyles", json, Map::class.java) as DocumentStyles?
 
-    private fun themeId(catalogId: String, themeId: String) = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun themeId(catalogId: String, themeId: String) = ThemeId(ThemeKey.of(themeId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 
     private companion object {
         const val DOCUMENT_STYLES = "JSON object string of document-level style defaults, e.g. " +
@@ -270,7 +271,7 @@ class ThemeMcpTools(
         catalogVersion: String? = null,
     ): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         if (defaultThemeKey != null || clearDefaultTheme == true) {
             val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.let(CatalogKey::of) ?: catalogKey) }
@@ -300,7 +301,7 @@ class ThemeMcpTools(
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         val settings = GetCatalogThemeSettings(tenantKey, catalogKey, version).query()
         return CatalogThemeSettingsInfo(

@@ -28,6 +28,7 @@ import app.epistola.suite.mcp.dto.MergeSidesInfo
 import app.epistola.suite.mcp.dto.MergedReleaseInfo
 import app.epistola.suite.mcp.dto.ReleaseNumberInfo
 import app.epistola.suite.mcp.dto.ReleasedDraftInfo
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -72,13 +73,13 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         }
         val only = status(status)
         val releases = when {
-            wanted == null -> ListCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId), only, withBehind = true).query()
+            wanted == null -> ListCatalogReleases(mcpTenantKey(), mcpCatalogKey(catalogId), only, withBehind = true).query()
 
             // A draft has no content hash.
             only == CatalogReleaseStatus.DRAFT -> emptyList()
 
             // Found in the database, as REST does it.
-            else -> ListReleasesByContentHash(mcpTenantKey(), CatalogKey.of(catalogId), wanted).query().items
+            else -> ListReleasesByContentHash(mcpTenantKey(), mcpCatalogKey(catalogId), wanted).query().items
         }
         return releases.map(CatalogReleaseInfo::from)
     }
@@ -100,7 +101,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "A release number, `next`, or a draft's `versionId` to copy. From `list_catalog_releases`.", required = false)
         from: String?,
     ): CatalogReleaseInfo = CatalogReleaseInfo.from(
-        CreateCatalogDraft(mcpTenantKey(), CatalogKey.of(catalogId), name, from?.trim()?.takeIf { it.isNotEmpty() }).execute(),
+        CreateCatalogDraft(mcpTenantKey(), mcpCatalogKey(catalogId), name, from?.trim()?.takeIf { it.isNotEmpty() }).execute(),
     )
 
     @McpTool(
@@ -116,7 +117,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "The new name.")
         name: String,
     ): CatalogReleaseInfo = CatalogReleaseInfo.from(
-        RenameCatalogDraft(mcpTenantKey(), CatalogKey.of(catalogId), draftRefOf(draft), name).execute(),
+        RenameCatalogDraft(mcpTenantKey(), mcpCatalogKey(catalogId), draftRefOf(draft), name).execute(),
     )
 
     @McpTool(
@@ -134,7 +135,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next`, or a draft's `versionId`. From `list_catalog_releases`.")
         draft: String,
     ): List<CatalogReleaseInfo> {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         DeleteCatalogDraft(mcpTenantKey(), catalogKey, draftRefOf(draft)).execute()
         return ListCatalogReleases(mcpTenantKey(), catalogKey).query().map(CatalogReleaseInfo::from)
     }
@@ -153,7 +154,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): ReleaseNumberInfo {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf) ?: DraftRef.Next
         return ReleaseNumberInfo.from(AssessDraftNumber(mcpTenantKey(), catalogKey, ref).query() ?: throw CatalogReleaseNotFoundException(catalogKey, ref.toString()))
     }
@@ -190,7 +191,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "With `continueEverydayWork`: keep the previous next release as parallel work under this name. Omit to discard it.", required = false)
         keepPreviousAs: String? = null,
     ): ReleasedDraftInfo {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf)
         return ReleasedDraftInfo.from(
             ReleaseCatalogDraft(
@@ -231,7 +232,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): DraftMergeInfo {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         return DraftMergeInfo.from(PreviewDraftMerge(mcpTenantKey(), catalogKey, release.trim(), draftScope(catalogKey, draft)).query())
     }
 
@@ -258,7 +259,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
         draft: String?,
     ): MergeSidesInfo {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         return MergeSidesInfo.from(GetDraftMergeSides(mcpTenantKey(), catalogKey, release.trim(), entry.trim(), draftScope(catalogKey, draft)).query())
     }
 
@@ -295,7 +296,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         )
         mergedContent: Map<String, Any?>? = null,
     ): MergedReleaseInfo {
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val sides = resolutions.orEmpty().mapValues { (resource, side) ->
             MergeResolution.ofWire(side)
                 ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")

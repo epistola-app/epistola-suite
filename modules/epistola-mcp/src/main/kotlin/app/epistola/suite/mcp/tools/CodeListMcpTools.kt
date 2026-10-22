@@ -17,6 +17,7 @@ import app.epistola.suite.mcp.dto.CodeListInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import org.springframework.ai.mcp.annotation.McpTool
@@ -50,7 +51,7 @@ class CodeListMcpTools(
         catalogVersion: String? = null,
     ): List<CodeListInfo> {
         val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
+        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalogKey(it) }
         return mediator.query(ListCodeLists(tenantId = tenantId, catalogKey = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
             .let { codeLists ->
                 val editability = catalogEditability()
@@ -100,6 +101,6 @@ class CodeListMcpTools(
 
     private fun buildId(catalogId: String, codeListSlug: String) = CodeListId(
         key = CodeListKey.of(codeListSlug),
-        catalogId = CatalogId(CatalogKey.of(catalogId), TenantId(mcpTenantKey())),
+        catalogId = CatalogId(mcpCatalogKey(catalogId), TenantId(mcpTenantKey())),
     )
 }

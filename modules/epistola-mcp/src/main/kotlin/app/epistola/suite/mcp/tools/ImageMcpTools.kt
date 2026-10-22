@@ -17,6 +17,7 @@ import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
@@ -86,7 +87,7 @@ class ImageMcpTools(
         return mediator.query(
             ListAssets(
                 tenantId = mcpTenantKey(),
-                catalogKey = CatalogKey.of(catalogId),
+                catalogKey = mcpCatalogKey(catalogId),
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ),
         )
@@ -143,7 +144,7 @@ class ImageMcpTools(
                 content = decoded.bytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
-                catalogKey = CatalogKey.of(catalogId),
+                catalogKey = mcpCatalogKey(catalogId),
                 id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ).execute(),

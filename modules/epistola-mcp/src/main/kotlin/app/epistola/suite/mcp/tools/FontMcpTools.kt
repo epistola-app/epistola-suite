@@ -24,6 +24,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.Mediator
@@ -71,7 +72,7 @@ class FontMcpTools(
         catalogVersion: String? = null,
     ): List<FontInfo> {
         val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) }
+        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalogKey(it) }
         val version = catalogVersionRef(catalogId, catalogVersion)
         val editability = catalogEditability()
         return mediator.query(ListFonts(tenantId = tenantId, catalogKey = filter, catalogVersion = version))
@@ -113,7 +114,7 @@ class FontMcpTools(
         catalogVersion: String? = null,
     ): FontInfo {
         val tenantId = TenantId(mcpTenantKey())
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val slug = FontKey.of(fontId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         val fontKind = try {

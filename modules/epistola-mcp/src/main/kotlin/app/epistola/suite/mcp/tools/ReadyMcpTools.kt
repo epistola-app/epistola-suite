@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.CatalogChangesInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
@@ -52,7 +53,7 @@ class ReadyMcpTools {
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
+    ): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
 
     @McpTool(
         name = "mark_variant_ready",
@@ -109,7 +110,7 @@ class ReadyMcpTools {
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogChangesInfo {
-        MarkStencilReady(StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+        MarkStencilReady(StencilId(StencilKey.of(stencilId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId())), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
         return getCatalogChanges(catalogId, catalogVersion)
     }
 
@@ -125,7 +126,7 @@ class ReadyMcpTools {
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(MarkCatalogReady(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
+    ): CatalogChangesInfo = CatalogChangesInfo.from(MarkCatalogReady(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
 
-    private fun templateId(catalogId: String, templateId: String) = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun templateId(catalogId: String, templateId: String) = TemplateId(TemplateKey.of(templateId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 }

@@ -21,6 +21,8 @@ data class CatalogInfo(
     val authority: String,
     /** The namespace it is named in, under [authority]. */
     val namespace: String,
+    /** How a tool's `catalogId` names it when another namespace has a catalog with its key: `namespace/key`. */
+    val address: String,
     val name: String,
     val description: String?,
     val attributes: List<CatalogAttributeInfo>,
@@ -58,6 +60,7 @@ data class CatalogInfo(
             id = catalog.id.value,
             authority = catalog.registry,
             namespace = catalog.namespace,
+            address = "${catalog.namespace}/${catalog.id.value}",
             name = catalog.name,
             description = catalog.description,
             attributes = catalog.catalogMetadata.attributes.map {

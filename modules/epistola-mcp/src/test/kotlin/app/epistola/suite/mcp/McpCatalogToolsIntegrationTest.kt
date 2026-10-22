@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp
 
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -151,6 +152,30 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
 
         assertThatThrownBy { runAsApiKey(tenantId) { catalogTools.createCatalog("elders", "Elders", null, namespace = "elsewhere") } }
             .hasMessage("This tenant does not hold the namespace elsewhere (exchange.epistola.app); an administrator can grant it.")
+    }
+
+    @Test
+    fun `two catalogs with one key are told apart by namespace, and the key alone is refused`() {
+        val tenantId = newTenant()
+        withMediator {
+            TestNamespaces.grant(tenantId.key, "acme").execute()
+            TestNamespaces.grant(tenantId.key, "bureau").execute()
+        }
+
+        CatalogNames.frame {
+            runAsApiKey(tenantId) {
+                val acme = catalogTools.createCatalog("letters", "Acme letters", null, namespace = "acme")
+                catalogTools.createCatalog("letters", "Bureau letters", null, namespace = "bureau")
+                assertThat(acme.address).isEqualTo("acme/letters")
+            }
+        }
+        CatalogNames.frame { runAsApiKey(tenantId) { templateTools.createTemplate("acme/letters", "invoice", "Acme invoice", null, null, null) } }
+        CatalogNames.frame { runAsApiKey(tenantId) { templateTools.createTemplate("bureau/letters", "invoice", "Bureau invoice", null, null, null) } }
+
+        assertThat(CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("bureau/letters", null) } }.map { it.name }).containsExactly("Bureau invoice")
+        assertThat(CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("acme/letters", null) } }.map { it.name }).containsExactly("Acme invoice")
+        assertThatThrownBy { CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("letters", null) } } }
+            .hasMessage("The catalog key letters names several catalogs of this tenant (acme/letters, bureau/letters): name its namespace.")
     }
 
     @Test

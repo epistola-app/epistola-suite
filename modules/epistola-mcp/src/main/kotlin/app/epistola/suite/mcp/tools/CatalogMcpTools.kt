@@ -5,6 +5,7 @@
 package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
@@ -28,6 +29,7 @@ import app.epistola.suite.mcp.dto.NamespacesInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
@@ -49,7 +51,9 @@ class CatalogMcpTools(
             "Each says whether it can be changed here (`editable`), and if not why (`readOnlyReason`): the catalogs " +
             "Epistola supplies never are, and none are in an installation that only runs releases. `source` says " +
             "where its releases come from; `releasedVersion` is its highest release, released here or received, and " +
-            "`contentHash` that release's content hash.",
+            "`contentHash` that release's content hash. Within a tenant a catalog is named by namespace and key: " +
+            "when two catalogs share a key, a tool's `catalogId` names one by its `address`, `namespace/key`; the key " +
+            "alone is then refused.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listCatalogs(): List<CatalogInfo> {
@@ -94,13 +98,14 @@ class CatalogMcpTools(
     ): CatalogInfo {
         val catalog = CreateCatalog(
             tenantKey = mcpTenantKey(),
-            id = CatalogKey.of(catalogId),
+            id = mcpCatalogKey(catalogId),
             name = name,
             description = description?.takeIf { it.isNotBlank() },
             namespace = namespace?.trim()?.takeIf { it.isNotEmpty() },
             registry = authority?.trim()?.takeIf { it.isNotEmpty() },
         ).execute()
-        return CatalogInfo.from(catalog, GetCatalogEditability(catalog.tenantKey, catalog.id).query(), ReleaseContentHashes(emptyMap()))
+        val editability = CatalogNames.within(catalog.id, catalog.namespace) { GetCatalogEditability(catalog.tenantKey, catalog.id).query() }
+        return CatalogInfo.from(catalog, editability, ReleaseContentHashes(emptyMap()))
     }
 
     @McpTool(
@@ -125,7 +130,7 @@ class CatalogMcpTools(
     fun listAvailableCatalogReleases(
         @McpToolParam(description = "Catalog key of a catalog with a `source`. From `list_catalogs`.")
         catalogId: String,
-    ): AvailableCatalogReleases = mediator.query(ListAvailableCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId)))
+    ): AvailableCatalogReleases = mediator.query(ListAvailableCatalogReleases(mcpTenantKey(), mcpCatalogKey(catalogId)))
 
     @McpTool(
         name = "list_catalog_dependencies",
@@ -140,7 +145,7 @@ class CatalogMcpTools(
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+    ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
         .withContentHashes()
 
     @McpTool(
@@ -163,7 +168,7 @@ class CatalogMcpTools(
     ): List<CatalogDependencyInfo> {
         val tenant = mcpTenantKey()
         val declared = dependencies.map { dependency ->
-            val key = CatalogKey.of(dependency.catalogId)
+            val key = mcpCatalogKey(dependency.catalogId)
             val target = mediator.query(GetCatalog(tenant, key)) ?: throw CatalogNotFoundException(key)
             val release = dependency.release?.trim()?.takeIf { it.isNotEmpty() }
             val draft = dependency.draftId?.trim()?.takeIf { it.isNotEmpty() }
@@ -175,7 +180,7 @@ class CatalogMcpTools(
                 versionId = draft,
             )
         }
-        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().withContentHashes()
+        return UpdateCatalogDependencies(tenant, mcpCatalogKey(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().withContentHashes()
     }
 
     @McpTool(
@@ -190,7 +195,7 @@ class CatalogMcpTools(
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<CatalogDependencyInfo> = UpgradeCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+    ): List<CatalogDependencyInfo> = UpgradeCatalogDependencies(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
         .withContentHashes()
 
     /** Each declaration with the content hash of the release it pins. */
