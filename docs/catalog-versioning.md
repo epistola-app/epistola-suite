@@ -188,8 +188,14 @@ until it is released**; only releases are numbered.
   (`mergedContent.template/invoice/variants[1]/key`, REST 400 `validation-error`); content for an
   entry that is not a conflict is `MergeNotApplicableException`. A reference merged content holds
   that the result lacks is refused by the reference check like any merge's (`merge-refused`). Merged
-  content is written as given and **not marked ready**, unlike taken content: the draft's page lists
-  it as a change not ready yet, to be reviewed before release. The merge returns it as `merged`.
+  content is written as given and **not marked ready**, unlike taken content: the draft's page and
+  the publish dialog badge it "Merged, review before publishing", and the dialog names it ("These
+  were merged, review them: …"), so publishing it, which marks it ready, is deliberate. The badge
+  comes from the draft's merges (`MERGED` in `catalog_draft_merges.resolutions`, read by
+  `ReadyMarks.mergedAwaitingReview`) and lasts until every part of the resource is marked ready at or
+  after the latest merge that merged it; an edit alone does not end it, and a later merge that takes
+  the release's side marks it ready. MCP `get_catalog_changes` returns it as `mergedForReview`; REST
+  `getCatalogChanges` has no such field in the contract yet. The merge returns it as `merged`.
   Surfaces: MCP `get_merge_sides` and `merge_release`'s `mergedContent`; REST `getCatalogDraftMergeSides`
   (`GET …/releases/{draft}/merge-sides?version=&entry=`) and `mergeIntoCatalogDraft`'s
   `mergedContent`; the web UI's merge dialog shows a conflict's three sides read-only ("Compare") and
