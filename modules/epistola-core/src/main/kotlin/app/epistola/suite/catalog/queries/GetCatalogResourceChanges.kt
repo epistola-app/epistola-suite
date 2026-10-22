@@ -9,10 +9,14 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.common.ids.CatalogKey
@@ -26,12 +30,15 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * What the next release of a catalog would contain that the last one did not — resource
- * by resource.
+ * What the next release of a catalog would contain that the last one did not — resource by
+ * resource, and what it holds beside its resources ([CatalogSettingChange]: its dependencies,
+ * default theme, presets and license).
  *
- * [GetCatalogReleaseStatus] answers *whether* the working copy has drifted from the release; this
- * answers *where*. Both compare the same canonical content, so they cannot disagree: a per-resource
- * digest difference is exactly a catalog fingerprint difference localized to one resource.
+ * A draft has changes when its **content** differs from the release it is based on (ADR 0034): the
+ * content hash covers its resources and those catalog-level settings, and nothing that names or
+ * presents the catalog (name, description, keywords, presentation, attributes), so neither does
+ * this. [GetCatalogReleaseStatus] answers *whether* the working copy has drifted from the release;
+ * this answers *where*.
  *
  * O(catalog-size), like the drift check it refines — it builds the working copy once. Read it for a
  * page about one catalog, not for a list of them.
@@ -93,13 +100,19 @@ data class CatalogResourceChanges(
     val latestVersion: String?,
     /** Ordered by type then slug, the order the manifest lists them in. */
     val resources: List<CatalogResourceChange>,
+    /**
+     * What changed beside the resources, by entry; only changes are listed. None of them needs a
+     * ready mark, so none is in [notReady].
+     */
+    val settings: List<CatalogSettingChange> = emptyList(),
 ) {
     val added: List<CatalogResourceChange> get() = inState(CatalogResourceState.NEW)
     val modified: List<CatalogResourceChange> get() = inState(CatalogResourceState.MODIFIED)
     val removed: List<CatalogResourceChange> get() = inState(CatalogResourceState.REMOVED)
     val released: List<CatalogResourceChange> get() = inState(CatalogResourceState.RELEASED)
 
-    val hasUnreleasedChanges: Boolean get() = resources.any { it.state != CatalogResourceState.RELEASED }
+    /** A resource or a catalog setting differs from the base: there is something to release. */
+    val hasUnreleasedChanges: Boolean get() = resources.any { it.state != CatalogResourceState.RELEASED } || settings.isNotEmpty()
 
     /** The changed resources not marked ready, which a release refuses. */
     val notReady: List<CatalogResourceChange> get() = resources.filter { it.blocksRelease }
@@ -119,6 +132,7 @@ class GetCatalogResourceChangesHandler(
     private val readyMarks: ReadyMarks,
     private val drafts: CatalogDrafts,
     private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+    private val dependencyStore: CatalogDependencyStore,
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
@@ -150,12 +164,25 @@ class GetCatalogResourceChangesHandler(
             mergedForReview = state != CatalogResourceState.RELEASED && state != CatalogResourceState.REMOVED && key in mergedForReview,
         )
 
+        // The draft's own declarations, which may name a draft of another catalog; the wire form cannot.
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, query.tenantKey, query.catalogKey) }
+        // A declaration naming a draft pins that draft's base when it has nothing to publish.
+        val namedDraftBases = declarations.mapNotNull { declaration ->
+            val draftId = declaration.draftId ?: return@mapNotNull null
+            GetCatalogDraft(query.tenantKey, CatalogKey.of(declaration.catalogKey), DraftRef.Id(draftId)).query()?.base?.let { declaration.alias to it }
+        }.toMap()
+        val draftSettings = CatalogSettings(content.catalog, declarations, namedDraftBases)
+        val settings = CatalogSettingDiff.between(query.catalogKey, base = baseSettings(query.tenantKey, query.catalogKey, release?.version), draft = draftSettings) { alias ->
+            GetCatalog(query.tenantKey, CatalogKey.of(alias)).query()?.name
+        }
+
         // Nothing released yet: every resource is new, and that is a complete answer.
         if (release == null) {
             return CatalogResourceChanges(
                 catalogKey = query.catalogKey,
                 latestVersion = null,
                 resources = working.keys.sorted().map { change(it, CatalogResourceState.NEW) },
+                settings = settings,
             )
         }
 
@@ -175,7 +202,17 @@ class GetCatalogResourceChangesHandler(
             catalogKey = query.catalogKey,
             latestVersion = release.version,
             resources = resources,
+            settings = settings,
         )
+    }
+
+    /**
+     * The catalog-level content [version] was released with, as its manifest froze it (what its
+     * content hash covers); [CatalogSettings.NONE] before a first release.
+     */
+    private fun baseSettings(tenantKey: TenantKey, catalogKey: CatalogKey, version: String?): CatalogSettings {
+        val manifest = version?.let { assembler.readManifest(tenantKey, catalogKey, it) } ?: return CatalogSettings.NONE
+        return CatalogSettings(manifest.catalog, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
     }
 
     private data class ReleaseRow(val version: String, val fingerprint: String)

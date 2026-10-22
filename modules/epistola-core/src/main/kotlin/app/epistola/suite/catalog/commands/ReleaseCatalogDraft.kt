@@ -277,8 +277,8 @@ class ReleaseCatalogDraftHandler(
 
     /**
      * The release [ref] is based on, when that draft holds nothing a release of it would add: no
-     * resource changed against its base, no draft named, and the same pins as its base. Null when it
-     * has something to release.
+     * resource or catalog setting (its default theme, presets, license, dependencies) changed against
+     * its base, no draft named, and the same pins as its base. Null when it has something to release.
      */
     private fun unchangedBase(tenantKey: TenantKey, catalogKey: CatalogKey, ref: CatalogReleaseRef): String? {
         val base = GetCatalogDraft(tenantKey, catalogKey, ref.draft).query()?.base ?: return null

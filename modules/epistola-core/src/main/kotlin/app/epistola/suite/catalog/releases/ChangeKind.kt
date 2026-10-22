@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogDependency
+import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
@@ -91,6 +92,12 @@ enum class VersionStep(
  *   that version breaks a resource this catalog uses ([lockMove], the per-use check of
  *   `UseCompatibility`); otherwise it is a fix, whatever the step in its number. Without [lockMove] a
  *   lock move is a fix.
+ * - **Presets** (contract ADR 0007): a catalog's available presets include those of the catalogs it
+ *   uses, so content elsewhere may name one. One removed is breaking, one added additive, one renamed
+ *   or described differently a fix.
+ * - **Default theme and license**: a fix. The default theme decides how this catalog's templates
+ *   that name no theme look, as a theme's own content does, which is a fix too; nothing another
+ *   catalog or a caller relies on changes. The license is about the content, not part of it.
  */
 class ChangeKindEvaluator(
     private val objectMapper: ObjectMapper,
@@ -123,7 +130,23 @@ class ChangeKindEvaluator(
             }
         }
         reasons += dependencies(base.catalogDependencies.orEmpty(), draft.catalogDependencies.orEmpty())
+        reasons += settings(base.catalog, draft.catalog)
         return ChangeAssessment(reasons)
+    }
+
+    /** The presets, the default theme and the license (contract ADR 0007): what the catalog holds beside its resources. */
+    private fun settings(old: CatalogInfo, new: CatalogInfo): List<ChangeReason> {
+        val reasons = mutableListOf<ChangeReason>()
+        val was = old.presets.associateBy { it.key }
+        val now = new.presets.associateBy { it.key }
+        (was.keys - now.keys).sorted().forEach { reasons += ChangeReason(ChangeKind.BREAKING, "preset", it, "removed, while content of a catalog that uses this one may name it") }
+        (now.keys - was.keys).sorted().forEach { reasons += ChangeReason(ChangeKind.ADDITIVE, "preset", it, "added") }
+        was.keys.intersect(now.keys).sorted().filter { was[it] != now[it] }.forEach { reasons += ChangeReason(ChangeKind.NONE, "preset", it, "renamed or described differently") }
+        // The own catalog's theme is the same whether or not the reference names its alias.
+        fun CatalogInfo.theme() = defaultTheme?.let { (it.catalogKey ?: key) to it.key }
+        if (old.theme() != new.theme()) reasons += ChangeReason(ChangeKind.NONE, "catalog", "defaultTheme", "templates without a theme of their own render with another one")
+        if (old.license != new.license) reasons += ChangeReason(ChangeKind.NONE, "catalog", "license", "changed")
+        return reasons
     }
 
     private fun template(old: TemplateResource, new: TemplateResource, reason: (ChangeKind, String) -> Unit) {

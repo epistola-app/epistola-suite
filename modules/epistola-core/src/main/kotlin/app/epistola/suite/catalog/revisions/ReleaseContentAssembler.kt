@@ -301,9 +301,15 @@ class ReleaseContentAssembler(
      * The catalog details release [version] froze (its manifest's `catalog`): name, default theme,
      * presets (contract ADR 0007); null when the catalog has no such release.
      */
-    fun readCatalogInfo(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): app.epistola.catalog.protocol.CatalogInfo? = jdbi.withHandle<app.epistola.catalog.protocol.CatalogInfo?, Exception> { handle ->
+    fun readCatalogInfo(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): app.epistola.catalog.protocol.CatalogInfo? = readManifest(tenantKey, catalogKey, version)?.catalog
+
+    /**
+     * The manifest release [version] froze, without reading its resources back: its catalog details
+     * and the catalogs it declares it uses, with their pins. Null when the catalog has no such release.
+     */
+    fun readManifest(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest? = jdbi.withHandle<CatalogManifest?, Exception> { handle ->
         if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
-        loadManifestSnapshot(handle, tenantKey, catalogKey, version).catalog
+        loadManifestSnapshot(handle, tenantKey, catalogKey, version)
     }
 
     /**

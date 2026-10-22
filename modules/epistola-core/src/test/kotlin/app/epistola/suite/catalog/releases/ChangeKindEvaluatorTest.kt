@@ -6,7 +6,10 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.catalog.protocol.CatalogInfo
+import app.epistola.catalog.protocol.CatalogLicense
+import app.epistola.catalog.protocol.CatalogPresetDeclaration
 import app.epistola.catalog.protocol.CatalogResource
+import app.epistola.catalog.protocol.CatalogThemeRef
 import app.epistola.catalog.protocol.CodeListEntryEntry
 import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.catalog.protocol.ResourceDetail
@@ -125,6 +128,33 @@ class ChangeKindEvaluatorTest {
         assertThat(lockMove("1.0.0", "2.0.0", evaluator).map { it.first }).`as`("without a per-use check, a move is a fix").containsExactly(ChangeKind.NONE)
         // Not pinned: there is nothing to compare.
         assertThat(lockMove("1.0.0", "")).isEmpty()
+    }
+
+    @Test
+    fun `a preset removed is breaking, one added additive, one renamed a fix`() {
+        fun withPresets(vararg presets: CatalogPresetDeclaration) = content().let { it.copy(catalog = it.catalog.copyWithMetadata(presets = presets.toList())) }
+        val base = withPresets(CatalogPresetDeclaration("formal", "Formal"), CatalogPresetDeclaration("quote", "Quote"))
+        val draft = withPresets(CatalogPresetDeclaration("quote", "Quotation"), CatalogPresetDeclaration("note", "Note"))
+
+        assertThat(evaluate(base, draft)).containsExactly(
+            ChangeKind.BREAKING to "preset 'formal': removed, while content of a catalog that uses this one may name it",
+            ChangeKind.ADDITIVE to "preset 'note': added",
+            ChangeKind.NONE to "preset 'quote': renamed or described differently",
+        )
+    }
+
+    @Test
+    fun `another default theme or license is a fix`() {
+        val base = content()
+        val themed = content().let { it.copy(catalog = it.catalog.copyWithMetadata(defaultTheme = CatalogThemeRef("brand"))) }
+        val licensed = content().let { it.copy(catalog = it.catalog.copyWithMetadata(license = CatalogLicense("Apache License 2.0", "Apache-2.0"))) }
+
+        assertThat(evaluate(base, themed)).containsExactly(
+            ChangeKind.NONE to "catalog 'defaultTheme': templates without a theme of their own render with another one",
+        )
+        assertThat(evaluate(base, licensed)).containsExactly(ChangeKind.NONE to "catalog 'license': changed")
+        assertThat(evaluate(themed, content().let { it.copy(catalog = it.catalog.copyWithMetadata(defaultTheme = CatalogThemeRef("brand", "letters"))) }))
+            .`as`("the catalog's own theme, named with or without its alias").isEmpty()
     }
 
     @Test

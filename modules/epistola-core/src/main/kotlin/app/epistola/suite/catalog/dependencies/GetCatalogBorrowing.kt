@@ -157,10 +157,14 @@ class GetCatalogBorrowingHandler(
             }
             // A named draft: what it has not published, and the number publishing it along gives it.
             val namedDraft = declaration?.draftId?.let { CatalogReleaseRef(query.tenantKey, catalog.id, DraftRef.Id(it)) }
+            // Its resources and what it holds beside them (its own dependencies, default theme, presets,
+            // license): a draft whose only change is one of those has something to publish too.
             val unpublished = namedDraft?.let { ref ->
-                GetCatalogResourceChanges(query.tenantKey, catalog.id, ref).query().resources
+                val changes = GetCatalogResourceChanges(query.tenantKey, catalog.id, ref).query()
+                changes.resources
                     .filter { it.state != CatalogResourceState.RELEASED }
-                    .map { change -> BorrowedResource(change.type, change.slug, change.name) }
+                    .map { change -> BorrowedResource(change.type, change.slug, change.name) } +
+                    changes.settings.map { change -> BorrowedResource(change.type, change.key, change.name) }
             }.orEmpty()
             val nextNumber = namedDraft?.takeIf { unpublished.isNotEmpty() }?.let { AssessDraftNumber(query.tenantKey, catalog.id, it.draft).query()?.suggested }
             val latest = latestRelease(query.tenantKey, catalog.id)
