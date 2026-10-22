@@ -246,7 +246,7 @@ class ChangeKindEvaluator(
 
     private fun Map<String, String>.describe() = if (isEmpty()) "none" else entries.sortedBy { it.key }.joinToString(", ") { "${it.key}=${it.value}" }
 
-    private fun app.epistola.catalog.protocol.CodeListBindingRef.describe() = listOfNotNull(namespace, catalogKey, key).joinToString("/")
+    private fun app.epistola.catalog.protocol.CodeListBindingRef.describe() = listOfNotNull(catalogKey, key).joinToString("/")
 }
 
 /**

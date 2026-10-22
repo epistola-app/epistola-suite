@@ -44,7 +44,7 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
 
             assertThat(result.version).isEqualTo("1.0.0")
             assertThat(result.previousVersion).isNull()
-            assertThat(result.fingerprint).matches("v5:[0-9a-f]{64}")
+            assertThat(result.fingerprint).matches("v6:[0-9a-f]{64}")
 
             val catalog = GetCatalog(tenantKey, catalogKey).query()!!
             assertThat(catalog.releasedVersion).isEqualTo("1.0.0")

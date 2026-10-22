@@ -33,6 +33,12 @@ class UsedCatalogDeclarer(
     /** [declareCatalogs] for the catalogs [references] point into. @return the declarations added. */
     fun declare(tenantKey: TenantKey, catalogKey: CatalogKey, references: Collection<DependencyRef>): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, references.map { CatalogKey.of(it.catalogKey) })
 
+    /**
+     * [declareCatalogs] for the catalogs a variant's [attributes] name: an attribute of another catalog
+     * is keyed `<alias>.<key>` (`system.locale`, contract ADR 0003), and its alias is that catalog's key.
+     */
+    fun declareAttributes(tenantKey: TenantKey, catalogKey: CatalogKey, attributes: Collection<String>): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, attributeCatalogs(attributes))
+
     /** [declareCatalogs] for one catalog a direct reference names, such as a template's theme or an attribute's code list. */
     fun declare(tenantKey: TenantKey, catalogKey: CatalogKey, used: CatalogKey?): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, listOfNotNull(used))
 
@@ -63,3 +69,8 @@ class UsedCatalogDeclarer(
         }
     }
 }
+
+/** The catalogs variant attribute keys name by their qualifier (`system.locale` names `system`). */
+fun attributeCatalogs(attributes: Collection<String>): List<CatalogKey> = attributes.mapNotNull { key ->
+    key.substringBefore('.', "").takeIf { it.isNotEmpty() }?.let { runCatching { CatalogKey.of(it) }.getOrNull() }
+}.distinct()

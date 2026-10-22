@@ -9,10 +9,12 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 /**
  * A catalog the catalog depends on: named by [registry], [namespace] and [catalogId], and pinned to the
  * exact release [release], or, in a draft, building on its draft [draftId] ([draftName]). Both null for a
- * declaration that pins nothing yet, which releasing refuses.
+ * declaration that pins nothing yet, which releasing refuses. [alias] is what the catalog's content names
+ * it by (a reference's `catalogKey`, contract ADR 0003): its key, in this installation.
  */
 data class CatalogDependencyInfo(
     val catalogId: String,
+    val alias: String,
     val namespace: String,
     val registry: String,
     val release: String?,
@@ -22,6 +24,7 @@ data class CatalogDependencyInfo(
     companion object {
         fun from(declaration: CatalogDependencyDeclaration) = CatalogDependencyInfo(
             catalogId = declaration.catalogKey,
+            alias = declaration.alias,
             namespace = declaration.namespace,
             registry = declaration.registry,
             release = declaration.releaseVersion,

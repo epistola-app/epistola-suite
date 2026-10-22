@@ -126,7 +126,7 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
         withMediator {
             val archive = ExportCatalogZip(publisher, catalog, "1.2.0").execute().zipBytes
             val release = CatalogArchiveReader.read(ByteArrayInputStream(archive)).archive!!.use { it.manifest.release }
-            assertThat(ReleaseDescription.merged(release.metadata).map { it.version to it.fingerprint?.startsWith("v5:") })
+            assertThat(ReleaseDescription.merged(release.metadata).map { it.version to it.fingerprint?.startsWith("v6:") })
                 .`as`("named with its fingerprint in this suite's namespace")
                 .containsExactly("1.0.1" to true)
 

@@ -71,14 +71,21 @@ references traverses through it — the graph itself, catalog relocation
 `ReferenceSiteKind`, never as another walker; the shared traversal is what keeps discovery,
 rewriting, and export from disagreeing about what a reference is.
 
-Stored references name their catalog by key, which is unique in a tenant. On the wire a key alone
-means a catalog in the owning catalog's namespace and registry (contract ADR 0003), so building a
-catalog's content names the namespace, and the registry where it differs, of every reference into a
-catalog of another name: a stencil insertion, a theme override, a `fontFamily` in a template, stencil
-or theme (`ResourceReferenceSites.qualifyOtherCatalogs`), and a template's theme, an attribute's
-code-list binding and a catalog's default theme, which are stored by identity (`CatalogContentBuilder`). A reference that already
-names a namespace, as a received one does, travels as it came. An image reference names its catalog
-by key only: the image component declares no `namespace` or `registry` prop.
+Stored references name their catalog by key, which is unique in a tenant. On the wire a reference
+into another catalog names the **alias** the catalog's dependency list declares for it
+(`catalogDependencies[].alias`, contract ADR 0003, ADR 0034), and that declaration names the catalog
+by registry, namespace and key; a reference carries no namespace or registry. This installation
+declares every dependency under its catalog key (`CatalogDependencyDeclaration.alias`, column
+`catalog_dependencies.alias`), so a stored reference already names its alias and travels unchanged:
+a stencil insertion, an image, a theme override, a `fontFamily` in a template, stencil or theme, and
+a template's theme, an attribute's code-list binding, a variant attribute's qualifier and a
+catalog's default theme. The `namespace` and `registry` an earlier draft of wire v8 let a reference
+carry are dropped when content is stored (`ResourceReferenceSites.qualifyRelative`), when it is
+built for export (`CatalogContentBuilder.Outbound`) and when a release retained with them is read
+(`ReleaseContentAssembler`); `V20261022102009` dropped them from stored content. An archive that
+declares a catalog under another alias than its key is refused on import
+(`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would mean rewriting its references, which
+changes its content hash, until catalogs are told apart by namespace and key (ADR 0034, phase 4).
 
 The explorer uses internal UI handlers only:
 

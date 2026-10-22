@@ -219,14 +219,13 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
           "dependencies": [
             {
               "type": "codeList",
-              "registry": "exchange.epistola.app",
-              "namespace": "epistola",
               "catalogKey": "system",
               "key": "iso-639-1"
             }
           ],
           "catalogDependencies": [
             {
+              "alias": "system",
               "registry": "exchange.epistola.app",
               "namespace": "epistola",
               "catalogKey": "system",

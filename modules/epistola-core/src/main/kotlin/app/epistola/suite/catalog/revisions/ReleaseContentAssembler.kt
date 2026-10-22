@@ -13,6 +13,7 @@ import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -56,7 +57,14 @@ class ReleaseContentAssembler(
     private val releaseEntryStore: ReleaseEntryStore,
 ) {
 
-    /** The content of [version] of a catalog, or null when the catalog has no such release. */
+    /**
+     * The content of [version] of a catalog, or null when the catalog has no such release.
+     *
+     * A reference in it names another catalog by alias and carries no `namespace` or `registry`
+     * (contract ADR 0003, ADR 0034); a release retained while an earlier draft of wire v8 let it
+     * carry them still holds them, and they are dropped here, so it is read, rendered, merged and
+     * sent as content is now. Its content hash (V6) is over the content so read.
+     */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
         if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
@@ -183,6 +191,9 @@ class ReleaseContentAssembler(
      */
     private fun detailOf(handle: Handle, tenantKey: TenantKey, payload: JsonNode): ResourceDetail {
         val resolved = resolveRefs(handle, tenantKey, payload)
+        // Typed references drop the qualifiers when bound; those in free-form JSON (a stencil's
+        // props, a fontFamily in styles) are dropped here.
+        ResourceReferenceSites.dropNameQualifiers(resolved)
         val envelope = objectMapper.createObjectNode()
             .put("schemaVersion", CATALOG_SCHEMA_VERSION)
         envelope.set("resource", resolved)

@@ -101,7 +101,7 @@ class ExportReleaseTest : IntegrationTestBase() {
         assertThat(entryOf(export.zipBytes, "catalog.json")).contains("\"version\":\"1.2.0\"", archiveFingerprint(archive.zipBytes))
     }
 
-    private fun archiveFingerprint(zip: ByteArray): String = Regex("\"fingerprint\":\"(v5:[0-9a-f]+)\"").find(entryOf(zip, "catalog.json"))!!.groupValues[1]
+    private fun archiveFingerprint(zip: ByteArray): String = Regex("\"fingerprint\":\"(v6:[0-9a-f]+)\"").find(entryOf(zip, "catalog.json"))!!.groupValues[1]
 
     private fun authoredCatalog(slug: String): CatalogId {
         val tenant = createTenant(slug)

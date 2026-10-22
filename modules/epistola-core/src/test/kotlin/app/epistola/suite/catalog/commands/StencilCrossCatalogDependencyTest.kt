@@ -66,7 +66,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         }
 
         val dependencies = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter", namespace = "epistola", registry = "exchange.epistola.app"))
+        assertThat(dependencies).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter"))
     }
 
     @Test

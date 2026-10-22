@@ -33,6 +33,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.dependencies.DependencyAliases
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
@@ -427,6 +428,13 @@ class ImportCatalogZipHandler(
         val migratedManifest = schemaMigrator.migrateAndBindManifest(manifestBytes, migration.namespace, migration.registry)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
+        // Content names other catalogs by alias; this installation stores references by catalog key,
+        // so an alias that is not the key cannot be stored as it is received (DependencyAliases).
+        DependencyAliases.unsupported(manifest.catalogDependencies.orEmpty()).takeIf { it.isNotEmpty() }?.let { refused ->
+            throw CatalogImportValidationException(
+                refused.map { (path, message) -> CatalogImportValidationFinding(DependencyAliases.ALIAS_UNSUPPORTED, ValidationSeverity.ERROR, path, message) },
+            )
+        }
         // Decide what to do about an outdated-schema archive (a source-less transport we can't
         // re-fetch): one with no migration path is rejected; one the chain can upgrade prompts for
         // confirmation (migrating mutates content) and then imports, whoever receives it.

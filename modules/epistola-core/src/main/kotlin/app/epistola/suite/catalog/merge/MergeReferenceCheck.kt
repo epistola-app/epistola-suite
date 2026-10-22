@@ -87,7 +87,8 @@ class MergeReferenceCheck(
     /** Every reference of [values] (a side's entries, by `type/key`) that does not resolve. */
     private fun unresolved(catalogKey: CatalogKey, values: Map<String, MergeValue>, lookup: Lookup): List<Unresolved> {
         val own = values.filterValues { it is MergeValue.Resource }.keys
-        val declared = values.values.mapNotNull { ((it as? MergeValue.Setting)?.setting as? CatalogSetting.Dependency)?.declaration }.associateBy { it.catalogKey }
+        // A reference into another catalog names it by the alias its declaration gives it (contract ADR 0003).
+        val declared = values.values.mapNotNull { ((it as? MergeValue.Setting)?.setting as? CatalogSetting.Dependency)?.declaration }.associateBy { it.alias }
         return values.entries.sortedBy { it.key }.flatMap { (entry, value) ->
             references.of(value).mapNotNull { reference ->
                 val reason = when {

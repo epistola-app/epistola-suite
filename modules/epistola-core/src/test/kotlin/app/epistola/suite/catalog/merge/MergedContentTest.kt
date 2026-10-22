@@ -173,10 +173,10 @@ class MergedContentTest : IntegrationTestBase() {
             val dependency = GetDraftMergeSides(tenant, letters, "1.1.0", "catalogDependency/shared").query()
             assertThat(dependency.base).isNull()
             assertThat(dependency.release).isEqualTo(
-                mapOf("registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to "1.0.0", "releaseFingerprint" to fingerprint),
+                mapOf("alias" to "shared", "registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to "1.0.0", "releaseFingerprint" to fingerprint),
             )
             assertThat(dependency.draft).`as`("a draft named by its versionId, pinning no release").isEqualTo(
-                mapOf("registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to null, "releaseFingerprint" to null, "releaseId" to sharedDraft),
+                mapOf("alias" to "shared", "registry" to sharedName.registry, "namespace" to sharedName.namespace, "catalogKey" to "shared", "releaseVersion" to null, "releaseFingerprint" to null, "releaseId" to sharedDraft),
             )
 
             val defaultTheme = GetDraftMergeSides(tenant, letters, "1.1.0", "catalog/defaultTheme")

@@ -760,14 +760,13 @@ class CatalogExportImportTest : IntegrationTestBase() {
                   "dependencies": [
                     {
                       "type": "codeList",
-                      "registry": "exchange.epistola.app",
-                      "namespace": "epistola-tests",
                       "catalogKey": "no-such-catalog",
                       "key": "no-such-list"
                     }
                   ],
                   "catalogDependencies": [
                     {
+                      "alias": "no-such-catalog",
                       "registry": "exchange.epistola.app",
                       "namespace": "epistola-tests",
                       "catalogKey": "no-such-catalog",

@@ -62,7 +62,7 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
             val released = ReleaseCatalogDraft(tenantKey, catalogKey, "1.0.0").execute()
             val clean = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
             assertThat(clean.release.version).isEqualTo("1.0.0")
-            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v5:[0-9a-f]{64}")
+            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v6:[0-9a-f]{64}")
 
             // 3. Edited since: still the release, not the edits.
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "Th2").execute()

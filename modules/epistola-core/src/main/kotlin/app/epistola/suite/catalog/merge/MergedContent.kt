@@ -61,6 +61,7 @@ class MergeEntryContent(private val objectMapper: ObjectMapper) {
 
             is CatalogSetting.Dependency -> setting.declaration.let { declaration ->
                 linkedMapOf<String, Any?>(
+                    "alias" to declaration.alias,
                     "registry" to declaration.registry,
                     "namespace" to declaration.namespace,
                     "catalogKey" to declaration.catalogKey,
@@ -133,8 +134,7 @@ class MergedContentReader(
                 catalogKey = catalogKey.value,
                 resources = resources,
                 paths = binaries.keys,
-                namespace = draft.catalog.namespace,
-                registry = draft.catalog.registry,
+                catalogDependencies = manifest.catalogDependencies,
             ),
             field,
         )
@@ -190,6 +190,8 @@ class MergedContentReader(
         }
         val catalog = text("catalogKey", required = true)
         if (catalog != key) throw ValidationException("$field/catalogKey", "must be the entry's catalog, $key")
+        // This installation declares every catalog under its key (DependencyAliases).
+        text("alias", required = false)?.let { if (it != key) throw ValidationException("$field/alias", "must be the catalog's key, $key: this installation names every catalog a catalog uses by its key") }
         val registry = text("registry", required = true)!!
         val namespace = text("namespace", required = true)!!
         val version = text("releaseVersion", required = false)
@@ -199,7 +201,7 @@ class MergedContentReader(
         if (version != null && fingerprint == null) throw ValidationException("$field/releaseFingerprint", "is required with releaseVersion")
         if (fingerprint != null && version == null) throw ValidationException("$field/releaseVersion", "is required with releaseFingerprint")
         if (fingerprint != null && !app.epistola.catalog.protocol.CatalogDependency.isValidReleaseFingerprint(fingerprint)) {
-            throw ValidationException("$field/releaseFingerprint", "must be a release fingerprint, v5:<hex>")
+            throw ValidationException("$field/releaseFingerprint", "must be a release fingerprint, v6:<hex> (or of an earlier algorithm)")
         }
         var declaration = CatalogDependencyDeclaration(registry, namespace, key, version, fingerprint, draftId)
         if (draftId != null) {
@@ -233,6 +235,8 @@ class MergedContentReader(
         /** What the validator finds when a reference does not resolve, which [MergeReferenceCheck] refuses with what to choose. */
         val UNRESOLVED = setOf(
             CatalogValidationCodes.RESOURCE_REFERENCE_MISSING,
+            // An alias the draft does not declare: whether the result declares it is the reference check's to say.
+            CatalogValidationCodes.DEPENDENCY_CATALOG_UNDECLARED,
             TemplateValidationCodes.TEMPLATE_THEME_NOT_FOUND,
             TemplateValidationCodes.STENCIL_REFERENCE_NOT_FOUND,
         )

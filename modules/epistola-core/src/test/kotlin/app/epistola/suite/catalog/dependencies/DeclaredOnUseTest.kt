@@ -37,6 +37,8 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.stencilDocument
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
@@ -92,6 +94,31 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         }
 
         assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
+    }
+
+    /**
+     * A variant attribute of another catalog is keyed by that catalog's alias (`shared.tone`, contract
+     * ADR 0003), which a catalog must declare, as every other reference into another catalog.
+     */
+    @Test
+    fun `a variant attribute of another catalog declares that catalog, on create and on update`() {
+        val tenant = setUp("on-use-variant-attribute")
+        withMediator {
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), CatalogId(shared, TenantId(tenant))), "Tone").execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("size"), CatalogId(letters, TenantId(tenant))), "Size").execute()
+            CreateVariant(VariantId(VariantKey.of("formal"), invoice(tenant)), "Formal", description = null, attributes = mapOf("letters.size" to "a4")).execute()
+        }
+        assertThat(declared(tenant)).`as`("its own catalog's attribute declares nothing").isEmpty()
+
+        withMediator { CreateVariant(VariantId(VariantKey.of("friendly"), invoice(tenant)), "Friendly", description = null, attributes = mapOf("shared.tone" to "warm")).execute() }
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
+
+        val other = setUp("on-use-variant-attribute-update")
+        withMediator {
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), CatalogId(shared, TenantId(other))), "Tone").execute()
+            UpdateVariant(VariantId(VariantKey.INITIAL, invoice(other)), title = "Default", attributes = mapOf("shared.tone" to "warm")).execute()
+        }
+        assertThat(declared(other)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test

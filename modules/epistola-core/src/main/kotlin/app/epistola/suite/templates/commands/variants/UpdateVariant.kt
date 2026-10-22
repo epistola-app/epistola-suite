@@ -49,12 +49,16 @@ data class UpdateVariant(
 class UpdateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
         requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
 
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.variantId.tenantId, command.attributes)
+        // An attribute of another catalog names it by alias (`system.locale`): that catalog is declared now,
+        // as every write that starts using another catalog declares it (contract ADR 0003).
+        usedCatalogs.declareAttributes(command.variantId.tenantKey, command.variantId.catalogKey, command.attributes.keys)
 
         val auditUser = currentUserIdOrNull()?.value
 

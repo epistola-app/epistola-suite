@@ -23,6 +23,12 @@ import org.springframework.stereotype.Component
  * a draft of that catalog instead ([draftId], its public id, and [draftName]), to build on work not
  * released yet. All are null for a declaration that pins nothing yet (one migrated from wire v7).
  * Releasing refuses either until it pins a release.
+ *
+ * [alias] is what the catalog's content names the dependency by (contract ADR 0003, ADR 0034): a
+ * reference into it names the alias and a resource key. This installation tells catalogs apart by
+ * key within a tenant until ADR 0034's phase 4, and stores references by the catalog's key, so a
+ * dependency's alias is always its [catalogKey], the contract's default; an archive that declares
+ * another is refused on receipt ([DependencyAliases.unsupported]).
  */
 data class CatalogDependencyDeclaration(
     val registry: String,
@@ -32,6 +38,7 @@ data class CatalogDependencyDeclaration(
     val releaseFingerprint: String? = null,
     val draftId: String? = null,
     val draftName: String? = null,
+    val alias: String = catalogKey,
 ) {
     val identity: Triple<String, String, String> get() = Triple(registry, namespace, catalogKey)
 
@@ -41,7 +48,7 @@ data class CatalogDependencyDeclaration(
     val namesDraft: Boolean get() = draftId != null
 
     /** A release never pins a draft, so the wire form of a declaration naming one pins nothing. */
-    fun toWire(): CatalogDependency = CatalogDependency(registry, namespace, catalogKey, releaseVersion, releaseFingerprint)
+    fun toWire(): CatalogDependency = CatalogDependency(registry, namespace, catalogKey, releaseVersion, releaseFingerprint, alias)
 
     override fun toString(): String = "$registry~$namespace/$catalogKey@${releaseVersion ?: draftName?.let { "draft '$it'" } ?: "unpinned"}"
 
@@ -52,6 +59,7 @@ data class CatalogDependencyDeclaration(
             wire.catalogKey,
             wire.releaseVersion,
             wire.releaseFingerprint,
+            alias = wire.alias,
         )
     }
 }
@@ -69,7 +77,7 @@ class CatalogDependencyStore {
     fun declarations(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT d.registry, d.namespace, d.dependency_key, d.release_version, d.release_fingerprint,
+            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
             FROM catalog_dependencies d
             LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
@@ -90,13 +98,14 @@ class CatalogDependencyStore {
         rs.getString("release_fingerprint"),
         rs.getString("draft_key"),
         rs.getString("draft_name"),
+        rs.getString("alias"),
     )
 
     /** The declarations of draft [versionId], by its internal id, whatever the running message targets. */
     fun declarationsOf(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT d.registry, d.namespace, d.dependency_key, d.release_version, d.release_fingerprint,
+            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
             FROM catalog_dependencies d
             LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
@@ -118,7 +127,7 @@ class CatalogDependencyStore {
      */
     fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
         // Only a change counts: the same declarations again leave the version's revision as it is.
-        fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, releaseVersion, releaseFingerprint, draftId)
+        fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, alias, releaseVersion, releaseFingerprint, draftId)
         val current = declarations(handle, tenantKey, catalogKey)
         if (current.map { it.what() } == declarations.map { it.what() }) return
         requireNoCycle(handle, tenantKey, catalogKey, declarations.filter { new -> current.none { it.identity == new.identity } })
@@ -129,9 +138,9 @@ class CatalogDependencyStore {
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, position,
+            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position,
                                               release_version, release_fingerprint, dependency_version_id)
-            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :position, :releaseVersion, :releaseFingerprint,
+            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
                     (SELECT dv.version_id FROM catalog_versions dv
                      JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
                      WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.version_key = :draftKey
@@ -144,6 +153,7 @@ class CatalogDependencyStore {
                 .bind("registry", declaration.registry)
                 .bind("namespace", declaration.namespace)
                 .bind("key", declaration.catalogKey)
+                .bind("alias", declaration.alias)
                 .bind("position", position)
                 .bind("releaseVersion", declaration.releaseVersion)
                 .bind("releaseFingerprint", declaration.releaseFingerprint)
@@ -210,9 +220,9 @@ class CatalogDependencyStore {
         if (pins.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_release_dependencies (tenant_key, catalog_id, version, registry, namespace, dependency_key,
+            INSERT INTO catalog_release_dependencies (tenant_key, catalog_id, version, registry, namespace, dependency_key, alias,
                                                       position, release_version, release_fingerprint)
-            VALUES (:t, ${catalogAt("t", "c")}, :version, :registry, :namespace, :key, :position, :releaseVersion, :releaseFingerprint)
+            VALUES (:t, ${catalogAt("t", "c")}, :version, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint)
             """,
         )
         pins.forEachIndexed { position, pin ->
@@ -222,6 +232,7 @@ class CatalogDependencyStore {
                 .bind("registry", pin.registry)
                 .bind("namespace", pin.namespace)
                 .bind("key", pin.catalogKey)
+                .bind("alias", pin.alias)
                 .bind("position", position)
                 .bind("releaseVersion", pin.releaseVersion)
                 .bind("releaseFingerprint", pin.releaseFingerprint)
@@ -234,7 +245,7 @@ class CatalogDependencyStore {
     fun releasePins(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT registry, namespace, dependency_key, release_version, release_fingerprint
+            SELECT registry, namespace, dependency_key, alias, release_version, release_fingerprint
             FROM catalog_release_dependencies
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             ORDER BY position
@@ -250,6 +261,7 @@ class CatalogDependencyStore {
                 rs.getString("dependency_key"),
                 rs.getString("release_version"),
                 rs.getString("release_fingerprint"),
+                alias = rs.getString("alias"),
             )
         }
         .list()

@@ -409,8 +409,17 @@ everyone than one large catalog nobody wants all of.
 ## Declared dependencies
 
 A catalog that uses another catalog's resources declares that catalog once (wire v8
-`catalogDependencies`, contract ADR 0003): by registry, namespace and key, **pinned to one exact
-release** of it (`version`), not a range. A draft may instead name a **draft** of that catalog
+`catalogDependencies`, contract ADR 0003): under an **alias**, by registry, namespace and key,
+**pinned to one exact release** of it (`version`), not a range. Content names the catalog by the
+alias and a resource key (a reference's `catalogKey`, a template's `themeCatalogKey`, the default
+theme's `catalogKey`, a variant attribute's qualifier such as `system.locale`) and never by registry
+or namespace, so renaming or mirroring a dependency changes the declaration, not the content (ADR
+0034). This installation tells catalogs apart by key within a tenant until ADR 0034's phase 4, so it
+declares every dependency under its key, the contract's default (`catalog_dependencies.alias`,
+`catalog_release_dependencies.alias`, `V20261022101420`), and refuses an archive that declares one
+under another alias (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED`): storing it would rewrite its references
+and so change its content hash. A reference resolves through the declaration of its alias to that
+catalog, by its full name, and to the release the declaration pins. A draft may instead name a **draft** of that catalog
 (`releaseId`; column `dependency_version_id`), to build on work not released yet; it renders with that
 draft. `UpdateCatalogDependencies` (`TEMPLATE_EDIT`) replaces the declarations of a catalog;
 each must name a catalog the tenant has, not itself, not twice, and a release it has with a `v5:`
@@ -420,7 +429,7 @@ library upgrade does, and leaves a declaration naming a draft as it is (the UI's
 versions_). Renaming the dependency's namespace carries the declarations that name it.
 
 **Declared as it is used.** A write that starts using another catalog declares it
-(`UsedCatalogDeclarer`), on every surface: a variant's stencils, images and fonts, a template's theme,
+(`UsedCatalogDeclarer`), on every surface: a variant's stencils, images and fonts, a variant attribute of another catalog (`shared.tone`), a template's theme,
 a theme's fonts, a stencil's content, an attribute's code list. A catalog that can be changed here is
 declared by naming its **next release**, which is what the draft then renders it from; one that cannot
 by pinning its highest release. A declaration already there is left as the author set it.

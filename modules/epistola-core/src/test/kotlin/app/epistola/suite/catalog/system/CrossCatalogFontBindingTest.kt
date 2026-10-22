@@ -91,7 +91,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
         // The cross-catalog font binding is declared on the manifest as a
         // DependencyRef.Font(catalogKey = "system", slug = "inter").
         val deps = manifestOf(zip.zipBytes).dependencies.orEmpty()
-        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter", namespace = "epistola", registry = "exchange.epistola.app"))
+        assertThat(deps).contains(DependencyRef.Font(catalogKey = SYSTEM_CATALOG_KEY.value, key = "inter"))
 
         // Re-import into a SECOND fresh tenant. createTenant auto-installs the
         // system catalog (incl. system/inter), so the cross-catalog font

@@ -97,8 +97,8 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,
-             "dependencies":[{"type":"image","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","key":"logo"}],
-             "catalogDependencies":[{"registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
+             "dependencies":[{"type":"image","catalogKey":"$imageCatalog","key":"logo"}],
+             "catalogDependencies":[{"alias":"$imageCatalog","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
              "resources":[]}
         """.trimIndent()
         val out = ByteArrayOutputStream()

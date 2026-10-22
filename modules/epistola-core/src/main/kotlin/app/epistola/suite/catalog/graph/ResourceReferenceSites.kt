@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.graph
 
-import app.epistola.suite.catalog.CatalogName
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
@@ -37,14 +36,9 @@ enum class ReferenceSiteKind(
     val nodeType: String? = null,
     /** Field holding the reference object, for references not carried in a node's `props`. */
     val containerField: String? = null,
-    /**
-     * Whether the wire lets the reference name its catalog's namespace and registry (wire v8). The
-     * image component declares no such props, so an image reference names its catalog by key only.
-     */
-    val qualifiable: Boolean = true,
 ) {
     STENCIL_INSERTION(CatalogResourceType.STENCIL, "stencil-insertion", ReferenceSemantics.PROVENANCE, "stencilKey", true, nodeType = "stencil"),
-    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image", qualifiable = false),
+    IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image"),
     THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeKey", true, containerField = "themeRef"),
     FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "key", true, containerField = "fontFamily"),
     ;
@@ -65,11 +59,12 @@ class ReferenceSite internal constructor(
 ) {
     val key: String get() = holder.path(kind.keyField).stringValue()
 
-    /** The explicitly authored catalog, or null when the reference is unqualified. */
+    /**
+     * The explicitly authored catalog, or null when the reference is unqualified. On the wire it is
+     * the alias the catalog's dependency list declares (contract ADR 0003, ADR 0034); stored, it is
+     * the tenant's catalog key, which this installation uses as every dependency's alias.
+     */
     val catalogKey: String? get() = holder.path(CATALOG_KEY).textOrNull()
-
-    /** The namespace the reference names its catalog in, or null when it names none (the containing catalog's). */
-    val namespace: String? get() = holder.path(NAMESPACE).textOrNull()
 
     /** The pinned version a stencil insertion carries, when it has one. */
     val pinnedVersion: Int? get() = holder.path("version").takeUnless { it.isMissingNode || it.isNull }?.asInt()
@@ -86,10 +81,16 @@ class ReferenceSite internal constructor(
         holder.remove(CATALOG_KEY)
     }
 
-    /** Names the catalog's [namespace], and its [registry] when given; wire v8 (contract ADR 0003). */
-    fun setQualifier(namespace: String, registry: String?) {
-        holder.put(NAMESPACE, namespace)
-        if (registry != null) holder.put(REGISTRY, registry) else holder.remove(REGISTRY)
+    /**
+     * Drops the `namespace` and `registry` an earlier draft of wire v8 let a reference carry: a
+     * reference names another catalog by alias, and the name is the declaration's (contract ADR 0003,
+     * ADR 0034). @return true when it carried one.
+     */
+    fun dropNameQualifiers(): Boolean {
+        val had = holder.has(NAMESPACE) || holder.has(REGISTRY)
+        holder.remove(NAMESPACE)
+        holder.remove(REGISTRY)
+        return had
     }
 }
 
@@ -102,24 +103,35 @@ object ResourceReferenceSites {
     fun scan(root: JsonNode, path: String = ""): List<ReferenceSite> = buildList { collect(root, path, this) }
 
     /**
-     * Fills in [containingCatalogKey] on every unqualified relative reference, in place.
+     * Fills in [containingCatalogKey] on every unqualified relative reference, in place, and drops the
+     * name qualifiers no reference carries any more ([ReferenceSite.dropNameQualifiers]).
      *
      * Applied when content is persisted, so a stored reference always names the catalog it
      * resolves against and keeps that meaning if its owner is later relocated. Assets are left
      * alone: they resolve tenant-globally, so qualifying one would change what it means rather
      * than pin it.
      *
-     * @return true when anything was qualified.
+     * @return true when anything was qualified or dropped.
      */
     fun qualifyRelative(root: JsonNode, containingCatalogKey: String): Boolean {
         var changed = false
         for (site in scan(root)) {
+            if (site.dropNameQualifiers()) changed = true
             if (!site.kind.relativeWhenUnqualified || site.catalogKey != null) continue
             site.setCatalogKey(containingCatalogKey)
             changed = true
         }
         return changed
     }
+
+    /**
+     * Drops the name qualifiers of every reference in [root], in place
+     * ([ReferenceSite.dropNameQualifiers]): content built from rows stored before references named
+     * their catalog by alias, or from a release retained then, travels without them.
+     *
+     * @return true when any reference carried one.
+     */
+    fun dropNameQualifiers(root: JsonNode): Boolean = scan(root).fold(false) { changed, site -> site.dropNameQualifiers() || changed }
 
     /**
      * Drops [containingCatalogKey] from references that target it, the inverse of [qualifyRelative].
@@ -133,28 +145,6 @@ object ResourceReferenceSites {
         for (site in scan(root)) {
             if (!site.kind.relativeWhenUnqualified || site.catalogKey != containingCatalogKey) continue
             site.clearCatalogKey()
-        }
-    }
-
-    /**
-     * Names the namespace, and the registry where it differs, of every [qualifiable][ReferenceSiteKind.qualifiable] reference into a catalog
-     * whose name differs from [owner]'s, in place: on the wire an absent namespace or registry
-     * means the containing catalog's (contract ADR 0003), so a reference into the bundled `system`
-     * catalog from a tenant's own catalog says `namespace: epistola`.
-     *
-     * Applied when building a catalog's content. Stored references name their catalog by key alone,
-     * which is unique in a tenant, so its name is what [nameOf] (a catalog key) answers; a
-     * reference that already names a namespace keeps it as it came, so a received release builds
-     * back as it was received. A reference to a catalog the tenant does not have stays as it is.
-     */
-    fun qualifyOtherCatalogs(root: JsonNode, owner: CatalogName, nameOf: (String) -> CatalogName?) {
-        for (site in scan(root)) {
-            if (!site.kind.qualifiable) continue
-            val target = site.catalogKey ?: continue
-            if (site.namespace != null) continue
-            val name = nameOf(target) ?: continue
-            if (name.namespace == owner.namespace && name.registry == owner.registry) continue
-            site.setQualifier(name.namespace, name.registry.takeIf { it != owner.registry })
         }
     }
 
