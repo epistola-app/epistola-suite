@@ -4,6 +4,8 @@
 
 package app.epistola.suite.migration
 
+import app.epistola.suite.migration.preflight.UpgradePreflightOutcome
+import app.epistola.suite.migration.preflight.UpgradePreflights
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -30,6 +32,12 @@ import java.sql.DriverManager
  * then migrated to latest via the exact production migration context. Every migration that
  * lands after RC1 is thereby exercised against RC1-shaped data and fails this test if it
  * drops or mangles a preserved row — or fails to perform (or over-performs) an expected cleanup.
+ *
+ * It reaches 2.0 the way a supported installation does: 1.x migrates the RC1 data up to the last
+ * 1.x release (1.5.0), then the 2.0 step runs its preflight on that shape and migrates the rest. A
+ * direct upgrade is promised from a supported version only (SUPPORT_POLICY.md), and every one of
+ * them (1.2.0 onwards) has the shape the 1.x-to-2.0 checks read; RC1's has not (no
+ * `template_resource_id`), so the checks refuse an RC1 database rather than read it.
  *
  * It runs once per supported PostgreSQL major version, whichever one the rest of the suite is on:
  * an installation upgrades on the server it already has, so a migration that only works on a newer
@@ -68,10 +76,28 @@ class DataPreservationMigrationIT {
         // 2. Seed a representative tenant on the RC1-shaped schema.
         connect(targetUrl, postgres.username, postgres.password).use { seed(it) }
 
-        // 3. Apply everything newer than RC1 (the production migration path).
+        // 3. Up to the last 1.x release, as 1.x migrated it. 1.x had no 2.0 preflight, so the 2.0
+        //    launcher skips its checks for this step only.
+        runMigration(
+            targetUrl,
+            postgres.username,
+            postgres.password,
+            "spring.flyway.target=$LAST_1X_MIGRATION",
+            "epistola.migration.preflight.skip=${UpgradePreflights.checks.joinToString(",") { it.id }}",
+        )
+
+        // 4. The 1.x-to-2.0 checks read the seeded data at that shape, and nothing they read stops the
+        //    upgrade: every check ran (none is left out as not applying) and none found a problem.
+        connect(targetUrl, postgres.username, postgres.password).use { connection ->
+            val preflight = UpgradePreflights.run(connection)
+            assertThat(preflight.outcomes).allSatisfy { assertThat(it).isInstanceOf(UpgradePreflightOutcome.Ran::class.java) }
+            assertThat(preflight.passed).describedAs(preflight.describe()).isTrue()
+        }
+
+        // 5. Apply everything newer than 1.x (the production migration path, preflight included).
         runMigration(targetUrl, postgres.username, postgres.password)
 
-        // 4. The seeded data must be intact, on the server this run claims to be exercising.
+        // 6. The seeded data must be intact, on the server this run claims to be exercising.
         connect(targetUrl, postgres.username, postgres.password).use { connection ->
             assertThat(connection.metaData.databaseMajorVersion)
                 .describedAs("PostgreSQL major version the migrations ran on")
@@ -474,6 +500,9 @@ class DataPreservationMigrationIT {
          * point is that data seeded on this schema must survive everything after it.
          */
         private const val RC1_LAST_MIGRATION = "20260622102813"
+
+        /** The last migration 1.x shipped (1.4.0 and 1.5.0 both end on it): where a 2.0 upgrade starts. */
+        private const val LAST_1X_MIGRATION = "20260923150918"
 
         private const val TENANT = "preserve-tenant"
         private const val THEME_STYLES = """{"fontFamily": "serif", "fontSize": 11}"""
