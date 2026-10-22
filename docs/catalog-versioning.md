@@ -154,8 +154,8 @@ until it is released**; only releases are numbered.
   the merge base, the
   closest release both descend from: what only the release changed is taken (written as the release
   has it, or removed), what only the draft changed stays, and an entry both changed differently is a
-  conflict the person resolves to one side. Taken resources are marked ready, since they are released
-  content. A release that removes something the draft still uses is refused
+  conflict the person resolves to one side, or to merged content (below). Taken resources are marked
+  ready, since they are released content. A release that removes something the draft still uses is refused
   (`MergeRefusedException`), as is one the draft already contains. So is a merge whose result holds a
   reference that does not resolve (`MergeReferenceCheck`): within the catalog to a resource the result
   has, into another catalog only through a dependency the result declares, to the release it pins
@@ -165,11 +165,37 @@ until it is released**; only releases are numbered.
   nothing refers to any more is kept, as editing keeps one. The preview lists with each entry the
   entries it goes with (`MergeResource.needs`: the theme or stencil a template uses, the dependency a
   reference into another catalog resolves through), which the dialog shows as "Goes with …" and MCP
-  as `needs`; REST has no field for it yet. The preview carries a `token`; a
+  and REST as `needs`. The preview carries a `token`; a
   merge given it is refused once the draft or the release changed since
   (`MergePreviewOutdatedException`, REST 409 `merge-preview-outdated`: preview again). The draft records the merge
   (`catalog_draft_merges`), which `behind` then leaves out; its base does not move. Merging inside one
   resource is later work; see [Merge internals](#merge-internals).
+- **Merged content** (alpha, contract ADR 0005). A conflict can be resolved to content combined from
+  its sides instead of one side, by a person, an assistant or a tool. `GetDraftMergeSides` reads one
+  entry the preview lists on its three sides, in the portable catalog format: a resource as the
+  `resource` object of its resource detail (the form an archive carries), the default theme as
+  `{"defaultTheme": …}`, the presets as `{"presets": […]}`, a dependency as its manifest
+  declaration (with `releaseId`, the draft's `versionId`, when it names a draft), each null where a
+  side lacks it, with the merge base and the preview's `token`; without the merge base it is
+  refused (`MergeBaseMissingException`), and for an entry the merge does not list it is not found
+  (`MergeEntryNotFoundException`). `MergeReleaseIntoDraft.mergedContent` (`type/key` to that form)
+  resolves a conflict beside `resolutions`, one of the two per conflict (both is a
+  `ValidationException`, REST 400). The content is read as an import reads it
+  (`MergedContentReader`): a resource is bound through the portable schema migrator, must name the
+  entry's `type` and `key`, and is checked by the portable resource validator, then written by the
+  import's own installer, so the suite's rules apply too; a setting's value is parsed. Invalid content
+  is a `ValidationException` whose field names the entry and the path within it
+  (`mergedContent.template/invoice/variants[1]/key`, REST 400 `validation-error`); content for an
+  entry that is not a conflict is `MergeNotApplicableException`. A reference merged content holds
+  that the result lacks is refused by the reference check like any merge's (`merge-refused`). Merged
+  content is written as given and **not marked ready**, unlike taken content: the draft's page lists
+  it as a change not ready yet, to be reviewed before release. The merge returns it as `merged`.
+  Surfaces: MCP `get_merge_sides` and `merge_release`'s `mergedContent`; REST `getCatalogDraftMergeSides`
+  (`GET …/releases/{draft}/merge-sides?version=&entry=`; with contract `2.0.0-SNAPSHOT` at `8aabab7` its generated
+  interface declares `entry`'s pattern so that no entry matches, so over HTTP it answers 400 until the contract fixes it)
+  and `mergeIntoCatalogDraft`'s
+  `mergedContent`; the web UI's merge dialog shows a conflict's three sides read-only ("Compare") and
+  still resolves it to one side.
 - **The merge base is found by lineage, never guessed** (contract ADR 0005). It is the closest release
   on the merged release's line (itself, its base, that one's base, …) that the draft contains, each
   link a base a release records. A release that records none ends its line; the release numbered
@@ -666,8 +692,19 @@ template per variant or per block, an editor merge tool — adds to it rather th
   the merge broke is refused: a reference that did not resolve in the draft before stays the draft's
   own, for releasing to refuse. The default theme is written without declaring its catalog
   (`SetCatalogDefaultTheme.declaresCatalog`), so the merged declarations stand as merged.
+- **Merged content** (`MergeResolution.Content`, `MergedContentReader`, `MergeEntryContent`). The
+  command takes merged content apart from `resolutions`; the handler reads each into a `MergeValue`
+  before planning (the migrator, the portable `ResourceValidator` with the not-found findings left to
+  the reference check, the entry's `type` and `key`; for a setting, its value parsed) and resolves
+  the conflict to `MergeResolution.Content` holding it. `WholeResourceMerger.plan` turns that into
+  `MergeAction.Write(value, ready = false)`. `MergeEntryContent` writes a side in the same portable
+  form `GetDraftMergeSides` returns. For a later merge, an entry resolved to merged content is held as
+  the release has it, like a kept one (`held_fingerprints`): the draft changed it, so a later change
+  of the release to it is a conflict again, not taken silently. Resolutions record it as `MERGED`.
 - **Writer** (`DraftResourceWriter`). Applies the actions to the draft: resources through
-  `CatalogResourceInstaller` (the import's own per-type code), marked ready; removals refused while
+  `CatalogResourceInstaller` (the import's own per-type code), marked ready, or for merged content
+  left without a ready mark (`ReadyMarks.clear`), a rule it breaks there a `ValidationException` on
+  its `mergedContent` field; removals refused while
   another catalog or the draft itself uses one; then the dependency entries, taken or dropped in one
   replacement of the draft's declarations (the order of the ones it keeps stays); settings last,
   through `SetCatalogDefaultTheme` and `SetCatalogPresets`.
@@ -690,7 +727,8 @@ template per variant or per block, an editor merge tool — adds to it rather th
 To merge a type differently, add a Spring bean implementing `ResourceMerger` whose `types` names it:
 `classify` returns the `MergeResource` the preview shows (its outcome decides whether a resolution is
 asked for), and `plan` returns a `MergeAction.Write` with the value to write, which can be content
-combined from both sides. A new kind of resolution is a new case of `MergeResolution`.
+combined from both sides (`ready = false` for anything not released as is). A new kind of resolution
+is a new case of `MergeResolution`, as `Content` is.
 
 ## Everyday work continuing from parallel work
 
