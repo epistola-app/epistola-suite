@@ -53,6 +53,11 @@ data class CatalogRelease(
     val contentHash: String? = null,
     val deployedTo: List<String> = emptyList(),
     val behind: List<BehindRelease> = emptyList(),
+    /**
+     * For a draft that is [behind] releases, the line it continues and where each of them was made
+     * off it ([ReleaseLineage.behindLine]); null otherwise. Filled with [behind].
+     */
+    val behindLine: BehindLine? = null,
     val versionId: String,
     val name: String? = null,
     val isNext: Boolean = false,
@@ -80,11 +85,23 @@ data class CatalogRelease(
 /**
  * A released version a draft is behind, and what that release changed against its own base (the
  * release below it when it recorded none).
+ *
+ * @property base the release it was made on, as its line names it here ([ReleaseLineage]): a number
+ *   this catalog may not have, for a release received from elsewhere; null when it records none.
+ * @property releasedAt when it was published here.
  */
-data class BehindRelease(val version: String, val changes: List<ReleasedChange>)
+data class BehindRelease(
+    val version: String,
+    val changes: List<ReleasedChange>,
+    val base: String? = null,
+    val releasedAt: OffsetDateTime? = null,
+)
 
-/** A resource a release added, modified or removed. [change] is `added`, `modified` or `removed`. */
-data class ReleasedChange(val type: String, val key: String, val change: String)
+/**
+ * A resource a release added, modified or removed. [change] is `added`, `modified` or `removed`;
+ * [name] is what the release calls it (for a removed one, what its base did), null when neither says.
+ */
+data class ReleasedChange(val type: String, val key: String, val change: String, val name: String? = null)
 
 /**
  * An open draft of an authored catalog. [versionId] is what its content rows belong to; [key] is its

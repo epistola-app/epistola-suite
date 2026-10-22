@@ -104,6 +104,43 @@ class ReleaseMergeParentsTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `the next release says what each fix it lacks was made on, when it was published, and the line it continues`() {
+        val tenant = createTenant("Lines Drawn").id
+        val catalog = CatalogKey.of("lines-drawn")
+        demoLines(tenant, catalog, mergeFixIntoNext = false)
+
+        val next = withMediator { GetCatalogDraft(tenant, catalog, withBehind = true).query()!! }
+
+        assertThat(next.behind.map { it.version to it.base }).containsExactly("1.0.1" to "1.0.0", "1.1.1" to "1.1.0")
+        assertThat(next.behind).allSatisfy { assertThat(it.releasedAt).isNotNull() }
+        assertThat(next.behind.first().changes).containsExactly(ReleasedChange("theme", "fixa", "modified", "fix a, fixed"))
+        assertThat(next.behindLine).isEqualTo(
+            BehindLine(
+                line = listOf("1.0.0", "1.1.0", "1.2.0", "1.2.1"),
+                joined = emptyList(),
+                behind = listOf(BehindBranch("1.0.1", madeOn = "1.0.0"), BehindBranch("1.1.1", madeOn = "1.1.0")),
+            ),
+        )
+    }
+
+    @Test
+    fun `a fix merged before a release is drawn joined where it was merged, and the line starts at the one still missing`() {
+        val tenant = createTenant("Lines Drawn Merged").id
+        val catalog = CatalogKey.of("lines-drawn-merged")
+        demoLines(tenant, catalog, mergeFixIntoNext = true)
+
+        val next = withMediator { GetCatalogDraft(tenant, catalog, withBehind = true).query()!! }
+
+        assertThat(next.behindLine).isEqualTo(
+            BehindLine(
+                line = listOf("1.1.0", "1.2.0", "1.2.1"),
+                joined = listOf(JoinedRelease("1.0.1", into = "1.2.0")),
+                behind = listOf(BehindBranch("1.1.1", madeOn = "1.1.0")),
+            ),
+        )
+    }
+
+    @Test
     fun `a fix merged before a release stays contained after it, in the release and in what continues on it`() {
         val tenant = createTenant("Lines Merged").id
         val catalog = CatalogKey.of("lines-merged")

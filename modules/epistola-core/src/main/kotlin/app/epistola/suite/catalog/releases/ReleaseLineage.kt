@@ -106,6 +106,66 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
             .map { it.second }
     }
 
+    /**
+     * The line a draft on [base] that merged [merged] continues, and where each release it is
+     * [behind] (as [ReleaseLineage.behind] lists them) was made off it, for drawing ([BehindLine]).
+     *
+     * The line is the draft's first parents (its base, that release's base, …), cut at the oldest one
+     * a release it lacks was made on: directly, through another release it lacks that was made on
+     * it, or through a release merged into the line, which counts where it came in. Releases merged
+     * into a release on that stretch, or into the draft, are joined to it; so is a release merged in
+     * further back that a lacking one was made on, where it came into the line.
+     */
+    fun behindLine(base: String?, merged: Collection<String>, behind: List<String>): BehindLine {
+        // The draft's first parents, newest first. Bounded by what was seen, so a loop cannot run on.
+        val firstParents = mutableListOf<String>()
+        var at = base
+        while (at != null && at in releases && at !in firstParents) {
+            firstParents += at
+            at = releases.getValue(at).base?.version
+        }
+        val lacking = behind.toSet()
+        val held = containedBy(base, merged)
+        val heldAt = firstParents.associateWith { contained(listOf(it)) }
+        fun baseOf(release: String): String? = releases[release]?.base?.version
+
+        // Where a release the draft holds came into its line: the oldest release on it that holds it
+        // (each holds what the ones before it do), or null when only the draft's own merges bring it.
+        fun cameIn(release: String): String? = firstParents.lastOrNull { release in heldAt.getValue(it) }
+
+        // The release on the line a lacking one hangs off, following the lacking ones it was made on.
+        fun anchor(release: String, seen: Set<String>): String? {
+            val madeOn = baseOf(release) ?: return null
+            return when {
+                madeOn in firstParents -> madeOn
+                madeOn in lacking && madeOn !in seen -> anchor(madeOn, seen + release)
+                madeOn in held -> cameIn(madeOn)
+                else -> null
+            }
+        }
+        val anchors = behind.mapNotNull { anchor(it, emptySet()) }.toSet()
+        val oldest = firstParents.indices.lastOrNull { firstParents[it] in anchors } ?: 0
+        val line = firstParents.take(oldest + 1).reversed()
+        val onLine = line.toSet()
+
+        val joined = linkedMapOf<String, String?>()
+        fun join(release: String, into: String?) {
+            if (release in releases && release !in firstParents && release !in lacking) joined.putIfAbsent(release, into)
+        }
+        line.forEach { release -> releases.getValue(release).merged.forEach { join(it.version, release) } }
+        merged.forEach { join(it, cameIn(it)) }
+        behind.forEach { release -> baseOf(release)?.takeIf { it in held }?.let { join(it, cameIn(it)) } }
+
+        val drawn = onLine + joined.keys + lacking
+        return BehindLine(
+            line = line,
+            joined = joined.entries
+                .sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it.key) })
+                .map { (release, into) -> JoinedRelease(release, into) },
+            behind = behind.map { release -> BehindBranch(release, baseOf(release)?.takeIf { it in drawn }) },
+        )
+    }
+
     companion object {
         /**
          * [releases] with every parent named by a fingerprint that the release of its number here does

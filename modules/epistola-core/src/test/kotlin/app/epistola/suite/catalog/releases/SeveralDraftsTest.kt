@@ -353,7 +353,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
 
         val work = withMediator { GetCatalogDraft(tenant, letters, redesign, withBehind = true).query()!! }
         assertThat(work.behind.map { it.version }).`as`("its number is 1.0.2 now 1.0.1 is taken").containsExactly("1.0.1")
-        assertThat(work.behind.single().changes).containsExactly(ReleasedChange("theme", "brand", "modified"))
+        assertThat(work.behind.single().changes).containsExactly(ReleasedChange("theme", "brand", "modified", "Brand, fixed"))
         assertThat(withMediator { GetCatalogDraft(tenant, letters, withBehind = true).query()!! }.behind).`as`("the next version continues on it").isEmpty()
 
         withMediator { MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, redesign)).execute() }

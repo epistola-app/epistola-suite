@@ -160,17 +160,26 @@ class CatalogReleaseReader(
         val released = releases.mapNotNull { it.version }
         val lineage = ReleaseLineage.read(handle, tenantKey, catalogKey)
         val bases = releases.associate { it.version!! to it.base }
+        val releasedAt = releases.associate { it.version!! to it.releasedAt }
         val changes = mutableMapOf<String, List<ReleasedChange>>()
         val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
+            val behind = numbers[draft.key]?.let { number -> lineage.behind(draft.base, draft.merged, number) }.orEmpty()
             CatalogRelease(
                 version = null,
                 status = CatalogReleaseStatus.DRAFT,
                 base = draft.base,
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
-                behind = numbers[draft.key]?.let { number -> lineage.behind(draft.base, draft.merged, number) }.orEmpty().map { version ->
-                    BehindRelease(version, changes.getOrPut(version) { changesOf(tenantKey, catalogKey, version, bases[version], released) })
+                behind = behind.map { version ->
+                    BehindRelease(
+                        version = version,
+                        changes = changes.getOrPut(version) { changesOf(tenantKey, catalogKey, version, bases[version], released) },
+                        // As its line names it: a base named by its fingerprint is the release here that has it.
+                        base = lineage.releases[version]?.base?.version,
+                        releasedAt = releasedAt[version],
+                    )
                 },
+                behindLine = behind.takeIf { it.isNotEmpty() }?.let { lineage.behindLine(draft.base, draft.merged, it) },
                 versionId = draft.key,
                 name = draft.name,
                 isNext = draft.isNext,
@@ -181,16 +190,20 @@ class CatalogReleaseReader(
     }
 
     /**
-     * What release [version] changed against [base], the release its draft started from. A release
-     * that recorded none, or whose base the catalog no longer has, is measured against the release
-     * below it, which for releases cut one after another is the same one.
+     * What release [version] changed against [base], the release its draft started from, each by the
+     * name the release gives it (a removed one by its base's). A release that recorded none, or whose
+     * base the catalog no longer has, is measured against the release below it, which for releases
+     * cut one after another is the same one.
      */
     private fun changesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
         // Each release's retained content, fingerprinted now by the function every comparison uses, not
         // the digests `release_entries` stored.
-        fun of(release: String) = assembler.assemble(tenantKey, catalogKey, release)?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
-        val own = of(version)
-        val below = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of).orEmpty()
+        fun of(release: String) = assembler.assemble(tenantKey, catalogKey, release)?.content
+        val ownContent = of(version)
+        val belowContent = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of)
+        val own = ownContent?.let { fingerprints.resourceFingerprints(it) }.orEmpty()
+        val below = belowContent?.let { fingerprints.resourceFingerprints(it) }.orEmpty()
+        val names = (belowContent?.resourceEntries.orEmpty() + ownContent?.resourceEntries.orEmpty()).associate { "${it.type}/${it.key}" to it.name }
         return (own.keys + below.keys).sorted().mapNotNull { key ->
             val change = when {
                 key !in below -> "added"
@@ -198,7 +211,7 @@ class CatalogReleaseReader(
                 own[key] != below[key] -> "modified"
                 else -> null
             }
-            change?.let { ReleasedChange(key.substringBefore('/'), key.substringAfter('/'), it) }
+            change?.let { ReleasedChange(key.substringBefore('/'), key.substringAfter('/'), it, names[key]) }
         }
     }
 

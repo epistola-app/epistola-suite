@@ -141,7 +141,16 @@ until it is released**; only releases are numbered.
   nothing about it: a fix released long before the next release last moved on is still behind, and
   one merged into a release before it is never behind again. A release on the line that records no
   lineage (received from an archive that named no base) cannot say what it contains, so it is taken to
-  contain every release numbered below it. It lists each with what it changed against its own base.
+  contain every release numbered below it. It lists each with what it changed against its own base
+  (each resource by the name the release gives it), the release it was made on (`BehindRelease.base`,
+  as its line names it here) and when it was published. With them comes `behindLine`
+  (`ReleaseLineage.behindLine`, a `BehindLine`): the draft's first parents from the oldest release a
+  lacking one was made on up to its base, the releases merged in on that stretch or into the draft,
+  and which drawn release each lacking one was made on (none, for one received from elsewhere or
+  naming no base). The catalog's page and a draft's page show them from one fragment
+  (`catalogs/behind.html`): one release as a sentence ("v1.0.1 was made on v1.0.0 and is not in the
+  next release: it changed Template A"); several as a group with their count, a drawing of that line
+  with each lacking release off the one it was made on, and a row each with Merge….
   Releasing a draft that is behind is refused (`CATALOG_VERSION_BEHIND`, 409) until
   `acknowledgedBehind` names every one. Behind is computed only when asked for
   (`ListCatalogReleases(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads every release's

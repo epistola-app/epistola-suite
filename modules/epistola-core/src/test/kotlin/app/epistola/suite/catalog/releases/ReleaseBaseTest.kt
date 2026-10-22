@@ -74,7 +74,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
         val work = withMediator { ListCatalogReleases(tenant, letters, withBehind = true).query() }.single { it.name == "Redesign" }
         val behind = work.behind.associate { it.version to it.changes }
         assertThat(behind.keys).containsExactly("1.0.1", "1.0.2")
-        assertThat(behind["1.0.1"]).containsExactly(ReleasedChange("template", "invoice", "modified"))
-        assertThat(behind["1.0.2"]).containsExactly(ReleasedChange("theme", "brand", "modified"))
+        assertThat(behind["1.0.1"]).containsExactly(ReleasedChange("template", "invoice", "modified", "Invoice, fixed"))
+        assertThat(behind["1.0.2"]).containsExactly(ReleasedChange("theme", "brand", "modified", "Brand, new"))
     }
 }
