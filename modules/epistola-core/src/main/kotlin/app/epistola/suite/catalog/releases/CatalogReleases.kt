@@ -46,6 +46,11 @@ data class CatalogRelease(
     val releasedAt: OffsetDateTime? = null,
     val notes: String? = null,
     val fingerprint: String? = null,
+    /**
+     * A release's identity (ADR 0034): the V6 fingerprint of its content. Null for a draft, and for a
+     * release recorded before content hashes until it is computed.
+     */
+    val contentHash: String? = null,
     val deployedTo: List<String> = emptyList(),
     val behind: List<BehindRelease> = emptyList(),
     val versionId: String,

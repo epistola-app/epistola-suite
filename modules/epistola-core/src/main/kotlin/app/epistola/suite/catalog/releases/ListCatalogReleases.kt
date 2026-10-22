@@ -136,7 +136,7 @@ class CatalogReleaseReader(
             .groupBy({ it.first }, { it.second })
         val releases = handle.createQuery(
             """
-            SELECT version, version_key, released_at, notes, fingerprint, base_version
+            SELECT version, version_key, released_at, notes, fingerprint, content_hash, base_version
             FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
@@ -152,6 +152,7 @@ class CatalogReleaseReader(
                     releasedAt = rs.getObject("released_at", OffsetDateTime::class.java),
                     notes = rs.getString("notes"),
                     fingerprint = rs.getString("fingerprint"),
+                    contentHash = rs.getString("content_hash"),
                     deployedTo = deployments[version].orEmpty(),
                 )
             }

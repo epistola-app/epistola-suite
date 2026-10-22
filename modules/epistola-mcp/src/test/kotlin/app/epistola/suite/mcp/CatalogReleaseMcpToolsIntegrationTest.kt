@@ -30,6 +30,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 /**
@@ -47,6 +49,8 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
     @Autowired private lateinit var templateTools: TemplateMcpTools
 
     @Autowired private lateinit var readyTools: ReadyMcpTools
+
+    @Autowired private lateinit var objectMapper: ObjectMapper
 
     private fun <T> runAsApiKey(tenantId: TenantId, block: () -> T): T = UUID.randomUUID().let { keyId ->
         runAs(
@@ -95,6 +99,27 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
             Triple(false, null, first),
         )
         assertThat(versions.map { it.versionId }).doesNotHaveDuplicates().allMatch { it.matches(Regex("^[a-z0-9]{8}$")) }
+    }
+
+    /**
+     * A release is listed with its content hash (ADR 0034), what identifies it; a draft has none.
+     * Asserted on the tool's result as JSON, as MCP sends it.
+     */
+    @Test
+    fun `a release is listed with its content hash, and a draft without one`() {
+        val tenantId = newTenant()
+        val fingerprint = runAsApiKey(tenantId) {
+            themeTools.createTheme("default", "brand", "Brand", null, null, null, null, null)
+            readyTools.markCatalogReady("default")
+            versionTools.releaseDraft("default", null, null, "first", null, null).fingerprint
+        }
+
+        val listed = objectMapper.valueToTree<JsonNode>(runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", null) })
+
+        val release = listed.single { it.path("status").asString() == "RELEASED" }
+        assertThat(release.path("contentHash").asString(null)).`as`("cut now, its fingerprint is its content hash").isEqualTo(fingerprint).startsWith("v6:")
+        val draft = listed.single { it.path("isNext").asBoolean() }
+        assertThat(draft.path("contentHash").let { it.isNull || it.isMissingNode }).`as`("a draft has no content hash").isTrue()
     }
 
     @Test

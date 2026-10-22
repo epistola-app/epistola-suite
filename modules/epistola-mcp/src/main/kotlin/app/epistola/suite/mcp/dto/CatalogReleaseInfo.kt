@@ -13,7 +13,9 @@ import app.epistola.suite.catalog.releases.DraftNumberAssessment
  * addressed by its [versionId], which a draft keeps when it is released. A draft has no [version] until
  * then; the [isNext] one is the catalog's next release (also addressed as `next`), a convention of this
  * suite. A draft names its fixed [base] release and the releases it is [behind] for the number it would
- * be released as.
+ * be released as. A release has a [contentHash] (ADR 0034), its identity: releases with the same one
+ * have the same content, whatever their number or catalog. It is null for a draft, and for a release
+ * recorded before content hashes until it is computed.
  */
 data class CatalogReleaseInfo(
     val version: String?,
@@ -27,6 +29,7 @@ data class CatalogReleaseInfo(
     val releasedAt: String?,
     val notes: String?,
     val deployedTo: List<String>,
+    val contentHash: String? = null,
 ) {
     /** A release a draft is behind, with what it changed (`type/key` and `added`/`modified`/`removed`). */
     data class BehindInfo(val version: String, val changes: List<String>)
@@ -44,6 +47,7 @@ data class CatalogReleaseInfo(
             releasedAt = version.releasedAt?.toString(),
             notes = version.notes,
             deployedTo = version.deployedTo,
+            contentHash = version.contentHash,
         )
     }
 }
