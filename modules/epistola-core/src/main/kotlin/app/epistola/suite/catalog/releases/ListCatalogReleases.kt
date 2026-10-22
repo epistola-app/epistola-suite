@@ -173,7 +173,7 @@ class CatalogReleaseReader(
                 behind = behind.map { version ->
                     BehindRelease(
                         version = version,
-                        changes = changes.getOrPut(version) { changesOf(tenantKey, catalogKey, version, bases[version], released) },
+                        changes = changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) },
                         // As its line names it: a base named by its fingerprint is the release here that has it.
                         base = lineage.releases[version]?.base?.version,
                         releasedAt = releasedAt[version],
@@ -193,12 +193,13 @@ class CatalogReleaseReader(
      * What release [version] changed against [base], the release its draft started from, each by the
      * name the release gives it (a removed one by its base's). A release that recorded none, or whose
      * base the catalog no longer has, is measured against the release below it, which for releases
-     * cut one after another is the same one.
+     * cut one after another is the same one. Read on [handle], so a page measuring several releases
+     * holds one connection, not two.
      */
-    private fun changesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
+    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
         // Each release's retained content, fingerprinted now by the function every comparison uses, not
         // the digests `release_entries` stored.
-        fun of(release: String) = assembler.assemble(tenantKey, catalogKey, release)?.content
+        fun of(release: String) = assembler.assemble(handle, tenantKey, catalogKey, release)?.content
         val ownContent = of(version)
         val belowContent = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of)
         val own = ownContent?.let { fingerprints.resourceFingerprints(it) }.orEmpty()

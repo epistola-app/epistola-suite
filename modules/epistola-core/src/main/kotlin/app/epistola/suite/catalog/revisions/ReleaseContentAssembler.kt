@@ -66,7 +66,15 @@ class ReleaseContentAssembler(
      * sent as content is now. Its content hash (V6) is over the content so read.
      */
     fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
-        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
+        assemble(handle, tenantKey, catalogKey, version)
+    }
+
+    /**
+     * [assemble] on [handle], for a caller that already holds one: taking a second connection while
+     * holding the first can drain the pool when many such callers run at once.
+     */
+    fun assemble(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? {
+        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return null
         val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
 
         val snapshot = loadManifestSnapshot(handle, tenantKey, catalogKey, version)
@@ -79,7 +87,7 @@ class ReleaseContentAssembler(
             entry.contentKey to detailOf(handle, tenantKey, payload)
         }
 
-        RetainedRelease(
+        return RetainedRelease(
             content = CatalogContent(
                 // The catalog's own metadata and its dependencies are release metadata rather than
                 // resource content, and the manifest snapshot already froze them at release time.
