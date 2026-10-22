@@ -7,13 +7,28 @@ package app.epistola.suite.mcp
 import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.api.v1.CollectSmokeSecurityConfig
 import app.epistola.suite.apikeys.commands.CreateApiKey
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -136,6 +151,40 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
 
         assertThat(result.get("isError").asBoolean()).isTrue
         assertThat(result.toString()).contains("clearTheme")
+    }
+
+    @Test
+    fun `an assistant reads the sides of a conflict and merges content combined from them`() {
+        val (tenantKey, key) = seedKey(TenantRole.entries.toSet())
+        val catalogKey = CatalogKey.of("letters")
+        val theme = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(tenantKey)))
+        withMediator {
+            CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Letters").execute()
+            CreateTheme(id = theme, name = "Brand").execute()
+            MarkCatalogReady(tenantKey, catalogKey).execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute().versionId))
+            UpdateTheme(theme, name = "Brand, fixed", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            UpdateTheme(theme, name = "Brand, ours").execute()
+        }
+        val session = McpSession(key)
+        val tools = session.rpc("tools/list").get("result").get("tools").values().associateBy { it.get("name").asString() }
+        assertThat(tools.getValue("merge_release").get("inputSchema").get("properties").get("mergedContent").get("type").asString()).isEqualTo("object")
+        assertThat(tools.getValue("get_merge_sides").get("description").asString()).startsWith("Alpha.")
+
+        val sides = session.structured("get_merge_sides", mapOf("catalogId" to "letters", "release" to "1.0.1", "entry" to "theme/brand"))
+        assertThat(sides.get("base").get("name").asString()).isEqualTo("Brand")
+        val content = objectMapper.convertValue(sides.get("draft"), Map::class.java) + ("name" to "Brand, ours and fixed")
+
+        val merged = session.structured(
+            "merge_release",
+            mapOf("catalogId" to "letters", "release" to "1.0.1", "token" to sides.get("token").asString(), "mergedContent" to mapOf("theme/brand" to content)),
+        )
+
+        assertThat(merged.get("merged").values().map { it.asString() }).containsExactly("theme/brand")
+        assertThat(withMediator { GetTheme(theme).query()!!.name }).isEqualTo("Brand, ours and fixed")
     }
 
     private fun seedKey(roles: Set<TenantRole>): Pair<TenantKey, String> = withMediator {

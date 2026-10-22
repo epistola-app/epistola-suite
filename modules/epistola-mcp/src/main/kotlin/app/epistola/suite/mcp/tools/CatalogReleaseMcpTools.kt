@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.MergeResolution
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
@@ -21,6 +22,7 @@ import app.epistola.suite.catalog.releases.RenameCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.CatalogReleaseInfo
 import app.epistola.suite.mcp.dto.DraftMergeInfo
+import app.epistola.suite.mcp.dto.MergeSidesInfo
 import app.epistola.suite.mcp.dto.MergedReleaseInfo
 import app.epistola.suite.mcp.dto.ReleaseNumberInfo
 import app.epistola.suite.mcp.dto.ReleasedDraftInfo
@@ -31,6 +33,7 @@ import app.epistola.suite.validation.ValidationException
 import org.springframework.ai.mcp.annotation.McpTool
 import org.springframework.ai.mcp.annotation.McpToolParam
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 /**
  * The versions of a catalog that can be changed here (contract ADR 0002): its drafts, each released on its own, and
@@ -40,7 +43,7 @@ import org.springframework.stereotype.Component
  * refusals apply.
  */
 @Component
-class CatalogReleaseMcpTools {
+class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
 
     @McpTool(
         name = "list_catalog_releases",
@@ -190,7 +193,8 @@ class CatalogReleaseMcpTools {
             "per catalog it uses (adding, removing or re-pinning one is a change of its own). An entry's `needs` names the " +
             "entries it goes with (a template's theme, the dependency a reference resolves through): choose them together. Use it " +
             "for a release the draft is `behind` (`list_catalog_releases`), and show the user the conflicts before " +
-            "`merge_release`; pass its `token` there. When this installation lacks the release both come from, " +
+            "`merge_release`; pass its `token` there. For a conflict whose sides both made changes worth keeping, read them " +
+            "with `get_merge_sides` and propose merged content to the user. When this installation lacks the release both come from, " +
             "`missingBase` names it and nothing is compared: get it first. Without any release both come from, every " +
             "difference is a `CONFLICT`; `notice` says either.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -208,14 +212,45 @@ class CatalogReleaseMcpTools {
     }
 
     @McpTool(
+        name = "get_merge_sides",
+        description = "Alpha. The three sides of one entry of a merge (from `preview_merge`), to combine a CONFLICT instead of " +
+            "choosing a side: `base` (the entry in the release both come from, `mergeBase`), `draft` (ours) and `release` " +
+            "(theirs), each in the portable catalog format, null where that side does not have it. A resource is the " +
+            "`resource` object of its resource detail (with its `type` and `key`); `catalog/defaultTheme` is " +
+            "`{\"defaultTheme\": …}`, `catalog/presets` `{\"presets\": […]}`, and `catalogDependency/<catalogKey>` the " +
+            "declaration (`registry`, `namespace`, `catalogKey`, `releaseVersion`, `releaseFingerprint`, or `releaseId` " +
+            "naming a draft). Compare `draft` and `release` against `base` to see what each side changed, combine both " +
+            "changes into one object of the same form, show it to the user, and only once the user agrees pass it to " +
+            "`merge_release` as `mergedContent`, with this `token`. Changes nothing.",
+        annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
+    )
+    fun getMergeSides(
+        @McpToolParam(description = "Catalog key. From `list_catalogs`.")
+        catalogId: String,
+        @McpToolParam(description = "The release to merge in, its number, as given to `preview_merge`.")
+        release: String,
+        @McpToolParam(description = "The entry, `type/key`, as `preview_merge` lists it (`template/invoice`, `catalog/presets`).")
+        entry: String,
+        @McpToolParam(description = "`next` (the default) or a draft's `versionId`.", required = false)
+        draft: String?,
+    ): MergeSidesInfo {
+        val catalogKey = CatalogKey.of(catalogId)
+        return MergeSidesInfo.from(GetDraftMergeSides(mcpTenantKey(), catalogKey, release.trim(), entry.trim(), draftScope(catalogKey, draft)).query())
+    }
+
+    @McpTool(
         name = "merge_release",
         description = "Alpha. Merge a release of the catalog into a draft (the next release unless `draft` names another): " +
             "what only the release changed is taken from it, what only the draft changed stays, and every `CONFLICT` from " +
-            "`preview_merge` is resolved by `resolutions`, which the user chooses. Afterwards the draft is no longer behind " +
-            "the release. Refused when a conflict has no resolution, when the release removes something the draft still " +
-            "uses, when the draft already contains the release, when this installation lacks the release both come from " +
-            "(get it first), and when `token` is given and the draft or the release changed since that preview (preview " +
-            "again). Requires the TEMPLATE_EDIT permission.",
+            "`preview_merge` is resolved by `resolutions` (a side) or by `mergedContent` (content combined from " +
+            "`get_merge_sides`), which the user chooses and agrees to; one of the two per conflict, not both. Merged " +
+            "content is written as given and is not marked ready: review it with the user, and mark it ready, before " +
+            "releasing the draft. Afterwards the draft is no longer behind the release. Refused when a conflict has no " +
+            "resolution, when merged content is not valid for its entry (the error names `mergedContent.<type/key>` and " +
+            "the path in it), when the result would hold a reference that does not resolve (a removal still used, or " +
+            "merged content naming what the result lacks), when the draft already contains the release, when this " +
+            "installation lacks the release both come from (get it first), and when `token` is given and the draft or " +
+            "the release changed since that preview (preview again). Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun mergeRelease(
@@ -227,15 +262,38 @@ class CatalogReleaseMcpTools {
         draft: String?,
         @McpToolParam(description = "For each conflict, its `resource` (`type/key`) to `OURS` (keep the draft's) or `THEIRS` (take the release's).", required = false)
         resolutions: Map<String, String>?,
-        @McpToolParam(description = "The `token` of the `preview_merge` the user confirmed; the merge is refused if anything changed since.", required = false)
+        @McpToolParam(description = "The `token` of the `preview_merge` (or `get_merge_sides`) the user confirmed; the merge is refused if anything changed since.", required = false)
         token: String? = null,
+        @McpToolParam(
+            description = "For a conflict resolved to merged content instead of a side, its `resource` (`type/key`) to the entry " +
+                "as the draft is to hold it: an object in the form `get_merge_sides` returns a side (or that object as a JSON string).",
+            required = false,
+        )
+        mergedContent: Map<String, Any?>? = null,
     ): MergedReleaseInfo {
         val catalogKey = CatalogKey.of(catalogId)
         val sides = resolutions.orEmpty().mapValues { (resource, side) ->
             MergeResolution.ofWire(side)
                 ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
         }
-        return MergedReleaseInfo.from(MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, draftScope(catalogKey, draft), expectedToken = token?.trim()?.ifEmpty { null }).execute())
+        val content = mergedContent.orEmpty().mapValues { (entry, value) -> contentObject(entry, value) }
+        return MergedReleaseInfo.from(
+            MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, draftScope(catalogKey, draft), expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute(),
+        )
+    }
+
+    /** [value], merged content for [entry], as an object: given as one, or as a JSON object string. */
+    @Suppress("UNCHECKED_CAST")
+    private fun contentObject(entry: String, value: Any?): Map<String, Any?> = when (value) {
+        is Map<*, *> -> value as Map<String, Any?>
+
+        is String -> try {
+            objectMapper.readValue(value, Map::class.java) as Map<String, Any?>
+        } catch (e: tools.jackson.core.JacksonException) {
+            throw ValidationException("mergedContent.$entry", "The merged content of `$entry` is a JSON object")
+        }
+
+        else -> throw ValidationException("mergedContent.$entry", "The merged content of `$entry` is a JSON object")
     }
 
     private fun draftScope(catalogKey: CatalogKey, draft: String?): CatalogReleaseRef? = draft?.takeIf { it.isNotBlank() }?.let { CatalogReleaseRef(mcpTenantKey(), catalogKey, draftRefOf(it)) }

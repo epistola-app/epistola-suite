@@ -5,6 +5,7 @@
 package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.catalog.merge.DraftMergePreview
+import app.epistola.suite.catalog.merge.DraftMergeSides
 import app.epistola.suite.catalog.merge.MergeOutcome
 import app.epistola.suite.catalog.merge.MergeResource
 import app.epistola.suite.catalog.merge.MergedRelease
@@ -87,14 +88,47 @@ data class MergeResourceInfo(
     }
 }
 
-/** What a merge did, each as `type/key`. */
+/**
+ * What a merge did, each as `type/key`: [taken] from the release, [removed] as the release removed
+ * them, conflicts [kept] as the draft has them, and conflicts resolved to [merged] content. [notice]
+ * says what to review before releasing.
+ */
 data class MergedReleaseInfo(
     val release: String,
     val taken: List<String>,
     val removed: List<String>,
     val kept: List<String>,
+    val merged: List<String> = emptyList(),
+    val notice: String? = null,
 ) {
     companion object {
-        fun from(merged: MergedRelease) = MergedReleaseInfo(merged.release, merged.taken, merged.removed, merged.kept)
+        fun from(merged: MergedRelease) = MergedReleaseInfo(
+            merged.release,
+            merged.taken,
+            merged.removed,
+            merged.kept,
+            merged.merged,
+            notice = merged.merged.takeIf { it.isNotEmpty() }?.let {
+                "Merged content is not marked ready: review ${it.joinToString()} with the user and mark it ready before releasing the draft."
+            },
+        )
+    }
+}
+
+/**
+ * One entry of a merge on its three sides (`get_merge_sides`), each in the portable catalog format
+ * (null where that side does not have it): [base] in the release both come from ([mergeBase]),
+ * [draft] (ours) and [release] (theirs). [token] is the preview's, for `merge_release`.
+ */
+data class MergeSidesInfo(
+    val entry: String,
+    val mergeBase: String?,
+    val base: Map<String, Any?>?,
+    val draft: Map<String, Any?>?,
+    val release: Map<String, Any?>?,
+    val token: String,
+) {
+    companion object {
+        fun from(sides: DraftMergeSides) = MergeSidesInfo(sides.entry, sides.mergeBase, sides.base, sides.draft, sides.release, sides.token)
     }
 }
