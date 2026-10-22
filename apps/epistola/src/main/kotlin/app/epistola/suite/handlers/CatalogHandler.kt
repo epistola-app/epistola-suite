@@ -41,6 +41,7 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.namespaces.ListCatalogKeyNamespaces
 import app.epistola.suite.catalog.namespaces.ListHeldNamespaces
 import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.catalog.namespaces.NamespaceName
@@ -199,6 +200,7 @@ class CatalogHandler {
         // Field validation (incl. slug/CatalogKey) and the command-level failure
         // (duplicate slug) both land as `errors` on the FormData, so they share one
         // error path — mirroring the environment/attribute conversions.
+        var createdNamespace: String? = null
         val result = if (form.hasErrors()) {
             form
         } else {
@@ -208,13 +210,13 @@ class CatalogHandler {
                 val choice = form["namespaceChoice"].trim()
                 val local = LocalAuthority.isLocal(choice)
                 val held = if (local) null else NamespaceName.parse(choice)
-                CreateCatalog(
+                createdNamespace = CreateCatalog(
                     tenantKey = tenantId.key,
                     id = CatalogKey.of(form["slug"]),
                     name = form["name"],
                     registry = if (local) LocalAuthority.NAME else held?.authority,
                     namespace = if (local) form["localNamespace"].trim().ifEmpty { null } else held?.namespace,
-                ).execute()
+                ).execute().namespace
             }
         }
         val namespaces = ListHeldNamespaces(tenantId.key).query()
@@ -247,7 +249,9 @@ class CatalogHandler {
 
         // Success: on to the new catalog's page, where its next step is waiting (New template)
         // rather than back to the list it was created from.
-        val created = CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
+        // Its address names its namespace when another has a catalog with its key (ADR 0034, phase 4).
+        val shared = ListCatalogKeyNamespaces(tenantId.key, CatalogKey.of(form["slug"])).query().namespaces.size > 1
+        val created = if (shared) "/tenants/${tenantId.key}/catalogs/$createdNamespace/${form["slug"]}/browse" else CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
         return request.htmx {
             dialogLocation(created)
             onFullPage { redirect(created) }

@@ -94,6 +94,11 @@ class UiExceptionFilter(
             log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
         }
+        // A catalog key that names several catalogs (ADR 0034, phase 4), wherever the database refused it.
+        app.epistola.suite.catalog.CatalogNames.ambiguity(ex)?.let { ambiguous ->
+            log.warn("Ambiguous catalog key on UI request: {}", ambiguous.message)
+            return UiError(400, ApiProblemTypes.BAD_REQUEST, ambiguous.message)
+        }
         val cause = unwrap(ex)
         return when (cause::class.simpleName) {
             "TenantAccessDeniedException" -> {

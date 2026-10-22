@@ -196,6 +196,26 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(refused.body!!, "$.type")).endsWith("/catalog-namespace-not-held")
     }
 
+    @Test
+    fun `two catalogs with one key are each reached by the path that names their namespace`() {
+        val (tenant, apiKey) = withMediator {
+            val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
+            app.epistola.suite.tenants.commands.CreateTenant(tenant, "Two letters", listOf(app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "acme"), app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "bureau"))).execute()
+            for (namespace in listOf("acme", "bureau")) {
+                CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
+                app.epistola.suite.catalog.CatalogNames.within(letters, namespace) {
+                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice of $namespace").execute()
+                }
+            }
+            tenant to CreateApiKey(tenantId = tenant, name = "two-letters").execute().plaintextKey
+        }
+        val seeded = Seeded(tenant, apiKey)
+        for (namespace in listOf("acme", "bureau")) {
+            val templates = get("/api/tenants/${tenant.value}/catalogs/gemeente-x.nl/$namespace/letters/releases/next/templates", seeded)
+            assertThat(JsonPath.read<List<String>>(templates, "$.items[*].name")).containsExactly("Invoice of $namespace")
+        }
+    }
+
     // ---- 2. Patch release numbers ----
 
     @Test

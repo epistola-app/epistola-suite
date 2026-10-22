@@ -52,9 +52,9 @@
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog}">
+                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog},address=${sharedKeys != null and sharedKeys.contains('' + row.catalog.id)} ? ${row.catalog.namespace + '/' + row.catalog.id} : ${'' + row.catalog.id}">
                     <td style="font-weight: 500;" th:title="${catalog.name}">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        <a th:href="@{|/tenants/${tenantId}/catalogs/${address}/browse|}"
                            th:text="${catalog.name}"></a>
                     </td>
                     <td th:title="${catalog.id}"><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
@@ -85,27 +85,27 @@
                     </td>
                     <td th:text="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${catalog.updatedAt}" th:title="${#temporals.format(catalog.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td class="actions">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                        <a th:href="@{|/tenants/${tenantId}/catalogs/${address}/browse|}"
                            class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Browse catalog">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                         </a>
                         <!--/* Not the system catalog: every installation has it, and it keeps more than its archive. */-->
                         <button type="button" th:if="${catalog.id != 'system'}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Export as ZIP"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/export-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/export-check|}"
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button" th:if="${catalogEditing.editable(catalog.id)}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Publish a new release"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/release|}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='save', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
                                 th:if="${catalog.hasSource and !#strings.startsWith(catalog.sourceUrl, 'oci:')}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-check(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/upgrade-check|}"
                                 th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                         </button>
@@ -115,7 +115,7 @@
                                 th:title="${catalog.id == 'system'} ? 'The system catalog cannot be deleted: the suite installs it in every tenant' : 'Delete catalog and all its resources'"
                                 th:attr="data-confirm-message='Delete catalog &quot;' + ${catalog.name} + '&quot;, every release of it and ALL its resources (templates, themes, stencils, attributes, assets)? This cannot be undone.'"
                                 data-confirm-title="Delete Catalog"
-                                th:data-confirm-url="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                th:data-confirm-url="@{|/tenants/${tenantId}/catalogs/${address}/delete|}"
                                 data-confirm-target="#catalog-list">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                         </button>

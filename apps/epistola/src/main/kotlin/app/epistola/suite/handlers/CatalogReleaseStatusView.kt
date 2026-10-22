@@ -115,6 +115,8 @@ internal fun ModelBuilder.catalogListModel(tenantKey: TenantKey) {
     val upstream = GetCatalogUpstreamStates(tenantKey).query()
     "tenantId" to tenantKey
     "catalogs" to rows
+    // Keys more than one catalog has (ADR 0034, phase 4): those rows link by namespace and key.
+    "sharedKeys" to rows.groupBy { it.catalog.id.value }.filterValues { it.size > 1 }.keys
     // Pair() rather than `to`: inside this builder `to` is the model-binding infix, not Kotlin's.
     "versionStatus" to rows.associate { row ->
         Pair(
