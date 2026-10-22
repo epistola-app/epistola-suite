@@ -92,6 +92,29 @@ object InstalledReleaseRecording {
     fun <T> deferred(block: () -> T): T = ScopedValue.where(deferred, true).call<T, RuntimeException>(block)
 }
 
+/**
+ * Hands the content an install fetched to the upgrade that runs it, so the upgrade records the release
+ * it moves to as its archive holds it ([RecordInstalledRelease.published]), as a fresh install does.
+ * The install writes the content in the form the suite stores (a stencil instance's own-catalog
+ * qualifier dropped, defaults written out), and a release rebuilt from those rows can hash to another
+ * content hash than the one it is named by, so it would not be the release its source published.
+ */
+object InstalledContentHandoff {
+    private val slot: ScopedValue<java.util.concurrent.atomic.AtomicReference<CatalogContent?>> = ScopedValue.newInstance()
+
+    /** Runs [install] and returns its result with the content it fetched, when it fetched all of it. */
+    fun <T> capturing(install: () -> T): Pair<T, CatalogContent?> {
+        val fetched = java.util.concurrent.atomic.AtomicReference<CatalogContent?>()
+        val result = ScopedValue.where(slot, fetched).call<T, RuntimeException>(install)
+        return result to fetched.get()
+    }
+
+    /** Offers [content], as the install fetched it, to the upgrade running the install, if one is. */
+    fun offer(content: CatalogContent?) {
+        if (slot.isBound) slot.get().set(content)
+    }
+}
+
 @Component
 class RecordInstalledReleaseHandler(
     private val jdbi: Jdbi,

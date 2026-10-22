@@ -176,17 +176,18 @@ class InstallFromCatalogHandler(
             results
         }
 
+        // The publisher's content as fetched, when the install covered all of it: what the release keeps.
+        val published = staged.takeIf { items -> results.none { it.status == InstallStatus.FAILED } && items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
+            publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
+        }
         // A fresh install records the publisher's release it just installed, so it can be rendered.
         // Inside an upgrade the catalog still names the previous version here; the upgrade records
-        // the new release once it has moved the pointer.
+        // the new release once it has moved the pointer, from the content handed to it here.
+        InstalledContentHandoff.offer(published)
         if (results.none { it.status == InstallStatus.FAILED } &&
             catalog.installedReleaseVersion == manifest.release.version &&
             !InstalledReleaseRecording.isDeferred
         ) {
-            // The publisher's content as fetched, when the install covered all of it.
-            val published = staged.takeIf { items -> items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
-                publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
-            }
             RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
         }
         results

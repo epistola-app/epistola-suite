@@ -31,10 +31,16 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 
 /**
- * A catalog received from its source, as the demo catalog ships (a default theme, presets, templates):
- * the release an install records keeps the content its archive holds, which is what it is named by
- * (its content hash, ADR 0034), and the next version starts from that release with no changes of its
- * own, so the source's next release can be taken by an upgrade.
+ * A catalog received from its source, as the demo catalog ships (a default theme, presets, templates).
+ *
+ * A received release keeps the content its archive holds, however it arrives: installed, or brought in
+ * by an upgrade. It is named by that archive's content hash (ADR 0034), so what it keeps has to hash to
+ * it, or the release cannot be handed on (an export checks it). Installing the demo catalog writes its
+ * content in the form the suite stores, and a release rebuilt from those rows does not hash to its
+ * archive's content hash: the upgrade case shows it.
+ *
+ * And the next version starts from the installed release with no changes of its own, so the source's
+ * next release can be taken by an upgrade.
  */
 // The upgrade's source is a copy in a temporary directory: file: sources are allowed there.
 @TestPropertySource(properties = ["epistola.catalog.file-roots[0]=\${java.io.tmpdir}"])
@@ -76,6 +82,21 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
         val next = nextReleaseIn(manifest)
         val upgraded = withMediator { UpgradeCatalog(tenantKey = tenant, catalogKey = demo).execute() }
         assertThat(upgraded.newVersion).isEqualTo(next)
+    }
+
+    @Test
+    fun `a release brought in by an upgrade keeps what its archive holds`(@TempDir source: Path) {
+        val tenant = createTenant("Demo upgraded release").id
+        val manifest = copyOfDemoCatalog(source)
+        withMediator {
+            RegisterCatalog(tenantKey = tenant, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
+            InstallFromCatalog(tenantKey = tenant, catalogKey = demo).execute()
+        }
+        val next = nextReleaseIn(manifest)
+
+        withMediator { UpgradeCatalog(tenantKey = tenant, catalogKey = demo).execute() }
+
+        assertKeepsItsArchive(tenant, next)
     }
 
     /**

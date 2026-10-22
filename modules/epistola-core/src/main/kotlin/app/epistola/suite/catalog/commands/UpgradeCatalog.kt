@@ -153,13 +153,16 @@ class UpgradeCatalogHandler(
 
         // 5. Reconcile the whole manifest. Resources added since the installed release arrive with
         //    this upgrade rather than waiting to be asked for individually.
-        val installResults = if (manifest.resources.isNotEmpty()) {
-            InstallFromCatalog(
-                tenantKey = command.tenantKey,
-                catalogKey = command.catalogKey,
-            ).execute()
+        //    The content it fetched is what the release keeps (step 8).
+        val (installResults, published) = if (manifest.resources.isNotEmpty()) {
+            InstalledContentHandoff.capturing {
+                InstallFromCatalog(
+                    tenantKey = command.tenantKey,
+                    catalogKey = command.catalogKey,
+                ).execute()
+            }
         } else {
-            emptyList()
+            emptyList<InstallResult>() to null
         }
 
         // 5b. Abort before any destructive change if an install FAILED. The
@@ -210,8 +213,10 @@ class UpgradeCatalogHandler(
         // The upgraded version's theme settings (contract ADR 0007), as its archive declares them.
         importRows.updateThemeSettings(command.tenantKey, command.catalogKey, manifest.catalog, objectMapper)
 
+        // 8. Record the release moved to, as its archive holds it: rebuilt from the rows the install
+        //    wrote, it would not hash to the content hash its source names it by.
         if (!InstalledReleaseRecording.isDeferred) {
-            RecordInstalledRelease(command.tenantKey, command.catalogKey, received = manifest.release).execute()
+            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
         }
 
         val newVersion = manifest.release.version
