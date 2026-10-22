@@ -89,6 +89,22 @@ git log "$LATEST_TAG"..HEAD --oneline
   - **[user]** fix(pdf): **…**
   ```
 
+- **State how far back the release can be rolled back.** Find the newest migration that is not
+  rollback-compatible, then the oldest release that ships it — every release from that one on can
+  run on the schema this release leaves:
+
+  ```bash
+  floor=$(grep -L -x -e '-- rollback-compatible: true' modules/*/src/main/resources/db/migration/*/V*.sql \
+    | xargs -n1 basename | sort | tail -1)
+  for t in $(git tag -l 'v[0-9]*' --sort=v:refname | grep -v -e '-'); do
+    git ls-tree -r --name-only "$t" -- modules | grep -q "/$floor\$" && { echo "$t"; break; }
+  done
+  ```
+
+  No tag found means the floor is a migration this release adds: it cannot be rolled back at all,
+  and the summary says so as a breaking upgrade. Otherwise add one line to the summary — "Can be
+  rolled back to vA.B.C or later." See `docs/upgrades.md#rollback`.
+
 - Commit on a branch, open a PR, merge to `main` (never push to `main` directly):
   `chore(release): vX.Y.Z`.
 

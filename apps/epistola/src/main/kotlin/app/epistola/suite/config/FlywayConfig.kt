@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.migration.SchemaRollbackGuard
 import app.epistola.suite.migration.preflight.UpgradePreflightRefused
 import app.epistola.suite.migration.preflight.UpgradePreflights
 import org.flywaydb.core.Flyway
@@ -52,6 +53,10 @@ class SchemaBehindException(
  *   validate and fail fast if the database is behind, so app pods refuse to
  *   start until the separate migration step has run.
  *
+ * Every mode first runs [SchemaRollbackGuard.requireCompatible]: a build refuses to start against a
+ * database that holds a migration it does not ship and that is not rollback-compatible. The modes
+ * that migrate then record each applied migration's declaration, so a later, older build can judge.
+ *
  * `embedded`/`migrate` run `flyway.migrate()` (idempotent — a no-op when already
  * at head). **The application never resets a database:** there is no
  * `flyway.clean()` call anywhere, in any profile or build. A validation failure
@@ -78,11 +83,31 @@ class FlywayConfig {
         val skipped = skipPreflight.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         val migrationMode = MigrationMode.from(mode)
         return FlywayMigrationStrategy { flyway ->
+            val rollbackGuard = SchemaRollbackGuard(flyway)
+            // Before anything touches the schema: a build that a newer one has migrated past by a
+            // change it cannot run against refuses to start, in every mode (docs/upgrades.md#rollback).
+            rollbackGuard.requireCompatible()
             when (migrationMode) {
-                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrate(flyway, skipped)
+                MigrationMode.EMBEDDED, MigrationMode.MIGRATE -> migrateAndRecord(flyway, skipped, rollbackGuard)
                 MigrationMode.VALIDATE -> validate(flyway)
             }
         }
+    }
+
+    private fun migrateAndRecord(
+        flyway: Flyway,
+        skippedPreflight: Set<String>,
+        rollbackGuard: SchemaRollbackGuard,
+    ) {
+        try {
+            migrate(flyway, skippedPreflight)
+        } catch (e: Throwable) {
+            // Record what did apply before the failure too: an upgrade that fails partway is exactly
+            // when the previous build is put back, and it can only start if these rows exist.
+            runCatching { rollbackGuard.recordApplied() }.onFailure(e::addSuppressed)
+            throw e
+        }
+        rollbackGuard.recordApplied()
     }
 
     private fun migrate(flyway: Flyway, skippedPreflight: Set<String>) {

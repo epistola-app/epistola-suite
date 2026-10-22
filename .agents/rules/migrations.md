@@ -33,6 +33,11 @@ forward, data-preserving migration. This is not negotiable for any feature matur
   type `variant`, `release_resource_types`) beside the wire resources. Read entries through
   `release_wire_resources` or a type's view; only the storage code names the table (`ReleaseResourceSqlTest`).
   A new wire type in `catalog_resource_types` becomes a storage type by trigger.
+- **Declare rollback compatibility**: every new migration carries `-- rollback-compatible: true` or
+  `false` in its leading comment block. `false` when the previous release's code cannot run on the
+  schema it leaves — a drop or rename it reads, a `NOT NULL` without a default, a tightened
+  constraint; when unsure, `false`. Builds refuse to start on a schema with an unshipped `false`
+  migration ([`docs/migrations.md`](../../docs/migrations.md#rollback-compatibility)).
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 
@@ -42,6 +47,7 @@ Background: [`docs/migrations.md`](../../docs/migrations.md).
 
 ```bash
 ./gradlew checkMigrationVersions        # uniqueness, ordering, and that merged files are untouched
+./gradlew :apps:epistola:unitTest --tests "*RollbackCompatibilityDeclarationTest*"
 ./gradlew :apps:epistola:integrationTest --tests "*SchemaHygieneAppTest*"
 ./gradlew :modules:guards:test --tests "*ReleaseResourceSqlTest*"
 ```
