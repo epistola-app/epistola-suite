@@ -87,6 +87,22 @@ class ReadyMarks {
             .execute()
     }
 
+    /**
+     * Removes every mark of [resourceId] in the version its catalog's callers mean (the targeted
+     * draft, else the current one), so it is not ready until someone marks it again.
+     */
+    fun clear(handle: Handle, tenantKey: TenantKey, resourceId: UUID) {
+        handle.createUpdate(
+            """
+            DELETE FROM resource_ready_marks m
+            WHERE m.tenant_key = :t AND m.resource_id = :id AND ${inCurrentVersion("m")}
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("id", resourceId)
+            .execute()
+    }
+
     /** The identity of the resource of [type] at [key] in [catalogKey], or null when there is none. */
     fun resourceId(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, type: String, key: String): UUID? = handle
         .createQuery(

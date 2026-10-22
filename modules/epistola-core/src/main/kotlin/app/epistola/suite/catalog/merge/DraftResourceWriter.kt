@@ -33,7 +33,8 @@ data class DraftWrites(
 /**
  * Writes what a merge decided ([MergeAction]) into the draft the transaction targets: a resource as
  * the release holds it ([CatalogResourceInstaller], the import's own code), marked ready as released
- * content; a removal, refused while something still uses it; a catalog setting.
+ * content, or as merged content holds it, not marked ready; a removal, refused while something still
+ * uses it; a catalog setting.
  *
  * Resources are written first, in dependency order, then removals (whose use is read after the
  * writes, since what was taken refers to what the release has), then settings (a default theme may
@@ -54,9 +55,13 @@ class DraftResourceWriter(
      * [draftLabel] what people call the draft, for refusals.
      *
      * @throws MergeRefusedException when a resource cannot be written, or a removal is still used.
+     * @throws ValidationException when merged content breaks a rule of this suite, its field naming the
+     *   entry (`mergedContent.<type/key>…`).
      */
     fun apply(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftLabel: String, actions: Map<String, MergeAction>): DraftWrites = CatalogImportContext.runAsImport {
         val writes = actions.mapNotNull { (key, action) -> (action as? MergeAction.Write)?.let { key to it.value } }
+        // Merged content, written as given: not marked ready, and what breaks a rule here is its to fix.
+        val merged = actions.filterValues { it is MergeAction.Write && !it.ready }.keys
         val resources = writes.mapNotNull { (key, value) -> (value as? MergeValue.Resource)?.let { key to it } }
             .sortedBy { (_, value) -> RESOURCE_INSTALL_ORDER[value.resource.type] ?: 99 }
         val settings = writes.mapNotNull { (key, value) -> (value as? MergeValue.Setting)?.let { key to it.setting } }
@@ -64,11 +69,11 @@ class DraftResourceWriter(
         val (droppedDependencies, removals) = removed.partition(CatalogSetting::isSettingKey)
         val (dependencies, otherSettings) = settings.partition { (_, setting) -> setting is CatalogSetting.Dependency }
 
-        resources.forEach { (key, value) -> write(tenantKey, catalogKey, release, key, value) }
+        resources.forEach { (key, value) -> write(tenantKey, catalogKey, release, key, value, merged = key in merged) }
         remove(tenantKey, catalogKey, release, draftLabel, removals)
         // Declarations before the default theme, which may name a theme of a catalog they declare.
         writeDependencies(tenantKey, catalogKey, release, dependencies.map { it.second as CatalogSetting.Dependency }, droppedDependencies)
-        otherSettings.forEach { (key, setting) -> writeSetting(tenantKey, catalogKey, release, key, setting) }
+        otherSettings.forEach { (key, setting) -> writeSetting(tenantKey, catalogKey, release, key, setting, merged = key in merged) }
 
         DraftWrites(written = resources.map { it.first } + settings.map { it.first }, removed = removed)
     }
@@ -94,19 +99,28 @@ class DraftResourceWriter(
         }
     }
 
-    /** Writes one resource as [value] holds it, and marks it ready. */
-    private fun write(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, value: MergeValue.Resource) {
+    /**
+     * Writes one resource as [value] holds it, and marks it ready; [merged] content is left not
+     * ready instead, to be reviewed, and a rule of this suite it breaks refuses it as invalid.
+     */
+    private fun write(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, value: MergeValue.Resource, merged: Boolean) {
+        check(key == "${value.resource.type}/${value.resource.key}") { "$key holds ${value.resource.type}/${value.resource.key}" }
         try {
             installer.install(tenantKey, catalogKey, value.resource, release, value.binaries::get)
         } catch (e: MergeRefusedException) {
             throw e
+        } catch (e: ValidationException) {
+            if (merged) throw ValidationException(mergedField(key, e.field), "The merged content of $key is not valid: ${e.message}", e.code)
+            throw MergeRefusedException(catalogKey, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
         } catch (e: RuntimeException) {
+            if (merged) throw ValidationException(mergedField(key, null), "The merged content of $key could not be written: ${e.message}")
             throw MergeRefusedException(catalogKey, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
         }
         jdbi.useHandle<Exception> { handle ->
-            readyMarks.resourceId(handle, tenantKey, catalogKey, value.resource.type, value.resource.key)?.let { readyMarks.mark(handle, tenantKey, it) }
+            val id = readyMarks.resourceId(handle, tenantKey, catalogKey, value.resource.type, value.resource.key) ?: return@useHandle
+            // The installer marks what it writes ready, as an import's content is released content.
+            if (merged) readyMarks.clear(handle, tenantKey, id) else readyMarks.mark(handle, tenantKey, id)
         }
-        check(key == "${value.resource.type}/${value.resource.key}") { "$key holds ${value.resource.type}/${value.resource.key}" }
     }
 
     /**
@@ -140,8 +154,8 @@ class DraftResourceWriter(
         }
     }
 
-    /** Writes one catalog setting as the release has it. */
-    private fun writeSetting(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, setting: CatalogSetting) {
+    /** Writes one catalog setting as the release has it, or as [merged] content gives it. */
+    private fun writeSetting(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, setting: CatalogSetting, merged: Boolean) {
         try {
             when (setting) {
                 // The merge's declarations stand as merged: a theme whose catalog they lack is refused after.
@@ -152,9 +166,13 @@ class DraftResourceWriter(
                 is CatalogSetting.Dependency -> error("dependencies are written together")
             }
         } catch (e: ValidationException) {
+            if (merged) throw ValidationException(mergedField(key, e.field), "The merged content of $key is not valid: ${e.message}", e.code)
             throw MergeRefusedException(catalogKey, "Could not take ${setting.label.lowercase()} ($key) of $release: ${e.message}")
         }
     }
+
+    /** The field of merged content for [key], then [within] it (a command's own field) when it says more than the entry. */
+    private fun mergedField(key: String, within: String?): String = "mergedContent.$key" + (within?.takeIf { it.isNotBlank() }?.let { "/$it" } ?: "")
 
     private fun stillUsed(catalogKey: CatalogKey, release: String, draftLabel: String, what: List<String>) = MergeRefusedException(
         catalogKey,

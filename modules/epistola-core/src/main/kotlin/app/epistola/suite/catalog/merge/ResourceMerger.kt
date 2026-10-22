@@ -43,8 +43,11 @@ sealed interface MergeAction {
     /** The draft's stays as it is. */
     data object Keep : MergeAction
 
-    /** Written into the draft as [value] holds it. */
-    data class Write(val value: MergeValue) : MergeAction
+    /**
+     * Written into the draft as [value] holds it. [ready] marks a resource ready once written: true
+     * for what a release holds (released content), false for merged content, which is reviewed first.
+     */
+    data class Write(val value: MergeValue, val ready: Boolean = true) : MergeAction
 
     /** Removed from the draft. */
     data object Remove : MergeAction
@@ -65,14 +68,15 @@ interface ResourceMerger {
 
     /**
      * What to do with [sides], classified as [classified], under [resolution]: the person's choice
-     * for a conflict, null for anything else.
+     * for a conflict, null for anything else. A conflict resolved to [MergeResolution.Content] is
+     * written as that content holds it, not marked ready.
      */
     fun plan(sides: MergeEntrySides, classified: MergeResource, resolution: MergeResolution?): MergeAction
 }
 
 /**
  * Every entry as a whole (ADR 0032, section 5): from its three fingerprints by [DraftMerge.classifyOne],
- * and resolved by taking one side.
+ * and resolved by taking one side, or by merged content given for it.
  */
 object WholeResourceMerger : ResourceMerger {
     override val types: Set<String> = emptySet()
@@ -87,6 +91,7 @@ object WholeResourceMerger : ResourceMerger {
     )
 
     override fun plan(sides: MergeEntrySides, classified: MergeResource, resolution: MergeResolution?): MergeAction {
+        if (classified.outcome == MergeOutcome.CONFLICT && resolution is MergeResolution.Content) return MergeAction.Write(resolution.value, ready = false)
         val takesTheirs = when (classified.outcome) {
             MergeOutcome.THEIRS -> true
             MergeOutcome.CONFLICT -> resolution == MergeResolution.Theirs

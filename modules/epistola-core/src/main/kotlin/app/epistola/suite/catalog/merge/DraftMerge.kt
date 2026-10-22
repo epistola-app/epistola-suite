@@ -26,9 +26,10 @@ enum class MergeOutcome {
 }
 
 /**
- * How a conflict is resolved. Today a whole side, [Ours] or [Theirs]; a later case can carry content
- * resolved by hand, or a choice per part (a template's variants, a block), without breaking callers.
- * [wire] is how forms, MCP and REST write it.
+ * How a conflict is resolved: a whole side, [Ours] or [Theirs], or [Content] combined from the sides
+ * by a person, an assistant or a tool (contract ADR 0005). A later case can carry a choice per part
+ * (a template's variants, a block) without breaking callers. [wire] is how forms, MCP and REST write
+ * a side, and how a merge records each resolution.
  */
 sealed interface MergeResolution {
     val wire: String
@@ -41,6 +42,20 @@ sealed interface MergeResolution {
     /** Take the release's: written as it has it, or removed when it removed it. */
     data object Theirs : MergeResolution {
         override val wire: String = "THEIRS"
+    }
+
+    /**
+     * Merged content: the entry as the draft is to hold it, read and validated as an import reads it
+     * ([MergedContentReader]). Written as given and not marked ready, so it is reviewed before the
+     * draft is released.
+     */
+    data class Content(val value: MergeValue) : MergeResolution {
+        override val wire: String get() = WIRE
+
+        companion object {
+            /** How a merge records a conflict resolved to merged content. */
+            const val WIRE: String = "MERGED"
+        }
     }
 
     companion object {
