@@ -16,6 +16,11 @@ forward, data-preserving migration. This is not negotiable for any feature matur
 - **Never edit a merged migration.** Add a new timestamped file. Folding `ALTER`s back into the
   original `CREATE` is no longer permitted; the RC1 consolidation was the last one.
 - **No destructive migrations**: nothing that drops or resets user data.
+- **Declare rollback compatibility**: every new migration carries `-- rollback-compatible: true` or
+  `false` in its leading comment block. `false` when the previous release's code cannot run on the
+  schema it leaves — a drop or rename it reads, a `NOT NULL` without a default, a tightened
+  constraint; when unsure, `false`. Builds refuse to start on a schema with an unshipped `false`
+  migration ([`docs/migrations.md`](../../docs/migrations.md#rollback-compatibility)).
 - A new tenant-scoped table must be classified for backup, or
   `TenantTableTopologyDriftIntegrationTest` fails.
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
@@ -27,6 +32,7 @@ Background: [`docs/migrations.md`](../../docs/migrations.md).
 
 ```bash
 ./gradlew checkMigrationVersions        # uniqueness, ordering, and that merged files are untouched
+./gradlew :apps:epistola:unitTest --tests "*RollbackCompatibilityDeclarationTest*"
 ./gradlew :apps:epistola:integrationTest --tests "*SchemaHygieneAppTest*"
 ```
 
