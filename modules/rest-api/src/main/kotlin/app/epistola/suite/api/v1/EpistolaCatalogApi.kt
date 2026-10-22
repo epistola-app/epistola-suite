@@ -13,6 +13,7 @@ import app.epistola.api.model.CatalogDependencyDto
 import app.epistola.api.model.CatalogDependencyListResponse
 import app.epistola.api.model.CatalogDraftMergePreview
 import app.epistola.api.model.CatalogDraftMergeResource
+import app.epistola.api.model.CatalogDraftMergeSides
 import app.epistola.api.model.CatalogDraftReleasePreview
 import app.epistola.api.model.CatalogDto
 import app.epistola.api.model.CatalogListResponse
@@ -59,6 +60,7 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalog
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeOutcome
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.MergeResolution
@@ -386,11 +388,36 @@ class EpistolaCatalogApi(
                         outcome = CatalogMergeOutcome.forValue(resource.outcome.name.lowercase()),
                         draftChange = resource.ours?.let { CatalogDraftMergeResource.DraftChange.forValue(it.name.lowercase()) },
                         releaseChange = resource.theirs?.let { CatalogDraftMergeResource.ReleaseChange.forValue(it.name.lowercase()) },
+                        needs = resource.needs,
                     )
                 },
                 unchanged = preview.resources.count { it.outcome in quiet },
                 token = preview.token,
                 missingBase = preview.missingBase?.let { CatalogMergeBaseRef(version = it.version, fingerprint = it.fingerprint) },
+            ),
+        )
+    }
+
+    /** One entry of merging release [version] into the draft [release] names, on its three sides (contract ADR 0005, alpha). */
+    override fun getCatalogDraftMergeSides(
+        version: String,
+        entry: String,
+        tenantKey: String,
+        registry: String,
+        namespace: String,
+        catalogKey: String,
+        release: String,
+    ): ResponseEntity<CatalogDraftMergeSides> {
+        val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
+        val sides = GetDraftMergeSides(draft.tenantKey, draft.catalogKey, version, entry, draft.ref).query()
+        return ResponseEntity.ok(
+            CatalogDraftMergeSides(
+                entry = sides.entry,
+                mergeBase = sides.mergeBase,
+                token = sides.token,
+                base = sides.base?.withoutNulls(),
+                draft = sides.draft?.withoutNulls(),
+                release = sides.release?.withoutNulls(),
             ),
         )
     }
@@ -412,9 +439,18 @@ class EpistolaCatalogApi(
             resolutions = mergeIntoCatalogDraftRequest.resolutions.orEmpty().mapValues { (_, side) -> MergeResolution.ofWire(side.name) ?: error("No resolution $side") },
             catalogVersion = draft.ref,
             expectedToken = mergeIntoCatalogDraftRequest.expectedToken,
+            mergedContent = mergeIntoCatalogDraftRequest.mergedContent.orEmpty(),
         ).execute()
-        return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept))
+        return ResponseEntity.ok(MergeIntoCatalogDraftResponse(merged.release, merged.taken, merged.removed, merged.kept, merged.merged))
     }
+
+    /**
+     * [this] side as the generated type holds it: a null member and an absent one mean the same
+     * (`CatalogMergeEntryContent`), and the type has no room for a null value. Nested values are
+     * kept as they are.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<String, Any?>.withoutNulls(): Map<String, Any> = filterValues { it != null } as Map<String, Any>
 
     /**
      * Releases a draft, numbered as asked or as its changes need against its base. A draft behind

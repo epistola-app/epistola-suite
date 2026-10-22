@@ -31,6 +31,7 @@ import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.merge.MergeRefusedException
@@ -90,6 +91,10 @@ import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.ConstraintViolation
+import jakarta.validation.ConstraintViolationException
+import jakarta.validation.ElementKind
+import jakarta.validation.Path
 import org.slf4j.LoggerFactory
 import org.springframework.beans.TypeMismatchException
 import org.springframework.http.HttpHeaders
@@ -101,6 +106,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.context.request.WebRequest
@@ -340,6 +347,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         MergeConflictsUnresolvedException::class,
         MergeRefusedException::class,
         MergeNotApplicableException::class,
+        MergeEntryNotFoundException::class,
         MergePreviewOutdatedException::class,
         MergeBaseMissingException::class,
         CatalogNotFoundException::class,
@@ -424,6 +432,47 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
+    }
+
+    /**
+     * A path or query parameter that breaks the contract's constraints (its pattern, its length): 400
+     * `validation-error`, each failure's `field` the parameter as the contract names it. Method
+     * validation of the generated interfaces raises it before the controller runs.
+     */
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(ex: ConstraintViolationException, request: WebRequest): ResponseEntity<Any> {
+        log.warn("Parameter validation failed: {}", ex.message)
+        val errors = ex.constraintViolations.sortedBy { it.propertyPath.toString() }.map {
+            ValidationError(field = parameterName(it), message = it.message ?: "Invalid value", rejectedValue = it.invalidValue?.toString())
+        }
+        return problemEntity(
+            request,
+            HttpHeaders(),
+            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            "Request parameter validation failed",
+            mapOf("errors" to errors),
+        )
+    }
+
+    /** The name the contract gives the parameter [violation] is about (`@RequestParam`, `@PathVariable`), else its path. */
+    private fun parameterName(violation: ConstraintViolation<*>): String {
+        val nodes = violation.propertyPath.toList()
+        val method = nodes.firstOrNull { it.kind == ElementKind.METHOD }?.name
+        val parameter = nodes.firstOrNull { it.kind == ElementKind.PARAMETER }?.`as`(Path.ParameterNode::class.java)
+        // The annotations are on the generated interface the controller implements.
+        val types = violation.rootBeanClass?.let { listOf(it) + org.springframework.util.ClassUtils.getAllInterfacesForClass(it) }.orEmpty()
+        val annotations = parameter?.let { p ->
+            types.flatMap { it.methods.toList() }
+                .filter { it.name == method && p.parameterIndex < it.parameterCount }
+                .flatMap { it.parameters[p.parameterIndex].annotations.toList() }
+        }
+        return annotations?.firstNotNullOfOrNull {
+            when (it) {
+                is RequestParam -> it.value.ifEmpty { it.name }
+                is PathVariable -> it.value.ifEmpty { it.name }
+                else -> null
+            }?.takeIf(String::isNotEmpty)
+        } ?: violation.propertyPath.toString()
     }
 
     @ExceptionHandler(ValidationException::class)

@@ -29,6 +29,7 @@ import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.merge.MergeRefusedException
@@ -582,9 +583,15 @@ object ApiExceptionMappings {
 
         builder.register<MergeRefusedException>(
             problemType = ApiProblemTypes.MERGE_REFUSED,
-            defaultDetail = "The release removes something the draft still uses",
+            defaultDetail = "The merge's result would leave a reference that does not resolve; keep the draft's side, or take the release's side of what it needs too",
             extensions = { emptyMap() },
             logMessage = { "Merge refused: ${it.message}" },
+        )
+
+        builder.register<MergeEntryNotFoundException>(
+            problemType = ApiProblemTypes.NOT_FOUND,
+            defaultDetail = "The merge does not list that entry",
+            logMessage = { "Merge entry not found: ${it.message}" },
         )
 
         builder.register<MergeNotApplicableException>(
@@ -594,8 +601,7 @@ object ApiExceptionMappings {
             logMessage = { "Merge not applicable: ${it.message}" },
         )
 
-        // The contract's merge request carries no preview token yet, so REST never sends one; mapped
-        // for when it does, to the generic conflict until the contract names its own problem type.
+        // Merging, and reading the sides of an entry of a merge, without the merge base (contract ADR 0005).
         builder.register<MergeBaseMissingException>(
             problemType = ApiProblemTypes.MERGE_BASE_MISSING,
             defaultDetail = "This installation does not have the release both the draft and the release come from; get it first",
