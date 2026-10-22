@@ -398,8 +398,8 @@ class DocumentGenerationExecutor(
                 )
                 VALUES (
                     :id, :tenantId, :catalogKey,
-                    (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
-                    (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                    (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                    (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
                     :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId),
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,

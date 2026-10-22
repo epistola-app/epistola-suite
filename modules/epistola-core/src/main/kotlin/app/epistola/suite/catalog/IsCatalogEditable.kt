@@ -104,7 +104,7 @@ class GetCatalogEditabilityHandler(
                 """
                 SELECT COALESCE(source_url LIKE 'classpath:%', FALSE)
                 FROM catalogs
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
                 """,
             )
                 .bind("tenantKey", query.tenantKey)

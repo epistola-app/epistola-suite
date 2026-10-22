@@ -70,7 +70,7 @@ object DraftDeploymentStore {
     fun list(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey?, catalogKey: CatalogKey?): List<DraftDeployment> = rows(
         handle,
         tenantKey,
-        "${if (environmentKey != null) "AND d.environment_key = :e" else ""} ${if (catalogKey != null) "AND c.catalog_key = :c" else ""}",
+        "${if (environmentKey != null) "AND d.environment_key = :e" else ""} ${if (catalogKey != null) "AND c.catalog_id = epistola_catalog_id(:t, :c)" else ""}",
     ) { q ->
         environmentKey?.let { q.bind("e", it) }
         catalogKey?.let { q.bind("c", it) }

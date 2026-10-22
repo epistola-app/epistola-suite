@@ -40,7 +40,7 @@ class ListDeploymentsHandler(
             """
             ${DeploymentRows.FROM}
             WHERE d.tenant_key = :t
-              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_key = :c)
+              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_id = epistola_catalog_id(:t, :c))
               AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
             ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL), ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,

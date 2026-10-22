@@ -48,7 +48,7 @@ object HouseTheme {
             UPDATE catalog_versions v SET default_theme_resource_id = (SELECT default_theme_resource_id FROM tenants WHERE id = :t)
             FROM catalogs c
             WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
-              AND v.tenant_key = :t AND c.catalog_key = :c AND v.is_next
+              AND v.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c) AND v.is_next
             """,
         )
             .bind("t", tenantKey)

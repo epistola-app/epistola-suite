@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.CatalogNamespaces
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNamesApplier
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.findCatalog
@@ -70,10 +71,12 @@ class CreateCatalogHandler(
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
     private val usedCatalogs: UsedCatalogDeclarer,
     private val grants: NamespaceGrantStore,
+    private val catalogNames: CatalogNamesApplier,
 ) : CommandHandler<CreateCatalog, Catalog> {
 
     override fun handle(command: CreateCatalog): Catalog = executeOrThrowDuplicate("catalog", command.id.value) {
         var houseThemeCatalog: CatalogKey? = null
+        var namespace: String? = null
         val created = jdbi.inTransaction<Catalog, Exception> { handle ->
             val name = nameFor(handle, command)
             handle.createUpdate(
@@ -89,14 +92,20 @@ class CreateCatalogHandler(
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .execute()
-            // Its next version, where everyday work goes, is opened by the database with the row.
-            // It starts with the tenant's house theme as its default theme (contract ADR 0007, 1a).
-            houseThemeCatalog = HouseTheme.applyTo(handle, command.tenantKey, command.id)
+            namespace = name.namespace
+            // From here its key means this catalog, whatever other namespace has one (ADR 0034, phase 4).
+            catalogNames.named(command.id, name.namespace) {
+                // Its next version, where everyday work goes, is opened by the database with the row.
+                // It starts with the tenant's house theme as its default theme (contract ADR 0007, 1a).
+                houseThemeCatalog = HouseTheme.applyTo(handle, command.tenantKey, command.id)
 
-            handle.findCatalog(command.tenantKey, command.id)!!
+                handle.findCatalog(command.tenantKey, command.id)!!
+            }
         }
         // A house theme of another catalog is a use of that catalog, declared as any reference is.
-        houseThemeCatalog?.takeIf { it != command.id }?.let { usedCatalogs.declare(command.tenantKey, command.id, it) }
+        catalogNames.named(command.id, namespace!!) {
+            houseThemeCatalog?.takeIf { it != command.id }?.let { usedCatalogs.declare(command.tenantKey, command.id, it) }
+        }
         created
     }
 
@@ -108,11 +117,12 @@ class CreateCatalogHandler(
      */
     private fun nameFor(handle: Handle, command: CreateCatalog): NamespaceName {
         val port = publicationPort.ifAvailable
-        port?.publishedNamespace(handle, command.tenantKey, command.id)?.let { published ->
-            validate("namespace", command.namespace == null || command.namespace == published, ValidationCode.CATALOG_NAMESPACE_INVALID) {
-                "A catalog '${command.id.value}' was published under namespace '$published', so it is recreated there"
+        // Named nowhere, a key once published returns to its namespace; named in another, it is
+        // another catalog (ADR 0034, phase 4).
+        if (command.namespace == null) {
+            port?.publishedNamespace(handle, command.tenantKey, command.id)?.let { published ->
+                return requireHeld(handle, command, NamespaceName(identity.defaultRegistry, published))
             }
-            return requireHeld(handle, command, NamespaceName(identity.defaultRegistry, published))
         }
         val registry = command.registry
         val namespace = command.namespace

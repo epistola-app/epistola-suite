@@ -158,7 +158,7 @@ class RestoreTenantSnapshotHandler(
                 """
                 INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, source_url, source_auth_type)
                 VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :sourceUrl, :sourceAuthType)
-                ON CONFLICT (tenant_key, catalog_key) DO NOTHING
+                ON CONFLICT (tenant_key, namespace, catalog_key) DO NOTHING
                 """,
             )
                 .bind("catalogKey", entry.catalogKey)
@@ -199,7 +199,7 @@ class RestoreTenantSnapshotHandler(
                     """
                     UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
                     FROM catalog_releases r
-                    WHERE c.tenant_key = :t AND c.catalog_key = :c AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
+                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
                     """,
                 )
                     .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", entry.version)
@@ -207,7 +207,7 @@ class RestoreTenantSnapshotHandler(
             }
             entry.installed?.let { installed ->
                 handle.createUpdate(
-                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_key = :c",
+                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)",
                 )
                     .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", installed.version).bind("f", installed.fingerprint)
                     .execute()

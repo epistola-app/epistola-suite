@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
@@ -233,6 +234,7 @@ class ImportCatalogZipHandler(
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
     private val releaseIdentity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+    private val catalogNames: app.epistola.suite.catalog.CatalogNamesApplier,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -254,6 +256,13 @@ class ImportCatalogZipHandler(
         val namespace = requireNotNull(manifest.catalog.namespace) { "The archive's catalog names no namespace" }
         command.registry?.let { if (it != registry) throw CatalogNameMismatchException("registry", it, registry) }
         command.namespace?.let { if (it != namespace) throw CatalogNameMismatchException("namespace", it, namespace) }
+        // Its key means the catalog of its namespace here: another namespace's catalog with the same
+        // key is another catalog, beside this one (ADR 0034, phase 4).
+        return CatalogNames.within(declaredNamespaces(manifest)) { catalogNames.named(catalogKey, namespace) { install(command, parsed, catalogKey, registry, namespace) } }
+    }
+
+    private fun install(command: ImportCatalogZip, parsed: Parsed, catalogKey: CatalogKey, registry: String, namespace: String): ImportCatalogZipResult {
+        val manifest = parsed.manifest
         val existing = GetCatalog(command.tenantKey, catalogKey).query()
         if (existing != null && (existing.registry != registry || existing.namespace != namespace)) {
             throw CatalogImportConflictException(
@@ -476,8 +485,24 @@ class ImportCatalogZipHandler(
      * next version to it), or, internally, a draft filled ([ImportCatalogZip.intoDraft]) or a
      * catalog restored ([ImportCatalogZip.restore]).
      */
-    private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult = CatalogImportContext.runAsImport {
-        val (entries, manifest, catalogCtx) = parse(command)
+    private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult {
+        val parsed = parse(command)
+        val namespace = parsed.manifest.catalog.namespace ?: return importArchive(command, parsed)
+        return CatalogNames.within(declaredNamespaces(parsed.manifest)) {
+            catalogNames.named(CatalogKey.of(parsed.manifest.catalog.key), namespace) { importArchive(command, parsed) }
+        }
+    }
+
+    /**
+     * The namespaces of the catalogs [manifest] declares, by the key its content names each by (its
+     * alias, which is its key here): what its references mean, whatever other namespace has a catalog
+     * with that key (ADR 0034, phase 4).
+     */
+    private fun declaredNamespaces(manifest: app.epistola.catalog.protocol.CatalogManifest): Map<String, String> = manifest.catalogDependencies.orEmpty()
+        .associate { dependency -> dependency.catalogKey to dependency.namespace }
+
+    private fun importArchive(command: ImportCatalogZip, parsed: Parsed): ImportCatalogZipResult = CatalogImportContext.runAsImport {
+        val (entries, manifest, catalogCtx) = parsed
         val catalogKey = CatalogKey.of(manifest.catalog.key)
         val receiving = !command.intoDraft && !command.restore
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before it is written.

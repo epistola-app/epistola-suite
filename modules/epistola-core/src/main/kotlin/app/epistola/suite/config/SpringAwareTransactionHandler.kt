@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.catalog.CatalogNames
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.HandleCallback
 import org.jdbi.v3.core.transaction.LocalTransactionHandler
@@ -58,7 +59,17 @@ class SpringAwareTransactionHandler private constructor(
             springSavepoints.addLast(handle.connection.setSavepoint())
         } else {
             delegate.begin(handle)
+            namesInto(handle)
         }
+    }
+
+    /**
+     * A transaction JDBI opens by itself (a self-managed command's) takes the catalog names its work
+     * gives ([CatalogNames], ADR 0034 phase 4), as `SpringMediator` writes them into Spring's.
+     */
+    private fun namesInto(handle: Handle) {
+        val names = CatalogNames.current()
+        if (names.isNotEmpty()) CatalogNames.apply(handle, names)
     }
 
     override fun commit(handle: Handle) {
@@ -88,7 +99,10 @@ class SpringAwareTransactionHandler private constructor(
     override fun <R, X : Exception> inTransaction(handle: Handle, callback: HandleCallback<R, X>): R = if (springTransactionActive()) {
         inSavepoint(handle, callback)
     } else {
-        delegate.inTransaction(handle, callback)
+        delegate.inTransaction<R, X>(handle) { h ->
+            namesInto(h)
+            callback.withHandle(h)
+        }
     }
 
     override fun <R, X : Exception> inTransaction(

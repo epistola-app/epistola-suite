@@ -234,7 +234,7 @@ class PublishCurrentCatalogReleaseHandler(
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :tenantKey AND c.catalog_key = :catalogKey
+            WHERE r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }

@@ -57,7 +57,7 @@ object DeploymentRows {
     fun find(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String? = null, draftId: UUID? = null): CatalogDeployment? = handle.createQuery(
         """
         $FROM
-        WHERE d.tenant_key = :t AND d.environment_key = :e AND cat.catalog_key = :c
+        WHERE d.tenant_key = :t AND d.environment_key = :e AND cat.catalog_id = epistola_catalog_id(:t, :c)
           AND ${if (version != null) "d.version = :v" else "d.draft_id = :d"}
         """,
     )

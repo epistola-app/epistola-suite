@@ -463,7 +463,7 @@ class ReleaseCatalogDraftHandler(
                     UPDATE catalogs
                     SET released_version = :version, released_fingerprint = :fingerprint,
                         released_at = :releasedAt, updated_at = NOW()
-                    WHERE tenant_key = :t AND catalog_key = :c
+                    WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
                     """,
                 )
                     .bind("t", command.tenantKey)

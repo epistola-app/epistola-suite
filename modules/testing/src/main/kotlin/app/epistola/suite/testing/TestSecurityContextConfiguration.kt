@@ -44,7 +44,10 @@ class TestSecurityContextConfiguration {
 
     @Bean
     @Order(-98) // Run after SecurityFilter (-99) to override when no auth is present
-    fun testPrincipalFilter(): OncePerRequestFilter = object : OncePerRequestFilter() {
+    fun testPrincipalFilter(): OncePerRequestFilter = object : OncePerRequestFilter(), org.springframework.core.Ordered {
+        // The servlet registration reads the order from the filter itself, not from the bean method.
+        override fun getOrder(): Int = -98
+
         // Single source of truth: this HTTP-bound principal IS the harness
         // principal ([TestPrincipalUser]) — same id and (external_id, provider),
         // so it resolves to the one `users` row TestPrincipalUsers materialises.

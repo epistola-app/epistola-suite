@@ -77,6 +77,9 @@ enum class ValidationCode(val wire: String) {
     /** A catalog named under `local` never leaves the organisation. */
     CATALOG_NAMESPACE_LOCAL("CATALOG_NAMESPACE_LOCAL"),
 
+    /** A catalog key names several catalogs of the tenant, and nothing said which namespace (ADR 0034, phase 4). */
+    CATALOG_KEY_AMBIGUOUS("CATALOG_KEY_AMBIGUOUS"),
+
     // Declared catalog dependencies (contract ADR 0003).
     CATALOG_DEPENDENCY_INVALID("CATALOG_DEPENDENCY_INVALID"),
     CATALOG_DEPENDENCY_UNRESOLVED("CATALOG_DEPENDENCY_UNRESOLVED"),

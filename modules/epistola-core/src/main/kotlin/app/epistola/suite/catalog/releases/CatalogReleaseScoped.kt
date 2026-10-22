@@ -153,7 +153,7 @@ class CatalogReleaseTargeting(
     }
 
     private fun catalogExists(handle: Handle, ref: CatalogReleaseRef): Boolean = handle
-        .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_key = :c)")
+        .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c))")
         .bind("t", ref.tenantKey)
         .bind("c", ref.catalogKey)
         .mapTo(Boolean::class.java)

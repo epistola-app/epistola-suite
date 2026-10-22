@@ -183,12 +183,12 @@ class GenerateDocumentBatchHandler(
                     environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :catalogKey,
-                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
-                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_key = :catalogKey),
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
                         :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :draftId, :draftLabel,
                         COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                         WHERE c.tenant_key = :tenantId AND c.catalog_key = :catalogKey AND r.version = :releaseVersion)),
+                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey) AND r.version = :releaseVersion)),
                         :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )

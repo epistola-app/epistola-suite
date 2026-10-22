@@ -24,13 +24,13 @@ class ExchangeNamespaceBinder {
 
     /** The catalog's namespace, or null when the tenant has no such catalog. */
     fun namespaceOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle.createQuery(
-        "SELECT namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+        "SELECT namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)",
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .mapTo(String::class.java).findOne().orElse(null)
 
     /** Whether the catalog is named under `local` (ADR 0034, section 7), which is never published. */
     fun isLocal(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = handle.createQuery(
-        "SELECT registry FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+        "SELECT registry FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)",
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .mapTo(String::class.java).findOne().map(LocalAuthority::isLocal).orElse(false)
 

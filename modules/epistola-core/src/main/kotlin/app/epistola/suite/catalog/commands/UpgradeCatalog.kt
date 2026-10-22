@@ -263,7 +263,7 @@ class UpgradeCatalogHandler(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
                 """,
             )
                 .bind("t", tenantKey)

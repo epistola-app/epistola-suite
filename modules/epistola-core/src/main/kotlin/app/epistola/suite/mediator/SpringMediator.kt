@@ -4,6 +4,8 @@
 
 package app.epistola.suite.mediator
 
+import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.CatalogNamesApplier
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.TenantScoped
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.DefaultTransactionDefinition
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.allSupertypes
@@ -63,6 +66,7 @@ class SpringMediator(
     private val queryListeners: List<QueryListener>,
     private val transactionManager: PlatformTransactionManager?,
     private val versionTargeting: CatalogReleaseTargeting? = null,
+    private val catalogNamesApplier: CatalogNamesApplier? = null,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -98,17 +102,19 @@ class SpringMediator(
             // listeners (EventLogSubscriber) bind to this transaction.
             val result = inCommandTransaction(command) {
                 // On the catalog version the command names, if any; IMMEDIATE handlers see it too.
-                inTargetedVersion(command) {
-                    val handled = handler.handle(command)
-                    logger.debug("Command {} completed successfully", commandName)
+                inCatalogNames {
+                    inTargetedVersion(command) {
+                        val handled = handler.handle(command)
+                        logger.debug("Command {} completed successfully", commandName)
 
-                    // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
-                    invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
+                        // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
+                        invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
 
-                    // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
-                    eventPublisher.publishEvent(CommandCompleted(command, handled))
+                        // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
+                        eventPublisher.publishEvent(CommandCompleted(command, handled))
 
-                    handled
+                        handled
+                    }
                 }
             }
 
@@ -118,7 +124,9 @@ class SpringMediator(
             notifyCommandListeners(command, DispatchOutcome.SUCCESS, null)
 
             result
-        } catch (e: Exception) {
+        } catch (failure: Exception) {
+            // A key that names several catalogs, refused by the database, is refused in words.
+            val e = CatalogNames.ambiguity(failure) ?: failure
             outcome = "failure"
             logger.warn("Command {} failed: {}", commandName, e.message)
             notifyCommandListeners(command, DispatchOutcome.FAILURE, e)
@@ -150,10 +158,10 @@ class SpringMediator(
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         try {
-            val result = if (targetOf(query) == null) {
+            val result = if (targetOf(query) == null && CatalogNames.current().isEmpty()) {
                 handler.handle(query)
             } else {
-                inReadTransaction { inTargetedVersion(query) { handler.handle(query) } }
+                inReadTransaction { inCatalogNames { inTargetedVersion(query) { handler.handle(query) } } }
             }
             logger.debug("Query {} completed successfully", queryName)
 
@@ -162,7 +170,8 @@ class SpringMediator(
             notifyQueryListeners(query, DispatchOutcome.SUCCESS, null)
 
             result
-        } catch (e: Exception) {
+        } catch (failure: Exception) {
+            val e = CatalogNames.ambiguity(failure) ?: failure
             outcome = "failure"
             logger.warn("Query {} failed: {}", queryName, e.message)
             notifyQueryListeners(query, DispatchOutcome.FAILURE, e)
@@ -217,6 +226,13 @@ class SpringMediator(
             throw e
         }
     }
+
+    /**
+     * Runs [block] with the catalog names the caller gave ([CatalogNames]) written into the
+     * transaction, so `epistola_catalog_id` looks each key up in its namespace; restores the caller's
+     * names afterwards, for a nested message that gave others.
+     */
+    private fun <R> inCatalogNames(block: () -> R): R = catalogNamesApplier?.run(block) ?: block()
 
     private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }
 

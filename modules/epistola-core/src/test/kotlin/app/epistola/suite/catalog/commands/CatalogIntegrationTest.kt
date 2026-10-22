@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -16,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
@@ -51,18 +53,21 @@ class CatalogIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `registering a catalog over one the tenant has under its key is refused and leaves it alone`() {
+    fun `registering a catalog with the key of one the tenant has puts it beside one of another namespace and refuses one of the same`() {
         val tenant = createTenant("Register Over")
         val key = CatalogKey.of("epistola-demo")
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Ours").execute()
 
+            // ADR 0034, phase 4: the demo catalog is named in Epistola's namespace, so it is another catalog.
+            RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
+            assertThat(ListCatalogs(tenant.id).query().filter { it.id == key }.map { it.namespace }).containsExactlyInAnyOrder(TestNamespaces.of(tenant.id).namespace, "epistola")
+            val ours = CatalogNames.within(key, TestNamespaces.of(tenant.id).namespace) { GetCatalog(tenant.id, key).query()!! }
+            assertThat(listOf(ours.name, ours.sourceUrl, ours.installedReleaseVersion)).containsExactly("Ours", null, null)
+
             assertThatThrownBy { RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute() }
                 .isInstanceOf(DuplicateIdException::class.java)
-
-            val ours = GetCatalog(tenant.id, key).query()!!
-            assertThat(listOf(ours.name, ours.sourceUrl, ours.installedReleaseVersion)).containsExactly("Ours", null, null)
         }
     }
 

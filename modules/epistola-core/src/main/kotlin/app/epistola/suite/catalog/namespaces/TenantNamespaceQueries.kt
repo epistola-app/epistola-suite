@@ -116,9 +116,39 @@ class GetCatalogNamespaceHoldingHandler(
 
 /** Whether the tenant holds [catalogKey]'s namespace, on [handle]. */
 fun holdingOf(handle: Handle, store: NamespaceGrantStore, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogNamespaceHolding {
-    val name = handle.createQuery("SELECT registry, namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey")
+    val name = handle.createQuery("SELECT registry, namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)")
         .bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .map { rs, _ -> NamespaceName(rs.getString("registry"), rs.getString("namespace")) }
         .findOne().orElseThrow { CatalogNotFoundException(catalogKey) }
     return CatalogNamespaceHolding(name, store.holds(handle, tenantKey, name))
+}
+
+/**
+ * The namespaces in which the tenant has a catalog with [catalogKey] (ADR 0034, phase 4): one for a
+ * key that names one catalog, several when catalogs of different namespaces share it, none when the
+ * tenant has no such catalog. What an address naming a catalog by key alone is checked against.
+ */
+data class ListCatalogKeyNamespaces(
+    override val tenantKey: TenantKey,
+    val catalogKey: CatalogKey,
+) : Query<CatalogKeyNamespaces>,
+    RequiresPermission {
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+/** The namespaces a catalog key is used in, by name. */
+data class CatalogKeyNamespaces(val namespaces: List<String>) {
+    /** The one namespace the key names a catalog in; null when it names none or several. */
+    val single: String? get() = namespaces.singleOrNull()
+}
+
+@Component
+class ListCatalogKeyNamespacesHandler(private val jdbi: Jdbi) : QueryHandler<ListCatalogKeyNamespaces, CatalogKeyNamespaces> {
+    override fun handle(query: ListCatalogKeyNamespaces): CatalogKeyNamespaces = jdbi.withHandle<CatalogKeyNamespaces, Exception> { handle ->
+        CatalogKeyNamespaces(
+            handle.createQuery("SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :k ORDER BY namespace")
+                .bind("t", query.tenantKey).bind("k", query.catalogKey)
+                .mapTo(String::class.java).list(),
+        )
+    }
 }

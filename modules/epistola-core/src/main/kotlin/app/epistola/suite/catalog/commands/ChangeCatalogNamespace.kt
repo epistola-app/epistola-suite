@@ -86,7 +86,7 @@ class ChangeCatalogNamespaceHandler(
             validate("namespace", grants.holds(handle, command.tenantKey, target), ValidationCode.CATALOG_NAMESPACE_NOT_HELD) { NamespaceMessages.notHeld(target) }
         }
         handle.createUpdate(
-            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)",
         )
             .bind("namespace", command.namespace)
             .bind("tenantKey", command.tenantKey)

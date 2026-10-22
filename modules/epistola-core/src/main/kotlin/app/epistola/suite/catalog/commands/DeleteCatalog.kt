@@ -68,7 +68,7 @@ class DeleteCatalogHandler(
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM catalogs
-                WHERE tenant_key = :tenantKey AND catalog_key = :id
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :id)
                 """,
             )
                 .bind("tenantKey", command.tenantKey)

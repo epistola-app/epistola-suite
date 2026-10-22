@@ -64,6 +64,7 @@ class RegisterCatalogHandler(
     private val properties: CatalogSourceProperties,
     private val identity: CatalogIdentityProperties,
     private val dependencyStore: CatalogDependencyStore,
+    private val catalogNames: app.epistola.suite.catalog.CatalogNamesApplier,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -98,7 +99,11 @@ class RegisterCatalogHandler(
         )
         val catalogMetadataJson = objectMapper.writeValueAsString(CatalogMetadata.from(manifest.catalog))
 
-        return executeOrThrowDuplicate("catalog", catalogKey.value) { register(command, manifest, catalogKey, resourceFingerprintsJson, catalogMetadataJson) }
+        // Its key means the catalog of its own namespace here, beside one of another (ADR 0034, phase 4).
+        val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
+        return executeOrThrowDuplicate("catalog", catalogKey.value) {
+            catalogNames.named(catalogKey, namespace) { register(command, manifest, catalogKey, resourceFingerprintsJson, catalogMetadataJson) }
+        }
     }
 
     private fun register(
