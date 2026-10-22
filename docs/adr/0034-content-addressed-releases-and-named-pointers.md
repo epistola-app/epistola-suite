@@ -1,6 +1,6 @@
 # ADR 0034: Releases are content-addressed; names point at them
 
-- **Status:** Proposed (direction agreed 2026-10-22; implemented in phases, 1 to 3 done)
+- **Status:** Proposed (direction agreed 2026-10-22; implemented in phases, 1 to 3 done, 4 in part)
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -238,7 +238,12 @@ then bindings are trusted as the installation receives them, and the hash still 
    - Releasing needs the namespace; a received catalog in another namespace is changed here and
      released once the namespace is granted (patch numbers stay phase 5). Receiving needs no grant.
      The REST API has no create operation, so it is unchanged.
-4. **Namespace + key** as the unique name in a tenant; key-only lookups removed in steps.
+4. **Namespace + key** as the unique name in a tenant; key-only lookups removed in steps. _Done in
+   part_ (22 October 2026; `docs/catalog-versioning.md`, "Two catalogs with one key"): the database
+   holds a catalog unique by namespace and key; every lookup by key goes through
+   `epistola_catalog_id`, which takes the namespace the work names (`CatalogNames`) and refuses an
+   ambiguous key instead of picking one; UI addresses and MCP `catalogId`s name the namespace. Open:
+   aliases other than the key (references still resolve by key), and tenant-wide views keyed by key.
 5. **The patch rule** in releasing.
 6. **Sources per tenant**, changeable; **mirroring**; container paths with the authority.
 7. **Signatures** over bindings; the Exchange's domain verification.

@@ -21,6 +21,31 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0034 phase 4: namespace + key (22 October; branch `refactor/catalog-releases`)
+
+| Change                                                                                                                                                                                                   | Where                                                                                              | Coverage                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `uq_catalogs_key_until_named` dropped, `uq_catalogs_namespace_key` added; `epistola_catalog_id(tenant, key)` resolves a key in the named namespace, else the one catalog, else refuses (`EP409`)         | `V20261022200433__core_catalogs_by_namespace_and_key.sql`                                          | ✅ `SideBySideCatalogsTest`                                                                        |
+| `CatalogNames` (within, frame, apply), `CatalogNamesApplier`; mediator and JDBI-begun transactions write `epistola.catalog_names`; ambiguity translated to `CATALOG_KEY_AMBIGUOUS` (mediator, UI filter) | `CatalogNames.kt`, `SpringMediator.kt`, `SpringAwareTransactionHandler.kt`, `UiExceptionFilter.kt` | ✅ `SideBySideCatalogsTest` (3: create, edit, release, render; ambiguous refused; received beside) |
+| `catalogAt`/`versionAt`/`findCatalog` and 50 direct key lookups through the function                                                                                                                     | core, testing                                                                                      | ✅ core suite                                                                                      |
+| Create, register and import name their catalog (import also its declared catalogs); a received catalog of another namespace is installed beside                                                          | `CreateCatalog.kt`, `RegisterCatalog.kt`, `ImportCatalogZip.kt`, `RestoreTenantSnapshot.kt`        | ✅ `CatalogBundleTest`, `CatalogIntegrationTest` (both rewritten from "refused" to "beside")       |
+| UI addresses `/catalogs/{namespace}/{key}/…`, links rewritten, by-key page GETs redirected while unambiguous; catalog list links namespaced; a new catalog lands on its namespaced page                  | `CatalogAddressFilter.kt`, `catalogs/list.html`, `CatalogHandler.kt`                               | ✅ `CatalogAddressHtmxTest` (2)                                                                    |
+| MCP `catalogId` takes `namespace/key`; `list_catalogs` gives `address`                                                                                                                                   | `McpTenantContext.kt`, `McpCatalogNamesFilter.kt`, tools                                           | ✅ `McpCatalogToolsIntegrationTest` (+1)                                                           |
+| Test principal filter ordered as declared (-98), so filters after it see the principal                                                                                                                   | `TestSecurityContextConfiguration.kt`                                                              | ✅ app suite                                                                                       |
+
+**Decisions:** resolution in the database (one function, read by every lookup) rather than threading a
+namespace through every command; the namespace travels as transaction-local names; ambiguity is a
+refusal, never a pick. UI addresses are served by the existing by-key routes behind a filter, so no
+route or template changed beyond the catalog list.
+
+**Noticed, left alone:** aliases other than the key (`CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` kept;
+references, render, merge and validation resolve another catalog by key); tenant-wide maps keyed by
+catalog key (`CatalogEditabilities`, nav, resource graph, `IN (<keys>)` lookups) collapse two catalogs
+with one key; the nav's catalog links and other templates outside the catalog list still link by key
+(redirected, or refused when ambiguous); REST unchanged (its paths name the namespace already, but its
+handlers look up by key without naming it: ambiguous keys are refused over REST); the demo app on port
+4000 was stopped by a `gradlew --stop` during this work.
+
 ### ADR 0034 phase 3: namespaces granted to tenants (22 October; branch `feat/namespace-grants`, not pushed)
 
 A tenant holds namespaces under an authority; a new catalog is named in one it holds, or under

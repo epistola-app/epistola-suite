@@ -140,6 +140,36 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
   REST addresses are refused by the API's own pattern. Container registries have no notion of an
   outside registry, so nothing more is refused there.
 
+## Two catalogs with one key: namespace and key
+
+ADR 0034, phase 4. Within a tenant a catalog is unique by namespace and key
+(`uq_catalogs_namespace_key`, `V20261022200433`), so `acme/letters` and `bureau/letters` live side by
+side.
+
+- **Lookups by key** go through the database function `epistola_catalog_id(tenant, key)`
+  (`CatalogSql.catalogAt`, `versionAt`, `findCatalog` and every direct lookup). It looks the key up in
+  the namespace the running work names for it, else takes the one catalog of the tenant with that key,
+  and refuses a key that names several (SQLSTATE `EP409`), which the mediator, the UI and REST report
+  as `CATALOG_KEY_AMBIGUOUS`: "The catalog key letters names several catalogs of this tenant
+  (acme/letters, bureau/letters): name its namespace."
+- **Naming the namespace**: work says which catalog a key means with `CatalogNames.within(key,
+  namespace)`; `SpringMediator` (and a JDBI transaction a self-managed command opens) writes the names
+  into the transaction's `epistola.catalog_names` setting. Creating, registering and importing a
+  catalog name it for the rest of their work, an import also the catalogs its archive declares (by
+  their key, which is their alias here).
+- **Receiving** a catalog whose key the tenant has in another namespace installs it beside that one;
+  the same namespace and key is still the same catalog.
+- **Web UI**: a catalog's pages are at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`
+  (`CatalogAddressFilter`): served by the by-key routes with the key named, and every address of that
+  catalog in what it answers written namespaced again. A page opened by key alone is redirected there
+  while the key names one catalog; HTMX requests by key alone are served as they are.
+- **MCP**: a tool's `catalogId` is a key or `namespace/key` (`mcpCatalogKey`, per request through
+  `McpCatalogNamesFilter`); `list_catalogs` gives each catalog's `address`.
+- **Not yet**: an alias other than the catalog's key (references still name another catalog by its key
+  here, so `CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` stays), REST addresses already name the namespace and
+  are unchanged, and tenant-wide maps keyed by catalog key (editability, catalog lists, the resource
+  graph) show one entry for two catalogs with one key.
+
 ## Catalog versions and drafts
 
 A catalog consists of **versions** (contract ADR 0002): released ones, kept in

@@ -2,6 +2,8 @@
 
 Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude Desktop, Cursor, MCP Inspector, etc.) can talk to a tenant's templates, themes, stencils, and data contracts directly. The intended workflows are **AI-assisted template design** — the assistant discovers existing templates, inspects their structure, and renders previews to verify what they produce — and **document conversion**: the assistant turns an existing document, such as a Word template, into an Epistola template with its stencils, theme, images and fonts.
 
+> **Two catalogs with one key** (ADR 0034, phase 4): every `catalogId` argument also takes `namespace/key`, each catalog's `address` in `list_catalogs`; a key that names several catalogs is refused, naming them.
+
 ## Status
 
 - **Read tools are GA; write tools are beta.** The read tools cover discovery, inspection and document preview. The [write tools](#write-tools-beta) author a draft — templates, variants, data contracts, stencils, themes, images and fonts — mark it ready, and manage a catalog's [drafts](#catalog-versions-beta), including releasing one; they may still change their arguments in a minor release. Nothing over MCP deploys a release or deletes a resource: whether a release is used to generate documents is still decided in the UI.
