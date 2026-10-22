@@ -39,6 +39,8 @@ import app.epistola.suite.catalog.releases.DraftNumberAssessment
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.releases.NextVersionHandOver
+import app.epistola.suite.catalog.releases.ReleaseLineage
+import app.epistola.suite.catalog.releases.ReleaseParent
 import app.epistola.suite.catalog.releases.UnreleasedDependency
 import app.epistola.suite.catalog.releases.validateDraftName
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -75,7 +77,7 @@ import java.util.UUID
  * - It is numbered when it is released: [version], or, when that is null, the number its changes
  *   need against its base, or the next free one of that kind ([AssessDraftNumber]). A given number
  *   must be free, above the base and no lower than the changes need.
- * - A draft that is behind releases for that number ([CatalogDrafts.behind]) is released only when
+ * - A draft that is behind releases for that number ([ReleaseLineage.behind]) is released only when
  *   [acknowledgedBehind] names every one of them.
  * - A declaration naming a draft of another catalog is refused
  *   ([CatalogDependenciesUnreleasedException]) unless [releaseDependencies] releases those drafts
@@ -209,7 +211,8 @@ class ReleaseCatalogDraftHandler(
         val newVersion = number(command, draft, existing, latest)
         val others = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, command.tenantKey, command.catalogKey) }.filter { it.versionId != draft.versionId }
         if (command.source == ContentSource.WORKING_COPY) {
-            val behind = CatalogDrafts.behind(draft.base, draft.createdAt, newVersion.toString(), existing.map { it.version to it.releasedAt }, draft.merged)
+            val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, command.tenantKey, command.catalogKey) }
+            val behind = lineage.behind(draft.base, draft.merged, newVersion.toString())
             val unacknowledged = behind.filter { it !in command.acknowledgedBehind }
             if (unacknowledged.isNotEmpty()) throw CatalogReleaseBehindException(command.catalogKey, draft.label, unacknowledged)
         }
@@ -367,12 +370,15 @@ class ReleaseCatalogDraftHandler(
         // The release says what it is (wire v8): the draft's id, the rendering defaults it renders
         // with and the installation that cut it, and the release it was made from, the draft's base.
         val releasedByInstallation = installation.get().id
+        // The releases merged into the draft (ADR 0032) are its merge parents: the release contains
+        // them, and says so wherever it goes, so it is not behind them after it is released either.
+        val mergeParents = draft.merged.sortedBy { SemVer.parseOrNull(it) }.map { merged -> ReleaseParent(merged, existing.firstOrNull { it.version == merged }?.fingerprint) }
         val releaseInfo = ReleaseInfo(
             version = newVersion.toString(),
             releasedAt = releasedAt.toString(),
             fingerprint = fingerprint,
             releaseId = ReleaseDescription.releaseId(draft.key),
-            metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version, releasedByInstallation = releasedByInstallation),
+            metadata = ReleaseDescription.metadata(RenderingDefaults.CURRENT.version, releasedByInstallation = releasedByInstallation, merged = mergeParents),
             base = ReleaseDescription.base(draft.base, existing.firstOrNull { it.version == draft.base }?.fingerprint),
         )
         val manifest = content.toManifest(releaseInfo)
@@ -430,6 +436,8 @@ class ReleaseCatalogDraftHandler(
                     .bind("releasedAt", releasedAt)
                     .execute()
             }
+
+            ReleaseLineage.recordMerged(handle, command.tenantKey, command.catalogKey, newVersion.toString(), mergeParents)
 
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the

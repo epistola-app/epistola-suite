@@ -184,6 +184,8 @@ class RecordInstalledReleaseHandler(
                 .bind("baseVersion", received?.base?.version)
                 .bind("baseFingerprint", received?.base?.fingerprint)
                 .execute()
+            // The releases merged into it where it was cut, as it names them: its line contains them.
+            app.epistola.suite.catalog.releases.ReleaseLineage.recordMerged(handle, command.tenantKey, command.catalogKey, version, ReleaseDescription.merged(received?.metadata))
 
             // The publisher's pins, as installed: a received release's declarations are its archive's.
             dependencyStore.recordRelease(

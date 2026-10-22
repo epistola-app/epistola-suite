@@ -74,50 +74,10 @@ data class MergeResource(
 
 /**
  * The three-way merge of a catalog per resource, from a fingerprint per resource on each side: the
- * merge base (the closest release both descend from, [mergeBase]), ours (the draft) and theirs
+ * merge base (the closest release both descend from, [app.epistola.suite.catalog.releases.ReleaseLineage.closestIn]), ours (the draft) and theirs
  * (the release merged in). Keys are `type/key`; a side without a key does not have that resource.
  */
 object DraftMerge {
-
-    /**
-     * The releases a draft already contains: its base and every release merged into it, with every
-     * release each of those descends from. [baseOf] gives a release's base.
-     */
-    fun contained(draftBase: String?, merged: Collection<String>, baseOf: (String) -> String?): Set<String> {
-        val seen = linkedSetOf<String>()
-        val todo = ArrayDeque(listOfNotNull(draftBase) + merged)
-        while (todo.isNotEmpty()) {
-            val release = todo.removeFirst()
-            if (seen.add(release)) baseOf(release)?.let(todo::addLast)
-        }
-        return seen
-    }
-
-    /**
-     * The merge base of a draft and [release]: the closest release on [release]'s line (itself, its
-     * base, that one's base, …) that the draft already [contained]. Not the draft's own base: work
-     * started from 1.0.0 and released as 1.0.1 does not remove what the draft's base 1.1.0 added
-     * since 1.0.0. Null when they share no release.
-     */
-    fun mergeBase(release: String, contained: Set<String>, baseOf: (String) -> String?): String? = mergeBaseOf(release, contained) { r -> baseOf(r)?.let { MadeFrom(it, null) } }?.version
-
-    /**
-     * [mergeBase] by the lineage each release records ([madeFrom], never a guess from the numbers,
-     * contract ADR 0005), with the fingerprint the release it was reached from names it by: the
-     * merge base the line means, which an installed release of that number must match.
-     */
-    fun mergeBaseOf(release: String, contained: Set<String>, madeFrom: (String) -> MadeFrom?): MadeFrom? {
-        val seen = mutableSetOf<String>()
-        var current = MadeFrom(release, null)
-        while (seen.add(current.version)) {
-            if (current.version in contained) return current
-            current = madeFrom(current.version) ?: return null
-        }
-        return null
-    }
-
-    /** The release a release was made from ([version]), by the [fingerprint] it named it with, when it did. */
-    data class MadeFrom(val version: String, val fingerprint: String?)
 
     fun classify(
         base: Map<String, String>,

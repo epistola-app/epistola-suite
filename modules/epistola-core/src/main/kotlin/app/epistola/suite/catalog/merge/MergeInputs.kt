@@ -16,11 +16,11 @@ import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogPreset
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.ReleaseLineage
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -114,7 +114,7 @@ data class MergeInputs(
     val draft: CatalogDraft,
     val release: String,
     val mergeBase: String?,
-    /** The releases the draft contains already ([DraftMerge.contained]). */
+    /** The releases the draft contains already ([ReleaseLineage.containedBy]). */
     val contained: Set<String>,
     val base: MergeInput,
     val ours: MergeInput,
@@ -140,9 +140,10 @@ data class MergeInputs(
  * received from a source records its publisher's digests there, which need not be what this suite
  * computes for the same content, and comparing the two reports changes nobody made.
  *
- * The merge base is found by the lineage each release records (`catalog_releases.base_version`, as
- * cut here or as a received release named it), never guessed from the release numbers (contract ADR
- * 0005): a release that records none ends its line.
+ * The merge base is found by the lineage each release records ([ReleaseLineage]: its base,
+ * `catalog_releases.base_version`, and its merge parents, `catalog_release_merges`, as cut here or as a
+ * received release named them), never guessed from the release numbers (contract ADR 0005): a release
+ * that records none ends its line.
  */
 @Component
 class MergeInputReader(
@@ -162,12 +163,12 @@ class MergeInputReader(
     fun read(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftName: String): MergeInputs {
         val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, tenantKey, catalogKey) }
             ?: throw CatalogReleaseNotFoundException(catalogKey, draftName)
-        val lines = jdbi.withHandle<Map<String, ReleaseLine>, Exception> { releaseLines(it, tenantKey, catalogKey) }
+        val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, tenantKey, catalogKey) }
+        val lines = lineage.releases
         if (release !in lines) throw CatalogReleaseNotFoundException(catalogKey, release)
-        val madeFrom = { r: String -> lines[r]?.let { line -> line.baseVersion?.let { DraftMerge.MadeFrom(it, line.baseFingerprint) } } }
-        val baseOf = { r: String -> madeFrom(r)?.version }
-        val contained = DraftMerge.contained(draft.base, draft.merged, baseOf)
-        val found = DraftMerge.mergeBaseOf(release, contained, madeFrom)
+        // What the draft contains: its base, what it merged, and every parent of those (base and merges).
+        val contained = lineage.containedBy(draft.base, draft.merged)
+        val found = lineage.closestIn(release, contained)
         val installed = found?.takeIf { lines[it.version]?.let { line -> it.fingerprint == null || sameRelease(tenantKey, catalogKey, it.version, line.fingerprint, it.fingerprint) } == true }
         // Found by lineage and not here (or another release under its number): named, to get first. One
         // that is not here and whose fingerprint nobody named cannot be asked for, so no base is known.
@@ -182,7 +183,7 @@ class MergeInputReader(
             base = base,
             ours = input(catalogKey, contentBuilder.build(tenantKey, catalogKey)),
             theirs = releaseInput(tenantKey, catalogKey, release),
-            heldBase = mergeBase?.let { heldBase(tenantKey, catalogKey, draft, it, base, baseOf) }.orEmpty(),
+            heldBase = mergeBase?.let { heldBase(tenantKey, catalogKey, draft, it, base, lineage) }.orEmpty(),
             missingBase = missing,
         )
     }
@@ -206,11 +207,11 @@ class MergeInputReader(
         draft: CatalogDraft,
         mergeBase: String,
         base: MergeInput,
-        baseOf: (String) -> String?,
+        lineage: ReleaseLineage,
     ): Map<String, String> {
         val anchors = listOfNotNull(draft.base) + draft.merged
         for (anchor in anchors) {
-            if (!descendsFrom(anchor, mergeBase, baseOf)) continue
+            if (!lineage.descendsFrom(anchor, mergeBase)) continue
             val held = recordedHeld(tenantKey, draft, anchor) ?: continue
             if (anchor == mergeBase) return withSettings(held, base)
             // What the draft holds of the anchor is what it holds of the merge base wherever the two
@@ -220,17 +221,6 @@ class MergeInputReader(
             return translated
         }
         return base.fingerprints
-    }
-
-    /** Whether [release] is [ancestor] or descends from it by recorded lineage. */
-    private fun descendsFrom(release: String, ancestor: String, baseOf: (String) -> String?): Boolean {
-        val seen = mutableSetOf<String>()
-        var current: String? = release
-        while (current != null && seen.add(current)) {
-            if (current == ancestor) return true
-            current = baseOf(current)
-        }
-        return false
     }
 
     /** What [draft] recorded holding of [release], its own base or one it merged; null when nothing was recorded. */
@@ -276,16 +266,4 @@ class MergeInputReader(
         }
         return paths.mapNotNull { path -> content.assetContents[path]?.let { path to it } }.toMap()
     }
-
-    /** A release of the catalog: its fingerprint, and the release it records it was made from. */
-    private data class ReleaseLine(val fingerprint: String, val baseVersion: String?, val baseFingerprint: String?)
-
-    /** Every release of the catalog with the lineage it records. */
-    private fun releaseLines(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, ReleaseLine> = handle
-        .createQuery("SELECT version, fingerprint, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
-        .map { rs, _ -> rs.getString("version") to ReleaseLine(rs.getString("fingerprint"), rs.getString("base_version"), rs.getString("base_fingerprint")) }
-        .list()
-        .toMap()
 }

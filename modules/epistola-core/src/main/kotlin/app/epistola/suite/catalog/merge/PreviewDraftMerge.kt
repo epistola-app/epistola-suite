@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component
 /**
  * What merging [release] into a draft would do, resource by resource and for each catalog setting
  * ([CatalogSetting]) (ADR 0032, alpha): the draft the query targets, or the catalog's next version.
- * Compared against the merge base, the closest release both descend from ([DraftMerge.mergeBase]),
+ * Compared against the merge base, the closest release both descend from ([app.epistola.suite.catalog.releases.ReleaseLineage.closestIn]),
  * as [DraftMergePlanner] works it out; nothing is changed. Its [DraftMergePreview.token] names the
  * state it shows, for [MergeReleaseIntoDraft.expectedToken].
  *

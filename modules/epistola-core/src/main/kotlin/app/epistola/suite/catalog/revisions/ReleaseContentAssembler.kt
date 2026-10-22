@@ -300,7 +300,18 @@ class ReleaseContentAssembler(
      * of it ([ReleaseDescription.complete]), so a release recorded before a release said what it is
      * exports saying it too.
      */
-    private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest = handle
+    private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest {
+        val merged = app.epistola.suite.catalog.releases.ReleaseLineage.mergedOf(handle, tenantKey, catalogKey, version)
+        return loadManifestSnapshot(handle, tenantKey, catalogKey, version, merged)
+    }
+
+    private fun loadManifestSnapshot(
+        handle: Handle,
+        tenantKey: TenantKey,
+        catalogKey: CatalogKey,
+        version: String,
+        merged: List<app.epistola.suite.catalog.releases.ReleaseParent>,
+    ): CatalogManifest = handle
         .createQuery(
             """
             SELECT r.manifest_snapshot::text AS snapshot, r.version_key, r.rendering_defaults_version, r.base_version, r.released_by_installation,
@@ -321,6 +332,7 @@ class ReleaseContentAssembler(
                 baseVersion = rs.getString("base_version"),
                 baseFingerprint = rs.getString("base_fingerprint"),
                 releasedByInstallation = rs.getObject("released_by_installation", java.util.UUID::class.java),
+                merged = merged,
             )
             manifest.copy(release = ReleaseDescription.complete(manifest.release, recorded))
         }

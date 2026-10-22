@@ -57,38 +57,4 @@ class DraftMergeTest {
             mapOf("theme/x" to MergeOutcome.CONFLICT, "theme/y" to MergeOutcome.OURS, "theme/z" to MergeOutcome.THEIRS),
         )
     }
-
-    // 1.0.0 → 1.1.0 (the next version continued on it) and 1.0.0 → 1.0.1 (parallel work).
-    private val bases = mapOf("1.0.0" to null, "1.1.0" to "1.0.0", "1.0.1" to "1.0.0")
-
-    @Test
-    fun `the merge base of two lines is the release both descend from, not the draft's own base`() {
-        val contained = DraftMerge.contained("1.1.0", emptyList(), bases::get)
-
-        assertThat(contained).containsExactlyInAnyOrder("1.1.0", "1.0.0")
-        assertThat(DraftMerge.mergeBase("1.0.1", contained, bases::get)).isEqualTo("1.0.0")
-        assertThat(DraftMerge.mergeBase("1.0.0", contained, bases::get)).`as`("a release on the draft's own line").isEqualTo("1.0.0")
-    }
-
-    @Test
-    fun `a release merged in counts with its line, and lines with nothing in common have no base`() {
-        val contained = DraftMerge.contained("1.1.0", listOf("1.0.1"), bases::get)
-        assertThat(contained).contains("1.0.1")
-        assertThat(DraftMerge.mergeBase("1.0.1", contained, bases::get)).isEqualTo("1.0.1")
-
-        assertThat(DraftMerge.mergeBase("9.0.0", setOf("1.0.0"), mapOf("9.0.0" to null)::get)).isNull()
-    }
-
-    @Test
-    fun `the merge base by lineage carries the fingerprint the line names it by, and a release naming no base ends its line`() {
-        val lines = mapOf(
-            "1.1.0" to DraftMerge.MadeFrom("1.0.0", "v5:aaa"),
-            "1.0.1" to DraftMerge.MadeFrom("1.0.0", "v5:bbb"),
-        )
-        val contained = DraftMerge.contained("1.1.0", emptyList()) { lines[it]?.version }
-
-        assertThat(DraftMerge.mergeBaseOf("1.0.1", contained, lines::get)).isEqualTo(DraftMerge.MadeFrom("1.0.0", "v5:bbb"))
-        // 2.0.1 records no base: 2.0.0 below it is not taken for one.
-        assertThat(DraftMerge.mergeBaseOf("2.0.1", setOf("2.0.0"), lines::get)).isNull()
-    }
 }

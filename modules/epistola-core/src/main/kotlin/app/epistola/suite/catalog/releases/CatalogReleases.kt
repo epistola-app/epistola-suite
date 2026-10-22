@@ -34,7 +34,7 @@ enum class CatalogReleaseStatus { DRAFT, RELEASED }
  * @property createdFrom for a draft, the [versionId] of the draft it was copied from, unreleased
  *   changes included; null when it was started from a release or from nothing.
  * @property behind for a draft, the releases it is behind for the number it would be released as
- *   ([CatalogDrafts.behind]), lowest first; filled only by queries that ask for it.
+ *   ([ReleaseLineage.behind]), lowest first; filled only by queries that ask for it.
  * @property deployedTo the environments that deploy a released version.
  */
 data class CatalogRelease(
@@ -96,7 +96,7 @@ data class CatalogDraft(
     val createdAt: OffsetDateTime,
     /** Raised when its name, default theme, presets or dependency declarations change (REST `ETag`). */
     val revision: Long = 1,
-    /** The releases merged into it (ADR 0032), which it is not behind. */
+    /** The releases merged into it (ADR 0032): with its base, the roots of its line ([ReleaseLineage.containedBy]). */
     val merged: Set<String> = emptySet(),
 ) {
     val label: String get() = if (isNext) NEXT_LABEL else name ?: NEXT_LABEL
@@ -390,32 +390,5 @@ class CatalogDrafts {
 
         /** The highest of [releases] by SemVer; null when there is none. */
         fun latest(releases: Collection<String>): String? = releases.mapNotNull { r -> SemVer.parseOrNull(r)?.let { it to r } }.maxByOrNull { it.first }?.second
-
-        /**
-         * The releases a draft on [base], started at [createdAt], is behind when it is released as
-         * [number] (contract ADR 0002, "A draft can be behind"), lowest first: every release
-         * (a) numbered above its base and below [number], or (b) published after the draft was
-         * started and numbered below [number], other than its base and those it [merged] (ADR 0032).
-         * [releases] are the catalog's releases with when each was published.
-         */
-        fun behind(
-            base: String?,
-            createdAt: OffsetDateTime?,
-            number: String,
-            releases: Collection<Pair<String, OffsetDateTime?>>,
-            merged: Collection<String> = emptyList(),
-        ): List<String> {
-            val ceiling = SemVer.parseOrNull(number) ?: return emptyList()
-            val floor = base?.let(SemVer::parseOrNull)
-            return releases.mapNotNull { (r, releasedAt) -> SemVer.parseOrNull(r)?.let { Triple(it, r, releasedAt) } }
-                .filter { (semVer, r, releasedAt) ->
-                    val below = semVer < ceiling
-                    val aboveBase = floor == null || semVer > floor
-                    val publishedSince = createdAt != null && releasedAt != null && releasedAt.isAfter(createdAt)
-                    r != base && r !in merged && below && (aboveBase || publishedSince)
-                }
-                .sortedBy { it.first }
-                .map { it.second }
-        }
     }
 }

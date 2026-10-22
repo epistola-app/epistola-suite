@@ -157,7 +157,7 @@ class CatalogReleaseReader(
             }
             .list()
         val released = releases.mapNotNull { it.version }
-        val publishedAt = releases.map { it.version!! to it.releasedAt }
+        val lineage = ReleaseLineage.read(handle, tenantKey, catalogKey)
         val bases = releases.associate { it.version!! to it.base }
         val changes = mutableMapOf<String, List<ReleasedChange>>()
         val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
@@ -167,7 +167,7 @@ class CatalogReleaseReader(
                 base = draft.base,
                 createdFrom = draft.createdFrom,
                 createdAt = draft.createdAt,
-                behind = numbers[draft.key]?.let { number -> CatalogDrafts.behind(draft.base, draft.createdAt, number, publishedAt, draft.merged) }.orEmpty().map { version ->
+                behind = numbers[draft.key]?.let { number -> lineage.behind(draft.base, draft.merged, number) }.orEmpty().map { version ->
                     BehindRelease(version, changes.getOrPut(version) { changesOf(tenantKey, catalogKey, version, bases[version], released) })
                 },
                 versionId = draft.key,

@@ -131,14 +131,18 @@ until it is released**; only releases are numbered.
   declares (`catalog_versions.default_theme_resource_id`, `presets`). A release freezes both in its
   manifest's `catalog` and renders with them; new parallel work copies them from the version it starts
   from, and an import takes them from the archive.
-- **Behind.** A draft is _behind_ a release it does not contain: (a) one above its base, or (b) one
-  below it released after the draft started, a fix to an older line (`CatalogDrafts.behind`). It
-  lists each with what it changed against its own base. The next release continues on each release
-  it is released as, so in the ordinary course it is behind only fixes to older lines; another draft
-  is behind every release since it started. Releasing a draft that is behind is refused
-  (`CATALOG_VERSION_BEHIND`, 409) until `acknowledgedBehind` names every one. Behind is computed only
-  when asked for (`ListCatalogReleases(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads
-  every release's content.
+- **Behind.** A draft is _behind_ every release of the catalog numbered below the number it would be
+  released as that its line does not contain (`ReleaseLineage.behind`). Its line is its base and the
+  releases it merged, with everything those contain in turn: each release's base and the releases
+  merged into its draft before it was released (its merge parents, below). Numbers and times say
+  nothing about it: a fix released long before the next release last moved on is still behind, and
+  one merged into a release before it is never behind again. A release on the line that records no
+  lineage (received from an archive that named no base) cannot say what it contains, so it is taken to
+  contain every release numbered below it. It lists each with what it changed against its own base.
+  Releasing a draft that is behind is refused (`CATALOG_VERSION_BEHIND`, 409) until
+  `acknowledgedBehind` names every one. Behind is computed only when asked for
+  (`ListCatalogReleases(withBehind)`, `GetCatalogDraft(withBehind)`), since it reads every release's
+  content.
 - **Merging** (alpha, ADR 0032). A draft takes in a release it is behind with
   `MergeReleaseIntoDraft`; `PreviewDraftMerge` says first what that does. Per resource, and per
   catalog setting (the default theme, the presets and the dependency declarations, each one entry
@@ -174,6 +178,13 @@ until it is released**; only releases are numbered.
   a release from an archive that names none, and every release cut before the column; for the list of
   what a behind release changed, those are measured against the release below them, which is only a
   display.
+- **A release records its merge parents** (`catalog_release_merges`, `V20261022052418`): the releases
+  merged into its draft (`catalog_draft_merges`) when it is released, each with its fingerprint. The
+  manifest says them too, in `release.metadata` under `app.epistola.suite` as
+  `merged: [{"version": "1.0.1", "fingerprint": "v5:…"}]` (a bare version is read as well), so an
+  archive, an installation receiving it and a tenant snapshot keep them: receiving records them, and an
+  export of a release recorded without them in its snapshot names them from the table. Lineage is base
+  plus merge parents (`ReleaseLineage`); the merge base and `behind` both follow it.
 - **Releasing** (`ReleaseCatalogDraft`, contract `releaseCatalogDraft`) releases any draft,
   numbered as asked or, without a number, as its changes need against its base
   (`AssessDraftNumber`, contract `previewCatalogDraftRelease`: `base`, `changeKind`, `needed`,
@@ -613,8 +624,8 @@ template per variant or per block, an editor merge tool — adds to it rather th
   recorded when its base was put in place or copied in, or `catalog_draft_merges.held_fingerprints`
   for a release it merged; for an older merge base that one descends from, the same wherever the two
   releases are alike; else the base as released. A baseline another function stored is ignored.
-- **Merge base** (`MergeInputReader`, `DraftMerge.mergeBaseOf`). Found by the lineage releases record
-  (`catalog_releases.base_version`, `base_fingerprint`), checked against the installed release of that
+- **Merge base** (`MergeInputReader`, `ReleaseLineage.closestIn`). Found by the lineage releases record
+  (`catalog_releases.base_version`, `base_fingerprint`, and `catalog_release_merges`), checked against the installed release of that
   number by fingerprint; missing, it is `MergeInputs.missingBase` and the planner classifies nothing.
 - **Mergers** (`ResourceMerger`, found by type in `ResourceMergers`). One classifies an entry from its
   three sides (`MergeEntrySides`) and plans what to write for a `MergeResolution` (`MergeAction`:
@@ -629,7 +640,13 @@ template per variant or per block, an editor merge tool — adds to it rather th
   resolutions chosen, what the draft then held of the release (`held_fingerprints`), who and when.
   `CatalogDraft.merged` reads it, so the draft contains the release and is not behind it. Copying a
   draft copies its rows; moving the next release onto a new base (releasing it, or a release put in
-  place) clears them.
+  place) clears them. Releasing the draft first records them as the release's merge parents
+  (`catalog_release_merges`, `release.metadata."app.epistola.suite".merged`), so what continues on the
+  release still contains them.
+- **Lineage** (`ReleaseLineage`). Per release its base and merge parents, read once per catalog.
+  `containedBy` (a draft's base and merges, closed over parents), `closestIn` (the merge base: the
+  closest release on the merged release's line, breadth first, base before merges, that the draft
+  contains, with the fingerprint the line names it by) and `behind` all work from it.
 - **Token.** `DraftMergePlanner.token` digests the release, the merge base (or the missing one) and
   every fingerprint of the three sides. `PreviewDraftMerge` returns it (REST `token`), the UI, MCP and
   REST (`expectedToken`) send it back, and the merge refuses another (`MergePreviewOutdatedException`,
