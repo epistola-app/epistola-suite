@@ -67,6 +67,7 @@ class CatalogRoutes(
             POST("/{catalogId}/dependencies/upgrade", nextRelease::upgradeDependencies)
             // Merging a published version the draft lacks into it (ADR 0032, alpha).
             GET("/{catalogId}/merge", merge::mergeDialog)
+            GET("/{catalogId}/merge/sides", merge::mergeSides)
             POST("/{catalogId}/merge", merge::merge)
             POST("/{catalogId}/publish-current", handler::publishCurrentRelease)
             POST("/{catalogId}/publications/{publicationId}/cancel", handler::cancelPublication)

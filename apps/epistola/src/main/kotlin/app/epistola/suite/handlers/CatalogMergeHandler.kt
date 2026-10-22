@@ -6,9 +6,11 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.merge.DraftMergePreview
+import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergeChange
 import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
 import app.epistola.suite.catalog.merge.MergeNotApplicableException
 import app.epistola.suite.catalog.merge.MergeOutcome
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
@@ -31,6 +33,7 @@ import app.epistola.suite.security.requirePermission
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
 
 /**
  * One resource of the merge dialog, in words: what it is called, what kind it is, and what the
@@ -55,14 +58,18 @@ data class MergeRowView(
     val field: String get() = "${CatalogMergeHandler.RESOLUTION_PREFIX}$contentKey]"
 }
 
+/** One side of a conflict as the merge dialog compares it: what it is called, and its content as formatted JSON, or null. */
+data class MergeSideView(val label: String, val json: String?, val testId: String)
+
 /**
  * Merging a published version into the draft a page works in (ADR 0032, section 5; alpha), from
  * the "Published since you started" list on the draft's page (`catalogs/next-release.html`). The
  * dialog previews what merging does per resource ([PreviewDraftMerge]) and asks a side for each
- * conflict; submitting runs [MergeReleaseIntoDraft].
+ * conflict; submitting runs [MergeReleaseIntoDraft]. A conflict can be compared on its three sides
+ * ([GetDraftMergeSides]), read-only: combining them is for MCP and REST, as merged content.
  */
 @Component
-class CatalogMergeHandler {
+class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
 
     /** `GET /{catalogId}/merge?release=1.1.0`: the preview, as a dialog. */
     fun mergeDialog(request: ServerRequest): ServerResponse {
@@ -76,6 +83,37 @@ class CatalogMergeHandler {
         return request.htmx {
             fragment("catalogs/merge", "merge-dialog") {
                 mergeModel(tenantId, segment, preview, choices = emptyMap(), error = null)
+            }
+            onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
+        }
+    }
+
+    /**
+     * `GET /{catalogId}/merge/sides?release=1.1.0&entry=theme/brand`: one conflict of the dialog on its
+     * three sides, the release both come from, the draft's and the release's, as formatted JSON.
+     */
+    fun mergeSides(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.CATALOG_VIEW)
+        val segment = request.catalogSegment()
+        val release = request.param("release").orElse("").trim()
+        val entry = request.param("entry").orElse("").trim()
+        if (release.isEmpty() || entry.isEmpty()) return ServerResponse.badRequest().build()
+        val sides = try {
+            GetDraftMergeSides(tenantId.key, segment.key, release, entry, segment.ref(tenantId.key)).query()
+        } catch (e: MergeEntryNotFoundException) {
+            return ServerResponse.notFound().build()
+        } catch (e: MergeBaseMissingException) {
+            return ServerResponse.status(409).build()
+        }
+        val pretty = objectMapper.writerWithDefaultPrettyPrinter()
+        return request.htmx {
+            fragment("catalogs/merge", "merge-compare") {
+                "sides" to listOf(
+                    MergeSideView(sides.mergeBase?.let { "When both started (v$it)" } ?: "When both started", sides.base?.let(pretty::writeValueAsString), "catalog-merge-compare-base"),
+                    MergeSideView("Yours", sides.draft?.let(pretty::writeValueAsString), "catalog-merge-compare-draft"),
+                    MergeSideView("v$release’s", sides.release?.let(pretty::writeValueAsString), "catalog-merge-compare-release"),
+                )
             }
             onFullPage { redirect(CatalogPages.draft(tenantId, segment)) }
         }

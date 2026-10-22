@@ -9,6 +9,8 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.merge.GetDraftMergeSides
+import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -337,6 +339,55 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             }
         }
         return out.toByteArray()
+    }
+
+    @Test
+    fun `a conflict can be compared on its three sides, read-only`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Compare")
+            work = diverged(tenant)
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&entry=theme/brand") }
+        then {
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!!
+            assertThat(dialog).contains("data-testid=\"catalog-merge-compare\"")
+                .contains("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&amp;entry=theme/brand")
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode.value()).isEqualTo(200)
+            val sides = response.body!!
+            assertThat(sides).contains("data-testid=\"catalog-merge-compare-sides\"").contains("When both started (v1.0.0)").contains("Yours").contains("v1.0.1’s")
+            assertThat(sides.substringAfter("catalog-merge-compare-base").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand&quot;")
+            assertThat(sides.substringAfter("catalog-merge-compare-draft").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand redesigned&quot;")
+            assertThat(sides.substringAfter("catalog-merge-compare-release").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand, fixed&quot;")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&entry=theme/nothing").statusCode.value()).isEqualTo(404)
+        }
+    }
+
+    @Test
+    fun `a conflict merged with merged content shows on the draft's page as a change not marked ready`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Merged Content")
+            work = diverged(tenant)
+            withMediator { MarkCatalogReady(tenant.id, letters, catalogVersion = work(tenant, work)).execute() }
+        }
+        whenever {
+            withMediator {
+                val ref = work(tenant, work)
+                val sides = GetDraftMergeSides(tenant.id, letters, "1.0.1", "theme/brand", ref).query()
+                MergeReleaseIntoDraft(tenant.id, letters, "1.0.1", catalogVersion = ref, mergedContent = mapOf("theme/brand" to sides.draft!! + ("name" to "Brand, redesigned and fixed"))).execute()
+            }
+            get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
+        }
+        then {
+            val page = result<String>()
+            assertThat(page).contains("data-resource=\"theme/brand\"")
+            assertThat(page.substringAfter("data-resource=\"theme/brand\"").substringBefore("</tr>")).contains("Changed").contains("Brand, redesigned and fixed")
+            assertThat(page).contains("data-testid=\"catalog-not-ready-hint\"").contains("1 change is not marked ready yet")
+        }
     }
 
     private fun get(url: String): ResponseEntity<String> = restTemplate.getForEntity(url, String::class.java)

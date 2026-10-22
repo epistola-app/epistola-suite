@@ -26,6 +26,19 @@
             content=~{::merge-form})}"></div>
     </th:block>
 
+    <!--/*
+    One conflict on its three sides (CatalogMergeHandler.mergeSides), read-only: `sides` (MergeSideView),
+    each with its formatted JSON, or none where that side does not have it.
+    */-->
+    <div th:fragment="merge-compare" data-testid="catalog-merge-compare-sides"
+         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
+        <div th:each="side : ${sides}" th:attr="data-testid=${side.testId}" style="min-width: 0;">
+            <span class="ep-label" th:text="${side.label}">Yours</span>
+            <pre th:if="${side.json != null}" th:text="${side.json}" style="overflow: auto; max-height: 20rem; margin: 0; font-size: 0.8em;">{}</pre>
+            <p th:if="${side.json == null}" class="text-muted" style="margin: 0;">Not there</p>
+        </div>
+    </div>
+
     <form th:fragment="merge-form" id="catalog-merge-form" data-testid="catalog-merge-form"
           th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId})}"
           hx-target="#catalog-merge-form" hx-swap="outerHTML">
@@ -80,6 +93,11 @@
                         <p th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="margin: 0;" data-testid="catalog-merge-goes-with"
                            th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')} + ': choose them together.'">
                             Goes with shared (Catalog used): choose them together.</p>
+                        <!--/* Read-only: the three sides as JSON, loaded when asked for. */-->
+                        <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-merge-compare"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge/sides(tenantId=${tenantId},catalogId=${catalogId},release=${preview.release},entry=${row.contentKey})}"
+                                hx-target="next [data-merge-compare]" hx-swap="innerHTML">Compare</button>
+                        <div data-merge-compare></div>
                         <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
                             <input type="radio" th:name="${row.field}" value="OURS" required
                                    th:checked="${choices.get(row.field) == 'OURS'}" data-testid="catalog-merge-keep-ours">
