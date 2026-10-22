@@ -6,6 +6,7 @@ package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.queries.ReleaseContentHashes
 import java.time.OffsetDateTime
 
 /**
@@ -40,11 +41,16 @@ data class CatalogInfo(
      * version label. Null when it has no release.
      */
     val fingerprint: String?,
+    /**
+     * The content hash of [releasedVersion] (ADR 0034), its identity, as REST's `CatalogDto`. Null when
+     * it has no release, or one without a content hash yet.
+     */
+    val contentHash: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 ) {
     companion object {
-        fun from(catalog: Catalog, editability: CatalogEditability): CatalogInfo = CatalogInfo(
+        fun from(catalog: Catalog, editability: CatalogEditability, hashes: ReleaseContentHashes): CatalogInfo = CatalogInfo(
             id = catalog.id.value,
             name = catalog.name,
             description = catalog.description,
@@ -65,6 +71,7 @@ data class CatalogInfo(
             installedAt = catalog.installedAt,
             releasedVersion = catalog.highestReleaseVersion,
             fingerprint = catalog.highestReleaseFingerprint,
+            contentHash = hashes.of(catalog.id, catalog.highestReleaseVersion),
             createdAt = catalog.createdAt,
             updatedAt = catalog.updatedAt,
         )

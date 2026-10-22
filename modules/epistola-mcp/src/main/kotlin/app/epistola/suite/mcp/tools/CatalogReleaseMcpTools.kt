@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.tools
 
+import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.merge.GetDraftMergeSides
@@ -51,7 +52,8 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
             "goes, and the one the content tools use when `catalogVersion` is omitted), then the other drafts, then its " +
             "releases, highest first. Every draft and release has a `versionId`; a draft has no `version` number until it is released. " +
             "Pass a draft's `versionId` as `catalogVersion` to the content tools to read or change it. A draft lists the " +
-            "releases it is `behind` for the number it would be released as: it does not contain their changes.",
+            "releases it is `behind` for the number it would be released as: it does not contain their changes. " +
+            "With `contentHash`, only the releases with that content (none: an empty list).",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listCatalogReleases(
@@ -59,8 +61,18 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         catalogId: String,
         @McpToolParam(description = "`DRAFT` or `RELEASED` to list only those. Omit for both.", required = false)
         status: String?,
-    ): List<CatalogReleaseInfo> = ListCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId), status(status), withBehind = true).query()
-        .map(CatalogReleaseInfo::from)
+        @McpToolParam(description = "A release's `contentHash` (`v6:` and 64 hex digits) to list only the releases with that content.", required = false)
+        contentHash: String? = null,
+    ): List<CatalogReleaseInfo> {
+        val wanted = contentHash?.trim()?.takeIf { it.isNotEmpty() }
+        // As REST `listCatalogReleases?contentHash=`: a filter, and anything but a content hash is refused.
+        if (wanted != null && !(CONTENT_HASH.matches(wanted) && CatalogCanonicalizer.isContentHash(wanted))) {
+            throw ValidationException("contentHash", "'$wanted' is not a content hash: `v6:` followed by 64 lowercase hex digits, as a release's `contentHash`")
+        }
+        return ListCatalogReleases(mcpTenantKey(), CatalogKey.of(catalogId), status(status), withBehind = true).query()
+            .filter { wanted == null || it.contentHash == wanted }
+            .map(CatalogReleaseInfo::from)
+    }
 
     @McpTool(
         name = "start_draft",
@@ -141,7 +153,8 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         name = "release_draft",
         description = "Release a draft of a catalog that can be changed here (the next release unless `draft` names another), numbered " +
             "as its changes need against its base (`preview_release_number`) unless `version` asks for a higher free " +
-            "number. Its changed resources must be marked ready (`get_catalog_changes`). A draft behind releases is " +
+            "number. A draft that changed nothing against its base (no resource, no catalog-level content) has nothing " +
+            "to release and is refused. Its changed resources must be marked ready (`get_catalog_changes`). A draft behind releases is " +
             "released only when `acknowledgedBehind` names every one. One that builds on drafts of other catalogs is " +
             "refused unless `releaseDependencies` releases those first. The draft becomes the release, keeping its " +
             "`versionId`; the next release then continues on it. Parallel work released with `continueEverydayWork` " +
@@ -180,6 +193,8 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
                 catalogVersion = ref?.let { CatalogReleaseRef(mcpTenantKey(), catalogKey, it) },
                 releaseDependencies = releaseDependencies == true,
                 continueEverydayWork = if (continueEverydayWork == true) ContinueEverydayWork(keepPreviousAs?.trim()?.takeIf { it.isNotEmpty() }) else null,
+                // As REST: a draft that changed nothing against its base has nothing to release.
+                requireChange = true,
             ).execute(),
         )
     }
@@ -305,5 +320,10 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return CatalogReleaseStatus.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
             ?: throw ValidationException("status", "`status` is `DRAFT` or `RELEASED`")
+    }
+
+    private companion object {
+        /** The contract's `ContentHash` pattern. */
+        val CONTENT_HASH = Regex("^v6:[0-9a-f]{64}$")
     }
 }

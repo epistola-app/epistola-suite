@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
 import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftUnchangedException
 import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
@@ -180,6 +181,36 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
 
         assertThat(renamed.name).isEqualTo("Redesign 2027")
         assertThatThrownBy { runAsApiKey(tenantId) { versionTools.renameDraft("default", "next", "Mine") } }.isInstanceOf(CatalogDraftIsNextException::class.java)
+    }
+
+    /**
+     * As REST: a release is found by its content hash (a filter; none is an empty list, anything but a
+     * content hash is refused), releasing names the release's, and a draft that changed nothing against
+     * its base is not releasable and is refused.
+     */
+    @Test
+    fun `a release is found by its content hash, releasing names it, and a draft with no change is refused`() {
+        val tenantId = newTenant()
+        val released = objectMapper.valueToTree<JsonNode>(
+            runAsApiKey(tenantId) {
+                themeTools.createTheme("default", "brand", "Brand", null, null, null, null, null)
+                readyTools.markCatalogReady("default")
+                versionTools.releaseDraft("default", null, null, "first", null, null)
+            },
+        )
+        val hash = released.path("contentHash").asString(null)
+        assertThat(hash).isEqualTo(released.path("fingerprint").asString()).startsWith("v6:")
+
+        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", null, hash) }.map { it.version }).containsExactly(released.path("version").asString())
+        assertThat(runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", null, "v6:${"0".repeat(64)}") }).isEmpty()
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", null, "v5:${"0".repeat(64)}") } }
+            .isInstanceOf(ValidationException::class.java).hasMessageContaining("not a content hash")
+
+        val unchanged = runAsApiKey(tenantId) { readyTools.getCatalogChanges("default") }
+        assertThat(unchanged.releasable).`as`("nothing changed against its base").isFalse()
+        assertThat(unchanged.dependenciesChanged).isFalse()
+        assertThatThrownBy { runAsApiKey(tenantId) { versionTools.releaseDraft("default", null, null, null, null, null) } }
+            .isInstanceOf(CatalogDraftUnchangedException::class.java)
     }
 
     @Test

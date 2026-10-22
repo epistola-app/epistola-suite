@@ -4,6 +4,7 @@
 
 package app.epistola.suite.mcp.dto
 
+import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraftResult
 import app.epistola.suite.catalog.releases.CatalogRelease
 import app.epistola.suite.catalog.releases.DraftNumberAssessment
@@ -76,8 +77,9 @@ data class ReleaseNumberInfo(
 }
 
 /**
- * The result of `release_draft`: the release, by number and by the [versionId] the draft had, the other
- * drafts it puts behind, by name, and the drafts of other catalogs released along with it.
+ * The result of `release_draft`: the release, by number and by the [versionId] the draft had, with its
+ * [contentHash] (ADR 0034), the other drafts it puts behind, by name, and the drafts of other catalogs
+ * released along with it.
  */
 data class ReleasedDraftInfo(
     val version: String,
@@ -88,6 +90,7 @@ data class ReleasedDraftInfo(
     val unchangedContent: Boolean,
     val draftsBehind: List<String>,
     val releasedDependencies: List<String>,
+    val contentHash: String?,
 ) {
     companion object {
         fun from(result: ReleaseCatalogDraftResult) = ReleasedDraftInfo(
@@ -99,6 +102,8 @@ data class ReleasedDraftInfo(
             unchangedContent = result.unchangedContent,
             draftsBehind = result.draftsBehind,
             releasedDependencies = result.releasedDependencies.map { "${it.catalogKey} v${it.releaseVersion}" },
+            // A release is fingerprinted with its content hash (ADR 0034).
+            contentHash = result.fingerprint.takeIf(CatalogCanonicalizer::isContentHash),
         )
     }
 }

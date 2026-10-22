@@ -10,11 +10,14 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
+import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListReleaseContentHashes
+import app.epistola.suite.catalog.queries.ReleaseContentHashes
 import app.epistola.suite.catalog.sources.AvailableCatalogReleases
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.mcp.dto.CatalogDependencyInfo
@@ -43,13 +46,15 @@ class CatalogMcpTools(
             "require a `catalogId` argument that comes from this list. " +
             "Each says whether it can be changed here (`editable`), and if not why (`readOnlyReason`): the catalogs " +
             "Epistola supplies never are, and none are in an installation that only runs releases. `source` says " +
-            "where its releases come from; `releasedVersion` is its highest release, released here or received.",
+            "where its releases come from; `releasedVersion` is its highest release, released here or received, and " +
+            "`contentHash` that release's content hash.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun listCatalogs(): List<CatalogInfo> {
         val editability = catalogEditability()
+        val hashes = ListReleaseContentHashes(mcpTenantKey()).query()
         return mediator.query(ListCatalogs(mcpTenantKey()))
-            .map { CatalogInfo.from(it, editability.of(it.id) ?: CatalogEditability(null)) }
+            .map { CatalogInfo.from(it, editability.of(it.id) ?: CatalogEditability(null), hashes) }
     }
 
     @McpTool(
@@ -76,7 +81,7 @@ class CatalogMcpTools(
             name = name,
             description = description?.takeIf { it.isNotBlank() },
         ).execute()
-        return CatalogInfo.from(catalog, GetCatalogEditability(catalog.tenantKey, catalog.id).query())
+        return CatalogInfo.from(catalog, GetCatalogEditability(catalog.tenantKey, catalog.id).query(), ReleaseContentHashes(emptyMap()))
     }
 
     @McpTool(
@@ -107,7 +112,7 @@ class CatalogMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<CatalogDependencyInfo> = mediator.query(ListCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
-        .map(CatalogDependencyInfo::from)
+        .withContentHashes()
 
     @McpTool(
         name = "update_catalog_dependencies",
@@ -141,7 +146,7 @@ class CatalogMcpTools(
                 versionId = draft,
             )
         }
-        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().map(CatalogDependencyInfo::from)
+        return UpdateCatalogDependencies(tenant, CatalogKey.of(catalogId), declared, catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute().withContentHashes()
     }
 
     @McpTool(
@@ -157,5 +162,12 @@ class CatalogMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<CatalogDependencyInfo> = UpgradeCatalogDependencies(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
-        .map(CatalogDependencyInfo::from)
+        .withContentHashes()
+
+    /** Each declaration with the content hash of the release it pins. */
+    private fun List<CatalogDependencyDeclaration>.withContentHashes(): List<CatalogDependencyInfo> {
+        if (isEmpty()) return emptyList()
+        val hashes = ListReleaseContentHashes(mcpTenantKey()).query()
+        return map { CatalogDependencyInfo.from(it, hashes) }
+    }
 }

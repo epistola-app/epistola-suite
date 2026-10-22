@@ -10,7 +10,9 @@ import app.epistola.suite.catalog.queries.CatalogResourceChanges
  * What the next release of a catalog that can be changed here would contain that its last one did not, resource by
  * resource, whether each changed resource is marked ready, and whether it is merged content a merge
  * wrote that nobody has marked ready since ([Resource.mergedForReview]); and what changed beside the
- * resources ([settings]). [releasable] is false while a changed resource is not ready.
+ * resources ([settings]). [releasable], as REST `getCatalogChanges`: something changed against the
+ * base (or there is none yet), no changed resource is unready, and no merged content awaits review.
+ * [dependenciesChanged]: a catalog it uses was added, removed or pinned to another release.
  */
 data class CatalogChangesInfo(
     val catalogId: String,
@@ -23,6 +25,7 @@ data class CatalogChangesInfo(
      * ready mark.
      */
     val settings: List<Setting> = emptyList(),
+    val dependenciesChanged: Boolean = false,
 ) {
     /**
      * One resource; [state] is `NEW`, `MODIFIED`, `RELEASED` or `REMOVED`. [mergedForReview]: a merge
@@ -49,9 +52,10 @@ data class CatalogChangesInfo(
         fun from(changes: CatalogResourceChanges) = CatalogChangesInfo(
             catalogId = changes.catalogKey.value,
             latestVersion = changes.latestVersion,
-            releasable = changes.notReady.isEmpty(),
+            releasable = (changes.latestVersion == null || changes.hasUnreleasedChanges) && changes.notReady.isEmpty() && changes.mergedForReview.isEmpty(),
             resources = changes.resources.map { Resource(it.type, it.slug, it.name, it.state.name, it.ready, it.mergedForReview) },
             settings = changes.settings.map { Setting(it.entry, it.state.name, it.name, it.lock?.releaseVersion, it.lock?.draftName, it.baseLock?.releaseVersion) },
+            dependenciesChanged = changes.settings.any { it.isDependency },
         )
     }
 }

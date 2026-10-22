@@ -5,12 +5,15 @@
 package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.queries.ReleaseContentHashes
 
 /**
  * A catalog the catalog depends on: named by [registry], [namespace] and [catalogId], and pinned to the
  * exact release [release], or, in a draft, building on its draft [draftId] ([draftName]). Both null for a
  * declaration that pins nothing yet, which releasing refuses. [alias] is what the catalog's content names
- * it by (a reference's `catalogKey`, contract ADR 0003): its key, in this installation.
+ * it by (a reference's `catalogKey`, contract ADR 0003): its key, in this installation. [contentHash] is
+ * the pinned release's content hash (ADR 0034), as REST's `CatalogDependencyDto`; null while it pins no
+ * release, or for one without a content hash yet.
  */
 data class CatalogDependencyInfo(
     val catalogId: String,
@@ -20,9 +23,10 @@ data class CatalogDependencyInfo(
     val release: String?,
     val draftId: String?,
     val draftName: String?,
+    val contentHash: String? = null,
 ) {
     companion object {
-        fun from(declaration: CatalogDependencyDeclaration) = CatalogDependencyInfo(
+        fun from(declaration: CatalogDependencyDeclaration, hashes: ReleaseContentHashes) = CatalogDependencyInfo(
             catalogId = declaration.catalogKey,
             alias = declaration.alias,
             namespace = declaration.namespace,
@@ -30,6 +34,7 @@ data class CatalogDependencyInfo(
             release = declaration.releaseVersion,
             draftId = declaration.draftId,
             draftName = declaration.draftName,
+            contentHash = hashes.pinnedBy(declaration),
         )
     }
 }

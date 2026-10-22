@@ -6,11 +6,14 @@ package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mcp.dto.CatalogDependencyInput
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
@@ -92,6 +95,27 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThat(listed.size()).isEqualTo(1)
         assertThat(listed[0].path("catalogId").asString()).isEqualTo("shared")
         assertThat(listed[0].path("alias").asString(null)).isEqualTo("shared")
+    }
+
+    /**
+     * A declaration and a catalog name the content hash of the release they mean (ADR 0034), as REST's
+     * `CatalogDependencyDto` and `CatalogDto` do. Asserted on the tools' results as JSON.
+     */
+    @Test
+    fun `a dependency names the pinned release's content hash, and a catalog its highest release's`() {
+        val tenantId = setUp()
+        val (v100, v110) = withMediator {
+            val releases = ListCatalogReleases(tenantId.key, CatalogKey.of("shared"), CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
+            releases["1.0.0"]!! to releases["1.1.0"]!!
+        }
+
+        val declared = objectMapper.valueToTree<JsonNode>(runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("shared", release = "1.0.0"))) })
+        val listed = objectMapper.valueToTree<JsonNode>(runAsApiKey(tenantId) { catalogTools.listCatalogDependencies("letters") })
+        val catalogs = objectMapper.valueToTree<JsonNode>(runAsApiKey(tenantId) { catalogTools.listCatalogs() })
+
+        assertThat(declared[0].path("contentHash").asString(null)).isEqualTo(v100).startsWith("v6:")
+        assertThat(listed[0].path("contentHash").asString(null)).isEqualTo(v100)
+        assertThat(catalogs.single { it.path("id").asString() == "shared" }.path("contentHash").asString(null)).isEqualTo(v110)
     }
 
     @Test
