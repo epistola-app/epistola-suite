@@ -21,6 +21,80 @@ against those ADRs.
 
 ## Touched
 
+### Release integrity: a release holds what its record says (22 October; branch `refactor/catalog-releases`, not pushed)
+
+Started from the local demo database: tenant `demo`'s `system 2.0.0` kept all nine fonts with
+`"variants": []`, tenant `test`'s the same release with four faces each, both with the same entry
+fingerprints (inter `13118e23…`) and V5 fingerprint, but different backfilled content hashes
+(`v6:d0dbde43…`, `v6:abb18ecf…`).
+
+**Cause of the faceless fonts.** The database was created from empty: all 72 migrations ran in one
+second (19 October 20:13:41 UTC), and tenant `demo` was created at 20:13:46.323 UTC in the same
+transaction as its `system 2.0.0` release (`released_at` equals `tenants.created_at`). The build then
+(between `7dd085581` and `b4130757e`) had `RecordInstalledRelease` retain `contentBuilder.build`
+content, whose fonts come from `ExportFonts`, which keeps only `source = 'ASSET'` faces. Fixed by
+`b4130757e` (20 October 08:05 +0200, findings G4), before tenant `test` was created (10:26 +0200). No
+migration writes `resource_revisions` or `release_entries`. None of the 2.0 migrations is on `main` or
+in a tag (`main` ends at `V20260923150918`, 1.5.0), so no installation has such rows: no repair. The
+two backfilled hashes are faithful: `v6:d0dbde43…` is the hash of the faceless content, `v6:abb18ecf…`
+of the complete one.
+
+**What the current code and its guard still got wrong**, each found by checking the invariant, each fixed with a test
+seen failing without the fix:
+
+| Change                                                                                                                                                                                                                                                                                                                                        | Where                                                                     | Coverage                                                                                                                                                                                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DataPreservationMigrationIT` reaches 2.0 the supported way: RC1 data migrated to 1.5.0 (2.0 checks skipped for that step, as 1.x had none), then the 2.0 step with its preflight; asserts every 1.x check ran on the seeded data and found nothing (`ddb1d7149`)                                                                             | `DataPreservationMigrationIT.kt`                                          | ✅ ×2 (PostgreSQL 17, 18); failed ×2 before (`UpgradePreflightRefused`, `tv.template_resource_id`)                                                                                                                                    |
+| An installed release is fingerprinted over what it keeps: entry fingerprints, and a fingerprint or content hash computed while recording, were over the content before the bundled faces were added (every system release; a 1.x system release got `v6:d0dbde43…` while keeping `v6:abb18ecf…`) (`290565498`)                                | `RecordInstalledRelease.kt`                                               | ✅ `InstalledReleaseRecordTest` (2), both failing without                                                                                                                                                                             |
+| The 1.x path end to end: a 1.5.0-shaped database with 1.x data, the app starting on it, the upgrade runner and the backfill; every release keeps its fonts' faces and its theme's spacing unit, records entries with the fingerprint of their revision, and reproduces its content hash and fingerprint (system: see decisions) (`d3dd4ecf6`) | `OneXUpgradeReleasesIT.kt`                                                | ✅ 1; failed before `290565498` on the nine system font entries only (no face lost on the 1.x path), and before `e1c1f3ab8` on the spacing unit; with retention without bundled faces (the code before `b4130757e`) it fails on faces |
+| No content hash for retained content that no longer reproduces the fingerprint the release was recorded with; the backfill says how many were left. Before, such content was hashed anyway, giving one release two identities (the demo's `system 2.0.0`) and letting `travelling` export it (`6afb8a5df`)                                    | `ReleaseIdentity.kt`, `ReleaseContentHashBackfill.kt`                     | ✅ `ReleaseIdentityTest` +1 (without: `v6:39e128b2…` recorded, and the export went through); the existing V5 backfill and export tests still pass                                                                                     |
+| A theme's spacing unit is exported, released and imported: `ExportThemes` read the NUMERIC column `as? Float`, always null, since 1.0.0 (`b525d28a1`); releases rendered with the default 4pt (`e1c1f3ab8`, fragment `20261022122747-theme-spacing-unit.md`)                                                                                  | `ExportResources.kt`                                                      | ✅ `ReleaseRenderSourceTest` +1 (4.0 instead of 8.0), `CatalogThemeSettingsTest` +1 (null instead of 8.0), `OneXUpgradeReleasesIT`                                                                                                    |
+| An installed catalog's theme settings are not changes of its own: the baseline was recorded before the archive's default theme and presets were written, so a catalog installed from a source with theme settings refused every upgrade (`318b96c10`)                                                                                         | `RecordInstalledRelease.kt`                                               | ✅ `DemoCatalogUpgradeReleaseIntegrationTest` (both settings reported as changes without)                                                                                                                                             |
+| A release brought in by an upgrade keeps the archive it came in (`InstalledContentHandoff`), as a fresh install does; rebuilt from the installed rows it hashed to `v6:e7324a50…` while named `v6:fc33bbcd…` and could not be exported (`375f002f6`)                                                                                          | `UpgradeCatalog.kt`, `InstallFromCatalog.kt`, `RecordInstalledRelease.kt` | ✅ `DemoCatalogUpgradeReleaseIntegrationTest` (failed without: the hash, and with that assertion removed the export's refusal)                                                                                                        |
+
+**Decisions where the task left room:**
+
+- The preflight is right to read the 1.2.0+ shape: direct upgrades are promised from supported versions
+  only (`SUPPORT_POLICY.md`), and 1.4.0 and 1.5.0 both end on `V20260923150918`. So the fixture takes the
+  supported route rather than the checks learning the RC1 shape. Every migration after RC1 still runs on
+  the seeded data and every assertion is unchanged.
+- The system catalog's content hash stays the shipped archive's (findings G6): dependents pin it, and its
+  release also holds the seeded fonts and is rebuilt from the installed rows, so it never reproduces.
+  `OneXUpgradeReleasesIT` asserts that, plus its faces and entries. ADR 0032 section 8 (fonts in the
+  system catalog's archive) is the real fix.
+- Refuse rather than flag: a content hash that names other content than the release is worse than none.
+  This reverses, for releases still without a hash, phase 2's choice to hash releases with dropped
+  qualifiers "as read now". None is left in the demo database: all 18 releases had their hash.
+- No assert at record time: after the fixes above the one value is fingerprinted, hashed and retained;
+  reading it back would need the uncommitted transaction, the storage round trip is
+  `ReleaseRoundTripTest`'s, and for the system catalog it would always fail.
+- Changelog: only the spacing unit shipped (1.x exports); the rest never did.
+
+**The demo database** (copy, booted with `6afb8a5df`; backfill hashed nothing, nothing failed): only
+`demo/system@2.0.0` has faceless fonts; both `system@2.0.1` record their nine font entries faceless
+(fixed for new recordings); `epistola-demo@6.4.1` does not reproduce its content hash (the upgrade
+rebuild, and its theme's lost spacing unit). Existing rows are left as they are: development data.
+
+**Full runs** (`--no-watch-fs`, final code): core integration 1269 (1 skipped, 0 failed), core unit 1031,
+app integration 773 (`DataPreservationMigrationIT` ×2 and `OneXUpgradeReleasesIT` green), demo
+integration 38 and unit 45, MCP integration 92, rest-api 34, guards 28 (`DriftRatchetTest` failed once
+when run beside the app suite, a file in `build/test-results` vanishing mid-walk; green alone),
+`ktlintCheck` green.
+
+**Noticed, left alone:**
+
+- The demo app on port 4000 now runs from worktree `release-visibility` (restarted 14:13:24).
+- The spacing unit is lost on `main` too (1.x exports since 1.0.0): whether to fix it in 1.5.x is open.
+- Entry fingerprints of older releases on this branch do not reproduce even where V5 does
+  (`epistola-demo@6.2.0`: 15 entries; `demo/system@2.0.0`: 8 non-font entries). Not investigated: nothing
+  reads them, and the per-resource form is the contract's "current", unnamed, so its meaning can move.
+- On a 1.0.x or 1.1.x database (unsupported) the 1.x checks say "could not run, skip it", not "upgrade
+  to 1.x first".
+- `EnsureSubscribedCatalog`'s already-current path still records from the rebuild (no archive at hand);
+  it only records catalogs installed before releases were recorded.
+- `changelog/unreleased/20261020080501-release-bundled-fonts.md` describes a fix of behaviour that never
+  shipped, which `changelog/README.md` says to delete.
+
 ### ADR 0034 phase 2 (22 October; branch `refactor/catalog-releases`, not pushed; contract `2.0.0-SNAPSHOT` at `15de68a`)
 
 Caught up with the content-addressed catalog contract (`18813c5` aliases, `d4f4791` V6, `56a7f80` patch
@@ -116,7 +190,7 @@ seen failing with its fix reverted. Runs: those two classes, `:modules:rest-api:
   without qualifier means the catalog's own.
 - The API's own references (`CatalogThemeReference`, an attribute's code-list binding) still name
   registry and namespace (contract unchanged).
-- `DataPreservationMigrationIT` ×2 still fails for the pre-existing reason
+- ~~`DataPreservationMigrationIT` ×2 still fails for the pre-existing reason~~ (fixed: see "Release integrity" above)
   (`1x-catalog-dependency-cycles` preflight queries `tv.template_resource_id`).
 
 ### ADR 0032 and merging (21 October; branch `refactor/catalog-releases`, not pushed)

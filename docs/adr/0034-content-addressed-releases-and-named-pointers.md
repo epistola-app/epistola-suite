@@ -203,7 +203,8 @@ then bindings are trusted as the installation receives them, and the hash still 
      dropped by a migration, resolving as before;
    - every release records its **content hash** (`catalog_releases.content_hash`, V6): new releases
      are fingerprinted with V6, older ones keep their fingerprint and get the hash from what they
-     retained (a startup cluster task, or on first use); `ReleaseIdentity` decides every "same
+     retained (a startup cluster task, or on first use), unless what they retained no longer
+     reproduces that fingerprint, which gets none; `ReleaseIdentity` decides every "same
      release?" question by it, lineage is by hash, pins copy the hash, and every archive names a
      release by it;
    - patch release numbers (`1.3.1-gemeente-x.1`, up to 128 characters) are received and ordered as
