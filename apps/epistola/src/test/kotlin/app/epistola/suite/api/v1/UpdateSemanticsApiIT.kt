@@ -24,8 +24,8 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
@@ -151,7 +151,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("upd-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Update Semantics Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Update Semantics Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "update-semantics-it").execute().plaintextKey
     }
 }

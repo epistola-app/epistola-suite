@@ -21,9 +21,9 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.withRequiredDataExample
@@ -194,7 +194,7 @@ class OptimisticLockingApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ol-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Locking API Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Locking API Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "ol-it").execute().plaintextKey
     }
 }

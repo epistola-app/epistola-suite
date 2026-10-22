@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -48,6 +49,7 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
             UploadAsset(b, "Mark", AssetMediaType.PNG, PNG, 1, 1, catalog).execute()
             MarkCatalogReady(b, catalog).execute()
+            TestNamespaces.share(a, b).execute()
             ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
             val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
 

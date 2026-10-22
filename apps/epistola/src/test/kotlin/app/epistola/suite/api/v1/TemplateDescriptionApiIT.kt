@@ -9,8 +9,8 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.JsonPath
@@ -95,7 +95,7 @@ class TemplateDescriptionApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tdesc-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Template Description Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Template Description Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "tdesc-it").execute().plaintextKey
     }
 

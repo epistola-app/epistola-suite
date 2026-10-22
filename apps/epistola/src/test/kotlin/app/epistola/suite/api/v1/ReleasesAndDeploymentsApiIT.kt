@@ -29,8 +29,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -327,7 +327,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     /** The default catalog with releases 1.0.0 and 1.0.1 of a template `invoice`, and an environment `production`. */
     private fun tenantWithTwoReleases(): Pair<TenantKey, String> = withMediator {
         val tenant = TenantKey.of("rel-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenant, name = "Release Tenant").execute()
+        TestNamespaces.createTenant(tenant, "Release Tenant").execute()
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         val variant = variant(tenant)
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()

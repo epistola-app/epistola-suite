@@ -17,7 +17,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.Dialog
 import com.microsoft.playwright.Response
 import org.assertj.core.api.Assertions.assertThat
@@ -35,7 +35,7 @@ class EditorConflictUiTest : BasePlaywrightTest() {
         val template = TemplateId(TemplateKey.of("invoice"), CatalogId.default(TenantId(tenantKey)))
         val variant = VariantId(VariantKey.INITIAL, template)
         withMediator {
-            CreateTenant(id = tenantKey, name = "Editor Conflict").execute()
+            TestNamespaces.createTenant(tenantKey, "Editor Conflict").execute()
             CreateDocumentTemplate(template, "Invoice").execute()
         }
         gotoAndReady("/tenants/$tenantKey/catalogs/default/templates/invoice/variants/${variant.key}/editor")

@@ -48,6 +48,7 @@ import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -168,7 +169,10 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = setUp("deps-rename", "1.0.0")
         val before = update(tenant, declared(tenant, "1.0.0")).single()
 
-        withMediator { ChangeCatalogNamespace(tenant, shared, "renamed").execute() }
+        withMediator {
+            TestNamespaces.grant(tenant, "renamed").execute()
+            ChangeCatalogNamespace(tenant, shared, "renamed").execute()
+        }
 
         val after = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
         assertThat(after).isEqualTo(before.copy(namespace = "renamed"))

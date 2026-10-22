@@ -10,7 +10,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.Browser
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
@@ -30,7 +30,7 @@ class LocalTimeUiTest : BasePlaywrightTest() {
     fun `a time reads in the browser's time zone, with UTC in the title`() {
         val tenantKey = TenantKey.of("local-time-${System.nanoTime()}")
         val environment = withMediator {
-            CreateTenant(tenantKey, "Local Time UI Test").execute()
+            TestNamespaces.createTenant(tenantKey, "Local Time UI Test").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("staging"), TenantId(tenantKey)), "Staging").execute()
         }
         val utc = environment.createdAt.atZoneSameInstant(ZoneId.of("UTC")).format(FORMAT)

@@ -38,6 +38,7 @@ import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -66,6 +67,8 @@ class MergeContentKindsTest : IntegrationTestBase() {
             listOf("tha", "thb").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
             MarkCatalogReady(a, catalog).execute()
             ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            // The two installations of one organisation hold the catalog's namespace both.
+            TestNamespaces.share(a, b).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
 
             inB(b, catalog)

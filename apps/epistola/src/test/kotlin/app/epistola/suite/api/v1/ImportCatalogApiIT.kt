@@ -19,8 +19,8 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
@@ -153,6 +153,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
 
     private fun release(tenant: TenantKey, catalog: String, theme: String, namespace: String? = null): ByteArray = withMediator {
         val key = CatalogKey.of(catalog)
+        namespace?.let { TestNamespaces.grant(tenant, it).execute() }
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), name = theme).execute()
         MarkCatalogReady(tenant, key).execute()
@@ -207,7 +208,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("imp-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Import Catalog Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Import Catalog Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "import-catalog-it").execute().plaintextKey
     }
 }

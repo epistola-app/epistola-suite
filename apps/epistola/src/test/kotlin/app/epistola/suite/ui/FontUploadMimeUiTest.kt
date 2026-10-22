@@ -7,7 +7,7 @@ package app.epistola.suite.ui
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.options.FilePayload
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -24,10 +24,7 @@ class FontUploadMimeUiTest : BasePlaywrightTest() {
     fun `corporate browser media type is normalized before font upload`() {
         lateinit var tenant: Tenant
         withMediator {
-            tenant = CreateTenant(
-                id = TenantKey.of("test-font-mime-${System.nanoTime()}"),
-                name = "Font MIME UI Test",
-            ).execute()
+            tenant = TestNamespaces.createTenant(TenantKey.of("test-font-mime-${System.nanoTime()}"), "Font MIME UI Test").execute()
         }
 
         gotoAndReady("/tenants/${tenant.id}/catalogs/default/fonts/new")

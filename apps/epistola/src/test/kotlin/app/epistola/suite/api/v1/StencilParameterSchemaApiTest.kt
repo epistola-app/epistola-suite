@@ -8,8 +8,8 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.Configuration
@@ -167,7 +167,7 @@ class StencilParameterSchemaApiTest : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("sp-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Stencil Param Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Stencil Param Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "sp-it").execute()
         tenantKey to created.plaintextKey
     }

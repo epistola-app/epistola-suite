@@ -22,7 +22,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.withRequiredDataExample
 import com.microsoft.playwright.Response
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
@@ -43,7 +43,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenantKey)))
         val variant = VariantId(VariantKey.INITIAL, template)
         val work = withMediator {
-            CreateTenant(id = tenantKey, name = "Editor Draft Tenant").execute()
+            TestNamespaces.createTenant(tenantKey, "Editor Draft Tenant").execute()
             CreateCatalog(tenantKey = tenantKey, id = letters, name = "Letters").execute()
             CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenantKey, letters).execute()

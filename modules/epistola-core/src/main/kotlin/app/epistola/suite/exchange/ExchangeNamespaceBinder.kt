@@ -5,6 +5,7 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.namespaces.LocalAuthority
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
@@ -26,6 +27,12 @@ class ExchangeNamespaceBinder {
         "SELECT namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
     ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
         .mapTo(String::class.java).findOne().orElse(null)
+
+    /** Whether the catalog is named under `local` (ADR 0034, section 7), which is never published. */
+    fun isLocal(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = handle.createQuery(
+        "SELECT registry FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+        .mapTo(String::class.java).findOne().map(LocalAuthority::isLocal).orElse(false)
 
     /** The namespace a release under [catalogKey] reached Exchange in, or null when none has. */
     fun publishedNamespace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle.createQuery(

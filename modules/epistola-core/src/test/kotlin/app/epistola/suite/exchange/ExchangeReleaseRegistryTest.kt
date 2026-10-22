@@ -30,6 +30,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -83,7 +84,7 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
         val granted = CatalogKey.of("registry-granted")
         val other = CatalogKey.of("registry-other")
         withMediator {
-            CreateCatalog(tenant, granted, "Granted").execute()
+            CreateCatalog(tenant, granted, "Granted", namespace = TestNamespaces.of(tenant).namespace).execute()
             ChangeCatalogNamespace(tenant, granted, "public-services").execute()
             ReleaseCatalogDraft(tenant, granted, "1.0.0", publication = ReleasePublication.SKIP).execute()
 
@@ -93,6 +94,8 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
             assertThat(PublishReleaseToReleaseRegistry(tenant, granted, "1.0.0", "exchange").execute().status).isEqualTo(ReleaseRegistryPublication.Status.QUEUED)
             assertThat(GetCatalogPublicationState(tenant, granted).query()!!.publications).hasSize(1)
 
+            // Held here, by an administrator's grant, but not granted by the Exchange connection.
+            TestNamespaces.grant(tenant, "not-granted").execute()
             CreateCatalog(tenant, other, "Other", namespace = "not-granted").execute()
             ReleaseCatalogDraft(tenant, other, "1.0.0", publication = ReleasePublication.SKIP).execute()
             assertThatThrownBy { PublishReleaseToReleaseRegistry(tenant, other, "1.0.0", "exchange").execute() }
@@ -116,6 +119,7 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
         val publisher = createTenant("publisher-$slug-$version").id
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
+            TestNamespaces.grant(publisher, "acme").execute()
             CreateCatalog(publisher, catalogKey, "Letters", namespace = "acme").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))), name = "Theme $version").execute()
             MarkCatalogReady(publisher, catalogKey).execute()

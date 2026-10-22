@@ -10,7 +10,7 @@ import app.epistola.suite.banner.commands.SetSiteBanner
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -27,7 +27,7 @@ class SiteBannerDismissUiTest : BasePlaywrightTest() {
     fun `banner is dismissible per session and reappears when edited`() {
         lateinit var tenant: Tenant
         withMediator {
-            tenant = CreateTenant(TenantKey.of("test-banner-${System.nanoTime()}"), "Site Banner UI Test").execute()
+            tenant = TestNamespaces.createTenant(TenantKey.of("test-banner-${System.nanoTime()}"), "Site Banner UI Test").execute()
             SetSiteBanner("Scheduled maintenance tonight", SiteBannerSeverity.WARNING, enabled = true).execute()
         }
         try {

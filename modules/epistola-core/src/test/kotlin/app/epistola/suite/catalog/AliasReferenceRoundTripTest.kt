@@ -43,6 +43,7 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
@@ -112,10 +113,11 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
 
     private fun publish(a: TenantKey): Released = withMediator {
         val tenant = TenantId(a)
+        TestNamespaces.grant(a, partsNamespace, authority = partsRegistry).execute()
         CreateCatalog(tenantKey = a, id = parts, name = "Parts", namespace = partsNamespace, registry = partsRegistry).execute()
         CreateStencil(StencilId(StencilKey.of("header"), CatalogId(parts, tenant)), "Header").execute()
 
-        CreateCatalog(tenantKey = a, id = letters, name = "Letters").execute()
+        CreateCatalog(tenantKey = a, id = letters, name = "Letters", namespace = TestNamespaces.of(a).namespace).execute()
         declareDependency(a, letters, on = SYSTEM_CATALOG_KEY)
         declareDependency(a, letters, on = parts)
         val own = CatalogId(letters, tenant)

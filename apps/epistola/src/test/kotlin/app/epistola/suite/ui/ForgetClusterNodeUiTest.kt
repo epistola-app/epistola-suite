@@ -6,7 +6,7 @@ package app.epistola.suite.ui
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -28,10 +28,7 @@ class ForgetClusterNodeUiTest : BasePlaywrightTest() {
     @Test
     fun `forgetting a stale node removes its row from the cluster table`() {
         val tenant = withMediator {
-            CreateTenant(
-                id = TenantKey.of("forget-node-ui-${System.nanoTime()}"),
-                name = "Forget Node UI Tenant",
-            ).execute()
+            TestNamespaces.createTenant(TenantKey.of("forget-node-ui-${System.nanoTime()}"), "Forget Node UI Tenant").execute()
         }
         val nodeId = "ui-stale-node"
         insertNode(nodeId, OffsetDateTime.now().minusDays(2))
@@ -59,10 +56,7 @@ class ForgetClusterNodeUiTest : BasePlaywrightTest() {
     @Test
     fun `the current node is offered no Forget button`() {
         val tenant = withMediator {
-            CreateTenant(
-                id = TenantKey.of("forget-node-ui-active-${System.nanoTime()}"),
-                name = "Forget Node UI Active Tenant",
-            ).execute()
+            TestNamespaces.createTenant(TenantKey.of("forget-node-ui-active-${System.nanoTime()}"), "Forget Node UI Active Tenant").execute()
         }
 
         gotoAndReady("/tenants/${tenant.id}/cluster")

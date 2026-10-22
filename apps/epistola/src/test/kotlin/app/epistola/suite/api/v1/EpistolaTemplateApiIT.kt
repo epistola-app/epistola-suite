@@ -25,8 +25,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.JsonPath
@@ -1652,7 +1652,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Template Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Template Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "tmpl-it").execute()
         tenantKey to created.plaintextKey
     }
@@ -1660,7 +1660,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
     /** Tenant + a viewer-only key (can read but not create/edit templates). */
     private fun seedTenantAndViewerKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("tmpl-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Template Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Template Tenant").execute()
         val created = CreateApiKey(
             tenantId = tenantKey,
             name = "tmpl-it-viewer",

@@ -15,6 +15,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -34,6 +35,8 @@ class GetCatalogNamesTest : IntegrationTestBase() {
         val tenant = withMediator { createTenant("catalog-names").id }
         val other = withMediator { createTenant("catalog-names-other").id }
         withMediator {
+            TestNamespaces.grant(tenant, "acme-letters").execute()
+            TestNamespaces.grant(tenant, "acme-forms").execute()
             CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute()
             CreateCatalog(tenant, forms, "Forms", namespace = "acme-forms").execute()
         }

@@ -10,6 +10,9 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.catalogName
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.UUIDv7
@@ -105,6 +108,12 @@ class PublishCurrentCatalogReleaseHandler(
             catalog!!.exchangePublicationPolicy != CatalogPublicationPolicy.NEVER,
             ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
         ) { "This catalog's publication policy forbids Exchange publishing." }
+
+        // A catalog named under local never leaves the organisation (ADR 0034, section 7), whatever
+        // namespace the connection grants.
+        validate("namespace", !LocalAuthority.isLocal(catalog.registry), ValidationCode.CATALOG_NAMESPACE_LOCAL) {
+            NamespaceMessages.notPublished(catalog.catalogName.toString())
+        }
 
         // Nothing is queued without a destination the connection grants, so this is checked first.
         validate(

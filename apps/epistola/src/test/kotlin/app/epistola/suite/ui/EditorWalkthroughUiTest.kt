@@ -16,8 +16,8 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -109,7 +109,7 @@ class EditorWalkthroughUiTest : BasePlaywrightTest() {
 
     private fun createWalkthroughTenant(enabled: Boolean = true): Triple<Tenant, DocumentTemplate, String> {
         val tenantKey = TenantKey.of("test-editor-walkthrough-${System.nanoTime()}")
-        val tenant = CreateTenant(id = tenantKey, name = "Walkthrough UI Test Tenant").execute()
+        val tenant = TestNamespaces.createTenant(tenantKey, "Walkthrough UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
 
         // Set per tenant either way, so neither case leans on a default (the test profile has it off).

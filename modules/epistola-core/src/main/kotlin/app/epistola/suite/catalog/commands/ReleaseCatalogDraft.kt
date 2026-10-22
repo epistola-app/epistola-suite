@@ -21,6 +21,9 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyRelease
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.namespaces.CatalogNamespaceHolding
+import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
+import app.epistola.suite.catalog.namespaces.holdingOf
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
@@ -193,6 +196,7 @@ class ReleaseCatalogDraftHandler(
     private val handOver: NextVersionHandOver,
     private val installation: app.epistola.suite.installation.InstallationService,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+    private val grants: NamespaceGrantStore,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -203,6 +207,13 @@ class ReleaseCatalogDraftHandler(
         // Releasing is changing the catalog. A release received from elsewhere is recorded by
         // RecordInstalledRelease instead.
         requireCatalogEditable(command.tenantKey, command.catalogKey)
+        // The holder of a namespace issues its numbers (ADR 0034, section 2): releasing needs the
+        // tenant to hold the catalog's, or the catalog to be local. The 2.0 upgrade records what was
+        // released before namespaces were granted, and is not held to it.
+        if (command.source == ContentSource.WORKING_COPY) {
+            val holding = jdbi.withHandle<CatalogNamespaceHolding, Exception> { holdingOf(it, grants, command.tenantKey, command.catalogKey) }
+            holding.refusal?.let { throw ValidationException("namespace", it, ValidationCode.CATALOG_NAMESPACE_NOT_HELD) }
+        }
 
         val draft = jdbi.withHandle<CatalogDraft?, Exception> { handle ->
             drafts.find(handle, command.tenantKey, command.catalogKey, command.catalogVersion?.draft ?: DraftRef.Next)
@@ -358,7 +369,7 @@ class ReleaseCatalogDraftHandler(
         if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
         val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
-        fingerprintService.requirePublishable(content)
+        fingerprintService.requireReleasable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val fingerprint = fingerprintService.fingerprint(content)
         // Its identity (ADR 0034): the fingerprint, which is V6, a content hash.

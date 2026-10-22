@@ -7,7 +7,7 @@ package app.epistola.suite.ui
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
@@ -21,10 +21,7 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
     fun setUp() {
         tenant =
             withMediator {
-                CreateTenant(
-                    id = TenantKey.of("test-fb-${System.nanoTime()}"),
-                    name = "Feedback Test Tenant",
-                ).execute()
+                TestNamespaces.createTenant(TenantKey.of("test-fb-${System.nanoTime()}"), "Feedback Test Tenant").execute()
             }
 
         // Mock getDisplayMedia before any page JS runs so isSupported evaluates to true.

@@ -32,8 +32,8 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -104,7 +104,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
 
     private fun seeded(): Seeded = withMediator {
         val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenant, name = "Content hash tenant").execute()
+        TestNamespaces.createTenant(tenant, "Content hash tenant").execute()
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
@@ -171,6 +171,29 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
 
         assertThat(released.statusCode).`as`(released.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(released.body!!, "$.release.contentHash")).matches("v6:[0-9a-f]{64}").isEqualTo(JsonPath.read<String>(released.body!!, "$.release.fingerprint"))
+    }
+
+    @Test
+    fun `releasing over HTTP in a namespace the tenant does not hold is refused, saying so`() {
+        val seeded = seeded()
+        val receiver = withMediator {
+            val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
+            TestNamespaces.createTenant(tenant, "Content hash receiver").execute()
+            // Receiving needs no grant.
+            ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(seeded.tenant, letters, "1.1.0").execute().zipBytes).execute()
+            CreateTheme(ThemeId(ThemeKey.of("ours"), CatalogId(letters, TenantId(tenant))), "Ours").execute()
+            Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-receiver").execute().plaintextKey)
+        }
+        val catalog = path(receiver)
+        exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", receiver)
+
+        val refused = exchange(HttpMethod.POST, "$catalog/releases/next/release", receiver, "{}")
+
+        assertThat(refused.statusCode).`as`(refused.body).isEqualTo(HttpStatus.BAD_REQUEST)
+        val namespace = TestNamespaces.of(seeded.tenant)
+        assertThat(JsonPath.read<String>(refused.body!!, "$.detail"))
+            .isEqualTo("This tenant does not hold the namespace ${namespace.namespace} (${namespace.authority}); an administrator can grant it.")
+        assertThat(JsonPath.read<String>(refused.body!!, "$.type")).endsWith("/catalog-namespace-not-held")
     }
 
     // ---- 2. Patch release numbers ----

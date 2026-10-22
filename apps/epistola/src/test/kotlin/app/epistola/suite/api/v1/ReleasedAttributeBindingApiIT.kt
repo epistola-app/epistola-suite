@@ -25,8 +25,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.JsonPath
@@ -103,7 +103,7 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
     /** A tenant whose `letters` binds `preferred-language` to `system`'s `iso-639-1` and `tone` to its own `tones`, released 1.0.0, and an API key. */
     private fun released(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("rab-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Released binding").execute()
+        TestNamespaces.createTenant(tenantKey, "Released binding").execute()
         CreateCatalog(tenantKey, letters, "Letters").execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("preferred-language"), CatalogId(letters, TenantId(tenantKey))),

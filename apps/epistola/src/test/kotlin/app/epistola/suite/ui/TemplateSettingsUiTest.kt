@@ -22,8 +22,8 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -179,10 +179,7 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     }
 
     private fun createTemplate(): Pair<Tenant, DocumentTemplate> {
-        val tenant = CreateTenant(
-            id = TenantKey.of("settings-ui-${System.nanoTime()}"),
-            name = "Settings UI Tenant",
-        ).execute()
+        val tenant = TestNamespaces.createTenant(TenantKey.of("settings-ui-${System.nanoTime()}"), "Settings UI Tenant").execute()
         val tenantId = TenantId(tenant.id)
         val template = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),

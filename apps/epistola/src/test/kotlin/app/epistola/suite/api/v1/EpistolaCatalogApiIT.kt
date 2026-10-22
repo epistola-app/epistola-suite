@@ -25,9 +25,9 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.parallelReleaseLines
@@ -508,7 +508,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ca-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Catalog API Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Catalog API Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "ca-it").execute()
         tenantKey to created.plaintextKey
     }

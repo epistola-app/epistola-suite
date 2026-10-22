@@ -60,6 +60,23 @@ enum class ValidationCode(val wire: String) {
     // Catalog identity (contract ADR 0003).
     CATALOG_NAMESPACE_INVALID("CATALOG_NAMESPACE_INVALID"),
 
+    // Namespaces granted to tenants (ADR 0034, sections 3 and 7).
+
+    /** The tenant does not hold the namespace a catalog is named, or released, in. */
+    CATALOG_NAMESPACE_NOT_HELD("CATALOG_NAMESPACE_NOT_HELD"),
+
+    /** A new catalog names no namespace, and the tenant holds none or several to choose from. */
+    CATALOG_NAMESPACE_REQUIRED("CATALOG_NAMESPACE_REQUIRED"),
+
+    /** The tenant holds the namespace under another authority already (ADR 0034, section 2). */
+    CATALOG_NAMESPACE_TAKEN("CATALOG_NAMESPACE_TAKEN"),
+
+    /** Catalogs of the tenant are named in the namespace, so it is not revoked. */
+    CATALOG_NAMESPACE_IN_USE("CATALOG_NAMESPACE_IN_USE"),
+
+    /** A catalog named under `local` never leaves the organisation. */
+    CATALOG_NAMESPACE_LOCAL("CATALOG_NAMESPACE_LOCAL"),
+
     // Declared catalog dependencies (contract ADR 0003).
     CATALOG_DEPENDENCY_INVALID("CATALOG_DEPENDENCY_INVALID"),
     CATALOG_DEPENDENCY_UNRESOLVED("CATALOG_DEPENDENCY_UNRESOLVED"),

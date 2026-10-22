@@ -15,8 +15,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.node.JsonNodeFactory
@@ -275,7 +275,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
 
     private fun createTenantTemplateAndVariant(): Triple<Tenant, DocumentTemplate, String> {
         val tenantKey = TenantKey.of("test-editor-shortcuts-${System.nanoTime()}")
-        val tenant = CreateTenant(id = tenantKey, name = "UI Test Tenant").execute()
+        val tenant = TestNamespaces.createTenant(tenantKey, "UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
         val template = CreateDocumentTemplate(

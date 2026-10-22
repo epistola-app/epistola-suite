@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -161,7 +162,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            CreateCatalog(tenant.id, catalogKey, "Rebind me").execute()
+            CreateCatalog(tenant.id, catalogKey, "Rebind me", namespace = TestNamespaces.of(tenant.id).namespace).execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("public-services")
@@ -190,6 +191,8 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind ungranted").execute()
+            // Held here, by an administrator's grant, but not granted by the Exchange connection.
+            TestNamespaces.grant(tenant.id, "not-ours").execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "not-ours").execute()
 
             val state = state(tenant.id, catalogKey)

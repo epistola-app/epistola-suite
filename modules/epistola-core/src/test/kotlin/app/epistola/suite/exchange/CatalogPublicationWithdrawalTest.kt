@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -100,7 +101,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            CreateCatalog(tenant.id, catalogKey, "Recreate me").execute()
+            CreateCatalog(tenant.id, catalogKey, "Recreate me", namespace = TestNamespaces.of(tenant.id).namespace).execute()
             ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
             ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()

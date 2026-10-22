@@ -11,6 +11,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -55,6 +56,7 @@ class V7ZipImportTest : IntegrationTestBase() {
         val consumer = createTenant("V8 zip consumer").id
         val catalog = CatalogKey.of("v8-named")
         val archive = withMediator {
+            TestNamespaces.grant(producer, "v8-named-ns").execute()
             CreateCatalog(producer, catalog, "V8 named", namespace = "v8-named-ns").execute()
             mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalog, app.epistola.suite.common.ids.TenantId(producer))).zipBytes
         }

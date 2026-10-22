@@ -12,8 +12,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.node.JsonNodeFactory
@@ -23,10 +23,7 @@ class DataContractSaveBarUiTest : BasePlaywrightTest() {
     @Test
     fun `sticky action bar saves a draft and remains in edit mode after refresh`() {
         val (tenant, template) = withMediator {
-            val tenant = CreateTenant(
-                id = TenantKey.of("contract-save-ui-${System.nanoTime()}"),
-                name = "Contract Save Bar UI Tenant",
-            ).execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("contract-save-ui-${System.nanoTime()}"), "Contract Save Bar UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(
                 id = templateId,

@@ -29,6 +29,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -372,6 +373,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         lastPublisher = publisher
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
+            TestNamespaces.grant(publisher, namespace).execute()
             CreateCatalog(publisher, catalogKey, "Invoices", namespace = namespace).execute()
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),

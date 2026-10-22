@@ -28,6 +28,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -69,6 +70,8 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
             ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
             val v1 = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
 
+            // The two installations of one organisation hold the catalog's namespace both.
+            TestNamespaces.share(a, b).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = v1).execute()
             UpdateTheme(theme(b, catalog, "thx"), name = "B's x").execute()
             CreateTheme(id = theme(b, catalog, "thw"), name = "B's w").execute()

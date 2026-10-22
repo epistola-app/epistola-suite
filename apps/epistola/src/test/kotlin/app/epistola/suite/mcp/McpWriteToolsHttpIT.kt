@@ -22,8 +22,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.TenantRole
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
@@ -189,7 +189,7 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
 
     private fun seedKey(roles: Set<TenantRole>): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("mcpw-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "MCP Write Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "MCP Write Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "mcp-write-it", roles = roles).execute().plaintextKey
     }
 

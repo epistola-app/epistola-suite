@@ -11,6 +11,9 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
+import app.epistola.suite.catalog.namespaces.NamespaceMessages
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -33,6 +36,9 @@ import org.springframework.stereotype.Component
  *
  * Releases already cut keep the namespace they were cut with: they are history. The declarations of
  * the tenant's other catalogs that name it follow the new namespace.
+ *
+ * The new namespace is under the catalog's own authority, and the tenant must hold it (ADR 0034,
+ * section 3), unless that authority is `local`.
  */
 data class ChangeCatalogNamespace(
     override val tenantKey: TenantKey,
@@ -59,6 +65,7 @@ class CatalogNamespaceFixedException(
 class ChangeCatalogNamespaceHandler(
     private val jdbi: Jdbi,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
+    private val grants: NamespaceGrantStore,
 ) : CommandHandler<ChangeCatalogNamespace, Catalog> {
 
     override fun handle(command: ChangeCatalogNamespace): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
@@ -68,6 +75,15 @@ class ChangeCatalogNamespaceHandler(
         if (catalog.namespace == command.namespace) return@inTransaction catalog
         if (publicationPort.ifAvailable?.isNamespaceFixed(handle, command.tenantKey, command.catalogKey) == true) {
             throw CatalogNamespaceFixedException(catalog.catalogName)
+        }
+        val target = NamespaceName(catalog.registry, command.namespace)
+        if (target.isLocal) {
+            val held = grants.authorityOf(handle, command.tenantKey, target.namespace)
+            validate("namespace", held == null, ValidationCode.CATALOG_NAMESPACE_TAKEN) {
+                "This tenant holds the namespace ${target.namespace} under $held; choose another local namespace."
+            }
+        } else {
+            validate("namespace", grants.holds(handle, command.tenantKey, target), ValidationCode.CATALOG_NAMESPACE_NOT_HELD) { NamespaceMessages.notHeld(target) }
         }
         handle.createUpdate(
             "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",

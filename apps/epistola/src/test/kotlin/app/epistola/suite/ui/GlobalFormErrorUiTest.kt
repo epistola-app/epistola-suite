@@ -13,8 +13,8 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -98,6 +98,6 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
 
     private fun createUiTenant(): Tenant {
         val tenantKey = TenantKey.of("test-gfe-${System.nanoTime()}")
-        return CreateTenant(id = tenantKey, name = "Global Form Error UI Test").execute()
+        return TestNamespaces.createTenant(tenantKey, "Global Form Error UI Test").execute()
     }
 }

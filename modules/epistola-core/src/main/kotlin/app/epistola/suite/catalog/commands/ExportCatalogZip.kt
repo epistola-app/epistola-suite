@@ -11,7 +11,10 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
@@ -26,6 +29,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.time.EpistolaClock
+import app.epistola.suite.validation.ValidationCode
+import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -91,6 +96,7 @@ class ExportCatalogZipHandler(
 
     override fun handle(command: ExportCatalogZip): ExportCatalogZipResult {
         if (command.catalogKey == SYSTEM_CATALOG_KEY) throw SystemCatalogNotExportableException()
+        refuseLocal(command)
         if (command.workingCopy) return exportWorkingCopy(command)
         val version = command.version ?: highestRelease(command)
         if (!command.includeDependencies) return exportRelease(command, version)
@@ -188,6 +194,17 @@ class ExportCatalogZipHandler(
 
         val filename = "${command.catalogKey.value}-$version.zip"
         return ExportCatalogZipResult(zipBytes = zipBytes, filename = filename)
+    }
+
+    /**
+     * A catalog named under `local` (ADR 0034, section 7) is not made into an archive: the catalog
+     * format names a catalog by a domain and does not carry `local` yet, so no installation could
+     * read it. Refused here, in words, rather than by whoever reads it.
+     */
+    private fun refuseLocal(command: ExportCatalogZip) {
+        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: return
+        if (!LocalAuthority.isLocal(catalog.registry)) return
+        throw ValidationException("catalogKey", NamespaceMessages.notArchived(catalog.catalogName.toString()), ValidationCode.CATALOG_NAMESPACE_LOCAL)
     }
 
     private companion object {

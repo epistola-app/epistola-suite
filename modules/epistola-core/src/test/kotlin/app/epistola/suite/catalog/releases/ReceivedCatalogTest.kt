@@ -31,6 +31,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -94,6 +95,8 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             UpdateTheme(theme(receiver, catalog, "brand"), name = "Brand, ours").execute()
             assertThat(nextVersionChanges.changed(receiver, catalog)).containsExactly("theme/brand")
             MarkCatalogReady(receiver, catalog).execute()
+            // Releasing it here needs its namespace: the two tenants share it, as test and production do.
+            TestNamespaces.share(author, receiver).execute()
             ReleaseCatalogDraft(tenantKey = receiver, catalogKey = catalog, version = "1.0.1").execute()
             assertThat(ListCatalogReleaseSummaries(receiver, catalog).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
         }
@@ -246,6 +249,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         withMediator {
             val archive = authored(author, catalog)
             val namespace = GetCatalog(author, catalog).query()!!.namespace
+            TestNamespaces.share(author, receiver).execute()
             CreateCatalog(tenantKey = receiver, id = catalog, name = "Ours", namespace = namespace).execute()
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
 

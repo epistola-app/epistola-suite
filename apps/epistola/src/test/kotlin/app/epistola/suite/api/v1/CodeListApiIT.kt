@@ -8,8 +8,8 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.JsonPath
@@ -366,7 +366,7 @@ class CodeListApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("cl-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "CodeList Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "CodeList Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "cl-it").execute()
         tenantKey to created.plaintextKey
     }

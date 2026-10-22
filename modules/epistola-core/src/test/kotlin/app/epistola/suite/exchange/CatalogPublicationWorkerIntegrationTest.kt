@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -226,7 +227,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            CreateCatalog(tenant.id, catalogKey, "Worker chooses ns").execute()
+            CreateCatalog(tenant.id, catalogKey, "Worker chooses ns", namespace = TestNamespaces.of(tenant.id).namespace).execute()
 
             // Nothing bound: publishing would have nowhere to go, and the form asks.
             assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
@@ -316,7 +317,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
      * publishable catalog rather than something the tenant default does behind the scenes.
      */
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
-        CreateCatalog(tenant.id, catalogKey, catalogKey.value).execute()
+        CreateCatalog(tenant.id, catalogKey, catalogKey.value, namespace = TestNamespaces.of(tenant.id).namespace).execute()
         namespace?.let { ChangeCatalogNamespace(tenant.id, catalogKey, it).execute() }
         ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }

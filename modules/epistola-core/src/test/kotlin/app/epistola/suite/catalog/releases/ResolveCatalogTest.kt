@@ -15,6 +15,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -31,7 +32,10 @@ class ResolveCatalogTest : IntegrationTestBase() {
     @Test
     fun `a catalog resolves by its name, the default registry by tilde, null or in full`() {
         val tenant = withMediator { createTenant("resolve-catalog").id }
-        withMediator { CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute() }
+        withMediator {
+            TestNamespaces.grant(tenant, "acme-letters").execute()
+            CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute()
+        }
 
         for (registry in listOf("~", null, identity.defaultRegistry)) {
             val catalog = withMediator { ResolveCatalog(tenant, registry, "acme-letters", letters).query() }
@@ -43,7 +47,10 @@ class ResolveCatalogTest : IntegrationTestBase() {
     @Test
     fun `a catalog with the same key under another name is not found`() {
         val tenant = withMediator { createTenant("resolve-catalog-other").id }
-        withMediator { CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute() }
+        withMediator {
+            TestNamespaces.grant(tenant, "acme-letters").execute()
+            CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute()
+        }
 
         assertThatThrownBy { withMediator { ResolveCatalog(tenant, "~", "elsewhere", letters).query() } }
             .isInstanceOf(CatalogNotFoundException::class.java)
@@ -57,7 +64,10 @@ class ResolveCatalogTest : IntegrationTestBase() {
     fun `a member who may only generate documents resolves the catalog it names, and no other tenant's`() {
         val tenant = withMediator { createTenant("resolve-catalog-generator").id }
         val other = withMediator { createTenant("resolve-catalog-stranger").id }
-        withMediator { CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute() }
+        withMediator {
+            TestNamespaces.grant(tenant, "acme-letters").execute()
+            CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute()
+        }
         val generator = EpistolaPrincipal(
             userId = UserKey.of("00000000-0000-0000-0000-0000000d0c01"),
             externalId = "resolve-catalog-generator",

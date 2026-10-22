@@ -23,10 +23,10 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedFakeExchange
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.exportReleased
@@ -136,6 +136,8 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
             CreateCatalog(tenant, CatalogKey.of("rr-granted"), "Granted").execute()
             ChangeCatalogNamespace(tenant, CatalogKey.of("rr-granted"), "public-services").execute()
             ReleaseCatalogDraft(tenant, CatalogKey.of("rr-granted"), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            // Held here, by an administrator's grant, but not granted by the Exchange connection.
+            TestNamespaces.grant(tenant, "not-granted").execute()
             CreateCatalog(tenant, CatalogKey.of("rr-other"), "Other", namespace = "not-granted").execute()
             ReleaseCatalogDraft(tenant, CatalogKey.of("rr-other"), "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
@@ -165,6 +167,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         val (publisher, _) = seedTenantAndKey()
         val key = CatalogKey.of(catalog)
         return withMediator {
+            TestNamespaces.grant(publisher, "acme").execute()
             CreateCatalog(publisher, key, "Letters", namespace = "acme").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(key, TenantId(publisher))), name = "Theme").execute()
             MarkCatalogReady(publisher, key).execute()
@@ -190,7 +193,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("xreg-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Exchange Registry Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Exchange Registry Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "exchange-registry-it").execute().plaintextKey
     }
 }

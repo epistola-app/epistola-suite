@@ -65,6 +65,9 @@ class CatalogFingerprintService(
 
     fun requirePublishable(content: CatalogContent) = canonicalizer.requirePublishable(content)
 
+    /** [CatalogCanonicalizer.requireReleasable]: publishable, a local name aside. */
+    fun requireReleasable(content: CatalogContent) = canonicalizer.requireReleasable(content)
+
     fun publishability(content: CatalogContent) = canonicalizer.publishability(content)
 
     /**

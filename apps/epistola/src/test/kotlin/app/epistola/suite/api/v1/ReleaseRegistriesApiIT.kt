@@ -18,9 +18,9 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedRegistries
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.themes.commands.CreateTheme
@@ -144,6 +144,8 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         val (c, keyC) = seedTenantAndKey()
         withMediator {
             val key = CatalogKey.of(catalog)
+            // Two installations of one organisation share the namespace.
+            TestNamespaces.grant(c, namespace).execute()
             CreateCatalog(tenantKey = c, id = key, name = catalog, namespace = namespace).execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(c))), name = "Another brand").execute()
             MarkCatalogReady(c, key).execute()
@@ -180,7 +182,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("rreg-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Release Registries Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Release Registries Tenant").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "release-registries-it").execute().plaintextKey
     }
 }
