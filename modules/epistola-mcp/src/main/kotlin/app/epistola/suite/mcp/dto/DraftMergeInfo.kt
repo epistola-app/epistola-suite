@@ -63,6 +63,9 @@ data class MergeBaseInfo(val version: String, val fingerprint: String)
  * One resource of a merge: [resource] is `type/key`, as a resolution names it. [outcome] is `OURS`
  * (only the draft changed it, it stays), `THEIRS` (only the release did, it is taken) or `CONFLICT`;
  * [draftChange] and [releaseChange] say how each side changed it (`ADDED`, `MODIFIED`, `REMOVED`).
+ * [needs] lists the other entries (`type/key`) it goes with: what its values refer to that the merge
+ * also changes (a template's theme, the `catalogDependency/<key>` a reference into another catalog
+ * resolves through), to be chosen together.
  */
 data class MergeResourceInfo(
     val resource: String,
@@ -70,6 +73,7 @@ data class MergeResourceInfo(
     val outcome: String,
     val draftChange: String?,
     val releaseChange: String?,
+    val needs: List<String> = emptyList(),
 ) {
     companion object {
         fun from(resource: MergeResource) = MergeResourceInfo(
@@ -78,6 +82,7 @@ data class MergeResourceInfo(
             outcome = resource.outcome.name,
             draftChange = resource.ours?.name,
             releaseChange = resource.theirs?.name,
+            needs = resource.needs,
         )
     }
 }

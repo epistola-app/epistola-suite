@@ -130,7 +130,10 @@ until it is released**; only releases are numbered.
 - **Theme settings** (contract ADR 0007). A version carries its default theme and the presets it
   declares (`catalog_versions.default_theme_resource_id`, `presets`). A release freezes both in its
   manifest's `catalog` and renders with them; new parallel work copies them from the version it starts
-  from, and an import takes them from the archive.
+  from, and an import takes them from the archive. A default theme of another catalog
+  (`SetCatalogDefaultTheme`) is looked for where the version reads that catalog from: the release its
+  declaration pins, or the draft it names; only an undeclared catalog is read from its current version
+  (and then declared).
 - **Behind.** A draft is _behind_ every release of the catalog numbered below the number it would be
   released as that its line does not contain (`ReleaseLineage.behind`). Its line is its base and the
   releases it merged, with everything those contain in turn: each release's base and the releases
@@ -153,7 +156,16 @@ until it is released**; only releases are numbered.
   has it, or removed), what only the draft changed stays, and an entry both changed differently is a
   conflict the person resolves to one side. Taken resources are marked ready, since they are released
   content. A release that removes something the draft still uses is refused
-  (`MergeRefusedException`), as is one the draft already contains. The preview carries a `token`; a
+  (`MergeRefusedException`), as is one the draft already contains. So is a merge whose result holds a
+  reference that does not resolve (`MergeReferenceCheck`): within the catalog to a resource the result
+  has, into another catalog only through a dependency the result declares, to the release it pins
+  (not that catalog's next release) or the draft it names; the default theme likewise. It says what is
+  missing and what to choose, e.g. "the default theme 'brand' of 'shared' needs 'shared' as a
+  dependency: take v1.0.1's dependency on 'shared' too, or keep your default theme". A dependency
+  nothing refers to any more is kept, as editing keeps one. The preview lists with each entry the
+  entries it goes with (`MergeResource.needs`: the theme or stencil a template uses, the dependency a
+  reference into another catalog resolves through), which the dialog shows as "Goes with …" and MCP
+  as `needs`; REST has no field for it yet. The preview carries a `token`; a
   merge given it is refused once the draft or the release changed since
   (`MergePreviewOutdatedException`, REST 409 `merge-preview-outdated`: preview again). The draft records the merge
   (`catalog_draft_merges`), which `behind` then leaves out; its base does not move. Merging inside one
@@ -643,6 +655,17 @@ template per variant or per block, an editor merge tool — adds to it rather th
   declarations (`MergeInputReader.draftInput`), so one naming a draft of another catalog is valued
   by that draft. A baseline recorded while the declarations were one entry (`catalog/dependencies`)
   takes the base's dependency entries in its place (`CatalogSetting.completeBaseline`).
+- **References** (`MergeReferences`, `MergeReferenceCheck`). What an entry refers to, as the catalog
+  format carries it: a template's theme and the attributes its variants name, the stencils, images,
+  fonts and theme overrides in its documents and a stencil's (found by `ResourceReferenceSites`), a
+  theme's fonts, an attribute's code list, the default theme. The planner turns them into each entry's
+  `needs` (the entries it refers to that the merge changes). The check runs twice in the merge's
+  transaction: on the planned result before anything is written, and on the draft as written. A
+  reference into another catalog resolves through the declaration of that catalog in the result: the
+  release it pins (its retained content) or the draft it names; undeclared, it is refused. Only what
+  the merge broke is refused: a reference that did not resolve in the draft before stays the draft's
+  own, for releasing to refuse. The default theme is written without declaring its catalog
+  (`SetCatalogDefaultTheme.declaresCatalog`), so the merged declarations stand as merged.
 - **Writer** (`DraftResourceWriter`). Applies the actions to the draft: resources through
   `CatalogResourceInstaller` (the import's own per-type code), marked ready; removals refused while
   another catalog or the draft itself uses one; then the dependency entries, taken or dropped in one

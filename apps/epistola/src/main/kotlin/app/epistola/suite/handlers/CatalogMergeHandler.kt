@@ -46,6 +46,11 @@ data class MergeRowView(
     val takeLabel: String? = null,
     /** For a conflict, the choice that keeps the draft's side, in words. */
     val keepLabel: String? = null,
+    /**
+     * The other rows it goes with, in words (`shared (Catalog used)`): what its values refer to that
+     * the merge also changes ([MergeResource.needs]), so both are chosen with each other in view.
+     */
+    val goesWith: List<String> = emptyList(),
 ) {
     val field: String get() = "${CatalogMergeHandler.RESOLUTION_PREFIX}$contentKey]"
 }
@@ -155,14 +160,16 @@ class CatalogMergeHandler {
         error: String?,
     ) {
         val release = "v${preview.release}"
+        val words = preview.resources.associate { Pair(it.contentKey, "${it.name ?: it.key} (${CatalogReleaseReadiness.typeLabel(it.type)})") }
+        fun rowOf(resource: MergeResource, what: String) = row(resource, what, resource.needs.mapNotNull(words::get))
         "tenantId" to tenantId.key
         "catalogId" to segment.value
         "preview" to preview
         "releaseLabel" to release
-        "taken" to preview.taken.map { row(it, theirsWords(it.theirs, release)) }
-        "kept" to preview.resources.filter { it.outcome == MergeOutcome.OURS }.map { row(it, oursWords(it.ours)) }
+        "taken" to preview.taken.map { rowOf(it, theirsWords(it.theirs, release)) }
+        "kept" to preview.resources.filter { it.outcome == MergeOutcome.OURS }.map { rowOf(it, oursWords(it.ours)) }
         "conflicts" to preview.conflicts.map { conflict ->
-            row(conflict, "${oursWords(conflict.ours)}, and it was ${changeWord(conflict.theirs)} in $release").copy(
+            rowOf(conflict, "${oursWords(conflict.ours)}, and it was ${changeWord(conflict.theirs)} in $release").copy(
                 keepLabel = if (conflict.ours == MergeChange.REMOVED) "Keep it removed" else "Keep yours",
                 takeLabel = if (conflict.theirs == MergeChange.REMOVED) "Remove it, as $release did" else "Take $release’s",
             )
@@ -173,11 +180,12 @@ class CatalogMergeHandler {
         "mergeError" to error
     }
 
-    private fun row(resource: MergeResource, what: String) = MergeRowView(
+    private fun row(resource: MergeResource, what: String, goesWith: List<String>) = MergeRowView(
         contentKey = resource.contentKey,
         kind = CatalogReleaseReadiness.typeLabel(resource.type),
         name = resource.name ?: resource.key,
         what = what,
+        goesWith = goesWith,
     )
 
     private fun theirsWords(change: MergeChange?, release: String): String = when (change) {

@@ -64,6 +64,12 @@ data class MergeResource(
     val ours: MergeChange?,
     val theirs: MergeChange?,
     val inTheirs: Boolean,
+    /**
+     * The other entries this one goes with (`type/key`): what its values refer to (a template's theme
+     * or stencil, the dependency a reference into another catalog resolves through, the default
+     * theme's theme or catalog) that the merge also changes, so a choice is made with both in view.
+     */
+    val needs: List<String> = emptyList(),
 ) {
     /** `type/key`, as fingerprints and resolutions name it. */
     val contentKey: String get() = "$type/$key"

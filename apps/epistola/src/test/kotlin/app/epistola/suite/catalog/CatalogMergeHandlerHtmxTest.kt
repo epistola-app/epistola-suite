@@ -228,6 +228,22 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `an entry shows what it goes with, so both are chosen in view of each other`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Merge Goes With")
+            work = diverged(tenant, alsoDefaultTheme = true)
+        }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!! }
+        then {
+            // 1.0.1's default theme is its letterhead theme, which 1.0.1 changed too.
+            val row = Regex("""data-resource="catalog/defaultTheme"[\s\S]*?</tr>""").find(result<String>())!!.value
+            assertThat(row).contains("data-testid=\"catalog-merge-goes-with\"").contains("Goes with Letterhead (Theme)")
+        }
+    }
+
+    @Test
     fun `a merge confirmed in a dialog that is out of date is refused, and the dialog shows the merge as it is now`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String

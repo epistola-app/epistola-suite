@@ -144,8 +144,11 @@ class DraftResourceWriter(
     private fun writeSetting(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, setting: CatalogSetting) {
         try {
             when (setting) {
-                is CatalogSetting.DefaultTheme -> SetCatalogDefaultTheme(tenantKey, catalogKey, setting.theme).execute()
+                // The merge's declarations stand as merged: a theme whose catalog they lack is refused after.
+                is CatalogSetting.DefaultTheme -> SetCatalogDefaultTheme(tenantKey, catalogKey, setting.theme, declaresCatalog = false).execute()
+
                 is CatalogSetting.Presets -> SetCatalogPresets(tenantKey, catalogKey, setting.presets).execute()
+
                 is CatalogSetting.Dependency -> error("dependencies are written together")
             }
         } catch (e: ValidationException) {

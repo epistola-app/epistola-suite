@@ -11,7 +11,9 @@
     Model (CatalogMergeHandler): `tenantId`, `catalogId` (the catalog segment), `preview`
     (DraftMergePreview, whose `token` the form sends back), `releaseLabel` (`v1.1.0`), `taken`, `kept`
     and `conflicts` (MergeRowView; a catalog setting, such as the default theme, is a row like a resource),
-    `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`. Without the
+    `untouchedCount`, `choices` (radio name to `OURS`/`THEIRS`), and on a refusal `mergeError`. A row's
+    `goesWith` names the other rows its values refer to (a template's theme, the catalog a reference
+    resolves through), so a choice is made with both in view. Without the
     merge base (`preview.missingBase`) nothing is compared and there is no Merge button; without any release
     both come from (`preview.noCommonRelease`) every difference is a conflict, and the dialog says why.
     -->
@@ -75,6 +77,9 @@
                             <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Theme)</span>:
                             <span th:text="${row.what}">You changed it here, and it was changed in v1.1.0</span>.
                         </p>
+                        <p th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="margin: 0;" data-testid="catalog-merge-goes-with"
+                           th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')} + ': choose them together.'">
+                            Goes with shared (Catalog used): choose them together.</p>
                         <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">
                             <input type="radio" th:name="${row.field}" value="OURS" required
                                    th:checked="${choices.get(row.field) == 'OURS'}" data-testid="catalog-merge-keep-ours">
@@ -97,6 +102,8 @@
                                     <td>
                                         <span th:text="${row.name}">Brand</span>
                                         <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Theme)</span>
+                                        <span th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="display: block;" data-testid="catalog-merge-goes-with"
+                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Catalog used)</span>
                                     </td>
                                     <td class="text-muted" th:text="${row.what}">Changed in v1.1.0</td>
                                 </tr>
@@ -114,6 +121,8 @@
                                     <td>
                                         <span th:text="${row.name}">Footer</span>
                                         <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Stencil)</span>
+                                        <span th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="display: block;" data-testid="catalog-merge-goes-with"
+                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Catalog used)</span>
                                     </td>
                                     <td class="text-muted" th:text="${row.what}">You changed it here</td>
                                 </tr>

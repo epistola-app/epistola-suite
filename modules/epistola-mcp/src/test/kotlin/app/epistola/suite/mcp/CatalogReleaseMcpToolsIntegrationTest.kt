@@ -267,6 +267,26 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an entry of a merge names the entries it goes with`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        val fix = work(tenantId, "Fix")
+        runAsApiKey(tenantId) {
+            // The fix changes the brand theme and makes it the catalog's default theme.
+            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null, catalogVersion = fix)
+            themeTools.setCatalogThemeSettings("default", defaultThemeKey = "brand", catalogVersion = fix)
+            readyTools.markCatalogReady("default", catalogVersion = fix)
+            versionTools.releaseDraft("default", fix, null, "the fix", null, null)
+        }
+        val fixRelease = runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", "RELEASED") }.first().version!!
+
+        val preview = runAsApiKey(tenantId) { versionTools.previewMerge("default", fixRelease, null) }
+
+        assertThat(preview.resources.single { it.resource == "catalog/defaultTheme" }.needs).containsExactly("theme/brand")
+        assertThat(preview.resources.single { it.resource == "theme/brand" }.needs).isEmpty()
+    }
+
+    @Test
     fun `a merge whose merge base this installation lacks names the release to get, and is refused`() {
         val producer = createTenant("MCP Lineage Producer ${UUID.randomUUID()}").id
         val tenantId = newTenant()

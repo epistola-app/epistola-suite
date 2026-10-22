@@ -29,6 +29,7 @@ data class MergePlan(
 class DraftMergePlanner(
     private val inputs: MergeInputReader,
     private val mergers: ResourceMergers,
+    private val references: MergeReferences,
 ) {
 
     fun plan(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftName: String): MergePlan {
@@ -42,15 +43,35 @@ class DraftMergePlanner(
             val setting = (ours.values[key] ?: theirs.values[key] ?: base.values[key]) as? MergeValue.Setting
             MergeEntrySides(key, setting?.setting?.label ?: names[key], base.values[key], ours.values[key], theirs.values[key], heldBase = read.heldBase[key])
         }
+        val classified = entries.map { mergers.of(it.type).classify(it) }
         return MergePlan(
             inputs = read,
             entries = entries,
-            resources = entries.map { mergers.of(it.type).classify(it) },
+            resources = withNeeds(catalogKey, entries, classified),
             token = token(read),
         )
     }
 
+    /**
+     * [classified] with what each entry goes with: the entries its draft's or its release's value
+     * refers to ([MergeReferences]) among those the merge changes or asks about.
+     */
+    private fun withNeeds(catalogKey: CatalogKey, entries: List<MergeEntrySides>, classified: List<MergeResource>): List<MergeResource> {
+        val changing = classified.filter { it.outcome in CHANGING }.map { it.contentKey }.toSet()
+        return entries.zip(classified).map { (sides, resource) ->
+            if (resource.outcome !in CHANGING) return@map resource
+            val needs = listOfNotNull(sides.ours, sides.theirs).flatMap(references::of).map { it.entryIn(catalogKey) }
+                .filter { it in changing && it != resource.contentKey }
+                .distinct()
+                .sorted()
+            resource.copy(needs = needs)
+        }
+    }
+
     companion object {
+        /** The outcomes the merge acts on or asks about; the others change nothing. */
+        private val CHANGING = setOf(MergeOutcome.OURS, MergeOutcome.THEIRS, MergeOutcome.CONFLICT)
+
         /**
          * A digest over what a merge is worked out from: the release, the merge base and every
          * entry's fingerprint on each side. Any change to the draft, or a different merge base, gives

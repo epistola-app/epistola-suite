@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
@@ -109,13 +110,20 @@ internal fun presetsOf(objectMapper: ObjectMapper, json: String?): List<CatalogP
 /**
  * Sets the default theme of the version of [catalogKey] a caller means (contract ADR 0007): the theme a
  * template that names none renders with. [theme] may live in the catalog itself or in another one,
- * which the catalog then declares it uses; null clears it.
+ * which the catalog then declares it uses; null clears it. A theme of another catalog is looked for
+ * where the version reads that catalog from: the release its declaration pins, or the draft it
+ * names; only a catalog it does not declare yet is read from its current version.
  */
 data class SetCatalogDefaultTheme(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val theme: CatalogDefaultTheme?,
     override val catalogVersion: CatalogReleaseRef? = null,
+    /**
+     * Whether a theme of a catalog not declared yet declares it. A merge writes the declarations it
+     * merged itself, and refuses a default theme they do not cover. Internal so no API can set it.
+     */
+    internal val declaresCatalog: Boolean = true,
 ) : Command<CatalogThemeSettings>,
     CatalogReleaseScoped,
     RequiresPermission {
@@ -126,22 +134,12 @@ data class SetCatalogDefaultTheme(
 class SetCatalogDefaultThemeHandler(
     private val jdbi: Jdbi,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
 ) : CommandHandler<SetCatalogDefaultTheme, CatalogThemeSettings> {
     override fun handle(command: SetCatalogDefaultTheme): CatalogThemeSettings {
         requireCatalogEditable(command.tenantKey, command.catalogKey)
         jdbi.useHandle<Exception> { handle ->
-            val resourceId = command.theme?.let { theme ->
-                handle.createQuery(
-                    "SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = :theme",
-                )
-                    .bind("t", command.tenantKey)
-                    .bind("themeCatalog", theme.catalogKey)
-                    .bind("theme", theme.themeKey)
-                    .mapTo(java.util.UUID::class.java)
-                    .findOne()
-                    .orElse(null)
-                    ?: throw ValidationException("defaultTheme", "Theme '${theme.catalogKey.value}/${theme.themeKey.value}' does not exist")
-            }
+            val resourceId = command.theme?.let { theme -> themeIdentity(handle, command, theme) }
             handle.createUpdate("UPDATE catalog_versions SET default_theme_resource_id = :theme WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
                 .bind("t", command.tenantKey)
                 .bind("c", command.catalogKey)
@@ -149,8 +147,63 @@ class SetCatalogDefaultThemeHandler(
                 .execute()
         }
         // A theme of another catalog is a use of it, declared as any reference is.
-        command.theme?.catalogKey?.takeIf { it != command.catalogKey }?.let { usedCatalogs.declare(command.tenantKey, command.catalogKey, it) }
+        if (command.declaresCatalog) command.theme?.catalogKey?.takeIf { it != command.catalogKey }?.let { usedCatalogs.declare(command.tenantKey, command.catalogKey, it) }
         return GetCatalogThemeSettings(command.tenantKey, command.catalogKey, command.catalogVersion).query()
+    }
+
+    /**
+     * The identity of [theme] where the version reads its catalog from: its own content, the release
+     * its declaration of that catalog pins, the draft it names, or, undeclared (or pinning nothing),
+     * that catalog's current version.
+     */
+    private fun themeIdentity(handle: org.jdbi.v3.core.Handle, command: SetCatalogDefaultTheme, theme: CatalogDefaultTheme): java.util.UUID {
+        val name = "${theme.catalogKey.value}/${theme.themeKey.value}"
+        val declaration = theme.catalogKey.takeIf { it != command.catalogKey }
+            ?.let { other -> dependencyStore.declarations(handle, command.tenantKey, command.catalogKey).firstOrNull { it.catalogKey == other.value } }
+        val draftKey = declaration?.draftId
+        val pinned = declaration?.releaseVersion
+        return when {
+            draftKey != null -> {
+                val (versionId, label) = dependencyStore.draftOf(handle, command.tenantKey, declaration, draftKey)
+                    ?: throw ValidationException("defaultTheme", "Theme '$name' cannot be looked up: the draft of '${theme.catalogKey.value}' this catalog uses is gone")
+                handle.createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v AND id = :theme")
+                    .bind("t", command.tenantKey)
+                    .bind("v", versionId)
+                    .bind("theme", theme.themeKey)
+                    .mapTo(java.util.UUID::class.java)
+                    .findOne()
+                    .orElse(null)
+                    ?: throw ValidationException("defaultTheme", "Theme '$name' is not in $label of '${theme.catalogKey.value}', which this catalog uses")
+            }
+
+            pinned != null -> handle.createQuery(
+                """
+                SELECT r.resource_id FROM release_entries e
+                JOIN catalog_resources r ON r.tenant_key = e.tenant_key AND r.resource_id = e.resource_id
+                WHERE e.tenant_key = :t AND e.catalog_id = ${catalogAt("t", "themeCatalog")} AND e.version = :version
+                  AND e.resource_type = 'theme' AND e.resource_key = :theme
+                """,
+            )
+                .bind("t", command.tenantKey)
+                .bind("themeCatalog", theme.catalogKey)
+                .bind("version", pinned)
+                .bind("theme", theme.themeKey)
+                .mapTo(java.util.UUID::class.java)
+                .findOne()
+                .orElse(null)
+                ?: throw ValidationException("defaultTheme", "Theme '$name' is not in v$pinned of '${theme.catalogKey.value}', the release this catalog uses")
+
+            else -> handle.createQuery(
+                "SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = :theme",
+            )
+                .bind("t", command.tenantKey)
+                .bind("themeCatalog", theme.catalogKey)
+                .bind("theme", theme.themeKey)
+                .mapTo(java.util.UUID::class.java)
+                .findOne()
+                .orElse(null)
+                ?: throw ValidationException("defaultTheme", "Theme '$name' does not exist")
+        }
     }
 }
 

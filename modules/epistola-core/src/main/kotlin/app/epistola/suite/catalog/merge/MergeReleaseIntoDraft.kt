@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.merge
 
-import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -36,9 +35,11 @@ import tools.jackson.databind.ObjectMapper
  * Refused when the draft already contains [release] (its base, or merged before;
  * [MergeNotApplicableException]), when [expectedToken] names another state than the one the merge
  * starts from ([MergePreviewOutdatedException]), when a conflict has no resolution
- * ([MergeConflictsUnresolvedException]), when a resource the release removed is still used
- * ([MergeRefusedException]), and when this installation does not have the merge base the lineage
- * names ([MergeBaseMissingException]).
+ * ([MergeConflictsUnresolvedException]), when a resource the release removed is still used, or the
+ * result holds a reference that does not resolve: within the catalog, into a catalog it does not
+ * declare, or into a release it pins that lacks it ([MergeReferenceCheck], [MergeRefusedException]),
+ * and when this installation does not have the merge base the lineage names
+ * ([MergeBaseMissingException]).
  */
 data class MergeReleaseIntoDraft(
     override val tenantKey: TenantKey,
@@ -102,7 +103,7 @@ class MergeReleaseIntoDraftHandler(
     private val mergers: ResourceMergers,
     private val writer: DraftResourceWriter,
     private val inputs: MergeInputReader,
-    private val contentBuilder: CatalogContentBuilder,
+    private val referenceCheck: MergeReferenceCheck,
     private val objectMapper: ObjectMapper,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) : CommandHandler<MergeReleaseIntoDraft, MergedRelease> {
@@ -127,8 +128,14 @@ class MergeReleaseIntoDraftHandler(
         val actions = plan.entries.zip(plan.resources).associate { (sides, classified) ->
             sides.contentKey to mergers.of(sides.type).plan(sides, classified, command.resolutions[sides.contentKey])
         }.filterValues { it != MergeAction.Keep }
+        // What the merge would make of the draft: refused before anything is written when it would not resolve.
+        targeting.within(draft.versionId) { referenceCheck.requireResolved(tenantKey, catalogKey, plan, actions) }
         val (writes, after) = targeting.within(draft.versionId) {
-            writer.apply(tenantKey, catalogKey, command.release, draft.label, actions) to inputs.draftInput(tenantKey, catalogKey)
+            val writes = writer.apply(tenantKey, catalogKey, command.release, draft.label, actions)
+            val after = inputs.draftInput(tenantKey, catalogKey)
+            // In the merge's transaction: what it wrote is checked too, as the database holds it.
+            referenceCheck.requireResolved(tenantKey, catalogKey, plan, actions, after)
+            writes to after
         }
         val resolutions = objectMapper.writeValueAsString(command.resolutions.toSortedMap().mapValues { it.value.wire })
         val held = fingerprints.storeBaseline(held(plan, actions, after.fingerprints))
