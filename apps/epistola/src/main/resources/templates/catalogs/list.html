@@ -184,6 +184,7 @@
                                 <span th:text="${change.state.name() == 'NEW'} ? 'Added' : (${change.state.name() == 'REMOVED'} ? 'Removed' : 'Changed')">Changed</span>:
                                 <strong th:text="${change.name}">Invoice</strong>
                                 <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Template)</span>
+                                <span th:if="${change.detail != null}" class="text-muted" th:text="'— ' + ${change.detail}">— locked to v1.0.0</span>
                                 <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="publish-change-merged">Merged, review before publishing</span>
                             </li>
                             <li th:if="${readiness.changedForPeople.isEmpty() and status.latestVersion == null}">

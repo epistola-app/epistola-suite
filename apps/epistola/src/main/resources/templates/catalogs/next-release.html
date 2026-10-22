@@ -81,7 +81,7 @@
             <p th:if="${readiness.nothingToPublish}" class="text-muted" data-testid="catalog-no-changes"
                th:text="${readiness.drafts.isNext} ? 'Everything is published. What you change from now on shows up here.'
                         : 'Nothing is changed in this work yet. What you change shows up here.'">Everything is published.</p>
-            <th:block th:unless="${readiness.nothingToPublish or readiness.changed.isEmpty()}">
+            <th:block th:unless="${readiness.nothingToPublish or readiness.changeCount == 0}">
                         <div class="ep-table-scroll" role="region" aria-label="Not published yet" tabindex="0">
                 <table class="ep-table ep-table-compact">
                     <tbody>
@@ -108,6 +108,23 @@
                                 <!--/* Merged content (ADR 0032): neither side's, written by a merge and not marked ready since. */-->
                                 <span th:if="${change.mergedForReview}" class="badge badge-warning" data-testid="catalog-change-merged"
                                       title="A merge combined both sides here. Check it before you publish; publishing or marking it ready ends this.">Merged, review before publishing</span>
+                            </td>
+                        </tr>
+                        <!--/* What the release holds beside its resources (ADR 0034): a dependency, the default
+                               theme, the presets, the license. Content too, so published like a resource, but
+                               never waiting on a ready mark. */-->
+                        <tr th:each="change : ${readiness.settingChangesForPeople}" data-testid="catalog-change-row"
+                            th:data-resource="${change.entry}">
+                            <td th:switch="${change.state.name()}" style="width: 1%; white-space: nowrap;">
+                                <span th:case="'NEW'" class="badge badge-info">Added</span>
+                                <span th:case="'REMOVED'" class="badge badge-default">Removed</span>
+                                <span th:case="*" class="badge badge-outline">Changed</span>
+                            </td>
+                            <td>
+                                <span th:text="${change.name}">Shared</span>
+                                <span class="text-muted" th:text="'(' + ${change.kind} + ')'">(Dependency)</span>
+                                <span th:if="${change.detail != null}" class="text-muted" data-testid="catalog-change-detail"
+                                      th:text="'— ' + ${change.detail}">— locked to v1.0.0</span>
                             </td>
                         </tr>
                     </tbody>

@@ -61,8 +61,8 @@
                         <strong data-testid="catalog-status-changes"
                                 th:text="${bar.latestPublished == null} ? 'Not published yet.'
                                          : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs are not published here yet.'
-                                         : (${readiness.changed.size() == 1} ? '1 change not published yet.' : ${readiness.changed.size()} + ' changes not published yet.'))">2 changes not published yet.</strong>
-                        <div class="text-muted text-sm" th:unless="${readiness.changed.isEmpty()}"
+                                         : (${readiness.changeCount == 1} ? '1 change not published yet.' : ${readiness.changeCount} + ' changes not published yet.'))">2 changes not published yet.</strong>
+                        <div class="text-muted text-sm" th:unless="${readiness.changeCount == 0}"
                              data-testid="catalog-status-changed"
                              th:text="(${bar.latestPublished == null} ? 'In it: ' : 'Changed: ') + ${#strings.listJoin(readiness.changedForPeople.![name], ', ')}">Changed: Invoice, Brand</div>
                         <div class="text-muted text-sm" th:each="other : ${readiness.publishedAlong}" data-testid="catalog-status-others"

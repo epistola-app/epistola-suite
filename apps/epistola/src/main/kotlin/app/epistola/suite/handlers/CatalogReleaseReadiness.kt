@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.queries.CatalogResourceChange
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
+import app.epistola.suite.catalog.queries.CatalogSettingChange
+import app.epistola.suite.catalog.queries.DependencyLock
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.releases.AssessDraftNumber
@@ -81,6 +83,16 @@ data class CatalogReleaseReadiness(
     val changed: List<CatalogResourceChange> get() = changes.resources.filter { it.state != CatalogResourceState.RELEASED }
 
     /**
+     * What differs beside the resources (ADR 0034): a dependency added, removed or locked to another
+     * release, the default theme, the presets, the license. Each is content of the release, and none
+     * needs a ready mark.
+     */
+    val settingChanges: List<CatalogSettingChange> get() = changes.settings
+
+    /** How many changes there are to publish: the resources and the catalog settings that differ. */
+    val changeCount: Int get() = changed.size + settingChanges.size
+
+    /**
      * The declarations that pin no release and name no draft, which releasing refuses
      * (`CATALOG_DEPENDENCY_UNRESOLVED`). A pin that stopped holding is caught by the release itself;
      * a declaration naming a draft is released along with it, when the author asks.
@@ -110,7 +122,7 @@ data class CatalogReleaseReadiness(
      * Nothing in this catalog itself changed, but a catalog it uses did, in a way publishing would
      * take over (published along): publishing is how that change reaches what is live.
      */
-    val onlyOthersChanged: Boolean get() = !nothingToPublish && changed.isEmpty() && publishedAlong.isNotEmpty()
+    val onlyOthersChanged: Boolean get() = !nothingToPublish && changeCount == 0 && publishedAlong.isNotEmpty()
 
     /**
      * The number this is published as, picked for the person from what changed since the latest
@@ -152,9 +164,13 @@ data class CatalogReleaseReadiness(
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && publishable && !nothingToPublish && !offerPublish
 
-    /** The changed resources, with a readable kind, for the "what changes" list. */
+    /** The changed resources, then the catalog settings that changed, with a readable kind, for the "what changes" list. */
     val changedForPeople: List<PublishedChange>
-        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state, it.mergedForReview) }
+        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state, it.mergedForReview) } + settingChangesForPeople
+
+    /** [settingChanges] in words: `Shared (Dependency) — locked to v1.0.0`, `Default theme (Catalog setting)`. */
+    val settingChangesForPeople: List<PublishedChange>
+        get() = settingChanges.map { PublishedChange(typeLabel(it.type), it.name, it.state, detail = detailOf(it), entry = it.entry) }
 
     /** A resource type as people say it, for templates. */
     fun labelOf(type: String): String = typeLabel(type)
@@ -164,9 +180,17 @@ data class CatalogReleaseReadiness(
 
     /**
      * One line of "what changes": the kind of resource in words, its name, how it changed, and
-     * whether it is merged content awaiting review ([mergedForReview]).
+     * whether it is merged content awaiting review ([mergedForReview]). A catalog setting carries its
+     * entry (`catalogDependency/shared`) and, for a dependency, what it is locked to now ([detail]).
      */
-    data class PublishedChange(val kind: String, val name: String, val state: CatalogResourceState, val mergedForReview: Boolean = false)
+    data class PublishedChange(
+        val kind: String,
+        val name: String,
+        val state: CatalogResourceState,
+        val mergedForReview: Boolean = false,
+        val detail: String? = null,
+        val entry: String? = null,
+    )
 
     /** Whether to offer "Mark all ready": the viewer may mark, and a changed resource is not ready. */
     val offerMarkAllReady: Boolean get() = mayMarkReady && hasDraft && notReady.isNotEmpty()
@@ -201,8 +225,28 @@ data class CatalogReleaseReadiness(
             "font" -> "Font"
             "image" -> "Image"
             "catalog" -> "Catalog setting"
-            "catalogDependency" -> "Catalog used"
+            "catalogDependency" -> "Dependency"
             else -> type.replaceFirstChar { it.uppercase() }
+        }
+
+        /**
+         * What a dependency is locked to, said for its change: `locked to v1.0.0` when added,
+         * `now locked to v1.1.0 (was v1.0.0)` when moved, `was locked to v1.0.0` when removed. The
+         * other catalog settings need no more than their name.
+         */
+        fun detailOf(change: CatalogSettingChange): String? {
+            if (!change.isDependency) return null
+            fun DependencyLock.words() = when {
+                releaseVersion != null -> "locked to v$releaseVersion"
+                draftName != null -> "its draft $draftName, published along"
+                else -> "no release chosen"
+            }
+            return when (change.state) {
+                CatalogResourceState.NEW -> change.lock?.words()
+                CatalogResourceState.MODIFIED -> change.lock?.words()?.let { now -> "now $now" + change.baseLock?.releaseVersion?.let { " (was v$it)" }.orEmpty() }
+                CatalogResourceState.REMOVED -> change.baseLock?.releaseVersion?.let { "was locked to v$it" }
+                CatalogResourceState.RELEASED -> null
+            }
         }
 
         /** Reads the readiness of the draft [drafts] works in, for the current principal. */

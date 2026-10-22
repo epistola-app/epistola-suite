@@ -235,6 +235,43 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
+    /**
+     * A dependency is content of the release (ADR 0034): adding one to a draft whose resources are all
+     * published is something to publish, listed in words on the draft's page and in the dialog.
+     */
+    @Test
+    fun `a dependency added to a published draft is listed, and publishing it is offered`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Dependency Added")
+            val letters = seedCatalogWithTemplate(tenant, "letters", "letter")
+            val shared = seedCatalogWithTemplate(tenant, "shared", "header", name = "Shared")
+            withMediator {
+                mediator.publishAndRelease(letters)
+                mediator.publishAndRelease(shared)
+                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
+                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+
+        then {
+            val page = result<ResponseEntity<String>>().body!!
+            assertThat(page).doesNotContain("data-testid=\"catalog-no-changes\"")
+            assertThat(page).contains("data-testid=\"catalog-release-open\"")
+            val row = page.substringAfter("data-testid=\"catalog-change-row\" data-resource=\"catalogDependency/shared\"").substringBefore("</tr>")
+            assertThat(row).contains(">Added<").contains(">Shared<").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+            assertThat(dialog).doesNotContain("data-testid=\"publish-nothing\"")
+            val change = dialog.substringAfter("data-testid=\"publish-change\"").substringBefore("</li>")
+            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+            assertThat(dialog).`as`("a dependency added is an addition").contains("It will be published as <strong>v1.1.0</strong>")
+        }
+    }
+
     @Test
     fun `a release the catalog depended on does not have is refused on its row`() = fixture {
         lateinit var tenant: Tenant
@@ -289,9 +326,9 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     /** An authored catalog [catalogKey] holding one template [templateKey] with a releasable contract. */
-    private fun seedCatalogWithTemplate(tenant: Tenant, catalogKey: String, templateKey: String): VariantId = withMediator {
+    private fun seedCatalogWithTemplate(tenant: Tenant, catalogKey: String, templateKey: String, name: String = catalogKey): VariantId = withMediator {
         val key = CatalogKey.of(catalogKey)
-        CreateCatalog(tenantKey = tenant.id, id = key, name = catalogKey).execute()
+        CreateCatalog(tenantKey = tenant.id, id = key, name = name).execute()
         val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId(key, TenantId(tenant.id)))
         CreateDocumentTemplate(id = templateId, name = templateKey).execute().withRequiredDataExample()
         VariantId(VariantKey.INITIAL, templateId)

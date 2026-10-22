@@ -92,7 +92,7 @@
                         </p>
                         <p th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="margin: 0;" data-testid="catalog-merge-goes-with"
                            th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')} + ': choose them together.'">
-                            Goes with shared (Catalog used): choose them together.</p>
+                            Goes with shared (Dependency): choose them together.</p>
                         <!--/* Read-only: the three sides as JSON, loaded when asked for. */-->
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-merge-compare"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge/sides(tenantId=${tenantId},catalogId=${catalogId},release=${preview.release},entry=${row.contentKey})}"
@@ -121,7 +121,7 @@
                                         <span th:text="${row.name}">Brand</span>
                                         <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Theme)</span>
                                         <span th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="display: block;" data-testid="catalog-merge-goes-with"
-                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Catalog used)</span>
+                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Dependency)</span>
                                     </td>
                                     <td class="text-muted" th:text="${row.what}">Changed in v1.1.0</td>
                                 </tr>
@@ -140,7 +140,7 @@
                                         <span th:text="${row.name}">Footer</span>
                                         <span class="text-muted" th:text="'(' + ${row.kind} + ')'">(Stencil)</span>
                                         <span th:unless="${row.goesWith.isEmpty()}" class="form-hint" style="display: block;" data-testid="catalog-merge-goes-with"
-                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Catalog used)</span>
+                                              th:text="'Goes with ' + ${#strings.listJoin(row.goesWith, ', ')}">Goes with shared (Dependency)</span>
                                     </td>
                                     <td class="text-muted" th:text="${row.what}">You changed it here</td>
                                 </tr>

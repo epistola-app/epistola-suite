@@ -50,7 +50,7 @@ data class MergeRowView(
     /** For a conflict, the choice that keeps the draft's side, in words. */
     val keepLabel: String? = null,
     /**
-     * The other rows it goes with, in words (`shared (Catalog used)`): what its values refer to that
+     * The other rows it goes with, in words (`shared (Dependency)`): what its values refer to that
      * the merge also changes ([MergeResource.needs]), so both are chosen with each other in view.
      */
     val goesWith: List<String> = emptyList(),
