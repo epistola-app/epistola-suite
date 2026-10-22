@@ -327,6 +327,21 @@ release a draft and make one the next release (see [`mcp.md`](mcp.md)).
   Implemented by the dependency-free
   [`SemVer`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/SemVer.kt)
   value type (parse / compare / bump). Releases must strictly increase.
+- **Patch releases** (contract ADR 0003, amendment of 2026-10-22; ADR 0034): someone who does not hold
+  a catalog's namespace numbers a release `MAJOR.MINOR.PATCH-<namespace>.<N>` (`1.3.1-gemeente-x.1`),
+  labelled with a namespace they hold. A release number is up to 128 characters
+  (`V20261022110352` widened every column that holds one). This installation **receives** patch
+  releases (an import, the Exchange, a registry) and orders them as SemVer does wherever releases
+  are ordered or compared: above the release they fix and below the holder's next (`1.3.0` <
+  `1.3.1-bureau.9` < `1.3.1-gemeente-x.1` < `1.3.1-gemeente-x.2` < `1.3.1`), in the catalog's highest
+  release, the latest, the release lists, behind and the merge base, and what a version range picks:
+  a patch release satisfies a range as a release does, by precedence (`^1.3.0` matches it, `1.3.1`
+  and `~1.3.1` do not), not as an npm pre-release, which a range naming none leaves out
+  (`CatalogReleaseSelector`). SQL orders by the generated `version_major`, `version_minor`,
+  `version_patch`, `version_label` (ASCII) and `version_label_number` (`releaseNumberOrder`).
+  **Issuing** one is ADR 0034's phase 5, with the rule of who may issue which: releasing here, in
+  the UI, over REST and MCP, still takes `MAJOR.MINOR.PATCH` (`CatalogReleaseVersionException`), and
+  the REST API's `ReleaseVersion` cannot name a patch release yet (contract follow-up).
 - **Content fingerprint** is a deterministic lowercase-hex SHA-256 of the
   catalog's canonical content, computed by
   [`CatalogCanonicalizer`](../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/CatalogCanonicalizer.kt)

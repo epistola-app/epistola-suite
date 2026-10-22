@@ -42,9 +42,7 @@ class ListDeployableReleasesHandler(
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t
-            ORDER BY c.name, c.catalog_key,
-                     r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
-                     r.version_patch DESC NULLS LAST, r.released_at DESC
+            ORDER BY c.name, c.catalog_key, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
             .bind("t", query.tenantKey)

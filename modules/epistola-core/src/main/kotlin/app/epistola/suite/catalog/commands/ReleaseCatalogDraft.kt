@@ -318,7 +318,7 @@ class ReleaseCatalogDraftHandler(
         val asked = command.version
         if (asked != null && existing.any { it.version == asked.trim() }) throw CatalogReleaseVersionException("Version ${asked.trim()} is released already")
         if (command.source != ContentSource.WORKING_COPY) {
-            val wanted = asked?.let(SemVer::parseOrNull) ?: throw CatalogReleaseVersionException("Version '$asked' must be MAJOR.MINOR.PATCH")
+            val wanted = asked?.let(SemVer::parseOrNull)?.takeUnless { it.isPatchRelease } ?: throw CatalogReleaseVersionException("Version '$asked' must be MAJOR.MINOR.PATCH")
             if (latest != null && wanted <= latest) throw CatalogReleaseVersionException("Version $wanted must be greater than the last release $latest")
             return wanted
         }

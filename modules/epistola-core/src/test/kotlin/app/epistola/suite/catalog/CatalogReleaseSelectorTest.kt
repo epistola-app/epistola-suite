@@ -41,6 +41,14 @@ class CatalogReleaseSelectorTest {
         "^1.4.0, 1.5.0-rc.1, false",
         "^1.5.0-rc.0, 1.5.0-rc.1, true",
         "^1.4.0, not-semver, false",
+        // A patch release (ADR 0034) is a release, sorted between the core it fixes and the next.
+        "^1.3.0, 1.3.1-gemeente-x.1, true",
+        "~1.3.0, 1.3.1-gemeente-x.1, true",
+        "~1.3.1, 1.3.1-gemeente-x.1, false",
+        "1.3.1, 1.3.1-gemeente-x.1, false",
+        "1.3.1-gemeente-x.1, 1.3.1-gemeente-x.1, true",
+        ">=1.3.0 <1.3.1, 1.3.1-gemeente-x.1, true",
+        "^2.0.0, 1.3.1-gemeente-x.1, false",
     )
     fun `matches like npm`(selector: String, version: String, expected: Boolean) {
         assertThat(CatalogReleaseSelector.parseOrNull(selector)!!.matches(version)).isEqualTo(expected)
@@ -63,5 +71,14 @@ class CatalogReleaseSelectorTest {
 
         assertThat(selector.highestMatch(listOf("1.9.0", "1.10.0", "2.0.0", "1.2.0"))).isEqualTo("1.10.0")
         assertThat(selector.highestMatch(listOf("2.0.0"))).isNull()
+    }
+
+    @org.junit.jupiter.api.Test
+    fun `a patch release is picked above the release it fixes and below the next one`() {
+        val selector = CatalogReleaseSelector.parseOrNull("^1.3.0")!!
+
+        assertThat(selector.highestMatch(listOf("1.3.0", "1.3.1-gemeente-x.1"))).isEqualTo("1.3.1-gemeente-x.1")
+        assertThat(selector.highestMatch(listOf("1.3.0", "1.3.1-gemeente-x.1", "1.3.1"))).isEqualTo("1.3.1")
+        assertThat(selector.highestMatch(listOf("1.3.1-gemeente-x.1", "1.3.1-gemeente-x.2", "1.3.1-bureau.9"))).isEqualTo("1.3.1-gemeente-x.2")
     }
 }

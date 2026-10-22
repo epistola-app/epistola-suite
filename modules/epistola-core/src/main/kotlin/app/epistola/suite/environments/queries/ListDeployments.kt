@@ -42,9 +42,7 @@ class ListDeploymentsHandler(
             WHERE d.tenant_key = :t
               AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_key = :c)
               AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
-            ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL),
-                     r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
-                     r.version_patch DESC NULLS LAST, r.released_at DESC
+            ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL), ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
             .bind("t", query.tenantKey)

@@ -62,6 +62,9 @@ data class DraftNumberAssessment(
      */
     fun refuses(version: String): String? {
         val wanted = SemVer.parseOrNull(version) ?: return "Version '$version' must be MAJOR.MINOR.PATCH"
+        // A patch release (`1.3.1-gemeente-x.1`) is received, not issued here yet: who may issue which
+        // patch number is ADR 0034's phase 5.
+        if (wanted.isPatchRelease) return "Version $wanted is a patch release number, which this installation receives but does not issue yet: give MAJOR.MINOR.PATCH"
         if (wanted.toString() in taken) return "Version $wanted is released already"
         base?.let(SemVer::parseOrNull)?.let { floor ->
             if (wanted <= floor) return "Version $wanted must be greater than its base $floor"

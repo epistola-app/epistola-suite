@@ -176,7 +176,7 @@ class BuildTenantSnapshotHandler(
             SELECT version, version_key, fingerprint, base_version, base_fingerprint, released_at, released_by, notes
             FROM catalog_releases
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            ORDER BY version_major NULLS FIRST, version_minor NULLS FIRST, version_patch NULLS FIRST, released_at
+            ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder(descending = false)}
             """,
         )
             .bind("t", tenantKey)

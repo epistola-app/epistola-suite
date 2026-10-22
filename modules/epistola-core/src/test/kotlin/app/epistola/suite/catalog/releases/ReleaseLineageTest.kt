@@ -66,6 +66,14 @@ class ReleaseLineageTest {
         assertThat(reReleased.parentsOf("1.0.1")).containsExactly(ReleaseParent("1.0.0", "v6:x"))
     }
 
+    /** A patch release (ADR 0034) sorts below the release of its core: a draft released as 1.0.1 is behind 1.0.1-municipality.1. */
+    @Test
+    fun `a draft is behind a patch release numbered below its own`() {
+        val withPatch = lineage(release("1.0.0"), release("1.0.1-municipality.1", "1.0.0"))
+        assertThat(withPatch.behind("1.0.0", emptyList(), "1.0.1")).containsExactly("1.0.1-municipality.1")
+        assertThat(withPatch.behind("1.0.0", emptyList(), "1.0.0-municipality.9")).isEmpty()
+    }
+
     @Test
     fun `a release naming no base ends its line`() {
         // 2.0.1 records no base: 2.0.0 below it is not taken for one.

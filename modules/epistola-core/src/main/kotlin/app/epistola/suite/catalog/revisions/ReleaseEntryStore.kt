@@ -164,8 +164,7 @@ class ReleaseEntryStore {
             SELECT DISTINCT ON (cat.catalog_key) cat.catalog_key, r.version FROM catalog_releases r
             JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t
-            ORDER BY cat.catalog_key, r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
-                     r.version_patch DESC NULLS LAST, r.released_at DESC
+            ORDER BY cat.catalog_key, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
         .bind("t", tenantKey)
