@@ -19,6 +19,7 @@ import org.springframework.web.servlet.function.RouterFunctions
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
+import java.util.Optional
 
 /** The path variable a catalog's namespaced address names its namespace by. */
 const val CATALOG_NAMESPACE_VARIABLE: String = "catalogNamespace"
@@ -59,7 +60,8 @@ class CatalogScopedRouting {
     @Order(Ordered.LOWEST_PRECEDENCE)
     fun catalogRoutesByNamespace(scoped: List<CatalogScopedRoutes>): RouterFunction<ServerResponse> = RouterFunctions.nest(RequestPredicates.path("/tenants/{tenantId}/catalogs/{$CATALOG_NAMESPACE_VARIABLE}"), all(scoped)).filter(::named)
 
-    private fun all(scoped: List<CatalogScopedRoutes>): RouterFunction<ServerResponse> = scoped.map { it.routes }.reduce { a, b -> a.and(b) }
+    /** Every catalog's routes as one router; one that routes nothing in an application without catalog pages. */
+    private fun all(scoped: List<CatalogScopedRoutes>): RouterFunction<ServerResponse> = scoped.map { it.routes }.reduceOrNull { a, b -> a.and(b) } ?: RouterFunction { Optional.empty() }
 
     companion object {
         /**
