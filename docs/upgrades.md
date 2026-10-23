@@ -37,6 +37,11 @@ locks the DDL takes, so their connections time out and `/readyz` starts failing.
 A breaking upgrade therefore needs a maintenance window. It is not a defect in the chart — it is
 what "breaking" means. The release notes say which kind you are getting.
 
+Each migration declares which kind it is, in a
+[`rollback-compatible` header](migrations.md#rollback-compatibility). A release is additive exactly
+when every migration it adds declares `true` — the same property that decides whether you can roll
+back afterwards (see [Rollback](#rollback)).
+
 ## Running a breaking upgrade
 
 ```bash
@@ -98,16 +103,78 @@ Practically:
 
 ## Rollback
 
-There is none at the schema level. Migrations are forward-only and the application never resets a
-database ([`migrations.md`](migrations.md)). Rolling the image back leaves the new schema in place,
-which the old code cannot read.
+Migrations are forward-only and never undone ([`migrations.md`](migrations.md)). Rolling the image
+back leaves the newer schema in place, so a rollback works only when the older code can run on it —
+and each migration declares whether it can ([rollback compatibility](migrations.md#rollback-compatibility)).
 
-The rollback path for a breaking upgrade is therefore: restore the database from the backup taken in
-the step above, then redeploy the old image. Which is why that step is not optional.
+Every build checks this at startup, before it touches the schema. When the database holds migrations
+the build does not ship, each must be recorded as rollback-compatible. If one is not, the build
+refuses to start, in every migration mode — the app pod, the migration Job and the init container
+all exit non-zero, and the log leads with the way back:
+
+```text
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Database schema is ahead of this build, which cannot run against it. A newer release migrated the
+database with migration(s) this build does not ship and that are not rollback-compatible:
+20261103091500 (not rollback-compatible, recorded by 1.7.0). ...
+
+Action:
+
+To go back to this build, restore a PostgreSQL backup of the database taken before that upgrade,
+then start this build again; data written since the backup is lost. To keep that data, deploy a
+build that ships migration 20261103091500 or later instead ...
+```
+
+So a rollback either works or fails fast; old code never serves from a schema it cannot read. When
+every migration in between is compatible, the older build starts and logs a warning that it is
+running on a newer schema. Under Helm, `helm rollback` does not run the `pre-upgrade` migration Job,
+so a refused rollback shows as the rolled-back pods crash-looping on that message while the pods
+still on the newer version keep serving.
+
+To know in advance how far back you can go, look at the **rollback floor** — the newest applied
+migration that is not rollback-compatible. The migration step logs it on every run
+(`Rollback floor: a build must ship migration … (recorded by 1.7.0) …`), or ask the database:
+
+```sql
+SELECT version, recorded_by
+  FROM flyway_rollback_compatibility
+ WHERE NOT rollback_compatible
+ ORDER BY version DESC
+ LIMIT 1;
+```
+
+Any build that ships that migration can run on the database: the release that recorded it, or a
+later one.
+
+Each release's notes say the same before you install it: "can be rolled back to vA.B.C or later".
+At release time it comes from the repository — the newest migration that is not rollback-compatible,
+then the oldest release tag that ships it:
+
+```bash
+floor=$(grep -L -x -e '-- rollback-compatible: true' modules/*/src/main/resources/db/migration/*/V*.sql \
+  | xargs -n1 basename | sort | tail -1)
+for t in $(git tag -l 'v[0-9]*' --sort=v:refname | grep -v -e '-'); do
+  git ls-tree -r --name-only "$t" -- modules | grep -q "/$floor\$" && { echo "$t"; break; }
+done
+```
+
+No tag means the floor is a migration the release itself adds: it cannot be rolled back at all, and
+its notes say so as a breaking upgrade.
+
+Releases from before the check (those without migration `V20261022152421`) do not perform it, so a
+rollback to one of them is not guarded. When a rollback is refused, or the target predates the
+check, the path is as before: restore the database from the backup taken before the upgrade, then
+deploy the old image. Which is why that backup is not optional.
 
 ## Checklist
 
-- [ ] Read the release notes; establish whether the upgrade is additive or breaking.
+- [ ] Read the release notes; establish whether the upgrade is additive or breaking, and so whether
+      you can roll back afterwards.
 - [ ] Take a database-level backup and verify it restores.
 - [ ] For a breaking or large upgrade, rehearse on a restored snapshot and time the migration.
 - [ ] Raise `migration.job.activeDeadlineSeconds` past the measured time if needed.

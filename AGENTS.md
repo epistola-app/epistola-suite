@@ -64,7 +64,7 @@ Read the guide for the area you are touching first.
 - **UI handlers, routes, page chrome** — [`apps/epistola/AGENTS.md`](apps/epistola/AGENTS.md) — enforced by `UiRestApiSeparationTest`, the markup guards
 - **Thymeleaf templates, static JS** — [`.agents/rules/ui-markup.md`](.agents/rules/ui-markup.md) — enforced by the markup guards, named in the card
 - **Any test** — [`.agents/rules/tests.md`](.agents/rules/tests.md) — enforced by `UiTestHygieneTest`
-- **Flyway migrations** — [`.agents/rules/migrations.md`](.agents/rules/migrations.md) — enforced by `checkMigrationVersions`, plus the schema-drift guards
+- **Flyway migrations** — [`.agents/rules/migrations.md`](.agents/rules/migrations.md) — enforced by `checkMigrationVersions`, `RollbackCompatibilityDeclarationTest`, plus the schema-drift guards
 - **Bundled system/demo catalogs** — [`.agents/rules/bundled-catalogs.md`](.agents/rules/bundled-catalogs.md) — enforced by the fingerprint tests
 - **Configuration properties** — [`.agents/rules/config-properties.md`](.agents/rules/config-properties.md) — enforced by `NoHardcodedSecretsTest`
 - **Application time** — [`docs/clock.md`](docs/clock.md) — enforced by `ApplicationClockUsageTest`

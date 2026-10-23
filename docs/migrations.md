@@ -124,12 +124,15 @@ integration-test coverage — `InstallationServiceIT` and
 2. Name the file `$(date -u +V%Y%m%d%H%M%S)__<module>_<description>.sql`.
 3. Write the SQL. If it touches a table created by another module, ensure the
    timestamp sorts after that table's migration (see the cross-module rule).
-4. Run `./gradlew :modules:<module>:test` (or `./gradlew integrationTest`). A
+4. **Declare rollback compatibility** with a `-- rollback-compatible: true|false`
+   header — see [Rollback compatibility](#rollback-compatibility).
+   `RollbackCompatibilityDeclarationTest` fails the build without one.
+5. Run `./gradlew :modules:<module>:test` (or `./gradlew integrationTest`). A
    Flyway duplicate-version error means you collided a timestamp — bump and
    retry.
-5. Ensure the normal integration suite passes — a new migration is just appended
+6. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
-6. **If the new table is tenant-scoped** (has a `tenant_key` column, or is keyed
+7. **If the new table is tenant-scoped** (has a `tenant_key` column, or is keyed
    by the tenant itself), classify it in your module's `TenantBackupTableContributor`
    bean — `includedTables()` to back it up or `excludedTables()` to exclude it.
    `TenantTableTopologyDriftIntegrationTest` (and `TenantBackupClassificationAppTest`
@@ -176,6 +179,66 @@ non-zero through Spring Boot's own failure handling — `main()` is a bare
 
 Kubernetes wiring is the Helm `migration.mode` value (`job` default /
 `initContainer` / `embedded`) — see [`deployment.md`](deployment.md).
+
+## Rollback compatibility
+
+Every migration says, in its own file, whether code that predates it can still
+run against the schema it leaves. That decides whether an installation can be
+rolled back past it, and whether an upgrade can replace pods one at a time while
+older ones still serve ([`upgrades.md`](upgrades.md#the-two-kinds-of-upgrade)).
+
+```sql
+-- rollback-compatible: true
+-- reason: Adds a nullable column that code predating it never reads.
+```
+
+The header goes in the leading comment block, beside the
+`backup-restore-compatibility` header where the file has one. The version comes
+from the filename, and the header is part of Flyway's checksum, so it is as
+immutable as the SQL below it.
+
+- **`true`** — the previous release keeps working on the new schema: a new table,
+  a nullable column or one with a default, a new index, seeded rows old code
+  ignores.
+- **`false`** — it does not: a dropped or renamed column or table that old code
+  reads, a changed type, a `NOT NULL` column without a default (old code's
+  `INSERT`s fail), a new constraint old code's writes can violate, a data rewrite
+  old code misreads. A widened column counts here too when the newer build will
+  write values the old code's own validation rejects.
+
+When unsure, choose `false`. A wrong `true` lets an old build start on a schema
+it cannot read; a wrong `false` only blocks a rollback.
+
+What the declaration drives, all in `FlywayConfig`'s migration strategy, so it
+covers `embedded`, `migrate` and `validate` alike (`SchemaRollbackGuard`):
+
+- **Recording.** After a migration step — also one that fails partway — the build
+  copies each applied migration's declaration into `flyway_rollback_compatibility`.
+  An older build does not ship the newer migration files, so the recorded rows
+  are all it can read. Each row carries the migration's `version` and the
+  `installed_rank` of its row in `flyway_schema_history`, so it joins to Flyway's
+  history. That is not a foreign key: Flyway writes its history row on a second
+  connection while the migration's transaction is open, and a migration that
+  creates a foreign key to `flyway_schema_history` blocks that write forever.
+  Rows are written once and never changed. The step logs the
+  result as the _rollback floor_: the newest applied migration that is not
+  rollback-compatible.
+- **The startup check.** Before Flyway touches the schema, the build compares the
+  applied migrations with the ones it ships. Every applied migration it does not
+  ship must be recorded as rollback-compatible; otherwise it throws
+  `SchemaAheadException` and exits non-zero. `SchemaAheadFailureAnalyzer` makes
+  Spring Boot log that as an "APPLICATION FAILED TO START" report whose action is
+  to restore a PostgreSQL backup taken before the upgrade. When they all are, it starts and logs
+  a warning that it is running on a newer schema.
+- **Default deny.** A migration without the header counts as `false`, and so does
+  an applied migration with no recorded row. `RollbackCompatibilityDeclarationTest`
+  requires the header on every migration from `V20261022152421` (the one that
+  created the table) onward. Earlier migrations cannot gain one without changing
+  their checksum; they count as `false`, which costs nothing, because every build
+  that performs the check ships all of them.
+
+Releases that predate `V20261022152421` do not perform the check: rolling back to
+one of them is not guarded.
 
 ## The application never resets a database
 

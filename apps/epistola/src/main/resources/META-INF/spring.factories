@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Epistola Nederland B.V.
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Turns a refused start on a newer schema into Spring Boot's "APPLICATION FAILED TO START" report,
+# with restoring a PostgreSQL backup as the action (docs/upgrades.md#rollback).
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+app.epistola.suite.migration.SchemaAheadFailureAnalyzer
