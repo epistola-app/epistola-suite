@@ -62,6 +62,7 @@ import app.epistola.suite.catalog.queries.ListReleasesWithSameContent
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogDraftUnchangedException
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -574,6 +575,8 @@ class CatalogHandler {
                 catalogVersion = segment.ref(tenantId.key),
                 // The drafts of other catalogs it builds on, which the dialog lists, are released with it.
                 releaseDependencies = true,
+                // A version is new content: new notes alone are not one (ADR 0034), here as over REST and MCP.
+                requireChange = true,
                 continueEverydayWork = when (afterwards) {
                     "keep" -> ContinueEverydayWork(keepPreviousAs = keepAs)
                     "discard" -> ContinueEverydayWork()
@@ -607,6 +610,8 @@ class CatalogHandler {
             }
         } catch (e: CatalogReleaseVersionException) {
             reRenderWithError(e.message ?: "Invalid version number.")
+        } catch (e: CatalogDraftUnchangedException) {
+            reRenderWithError("This draft has nothing to release: nothing changed since v${e.base}. Change something first; new notes alone are no new version.")
         } catch (e: CatalogReleaseBehindException) {
             reRenderWithError(
                 "Confirm that this draft may be released without " +
