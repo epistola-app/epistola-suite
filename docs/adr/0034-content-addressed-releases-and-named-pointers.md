@@ -226,12 +226,10 @@ then bindings are trusted as the installation receives them, and the hash still 
      here, since every such catalog could be released here until then.
    - **`local`**: any tenant names catalogs under it with a namespace it picks, without a grant,
      since nothing outside depends on it, unless it holds that token under another authority. A
-     local catalog is never published to the Exchange. The contract does not carry `local` yet (its
-     registry rule wants a domain, in the catalog format and in the API's paths): a local catalog is
-     released and deployed here, but not made into an archive (export, container registry,
-     snapshot, a draft copied from a release) and not addressable over REST, until the contract
-     accepts it. Container registries have no notion of being outside, so nothing more is refused
-     there. A tenant created without a namespace names its default catalog `local/default/default`.
+     local catalog is never published to the Exchange. Since contract `0fe54cc` the catalog format
+     and the API carry `local`, so a local catalog is exported, snapshotted and moved through the
+     organisation's own container registries like any other; container registries have no notion of
+     being outside, so nothing more is refused there. A tenant created without a namespace names its default catalog `local/default/default`.
    - **Revoking** a namespace that catalogs the tenant authors are named in is refused, naming them;
      a received catalog does not block it. An Exchange grant outlives the connection; publishing
      still checks what the connection grants.

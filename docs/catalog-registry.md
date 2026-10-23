@@ -11,7 +11,7 @@ installation directly.
 
 - **Publish**: on a release's page, _Publish to registry…_ (or the MCP tool
   `publish_release_to_registry`) pushes that release, exactly as it was released, as the artifact
-  `<registry>/<prefix>/<namespace>/<catalogKey>:<version>`.
+  `<registry>/<prefix>/<authority>/<namespace>/<catalogKey>:<version>` (the catalog's full name, `CatalogContainerLayout`).
 - **Get**: on the catalogs page, _From a registry_ (also linked from _Import ZIP_), or the MCP tools
   `list_registry_releases` and `install_release_from_registry`: name the catalog's namespace and ID,
   pick a version, and it is installed exactly as importing its archive would.
@@ -32,12 +32,12 @@ already); to a container registry it publishes while asked (`published`, `alread
 
 Over REST (alpha, `x-experimental`):
 
-| Operation                  | Request                                                                                         | Permission        |
-| -------------------------- | ----------------------------------------------------------------------------------------------- | ----------------- |
-| `listReleaseRegistries`    | `GET /api/tenants/{t}/release-registries`                                                       | `CATALOG_VIEW`    |
-| `listRegistryReleases`     | `GET …/release-registries/{name}/catalogs/{namespace}/{catalogKey}/releases`                    | `CATALOG_VIEW`    |
-| `installRegistryRelease`   | `POST …/release-registries/{name}/catalogs/{namespace}/{catalogKey}/releases/{version}/install` | `CATALOG_MANAGE`  |
-| `publishReleaseToRegistry` | `POST …/catalogs/{registry}/{namespace}/{catalogKey}/releases/{release}/publish` `{to}`         | `CATALOG_PUBLISH` |
+| Operation                  | Request                                                                                                    | Permission        |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------- |
+| `listReleaseRegistries`    | `GET /api/tenants/{t}/release-registries`                                                                  | `CATALOG_VIEW`    |
+| `listRegistryReleases`     | `GET …/release-registries/{name}/catalogs/{registry}/{namespace}/{catalogKey}/releases`                    | `CATALOG_VIEW`    |
+| `installRegistryRelease`   | `POST …/release-registries/{name}/catalogs/{registry}/{namespace}/{catalogKey}/releases/{version}/install` | `CATALOG_MANAGE`  |
+| `publishReleaseToRegistry` | `POST …/catalogs/{registry}/{namespace}/{catalogKey}/releases/{release}/publish` `{to}`                    | `CATALOG_PUBLISH` |
 
 Refusals: 404 `release-registry-not-found` (no registry of that name), 404 `not-found` (the registry
 does not hold the version), 409 `release-number-taken` (it holds the number with other content),

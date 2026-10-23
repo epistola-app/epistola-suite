@@ -132,13 +132,11 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
 - **`local`** (ADR 0034, section 7) needs no grant: any tenant names a catalog under it with a
   namespace it picks, unless it holds that namespace token under another authority. A local catalog
   is created, changed, released and deployed here, and never published to Epistola Exchange
-  (`CATALOG_NAMESPACE_LOCAL`, also when the connection grants the same token). The contract does not
-  carry `local` yet (its registry rule wants a dot, in the catalog format and in the API's paths), so
-  releasing passes over the format's registry finding for it (`CatalogFingerprintService.requireReleasable`)
-  and nothing makes a local catalog into an archive: export, a container registry, a tenant snapshot
-  and starting a draft from a release (which copies through an archive) are refused in words, and its
-  REST addresses are refused by the API's own pattern. Container registries have no notion of an
-  outside registry, so nothing more is refused there.
+  (`CATALOG_NAMESPACE_LOCAL`, also when the connection grants the same token). The contract carries
+  `local` (catalog format and API, contract `feature/v2` `0fe54cc`), so a local catalog is exported,
+  snapshotted, copied into a draft, addressed over REST (`…/catalogs/local/{namespace}/{key}/…`) and
+  moved through the organisation's own container registries like any other. Container registries
+  have no notion of an outside registry, so only the Exchange refuses it.
 
 ## Two catalogs with one key: namespace and key
 

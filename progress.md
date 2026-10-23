@@ -21,6 +21,22 @@ against those ADRs.
 
 ## Touched
 
+### Contract `feature/v2` `0fe54cc` followed (22 October; branch `refactor/catalog-releases`)
+
+`local` accepted as an authority, container repositories `<prefix>/<authority>/<namespace>/<key>`
+(`CatalogContainerLayout`), registry paths with `{registry}`, `ReleasePublicationDto.releaseRegistry`,
+`RegistryReleaseListResponse.releaseRegistry` + `registry`. The suite: `OciProtocol` constants and
+`RegistryRepository` delegate to `CatalogContainerLayout`; list/install take the catalog's authority
+(REST `{registry}`, MCP optional `authority`, `~`/none for the default); the phase-3 refusal to make a
+local catalog into an archive and the release-time registry-finding exception are removed. Tests:
+`ReleaseRegistriesApiIT` (+1, a local catalog published, listed and installed over HTTP under its
+full name; paths and renamed members), `ExchangeReleaseRegistryApiIT`, `CatalogNamingTest` (a local
+catalog exported, received elsewhere, copied into a draft, snapshotted), `OciProtocolTest`,
+`CatalogRegistryIntegrationTest`. Runs: core integration 1312 (1 skipped; the two registry tests
+fixed and rerun green), core unit 1041, app integration 803, MCP 98, demo 39, rest-api 35, guards 28,
+`ktlintCheck` green. `checkContractVersionAlignment` fails as before (the editor's catalog package is
+a local `file:` tgz in `pnpm-lock.yaml`). Releases pushed before sit under the old repository name.
+
 ### ADR 0034 phase 4: namespace + key (22 October; branch `refactor/catalog-releases`)
 
 | Change                                                                                                                                                                                                   | Where                                                                                              | Coverage                                                                                           |

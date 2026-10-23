@@ -157,12 +157,12 @@ a container registry configured for the installation, or the Epistola Exchange t
 connected to (named `exchange`). Without one they refuse every call; an unknown name is refused with
 the names there are. REST has the same operations (contract ADR 0008).
 
-| Tool                            | Purpose                                                                                                                                                                                                     | Permission        |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `list_release_registries`       | Alpha. The release registries the tenant has: `name`, `kind` (`container`, `exchange`) and `location`.                                                                                                      | `CATALOG_VIEW`    |
-| `list_registry_releases`        | Alpha. The releases of `namespace`/`catalogKey` a registry holds, highest first, with fingerprint label, size and whether the tenant has each (`present`), and a `conflict` if any.                         | `CATALOG_VIEW`    |
-| `publish_release_to_registry`   | Alpha. Publish a release; `status` `published` (a container registry, as `<namespace>/<catalogKey>:<version>`), `already-published` (same number and fingerprint, nothing sent) or `queued` (the Exchange). | `CATALOG_PUBLISH` |
-| `install_release_from_registry` | Alpha. Install a release from a registry, as importing its archive does: digest verified, fingerprint recomputed. A new catalog is created receiving its releases from that registry.                       | `CATALOG_MANAGE`  |
+| Tool                            | Purpose                                                                                                                                                                                                                 | Permission        |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `list_release_registries`       | Alpha. The release registries the tenant has: `name`, `kind` (`container`, `exchange`) and `location`.                                                                                                                  | `CATALOG_VIEW`    |
+| `list_registry_releases`        | Alpha. The releases of `namespace`/`catalogKey` a registry holds, highest first, with fingerprint label, size and whether the tenant has each (`present`), and a `conflict` if any.                                     | `CATALOG_VIEW`    |
+| `publish_release_to_registry`   | Alpha. Publish a release; `status` `published` (a container registry, as `<authority>/<namespace>/<catalogKey>:<version>`), `already-published` (same number and fingerprint, nothing sent) or `queued` (the Exchange). | `CATALOG_PUBLISH` |
+| `install_release_from_registry` | Alpha. Install a release from a registry, as importing its archive does: digest verified, fingerprint recomputed. A new catalog is created receiving its releases from that registry.                                   | `CATALOG_MANAGE`  |
 
 Structured arguments — template documents, schemas, styles, attributes, examples, font faces — are
 passed as JSON strings, like `preview_document`'s `data`. A malformed one fails with a message naming
