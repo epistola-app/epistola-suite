@@ -61,6 +61,8 @@ data class InstallReleaseFromRegistry(
     val namespace: String,
     val catalogKey: String,
     val version: String,
+    /** The authority of the catalog's name (the contract's `registry`); null for the default registry (`~`). */
+    val authority: String? = null,
 ) : Command<RegistryInstallResult>,
     RequiresPermission,
     SelfManagedTransaction {
@@ -114,7 +116,7 @@ class InstallReleaseFromRegistryHandler(
 
     override fun handle(command: InstallReleaseFromRegistry): RegistryInstallResult {
         val registry = registries.named(command.registry)
-        val repository = registries.repository(registry, command.namespace, command.catalogKey)
+        val repository = registries.repository(registry, command.authority?.takeUnless { it == "~" } ?: identity.defaultRegistry, command.namespace, command.catalogKey)
         val namespace = command.namespace.trim()
         val catalogKey = CatalogKey.of(command.catalogKey.trim())
         val version = command.version.trim()

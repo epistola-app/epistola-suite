@@ -49,7 +49,7 @@ class RegistryCatalogReleaseSource(
         } catch (e: ValidationException) {
             throw CatalogSourceUnavailableException("This installation has no registry called '${source.registry}' any more. ${e.message}", cause = e)
         }
-        return call(registries.client(registry), registries.repository(registry, source.namespace, source.catalogKey))
+        return call(registries.client(registry), registries.repository(registry, catalog.registry, source.namespace, source.catalogKey))
     }
 }
 
@@ -70,7 +70,7 @@ class RegistryCatalogUpstreamProbe(
         try {
             val registry = registries.named(source.registry)
             val client = registries.client(registry)
-            val repository = registries.repository(registry, source.namespace, source.catalogKey)
+            val repository = registries.repository(registry, catalog.registry, source.namespace, source.catalogKey)
             val newest = releaseVersionsNewestFirst(client.tags(repository)).firstOrNull()
                 ?: throw CatalogUpstreamCheckException(CatalogUpstreamCheckFailure.NOT_FOUND, "${registry.name} has no releases of $repository")
             val manifest = client.manifest(repository, newest)?.manifest

@@ -38,10 +38,12 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
         items = ListReleaseRegistries(TenantKey.of(tenantKey)).query().registries.map { ReleaseRegistryDto(name = it.name, kind = it.kind.toDto()) },
     )
 
-    fun releases(tenantKey: String, name: String, namespace: String, catalogKey: String): RegistryReleaseListResponse {
-        val listed = ListReleaseRegistryReleases(TenantKey.of(tenantKey), name, namespace, catalogKey).query()
+    fun releases(tenantKey: String, name: String, registry: String, namespace: String, catalogKey: String): RegistryReleaseListResponse {
+        val authority = authorityOf(registry)
+        val listed = ListReleaseRegistryReleases(TenantKey.of(tenantKey), name, namespace, catalogKey, authority).query()
         return RegistryReleaseListResponse(
-            registry = listed.registry,
+            releaseRegistry = listed.registry,
+            registry = authority,
             namespace = listed.namespace,
             catalogKey = listed.catalogKey,
             items = listed.releases.map { release ->
@@ -57,9 +59,9 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
         )
     }
 
-    fun install(tenantKey: String, name: String, namespace: String, catalogKey: String, version: String): ImportCatalogResponse {
+    fun install(tenantKey: String, name: String, registry: String, namespace: String, catalogKey: String, version: String): ImportCatalogResponse {
         val tenant = TenantKey.of(tenantKey)
-        val installed = InstallReleaseRegistryRelease(tenant, name, namespace, catalogKey, version).execute()
+        val installed = InstallReleaseRegistryRelease(tenant, name, namespace, catalogKey, version, authorityOf(registry)).execute()
         val result = installed.imported
         if (installed.aborted) throw IllegalStateException("Installing ${result.catalogKey.value} $version from $name failed; nothing changed")
         val names = GetCatalogNames(tenant, listOf(result.catalogKey)).query()[result.catalogKey]
@@ -88,11 +90,14 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
                 ReleaseRegistryPublication.Status.ALREADY_PUBLISHED -> ReleasePublicationStatus.ALREADY_PUBLISHED
                 ReleaseRegistryPublication.Status.QUEUED -> ReleasePublicationStatus.QUEUED
             },
-            registry = published.registry,
+            releaseRegistry = published.registry,
             version = published.version,
             digest = published.digest,
         )
     }
+
+    /** The authority a path's `{registry}` names: `~` is the default registry. */
+    private fun authorityOf(registry: String): String = if (registry == "~") identity.defaultRegistry else registry
 
     private fun DomainKind.toDto() = when (this) {
         DomainKind.EXCHANGE -> ReleaseRegistryKind.EXCHANGE

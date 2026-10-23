@@ -82,10 +82,10 @@ class CatalogRegistries(
     )
 
     /**
-     * Where [namespace]/[catalogKey] lives in [registry], checked: a namespace and a key as the
+     * Where [authority]/[namespace]/[catalogKey] lives in [registry], checked: a namespace and a key as the
      * catalog protocol defines them, which are also valid repository path components.
      */
-    fun repository(registry: CatalogRegistryProperties.Registry, namespace: String, catalogKey: String): String {
+    fun repository(registry: CatalogRegistryProperties.Registry, authority: String, namespace: String, catalogKey: String): String {
         val ns = namespace.trim()
         val key = catalogKey.trim()
         if (!CatalogNamespaces.isValid(ns)) {
@@ -98,7 +98,7 @@ class CatalogRegistries(
         val parsedKey = runCatching { CatalogKey.of(key) }.getOrNull()
             ?: throw ValidationException("catalogKey", "'$key' is not a catalog key.", ValidationCode.REGISTRY_REFERENCE_INVALID)
         return try {
-            RegistryRepository.of(registry.prefix, ns, parsedKey.value)
+            RegistryRepository.of(registry.prefix, authority.trim(), ns, parsedKey.value)
         } catch (e: IllegalArgumentException) {
             throw ValidationException("catalogKey", e.message ?: "Not a repository name.", ValidationCode.REGISTRY_REFERENCE_INVALID)
         }

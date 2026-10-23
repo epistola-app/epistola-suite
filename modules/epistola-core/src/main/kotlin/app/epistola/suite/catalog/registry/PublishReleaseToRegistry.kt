@@ -92,7 +92,7 @@ class PublishReleaseToRegistryHandler(
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
         val release = ListCatalogReleaseSummaries(command.tenantKey, command.catalogKey).query().firstOrNull { it.version == version }
             ?: throw CatalogReleaseNotFoundException(command.catalogKey, version)
-        val repository = registries.repository(registry, catalog.namespace, catalog.id.value)
+        val repository = registries.repository(registry, catalog.registry, catalog.namespace, catalog.id.value)
         val client = registries.client(registry)
         fun result(digest: String, already: Boolean) = RegistryPublication(registry.name, repository, version, digest, already, "${registry.baseUri.authority}/$repository:$version")
 

@@ -26,10 +26,10 @@ interface ReleaseRegistry {
     val name: String get() = summary.name
 
     /** The releases of [namespace]/[catalogKey] it holds, highest first: what it says of them, a label. */
-    fun list(tenantKey: TenantKey, namespace: String, catalogKey: String): ReleaseRegistryListing
+    fun list(tenantKey: TenantKey, namespace: String, catalogKey: String, authority: String? = null): ReleaseRegistryListing
 
     /** Installs release [version] of [namespace]/[catalogKey], exactly as importing its archive does. */
-    fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String): ReleaseRegistryInstall
+    fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String, authority: String? = null): ReleaseRegistryInstall
 
     /** Publishes released release [version] of [catalogKey], exactly as it was released. */
     fun publish(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): ReleaseRegistryPublication

@@ -369,7 +369,7 @@ class ReleaseCatalogDraftHandler(
         if (command.source == ContentSource.WORKING_COPY) requireChangesReady(command.tenantKey, command.catalogKey)
         val pins = pinDependencies(command.tenantKey, command.catalogKey)
         val content = contentBuilder.build(command.tenantKey, command.catalogKey, command.source)
-        fingerprintService.requireReleasable(content)
+        fingerprintService.requirePublishable(content)
         stencilCheck.requireInstancesFit(command.tenantKey, command.catalogKey, content)
         val fingerprint = fingerprintService.fingerprint(content)
         // Its identity (ADR 0034): the fingerprint, which is V6, a content hash.

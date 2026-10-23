@@ -54,12 +54,14 @@ class CatalogRegistryMcpTools {
         namespace: String,
         @McpToolParam(description = "The catalog's key.")
         catalogKey: String,
-    ): RegistryReleasesInfo = RegistryReleasesInfo.from(ListReleaseRegistryReleases(mcpTenantKey(), registry, namespace, catalogKey).query())
+        @McpToolParam(description = "The authority of the catalog's name, e.g. `local` or `gemeente-x.nl`. Omit for the default registry.", required = false)
+        authority: String? = null,
+    ): RegistryReleasesInfo = RegistryReleasesInfo.from(ListReleaseRegistryReleases(mcpTenantKey(), registry, namespace, catalogKey, authority?.takeIf { it.isNotBlank() }).query())
 
     @McpTool(
         name = "publish_release_to_registry",
         description = "Alpha. Publish a release of a catalog to a release registry so another installation can install " +
-            "it: a container registry (as `<namespace>/<catalogKey>:<version>`, `status` `published`) or Epistola " +
+            "it: a container registry (as `<authority>/<namespace>/<catalogKey>:<version>`, `status` `published`) or Epistola " +
             "Exchange (`status` `queued`: the Exchange decides later; also when it was queued already). When the " +
             "registry already has that number with the same fingerprint nothing is sent (`already-published`); with " +
             "other content it is refused: one number names one release. The release leaves this installation, so " +
@@ -100,5 +102,7 @@ class CatalogRegistryMcpTools {
         catalogKey: String,
         @McpToolParam(description = "The release number. From `list_registry_releases`.")
         version: String,
-    ): RegistryInstallInfo = RegistryInstallInfo.from(InstallReleaseRegistryRelease(mcpTenantKey(), registry, namespace, catalogKey, version.trim()).execute(), version.trim())
+        @McpToolParam(description = "The authority of the catalog's name, e.g. `local` or `gemeente-x.nl`. Omit for the default registry.", required = false)
+        authority: String? = null,
+    ): RegistryInstallInfo = RegistryInstallInfo.from(InstallReleaseRegistryRelease(mcpTenantKey(), registry, namespace, catalogKey, version.trim(), authority?.takeIf { it.isNotBlank() }).execute(), version.trim())
 }

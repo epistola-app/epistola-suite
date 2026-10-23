@@ -28,6 +28,8 @@ data class ListRegistryReleases(
     val registry: String,
     val namespace: String,
     val catalogKey: String,
+    /** The authority of the catalog's name (the contract's `registry`); null for the default registry (`~`). */
+    val authority: String? = null,
 ) : Query<RegistryReleases>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -67,10 +69,11 @@ data class RegistryRelease(
 @Component
 class ListRegistryReleasesHandler(
     private val registries: CatalogRegistries,
+    private val identity: app.epistola.suite.catalog.CatalogIdentityProperties,
 ) : QueryHandler<ListRegistryReleases, RegistryReleases> {
     override fun handle(query: ListRegistryReleases): RegistryReleases {
         val registry = registries.named(query.registry)
-        val repository = registries.repository(registry, query.namespace, query.catalogKey)
+        val repository = registries.repository(registry, query.authority?.takeUnless { it == "~" } ?: identity.defaultRegistry, query.namespace, query.catalogKey)
         val namespace = query.namespace.trim()
         val catalogKey = CatalogKey.of(query.catalogKey.trim())
         val client = registries.client(registry)

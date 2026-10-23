@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.registry
 
+import app.epistola.catalog.protocol.CatalogContainerLayout
 import app.epistola.suite.catalog.SemVer
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
@@ -19,10 +20,10 @@ import java.util.HexFormat
 
 /** The media types of a catalog release stored as an OCI artifact (ADR 0032, section 7). */
 object OciMediaTypes {
-    const val MANIFEST = "application/vnd.oci.image.manifest.v1+json"
-    const val ARTIFACT = "application/vnd.epistola.catalog.release.v1"
-    const val CONFIG = "application/vnd.epistola.catalog.release.config.v1+json"
-    const val ARCHIVE = "application/vnd.epistola.catalog.archive.v1+zip"
+    const val MANIFEST = CatalogContainerLayout.MANIFEST_MEDIA_TYPE
+    const val ARTIFACT = CatalogContainerLayout.ARTIFACT_TYPE
+    const val CONFIG = CatalogContainerLayout.CONFIG_MEDIA_TYPE
+    const val ARCHIVE = CatalogContainerLayout.ARCHIVE_MEDIA_TYPE
 }
 
 /**
@@ -31,13 +32,14 @@ object OciMediaTypes {
  * recomputes the fingerprint from the archive; these only describe what a listing shows.
  */
 object OciAnnotations {
-    const val VERSION = "app.epistola.catalog.version"
-    const val FINGERPRINT = "app.epistola.catalog.fingerprint"
-    const val REGISTRY = "app.epistola.catalog.registry"
-    const val NAMESPACE = "app.epistola.catalog.namespace"
-    const val CATALOG_KEY = "app.epistola.catalog.catalogKey"
-    const val IMAGE_VERSION = "org.opencontainers.image.version"
-    const val IMAGE_TITLE = "org.opencontainers.image.title"
+    const val VERSION = CatalogContainerLayout.Annotations.VERSION
+    const val FINGERPRINT = CatalogContainerLayout.Annotations.FINGERPRINT
+    const val CONTENT_HASH = CatalogContainerLayout.Annotations.CONTENT_HASH
+    const val REGISTRY = CatalogContainerLayout.Annotations.REGISTRY
+    const val NAMESPACE = CatalogContainerLayout.Annotations.NAMESPACE
+    const val CATALOG_KEY = CatalogContainerLayout.Annotations.CATALOG_KEY
+    const val IMAGE_VERSION = CatalogContainerLayout.Annotations.IMAGE_VERSION
+    const val IMAGE_TITLE = CatalogContainerLayout.Annotations.IMAGE_TITLE
 }
 
 /** A content descriptor: what a manifest says about one blob. */
@@ -216,22 +218,12 @@ fun releaseVersionsNewestFirst(tags: Collection<String>): List<String> = tags
     .map { it.second }
 
 /**
- * Where a catalog's releases live in a registry: `<prefix>/<namespace>/<catalogKey>`, each part a
- * repository path component as the distribution spec names them.
+ * Where a catalog's releases live in a registry: `<prefix>/<authority>/<namespace>/<catalogKey>`, its
+ * full name under the prefix ([CatalogContainerLayout], contract ADR 0008).
  */
 object RegistryRepository {
-    private val COMPONENT = Regex("^[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*$")
-    private const val MAX_LENGTH = 255
-
-    fun isValidPrefix(prefix: String): Boolean = prefix.isEmpty() || prefix.split('/').all { COMPONENT.matches(it) }
+    fun isValidPrefix(prefix: String): Boolean = CatalogContainerLayout.isValidPrefix(prefix)
 
     /** @throws IllegalArgumentException when the parts do not make a repository name. */
-    fun of(prefix: String, namespace: String, catalogKey: String): String {
-        require(isValidPrefix(prefix)) { "'$prefix' is not a repository prefix" }
-        require(COMPONENT.matches(namespace)) { "'$namespace' cannot be part of a repository name" }
-        require(COMPONENT.matches(catalogKey)) { "'$catalogKey' cannot be part of a repository name" }
-        val name = listOf(prefix, namespace, catalogKey).filter { it.isNotEmpty() }.joinToString("/")
-        require(name.length <= MAX_LENGTH) { "repository name '$name' is longer than $MAX_LENGTH characters" }
-        return name
-    }
+    fun of(prefix: String, authority: String, namespace: String, catalogKey: String): String = CatalogContainerLayout.repository(prefix, authority, namespace, catalogKey)
 }

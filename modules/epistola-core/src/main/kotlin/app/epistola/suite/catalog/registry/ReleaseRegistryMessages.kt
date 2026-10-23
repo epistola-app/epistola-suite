@@ -51,6 +51,8 @@ data class ListReleaseRegistryReleases(
     val registry: String,
     val namespace: String,
     val catalogKey: String,
+    /** The authority of the catalog's name; null for the default registry. */
+    val authority: String? = null,
 ) : Query<ReleaseRegistryListing>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -60,7 +62,7 @@ data class ListReleaseRegistryReleases(
 class ListReleaseRegistryReleasesHandler(
     private val directory: ReleaseRegistryDirectory,
 ) : QueryHandler<ListReleaseRegistryReleases, ReleaseRegistryListing> {
-    override fun handle(query: ListReleaseRegistryReleases): ReleaseRegistryListing = directory.named(query.tenantKey, query.registry).list(query.tenantKey, query.namespace.trim(), query.catalogKey.trim())
+    override fun handle(query: ListReleaseRegistryReleases): ReleaseRegistryListing = directory.named(query.tenantKey, query.registry).list(query.tenantKey, query.namespace.trim(), query.catalogKey.trim(), query.authority?.trim())
 }
 
 /**
@@ -74,6 +76,8 @@ data class InstallReleaseRegistryRelease(
     val namespace: String,
     val catalogKey: String,
     val version: String,
+    /** The authority of the catalog's name; null for the default registry. */
+    val authority: String? = null,
 ) : Command<ReleaseRegistryInstall>,
     RequiresPermission,
     SelfManagedTransaction {
@@ -91,7 +95,7 @@ class InstallReleaseRegistryReleaseHandler(
     private val directory: ReleaseRegistryDirectory,
 ) : CommandHandler<InstallReleaseRegistryRelease, ReleaseRegistryInstall> {
     override fun handle(command: InstallReleaseRegistryRelease): ReleaseRegistryInstall = directory.named(command.tenantKey, command.registry)
-        .install(command.tenantKey, command.namespace.trim(), command.catalogKey.trim(), command.version.trim())
+        .install(command.tenantKey, command.namespace.trim(), command.catalogKey.trim(), command.version.trim(), command.authority?.trim())
 }
 
 /**

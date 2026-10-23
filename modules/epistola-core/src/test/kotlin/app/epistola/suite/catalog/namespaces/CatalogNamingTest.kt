@@ -10,9 +10,11 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -144,22 +146,24 @@ class CatalogNamingTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a catalog under local is released here without a grant, and never made into an archive`() {
+    fun `a catalog under local is released without a grant, exported, received elsewhere, copied into a draft and snapshotted`() {
         val tenant = tenant("Local release")
+        val elsewhere = tenant("Local elsewhere")
 
         withMediator {
             CreateCatalog(tenant, letters, "Letters", registry = LocalAuthority.NAME, namespace = "personnel").execute()
             release(tenant, letters, "1.0.0")
             assertThat(ListCatalogReleaseSummaries(tenant, letters).query().map { it.version }).containsExactly("1.0.0")
 
-            val export = refusal { ExportCatalogZip(tenant, letters, "1.0.0").execute() }
-            assertThat(export.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_LOCAL)
-            // A draft copied from a release goes through an archive, so it is refused in the same words.
-            assertThat(refusal { CreateCatalogDraft(tenant, letters, "Fix", from = "1.0.0").execute() }.message).isEqualTo(export.message)
-            assertThat(ListCatalogReleases(tenant, letters).query().map { it.name }).`as`("nothing is left half made").doesNotContain("Fix")
-            assertThat(export.message).isEqualTo(
-                "local/personnel/letters is named under local, which a catalog archive cannot carry yet, so it is not made into one: it is not exported, sent to a registry, kept in a snapshot or copied into a draft.",
-            )
+            // The catalog format carries local (contract feature/v2 0fe54cc): the archive names it.
+            val archive = ExportCatalogZip(tenant, letters, "1.0.0").execute().zipBytes
+            ImportCatalogZip(elsewhere, archive).execute()
+            val received = GetCatalog(elsewhere, letters).query()!!
+            assertThat(received.registry to received.namespace).isEqualTo("local" to "personnel")
+
+            CreateCatalogDraft(tenant, letters, "Fix", from = "1.0.0").execute()
+            assertThat(ListCatalogReleases(tenant, letters).query().map { it.name }).contains("Fix")
+            assertThat(BuildTenantSnapshot(tenant).execute().catalogCount).`as`("its default and letters, both local").isEqualTo(2)
         }
     }
 

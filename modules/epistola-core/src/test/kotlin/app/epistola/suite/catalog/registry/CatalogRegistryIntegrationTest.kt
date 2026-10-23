@@ -24,6 +24,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedRegistries
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -102,7 +103,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     private fun pushRaw(r: Released, version: String, archive: ByteArray, fingerprint: String, catalogKey: String = r.catalog.value): String {
         val registry = registries.named("local")
         val client = registries.client(registry)
-        val repository = registries.repository(registry, r.namespace, catalogKey)
+        val repository = registries.repository(registry, TestNamespaces.DEFAULT_AUTHORITY, r.namespace, catalogKey)
         val labels = ReleaseLabels(version, fingerprint, "exchange.epistola.app", r.namespace, catalogKey)
         val config = client.pushBlob(repository, OciMediaTypes.CONFIG, ReleaseArtifact.config(mapper, labels))
         val layer = client.pushBlob(repository, OciMediaTypes.ARCHIVE, archive)
@@ -117,7 +118,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         withMediator {
             val published = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
             assertThat(published.alreadyPublished).isFalse()
-            assertThat(published.repository).isEqualTo("${r.namespace}/reg-roundtrip")
+            assertThat(published.repository).`as`("the catalog's full name").isEqualTo("${TestNamespaces.DEFAULT_AUTHORITY}/${r.namespace}/reg-roundtrip")
             assertThat(published.digest).startsWith("sha256:")
 
             val listed = ListRegistryReleases(r.b, "local", r.namespace, "reg-roundtrip").query()
@@ -170,7 +171,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
                 .hasMessageContaining("One number names one release")
         }
         val registry = registries.named("local")
-        assertThat(registries.client(registry).manifest(registries.repository(registry, r.namespace, "reg-taken"), "1.0.0")!!.digest)
+        assertThat(registries.client(registry).manifest(registries.repository(registry, TestNamespaces.DEFAULT_AUTHORITY, r.namespace, "reg-taken"), "1.0.0")!!.digest)
             .`as`("not overwritten")
             .isEqualTo(theirs)
     }
@@ -255,7 +256,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         val r = released("reg-secured")
         withMediator {
             val published = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "secured").execute()
-            assertThat(published.repository).isEqualTo("${SharedRegistries.SECURED_PREFIX}/${r.namespace}/reg-secured")
+            assertThat(published.repository).isEqualTo("${SharedRegistries.SECURED_PREFIX}/${TestNamespaces.DEFAULT_AUTHORITY}/${r.namespace}/reg-secured")
 
             InstallReleaseFromRegistry(r.b, "secured", r.namespace, "reg-secured", "1.0.0").execute()
             assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single().fingerprint).isEqualTo(r.fingerprint)
@@ -268,7 +269,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             allowHttp = true,
             maxRedirects = 3,
         )
-        assertThatThrownBy { anonymous.tags(registries.repository(registries.named("secured"), r.namespace, "reg-secured")) }
+        assertThatThrownBy { anonymous.tags(registries.repository(registries.named("secured"), TestNamespaces.DEFAULT_AUTHORITY, r.namespace, "reg-secured")) }
             .isInstanceOf(CatalogSourceUnavailableException::class.java)
             .hasMessageContaining("no credentials are configured")
     }

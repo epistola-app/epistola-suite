@@ -9,6 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -96,17 +97,18 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         val published = call(HttpMethod.POST, publish, keyA, """{"to": "local"}""")
         assertThat(published.statusCode).`as`(published.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(published.body!!, "$.status")).isEqualTo("published")
-        assertThat(JsonPath.read<String>(published.body!!, "$.registry")).isEqualTo("local")
+        assertThat(JsonPath.read<String>(published.body!!, "$.releaseRegistry")).isEqualTo("local")
         assertThat(JsonPath.read<String>(published.body!!, "$.version")).isEqualTo("1.0.0")
         assertThat(JsonPath.read<String>(published.body!!, "$.digest")).startsWith("sha256:")
 
         val again = call(HttpMethod.POST, publish, keyA, """{"to": "local"}""")
         assertThat(JsonPath.read<String>(again.body!!, "$.status")).isEqualTo("already-published")
 
-        val releases = "/api/tenants/${b.value}/release-registries/local/catalogs/$namespace/$catalog/releases"
+        val releases = "/api/tenants/${b.value}/release-registries/local/catalogs/~/$namespace/$catalog/releases"
         val listed = call(HttpMethod.GET, releases, keyB)
         assertThat(listed.statusCode).`as`(listed.body).isEqualTo(HttpStatus.OK)
-        assertThat(JsonPath.read<String>(listed.body!!, "$.registry")).isEqualTo("local")
+        assertThat(JsonPath.read<String>(listed.body!!, "$.releaseRegistry")).isEqualTo("local")
+        assertThat(JsonPath.read<String>(listed.body!!, "$.registry")).`as`("the catalog's authority").isEqualTo("exchange.epistola.app")
         assertThat(JsonPath.read<List<String>>(listed.body!!, "$.items[*].version")).containsExactly("1.0.0")
         assertThat(JsonPath.read<List<String>>(listed.body!!, "$.items[*].fingerprint")).containsExactly(fingerprint)
 
@@ -122,6 +124,36 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
     }
 
     @Test
+    fun `a catalog under local is published to a container registry under its full name and installed elsewhere`() {
+        val (a, keyA) = seedTenantAndKey()
+        val (b, keyB) = seedTenantAndKey()
+        val catalog = "rr-${UUID.randomUUID().toString().take(8)}"
+        val key = CatalogKey.of(catalog)
+        withMediator {
+            CreateCatalog(tenantKey = a, id = key, name = catalog, registry = "local", namespace = "personnel").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(a))), name = "Brand").execute()
+            MarkCatalogReady(a, key).execute()
+            ReleaseCatalogDraft(tenantKey = a, catalogKey = key, version = "1.0.0").execute()
+        }
+
+        val published = call(HttpMethod.POST, "/api/tenants/${a.value}/catalogs/local/personnel/$catalog/releases/1.0.0/publish", keyA, """{"to": "local"}""")
+        assertThat(published.statusCode).`as`(published.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(published.body!!, "$.status")).isEqualTo("published")
+
+        val releases = "/api/tenants/${b.value}/release-registries/local/catalogs/local/personnel/$catalog/releases"
+        val listed = call(HttpMethod.GET, releases, keyB)
+        assertThat(listed.statusCode).`as`(listed.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(listed.body!!, "$.registry")).isEqualTo("local")
+        assertThat(JsonPath.read<List<String>>(listed.body!!, "$.items[*].version")).containsExactly("1.0.0")
+
+        val installed = call(HttpMethod.POST, "$releases/1.0.0/install", keyB)
+        assertThat(installed.statusCode).`as`(installed.body).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(installed.body!!, "$.registry")).isEqualTo("local")
+        assertThat(JsonPath.read<String>(installed.body!!, "$.namespace")).isEqualTo("personnel")
+        assertThat(withMediator { GetCatalog(b, key).query()!!.registry }).isEqualTo("local")
+    }
+
+    @Test
     fun `refusals name the contract's problem types`() {
         val (a, keyA) = seedTenantAndKey()
         val catalog = "rr-${UUID.randomUUID().toString().take(8)}"
@@ -129,11 +161,11 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         val namespace = withMediator { CatalogApiPaths.namespace(a, catalog) }
         val release = withMediator { CatalogApiPaths.version(a, catalog, "1.0.0") }
 
-        val unknown = call(HttpMethod.GET, "/api/tenants/${a.value}/release-registries/nowhere/catalogs/$namespace/$catalog/releases", keyA)
+        val unknown = call(HttpMethod.GET, "/api/tenants/${a.value}/release-registries/nowhere/catalogs/~/$namespace/$catalog/releases", keyA)
         assertProblem(unknown, HttpStatus.NOT_FOUND, "release-registry-not-found")
         assertProblem(call(HttpMethod.POST, "$release/publish", keyA, """{"to": "nowhere"}"""), HttpStatus.NOT_FOUND, "release-registry-not-found")
 
-        val notHeld = call(HttpMethod.POST, "/api/tenants/${a.value}/release-registries/local/catalogs/$namespace/$catalog/releases/9.9.9/install", keyA)
+        val notHeld = call(HttpMethod.POST, "/api/tenants/${a.value}/release-registries/local/catalogs/~/$namespace/$catalog/releases/9.9.9/install", keyA)
         assertProblem(notHeld, HttpStatus.NOT_FOUND, "not-found")
 
         val draft = withMediator { CatalogApiPaths.version(a, catalog, "next") }

@@ -95,12 +95,13 @@ class OciProtocolTest {
     }
 
     @Test
-    fun `a repository is prefix, namespace and key, each a repository path component`() {
-        assertThat(RegistryRepository.of("", "acme0", "letters")).isEqualTo("acme0/letters")
-        assertThat(RegistryRepository.of("team/catalogs", "acme0", "letters")).isEqualTo("team/catalogs/acme0/letters")
-        assertThatThrownBy { RegistryRepository.of("", "Acme", "letters") }.isInstanceOf(IllegalArgumentException::class.java)
-        assertThatThrownBy { RegistryRepository.of("team//x", "acme0", "letters") }.isInstanceOf(IllegalArgumentException::class.java)
-        assertThatThrownBy { RegistryRepository.of("", "acme0", "../x") }.isInstanceOf(IllegalArgumentException::class.java)
+    fun `a repository is prefix, authority, namespace and key, the catalog's full name`() {
+        assertThat(RegistryRepository.of("", "exchange.epistola.app", "acme0", "letters")).isEqualTo("exchange.epistola.app/acme0/letters")
+        assertThat(RegistryRepository.of("team/catalogs", "local", "acme0", "letters")).isEqualTo("team/catalogs/local/acme0/letters")
+        assertThatThrownBy { RegistryRepository.of("", "local", "Acme", "letters") }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { RegistryRepository.of("team//x", "local", "acme0", "letters") }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { RegistryRepository.of("", "local", "acme0", "../x") }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { RegistryRepository.of("", "Not A Domain", "acme0", "letters") }.isInstanceOf(IllegalArgumentException::class.java)
     }
 
     @Test

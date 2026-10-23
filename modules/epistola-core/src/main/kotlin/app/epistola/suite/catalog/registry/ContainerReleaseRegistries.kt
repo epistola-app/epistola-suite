@@ -28,8 +28,8 @@ class ContainerReleaseRegistries(
 
 private class ContainerReleaseRegistry(override val summary: ReleaseRegistrySummary) : ReleaseRegistry {
 
-    override fun list(tenantKey: TenantKey, namespace: String, catalogKey: String): ReleaseRegistryListing = refusals {
-        val listed = ListRegistryReleases(tenantKey, name, namespace, catalogKey).query()
+    override fun list(tenantKey: TenantKey, namespace: String, catalogKey: String, authority: String?): ReleaseRegistryListing = refusals {
+        val listed = ListRegistryReleases(tenantKey, name, namespace, catalogKey, authority).query()
         ReleaseRegistryListing(
             registry = name,
             kind = ReleaseRegistryKind.CONTAINER,
@@ -40,8 +40,8 @@ private class ContainerReleaseRegistry(override val summary: ReleaseRegistrySumm
         )
     }
 
-    override fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String): ReleaseRegistryInstall = refusals {
-        val installed = InstallReleaseFromRegistry(tenantKey, name, namespace, catalogKey, version).execute()
+    override fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String, authority: String?): ReleaseRegistryInstall = refusals {
+        val installed = InstallReleaseFromRegistry(tenantKey, name, namespace, catalogKey, version, authority).execute()
         ReleaseRegistryInstall(name, installed.imported, installed.aborted)
     }
 

@@ -116,7 +116,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(registries.body!!, "$.items[*].kind")).containsExactly("exchange")
 
         exchange.publish("acme", "rr-letters", releaseArchive("rr-letters"), version = "1.0.0")
-        val releases = "/api/tenants/${tenant.value}/release-registries/exchange/catalogs/acme/rr-letters/releases"
+        val releases = "/api/tenants/${tenant.value}/release-registries/exchange/catalogs/~/acme/rr-letters/releases"
         val listed = call(HttpMethod.GET, releases, key)
         assertThat(listed.statusCode).`as`(listed.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<List<String>>(listed.body!!, "$.items[*].version")).containsExactly("1.0.0")
@@ -146,7 +146,7 @@ class ExchangeReleaseRegistryApiIT : IntegrationTestBase() {
         val queued = call(HttpMethod.POST, publish, key, """{"to": "exchange"}""")
         assertThat(queued.statusCode).`as`(queued.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(queued.body!!, "$.status")).isEqualTo("queued")
-        assertThat(JsonPath.read<String>(queued.body!!, "$.registry")).isEqualTo("exchange")
+        assertThat(JsonPath.read<String>(queued.body!!, "$.releaseRegistry")).isEqualTo("exchange")
         val again = call(HttpMethod.POST, publish, key, """{"to": "exchange"}""")
         assertThat(again.statusCode).`as`(again.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(again.body!!, "$.status")).isEqualTo("queued")

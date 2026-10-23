@@ -17,11 +17,9 @@ import app.epistola.catalog.protocol.PublisherInfo
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.catalog.protocol.ResourceEntry
-import app.epistola.catalog.validation.CatalogValidationCodes
 import app.epistola.catalog.validation.CatalogValidationPolicy
 import app.epistola.catalog.validation.CatalogValidationReport
 import app.epistola.catalog.validation.CatalogValidator
-import app.epistola.suite.catalog.namespaces.LocalAuthority
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
@@ -149,25 +147,6 @@ class CatalogCanonicalizer(private val objectMapper: ObjectMapper) {
                 prefix = "Catalog contains non-publishable content: ",
                 separator = "; ",
             ) { "${it.path}: ${it.message}" }
-        }
-    }
-
-    /**
-     * [requirePublishable] for a release cut here: the same, except that the catalog, or a catalog it
-     * depends on, may be named under `local` (ADR 0034, section 7), which this installation accepts and
-     * the catalog format does not carry yet. Such a release stays in its installation; an archive of
-     * it is refused before it is built ([LocalAuthority]).
-     */
-    fun requireReleasable(content: CatalogContent) {
-        val localNames = buildSet {
-            if (LocalAuthority.isLocal(content.catalog.registry)) add("catalog.json.catalog.registry")
-            content.catalogDependencies.orEmpty().forEachIndexed { index, dependency ->
-                if (LocalAuthority.isLocal(dependency.registry)) add("catalog.json.catalogDependencies[$index].registry")
-            }
-        }
-        val findings = publishability(content).findings.filterNot { it.code == CatalogValidationCodes.REGISTRY_INVALID && it.path in localNames }
-        require(CatalogValidationReport(findings).valid) {
-            findings.joinToString(prefix = "Catalog contains non-publishable content: ", separator = "; ") { "${it.path}: ${it.message}" }
         }
     }
 

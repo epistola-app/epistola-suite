@@ -54,7 +54,7 @@ class ExchangeReleaseRegistries(
 
     private inner class ExchangeReleaseRegistry(override val summary: ReleaseRegistrySummary) : ReleaseRegistry {
 
-        override fun list(tenantKey: TenantKey, namespace: String, catalogKey: String): ReleaseRegistryListing = refusals {
+        override fun list(tenantKey: TenantKey, namespace: String, catalogKey: String, authority: String?): ReleaseRegistryListing = refusals {
             val connection = credentials.activeConnection(tenantKey)
                 ?: throw CatalogSourceUnavailableException("This tenant is not connected to Epistola Exchange. Connect it on the Exchange page first.")
             val token = credentials.accessToken(connection)
@@ -75,7 +75,7 @@ class ExchangeReleaseRegistries(
             )
         }
 
-        override fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String): ReleaseRegistryInstall = refusals {
+        override fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String, authority: String?): ReleaseRegistryInstall = refusals {
             val installed = translate { InstallExchangeCatalog(tenantKey, namespace, catalogKey, version).execute() }
             ReleaseRegistryInstall(name, installed.imported, installed.aborted)
         }

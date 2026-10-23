@@ -246,9 +246,9 @@ class EpistolaCatalogApi(
 
     override fun listReleaseRegistries(tenantKey: String): ResponseEntity<ReleaseRegistryListResponse> = ResponseEntity.ok(registries.list(tenantKey))
 
-    override fun listRegistryReleases(tenantKey: String, name: String, namespace: String, catalogKey: String): ResponseEntity<RegistryReleaseListResponse> = ResponseEntity.ok(registries.releases(tenantKey, name, namespace, catalogKey))
+    override fun listRegistryReleases(tenantKey: String, name: String, registry: String, namespace: String, catalogKey: String): ResponseEntity<RegistryReleaseListResponse> = ResponseEntity.ok(registries.releases(tenantKey, name, registry, namespace, catalogKey))
 
-    override fun installRegistryRelease(tenantKey: String, name: String, namespace: String, catalogKey: String, version: String): ResponseEntity<ImportCatalogResponse> = ResponseEntity.ok(registries.install(tenantKey, name, namespace, catalogKey, version))
+    override fun installRegistryRelease(tenantKey: String, name: String, registry: String, namespace: String, catalogKey: String, version: String): ResponseEntity<ImportCatalogResponse> = ResponseEntity.ok(registries.install(tenantKey, name, registry, namespace, catalogKey, version))
 
     override fun publishReleaseToRegistry(
         tenantKey: String,

@@ -41,10 +41,9 @@ data class NamespaceName(val authority: String, val namespace: String) {
  * valid within the organisation and never published outside it. A tenant names catalogs under it
  * with any namespace it picks, without a grant, since nothing outside depends on it.
  *
- * The contract does not carry it yet: its `registry` rule (catalog format and API) wants a DNS name
- * with a dot, and names `local` a later phase. So a catalog under `local` is released and deployed in
- * its installation, and refused wherever it would leave it as an archive: export, the Exchange, a
- * container registry. Its REST addresses are refused by the API's own pattern.
+ * The contract carries it (catalog format and API), so a local catalog is exported, snapshotted and
+ * moved through the organisation's own container registries like any other; only the Exchange, which
+ * is outside the organisation, refuses it.
  */
 object LocalAuthority {
     const val NAME: String = "local"
@@ -198,7 +197,4 @@ object NamespaceMessages {
 
     /** Why a catalog named under local is not published to Epistola Exchange: local never leaves the organisation. */
     fun notPublished(catalog: String): String = "$catalog is named under local, which never leaves this organisation, so it is not published to Epistola Exchange."
-
-    /** Why a catalog named under local is not made into an archive: the catalog format cannot carry local yet. */
-    fun notArchived(catalog: String): String = "$catalog is named under local, which a catalog archive cannot carry yet, so it is not made into one: it is not exported, sent to a registry, kept in a snapshot or copied into a draft."
 }
