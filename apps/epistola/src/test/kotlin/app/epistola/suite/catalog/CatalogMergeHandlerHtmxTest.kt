@@ -82,7 +82,8 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed").execute()
         if (alsoDefaultTheme) SetCatalogDefaultTheme(tenant.id, letters, CatalogDefaultTheme(ThemeKey.of("letterhead"), letters)).execute()
         MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogDraft(tenant.id, letters, "1.0.1").execute()
+        // Another default theme is a minor change, so that release is 1.1.0.
+        ReleaseCatalogDraft(tenant.id, letters, if (alsoDefaultTheme) "1.1.0" else "1.0.1").execute()
         work
     }
 
@@ -250,11 +251,11 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Setting")
             work = diverged(tenant, alsoDefaultTheme = true)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!! }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.1.0").body!! }
         then {
             assertThat(result<String>()).contains("data-testid=\"catalog-merge-taken-row\" data-resource=\"catalog/defaultTheme\"")
                 .contains("Default theme").contains("(Catalog setting)")
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS"))
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.1.0", "resolution[theme/brand]" to "OURS"))
             assertThat(withMediator { GetCatalogThemeSettings(tenant.id, letters, work(tenant, work)).query() }.defaultTheme?.themeKey).isEqualTo(ThemeKey.of("letterhead"))
         }
     }
@@ -267,9 +268,9 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Goes With")
             work = diverged(tenant, alsoDefaultTheme = true)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!! }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.1.0").body!! }
         then {
-            // 1.0.1's default theme is its letterhead theme, which 1.0.1 changed too.
+            // 1.1.0's default theme is its letterhead theme, which 1.1.0 changed too.
             val row = Regex("""data-resource="catalog/defaultTheme"[\s\S]*?</tr>""").find(result<String>())!!.value
             assertThat(row).contains("data-testid=\"catalog-merge-goes-with\"").contains("Goes with Letterhead (Theme)")
         }

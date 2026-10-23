@@ -144,15 +144,15 @@ class ChangeKindEvaluatorTest {
     }
 
     @Test
-    fun `another default theme or license is a fix`() {
+    fun `another default theme or license is a minor change`() {
         val base = content()
         val themed = content().let { it.copy(catalog = it.catalog.copyWithMetadata(defaultTheme = CatalogThemeRef("brand"))) }
         val licensed = content().let { it.copy(catalog = it.catalog.copyWithMetadata(license = CatalogLicense("Apache License 2.0", "Apache-2.0"))) }
 
         assertThat(evaluate(base, themed)).containsExactly(
-            ChangeKind.NONE to "catalog 'defaultTheme': templates without a theme of their own render with another one",
+            ChangeKind.ADDITIVE to "catalog 'defaultTheme': templates without a theme of their own render with another one",
         )
-        assertThat(evaluate(base, licensed)).containsExactly(ChangeKind.NONE to "catalog 'license': changed")
+        assertThat(evaluate(base, licensed)).containsExactly(ChangeKind.ADDITIVE to "catalog 'license': changed")
         assertThat(evaluate(themed, content().let { it.copy(catalog = it.catalog.copyWithMetadata(defaultTheme = CatalogThemeRef("brand", "letters"))) }))
             .`as`("the catalog's own theme, named with or without its alias").isEmpty()
     }
