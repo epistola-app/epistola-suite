@@ -51,7 +51,7 @@ async function mount(container) {
     // The catalog's available presets (ADR 0007) travel with the theme the inspector reads.
     theme:
       config.availablePresets && config.availablePresets.length > 0
-        ? { ...(config.theme ?? {}), availablePresets: config.availablePresets }
+        ? { ...config.theme, availablePresets: config.availablePresets }
         : (config.theme ?? undefined),
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
