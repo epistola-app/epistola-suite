@@ -84,6 +84,7 @@ class CatalogRoutes(
         GET("/{catalogId}/dependencies/edit", nextRelease::dependenciesForm)
         POST("/{catalogId}/dependencies", nextRelease::updateDependencies)
         POST("/{catalogId}/dependencies/upgrade", nextRelease::upgradeDependencies)
+        POST("/{catalogId}/dependencies/remove-unused", nextRelease::removeUnusedDependencies)
         // Merging a published version the draft lacks into it (ADR 0032, alpha).
         GET("/{catalogId}/merge", merge::mergeDialog)
         GET("/{catalogId}/merge/sides", merge::mergeSides)

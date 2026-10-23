@@ -6,12 +6,16 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CreateCatalogDraft
@@ -161,6 +165,43 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `after a merge the draft's page asks whether to remove a catalog it no longer uses, and Remove removes it`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        val shared = CatalogKey.of("shared")
+        given {
+            tenant = tenant("Merge Unused")
+            work = diverged(tenant)
+            withMediator {
+                CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
+                CreateTheme(ThemeId(ThemeKey.of("base"), CatalogId(shared, TenantId(tenant.id))), "Base").execute()
+                MarkCatalogReady(tenant.id, shared).execute()
+                ReleaseCatalogDraft(tenant.id, shared, "1.0.0").execute()
+                val catalog = GetCatalog(tenant.id, shared).query()!!
+                UpdateCatalogDependencies(
+                    tenant.id,
+                    letters,
+                    listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, shared.value, releaseVersion = "1.0.0")),
+                    catalogVersion = work(tenant, work),
+                ).execute()
+            }
+        }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS")) }
+        then {
+            val location = result<ResponseEntity<String>>().headers.getFirst("HX-Location")!!
+            assertThat(location).contains("/catalogs/letters@$work/draft?merged=1.0.1")
+
+            val page = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/draft?merged=1.0.1").body!!
+            assertThat(page).contains("data-testid=\"merge-unused-dependencies\"").contains("After merging v<span>1.0.1</span>").contains("<strong>Shared</strong>")
+                .contains("name=\"alias\" value=\"shared\"")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!).`as`("asked after a merge only").doesNotContain("merge-unused-dependencies")
+
+            postForm("/tenants/${tenant.id}/catalogs/letters@$work/dependencies/remove-unused", mapOf("alias" to "shared"))
+            assertThat(withMediator { GetCatalogBorrowing(tenant.id, letters, work(tenant, work)).query().catalogs.filter { it.declared } }).isEmpty()
+        }
+    }
+
+    @Test
     fun `merging without a choice for the conflict shows the dialog again with why`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String
@@ -215,7 +256,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(200)
-            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@$work/draft")
+            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@$work/draft?merged=1.0.1")
             val ref = work(tenant, work)
             assertThat(withMediator { PreviewDraftMerge(tenant.id, letters, "1.0.1", ref).query() }.alreadyMerged).isTrue()
             assertThat(withMediator { GetTheme(theme(tenant, "brand"), catalogVersion = ref).query() }!!.name).isEqualTo("Brand, fixed")

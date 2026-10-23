@@ -5,15 +5,23 @@
 package app.epistola.suite.mcp
 
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
+import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.merge.MergeBaseMissingException
 import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
 import app.epistola.suite.catalog.releases.CatalogDraftUnchangedException
 import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mcp.tools.CatalogReleaseMcpTools
@@ -21,11 +29,13 @@ import app.epistola.suite.mcp.tools.ReadyMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
 import app.epistola.suite.mcp.tools.ThemeMcpTools
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -290,6 +300,34 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a merge names the catalogs the draft declares and no longer uses, for the user to decide`() {
+        val tenantId = newTenant()
+        released(tenantId)
+        val shared = CatalogKey.of("shared")
+        withMediator {
+            CreateCatalog(tenantKey = tenantId.key, id = shared, name = "Shared").execute()
+            CreateTheme(ThemeId(ThemeKey.of("base"), CatalogId(shared, tenantId)), "Base").execute()
+            MarkCatalogReady(tenantId.key, shared).execute()
+            ReleaseCatalogDraft(tenantId.key, shared, "1.0.0").execute()
+            val catalog = GetCatalog(tenantId.key, shared).query()!!
+            UpdateCatalogDependencies(tenantId.key, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", releaseVersion = "1.0.0"))).execute()
+        }
+        val fix = work(tenantId, "Fix")
+        runAsApiKey(tenantId) {
+            themeTools.updateTheme("default", "brand", "Brand, fixed", null, null, null, null, null, null, null, catalogVersion = fix)
+            readyTools.markCatalogReady("default", catalogVersion = fix)
+            versionTools.releaseDraft("default", fix, null, "the fix", null, null)
+        }
+        val fixRelease = runAsApiKey(tenantId) { versionTools.listCatalogReleases("default", "RELEASED") }.first().version!!
+        val preview = runAsApiKey(tenantId) { versionTools.previewMerge("default", fixRelease, null) }
+
+        val merged = runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, null, preview.token) }
+
+        assertThat(merged.unusedDependencies).containsExactly("shared")
+        assertThat(merged.notice).contains("no longer uses shared").contains("ask the user")
+    }
+
+    @Test
     fun `a release the next version is behind is previewed and merged, its conflict resolved as the user chose`() {
         val tenantId = newTenant()
         released(tenantId)
@@ -315,6 +353,7 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         val merged = runAsApiKey(tenantId) { versionTools.mergeRelease("default", fixRelease, null, mapOf("theme/brand" to "theirs"), fresh.token) }
 
         assertThat(merged.taken).containsExactly("theme/brand")
+        assertThat(merged.unusedDependencies).`as`("the draft declares nothing it does not use").isEmpty()
         runAsApiKey(tenantId) {
             assertThat(themeTools.getTheme("default", "brand")!!.name).isEqualTo("Brand, fixed")
             assertThat(versionTools.previewMerge("default", fixRelease, null).alreadyMerged).isTrue()

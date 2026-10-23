@@ -37,6 +37,7 @@ import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.dependencies.ListCatalogDependents
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
@@ -906,7 +907,18 @@ class CatalogHandler {
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
         if (bar.chosen == null) return redirect(CatalogPages.browse(tenantId, segment))
-        return catalogPage(request, "catalogs/draft", segment, bar, error = null)
+        return catalogPage(request, "catalogs/draft", segment, bar, error = null, unusedAfterMerge = unusedAfterMerge(request, tenantId, segment, bar))
+    }
+
+    /**
+     * After a merge (`?merged=<release>`), the catalogs this draft declares and no longer uses, which
+     * the page offers to remove; null otherwise, and where the draft cannot be changed here.
+     */
+    private fun unusedAfterMerge(request: ServerRequest, tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar): UnusedAfterMerge? {
+        val merged = request.param("merged").orElse(null)?.takeIf { it.isNotBlank() } ?: return null
+        if (!bar.editable) return null
+        val unused = GetCatalogBorrowing(tenantId.key, segment.key, segment.ref(tenantId.key)).query().unused
+        return UnusedAfterMerge(merged, unused).takeIf { unused.isNotEmpty() }
     }
 
     /** `GET /{catalogId}/releases`: every release and draft of the catalog, each to its own page. */
@@ -1013,6 +1025,7 @@ class CatalogHandler {
         error: String?,
         deployRefusal: DeployRefusalView? = null,
         draftError: String? = null,
+        unusedAfterMerge: UnusedAfterMerge? = null,
     ): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = segment.key
@@ -1116,6 +1129,7 @@ class CatalogHandler {
                 "followableDrafts" to followableDrafts
                 "publicationError" to error
                 "deployRefusal" to deployRefusal
+                "unusedAfterMerge" to unusedAfterMerge
                 "resources" to result.resources
                 "hasUninstalledResources" to hasUninstalledResources
                 "usageCounts" to usageCounts
@@ -1606,3 +1620,6 @@ class CatalogHandler {
      */
     private fun ServerRequest.relocationEnabled() = ResolveFeatureToggles(tenantId().key).query()[KnownFeatures.RESOURCE_RELOCATION] == true
 }
+
+/** The catalogs a draft no longer uses after merging [release], which its page asks whether to remove. */
+data class UnusedAfterMerge(val release: String, val catalogs: List<app.epistola.suite.catalog.dependencies.BorrowedCatalog>)
