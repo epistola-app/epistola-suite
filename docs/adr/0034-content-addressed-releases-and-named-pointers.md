@@ -240,8 +240,11 @@ then bindings are trusted as the installation receives them, and the hash still 
    part_ (22 October 2026; `docs/catalog-versioning.md`, "Two catalogs with one key"): the database
    holds a catalog unique by namespace and key; every lookup by key goes through
    `epistola_catalog_id`, which takes the namespace the work names (`CatalogNames`) and refuses an
-   ambiguous key instead of picking one; UI addresses and MCP `catalogId`s name the namespace. Open:
-   aliases other than the key (references still resolve by key), and tenant-wide views keyed by key.
+   ambiguous key instead of picking one; UI addresses and MCP `catalogId`s name the namespace. Done
+   for 2.0 (23 October 2026): the UI routes a catalog by namespace and key (no rewriting of responses),
+   and reads across a tenant's catalogs (editability, overview, graphs, environments, lists) key them by
+   namespace and key. Out of 2.0 (#1125): aliases other than the key, so references still resolve by
+   key; the reads still keyed by key are listed in `progress.md`.
 5. **The patch rule** in releasing.
 6. **Sources per tenant**, changeable; **mirroring**; container paths with the authority.
 7. **Signatures** over bindings; the Exchange's domain verification.

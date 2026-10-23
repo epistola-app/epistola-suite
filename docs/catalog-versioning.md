@@ -157,16 +157,28 @@ side.
   their key, which is their alias here).
 - **Receiving** a catalog whose key the tenant has in another namespace installs it beside that one;
   the same namespace and key is still the same catalog.
-- **Web UI**: a catalog's pages are at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`
-  (`CatalogAddressFilter`): served by the by-key routes with the key named, and every address of that
-  catalog in what it answers written namespaced again. A page opened by key alone is redirected there
-  while the key names one catalog; HTMX requests by key alone are served as they are.
+- **Reading across a tenant's catalogs** keys them by namespace and key (`CatalogAddress`):
+  editability, upstream checks, release content hashes, the tenant overview, the dependency and
+  resource graphs, an environment's served, latest and implicit releases, the house theme. Each
+  catalog is read in its own namespace (`CatalogNamesApplier.named`, or `CatalogNames.on` for a walk on
+  one handle), so two `letters` are two entries and no read across the tenant is refused for their key.
+  A lookup by a list of keys resolves each as one lookup does (`catalogsAt`).
+- **Web UI**: every per-catalog route (`CatalogScopedRoutes`) is served at
+  `/tenants/{tenant}/catalogs/{key}/…` and at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`, by key
+  first; the address by key alone keeps working while the key names one catalog. `CatalogSegment`
+  carries the namespace. A request reached by namespace and key names its catalog for the whole request,
+  rendering included (a `CatalogNames` frame per request, bound by `MediatorFilter`), and every link,
+  redirect and HTMX header it builds to that catalog by key alone is built namespaced
+  (`CatalogAddresses`, the Thymeleaf link builder). Pages listing several catalogs link a catalog
+  whose key another shares by namespace and key. A shared key that is also the name of a resource list
+  (`templates`, `themes`, …) is reached by key first, so its namespaced address does not work.
 - **MCP**: a tool's `catalogId` is a key or `namespace/key` (`mcpCatalogKey`, per request through
-  `McpCatalogNamesFilter`); `list_catalogs` gives each catalog's `address`.
-- **Not yet**: an alias other than the catalog's key (references still name another catalog by its key
-  here, so `CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` stays), REST addresses already name the namespace and
-  are unchanged, and tenant-wide maps keyed by catalog key (editability, catalog lists, the resource
-  graph) show one entry for two catalogs with one key.
+  `McpCatalogNamesFilter`); `list_catalogs` gives each catalog's `address`, and `apply_house_theme`
+  names catalogs by it.
+- **Not in 2.0**: an alias other than the catalog's key (#1125). References name another catalog by its
+  key, so one unit of work cannot use two catalogs with the same key, and
+  `CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` stays. Some reads across a tenant still key by catalog key
+  alone, listed in `progress.md` (tenant snapshots among them).
 
 ## Catalog versions and drafts
 
