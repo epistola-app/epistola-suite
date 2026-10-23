@@ -116,6 +116,11 @@ helm_args=(
   --wait
   --timeout "${timeout}"
 )
+# The default image refuses the demo profile (docs/auth.md, "Two images"): with the smoke profiles
+# naming it, test the chart's appVersion on the -demo image unless a tag is given.
+if [[ -z "${image_tag}" ]] && grep -Eq '^[[:space:]]*profiles:.*\bdemo\b' "${fixture_dir}/values.yaml"; then
+  image_tag="$(sed -nE 's/^appVersion:[[:space:]]*"?([^"]+)"?[[:space:]]*$/\1/p' "${chart_dir}/Chart.yaml")-demo"
+fi
 if [[ -n "${image_tag}" ]]; then
   helm_args+=(--set-string "image.tag=${image_tag}")
 fi
