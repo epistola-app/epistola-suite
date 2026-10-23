@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.graph.GetTenantResourceGraph
 import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
 import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.catalog.queries.ListCatalogEditability
@@ -141,6 +142,16 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
 
             assertThat(GetCatalogNames(tenant, listOf(letters)).query()).`as`("named by neither").isEmpty()
             assertThat(CatalogNames.within(letters, "acme") { GetCatalogNames(tenant, listOf(letters)).query() }[letters]?.namespace).isEqualTo("acme")
+        }
+    }
+
+    @Test
+    fun `the resource graph has the resources of each, named by namespace and key`() {
+        val tenant = twoLetters("Two letters resource graph")
+        withMediator {
+            val invoices = GetTenantResourceGraph(tenant).query().nodes.filter { it.address.key == "invoice-0" }
+            assertThat(invoices.map { it.address.catalogKey }).containsExactlyInAnyOrder("acme/letters", "bureau/letters")
+            assertThat(invoices.map { it.address.id }.distinct()).hasSize(2)
         }
     }
 }
