@@ -18,6 +18,8 @@ data class DeployableRelease(
     val catalogKey: CatalogKey,
     val catalogName: String,
     val version: String,
+    /** The catalog's namespace, which tells two catalogs sharing a key apart (ADR 0034). */
+    val namespace: String = "",
 )
 
 /**
@@ -38,11 +40,11 @@ class ListDeployableReleasesHandler(
     override fun handle(query: ListDeployableReleases): List<DeployableRelease> = jdbi.withHandle<List<DeployableRelease>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT c.catalog_key AS catalog_key, c.name AS catalog_name, r.version
+            SELECT c.catalog_key AS catalog_key, c.namespace, c.name AS catalog_name, r.version
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t
-            ORDER BY c.name, c.catalog_key, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
+            ORDER BY c.name, c.catalog_key, c.namespace, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
             .bind("t", query.tenantKey)
@@ -51,6 +53,7 @@ class ListDeployableReleasesHandler(
                     catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                     catalogName = rs.getString("catalog_name"),
                     version = rs.getString("version"),
+                    namespace = rs.getString("namespace"),
                 )
             }
             .list()

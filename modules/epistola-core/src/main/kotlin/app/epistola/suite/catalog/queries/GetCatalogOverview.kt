@@ -4,6 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogNamesApplier
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogRelease
 import app.epistola.suite.catalog.releases.CatalogReleaseReader
@@ -15,6 +18,7 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -54,7 +58,12 @@ data class CatalogOverview(
     val notReady: Int?,
     val served: Map<String, List<String>>,
     val readOnlyReason: CatalogReadOnlyReason? = null,
+    /** Another catalog of the tenant has the same key (ADR 0034), so this one is named by namespace too. */
+    val sharesKey: Boolean = false,
 ) {
+    /** How its pages address it: its key, or `namespace/key` when another catalog has the same key. */
+    val segment: String get() = if (sharesKey) "$namespace/${catalogKey.value}" else catalogKey.value
+
     /** Whether the catalog can be changed here: it has drafts to work in, and releases them. */
     val editable: Boolean get() = readOnlyReason == null
 
@@ -75,35 +84,41 @@ class GetCatalogOverviewHandler(
     private val jdbi: Jdbi,
     private val versions: CatalogReleaseReader,
     private val readyMarks: ReadyMarks,
+    private val catalogNames: CatalogNamesApplier,
 ) : QueryHandler<GetCatalogOverview, List<CatalogOverview>> {
     override fun handle(query: GetCatalogOverview): List<CatalogOverview> {
         val editability = ListCatalogEditability(query.tenantKey).query()
         val catalogs = ListCatalogs(query.tenantKey).query()
-            .sortedWith(compareBy({ !editability.editable(it.id) }, { it.name.lowercase() }))
-        return jdbi.withHandle<List<CatalogOverview>, Exception> { handle ->
-            catalogs.map { catalog ->
-                val all = versions.all(handle, query.tenantKey, catalog.id)
-                // A catalog that cannot be changed here has a next version only to hold what it
-                // received (ADR 0032): there is no draft for anyone to work in.
-                val reason = editability.of(catalog.id)?.reason
-                val editable = reason == null
-                val drafts = if (editable) all.filter { it.status == CatalogReleaseStatus.DRAFT } else emptyList()
-                val releases = all.filter { it.status == CatalogReleaseStatus.RELEASED }
-                val base = all.firstOrNull { it.isNext }?.base?.takeUnless { editable }
-                CatalogOverview(
-                    catalogKey = catalog.id,
-                    name = catalog.name,
-                    namespace = catalog.namespace,
-                    drafts = drafts.map { DraftOverview(it.versionId, it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
-                    latestRelease = (base?.let { b -> releases.firstOrNull { it.version == b } } ?: releases.firstOrNull())
-                        ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
-                    // The current version's readiness: the next version's.
-                    notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, query.tenantKey, catalog.id).count { !it.value },
-                    served = servedBy(releases),
-                    readOnlyReason = reason,
-                )
+            .sortedWith(compareBy({ !editability.editable(it.address) }, { it.name.lowercase() }))
+        val shared = catalogs.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
+        // Each catalog read in its namespace: two can share a key (ADR 0034, phase 4).
+        return catalogs.map { catalog ->
+            catalogNames.named(catalog.id, catalog.namespace) {
+                jdbi.withHandle<CatalogOverview, Exception> { handle -> overview(handle, query.tenantKey, catalog, editability.of(catalog.address)?.reason).copy(sharesKey = catalog.id in shared) }
             }
         }
+    }
+
+    private fun overview(handle: Handle, tenantKey: TenantKey, catalog: Catalog, reason: CatalogReadOnlyReason?): CatalogOverview {
+        val all = versions.all(handle, tenantKey, catalog.id)
+        // A catalog that cannot be changed here has a next version only to hold what it
+        // received (ADR 0032): there is no draft for anyone to work in.
+        val editable = reason == null
+        val drafts = if (editable) all.filter { it.status == CatalogReleaseStatus.DRAFT } else emptyList()
+        val releases = all.filter { it.status == CatalogReleaseStatus.RELEASED }
+        val base = all.firstOrNull { it.isNext }?.base?.takeUnless { editable }
+        return CatalogOverview(
+            catalogKey = catalog.id,
+            name = catalog.name,
+            namespace = catalog.namespace,
+            drafts = drafts.map { DraftOverview(it.versionId, it.label, it.isNext, it.base, it.behind.map { behind -> behind.version }) },
+            latestRelease = (base?.let { b -> releases.firstOrNull { it.version == b } } ?: releases.firstOrNull())
+                ?.let { ReleaseOverview(requireNotNull(it.version), it.releasedAt) },
+            // The current version's readiness: the next version's.
+            notReady = if (drafts.isEmpty()) null else readyMarks.readiness(handle, tenantKey, catalog.id).count { !it.value },
+            served = servedBy(releases),
+            readOnlyReason = reason,
+        )
     }
 
     private fun servedBy(releases: List<CatalogRelease>): Map<String, List<String>> = releases

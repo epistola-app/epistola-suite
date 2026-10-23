@@ -80,7 +80,7 @@ data class CatalogInfo(
             installedAt = catalog.installedAt,
             releasedVersion = catalog.highestReleaseVersion,
             fingerprint = catalog.highestReleaseFingerprint,
-            contentHash = hashes.of(catalog.id, catalog.highestReleaseVersion),
+            contentHash = hashes.of(app.epistola.suite.catalog.CatalogAddress(catalog.namespace, catalog.id), catalog.highestReleaseVersion),
             createdAt = catalog.createdAt,
             updatedAt = catalog.updatedAt,
         )

@@ -300,13 +300,13 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val setup = setup("override-latest")
         deployDraft(setup, test)
 
-        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, production).query() })
+        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, production).query().mapKeys { it.key.key } })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
-        assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query() }.getValue(default) as CatalogSelection.Draft).source.label)
+        assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query().mapKeys { it.key.key } }.getValue(default) as CatalogSelection.Draft).source.label)
             .isEqualTo("Next release")
 
         withMediator { UndeployCatalogRelease(env(setup, test), default, nextVersion(setup)).execute() }
-        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query() })
+        assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query().mapKeys { it.key.key } })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
     }
 

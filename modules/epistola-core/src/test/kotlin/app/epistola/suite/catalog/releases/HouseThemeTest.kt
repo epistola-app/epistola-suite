@@ -56,7 +56,7 @@ class HouseThemeTest : IntegrationTestBase() {
             SetTenantDefaultTheme(tenant.id, house.themeKey, catalogKey = brand).execute()
             val result = ApplyHouseTheme(tenant.id).execute()
 
-            assertThat(result.applied).contains(letters, brand)
+            assertThat(result.applied.map { it.key }).contains(letters, brand)
             assertThat(GetCatalogThemeSettings(tenant.id, letters).query().defaultTheme).isEqualTo(house)
             assertThat(GetCatalogThemeSettings(tenant.id, brand).query().defaultTheme).isEqualTo(house)
         }

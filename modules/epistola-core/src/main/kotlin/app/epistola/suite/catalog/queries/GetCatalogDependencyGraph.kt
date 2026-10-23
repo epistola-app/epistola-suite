@@ -12,12 +12,13 @@ import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
-/** A catalog in the dependency graph. */
+/** A catalog in the dependency graph. Two can share a key; [namespace] tells them apart (ADR 0034). */
 data class CatalogGraphNode(
     val catalogKey: String,
     val name: String,
     /** `registry/namespace/key`: how a dependency names it. */
     val identity: String,
+    val namespace: String = "",
 )
 
 /**
@@ -32,6 +33,9 @@ data class CatalogGraphEdge(
     val to: String?,
     val toIdentity: String,
     val release: String?,
+    /** The namespaces of [from] and [to], which tell two catalogs sharing a key apart (ADR 0034). */
+    val fromNamespace: String = "",
+    val toNamespace: String? = null,
 )
 
 data class CatalogDependencyGraph(val nodes: List<CatalogGraphNode>, val edges: List<CatalogGraphEdge>)
@@ -55,17 +59,17 @@ class GetCatalogDependencyGraphHandler(
     override fun handle(query: GetCatalogDependencyGraph): CatalogDependencyGraph = jdbi.withHandle<CatalogDependencyGraph, Exception> { handle ->
         val nodes = handle.createQuery(
             """
-            SELECT catalog_key, name, registry || '/' || namespace || '/' || catalog_key AS identity
+            SELECT catalog_key, namespace, name, registry || '/' || namespace || '/' || catalog_key AS identity
             FROM catalogs WHERE tenant_key = :t
-            ORDER BY name, catalog_key
+            ORDER BY name, catalog_key, namespace
             """,
         )
             .bind("t", query.tenantKey)
-            .map { rs, _ -> CatalogGraphNode(rs.getString("catalog_key"), rs.getString("name"), rs.getString("identity")) }
+            .map { rs, _ -> CatalogGraphNode(rs.getString("catalog_key"), rs.getString("name"), rs.getString("identity"), rs.getString("namespace")) }
             .list()
         val edges = handle.createQuery(
             """
-            SELECT owner.catalog_key AS from_key, target.catalog_key AS to_key,
+            SELECT owner.catalog_key AS from_key, owner.namespace AS from_namespace, target.catalog_key AS to_key, target.namespace AS to_namespace,
                    d.registry || '/' || d.namespace || '/' || d.dependency_key AS to_identity,
                    d.release_version
             FROM catalog_dependencies d
@@ -74,12 +78,12 @@ class GetCatalogDependencyGraphHandler(
             LEFT JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry
                                      AND target.namespace = d.namespace AND target.catalog_key = d.dependency_key
             WHERE d.tenant_key = :t
-            ORDER BY owner.catalog_key, d.position
+            ORDER BY owner.catalog_key, owner.namespace, d.position
             """,
         )
             .bind("t", query.tenantKey)
             .map { rs, _ ->
-                CatalogGraphEdge(rs.getString("from_key"), rs.getString("to_key"), rs.getString("to_identity"), rs.getString("release_version"))
+                CatalogGraphEdge(rs.getString("from_key"), rs.getString("to_key"), rs.getString("to_identity"), rs.getString("release_version"), rs.getString("from_namespace"), rs.getString("to_namespace"))
             }
             .list()
         CatalogDependencyGraph(nodes, edges)

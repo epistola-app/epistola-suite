@@ -65,7 +65,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("only what was deployed").containsExactly("letters@1.0.0")
         val implicit = withMediator { ListImplicitDeployments(tenant, production.key).query() }
-        assertThat(implicit.map { Triple(it.catalogKey.value, it.version, it.neededBy.map { k -> k.value }) })
+        assertThat(implicit.map { Triple(it.catalogKey.value, it.version, it.neededBy.map { k -> k.key.value }) })
             .containsExactly(Triple("shared", "1.0.0", listOf("letters")))
     }
 

@@ -55,6 +55,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
@@ -146,7 +147,7 @@ class EpistolaCatalogApi(
         val slice = Pagination.paginate(catalogs, page, size)
         val editability = ListCatalogEditability(tenant).query()
         val hashes = ListReleaseContentHashes(tenant).query()
-        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.id), hashes) }))
+        return ResponseEntity.ok(CatalogListResponse(page = slice.page, items = slice.items.map { it.toDto(editability.of(it.address), hashes) }))
     }
 
     /**
@@ -610,7 +611,7 @@ class EpistolaCatalogApi(
             source = sourceUrl,
             highestVersion = highestReleaseVersion,
             fingerprint = highestReleaseFingerprint,
-            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(id, highestReleaseVersion),
+            contentHash = (hashes ?: ListReleaseContentHashes(tenantKey).query()).of(address, highestReleaseVersion),
         )
     }
 

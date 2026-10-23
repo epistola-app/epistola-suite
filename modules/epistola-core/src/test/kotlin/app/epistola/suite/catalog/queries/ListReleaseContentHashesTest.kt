@@ -47,7 +47,7 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
     }
 
     /** The releases in it but the bundled `system` catalog's, which every tenant has. */
-    private fun ReleaseContentHashes.authored() = byRelease.keys.filterNot { it.first == SYSTEM_CATALOG_KEY }
+    private fun ReleaseContentHashes.authored() = byRelease.keys.filterNot { it.first.key == SYSTEM_CATALOG_KEY }.map { it.first.key to it.second }
 
     private fun recorded(tenant: TenantKey, key: CatalogKey): Map<String?, String?> = withMediator {
         ListCatalogReleases(tenant, key, CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
@@ -87,7 +87,7 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
         released(tenant, letters, "1.0.0")
         val hash = recorded(tenant, letters)["1.0.0"]!!
         val hashes = withMediator { ListReleaseContentHashes(tenant).query() }
-        val pin = CatalogDependencyDeclaration("registry.example", "acme", "letters", releaseVersion = "1.0.0")
+        val pin = CatalogDependencyDeclaration("registry.example", app.epistola.suite.testing.TestNamespaces.of(tenant).namespace, "letters", releaseVersion = "1.0.0")
 
         assertThat(hashes.pinnedBy(pin.copy(releaseFingerprint = "v6:${"a".repeat(64)}"))).`as`("the pin's own").isEqualTo("v6:${"a".repeat(64)}")
         assertThat(hashes.pinnedBy(pin.copy(releaseFingerprint = "v5:${"b".repeat(64)}"))).`as`("a V5 pin: the release's here").isEqualTo(hash)

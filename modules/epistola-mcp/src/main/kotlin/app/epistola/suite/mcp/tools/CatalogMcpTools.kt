@@ -7,6 +7,7 @@ package app.epistola.suite.mcp.tools
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
@@ -60,7 +61,7 @@ class CatalogMcpTools(
         val editability = catalogEditability()
         val hashes = ListReleaseContentHashes(mcpTenantKey()).query()
         return mediator.query(ListCatalogs(mcpTenantKey()))
-            .map { CatalogInfo.from(it, editability.of(it.id) ?: CatalogEditability(null), hashes) }
+            .map { CatalogInfo.from(it, editability.of(it.address) ?: CatalogEditability(null), hashes) }
     }
 
     @McpTool(

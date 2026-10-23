@@ -30,6 +30,8 @@ data class DraftDeployment(
     val catalogKey: CatalogKey,
     val draftId: String,
     val draftLabel: String,
+    /** The catalog's namespace, which tells two catalogs sharing a key apart (ADR 0034). */
+    val namespace: String = "",
 )
 
 /**
@@ -130,12 +132,12 @@ object DraftDeploymentStore {
 
     private fun rows(handle: Handle, tenantKey: TenantKey, filter: String, bind: (org.jdbi.v3.core.statement.Query) -> Unit): List<DraftDeployment> = handle.createQuery(
         """
-        SELECT d.environment_key, c.catalog_key, v.version_key, $LABEL AS label
+        SELECT d.environment_key, c.catalog_key, c.namespace, v.version_key, $LABEL AS label
         FROM environment_catalog_deployments d
         JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
         JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.draft_id
         WHERE d.tenant_key = :t AND d.draft_id IS NOT NULL $filter
-        ORDER BY d.environment_key, c.catalog_key
+        ORDER BY d.environment_key, c.catalog_key, c.namespace
         """,
     )
         .bind("t", tenantKey)
@@ -146,6 +148,7 @@ object DraftDeploymentStore {
                 catalogKey = CatalogKey.of(rs.getString("catalog_key")),
                 draftId = rs.getString("version_key"),
                 draftLabel = rs.getString("label"),
+                namespace = rs.getString("namespace"),
             )
         }
         .list()

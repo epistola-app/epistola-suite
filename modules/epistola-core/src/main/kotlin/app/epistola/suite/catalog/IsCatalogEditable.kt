@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogEditingProperties
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -48,17 +49,24 @@ data class CatalogEditability(val reason: CatalogReadOnlyReason?) {
 
 /**
  * [CatalogEditability] for every catalog of a tenant, from one read, for pages that list resources or
- * catalogs: a list asks this once instead of once per row.
+ * catalogs: a list asks this once instead of once per row. By [CatalogAddress], since two catalogs of
+ * a tenant can share a key (ADR 0034, phase 4).
  */
-data class CatalogEditabilities(val byCatalog: Map<CatalogKey, CatalogEditability>) {
+data class CatalogEditabilities(val byCatalog: Map<CatalogAddress, CatalogEditability>) {
     /** The catalog's editability; null for a catalog the tenant does not have. */
-    fun of(catalogKey: CatalogKey): CatalogEditability? = byCatalog[catalogKey]
+    fun of(catalog: CatalogAddress): CatalogEditability? = byCatalog[catalog]
+
+    /** By key alone, as [CatalogAddress.lookUp] reads one; null for a catalog the tenant does not have. */
+    fun of(catalogKey: CatalogKey): CatalogEditability? = CatalogAddress.lookUp(byCatalog, catalogKey)
+
+    /** Whether the catalog can be changed here; false for one the tenant does not have. */
+    fun editable(catalog: CatalogAddress): Boolean = of(catalog)?.editable == true
 
     /** Whether the catalog can be changed here; false for one the tenant does not have. */
     fun editable(catalogKey: CatalogKey): Boolean = of(catalogKey)?.editable == true
 
     /** The catalogs that can be changed here. */
-    val editableKeys: Set<CatalogKey> get() = byCatalog.filterValues { it.editable }.keys
+    val editableCatalogs: Set<CatalogAddress> get() = byCatalog.filterValues { it.editable }.keys
 }
 
 /**
@@ -126,13 +134,13 @@ class ListCatalogEditabilityHandler(
     override fun handle(query: ListCatalogEditability): CatalogEditabilities = jdbi.withHandle<CatalogEditabilities, Exception> { handle ->
         val supplied = handle.createQuery(
             """
-            SELECT catalog_key, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied
+            SELECT namespace, catalog_key, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied
             FROM catalogs
             WHERE tenant_key = :tenantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .map { rs, _ -> CatalogKey.of(rs.getString("catalog_key")) to rs.getBoolean("supplied") }
+            .map { rs, _ -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) to rs.getBoolean("supplied") }
             .list()
         CatalogEditabilities(supplied.associate { (key, isSupplied) -> key to CatalogEditability.of(isSupplied, editing.enabled) })
     }

@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogAddress
+import app.epistola.suite.catalog.CatalogNamesApplier
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
@@ -59,7 +61,7 @@ object HouseTheme {
 }
 
 /** Which catalogs [ApplyHouseTheme] gave the house theme, and which it could not (no next version). */
-data class ApplyHouseThemeResult(val applied: List<CatalogKey>, val skipped: List<CatalogKey>)
+data class ApplyHouseThemeResult(val applied: List<CatalogAddress>, val skipped: List<CatalogAddress>)
 
 /**
  * Makes the house theme the default theme of every catalog of the tenant that can be changed here
@@ -77,15 +79,18 @@ data class ApplyHouseTheme(
 class ApplyHouseThemeHandler(
     private val jdbi: Jdbi,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val catalogNames: CatalogNamesApplier,
 ) : CommandHandler<ApplyHouseTheme, ApplyHouseThemeResult> {
     override fun handle(command: ApplyHouseTheme): ApplyHouseThemeResult {
-        val editable = ListCatalogEditability(command.tenantKey).query().editableKeys.sortedBy { it.value }
-        val outcome = jdbi.inTransaction<List<Pair<CatalogKey, CatalogKey?>>, Exception> { handle ->
-            editable.map { catalog -> catalog to HouseTheme.applyTo(handle, command.tenantKey, catalog) }
-        }
-        // A house theme of another catalog is a use of that catalog, declared as any reference is.
-        outcome.forEach { (catalog, themeCatalog) ->
-            themeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(command.tenantKey, catalog, it) }
+        val editable = ListCatalogEditability(command.tenantKey).query().editableCatalogs.sortedWith(compareBy({ it.key.value }, { it.namespace }))
+        // Each catalog in its namespace, since two can share a key (ADR 0034, phase 4).
+        val outcome = editable.map { catalog ->
+            catalogNames.named(catalog.key, catalog.namespace) {
+                val themeCatalog = jdbi.inTransaction<CatalogKey?, Exception> { handle -> HouseTheme.applyTo(handle, command.tenantKey, catalog.key) }
+                // A house theme of another catalog is a use of that catalog, declared as any reference is.
+                themeCatalog?.takeIf { it != catalog.key }?.let { usedCatalogs.declare(command.tenantKey, catalog.key, it) }
+                catalog to themeCatalog
+            }
         }
         return ApplyHouseThemeResult(
             applied = outcome.filter { it.second != null }.map { it.first },

@@ -4,8 +4,11 @@
 
 package app.epistola.suite.catalog.dependencies
 
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.CatalogNamesApplier
 import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
@@ -30,6 +33,7 @@ class MissingDependencyDeclarer(
     private val jdbi: Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val store: CatalogDependencyStore,
+    private val catalogNames: CatalogNamesApplier,
 ) {
     /** @return the declarations added. */
     fun declareMissing(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> {
@@ -71,7 +75,9 @@ class MissingDependencyDeclarer(
      * reference whose catalog this tenant has no catalog of that key for, which no declaration can name.
      */
     fun unknownCatalogs(tenantKey: TenantKey, catalogKey: CatalogKey, source: ContentSource): List<String> {
-        val known = jdbi.withHandle<Set<String>, Exception> { handle -> names(handle, tenantKey).keys }
+        val known = jdbi.withHandle<Set<String>, Exception> { handle ->
+            handle.createQuery("SELECT catalog_key FROM catalogs WHERE tenant_key = :t").bind("t", tenantKey).mapTo(String::class.java).set()
+        }
         return contentBuilder.build(tenantKey, catalogKey, source).dependencies.orEmpty()
             .map { it.catalogKey }
             .filter { it !in known }
@@ -79,12 +85,21 @@ class MissingDependencyDeclarer(
             .sorted()
     }
 
-    /** Every catalog of the tenant by key, which is unique in a tenant, with its registry and namespace. */
+    /**
+     * Every catalog of the tenant by key, with its registry and namespace. Two catalogs can share a key
+     * (ADR 0034, phase 4): such a key means the one the running work names ([CatalogNames]), and,
+     * named nowhere, none, since a reference by it could mean either.
+     */
     private fun names(handle: Handle, tenantKey: TenantKey): Map<String, Triple<String, String, String>> = handle
         .createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t")
         .bind("t", tenantKey)
-        .map { rs, _ -> rs.getString("catalog_key").let { it to Triple(rs.getString("registry"), rs.getString("namespace"), it) } }
+        .map { rs, _ -> Triple(rs.getString("registry"), rs.getString("namespace"), rs.getString("catalog_key")) }
         .list()
+        .groupBy { it.third }
+        .mapNotNull { (key, catalogs) ->
+            val named = CatalogNames.current()[key]
+            (if (named != null) catalogs.firstOrNull { it.second == named } else catalogs.singleOrNull())?.let { key to it }
+        }
         .toMap()
 
     /**
@@ -103,9 +118,9 @@ class MissingDependencyDeclarer(
         pinned.filter { it !in declarations }
     }
 
-    /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032). */
-    fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogKey, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableKeys
-        .sortedBy { it.value }
-        .associateWith { declareMissing(tenantKey, it) }
+    /** [declareMissing] for every catalog of [tenantKey] that can be changed here (ADR 0032), each in its namespace. */
+    fun declareMissingInTenant(tenantKey: TenantKey): Map<CatalogAddress, List<CatalogDependencyDeclaration>> = ListCatalogEditability(tenantKey).query().editableCatalogs
+        .sortedWith(compareBy({ it.key.value }, { it.namespace }))
+        .associateWith { catalog -> catalogNames.named(catalog.key, catalog.namespace) { declareMissing(tenantKey, catalog.key) } }
         .filterValues { it.isNotEmpty() }
 }

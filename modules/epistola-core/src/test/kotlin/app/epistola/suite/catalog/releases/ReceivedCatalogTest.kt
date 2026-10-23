@@ -194,9 +194,9 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             ImportCatalogZip(receiver, authored(author, catalog)).execute()
 
             val all = ListCatalogEditability(receiver).query()
-            assertThat(all.byCatalog.keys).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
-            all.byCatalog.forEach { (key, editability) -> assertThat(editability).`as`(key.value).isEqualTo(GetCatalogEditability(receiver, key).query()) }
-            assertThat(all.editableKeys).contains(catalog, CatalogKey.DEFAULT).doesNotContain(SYSTEM_CATALOG_KEY)
+            assertThat(all.byCatalog.keys.map { it.key }).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
+            all.byCatalog.forEach { (address, editability) -> assertThat(editability).`as`(address.toString()).isEqualTo(GetCatalogEditability(receiver, address.key).query()) }
+            assertThat(all.editableCatalogs.map { it.key }).contains(catalog, CatalogKey.DEFAULT).doesNotContain(SYSTEM_CATALOG_KEY)
             assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
             assertThat(all.editable(CatalogKey.of("not-here"))).isFalse()
         }

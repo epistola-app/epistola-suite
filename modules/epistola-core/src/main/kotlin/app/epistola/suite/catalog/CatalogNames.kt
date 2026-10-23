@@ -10,9 +10,12 @@ import app.epistola.suite.validation.ValidationException
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.sql.SQLException
 
 /**
@@ -66,6 +69,22 @@ object CatalogNames {
         return ScopedValue.where(NAMES, current() + names).call<R, RuntimeException> { block() }
     }
 
+    /**
+     * Runs [block] on [handle] with [catalogKey] meaning the catalog in [namespace]: for a walk over
+     * several catalogs on one handle (an environment's releases and what they are pinned to), where
+     * two can share a key. The names go into the handle's transaction, one begun when it has none, for
+     * the length of [block], and what the transaction held before is put back after.
+     */
+    fun <R> on(handle: Handle, catalogKey: CatalogKey, namespace: String, block: () -> R): R = within(catalogKey, namespace) {
+        handle.inTransaction<R, RuntimeException> {
+            val before = handle.createQuery("SELECT COALESCE(current_setting('$SETTING', TRUE), '')").mapTo(String::class.java).one()
+            apply(handle)
+            val result = block()
+            handle.createQuery("SELECT set_config('$SETTING', :value, TRUE)").bind("value", before).mapTo(String::class.java).one()
+            result
+        }
+    }
+
     /** Writes [names] into [handle]'s transaction, for `epistola_catalog_id`. */
     fun apply(handle: Handle, names: Map<String, String> = current()) {
         handle.createQuery("SELECT set_config('$SETTING', :value, TRUE)")
@@ -107,7 +126,10 @@ object CatalogNames {
  * restores it when the work ends.
  */
 @Component
-class CatalogNamesApplier(private val jdbi: Jdbi) {
+class CatalogNamesApplier(
+    private val jdbi: Jdbi,
+    private val transactionManager: ObjectProvider<PlatformTransactionManager>,
+) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Runs [block] with [CatalogNames.current] written into the transaction, if one is active. */
@@ -131,8 +153,15 @@ class CatalogNamesApplier(private val jdbi: Jdbi) {
         }
     }
 
-    /** Runs [block] with [catalogKey] meaning the catalog in [namespace], in this transaction too. */
-    fun <R> named(catalogKey: CatalogKey, namespace: String, block: () -> R): R = CatalogNames.within(catalogKey, namespace) { run(block) }
+    /**
+     * Runs [block] with [catalogKey] meaning the catalog in [namespace], in this transaction too: for a
+     * handler that learns a namespace itself, or one that walks every catalog of a tenant and reads each
+     * by key. With no transaction running, [block] gets one of its own, since the names live in one.
+     */
+    fun <R> named(catalogKey: CatalogKey, namespace: String, block: () -> R): R = CatalogNames.within(catalogKey, namespace) {
+        val manager = transactionManager.ifAvailable
+        if (TransactionSynchronizationManager.isActualTransactionActive() || manager == null) run(block) else TransactionTemplate(manager).execute { run(block) }
+    }
 
     private fun write(names: Map<String, String>) {
         jdbi.useHandle<Exception> { CatalogNames.apply(it, names) }

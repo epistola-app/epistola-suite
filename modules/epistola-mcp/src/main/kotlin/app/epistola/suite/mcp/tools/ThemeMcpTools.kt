@@ -5,7 +5,6 @@
 package app.epistola.suite.mcp.tools
 
 import app.epistola.suite.catalog.releases.ApplyHouseTheme
-import app.epistola.suite.catalog.releases.ApplyHouseThemeResult
 import app.epistola.suite.catalog.releases.AvailablePreset
 import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogPreset
@@ -294,10 +293,11 @@ class ThemeMcpTools(
         name = "apply_house_theme",
         description = "Make the tenant's house theme (its default theme, never used while rendering) the default theme " +
             "of every catalog the tenant authors, in each one's next release. Each takes it on its next publish. " +
-            "Returns which catalogs took it and which had no next release.",
+            "Returns which catalogs took it and which had no next release, each by its `address`, `namespace/key`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )
-    fun applyHouseTheme(): ApplyHouseThemeResult = ApplyHouseTheme(mcpTenantId().key).execute()
+    fun applyHouseTheme(): HouseThemeApplied = ApplyHouseTheme(mcpTenantId().key).execute()
+        .let { result -> HouseThemeApplied(result.applied.map { it.toString() }, result.skipped.map { it.toString() }) }
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
@@ -311,3 +311,6 @@ class ThemeMcpTools(
         )
     }
 }
+
+/** Which catalogs [ThemeMcpTools.applyHouseTheme] gave the house theme, and which it could not, by address (`namespace/key`). */
+data class HouseThemeApplied(val applied: List<String>, val skipped: List<String>)

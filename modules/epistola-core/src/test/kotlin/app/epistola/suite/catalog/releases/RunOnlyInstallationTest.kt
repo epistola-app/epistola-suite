@@ -42,7 +42,7 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
         withMediator {
             assertThat(GetCatalogEditability(tenant, CatalogKey.DEFAULT).query().reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
             ListCatalogEditability(tenant).query().let { all ->
-                assertThat(all.editableKeys).isEmpty()
+                assertThat(all.editableCatalogs).isEmpty()
                 assertThat(all.of(CatalogKey.DEFAULT)?.reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
                 assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).`as`("supplied wins: it is not changed even where editing is on").isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
             }

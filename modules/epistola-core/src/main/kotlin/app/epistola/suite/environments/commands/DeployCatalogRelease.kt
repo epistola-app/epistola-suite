@@ -4,6 +4,8 @@
 
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.catalog.CatalogAddress
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.DraftRef
@@ -122,7 +124,7 @@ class DeployCatalogReleaseHandler(
             if (command.includeDependencies) {
                 dependencies.missing(handle, tenantKey, environmentKey, command.catalogKey, command.version)
                     .filter { it.reason == MissingDependencyReason.NOT_DEPLOYED }
-                    .forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
+                    .forEach { CatalogNames.on(handle, it.tenantCatalogKey, it.namespace) { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) } }
             }
             return deployment
         }
@@ -135,7 +137,7 @@ class DeployCatalogReleaseHandler(
             throw ReleaseDependenciesMissingException(environmentKey, command.catalogKey, command.version, unrenderable, includedDependencies = command.includeDependencies)
         }
         // Asked to deploy them too: the ones the environment does not serve yet.
-        if (command.includeDependencies) missing.forEach { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) }
+        if (command.includeDependencies) missing.forEach { CatalogNames.on(handle, it.tenantCatalogKey, it.namespace) { deploy(handle, command, it.tenantCatalogKey, it.releaseVersion) } }
         // Replacing: the others stop being served first, so the release is logged as replacing the
         // one it took the place of ("made v1.1.0 live, replacing v1.0.0"); more than one replaced
         // are each logged as taken offline.
@@ -186,9 +188,9 @@ class DeployCatalogReleaseHandler(
         if (command.includeDependencies) {
             val served = dependencies.served(handle, tenantKey, environmentKey).toSet()
             dependencyStore.declarationsOf(handle, tenantKey, versionId)
-                .mapNotNull { declaration -> declaration.releaseVersion?.let { CatalogKey.of(declaration.catalogKey) to it } }
+                .mapNotNull { declaration -> declaration.releaseVersion?.let { CatalogAddress(declaration.namespace, CatalogKey.of(declaration.catalogKey)) to it } }
                 .filter { it !in served }
-                .forEach { (catalog, version) -> deploy(handle, command, catalog, version) }
+                .forEach { (catalog, version) -> CatalogNames.on(handle, catalog.key, catalog.namespace) { deploy(handle, command, catalog.key, version) } }
         }
         return deployment(handle, tenantKey, environmentKey, command.catalogKey, draftId = versionId)
     }

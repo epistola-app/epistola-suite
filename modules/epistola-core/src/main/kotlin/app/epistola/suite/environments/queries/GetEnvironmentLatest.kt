@@ -4,6 +4,8 @@
 
 package app.epistola.suite.environments.queries
 
+import app.epistola.suite.catalog.CatalogAddress
+import app.epistola.suite.catalog.CatalogNamesApplier
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -24,7 +26,7 @@ import org.springframework.stereotype.Component
 data class GetEnvironmentLatest(
     override val tenantKey: TenantKey,
     val environmentKey: EnvironmentKey,
-) : Query<Map<CatalogKey, CatalogSelection>>,
+) : Query<Map<CatalogAddress, CatalogSelection>>,
     RequiresPermission {
     override val permission get() = Permission.TEMPLATE_VIEW
 }
@@ -33,20 +35,22 @@ data class GetEnvironmentLatest(
 class GetEnvironmentLatestHandler(
     private val jdbi: Jdbi,
     private val resolver: ReleaseTargetResolver,
-) : QueryHandler<GetEnvironmentLatest, Map<CatalogKey, CatalogSelection>> {
-    override fun handle(query: GetEnvironmentLatest): Map<CatalogKey, CatalogSelection> {
-        val catalogs = jdbi.withHandle<List<CatalogKey>, Exception> { handle ->
-            val served = handle.createQuery(
+    private val catalogNames: CatalogNamesApplier,
+) : QueryHandler<GetEnvironmentLatest, Map<CatalogAddress, CatalogSelection>> {
+    override fun handle(query: GetEnvironmentLatest): Map<CatalogAddress, CatalogSelection> {
+        val catalogs = jdbi.withHandle<List<CatalogAddress>, Exception> { handle ->
+            handle.createQuery(
                 """
-                SELECT DISTINCT c.catalog_key FROM environment_catalog_deployments d
+                SELECT DISTINCT c.namespace, c.catalog_key FROM environment_catalog_deployments d
                 JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
                 WHERE d.tenant_key = :t AND d.environment_key = :e
                 """,
             )
                 .bind("t", query.tenantKey).bind("e", query.environmentKey)
-                .mapTo(String::class.java).list().map { CatalogKey.of(it) }
-            served.distinct()
+                .map { rs, _ -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) }
+                .list()
         }
-        return catalogs.associateWith { resolver.select(query.tenantKey, it, query.environmentKey, null) }
+        // Each catalog in its namespace: two can share a key (ADR 0034).
+        return catalogs.associateWith { catalogNames.named(it.key, it.namespace) { resolver.select(query.tenantKey, it.key, query.environmentKey, null) } }
     }
 }
