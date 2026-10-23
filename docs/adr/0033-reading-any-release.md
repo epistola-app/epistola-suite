@@ -1,6 +1,6 @@
 # ADR 0033: Reading any release, draft or released
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-10-23; to be built after 2.0, #1125)
 - **Date:** 2026-10-21
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, storage, database, performance
@@ -184,36 +184,67 @@ Option 3 is therefore not a detour but the first step of option 4.
 - **Release reads that do not load what they do not show:** a list reads entries (key, name, type)
   only; a resource reads its revision; binaries are read when shown, with an index on
   `revision_binaries (tenant_key, content_hash)`.
-- **A slimmer `manifest_snapshot`:** catalog-level data only, the resource list being the entries.
+- **A slimmer `manifest_snapshot`:** ca## Decision
 
-## Decision
+Decided 2026-10-23: **every resource is stored as JSON, drafts included**, in the contract's wire form
+per resource. The content tables go. This is option 4 without its content addressing for drafts
+(**4A**); content-addressed drafts (**4B**) may follow later, contained in the store.
 
-Open. The recommendation is **option 3 now, with option 4 as its natural continuation**, and option 2
-only as an implementation detail of the release side where a view is the simplest correct query:
+### Storage
 
-- it keeps the storage model that makes 2.5 million releases affordable, and its deduplication;
-- it gives every surface one way to read a version, removing REST's duplicated paths rather than
-  adding a third;
-- the interface is exactly where option 4 later swaps the draft implementation, type by type, without
-  touching the pages again (option 4's phasing).
+```
+catalog_releases     one row per release, draft or released (ADR 0032 §9; catalog_versions folds in)
+release_entries      one row per resource per release
+  release_row_id, resource_type, resource_key, resource_id (ResourceIdentity),
+  name and the summary columns a list needs (variant count, media type, …),
+  draft:    content JSONB, edited in place
+  released: digest → resource_revisions
+  revision (optimistic locking), ready mark, updated_at, updated_by
+resource_revisions   released content by digest, once per tenant (exists)
+revision_references  what a resource's content refers to: {alias | own catalog, type, key} (new)
+revision_binaries → asset_content   bytes (exist)
+```
 
-Together with option 4 this completes the consolidation ADR 0032 §9 starts: one table of releases,
-draft or released; one table of entries; one content store. The content tables and
-`catalog_versions` then go.
+- **A draft's resource** is one JSON document on its entry, validated against the contract's schema
+  for its type when it is written. Releasing stores it as a revision by digest (deduplicated as now)
+  and points the released entry at it. Starting a draft from a release copies the release's
+  content into the draft's entries.
+- **Lists and searches** read the entries' summary columns, never the JSON.
+- **References between resources** are not foreign keys. A write checks that what the content refers
+  to resolves (as the merge already checks), and records the references in the reference index,
+  for drafts on write, for revisions once. Usages and the graph join entries to the index.
+- **Large parts** stay apart where they already are: a template's variant models are their own
+  documents (one per variant, as the revisions lift them), bytes stay in `asset_content`.
 
-Before committing to it, measure on a realistic data set: a release list and a resource read through
-the release implementation, cold and cached, and the reference index's size per revision.
+### Reading
 
-## Consequences (of option 3)
+- **One mapper per resource type** turns the JSON into the domain model the pages use, for drafts and
+  releases alike. Every surface (pages, REST, MCP, the editor, rendering) reads a resource through
+  one read interface given a version that is a draft or a release; REST's `isDraft` branches go.
+- **4B stays open without touching any reader:** only the store under the mapper changes (a draft
+  entry pointing at a revision written per save instead of holding the JSON, plus a collector of
+  unused revisions). Nothing above the read interface may depend on where a draft's JSON lives.
 
-- A version reference that names a draft or a release (extending `CatalogVersionRef` / `DraftRef`,
-  and the UI's `CatalogSegment`, `letters@<releaseId>`), with "released, read-only" enforced by the
-  write guard.
-- Read models per resource type, with a draft and a release implementation; REST, MCP, the UI and the
-  editor read through them.
-- The editor gains a read-only mode for templates.
-- A reference index per revision, backfilled for existing revisions.
-- The release read path stops assembling whole releases for lists.
+### How it is built
+
+Per resource type, themes first (and measured: a list and a resource read, cold and cached, on
+realistic data), then code lists, attributes, stencils, images, fonts, templates last (variants, the
+editor). Per type, one step: its reads through the interface, its commands writing the entry's JSON,
+and a forward, data-preserving migration moving its draft rows into entries. A content table is
+dropped only after its data has moved; `catalog_versions` folds into `catalog_releases` when no
+content row refers to it. Modules querying the content tables directly (quality, load test) move
+with their type.
+
+## Consequences
+
+- A version reference names a draft or a release (`CatalogVersionRef`), with "released, read-only"
+  enforced by the write guard; the UI addresses one as `/catalogs/{namespace}/{key}[@{version}]/…`.
+- Every release opens like a draft, read-only; the editor gains a read-only mode for templates.
+- About 50 write commands change to build valid JSON instead of updating columns; the contract's
+  schema per resource becomes what the column types were.
+- Drafts still copy content when they start (4A); 4B removes that if it matters.
+
+elease read path stops assembling whole releases for lists.
 
 ## Related
 

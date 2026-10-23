@@ -1,6 +1,6 @@
 # ADR 0034: Releases are content-addressed; names point at them
 
-- **Status:** Proposed (direction agreed 2026-10-22; implemented in phases, 1 to 3 done, 4 in part)
+- **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 in part)
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -139,6 +139,31 @@ The hash proves content; a **signature** over a binding proves who named it. Key
 and are published by their authority (the Exchange for its namespaces, the domain's `.well-known`
 otherwise). A tenant can require signed bindings for an authority. Signing is a later phase; until
 then bindings are trusted as the installation receives them, and the hash still guarantees the content.
+
+### 9. In the suite: one address per catalog, stored by id
+
+Decided 2026-10-23, to be built after 2.0 together with ADR 0033's storage (#1125). Until then two
+catalogs with one key are the alpha feature `shared-catalog-keys`.
+
+- **Stored references point at `catalog_id`**, the catalog's UUID, never at a name: foreign keys,
+  pins, deployments, jobs, findings, exchange bindings, snapshots. A rename (promotion from `local`, a
+  new namespace) changes the catalog's row and nothing else.
+- **In the code a catalog is `CatalogId(namespace, key, tenant)`**, its full address (the authority
+  joins when uniqueness becomes the full name). Every address names one catalog, so the ambient
+  `CatalogNames` scope and the key-only lookup in `epistola_catalog_id` go. An address is built from
+  the catalog's current name wherever the code reads one (a URL, a row, a dependency row), and resource
+  addresses chain from it as now (`TemplateId(key, catalogId)`).
+- **Content refers by alias**, as written in the release: `{alias, resource key}`, no alias for the
+  catalog's own. Content never holds a namespace or a `CatalogId`, so its hash survives renames.
+- **One resolver** turns a reference into an address: `resolve(from: CatalogId, alias?)` is `from`
+  without an alias, else the name of `from`'s dependency row for that alias. Everything that follows a
+  reference goes through it: theme resolution, stencil expansion (with `from` the stencil's catalog),
+  attribute code lists, usages, the graph, rendering. For a release, `from`'s dependency list is the
+  release's, pinned by hash.
+- **Declaring on use** takes the alias the catalog already declares for the target, else the
+  target's key, else (the key taken as an alias there) a new alias the author confirms.
+- **UI addresses** are `/tenants/{t}/catalogs/{namespace}/{key}[@{version}]/…`; an address by key alone
+  redirects while the key names one catalog.
 
 ## How the situations land
 
