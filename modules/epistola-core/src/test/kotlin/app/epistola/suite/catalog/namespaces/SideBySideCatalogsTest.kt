@@ -99,6 +99,8 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
                 }
             assertThatThrownBy { CreateDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(tenant))), "Which?").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.CATALOG_KEY_AMBIGUOUS) }
+            // A namespace that holds no catalog with the key names none: an answer of none is not asked again without the names.
+            assertThat(CatalogNames.within(letters, "elsewhere") { GetCatalog(tenant, letters).query() }).isNull()
             // The same namespace twice is still one catalog.
             assertThatThrownBy { CreateCatalog(tenant, letters, "Again", namespace = "acme").execute() }.hasMessageContaining("letters")
         }

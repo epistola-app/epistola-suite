@@ -232,7 +232,8 @@ class SpringMediator(
      * transaction, so `epistola_catalog_id` looks each key up in its namespace; restores the caller's
      * names afterwards, for a nested message that gave others.
      */
-    private fun <R> inCatalogNames(block: () -> R): R = catalogNamesApplier?.run(block) ?: block()
+    // Not `?.run(block) ?: block()`: a message that answers null would then run a second time, without the names.
+    private fun <R> inCatalogNames(block: () -> R): R = if (catalogNamesApplier != null) catalogNamesApplier.run(block) else block()
 
     private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }
 
