@@ -69,7 +69,7 @@ A conversion often needs more than a column mapping: a content hash, the referen
 A code migration may call such logic where it is **frozen**: a versioned algorithm whose version,
 once released, never changes meaning, such as the contract's fingerprints (V5, V6). It is frozen by
 **golden vectors**, not by its source: a fixed set of inputs with their expected outputs per version,
-pinned in the contract's conformance fixtures and tested in the suite, so the library may be
+pinned where the algorithm lives (the contract's `fixtures/v1/fingerprints.json`, checked by `CatalogCanonicalizerTest`) and tested again in the suite against the contract version it uses (a copy of the golden archive and its expected values, as test data), so the library may be
 refactored freely as long as each version computes what it always did. A hash of the source is not
 used: it fails on every harmless change and says nothing about the result.
 
