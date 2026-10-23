@@ -76,7 +76,8 @@ git log "$LATEST_TAG"..HEAD --oneline
   heading: a **1–3 sentence** plain-prose summary of the headline user-facing changes and any
   notable breaking change or theme. The in-app dialog (`ChangelogRenderer`) shows it above the
   entries, so write it for end users — lead with `**[user]**`/untagged `feat`/`fix` material
-  and skip deep `**[dev]**` internals. Do **not** start it with `- ` or `### `.
+  and skip deep `**[dev]**` internals. Do **not** start it with `- ` or `### `. End it with how far
+  back the release can be rolled back (recipe: `docs/upgrades.md#rollback`).
 
   ```
   ## [0.23.0] - 2026-06-15
@@ -88,22 +89,6 @@ git log "$LATEST_TAG"..HEAD --oneline
   - **[user]** feat(changelog): **…**
   - **[user]** fix(pdf): **…**
   ```
-
-- **State how far back the release can be rolled back.** Find the newest migration that is not
-  rollback-compatible, then the oldest release that ships it — every release from that one on can
-  run on the schema this release leaves:
-
-  ```bash
-  floor=$(grep -L -x -e '-- rollback-compatible: true' modules/*/src/main/resources/db/migration/*/V*.sql \
-    | xargs -n1 basename | sort | tail -1)
-  for t in $(git tag -l 'v[0-9]*' --sort=v:refname | grep -v -e '-'); do
-    git ls-tree -r --name-only "$t" -- modules | grep -q "/$floor\$" && { echo "$t"; break; }
-  done
-  ```
-
-  No tag found means the floor is a migration this release adds: it cannot be rolled back at all,
-  and the summary says so as a breaking upgrade. Otherwise add one line to the summary — "Can be
-  rolled back to vA.B.C or later." See `docs/upgrades.md#rollback`.
 
 - Commit on a branch, open a PR, merge to `main` (never push to `main` directly):
   `chore(release): vX.Y.Z`.
