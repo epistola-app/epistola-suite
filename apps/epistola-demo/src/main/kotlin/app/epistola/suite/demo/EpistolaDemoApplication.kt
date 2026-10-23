@@ -5,6 +5,7 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.EpistolaSuiteApplication
+import app.epistola.suite.migration.MigrationLauncher
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
@@ -34,5 +35,10 @@ import org.springframework.context.annotation.Import
 class EpistolaDemoApplication
 
 fun main(args: Array<String>) {
+    // As the suite's own entry point: EPISTOLA_MIGRATION_MODE=migrate (the chart's migration Job)
+    // migrates in an isolated context and exits, without the demo application starting.
+    if (MigrationLauncher.requested(args)) {
+        MigrationLauncher.run(args)
+    }
     runApplication<EpistolaDemoApplication>(*args)
 }
