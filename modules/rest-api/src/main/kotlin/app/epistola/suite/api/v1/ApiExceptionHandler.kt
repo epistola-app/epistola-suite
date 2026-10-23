@@ -23,22 +23,38 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
+import app.epistola.suite.catalog.commands.CatalogNameMismatchException
+import app.epistola.suite.catalog.commands.CatalogNameRequiredException
+import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
+import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
+import app.epistola.suite.catalog.merge.MergeNotApplicableException
+import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
+import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.registry.NamespaceNotGrantedException
+import app.epistola.suite.catalog.registry.RegistryArchiveRejectedException
+import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
+import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
+import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
+import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
+import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.releases.CatalogDraftInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
-import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
-import app.epistola.suite.catalog.versions.CatalogDraftInUseException
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
-import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
@@ -75,6 +91,10 @@ import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import jakarta.servlet.http.HttpServletRequest
+import jakarta.validation.ConstraintViolation
+import jakarta.validation.ConstraintViolationException
+import jakarta.validation.ElementKind
+import jakarta.validation.Path
 import org.slf4j.LoggerFactory
 import org.springframework.beans.TypeMismatchException
 import org.springframework.http.HttpHeaders
@@ -86,6 +106,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.ServletWebRequest
 import org.springframework.web.context.request.WebRequest
@@ -93,6 +115,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 import tools.jackson.databind.DatabindException
 import java.sql.SQLException
+import app.epistola.api.error.ProblemDetails as ContractProblemDetails
 
 /**
  * Global exception handler for REST API controllers.
@@ -248,6 +271,24 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     }
 
     /**
+     * A received release renders with rendering defaults this installation lacks (contract
+     * `catalog-rendering-defaults-too-new`, 400), built by the contract's own
+     * [ContractProblemDetails.catalogRenderingDefaultsTooNew], so its members are the contract's.
+     */
+    @ExceptionHandler(ReleaseRenderingDefaultsTooNewException::class)
+    fun handleRenderingDefaultsTooNew(ex: ReleaseRenderingDefaultsTooNewException, request: HttpServletRequest): ResponseEntity<ProblemDetail> {
+        log.warn("Catalog release refused — rendering defaults too new: {}", ex.message)
+        val problem = ContractProblemDetails.catalogRenderingDefaultsTooNew(
+            renderingDefaultsVersion = ex.renderingDefaultsVersion,
+            supportedVersion = ex.supported,
+            detail = ex.message,
+            instance = request.problemInstance(),
+        )
+        problem.title = ApiProblemTypes.CATALOG_RENDERING_DEFAULTS_TOO_NEW.title
+        return ResponseEntity.status(problem.status).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(problem)
+    }
+
+    /**
      * A catalog's source could not be asked (contract `catalog-source-unavailable`): 503, with
      * `Retry-After` when the source gave one, when it could not be reached or did not answer in
      * time; 502 when it answered badly.
@@ -303,9 +344,16 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         AssetInUseException::class,
         EnvironmentInUseException::class,
         CatalogReadOnlyException::class,
+        MergeConflictsUnresolvedException::class,
+        MergeRefusedException::class,
+        MergeNotApplicableException::class,
+        MergeEntryNotFoundException::class,
+        MergePreviewOutdatedException::class,
+        MergeBaseMissingException::class,
         CatalogNotFoundException::class,
         CatalogNotUpgradeableException::class,
         CatalogReleaseVersionException::class,
+        app.epistola.suite.catalog.releases.CatalogDraftUnchangedException::class,
         CatalogUpgradeConflictException::class,
         CatalogSchemaTooNewException::class,
         CatalogSchemaTooOldException::class,
@@ -313,20 +361,29 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         CodeListInUseException::class,
         CodeListNotRefreshableException::class,
         ApiOperationNotImplementedException::class,
-        CatalogVersionNotFoundException::class,
-        CatalogVersionReleasedException::class,
+        CatalogReleaseNotFoundException::class,
+        CatalogReleaseIsReleasedException::class,
         CatalogDraftNameInUseException::class,
         CatalogBundleException::class,
         CatalogDraftIsNextException::class,
         CatalogImportConflictException::class,
+        CatalogReleaseTakenException::class,
+        CatalogNameRequiredException::class,
+        CatalogNameMismatchException::class,
         CatalogImportDependenciesMissingException::class,
         CatalogDraftInUseException::class,
         CatalogDependenciesUnreleasedException::class,
         EnvironmentDeploymentRefusedException::class,
         CatalogHasNoSourceException::class,
+        ReleaseRegistryNotFoundException::class,
+        ReleaseNumberTakenException::class,
+        NamespaceNotGrantedException::class,
+        RegistryReleaseNotFoundException::class,
+        RegistryArchiveRejectedException::class,
+        ReleaseRegistryConflictException::class,
         ResourceModifiedException::class,
-        CatalogVersionBehindException::class,
-        CatalogVersionHeldException::class,
+        CatalogReleaseBehindException::class,
+        CatalogReleaseHeldException::class,
     )
     fun handleMappedApiException(
         ex: Throwable,
@@ -376,6 +433,47 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .body(ex.toProblemDetail(request))
+    }
+
+    /**
+     * A path or query parameter that breaks the contract's constraints (its pattern, its length): 400
+     * `validation-error`, each failure's `field` the parameter as the contract names it. Method
+     * validation of the generated interfaces raises it before the controller runs.
+     */
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(ex: ConstraintViolationException, request: WebRequest): ResponseEntity<Any> {
+        log.warn("Parameter validation failed: {}", ex.message)
+        val errors = ex.constraintViolations.sortedBy { it.propertyPath.toString() }.map {
+            ValidationError(field = parameterName(it), message = it.message ?: "Invalid value", rejectedValue = it.invalidValue?.toString())
+        }
+        return problemEntity(
+            request,
+            HttpHeaders(),
+            ApiProblemTypes.validationProblemType(ValidationCode.GENERIC),
+            "Request parameter validation failed",
+            mapOf("errors" to errors),
+        )
+    }
+
+    /** The name the contract gives the parameter [violation] is about (`@RequestParam`, `@PathVariable`), else its path. */
+    private fun parameterName(violation: ConstraintViolation<*>): String {
+        val nodes = violation.propertyPath.toList()
+        val method = nodes.firstOrNull { it.kind == ElementKind.METHOD }?.name
+        val parameter = nodes.firstOrNull { it.kind == ElementKind.PARAMETER }?.`as`(Path.ParameterNode::class.java)
+        // The annotations are on the generated interface the controller implements.
+        val types = violation.rootBeanClass?.let { listOf(it) + org.springframework.util.ClassUtils.getAllInterfacesForClass(it) }.orEmpty()
+        val annotations = parameter?.let { p ->
+            types.flatMap { it.methods.toList() }
+                .filter { it.name == method && p.parameterIndex < it.parameterCount }
+                .flatMap { it.parameters[p.parameterIndex].annotations.toList() }
+        }
+        return annotations?.firstNotNullOfOrNull {
+            when (it) {
+                is RequestParam -> it.value.ifEmpty { it.name }
+                is PathVariable -> it.value.ifEmpty { it.name }
+                else -> null
+            }?.takeIf(String::isNotEmpty)
+        } ?: violation.propertyPath.toString()
     }
 
     @ExceptionHandler(ValidationException::class)

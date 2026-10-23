@@ -27,4 +27,9 @@ data class TemplateUsage(
     val templateKey: TemplateKey,
     val variantKey: VariantKey,
     val count: Long,
-)
+    /** The catalog's namespace as the requests recorded it, which tells two catalogs sharing a key apart (ADR 0034); null for requests from before it was. */
+    val namespace: String? = null,
+) {
+    /** How the catalog's pages address it: `namespace/key`, or the key where no namespace was recorded. */
+    val catalogSegment: String get() = namespace?.let { "$it/${catalogKey.value}" } ?: catalogKey.value
+}

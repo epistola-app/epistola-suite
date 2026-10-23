@@ -14,7 +14,8 @@
     #catalog-list region (dialogSuccess), unlike the code-list/template dialogs
     that redirect to a detail page.
 
-    Model it needs: `tenantId` (URLs), and on error re-render `formData`/`errors`.
+    Model it needs: `tenantId` (URLs), `namespaces` (HeldNamespaces: what the catalog may be named
+    in, ADR 0034 section 3), and on error re-render `formData`/`errors`.
     -->
     <th:block th:fragment="dialog">
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
@@ -27,7 +28,8 @@
     <form th:fragment="catalog-form" id="create-catalog-form"
           method="post" th:action="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
           th:hx-post="@{/tenants/{tenantId}/catalogs/create(tenantId=${tenantId})}"
-          hx-target="#create-catalog-form" hx-swap="outerHTML">
+          hx-target="#create-catalog-form" hx-swap="outerHTML"
+          data-radio-panes="namespaceChoice" data-pane-attr="data-namespace-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-catalog-error')}"></div>
         <div class="ep-dialog-body">
             <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
@@ -47,6 +49,35 @@
                 <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
                 <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
             </div>
+            <!--/* Where it is named (ADR 0034, section 3): a namespace the tenant holds, preselected when
+                   there is one to take, or local with a namespace of its own. Local is always offered,
+                   so the choice is never empty. */-->
+            <fieldset class="form-group" data-testid="catalog-namespace-choice"
+                      th:with="chosen=${formData?.get('namespaceChoice') ?: (namespaces.choice != null ? namespaces.choice.toString() : (#lists.isEmpty(namespaces.held) ? 'local' : null))}"
+                      th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
+                <legend class="ep-label">Namespace</legend>
+                <label th:each="held : ${namespaces.held}" style="display: flex; gap: var(--ep-space-2);">
+                    <input type="radio" name="namespaceChoice" th:value="${held.toString()}" th:checked="${chosen == held.toString()}"
+                           data-testid="catalog-namespace-option" th:attr="data-namespace=${held.toString()}">
+                    <span><strong th:text="${held.namespace}">acme</strong> <span class="text-muted text-sm" th:text="${held.authority}">gemeente-x.nl</span></span>
+                </label>
+                <label style="display: flex; gap: var(--ep-space-2);">
+                    <input type="radio" name="namespaceChoice" value="local" th:checked="${chosen == 'local'}"
+                           data-testid="catalog-namespace-local">
+                    <span><strong>local</strong> <span class="text-muted text-sm">a namespace of this organisation's own</span></span>
+                </label>
+                <div data-namespace-pane="local" style="margin-left: var(--ep-space-6);">
+                    <input type="text" name="localNamespace" class="ep-input" aria-label="Local namespace"
+                           pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
+                           data-testid="catalog-namespace-local-name"
+                           th:value="${formData?.get('localNamespace') ?: namespaces.suggestedLocalNamespace}">
+                    <span class="form-hint">A catalog under local never leaves this organisation: it is not published to Epistola Exchange, and until the catalog format carries local, it is not exported or copied by file.</span>
+                </div>
+                <span class="form-hint" th:if="${#lists.isEmpty(namespaces.held)}" data-testid="catalog-namespace-none-held">
+                    This tenant holds no namespace yet; a platform administrator can grant one.
+                </span>
+                <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
+            </fieldset>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"

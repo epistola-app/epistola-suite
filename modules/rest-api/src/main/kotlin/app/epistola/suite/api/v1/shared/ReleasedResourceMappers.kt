@@ -31,8 +31,7 @@ import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
-import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
@@ -42,7 +41,7 @@ import tools.jackson.databind.node.ObjectNode
  * (see [releasedAt]): a release records none per resource.
  */
 
-internal fun TemplateResource.toSummaryDto(at: ResolvedCatalogVersion) = TemplateSummaryDto(
+internal fun TemplateResource.toSummaryDto(at: ResolvedCatalogRelease) = TemplateSummaryDto(
     key = key,
     tenantKey = at.tenantKey.value,
     name = name,
@@ -51,7 +50,7 @@ internal fun TemplateResource.toSummaryDto(at: ResolvedCatalogVersion) = Templat
     description = description,
 )
 
-internal fun TemplateResource.toDto(at: ResolvedCatalogVersion, objectMapper: ObjectMapper): TemplateDto {
+internal fun TemplateResource.toDto(at: ResolvedCatalogRelease, objectMapper: ObjectMapper): TemplateDto {
     val taken = mutableSetOf<String>()
     return TemplateDto(
         key = key,
@@ -79,7 +78,7 @@ internal fun TemplateResource.toDto(at: ResolvedCatalogVersion, objectMapper: Ob
     )
 }
 
-internal fun VariantEntry.toDto(template: TemplateResource, at: ResolvedCatalogVersion) = VariantDto(
+internal fun VariantEntry.toDto(template: TemplateResource, at: ResolvedCatalogRelease) = VariantDto(
     key = key,
     templateKey = template.key,
     title = title ?: key,
@@ -92,7 +91,7 @@ internal fun VariantEntry.toDto(template: TemplateResource, at: ResolvedCatalogV
 )
 
 /** A variant without a model of its own renders the template's. */
-internal fun VariantEntry.toContentDto(template: TemplateResource, at: ResolvedCatalogVersion) = VariantContentDto(
+internal fun VariantEntry.toContentDto(template: TemplateResource, at: ResolvedCatalogRelease) = VariantContentDto(
     variantKey = key,
     templateModel = templateModel ?: template.templateModel,
     status = ResourceStatus.RELEASED,
@@ -100,7 +99,7 @@ internal fun VariantEntry.toContentDto(template: TemplateResource, at: ResolvedC
     readyAt = null,
 )
 
-internal fun StencilResource.toDto(at: ResolvedCatalogVersion) = StencilDto(
+internal fun StencilResource.toDto(at: ResolvedCatalogRelease) = StencilDto(
     key = key,
     tenantKey = at.tenantKey.value,
     name = name,
@@ -111,7 +110,7 @@ internal fun StencilResource.toDto(at: ResolvedCatalogVersion) = StencilDto(
     tags = tags.ifEmpty { null },
 )
 
-internal fun StencilResource.toSummaryDto(at: ResolvedCatalogVersion) = StencilSummaryDto(
+internal fun StencilResource.toSummaryDto(at: ResolvedCatalogRelease) = StencilSummaryDto(
     key = key,
     tenantKey = at.tenantKey.value,
     name = name,
@@ -122,7 +121,7 @@ internal fun StencilResource.toSummaryDto(at: ResolvedCatalogVersion) = StencilS
     tags = tags.ifEmpty { null },
 )
 
-internal fun StencilResource.toContentDto(at: ResolvedCatalogVersion, objectMapper: ObjectMapper) = StencilContentDto(
+internal fun StencilResource.toContentDto(at: ResolvedCatalogRelease, objectMapper: ObjectMapper) = StencilContentDto(
     stencilKey = key,
     content = content,
     status = ResourceStatus.RELEASED,
@@ -131,7 +130,7 @@ internal fun StencilResource.toContentDto(at: ResolvedCatalogVersion, objectMapp
     readyAt = null,
 )
 
-internal fun ThemeResource.toDto(at: ResolvedCatalogVersion) = ThemeDto(
+internal fun ThemeResource.toDto(at: ResolvedCatalogRelease) = ThemeDto(
     key = key,
     tenantKey = at.tenantKey.value,
     name = name,
@@ -144,8 +143,11 @@ internal fun ThemeResource.toDto(at: ResolvedCatalogVersion) = ThemeDto(
     spacingUnit = spacingUnit?.toBigDecimal(),
 )
 
-/** A binding that names no catalog, or no namespace, is to the attribute's own catalog's. */
-internal fun AttributeResource.toDto(at: ResolvedCatalogVersion) = AttributeDto(
+/**
+ * A binding names the code list's catalog by the alias the release declares it under (contract ADR
+ * 0003), as the release's content does; null for the attribute's own catalog.
+ */
+internal fun AttributeResource.toDto(at: ResolvedCatalogRelease) = AttributeDto(
     key = key,
     tenantKey = at.tenantKey.value,
     registry = at.catalog.registry,
@@ -153,23 +155,17 @@ internal fun AttributeResource.toDto(at: ResolvedCatalogVersion) = AttributeDto(
     catalogKey = at.catalogKey.value,
     displayName = name,
     allowedValues = allowedValues,
-    catalogType = at.catalog.type.toAttributeCatalogType(),
     readOnly = true,
     createdAt = at.releasedAt,
     lastModified = at.releasedAt,
     description = null,
     codeListBinding = codeListBinding?.let { binding ->
-        AttributeDtoCodeListBinding(
-            registry = binding.registry ?: at.catalog.registry,
-            namespace = binding.namespace ?: at.catalog.namespace,
-            catalogKey = binding.catalogKey ?: at.catalogKey.value,
-            key = binding.key,
-        )
+        AttributeDtoCodeListBinding(catalogKey = binding.catalogKey?.takeUnless { it == at.catalogKey.value }, key = binding.key)
     },
 )
 
 /** A release holds a code list's entries as they were, whatever its source: it reads as inline. */
-internal fun CodeListResource.toDto(at: ResolvedCatalogVersion) = CodeListDto(
+internal fun CodeListResource.toDto(at: ResolvedCatalogRelease) = CodeListDto(
     key = key,
     tenantKey = at.tenantKey.value,
     registry = at.catalog.registry,
@@ -178,10 +174,6 @@ internal fun CodeListResource.toDto(at: ResolvedCatalogVersion) = CodeListDto(
     displayName = name,
     sourceType = CodeListDto.SourceType.INLINE,
     authType = CodeListDto.AuthType.NONE,
-    catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-    },
     readOnly = true,
     createdAt = at.releasedAt,
     lastModified = at.releasedAt,
@@ -193,33 +185,25 @@ internal fun CodeListResource.entryDtos(includeHidden: Boolean) = entries
     .sortedWith(compareBy({ it.sortOrder }, { it.code }))
     .map { CodeListEntryDto(code = it.code, label = it.label, sortOrder = it.sortOrder, hidden = it.hidden) }
 
-internal fun FontResource.toDto(at: ResolvedCatalogVersion) = FontDto(
+internal fun FontResource.toDto(at: ResolvedCatalogRelease) = FontDto(
     key = key,
     name = name,
     kind = FontDto.Kind.forValue(kind),
     registry = at.catalog.registry,
     namespace = at.catalog.namespace,
     catalogKey = at.catalogKey.value,
-    catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-    },
     readOnly = true,
     variants = variants.map { FontVariantDto(weight = it.weight, italic = it.italic) },
     createdAt = at.releasedAt,
     lastModified = at.releasedAt,
 )
 
-internal fun ImageResource.toDto(at: ResolvedCatalogVersion, sizeBytes: Long) = ImageDto(
+internal fun ImageResource.toDto(at: ResolvedCatalogRelease, sizeBytes: Long) = ImageDto(
     key = key,
     tenantKey = at.tenantKey.value,
     registry = at.catalog.registry,
     namespace = at.catalog.namespace,
     catalogKey = at.catalogKey.value,
-    catalogType = when (at.catalog.type) {
-        CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
-        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-    },
     readOnly = true,
     name = name,
     mediaType = mediaType,

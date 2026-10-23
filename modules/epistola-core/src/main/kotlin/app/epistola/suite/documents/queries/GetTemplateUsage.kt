@@ -42,11 +42,11 @@ class GetTemplateUsageHandler(
     override fun handle(query: GetTemplateUsage): List<TemplateUsage> = jdbi.withHandle<List<TemplateUsage>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT catalog_key, template_key, variant_key, COUNT(*) AS count
+            SELECT namespace, catalog_key, template_key, variant_key, COUNT(*) AS count
             FROM document_generation_requests
             WHERE tenant_key = :tenantId
               AND created_at >= now() - :window::interval
-            GROUP BY catalog_key, template_key, variant_key
+            GROUP BY namespace, catalog_key, template_key, variant_key
             ORDER BY count DESC
             LIMIT :limit
             """,
@@ -60,6 +60,7 @@ class GetTemplateUsageHandler(
                     templateKey = TemplateKey.of(rs.getString("template_key")),
                     variantKey = VariantKey.of(rs.getString("variant_key")),
                     count = rs.getLong("count"),
+                    namespace = rs.getString("namespace"),
                 )
             }
             .list()

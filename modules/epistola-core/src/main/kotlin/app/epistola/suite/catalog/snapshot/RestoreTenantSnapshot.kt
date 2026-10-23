@@ -5,8 +5,8 @@
 package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogImportContext
-import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.commands.AuthoredImportMode
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.commands.DraftFillMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
@@ -14,13 +14,13 @@ import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.system.InstallSystemCatalog
-import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
@@ -74,7 +74,6 @@ class RestoreTenantSnapshotHandler(
     private val identityStore: TenantResourceIdentityStore,
     private val jdbi: Jdbi,
     private val schemaMigrator: CatalogSchemaMigrator,
-    private val drafts: CatalogDrafts,
 ) : CommandHandler<RestoreTenantSnapshot, RestoreResult> {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -107,15 +106,36 @@ class RestoreTenantSnapshotHandler(
         identityStore.plantIdentities(command.tenantKey, identities.resources)
 
         for (entry in ordered) {
+            val restored = requireNotNull(app.epistola.suite.catalog.queries.GetCatalog(command.tenantKey, CatalogKey.of(entry.catalogKey)).query())
+            // Its releases first, lowest first, each recorded beside as it says it is (schema 3), so
+            // the next version the working copy fills is not moved onto them.
+            for (release in entry.releases) {
+                val zip = release.zipPath?.let(innerZips::get)
+                if (zip == null) {
+                    logger.warn("Snapshot release {} {} carries no archive; not restored", entry.catalogKey, release.version)
+                    continue
+                }
+                ImportCatalogZip(
+                    tenantKey = command.tenantKey,
+                    zipBytes = zip,
+                    validateCrossCatalogDeps = false,
+                    confirmMigration = true,
+                    legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
+                    restoreRelease = true,
+                ).execute()
+            }
             ImportCatalogZip(
                 tenantKey = command.tenantKey,
                 zipBytes = innerZips.getValue(entry.zipPath),
-                catalogType = CatalogType.valueOf(entry.type),
-                authoredMode = AuthoredImportMode.REPLACE,
+                fillMode = DraftFillMode.REPLACE,
                 validateCrossCatalogDeps = false,
                 restore = true,
+                // An archive from before wire v8 is named as its catalog row was created above.
+                legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(restored.registry, restored.namespace),
             ).execute()
         }
+
+        ordered.forEach { entry -> restoreReleaseState(command.tenantKey, entry) }
 
         reapplyDefaultTheme(command.tenantKey, prior)
 
@@ -125,16 +145,20 @@ class RestoreTenantSnapshotHandler(
 
     /**
      * The catalog row for [entry], with the registry and namespace its archive records; the import
-     * that follows fills it. A catalog that already exists (the system catalog) is left alone.
+     * that follows fills its next version, which the database opens with the row on no release; its
+     * releases, and the release the next version is on, are restored after (schema 3). The row
+     * gets the catalog's source, without a credential. A catalog that already exists (the system
+     * catalog) is left alone.
+     * The entry's `type`, which snapshots still carry for the hub (ADR 0032), is not read.
      */
     private fun createCatalogRow(tenantKey: TenantKey, entry: SnapshotCatalogEntry, zip: ByteArray) {
         val catalog = schemaMigrator.migrateAndBindManifest(catalogJson(zip), tenantKey.value).manifest.catalog
         jdbi.useHandle<Exception> { handle ->
-            val inserted = handle.createUpdate(
+            handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, type)
-                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :type)
-                ON CONFLICT (tenant_key, catalog_key) DO NOTHING
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, source_url, source_auth_type)
+                VALUES (:catalogKey, :tenantKey, :registry, :namespace, :name, :sourceUrl, :sourceAuthType)
+                ON CONFLICT (tenant_key, namespace, catalog_key) DO NOTHING
                 """,
             )
                 .bind("catalogKey", entry.catalogKey)
@@ -142,12 +166,62 @@ class RestoreTenantSnapshotHandler(
                 .bind("registry", requireNotNull(catalog.registry) { "Snapshot catalog ${entry.catalogKey} names no registry" })
                 .bind("namespace", requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
                 .bind("name", entry.name)
-                .bind("type", entry.type)
+                // Where it receives releases from (schema 3); its credential is not in a snapshot.
+                .bind("sourceUrl", entry.source?.url)
+                .bind("sourceAuthType", entry.source?.authType ?: "NONE")
                 .execute()
-            // A restore keeps no releases, so an authored catalog's next version starts again where a
-            // new catalog's does, on no release.
-            if (inserted > 0 && entry.type == CatalogType.AUTHORED.name) {
-                drafts.open(handle, tenantKey, CatalogKey.of(entry.catalogKey), base = null)
+        }
+    }
+
+    /**
+     * What the snapshot says of a catalog's releases beyond their content (schema 3): when and by
+     * whom each was released and its notes, the catalog's released and installed releases, and the
+     * release its next release is on. Raw SQL: these are the rows' own columns, which no command
+     * sets to a past value; the trigger on `installed_release_version` moves the next version, so
+     * its base is set after.
+     */
+    private fun restoreReleaseState(tenantKey: TenantKey, entry: SnapshotCatalogEntry) {
+        jdbi.useHandle<Exception> { handle ->
+            for (release in entry.releases) {
+                handle.createUpdate(
+                    """
+                    UPDATE catalog_releases
+                    SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", release.version)
+                    .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
+                    .execute()
+            }
+            if (entry.version != null) {
+                handle.createUpdate(
+                    """
+                    UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
+                    FROM catalog_releases r
+                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", entry.version)
+                    .execute()
+            }
+            entry.installed?.let { installed ->
+                handle.createUpdate(
+                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)",
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", installed.version).bind("f", installed.fingerprint)
+                    .execute()
+            }
+            entry.nextBase?.let { base ->
+                handle.createUpdate(
+                    """
+                    UPDATE catalog_versions SET base_version = :b
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND is_next
+                      AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
+                    """,
+                )
+                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("b", base)
+                    .execute()
             }
         }
     }
@@ -242,6 +316,6 @@ class RestoreTenantSnapshotHandler(
 
     private companion object {
         /** Highest snapshot manifest schema version this suite can restore. */
-        const val SUPPORTED_SCHEMA_VERSION = 2
+        const val SUPPORTED_SCHEMA_VERSION = 3
     }
 }

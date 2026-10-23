@@ -11,15 +11,24 @@ import org.jdbi.v3.core.kotlin.mapTo
 /**
  * The opaque `catalog_id` of the catalog a caller named by key.
  *
- * Tables reference a catalog by `catalog_id`; a caller that still names it by key resolves the key
- * here, in one place. `uq_catalogs_key_until_named` keeps a key unique in its tenant until callers
- * name catalogs fully, so this yields one catalog or none. None is NULL, which matches no row on a
- * read and violates the NOT NULL `catalog_id` on a write -- so neither silently succeeds.
+ * Tables reference a catalog by `catalog_id`; a caller that names it by key resolves the key here,
+ * through the database function `epistola_catalog_id` (ADR 0034, phase 4: a catalog is unique by
+ * namespace and key). A key is looked up in the namespace the running message names for it
+ * ([CatalogNames]); otherwise it must name one catalog of the tenant, and several are refused
+ * ([CatalogKeyAmbiguousException]). None is NULL, which matches no row on a read and violates the NOT
+ * NULL `catalog_id` on a write -- so neither silently succeeds.
  *
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
  * @param catalogParam name of the bound catalog-key parameter.
  */
-fun catalogAt(tenantParam: String, catalogParam: String): String = "(SELECT catalog_id FROM catalogs WHERE tenant_key = :$tenantParam AND catalog_key = :$catalogParam)"
+fun catalogAt(tenantParam: String, catalogParam: String): String = "epistola_catalog_id(:$tenantParam, :$catalogParam)"
+
+/**
+ * The `catalog_id`s of the catalogs the keys of the bound list [listParam] name, each looked up as
+ * [catalogAt] looks one up, for `catalog_id IN ${'$'}{catalogsAt(…)}`: a key two catalogs share means
+ * the one the running work names, and is refused when it names none, rather than matching both.
+ */
+fun catalogsAt(tenantParam: String, listParam: String): String = "(SELECT epistola_catalog_id(:$tenantParam, k) FROM unnest(ARRAY[<$listParam>]::text[]) AS k)"
 
 /**
  * The `version_id` of the version a caller means of the catalog it named by key (the
@@ -29,9 +38,9 @@ fun catalogAt(tenantParam: String, catalogParam: String): String = "(SELECT cata
  * Content rows belong to a catalog version (contract ADR 0002), so every statement on content names
  * one (`ContentVersionSqlTest`). A message that addresses one version -- the contract's
  * `…/versions/{catalogVersion}/…` paths -- implements
- * [CatalogVersionScoped][app.epistola.suite.catalog.versions.CatalogVersionScoped]; the mediator then
+ * [CatalogReleaseScoped][app.epistola.suite.catalog.releases.CatalogReleaseScoped]; the mediator then
  * sets the PostgreSQL setting `epistola.content_version` to that version for the message's
- * transaction ([CatalogVersionTargeting][app.epistola.suite.catalog.versions.CatalogVersionTargeting]),
+ * transaction ([CatalogReleaseTargeting][app.epistola.suite.catalog.releases.CatalogReleaseTargeting]),
  * and this answers it for that catalog, in the handler and in every message it dispatches. A caller
  * that names none -- the UI, MCP, tenant-wide reads -- gets the current version. A catalog that does
  * not exist yields NULL, which matches no row on a read and violates the NOT NULL `version_id` on a
@@ -40,22 +49,7 @@ fun catalogAt(tenantParam: String, catalogParam: String): String = "(SELECT cata
  * @param tenantParam name of the bound tenant parameter.
  * @param catalogParam name of the bound catalog-key parameter.
  */
-fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions cv JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id WHERE c.tenant_key = :$tenantParam AND c.catalog_key = :$catalogParam)"
-
-/**
- * The `version_id` of the version numbered [versionParam] of the catalog a caller named by key: its
- * installed release. A draft has no number (contract ADR 0002, amendment 2) and a released version has
- * no row (its content is the retained release content), so either yields NULL, as does a number the
- * catalog does not have.
- *
- * For statements that must reach a version other than the one the caller means; everything else uses
- * [versionAt], which a targeted message already points at its version.
- *
- * @param tenantParam name of the bound tenant parameter.
- * @param catalogParam name of the bound catalog-key parameter.
- * @param versionParam name of the bound version-number parameter.
- */
-fun versionNamed(tenantParam: String, catalogParam: String, versionParam: String): String = "(SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id WHERE c.tenant_key = :$tenantParam AND c.catalog_key = :$catalogParam AND v.version = :$versionParam)"
+fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = :$tenantParam AND cv.catalog_id = ${catalogAt(tenantParam, catalogParam)})"
 
 /**
  * A predicate that the content row aliased [alias] is part of the version its catalog's callers mean
@@ -65,9 +59,9 @@ fun versionNamed(tenantParam: String, catalogParam: String, versionParam: String
  */
 fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = $alias.tenant_key)"
 
-/** The catalog with key [catalogKey] in [tenantKey], or null. */
+/** The catalog [catalogKey] names in [tenantKey] (see [catalogAt]), or null. */
 fun Handle.findCatalog(tenantKey: TenantKey, catalogKey: CatalogKey): Catalog? = createQuery(
-    "SELECT * FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey",
+    "SELECT * FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
 )
     .bind("tenantKey", tenantKey)
     .bind("catalogKey", catalogKey)

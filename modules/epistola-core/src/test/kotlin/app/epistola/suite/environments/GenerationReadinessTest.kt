@@ -4,13 +4,13 @@
 
 package app.epistola.suite.environments
 
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.GetGenerationReadiness
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -38,8 +38,8 @@ class GenerationReadinessTest : IntegrationTestBase() {
 
         withMediator {
             val version = mediator.releaseNext(app.epistola.suite.common.ids.CatalogId.default(TenantId(tenant)))
-            DeployCatalogVersion(production, CatalogKey.DEFAULT, version).execute()
-            DeployCatalogVersion(test, CatalogKey.DEFAULT, app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId).execute()
+            DeployCatalogRelease(production, CatalogKey.DEFAULT, version).execute()
+            DeployCatalogRelease(test, CatalogKey.DEFAULT, app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId).execute()
         }
         assertThat(withMediator { GetGenerationReadiness(tenant).query() }.ready).isTrue()
     }

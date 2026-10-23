@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.security.Permission
 
 /**
@@ -22,8 +23,8 @@ import app.epistola.suite.security.Permission
  * Which place a page is in follows from its model: a page that shows a catalog's content passes a
  * [CatalogDraftBar] as `draftBar`, as it already did for the old catalog bar.
  *
- * @property catalogs the catalogs people work with — authored and subscribed — for the catalog
- *   switcher. The system catalog, part of every tenant, is left out.
+ * @property catalogs the catalogs people work with — those they can change here and those they
+ *   cannot — for the catalog switcher. The system catalog, part of every tenant, is left out.
  * @property catalog where someone is inside a catalog; null outside one.
  * @property back outside a catalog, the catalog someone came from.
  * @property section outside a catalog, what the page is called, for the bar.
@@ -50,7 +51,7 @@ data class Workspace(
             tenantKey.value,
             tenantName,
             catalogs,
-            catalog?.let { listOf(it.bar.segmentValue, it.name, it.versionLabel, it.sideWork, it.readOnly, it.versions, it.statusHref, it.versionsHref) },
+            catalog?.let { listOf(it.bar.segmentValue, it.name, it.versionLabel, it.sideWork, it.readOnly, it.readOnlyLabel, it.versions, it.statusHref, it.versionsHref) },
             back,
             section,
         ).hashCode().toUInt().toString(36)
@@ -58,13 +59,16 @@ data class Workspace(
     /** The tenant's home page, which the logo and the tenant crumb lead to. */
     val homeHref: String get() = "/tenants/${tenantKey.value}"
 
-    /** The catalogs someone authors, then the ones they subscribed to, each a group in the switcher. */
-    val authoredCatalogs: List<CatalogLink> get() = catalogs.filter { it.authored }
-    val subscribedCatalogs: List<CatalogLink> get() = catalogs.filterNot { it.authored }
+    /** The catalogs that can be changed here, then the read-only ones, each a group in the switcher. */
+    val editableCatalogs: List<CatalogLink> get() = catalogs.filter { it.editable }
+    val readOnlyCatalogs: List<CatalogLink> get() = catalogs.filterNot { it.editable }
 }
 
-/** A catalog in the switcher and the tenant nav. [current] marks the one someone is in. */
-data class CatalogLink(val key: String, val name: String, val authored: Boolean, val href: String, val current: Boolean)
+/**
+ * A catalog in the switcher and the tenant nav. [current] marks the one someone is in; [readOnlyLabel]
+ * says why one that cannot be changed here cannot ("Supplied by Epistola").
+ */
+data class CatalogLink(val key: String, val name: String, val editable: Boolean, val href: String, val current: Boolean, val readOnlyLabel: String? = null)
 
 /** Back to the catalog someone came from, named with the version they were in. */
 data class BackLink(val href: String, val label: String)
@@ -75,8 +79,8 @@ data class NavLink(val key: String, val label: String, val href: String, val ico
 /**
  * Being inside a catalog: which version the page works in, and the catalog's nav.
  *
- * @property versionLabel what the bar calls the version: "Next version", "Fix of v1.2.0", or a
- *   subscribed catalog's "v2.0.0".
+ * @property versionLabel what the bar calls the version: "Next release", "Fix of v1.2.0", or the
+ *   release a read-only catalog is on, "v2.0.0".
  * @property sideWork the page works in parallel work, not the next version, which the bar marks so
  *   nobody edits it thinking it is their everyday work.
  * @property sections the catalog nav, in groups: the catalog and its templates; the parts templates
@@ -97,8 +101,11 @@ data class CatalogScope(
     val name: String get() = bar.catalogName
     val readOnly: Boolean get() = bar.readOnly
 
+    /** Why the catalog cannot be changed here, short; null when it can. */
+    val readOnlyLabel: String? get() = bar.readOnlyLabel
+
     /** The version menu has something to switch to or start, beyond the published versions. */
-    val offerVersionMenu: Boolean get() = bar.authored
+    val offerVersionMenu: Boolean get() = bar.editable
 }
 
 /** A draft in the version menu. [detail] says what it is based on. */
@@ -144,7 +151,7 @@ object CatalogNav {
             addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/catalogs/$segment/${it.area}", it.icon) })
         }
         val catalog = listOf(
-            link("versions", "Versions", "$tenant/catalogs/$key/versions", "history"),
+            link("versions", "Releases", "$tenant/catalogs/$key/releases", "history"),
             link("deployments", "Deployments", "$tenant/catalogs/$key/deployments", "radio"),
             link("dependencies", "Dependencies", "$tenant/catalogs/$segment/dependencies", "link"),
             link("settings", "Settings", "$tenant/catalogs/$segment/settings", "settings"),
@@ -162,7 +169,7 @@ object CatalogNav {
      * for anything else.
      */
     fun sectionOf(path: String): SectionInVersion? {
-        val parts = path.substringBefore('?').trim('/').split('/')
+        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
         if (parts.size < 6 || parts[0] != "tenants" || parts[2] != "catalogs") return null
         val (tenant, segment, area) = Triple(parts[1], parts[3], parts[4])
         val label = when (area) {
@@ -176,7 +183,7 @@ object CatalogNav {
 
     /** Which catalog nav item [path] belongs to; null when none does. */
     fun activeKey(path: String, catalogKey: String): String? {
-        val parts = path.substringBefore('?').trim('/').split('/')
+        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
         // "tenants", tenant, "catalogs", catalog, page: every page of a catalog is under it.
         if (parts.getOrNull(2) != "catalogs") return null
         val page = parts.getOrNull(4)

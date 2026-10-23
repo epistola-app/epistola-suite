@@ -4,6 +4,7 @@
     "type": "template",
     "key": "batch-letters",
     "name": "Batch Letters",
+    "description": "One letter per recipient in a single document: a loop repeats a page header, footer and page break, so each letter gets its own header and footer with that recipient's data.",
     "pdfaEnabled": false,
     "themeKey": "corporate",
     "dataModel": {

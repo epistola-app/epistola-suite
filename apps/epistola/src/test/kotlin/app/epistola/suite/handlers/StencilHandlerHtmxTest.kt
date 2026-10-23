@@ -160,7 +160,7 @@ class StencilHandlerHtmxTest : BaseIntegrationTest() {
             // Optional: publishing checks and marks it, so it is not presented as a required step.
             assertThat(response.body).contains("Publishing checks it and marks it ready")
             assertThat(response.body).doesNotContain("cannot be released until it is marked ready").doesNotContain(">Not ready<")
-            // No versions, no publishing on the page itself; the catalog's nav beside it has Versions.
+            // No versions, no publishing on the page itself; the catalog's nav beside it has Releases.
             val page = response.body!!.substringAfter("id=\"main-content\"")
             assertThat(page).doesNotContain("Versions")
             assertThat(page).doesNotContain("/publish")

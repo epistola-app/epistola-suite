@@ -6,7 +6,6 @@ package app.epistola.suite.exchange
 
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -14,9 +13,9 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
 import app.epistola.suite.catalog.sources.ResourceChangeKind
@@ -30,6 +29,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -74,7 +74,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThat(result.release.version).isEqualTo("1.0.0")
 
             val installed = GetCatalog(consumer, CatalogKey.of("invoices")).query()!!
-            assertThat(installed.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(installed.hasSource).isTrue()
             assertThat(installed.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(installed.installedAt).isNotNull()
             // The source is the one answer to "where did this come from", for every kind of
@@ -156,12 +156,12 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         val installed = withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }
 
         assertThat(installed.newlyInstalled).isTrue()
-        assertThat(withMediator { ListCatalogReleases(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
+        assertThat(withMediator { ListCatalogReleaseSummaries(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
         assertThat(withMediator { GetCatalog(consumer, invoices).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
         assertThat(withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
         assertThat(withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }.available).isEmpty()
         assertThatThrownBy { withMediator { InstallCatalogRelease(consumer, invoices, "9.9.9").execute() } }
-            .isInstanceOf(app.epistola.suite.catalog.versions.CatalogVersionNotFoundException::class.java)
+            .isInstanceOf(app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException::class.java)
     }
 
     /**
@@ -195,7 +195,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
-    fun `an authored catalog of the same name is not overwritten either`() {
+    fun `a catalog made here under the same name is not overwritten either`() {
         val consumer = connectedTenant("install-authored-clash")
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
 
@@ -205,7 +205,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThatThrownBy {
                 InstallExchangeCatalog(consumer, "acme", "invoices").execute()
             }.isInstanceOf(ValidationException::class.java)
-                .hasMessageContaining("an authored catalog")
+                .hasMessageContaining("a catalog made here or imported from a file")
         }
     }
 
@@ -373,13 +373,14 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         lastPublisher = publisher
         val catalogKey = CatalogKey.of(slug)
         return withMediator {
+            TestNamespaces.grant(publisher, namespace).execute()
             CreateCatalog(publisher, catalogKey, "Invoices", namespace = namespace).execute()
             CreateTheme(
                 id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
                 name = "Theme $version",
             ).execute()
             MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
+            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }
@@ -433,12 +434,14 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     fun `a catalog ZIP whose SVG references an external resource does not install it`() {
         val tenant = connectedTenant("zip-unsafe-svg")
 
-        // Installing a release is all or nothing: the image is refused, and so is the release.
-        assertThatThrownBy {
-            withMediator { ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG), catalogType = CatalogType.AUTHORED).execute() }
-        }.hasMessageContaining("SVG not accepted")
+        // Installing a release is all or nothing: the image is refused, and so is the release, and the
+        // catalog the import would have created is not left behind.
         withMediator {
+            val result = ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG)).execute()
+            assertThat(result.aborted).isTrue()
+            assertThat(result.results.single().errorMessage).contains("SVG not accepted")
             assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
+            assertThat(GetCatalog(tenant, CatalogKey.of("broken")).query()).isNull()
         }
     }
 

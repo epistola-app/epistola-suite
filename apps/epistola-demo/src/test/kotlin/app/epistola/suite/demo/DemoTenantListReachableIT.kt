@@ -4,6 +4,13 @@
 
 package app.epistola.suite.demo
 
+import app.epistola.suite.catalog.namespaces.GetCatalogNamespaceHolding
+import app.epistola.suite.catalog.namespaces.ListNamespaceGrants
+import app.epistola.suite.catalog.namespaces.NamespaceName
+import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -64,5 +71,18 @@ class DemoTenantListReachableIT : IntegrationTestBase() {
         val response = restTemplate.getForEntity("/tenants/${DemoLoader.DEMO_TENANT_ID}", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+    }
+
+    @Test
+    fun `the demo tenant holds its namespace, and its default catalog is named and released there`() {
+        val demo = TenantKey.of(DemoLoader.DEMO_TENANT_ID)
+        val held = NamespaceName("exchange.epistola.app", DemoLoader.DEMO_NAMESPACE)
+
+        withMediator {
+            assertThat(ListNamespaceGrants(demo).query().map { it.name }).contains(held)
+            val default = GetCatalog(demo, CatalogKey.DEFAULT).query()!!
+            assertThat(NamespaceName(default.registry, default.namespace)).isEqualTo(held)
+            assertThat(GetCatalogNamespaceHolding(demo, CatalogKey.DEFAULT).query().refusal).`as`("the demo releases its own catalogs").isNull()
+        }
     }
 }

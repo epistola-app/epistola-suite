@@ -152,7 +152,9 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
 
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body!!
-            val href = "href=\"/tenants/${tenant.id}/catalogs/${billing.value}/templates/${templateKey.value}\""
+            // By namespace and key, as the requests recorded the catalog (ADR 0034).
+            val namespace = app.epistola.suite.testing.TestNamespaces.of(tenant.id).namespace
+            val href = "href=\"/tenants/${tenant.id}/catalogs/$namespace/${billing.value}/templates/${templateKey.value}\""
             // Once under "Most Used Templates", once under "Recent Jobs".
             assertThat(Regex(Regex.escape(href)).findAll(body).count()).isEqualTo(2)
         }

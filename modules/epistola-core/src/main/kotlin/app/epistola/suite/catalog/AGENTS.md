@@ -9,12 +9,18 @@ primitives in `snapshot/`, and reference discovery in `graph/`. There is no sepa
 `catalog` must **not** reference `exchange`. `CatalogExchangeIndependenceTest` checks this in
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
 
-- **Outbound**: `ReleaseCatalogVersion` records publication intent through
+Every SQL statement reading or writing catalog content names the catalog version it means, since a
+catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
+
+- **Outbound**: `ReleaseCatalogDraft` records publication intent through
   `CatalogReleasePublicationPort` (owned by `catalog`), handed the open release transaction so the
   outbox write stays atomic without inverting the dependency.
 - **Inbound needs no port**: installing calls _into_ `catalog` (`ImportCatalogZip`), and Exchange
   contributes a `CatalogUpstreamProbe`, an interface `catalog` owns. So `exchange → catalog` is the
   only direction.
+- **Release registries**: the Exchange is one kind of release registry (contract ADR 0008) beside
+  the container registries; `exchange` contributes it as a `ReleaseRegistryProvider`, an interface
+  `catalog/registry` owns.
 
 `ExchangeAvailability` is the single answer to "may this tenant publish?" and "may this tenant
 install?" — deployment gate plus the `catalog-publishing` / `catalog-installing` features.

@@ -5,6 +5,8 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.handlers.VariantContentHandler
+import app.epistola.suite.htmx.CatalogScopedRoutes
+import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -22,14 +24,18 @@ class DocumentTemplateRoutes(
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
-        // A list belongs to a catalog; there is none across the tenant.
-        GET("/tenants/{tenantId}/catalogs/{catalogId}/templates", handler::list)
         "/tenants/{tenantId}/templates".nest {
             // Search (the editors' pickers) and create; the pages are the catalog's, below
             GET("/search", handler::search)
         }
-        // A resource's pages and actions are its catalog's, like its list.
-        "/tenants/{tenantId}/catalogs/{catalogId}/templates".nest {
+    }
+
+    // A list belongs to a catalog; there is none across the tenant. A resource's pages and actions are
+    // its catalog's, like its list.
+    @Bean
+    fun templateCatalogRoutes(): CatalogScopedRoutes = catalogScopedRoutes {
+        GET("/{catalogId}/templates", handler::list)
+        "/{catalogId}/templates".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
             // Detail page — each tab has its own handler
@@ -41,6 +47,7 @@ class DocumentTemplateRoutes(
             POST("/{id}/delete", handler::delete)
             PATCH("/{id}/name", handler::updateName)
             PATCH("/{id}/pdfa", handler::updatePdfa)
+            PATCH("/{id}/description", handler::updateDescription)
             PATCH("/{id}/theme", handler::updateTheme)
             GET("/{id}/api", handler::get)
             POST("/{id}/validate-schema", handler::validateSchema)

@@ -840,7 +840,7 @@ their dependent goal, not used to stall initial cleanup:
   variant attribute writes.
 - Publication/rendering: `PublishVersion`, `PublishToEnvironment`, `FontSnapshotVerifier`,
   `FontByteCache`, `DocumentPreviewRenderer`, `DocumentGenerationExecutor`, `apps/pdfrender`.
-- Distribution: `CatalogContentBuilder`, `ReleaseCatalogVersion`, `ExportCatalogZip`,
+- Distribution: `CatalogContentBuilder`, `ReleaseCatalogDraft`, `ExportCatalogZip`,
   `ImportCatalogZip`, `InstallFromCatalog`, `UpgradeCatalog`, `PreviewCatalogUpgrade`,
   `CatalogUpgradeAnalyzer`, Exchange namespace/origin and publication workers.
 - Durability: `ContentReaper`, content stores, `catalog/snapshot/`, tenant backup primitives,

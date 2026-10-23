@@ -4,7 +4,6 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -22,7 +21,6 @@ data class DocumentTemplate(
     val id: TemplateKey,
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val name: String,
     val themeKey: ThemeKey? = null,
     val themeCatalogKey: CatalogKey? = null,
@@ -31,8 +29,14 @@ data class DocumentTemplate(
     val updatedAt: OffsetDateTime,
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
-    /** Raised by every change to the template (its name, theme, PDF/A or data contract); see [app.epistola.suite.common.Revisions]. */
+    /** Raised by every change to the template (its name, description, theme, PDF/A or data contract); see [app.epistola.suite.common.Revisions]. */
     val revision: Long = 1,
+    /**
+     * Plain-text notes for the template's authors and readers: what it is for, design decisions,
+     * known gaps. Not rendered. Travels with the template in a catalog (wire v8
+     * `TemplateResource.description`); null when it has none.
+     */
+    val description: String? = null,
 )
 
 /**
@@ -51,3 +55,11 @@ data class DocumentTemplateWithVariants(
     val createdBy: UserKey? = null,
     val updatedBy: UserKey? = null,
 )
+
+/**
+ * Whether [this], a template description, fits its ceiling
+ * ([app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH], counted in code
+ * points as the catalog contract counts it); no description always fits.
+ */
+fun String?.fitsTemplateDescription(): Boolean = this == null ||
+    codePointCount(0, length) <= app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH

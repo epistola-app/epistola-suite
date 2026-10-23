@@ -14,11 +14,12 @@
   },
   "catalogDependencies": [
     {
+      "alias": "system",
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "releaseVersion": "2.0.0",
-      "releaseFingerprint": "v5:1f73863389e0b2085d5bd3ccd0965993197105eaf69f4eb56f95ba065e102004"
+      "releaseVersion": "2.0.1",
+      "releaseFingerprint": "v6:34175c1b7b2d6f106af120548e5472194f165c52da0622f8ef0ee016e63fb6de"
     }
   ],
   "resources": [

@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
-    <!--/* The catalog page of an authored catalog, as the people using it work
-           (docs/catalog-workspace-navigation.md): almost always in the next version, which has no
+    <!--/* The catalog page of a catalog that can be changed here, as the people using it work
+           (docs/catalog-workspace-navigation.md): almost always in the next release, which has no
            number until it is published; at times in an in-between version, when something has to
-           be published before the next version is ready; and from a new catalog, the way to a
-           document an application generates. Every version has its own page, linked from Versions.
+           be published before the next release is ready; and from a new catalog, the way to a
+           document an application generates. Every release and draft has its own page, linked from Releases.
 
            Every control gates on one name of `draftBar` (CatalogDraftBar), `readiness`
            (CatalogReleaseReadiness) or `gettingStarted` (CatalogGettingStarted). */-->
 
-    <!--/* What is in progress, one box per open draft: the next version with what is not published
+    <!--/* What is in progress, one box per open draft: the next release with what is not published
            yet and Publish…, and each parallel work with what it started from and Continue. A box
            says which environments follow its draft. Every control gates on one name of `readiness`,
            `draftBar` (readiness.drafts) or `contents`. */-->
@@ -25,27 +25,16 @@
                 <span th:text="${nextReleaseError}"></span>
             </div>
 
-            <!--/* Published in between and not in the next version: said plainly, with what changed. */-->
-            <div th:unless="${bar.behind.isEmpty()}" class="alert alert-warning" style="margin-bottom: var(--ep-space-4);"
-                 data-testid="catalog-draft-behind-list">
-                <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
-                <div>
-                    <p th:each="release : ${bar.behind}" style="margin: 0;"
-                       data-testid="catalog-draft-behind-release" th:data-version="${release.version}">
-                        <strong th:text="'v' + ${release.version}">v1.2.1</strong> was published in between and is not in the next version<span th:unless="${release.changes.isEmpty()}"
-                            th:text="': it changed ' + ${#strings.listJoin(release.changes.![key], ', ')}"></span>.
-                        Make the same change here if it belongs in it too.
-                    </p>
-                </div>
-            </div>
+            <!--/* Published releases the next release lacks, as the draft's page shows them (catalogs/behind.html). */-->
+            <th:block th:replace="~{catalogs/behind :: behind}"></th:block>
 
             <div class="ep-auto-grid catalog-boxes">
                 <!--/* Nothing open: the way to start again. */-->
-                <!--/* The next version: what people work in almost always. */-->
+                <!--/* The next release: what people work in almost always. */-->
                 <div th:if="${bar.current != null}" class="ep-panel catalog-box" data-testid="catalog-status-work"
                      th:classappend="${!contents.isEmpty and !readiness.nothingToPublish} ? 'catalog-box-pending' : ''">
                     <div class="catalog-box-title">
-                        <span>Next version</span>
+                        <span>Next release</span>
                         <span th:if="${bar.latestPublished != null and !readiness.nothingToPublish}" class="text-muted text-sm" th:text="'after v' + ${bar.latestPublished}">after v1.0.0</span>
                     </div>
                     <th:block th:if="${contents.isEmpty}">
@@ -61,15 +50,15 @@
                         <strong data-testid="catalog-status-changes"
                                 th:text="${bar.latestPublished == null} ? 'Not published yet.'
                                          : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs are not published here yet.'
-                                         : (${readiness.changed.size() == 1} ? '1 change not published yet.' : ${readiness.changed.size()} + ' changes not published yet.'))">2 changes not published yet.</strong>
-                        <div class="text-muted text-sm" th:unless="${readiness.changed.isEmpty()}"
+                                         : (${readiness.changeCount == 1} ? '1 change not published yet.' : ${readiness.changeCount} + ' changes not published yet.'))">2 changes not published yet.</strong>
+                        <div class="text-muted text-sm" th:unless="${readiness.changeCount == 0}"
                              data-testid="catalog-status-changed"
                              th:text="(${bar.latestPublished == null} ? 'In it: ' : 'Changed: ') + ${#strings.listJoin(readiness.changedForPeople.![name], ', ')}">Changed: Invoice, Brand</div>
                         <div class="text-muted text-sm" th:each="other : ${readiness.publishedAlong}" data-testid="catalog-status-others"
                              th:text="'From ' + ${other.name} + ': ' + ${#strings.listJoin(other.unpublished.![name ?: key], ', ')} + ', not published there yet'">From Shared: Brand</div>
                         <div th:if="${readiness.publishBlocked}" class="text-sm" data-testid="catalog-release-blocked">
                             It cannot be published yet.
-                            <a th:href="${bar.workHref}">See why</a>
+                            <a th:href="@{${bar.workHref}}">See why</a>
                         </div>
                         <div th:if="${bar.publishWithheld}" class="form-hint" data-testid="catalog-publish-withheld">Publishing needs the publisher role.</div>
                     </th:block>
@@ -79,7 +68,7 @@
                     </div>
                     <div class="catalog-box-actions">
                         <button th:if="${contents.isEmpty and contents.templates.mayCreate}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                                th:hx-get="${contents.templates.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                                th:hx-get="@{${contents.templates.newHref}}" hx-target="#dialog-mount" hx-swap="innerHTML"
                                 data-testid="catalog-status-new-template">New template</button>
                         <!--/* Not for an empty catalog: a first version with nothing in it gives nobody anything.
                                A catalog of themes or stencils alone, which other catalogs use, is not empty. */-->
@@ -90,20 +79,20 @@
                     </div>
                 </div>
 
-                <!--/* Parallel work open next to the next version, each to continue. */-->
+                <!--/* Parallel work open next to the next release, each to continue. */-->
                 <div th:each="work : ${bar.parallelWork}" class="ep-panel catalog-box" data-testid="catalog-parallel"
                      th:attr="data-draft=${work.draftId}">
                     <div class="catalog-box-title">
                         <span th:text="${work.label}">Redesign 2027</span>
                         <span class="badge badge-muted">Parallel work</span>
                     </div>
-                    <div class="text-muted text-sm" th:text="${work.base != null} ? 'Started from v' + ${work.base} + ', open next to the next version.' : 'Open next to the next version.'">Started from v1.0.0.</div>
+                    <div class="text-muted text-sm" th:text="${work.base != null} ? 'Started from v' + ${work.base} + ', open next to the next release.' : 'Open next to the next release.'">Started from v1.0.0.</div>
                     <div class="catalog-box-followers">
                         <span th:each="row : ${deployments}" th:if="${row.follows(work.draftId)}" class="badge badge-outline"
                               data-testid="catalog-draft-follower" th:text="'Used by ' + ${row.environmentName}">Used by Test</span>
                     </div>
                     <div class="catalog-box-actions">
-                        <a th:href="${work.href}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-parallel-continue">Continue</a>
+                        <a th:href="@{${work.href}}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-parallel-continue">Continue</a>
                     </div>
                 </div>
             </div>
@@ -153,7 +142,7 @@
                         </th:block>
                         <th:block th:if="${row.implicit.isEmpty()}">
                             <div class="catalog-box-value text-muted">Not deployed</div>
-                            <div class="text-muted text-sm" th:text="${latest != null} ? 'The latest published version is v' + ${latest} + '.' : 'Nothing is published yet.'">The latest published version is v2.1.0.</div>
+                            <div class="text-muted text-sm" th:text="${latest != null} ? 'The latest published release is v' + ${latest} + '.' : 'Nothing is published yet.'">The latest published release is v2.1.0.</div>
                         </th:block>
                     </th:block>
                 </div>
@@ -165,10 +154,10 @@
         </div>
     </div>
 
-    <!--/* Every version, each linking to its own page: drafts first, the next version at the top. */-->
+    <!--/* Every version, each linking to its own page: drafts first, the next release at the top. */-->
     <div th:fragment="versions" class="ep-panel detail-section" data-testid="catalog-versions" th:with="bar=${draftBar}">
         <div class="detail-section-header">
-            <h2>Versions</h2>
+            <h2>Releases</h2>
             <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
                     th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML"
@@ -176,12 +165,12 @@
                     data-testid="catalog-draft-new">Start parallel work…</button>
         </div>
         <div class="detail-section-body">
-            <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no versions.</p>
-            <div th:unless="${bar.versionRows.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Versions" tabindex="0">
+            <p th:if="${bar.versionRows.isEmpty()}" class="text-muted">This catalog has no releases.</p>
+            <div th:unless="${bar.versionRows.isEmpty()}" class="ep-table-scroll" role="region" aria-label="Releases" tabindex="0">
                 <table class="ep-table">
                     <thead>
                         <tr>
-                            <th>Version</th>
+                            <th>Release</th>
                             <th>Based on</th>
                             <th>Status</th>
                             <th>Deployed to</th>
@@ -192,7 +181,7 @@
                         <tr th:each="row : ${bar.versionRows}" data-testid="catalog-version-row"
                             th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published',data-next=${row.next}">
                             <td style="font-weight: 500;">
-                                <a th:href="${row.href}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
+                                <a th:href="@{${row.href}}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
                                 <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">parallel work</span>
                             </td>
                             <!--/* Every version starts from a published one, unless it started from nothing. */-->
@@ -216,16 +205,16 @@
                                    deleted with its content. Both ask first. */-->
                             <td class="actions">
                                 <form th:if="${row.offerRemove}" method="post" style="display: inline;"
-                                      th:action="${row.removeAction}">
+                                      th:action="@{${row.removeAction}}">
                                     <input type="hidden" name="from" value="versions">
                                     <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                             data-testid="catalog-version-remove"
                                             data-confirm-submit
-                                            th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this version',
+                                            th:attr="data-confirm-submit-title=${row.draft} ? 'Discard this draft' : 'Delete this release',
                                                      data-confirm-submit-message=${row.draft}
-                                                         ? (${row.next} ? 'Every change in the next version is thrown away; it starts again from the latest published version. Published versions and parallel work are not affected. This cannot be undone.' : ${row.label} + ' is discarded with every change made in it. Published versions and the next version are not affected. This cannot be undone.')
+                                                         ? (${row.next} ? 'Every change in the next release is thrown away; it starts again from the latest published release. Published releases and parallel work are not affected. This cannot be undone.' : ${row.label} + ' is discarded with every change made in it. Published versions and the next release are not affected. This cannot be undone.')
                                                          : 'v' + ${row.version} + ' is removed entirely, with its content, its notes and its fingerprint. Anything already sent to Epistola Exchange stays there. This cannot be undone.',
-                                                     data-confirm-submit-label=${row.draft} ? 'Discard draft' : 'Delete version'"
+                                                     data-confirm-submit-label=${row.draft} ? 'Discard draft' : 'Delete release'"
                                             data-confirm-submit-class="ep-btn-destructive"
                                             th:text="${row.draft} ? 'Discard' : 'Delete'">Delete</button>
                                 </form>
@@ -235,7 +224,7 @@
                 </table>
             </div>
             <p th:if="${bar.removalWithheld}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-version-remove-withheld">
-                Discarding a draft needs the publisher role; deleting a published version needs the catalog manager role.
+                Discarding a draft needs the publisher role; deleting a published release needs the catalog manager role.
             </p>
         </div>
     </div>
@@ -244,7 +233,7 @@
         <div class="detail-section-header"><h2>Contents</h2></div>
         <div class="detail-section-body">
             <div class="ep-auto-grid catalog-counts">
-                <a th:each="group : ${contents.groups}" th:href="${group.listHref}" class="ep-panel stat-card"
+                <a th:each="group : ${contents.groups}" th:href="@{${group.listHref}}" class="ep-panel stat-card"
                    data-testid="catalog-count" th:attr="data-type=${group.type}">
                     <div class="stat-card-value" th:text="${group.count}">5</div>
                     <div class="stat-card-label" th:text="${group.label}">Templates</div>

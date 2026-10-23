@@ -15,7 +15,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.springframework.stereotype.Component
 
 /**
- * Drift-aware release status of an AUTHORED catalog: the latest release (via
+ * Drift-aware release status of a catalog: the latest release (via
  * the cheap [GetLatestCatalogRelease]) **plus** whether the live working copy
  * has unreleased changes (an O(catalog-size) content fingerprint recompute).
  *
@@ -25,12 +25,12 @@ import org.springframework.stereotype.Component
 data class GetCatalogReleaseStatus(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : Query<CatalogReleaseStatus>,
+) : Query<CatalogReleaseState>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
 
-data class CatalogReleaseStatus(
+data class CatalogReleaseState(
     val latestVersion: String?,
     val latestFingerprint: String?,
     val workingFingerprint: String,
@@ -41,13 +41,13 @@ data class CatalogReleaseStatus(
 @Component
 class GetCatalogReleaseStatusHandler(
     private val fingerprintService: CatalogFingerprintService,
-) : QueryHandler<GetCatalogReleaseStatus, CatalogReleaseStatus> {
+) : QueryHandler<GetCatalogReleaseStatus, CatalogReleaseState> {
 
-    override fun handle(query: GetCatalogReleaseStatus): CatalogReleaseStatus {
+    override fun handle(query: GetCatalogReleaseStatus): CatalogReleaseState {
         val release = GetLatestCatalogRelease(query.tenantKey, query.catalogKey).query()
         val fingerprint = fingerprintService.evaluate(query.tenantKey, query.catalogKey, release.latestFingerprint)
 
-        return CatalogReleaseStatus(
+        return CatalogReleaseState(
             latestVersion = release.latestVersion,
             latestFingerprint = release.latestFingerprint,
             workingFingerprint = fingerprint.current,

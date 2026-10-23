@@ -4,6 +4,8 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.htmx.CATALOG_NAMESPACE_VARIABLE
+import app.epistola.suite.htmx.CatalogScopedRouting
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -26,6 +28,12 @@ class EnvironmentRoutes(private val handler: EnvironmentHandler) {
             POST("/{environmentId}/drafts/{catalogId}/undeploy", handler::undeployDraft)
             POST("/{environmentId}/production", handler::setProduction)
             POST("/{environmentId}/delete", handler::delete)
+        }
+        // A catalog whose key another catalog of the tenant shares, by namespace and key (ADR 0034).
+        "/tenants/{tenantId}/environments/{environmentId}".nest {
+            POST("/deployments/{$CATALOG_NAMESPACE_VARIABLE}/{catalogId}/undeploy", handler::undeploy)
+            POST("/drafts/{$CATALOG_NAMESPACE_VARIABLE}/{catalogId}/undeploy", handler::undeployDraft)
+            filter { request, next -> CatalogScopedRouting.named(request) { next(it) } }
         }
     }
 }

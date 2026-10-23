@@ -5,8 +5,8 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='v' + ${release.version},
             pageDescription=${release.catalog.name} + ' · published ' + ${#temporals.format(release.releasedAt, 'yyyy-MM-dd')},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/versions(tenantId=${tenantId},catalogId=${catalogId})},
-            backLinkLabel='Versions',
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/releases(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkLabel='Releases',
             actions=~{::release-actions}
         )}"></div>
 
@@ -16,8 +16,13 @@
                hx-boost="false" download>Export as ZIP</a>
             <a class="ep-btn ep-btn-outline" data-testid="release-export-with-dependencies"
                th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
-               title="One file with the versions of the other catalogs it uses, to install where they are not"
+               title="One file with the releases of the other catalogs it uses, to install where they are not"
                hx-boost="false" download>Export with what it uses</a>
+            <button th:if="${registryPublishAvailable}" type="button" class="ep-btn ep-btn-outline"
+                    data-testid="release-registry-publish"
+                    title="Put this release in a container registry, so another installation can get it"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+                    hx-target="#ws-dialog-mount" hx-swap="innerHTML">Publish to registry&hellip;</button>
         </th:block>
 
         <!--/* What a published version is for: where it is live, and what can still be done with it.
@@ -28,16 +33,16 @@
                 <p style="margin-top: 0;" data-testid="release-live">
                     <th:block th:if="${liveIn.isEmpty()}">Not deployed anywhere.</th:block>
                     <th:block th:unless="${liveIn.isEmpty()}">Deployed to <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
-                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a version or undeploy it</a>
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a release or undeploy it</a>
                     under Deployments.
                 </p>
-                <p class="form-hint">A published version does not change. Change the next version and publish that; for a large change that is not ready yet, start parallel work from this version.</p>
+                <p class="form-hint">A published release does not change. Change the next release and publish that; for a large change that is not ready yet, start parallel work from this release.</p>
 
                 <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
                     <button th:if="${bar.offerCreateDraft and bar.createFromOptions.contains(version)}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             data-testid="release-start-draft"
                             th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
-                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this version</button>
+                            hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this release</button>
 
                     <!--/* Offered where it can be carried out: the catalog can publish at all, this
                            release kept content to send, and it has not been sent already. */-->
@@ -75,7 +80,7 @@
                         <span class="badge badge-info" th:text="'v' + ${release.version}">v1.0.0</span>
                     </div>
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">
-                        The details and contents this version went out with — not as they are now.
+                        The details and contents this release went out with — not as they are now.
                     </p>
                 </div>
             </div>
@@ -85,10 +90,56 @@
                     <span class="catalog-detail-label">Published</span>
                     <p class="catalog-detail-value" th:text="${#temporals.format(release.releasedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${release.releasedAt}"></p>
                 </div>
-                <div class="catalog-detail-summary-item">
-                    <span class="catalog-detail-label">Fingerprint</span>
+                <div class="catalog-detail-summary-item" th:if="${release.releasedByLine != null}">
+                    <span class="catalog-detail-label">Released by</span>
+                    <p class="catalog-detail-value" data-testid="release-released-by" th:text="${release.releasedByLine}">Released here by Ann</p>
+                </div>
+                <!--/* What identifies the release (ADR 0034): a fingerprint of its content alone, so
+                       releases with the same one have the same content, whatever their number. A
+                       release recorded before content fingerprints gets one from the backfill; until
+                       then it is being computed. */-->
+                <div class="catalog-detail-summary-item" data-testid="release-content-hash">
+                    <span class="catalog-detail-label">Content fingerprint</span>
+                    <th:block th:if="${release.contentHash != null}">
+                        <div class="ep-row" style="gap: var(--ep-space-1); align-items: center;">
+                            <code class="catalog-detail-value" data-testid="release-content-hash-value"
+                                  th:text="${release.shortContentHash}" th:title="${release.contentHash}">v6:1a2b3c4d5</code>
+                            <input type="hidden" id="release-content-hash" th:value="${release.contentHash}">
+                            <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" data-testid="release-content-hash-copy"
+                                    data-copy-source="release-content-hash" data-copy-status="release-content-hash-status"
+                                    title="Copy the whole content fingerprint" aria-label="Copy the whole content fingerprint">
+                                <th:block th:replace="~{epistola-web/icon :: icon(name='copy', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </div>
+                        <span id="release-content-hash-status" class="form-hint" aria-live="polite"></span>
+                    </th:block>
+                    <p th:if="${release.contentHash == null}" class="catalog-detail-value text-muted"
+                       data-testid="release-content-hash-pending">Being computed</p>
+                </div>
+                <!--/* The fingerprint it was recorded with, kept as it was, when that is of an older
+                       kind than the content fingerprint: say why there are two. */-->
+                <div th:if="${release.recordedBeforeContentHashes}" class="catalog-detail-summary-item"
+                     data-testid="release-original-fingerprint">
+                    <span class="catalog-detail-label">Original fingerprint</span>
                     <code class="catalog-detail-value" th:text="${release.shortFingerprint}"
                           th:title="${release.fingerprint}"></code>
+                    <p class="form-hint" style="margin: var(--ep-space-1) 0 0;"
+                       th:text="${release.contentHash != null}
+                           ? 'This release was recorded before content fingerprints and has been given one.'
+                           : 'This release was recorded before content fingerprints; it is being given one.'">This release was recorded before content fingerprints and has been given one.</p>
+                </div>
+                <!--/* Other releases in this tenant with the same content (ADR 0034): one re-released
+                       with only new notes, or the same content received another way or released in
+                       another catalog. */-->
+                <div th:unless="${sameAs.isEmpty()}" class="catalog-detail-summary-item"
+                     data-testid="release-same-as">
+                    <span class="catalog-detail-label">The same release as</span>
+                    <p class="catalog-detail-value"><th:block th:each="other, stat : ${sameAs}"><a
+                           data-testid="release-same-as-link" th:attr="data-catalog=${other.catalogKey},data-version=${other.version}"
+                           th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${other.catalogKey},v=${other.version})}"
+                           th:text="${other.sameCatalog} ? 'v' + ${other.version} : ${other.catalogName} + ' v' + ${other.version}">v1.0.0</a><th:block
+                           th:unless="${stat.last}">, </th:block></th:block></p>
+                    <p class="form-hint" style="margin: var(--ep-space-1) 0 0;">The same content, under another number or in another catalog.</p>
                 </div>
                 <div class="catalog-detail-summary-item">
                     <span class="catalog-detail-label">Resources</span>

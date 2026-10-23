@@ -7,7 +7,7 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
@@ -41,7 +41,7 @@ class ListCatalogDependentsTest : IntegrationTestBase() {
             CreateCatalog(tenant, forms, "Forms").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
             MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
             val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
             UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()

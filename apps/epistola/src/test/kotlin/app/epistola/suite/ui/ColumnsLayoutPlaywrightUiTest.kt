@@ -13,8 +13,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -53,10 +53,7 @@ class ColumnsLayoutPlaywrightUiTest : BasePlaywrightTest() {
     }
 
     private fun setupTemplateWithColumns(): String {
-        val tenant = CreateTenant(
-            id = TenantKey.of("ui-columns-${System.nanoTime()}"),
-            name = "Columns Layout UI Test",
-        ).execute()
+        val tenant = TestNamespaces.createTenant(TenantKey.of("ui-columns-${System.nanoTime()}"), "Columns Layout UI Test").execute()
         val tenantId = TenantId(tenant.id)
 
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))

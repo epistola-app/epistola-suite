@@ -8,7 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -19,7 +19,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -51,7 +51,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, CatalogKey.of("dep-page")).execute()
-            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-page"), version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, CatalogKey.of("dep-page"), version = "1.0.0").execute()
         }
 
         val before = live(tenant, "dep-page")
@@ -79,13 +79,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
             // A correction, so the next patch.
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenant.id, key, version = "1.0.1").execute()
-            DeployCatalogVersion(production, key, "1.0.0").execute()
-            DeployCatalogVersion(production, key, "1.0.1").execute()
+            ReleaseCatalogDraft(tenant.id, key, version = "1.0.1").execute()
+            DeployCatalogRelease(production, key, "1.0.0").execute()
+            DeployCatalogRelease(production, key, "1.0.1").execute()
         }
 
         val body = live(tenant, "dep-two")
@@ -111,12 +111,12 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
             // A correction, so the next patch.
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenant.id, key, version = "1.1.0").execute()
-            DeployCatalogVersion(production, key, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, key, version = "1.1.0").execute()
+            DeployCatalogRelease(production, key, "1.0.0").execute()
         }
 
         restTemplate.postForEntity(
@@ -145,12 +145,12 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
             MarkCatalogReady(tenant.id, shared).execute()
-            ReleaseCatalogVersion(tenant.id, shared, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, shared, version = "1.0.0").execute()
             val target = GetCatalog(tenant.id, shared).query()!!
             UpdateCatalogDependencies(tenant.id, key, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own").execute()
             MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogVersion(tenant.id, key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
         }
 
         val deployed = restTemplate.postForEntity(
@@ -189,7 +189,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val body = live(tenant, "dep-norelease")
 
         assertThat(body).contains("Nothing is published yet")
-        assertThat(body).`as`("no published version to offer").doesNotContain("label=\"Published versions\"")
+        assertThat(body).`as`("no published version to offer").doesNotContain("label=\"Published releases\"")
         assertThat(body).`as`("an environment that is not production can follow the next version").contains("label=\"Follow a draft\"")
     }
 
@@ -201,8 +201,8 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
             MarkCatalogReady(tenant.id, CatalogKey.of("dep-guard")).execute()
-            ReleaseCatalogVersion(tenant.id, CatalogKey.of("dep-guard"), version = "1.0.0").execute()
-            DeployCatalogVersion(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, CatalogKey.of("dep-guard"), version = "1.0.0").execute()
+            DeployCatalogRelease(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
         }
 
         val response = restTemplate.postForEntity(

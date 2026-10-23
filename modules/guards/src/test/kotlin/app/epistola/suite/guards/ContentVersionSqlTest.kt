@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  * the installed release of a subscribed one. Once a catalog can hold several drafts, a statement that
  * filters content by catalog alone returns one row per draft, or writes into whichever the database
  * picks. So a statement touching a content table must say which version: by `version_id` (the
- * caller's own, or a parent row's), through `versionAt(...)`, `versionNamed(...)` or `inCurrentVersion(...)`
+ * caller's own, or a parent row's), through `versionAt(...)` or `inCurrentVersion(...)`
  * in `CatalogSql.kt`,
  * or, for a tenant-wide read, by joining `catalog_current_versions`.
  *
@@ -55,7 +55,7 @@ class ContentVersionSqlTest {
         assertTrue(
             violations.isEmpty(),
             "These statements touch catalog content without naming the catalog version. Filter or join " +
-                "on version_id, use versionAt(...), versionNamed(...) or inCurrentVersion(...) from CatalogSql.kt, or join " +
+                "on version_id, use versionAt(...) or inCurrentVersion(...) from CatalogSql.kt, or join " +
                 "catalog_current_versions for a tenant-wide read. Allow a file in ContentVersionSqlTest " +
                 "only with the reason it needs no version:\n" + violations.joinToString("\n"),
         )
@@ -207,7 +207,7 @@ class ContentVersionSqlTest {
             """\b(FROM|JOIN|INTO|UPDATE)\s+(${CONTENT_TABLES.joinToString("|")})\b""",
             RegexOption.IGNORE_CASE,
         )
-        private val NAMES_VERSION = Regex("""version_id|versionAt\(|versionNamed\(|inCurrentVersion\(|catalog_current_versions""")
+        private val NAMES_VERSION = Regex("""version_id|versionAt\(|inCurrentVersion\(|catalog_current_versions""")
         private val WHITESPACE = Regex("""\s+""")
     }
 }

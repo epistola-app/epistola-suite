@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogUpstreamCheck
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
@@ -24,7 +25,7 @@ import org.springframework.stereotype.Component
  */
 data class GetCatalogUpstreamStates(
     override val tenantKey: TenantKey,
-) : Query<Map<CatalogKey, CatalogUpstreamCheck>>,
+) : Query<Map<CatalogAddress, CatalogUpstreamCheck>>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
 }
@@ -32,8 +33,8 @@ data class GetCatalogUpstreamStates(
 @Component
 class GetCatalogUpstreamStatesHandler(
     private val store: CatalogUpstreamCheckStore,
-) : QueryHandler<GetCatalogUpstreamStates, Map<CatalogKey, CatalogUpstreamCheck>> {
-    override fun handle(query: GetCatalogUpstreamStates): Map<CatalogKey, CatalogUpstreamCheck> = store.statesFor(query.tenantKey)
+) : QueryHandler<GetCatalogUpstreamStates, Map<CatalogAddress, CatalogUpstreamCheck>> {
+    override fun handle(query: GetCatalogUpstreamStates): Map<CatalogAddress, CatalogUpstreamCheck> = store.statesFor(query.tenantKey)
 }
 
 /**

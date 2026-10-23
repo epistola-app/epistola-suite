@@ -7,20 +7,18 @@ package app.epistola.suite.catalog.sources
 import app.epistola.catalog.archive.CatalogArchivePolicy
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.migration.CatalogMigrationOptions
-import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogSizeLimits
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.queries.GetCatalogRelease
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.MissingDependencyReason
@@ -34,7 +32,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayInputStream
 
 /**
@@ -85,7 +82,7 @@ class ListAvailableCatalogReleasesHandler(
     override fun handle(query: ListAvailableCatalogReleases): AvailableCatalogReleases {
         val catalog = GetCatalog(query.tenantKey, query.catalogKey).query() ?: throw CatalogNotFoundException(query.catalogKey)
         val source = sources.sourceOf(catalog)
-        val installed = ListCatalogReleases(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
+        val installed = ListCatalogReleaseSummaries(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
         val available = source.offered(catalog).filter { it !in installed }
             .sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it) })
             .map { version -> archives.describe(catalog.tenantKey, catalog.id, version, source.archive(catalog, version), installed) }
@@ -119,7 +116,7 @@ class InstallCatalogReleaseHandler(
         val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
         val source = sources.sourceOf(catalog)
         val version = command.releaseVersion.trim()
-        if (version !in source.offered(catalog)) throw CatalogVersionNotFoundException(command.catalogKey, version)
+        if (version !in source.offered(catalog)) throw CatalogReleaseNotFoundException(command.catalogKey, version)
         // The releases it pins that are not here, first, each from the source serving its registry.
         val missing = archives.pins(source.archive(catalog, version)).filter { !archives.present(command.tenantKey, it) }
         val unavailable = missing.filterNot { sources.installByName(command.tenantKey, it.registry, it.namespace, it.catalogKey, requireNotNull(it.releaseVersion)) }
@@ -134,11 +131,9 @@ class InstallCatalogReleaseHandler(
     }
 }
 
-/** The source of a subscribed catalog, or the refusal the contract names for one without. */
-private fun CatalogReleaseSources.sourceOf(catalog: app.epistola.suite.catalog.Catalog): CatalogReleaseSource {
-    if (catalog.type != CatalogType.SUBSCRIBED) throw CatalogHasNoSourceException(catalog.id, "is not subscribed, so it has no source")
-    return of(catalog) ?: throw CatalogHasNoSourceException(catalog.id, "was imported from an archive and has no source to ask")
-}
+/** The source of a catalog, or the refusal the contract names for one without (made here, or imported from an archive). */
+private fun CatalogReleaseSources.sourceOf(catalog: app.epistola.suite.catalog.Catalog): CatalogReleaseSource = of(catalog)
+    ?: throw CatalogHasNoSourceException(catalog.id, "was imported from an archive and has no source to ask")
 
 /** Reads what an available release's archive holds, against what the tenant has installed. */
 @Component
@@ -146,29 +141,31 @@ class AvailableReleaseArchives(
     private val jdbi: Jdbi,
     private val sizeLimits: CatalogSizeLimits,
     private val identity: CatalogIdentityProperties,
-    private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
+    private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+    private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
 ) {
-    private val canonicalizer by lazy { CatalogCanonicalizer(objectMapper) }
 
     /** [bytes], release [version], against the closest of [installed] below it. */
     fun describe(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, bytes: ByteArray, installed: Set<String>): AvailableRelease {
         val archive = read(tenantKey, bytes)
         val manifest = archive.manifest
-        val details = manifest.resources.associate { entry -> "${entry.type}/${entry.key}" to archive.content.open(entry.detailUrl.removePrefix("./")).use { it.readAllBytes() } }
-        val incoming = canonicalizer.perResourceFingerprintsFromSerializedDetails(details) { path -> runCatching { archive.content.open(path.removePrefix("./")).use { it.readAllBytes() } }.getOrNull() }
+        // Both sides by the function every comparison uses: the archive as it came, the installed
+        // release from the content it retained.
+        val incoming = fingerprints.resourceFingerprints(archive)
         val number = SemVer.parseOrNull(version)
         val comparedTo = installed.mapNotNull { v -> SemVer.parseOrNull(v)?.let { v to it } }
             .filter { number != null && it.second < number }
             .maxByOrNull { it.second }?.first
-        val baseline = comparedTo?.let { GetCatalogRelease(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
+        val baseline = comparedTo?.let { GetCatalogReleaseDetail(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
+        val before = comparedTo?.let { assembler.assemble(tenantKey, catalogKey, it) }?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
         val names = manifest.resources.associate { "${it.type}/${it.key}" to it.name }
         val changes = buildList {
             for ((key, fingerprint) in incoming.toSortedMap()) {
-                val before = baseline.firstOrNull { it.contentKey == key }
-                when {
-                    before == null -> add(change(key, names[key], ResourceChangeKind.ADDED))
-                    before.fingerprint != fingerprint -> add(change(key, names[key], ResourceChangeKind.MODIFIED))
+                when (before[key]) {
+                    null -> add(change(key, names[key], ResourceChangeKind.ADDED))
+                    fingerprint -> {}
+                    else -> add(change(key, names[key], ResourceChangeKind.MODIFIED))
                 }
             }
             baseline.filter { it.contentKey !in incoming }.sortedBy { it.contentKey }.forEach { add(change(it.contentKey, it.name, ResourceChangeKind.REMOVED)) }

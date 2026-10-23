@@ -13,7 +13,7 @@ import app.epistola.suite.catalog.commands.CheckCatalogUpstream
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -197,7 +197,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
                 name = "Theme $version",
             ).execute()
             MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogVersion(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
+            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
             mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
         }
     }

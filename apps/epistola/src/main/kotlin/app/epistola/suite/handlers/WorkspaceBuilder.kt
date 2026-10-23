@@ -4,11 +4,15 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.address
+import app.epistola.suite.catalog.queries.CatalogEditabilities
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListRecentCatalogs
+import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogDraft
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -44,17 +48,26 @@ class WorkspaceBuilder {
             ?: (model["workspaceCatalog"] as? CatalogSegment)?.let { segment ->
                 runCatching { CatalogDraftBar.of(tenantKey, segment) { VersionSwitch.samePage(path, tenantKey.value, it) ?: "$path?catalog=${it.value}" } }.getOrNull()
             }
+        // One read of which catalogs can be changed here, for both lists.
+        val editability by lazy { ListCatalogEditability(tenantKey).query() }
+        val all by lazy { ListCatalogs(tenantKey).query() }
+        // Keys more than one catalog has (ADR 0034): those link, and are told current, by namespace and key.
+        val shared by lazy { all.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys }
+        fun link(catalog: Catalog): CatalogLink {
+            val isShared = catalog.id in shared
+            val current = catalog.id == bar?.catalogKey && (!isShared || CatalogNames.current()[catalog.id.value] == catalog.namespace)
+            return catalogLink(tenantKey, catalog, editability, current = current, shared = isShared)
+        }
         val recent = if (auth.has(Permission.CATALOG_VIEW)) {
-            ListRecentCatalogs(tenantKey).query()
-                .map { CatalogLink(it.id.value, it.name, it.type == CatalogType.AUTHORED, CatalogPages.browse(TenantId(tenantKey), CatalogSegment(it.id)), it.id == bar?.catalogKey) }
+            ListRecentCatalogs(tenantKey).query().map(::link)
         } else {
             emptyList()
         }
         val catalogs = if (auth.has(Permission.CATALOG_VIEW)) {
-            ListCatalogs(tenantKey).query()
+            all
                 .filter { it.id != SYSTEM_CATALOG_KEY }
-                .sortedWith(compareBy({ it.type != CatalogType.AUTHORED }, { it.name.lowercase() }))
-                .map { CatalogLink(it.id.value, it.name, it.type == CatalogType.AUTHORED, CatalogPages.browse(TenantId(tenantKey), CatalogSegment(it.id)), it.id == bar?.catalogKey) }
+                .map(::link)
+                .sortedWith(compareBy({ !it.editable }, { it.name.lowercase() }))
         } else {
             emptyList()
         }
@@ -71,6 +84,16 @@ class WorkspaceBuilder {
     }
 
     companion object {
+        /**
+         * A catalog for the switcher and the tenant nav, saying whether it can be changed here. One
+         * whose key another catalog [shared] is linked by namespace and key (ADR 0034).
+         */
+        fun catalogLink(tenantKey: TenantKey, catalog: Catalog, editability: CatalogEditabilities, current: Boolean, shared: Boolean = false): CatalogLink {
+            val reason = editability.of(catalog.address)?.reason
+            val segment = CatalogSegment(catalog.id, namespace = catalog.namespace.takeIf { shared })
+            return CatalogLink(catalog.id.value, catalog.name, editability.editable(catalog.address), CatalogPages.browse(TenantId(tenantKey), segment), current, reason?.label)
+        }
+
         private const val LAST_CATALOG = "epistola.workspace.lastCatalog"
         private const val SEPARATOR = "\u001F"
 
@@ -82,10 +105,10 @@ class WorkspaceBuilder {
             val tenant = "/tenants/${bar.tenantKey.value}"
             val label = when {
                 publishedVersion != null -> publishedVersion
-                !bar.authored -> bar.shown?.let { "v${it.version}" } ?: "Not installed"
+                !bar.editable -> bar.shown?.let { "v${it.version}" } ?: "No release yet"
                 else -> bar.draftTitle ?: CatalogDraft.NEXT_LABEL
             }
-            val versions = if (bar.authored) {
+            val versions = if (bar.editable) {
                 bar.draftLinks.map { link ->
                     VersionLink(
                         label = link.label,
@@ -108,8 +131,8 @@ class WorkspaceBuilder {
                 sideWork = bar.onParallelWork,
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
-                statusHref = if (bar.authored && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
-                versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/versions",
+                statusHref = if (bar.editable && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
+                versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/releases",
             )
         }
 

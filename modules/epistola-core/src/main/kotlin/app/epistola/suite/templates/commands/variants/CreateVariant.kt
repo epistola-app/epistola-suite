@@ -4,10 +4,10 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
@@ -33,8 +33,8 @@ data class CreateVariant(
     val description: String?,
     val attributes: Map<String, String> = emptyMap(),
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Command<TemplateVariant?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -51,6 +51,7 @@ class CreateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
+    private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
@@ -59,6 +60,9 @@ class CreateVariantHandler(
 
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.id.tenantId, command.attributes)
+        // An attribute of another catalog names it by alias (`system.locale`): that catalog is declared now,
+        // as every write that starts using another catalog declares it (contract ADR 0003).
+        usedCatalogs.declareAttributes(command.id.tenantKey, command.id.catalogKey, command.attributes.keys)
 
         return executeOrThrowDuplicate("variant", command.id.key.value) {
             jdbi.inTransaction<TemplateVariant?, Exception> { handle ->

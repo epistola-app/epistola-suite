@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.sources
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
-import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogArchiveBuilder
@@ -38,8 +37,14 @@ interface CatalogReleaseSource {
     /** The archive of release [version]. @throws CatalogSourceUnavailableException */
     fun archive(catalog: Catalog, version: String): ByteArray
 
-    /** Installs release [version], beside the catalog's others. */
-    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(catalog.tenantKey, archive(catalog, version)).execute()
+    /** Installs release [version], beside the catalog's others; an older wire schema is migrated, as nobody is asked. */
+    fun install(catalog: Catalog, version: String): ImportCatalogZipResult = ImportCatalogZip(
+        catalog.tenantKey,
+        archive(catalog, version),
+        confirmMigration = true,
+        // A release from before wire v8 names no catalog: it is this one.
+        legacyName = app.epistola.suite.catalog.commands.LegacyCatalogName(catalog.registry, catalog.namespace),
+    ).execute()
 
     /**
      * Installs release [version] of the catalog named [registry]/[namespace]/[catalogKey], which the
@@ -103,7 +108,8 @@ class ManifestUrlReleaseSource(
             }
         }.distinct().associateWith { path -> client.fetchBinaryContent(path, url, auth, credential) }
         val content = publishedContent(manifest, bound, binaries)
-        archiveBuilder.build(content, ReleaseInfo(version = manifest.release.version, releasedAt = manifest.release.releasedAt, fingerprint = manifest.release.fingerprint))
+        // The release as its source describes it, its id, metadata and base included (wire v8).
+        archiveBuilder.build(content, manifest.release)
     }
 
     private fun manifest(catalog: Catalog) = client.fetchManifest(requireNotNull(catalog.sourceUrl), catalog.sourceAuthType, catalog.sourceAuthCredential?.value)

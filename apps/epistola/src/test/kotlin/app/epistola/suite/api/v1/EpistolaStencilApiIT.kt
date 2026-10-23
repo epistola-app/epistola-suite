@@ -17,9 +17,9 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.publishAndRelease
@@ -219,7 +219,7 @@ class EpistolaStencilApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("st-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Stencil API Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Stencil API Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "st-it").execute()
         tenantKey to created.plaintextKey
     }

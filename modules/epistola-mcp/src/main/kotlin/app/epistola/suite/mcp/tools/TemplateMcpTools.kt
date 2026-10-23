@@ -19,6 +19,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -51,7 +52,7 @@ class TemplateMcpTools(
         name = "list_templates",
         description = "List templates in the current tenant. " +
             "Optionally filter by catalog (use `list_catalogs` to discover catalog IDs) " +
-            "or by a name search term. Returns lightweight summaries; use `get_template` " +
+            "or by a name search term. Returns lightweight summaries, each with the template's description; use `get_template` " +
             "for metadata and `get_template_content` for the editable structure.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
@@ -153,7 +154,7 @@ class TemplateMcpTools(
 
     @McpTool(
         name = "create_template",
-        description = "Create a template in an AUTHORED catalog. The template starts with a default variant " +
+        description = "Create a template in a catalog that can be changed here. The template starts with a default variant " +
             "holding an empty document, and an empty data contract. Fill the document with " +
             "`update_variant_content`, describe its input data with `update_data_contract`, and add " +
             "further variants with `create_variant`. Optionally pick a theme and the default variant's " +
@@ -162,7 +163,7 @@ class TemplateMcpTools(
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createTemplate(
-        @McpToolParam(description = "Catalog key to create the template in. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to create the template in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Key for the new template: lowercase letters, digits and hyphens, e.g. `invoice-letter`.")
         templateId: String,
@@ -180,18 +181,20 @@ class TemplateMcpTools(
         variantAttributes: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
+        @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION, required = false)
+        description: String? = null,
     ): TemplateInfo {
         val id = templateId(catalogId, templateId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         // Validated before anything is created, so bad attributes leave no half-made template behind.
         val attributes = parseAttributes(variantAttributes, field = "variantAttributes")
             ?.also { validateAttributes(mcpTenantId(), it) }
-        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version).execute()
+        var template = CreateDocumentTemplate(id = id, name = name, catalogVersion = version, description = description).execute()
         if (!themeId.isNullOrBlank()) {
             template = UpdateDocumentTemplate(
                 id = id,
                 themeId = ThemeKey.of(themeId),
-                themeCatalogKey = CatalogKey.of(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+                themeCatalogKey = mcpCatalogKey(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
                 catalogVersion = version,
             ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
         }
@@ -209,7 +212,7 @@ class TemplateMcpTools(
 
     @McpTool(
         name = "update_template",
-        description = "Update a template's metadata: name, theme, PDF/A output. Omitted arguments are left " +
+        description = "Update a template's metadata: name, description, theme, PDF/A output. Omitted arguments are left " +
             "unchanged. Content lives in the variants; change it with `update_variant_content`. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
@@ -233,6 +236,8 @@ class TemplateMcpTools(
         catalogVersion: String? = null,
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
+        @McpToolParam(description = TEMPLATE_DESCRIPTION_DESCRIPTION + " An empty string removes it.", required = false)
+        description: String? = null,
     ): TemplateInfo {
         if (clearTheme == true && !themeId.isNullOrBlank()) {
             throw ValidationException("clearTheme", "`clearTheme` cannot be combined with `themeId`")
@@ -242,11 +247,12 @@ class TemplateMcpTools(
             id = templateId(catalogId, templateId),
             name = name?.takeIf { it.isNotBlank() },
             themeId = theme?.let { ThemeKey.of(it) },
-            themeCatalogKey = theme?.let { CatalogKey.of(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+            themeCatalogKey = theme?.let { mcpCatalogKey(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
             clearThemeId = clearTheme == true,
             pdfaEnabled = pdfaEnabled,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             expectedRevision = expectedRevision,
+            description = description,
         ).execute()?.let { TemplateInfo.from(it) } ?: throw notFound("Template", catalogId, templateId)
     }
 
@@ -332,7 +338,7 @@ class TemplateMcpTools(
         }
 
     private fun templateId(catalogId: String, templateId: String): TemplateId {
-        val catalog = CatalogId(CatalogKey.of(catalogId), mcpTenantId())
+        val catalog = CatalogId(mcpCatalogKey(catalogId), mcpTenantId())
         return TemplateId(TemplateKey.of(templateId), catalog)
     }
 
@@ -341,3 +347,8 @@ class TemplateMcpTools(
         return VariantId(VariantKey.of(variantId), parent)
     }
 }
+
+/** What a template's `description` argument is, for its create and update tools. */
+private const val TEMPLATE_DESCRIPTION_DESCRIPTION =
+    "Plain-text notes on the template for its authors: what it is for, design decisions, known gaps. " +
+        "Not rendered; at most 2000 characters; travels with the template in its catalog."

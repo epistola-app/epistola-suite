@@ -286,6 +286,21 @@ tenant from `epistola.auth.local-users`.
 > Note that `local` also sets `epistola.demo.enabled=true`, so local development gets this behaviour
 > too — via Keycloak, not via form login.
 
+## Platform administration
+
+Platform roles (`PlatformRole`, from `/epistola/platform/{role}` groups or `platform-roles` of a
+local user) apply across tenants. `TENANT_MANAGER` creates and deletes tenants, sets the site banner,
+and manages the **namespaces** each tenant holds (ADR 0034, section 3): the tenant list's
+**Namespaces** action opens `/platform/tenants/{tenant}/namespaces`, where a namespace is granted
+under an authority (the organisation's own domain, or `exchange.epistola.app`) and revoked again
+once no catalog the tenant authors is named in it. A tenant is created with one namespace, which
+its default catalog is named in. The commands (`GrantTenantNamespace`, `RevokeTenantNamespace`) and
+the listing (`ListNamespaceGrants`) are `RequiresPlatformRole(TENANT_MANAGER)`, so the page needs no
+membership of the tenant; anyone else gets the standard 403. A tenant's own members see what it
+holds where they name a catalog (`ListHeldNamespaces`, `CATALOG_VIEW`). The demo grants the `demo`
+tenant `exchange.epistola.app/demo` on every start; its personal tenants hold none and name their
+catalogs under `local`. See `docs/catalog-versioning.md`, "Who names a catalog".
+
 ## Production (OAuth2/OIDC)
 
 Production uses OAuth2/OIDC with any compliant provider (Keycloak, authentik, …). The registration

@@ -57,8 +57,11 @@ class ResourceGraphHandler {
             .take(50)
             .map(::nodeDto)
             .toList()
-        val catalogs = ListCatalogs(request.tenantKey()).query().map {
-            mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
+        // As the graph names them: `namespace/key` where two catalogs share the key (ADR 0034).
+        val all = ListCatalogs(request.tenantKey()).query()
+        val shared = all.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
+        val catalogs = all.map {
+            mapOf("key" to (if (it.id in shared) "${it.namespace}/${it.id.value}" else it.id.value), "name" to it.name)
         }
         return json(mapOf("nodes" to nodes, "total" to matches.size, "catalogs" to catalogs))
     }
@@ -135,7 +138,6 @@ class ResourceGraphHandler {
         "key" to node.address.key,
         "name" to node.name,
         "catalogName" to node.catalogName,
-        "catalogType" to node.catalogType,
     )
 
     private fun edgeDto(edge: ResourceEdge) = mapOf(

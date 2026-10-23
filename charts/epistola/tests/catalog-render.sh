@@ -13,6 +13,15 @@ if ! grep -A1 -F 'name: EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS' <<<"${de
   echo 'Default render must set EPISTOLA_CATALOG_OUTBOUND_ALLOWPRIVATENETWORKS to "false"' >&2
   exit 1
 fi
+if ! grep -A1 -F 'name: EPISTOLA_CATALOG_EDITING_ENABLED' <<<"${defaults}" | grep -Fq 'value: "true"'; then
+  echo 'Default render must set EPISTOLA_CATALOG_EDITING_ENABLED to "true"' >&2
+  exit 1
+fi
+runonly="$(helm template catalog-test "${chart_dir}" --set encryption.enabled=false --set catalog.editing.enabled=false)"
+if ! grep -A1 -F 'name: EPISTOLA_CATALOG_EDITING_ENABLED' <<<"${runonly}" | grep -Fq 'value: "false"'; then
+  echo 'catalog.editing.enabled=false must render EPISTOLA_CATALOG_EDITING_ENABLED as "false"' >&2
+  exit 1
+fi
 for absent in EPISTOLA_CATALOG_FILEROOTS EPISTOLA_CATALOG_OUTBOUND_ALLOWEDHOSTS; do
   if grep -Fq "name: ${absent}" <<<"${defaults}"; then
     echo "Default render must not set ${absent}" >&2

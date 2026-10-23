@@ -23,7 +23,6 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.time.EpistolaClock
 import org.springframework.stereotype.Component
 
@@ -146,7 +145,7 @@ class ScenarioBuilder(private val namespace: String) {
          * @param name the name of the tenant to create
          * @return the created [Tenant]
          */
-        fun tenant(name: String): Tenant = capturedMediator.send(CreateTenant(id = TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
+        fun tenant(name: String): Tenant = capturedMediator.send(TestNamespaces.createTenant(TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name))
 
         /**
          * Creates a document template.

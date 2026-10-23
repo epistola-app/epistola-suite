@@ -5,9 +5,9 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -24,8 +24,8 @@ data class ListThemes(
     val searchTerm: String? = null,
     val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<List<Theme>>,
     RequiresPermission {
     override val permission get() = Permission.THEME_VIEW
@@ -38,7 +38,7 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId AND ${inCurrentVersion("t")}")
+            append("SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId AND ${inCurrentVersion("t")}")
             if (query.catalogKey != null) {
                 append(" AND t.version_id = ${versionAt("tenantId", "catalogKey")}")
             }

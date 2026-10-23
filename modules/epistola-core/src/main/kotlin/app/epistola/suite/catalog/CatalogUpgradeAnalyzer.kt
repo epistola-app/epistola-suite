@@ -26,7 +26,7 @@ data class RemovedResource(val type: String, val slug: String)
  * Shared upgrade analysis — installed-resource discovery, stale computation,
  * cross-catalog conflict detection and stale removal — used by
  * [UpgradeCatalog][app.epistola.suite.catalog.commands.UpgradeCatalog] (URL
- * source), the SUBSCRIBED ZIP-import path
+ * source), the import path that receives a release
  * ([ImportCatalogZip][app.epistola.suite.catalog.commands.ImportCatalogZip])
  * and [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]
  * (so the same conflicts surface up front, not only at apply). One definition
@@ -278,7 +278,7 @@ class CatalogUpgradeAnalyzer(
      * dependency order (templates first — they may reference themes/stencils —
      * then the rest). Idempotent; returns what was removed. Callers must have
      * already cleared [findConflicts]. Shared by `UpgradeCatalog` and the
-     * SUBSCRIBED ZIP-import path so "what stale-prune deletes" has one
+     * import path that receives a release so "what stale-prune deletes" has one
      * definition.
      */
     fun removeStale(

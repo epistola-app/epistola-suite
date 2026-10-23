@@ -22,6 +22,7 @@ import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.entryDtos
 import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -38,7 +39,7 @@ import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -70,7 +71,7 @@ class EpistolaCodeListApi : CodeListsApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
-            ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto(at.catalog) }
+            at.catalog.readOnlyHere().let { readOnly -> ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto(at.catalog, readOnly) } }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             at.releasedResources<CodeListResource>("codeList").map { it.toDto(at) }
@@ -228,9 +229,9 @@ class EpistolaCodeListApi : CodeListsApi {
         return okWithETag(list.revision, entry.toDto())
     }
 
-    private fun ResolvedCatalogVersion.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
+    private fun ResolvedCatalogRelease.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
 
-    private fun ResolvedCatalogVersion.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
+    private fun ResolvedCatalogRelease.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
 
     private fun CreateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
         CreateCodeListRequest.AuthType.NONE -> AuthType.NONE

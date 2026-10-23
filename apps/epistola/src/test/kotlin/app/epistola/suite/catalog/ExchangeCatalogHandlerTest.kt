@@ -9,7 +9,7 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -308,7 +308,7 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
                 name = "Theme $version",
             ).execute()
             MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogVersion(publisher, catalogKey, version = version).execute()
+            ReleaseCatalogDraft(publisher, catalogKey, version = version).execute()
             ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
         }
     }

@@ -109,8 +109,12 @@ class CatalogContentBuilder(
         val catalog = GetCatalog(tenantKey, catalogKey).query()
             ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
 
-        val templates = loadTemplates(tenantKey, catalogKey, source)
-        val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query()
+        val outbound = Outbound(catalogKey.value)
+        val templates = loadTemplates(tenantKey, catalogKey, source, outbound)
+        val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query().map { theme ->
+            // A theme's own-catalog font references have always travelled as stored.
+            objectMapper.treeToValue(outbound.withoutNameQualifiers(objectMapper.valueToTree(theme)), ThemeResource::class.java)
+        }
         val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(tenantKey, catalogKey) else null
         val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().mapNotNull { exported ->
             val stencil = if (published == null) {
@@ -120,7 +124,7 @@ class CatalogContentBuilder(
                 exported.copy(content = version.first, parameterSchema = version.second)
             }
             stencil.copy(
-                content = relativized(objectMapper.valueToTree(stencil.content), catalogKey.value).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
+                content = outbound.content(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
         }
         val attributes = ExportAttributes(tenantKey, catalogKey = catalogKey).query()
@@ -146,7 +150,8 @@ class CatalogContentBuilder(
         for (theme in themes) addResource("theme", theme.key, theme.name, theme.description, theme)
         for (stencil in stencils) addResource("stencil", stencil.key, stencil.name, stencil.description, stencil)
         for (image in assets) addResource("image", image.key, image.name, null, image)
-        for (template in templates) addResource("template", template.key, template.name, null, template)
+        // The manifest entry's description is the template's own (wire v8: equal when both are present).
+        for (template in templates) addResource("template", template.key, template.name, template.description, template)
 
         // Keyed by the archive path each binary takes, which is what the canonicaliser and the
         // writer both ask for. It used to key by a filename parsed out of contentUrl and recover
@@ -184,14 +189,15 @@ class CatalogContentBuilder(
                 slug = catalogKey.value,
                 name = catalog.name,
                 description = catalog.description,
-                availableAssetSlugs = if (catalog.type == CatalogType.SUBSCRIBED) assets.mapTo(mutableSetOf()) { it.key } else null,
+                // The catalog's presentation is catalog-wide, its images belong to a version: only
+                // those this version holds are named (any catalog can hold several versions, ADR 0032).
+                availableAssetSlugs = assets.mapTo(mutableSetOf()) { it.key },
                 namespace = catalog.namespace,
                 registry = catalog.registry,
             ).withThemeSettings(tenantKey, catalogKey),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
-            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value)
-                ?.let { named(tenantKey, it) },
+            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value),
             catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
                 dependencyStore.declarations(handle, tenantKey, catalogKey).map { it.toWire() }
             }.ifEmpty { null },
@@ -203,6 +209,7 @@ class CatalogContentBuilder(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
         source: ContentSource,
+        outbound: Outbound,
     ): List<TemplateResource> {
         val published = source == ContentSource.PUBLISHED_BEFORE_2_0
         data class TemplateRow(
@@ -213,13 +220,14 @@ class CatalogContentBuilder(
             val pdfaEnabled: Boolean,
             val dataModel: String?,
             val dataExamples: String?,
+            val description: String?,
         )
-        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean)
+        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean, val metadata: String?)
 
         val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
+                SELECT dt.id, dt.name, dt.description, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
                        ${if (published) PUBLISHED_CONTRACT_COLUMNS else "dt.data_model::text, dt.data_examples::text"}
                 FROM document_templates dt
                 ${if (published) PUBLISHED_CONTRACT_JOIN else ""}
@@ -239,6 +247,7 @@ class CatalogContentBuilder(
                         pdfaEnabled = rs.getBoolean("pdfa_enabled"),
                         dataModel = rs.getString("data_model"),
                         dataExamples = rs.getString("data_examples"),
+                        description = rs.getString("description"),
                     )
                 }
                 .list()
@@ -248,7 +257,7 @@ class CatalogContentBuilder(
             val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default,
+                    SELECT v.id, v.title, v.attributes::text, v.is_default, v.metadata::text,
                            ${if (published) "(pv.payload -> 'templateModel')::text" else "v.template_model::text"} AS template_model
                     FROM template_variants v
                     ${if (published) PUBLISHED_VARIANT_JOIN else ""}
@@ -266,6 +275,7 @@ class CatalogContentBuilder(
                             attributes = rs.getString("attributes"),
                             templateModel = rs.getString("template_model"),
                             isDefault = rs.getBoolean("is_default"),
+                            metadata = rs.getString("metadata"),
                         )
                     }
                     .list()
@@ -279,7 +289,7 @@ class CatalogContentBuilder(
 
             val defaultModel = defaultVariant.templateModel
                 ?.let(objectMapper::readTree)
-                ?.let { relativized(it, catalogKey.value) }
+                ?.let(outbound::content)
                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                 ?: return@mapNotNull null
 
@@ -311,12 +321,14 @@ class CatalogContentBuilder(
                         } else {
                             v.templateModel
                                 ?.let(objectMapper::readTree)
-                                ?.let { relativized(it, catalogKey.value) }
+                                ?.let(outbound::content)
                                 ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
                         },
                         isDefault = v.isDefault,
+                        metadata = v.metadata?.let { objectMapper.readValue(it, VARIANT_METADATA) },
                     )
                 },
+                description = template.description,
             )
         }
     }
@@ -347,37 +359,23 @@ class CatalogContentBuilder(
     }
 
     /**
-     * Stored references are absolute so relocation cannot change their meaning; exported ones are
-     * relative to their own catalog so the ZIP stays installable under a different key.
+     * How the references of catalog [catalogKey] travel: stored ones are absolute, so relocation
+     * cannot change their meaning; exported ones are relative to their own catalog, so the ZIP stays
+     * installable under a different key. A reference into another catalog names it by the alias its
+     * dependency list declares (contract ADR 0003, ADR 0034), which in this installation is always
+     * that catalog's key ([app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration.alias]),
+     * so a stored reference already names it; the `namespace` and `registry` an earlier draft of wire
+     * v8 let it carry are dropped, from content stored or retained before.
      */
-    private fun relativized(document: JsonNode, containingCatalog: String): JsonNode = document.deepCopy().also { root ->
-        ResourceReferenceSites.relativizeOwnCatalog(root, containingCatalog)
-    }
+    class Outbound(private val catalogKey: String) {
+        /** [document] (template, stencil or theme JSON) with its references as they travel. */
+        fun content(document: JsonNode): JsonNode = document.deepCopy().also { root ->
+            ResourceReferenceSites.relativizeOwnCatalog(root, catalogKey)
+            ResourceReferenceSites.dropNameQualifiers(root)
+        }
 
-    /**
-     * [dependencies] each with the registry and namespace of the catalog it names (contract ADR
-     * 0003): a key alone does not say which catalog is meant. A dependency on a catalog the tenant
-     * does not have stays unnamed, and the validator refuses it, as it should.
-     */
-    private fun named(tenantKey: TenantKey, dependencies: List<DependencyRef>): List<DependencyRef> {
-        val names = jdbi.withHandle<Map<String, Pair<String, String>>, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>)")
-                .bind("t", tenantKey)
-                .bindList("keys", dependencies.map { it.catalogKey }.distinct())
-                .map { rs, _ -> rs.getString("catalog_key") to (rs.getString("registry") to rs.getString("namespace")) }
-                .list()
-                .toMap()
-        }
-        return dependencies.map { dependency ->
-            val (registry, namespace) = names[dependency.catalogKey] ?: return@map dependency
-            when (dependency) {
-                is DependencyRef.Theme -> dependency.copy(registry = registry, namespace = namespace)
-                is DependencyRef.Stencil -> dependency.copy(registry = registry, namespace = namespace)
-                is DependencyRef.Image -> dependency.copy(registry = registry, namespace = namespace)
-                is DependencyRef.CodeList -> dependency.copy(registry = registry, namespace = namespace)
-                is DependencyRef.Font -> dependency.copy(registry = registry, namespace = namespace)
-            }
-        }
+        /** [document] without name qualifiers on its references, and nothing else changed. */
+        fun withoutNameQualifiers(document: JsonNode): JsonNode = document.deepCopy().also(ResourceReferenceSites::dropNameQualifiers)
     }
 
     /**
@@ -433,23 +431,18 @@ private const val PUBLISHED_VARIANT_JOIN =
 
 /**
  * The catalog details with the version's theme settings (contract ADR 0007): its default theme,
- * qualified when it lives in another catalog, and the presets it declares. Absent ones leave the
- * details, and so the fingerprint, as they were.
+ * named by the alias of its catalog when it lives in another one (that catalog's key, see
+ * [CatalogContentBuilder.Outbound]), and the presets it declares. Absent ones leave the details, and
+ * so the fingerprint, as they were.
  */
 private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogInfo {
-    val settings = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenantKey, catalogKey).query()
+    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(tenantKey, catalogKey).query()
     if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
     val theme = settings.defaultTheme?.let { theme ->
         if (theme.catalogKey == catalogKey) {
             app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value)
         } else {
-            val other = GetCatalog(tenantKey, theme.catalogKey).query()
-            app.epistola.catalog.protocol.CatalogThemeRef(
-                key = theme.themeKey.value,
-                catalogKey = theme.catalogKey.value,
-                namespace = other?.namespace,
-                registry = other?.registry,
-            )
+            app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value, catalogKey = theme.catalogKey.value)
         }
     }
     return copyWithMetadata(
@@ -457,3 +450,6 @@ private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: Cata
         presets = settings.presets.map { app.epistola.catalog.protocol.CatalogPresetDeclaration(it.key, it.name, it.description) },
     )
 }
+
+/** A variant's stored `metadata` as the protocol models it ([VariantEntry.metadata]). */
+private val VARIANT_METADATA = object : tools.jackson.core.type.TypeReference<Map<String, Map<String, Any?>>>() {}

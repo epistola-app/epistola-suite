@@ -5,9 +5,9 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.model.CodeList
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
 data class GetCodeList(
     val id: CodeListId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<CodeList?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
@@ -38,8 +38,7 @@ class GetCodeListHandler(
             SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, cl.display_name, cl.description,
                    cl.source_type, cl.source_url, cl.auth_type, cl.credential,
                    cl.last_refreshed_at, cl.last_refresh_error,
-                   cl.created_at, cl.updated_at, cl.revision,
-                   c.type AS catalog_type
+                   cl.created_at, cl.updated_at, cl.revision
             FROM code_lists cl
             JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
             WHERE cl.tenant_key = :tenantKey AND cl.version_id = ${versionAt("tenantKey", "catalogKey")} AND cl.slug = :slug

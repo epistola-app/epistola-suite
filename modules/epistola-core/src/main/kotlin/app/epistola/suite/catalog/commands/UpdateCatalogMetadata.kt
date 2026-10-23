@@ -233,7 +233,7 @@ class UpdateCatalogMetadataHandler(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
                 """,
             )
                 .bind("tenantKey", command.tenantKey)

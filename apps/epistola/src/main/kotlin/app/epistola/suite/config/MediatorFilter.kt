@@ -4,6 +4,7 @@
 
 package app.epistola.suite.config
 
+import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import jakarta.servlet.FilterChain
@@ -50,8 +51,10 @@ class MediatorFilter(
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
+        // A frame for the catalog names the request learns (ADR 0034, phase 4): an address that names
+        // a catalog's namespace names it for the rest of the request, its page's rendering included.
         MediatorContext.runWithMediator(mediator) {
-            filterChain.doFilter(request, response)
+            CatalogNames.frame { filterChain.doFilter(request, response) }
         }
     }
 }

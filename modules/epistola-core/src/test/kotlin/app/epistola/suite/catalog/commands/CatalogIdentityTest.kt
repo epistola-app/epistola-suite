@@ -6,13 +6,13 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReadOnlyException
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -34,7 +34,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
     private lateinit var objectMapper: ObjectMapper
 
     @Test
-    fun `an authored catalog is named by its tenant on the default registry, the system catalog by Epistola`() {
+    fun `an authored catalog is named in the namespace its tenant holds, the system catalog by Epistola`() {
         val tenant = createTenant("Identity Defaults")
 
         withMediator {
@@ -55,6 +55,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
         val tenant = createTenant("Identity Explicit")
 
         withMediator {
+            TestNamespaces.grant(tenant.id, "gemeente-x").execute()
             val catalog = CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("letters"), name = "Letters", namespace = "gemeente-x").execute()
 
             assertThat(catalog.namespace).isEqualTo("gemeente-x")
@@ -68,6 +69,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Letters").execute()
+            TestNamespaces.grant(tenant.id, "gemeente-x").execute()
 
             val changed = ChangeCatalogNamespace(tenant.id, key, "gemeente-x").execute()
 
@@ -94,7 +96,7 @@ class CatalogIdentityTest : IntegrationTestBase() {
         val tenant = createTenant("Identity Subscribed")
 
         withMediator {
-            assertThat(GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.type).isEqualTo(CatalogType.SUBSCRIBED)
+            assertThat(GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.suppliedByEpistola).isTrue()
             assertThatThrownBy { ChangeCatalogNamespace(tenant.id, SYSTEM_CATALOG_KEY, "mine").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
         }

@@ -5,10 +5,9 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.exchange.CatalogPublicationWorker
 import app.epistola.suite.exchange.CompleteExchangeConnection
@@ -48,10 +47,10 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
                 FakeExchangeServer.OAUTH_APPLICATION_ID,
                 exchange.baseUrl,
             ).execute()
-            CreateCatalog(tenant.id, catalogKey, "Invoices").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            // The tenant holds several namespaces through its Exchange connection, so a catalog names one.
+            CreateCatalog(tenant.id, catalogKey, "Invoices", namespace = "public-services").execute()
             MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Exchange *accepting* a release is what makes the namespace consequential to change:
             // a submission it takes and then rejects has published nothing.
             worker.run()

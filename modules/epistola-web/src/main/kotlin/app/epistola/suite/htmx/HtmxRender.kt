@@ -32,7 +32,7 @@ fun ServerRequest.render(
     }
 
     !isHtmx && redirectOnSuccess != null -> {
-        ServerResponse.seeOther(URI.create(redirectOnSuccess)).build()
+        ServerResponse.seeOther(URI.create(CatalogAddresses.address(redirectOnSuccess))).build()
     }
 
     else -> {

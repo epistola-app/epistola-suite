@@ -4,9 +4,9 @@
 
 package app.epistola.suite.htmx
 
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.assertj.core.api.Assertions.assertThat
@@ -35,17 +35,17 @@ class CatalogSegmentTest {
         val segment = CatalogSegment.parse("letters@$work")
 
         assertThat(segment.key).isEqualTo(CatalogKey.of("letters"))
-        assertThat(segment.ref(tenant)).isEqualTo(CatalogVersionRef(tenant, CatalogKey.of("letters"), DraftRef.Id(work)))
+        assertThat(segment.ref(tenant)).isEqualTo(CatalogReleaseRef(tenant, CatalogKey.of("letters"), DraftRef.Id(work)))
         assertThat(segment.value).isEqualTo("letters@$work")
         assertThat(segment.at(null).value).isEqualTo("letters")
     }
 
     @Test
     fun `a version number, anything else that is not a draft id, or a bad key, is refused`() {
-        assertThatThrownBy { CatalogSegment.parse("letters@2.0.0") }.`as`("a draft has no number: not there, as an old link").isInstanceOf(CatalogVersionNotFoundException::class.java)
-        assertThatThrownBy { CatalogSegment.parse("letters@Not_An_Id") }.isInstanceOf(CatalogVersionNotFoundException::class.java)
-        assertThatThrownBy { CatalogSegment.parse("letters@abc") }.`as`("a version id has at least four characters").isInstanceOf(CatalogVersionNotFoundException::class.java)
-        assertThatThrownBy { CatalogSegment.parse("letters@next") }.`as`("the next version is the plain key").isInstanceOf(CatalogVersionNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@2.0.0") }.`as`("a draft has no number: not there, as an old link").isInstanceOf(CatalogReleaseNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@Not_An_Id") }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@abc") }.`as`("a version id has at least four characters").isInstanceOf(CatalogReleaseNotFoundException::class.java)
+        assertThatThrownBy { CatalogSegment.parse("letters@next") }.`as`("the next version is the plain key").isInstanceOf(CatalogReleaseNotFoundException::class.java)
         assertThatThrownBy { CatalogSegment.parse("Bad Key@$work") }.isInstanceOf(IllegalArgumentException::class.java)
         assertThat(CatalogSegment.parseOrNull("letters@")).isNull()
         assertThat(CatalogSegment.parseOrNull("  ")).isNull()

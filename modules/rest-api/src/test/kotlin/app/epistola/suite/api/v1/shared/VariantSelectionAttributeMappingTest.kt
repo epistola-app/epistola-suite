@@ -7,7 +7,6 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import tools.jackson.databind.node.JsonNodeFactory
@@ -16,9 +15,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * A selection attribute names the attribute and the catalog that defines it; without `catalogKey`,
- * the template's own catalog (contract `VariantSelectionAttribute`). Variants store their
- * attributes qualified by that catalog, so the criterion is qualified the same way.
+ * A selection attribute names the attribute and, by the alias the rendering release declares it under
+ * (contract ADR 0003), the catalog that defines it; without `catalogKey`, or with the template's own
+ * key, the template's own catalog (contract `VariantSelectionAttribute`). Variants store their
+ * attributes qualified by that catalog's key, which is its alias here, so the criterion is qualified
+ * the same way.
  */
 class VariantSelectionAttributeMappingTest {
     private val letters = catalog("letters", namespace = "acme")
@@ -30,7 +31,6 @@ class VariantSelectionAttributeMappingTest {
         registry = "registry.example",
         namespace = namespace,
         name = key,
-        type = CatalogType.AUTHORED,
         createdAt = AT,
         updatedAt = AT,
         contentUpdatedAt = AT,
@@ -56,10 +56,15 @@ class VariantSelectionAttributeMappingTest {
     }
 
     @Test
+    fun `the template's own key is the template's own catalog`() {
+        assertEquals(mapOf("letters.language" to "nl"), criteriaFor(VariantSelectionAttribute(key = "language", value = "nl", catalogKey = "letters")).requiredAttributes)
+    }
+
+    @Test
     fun `a key with a catalog names an attribute of that catalog`() {
         val criteria = criteriaFor(
             VariantSelectionAttribute(key = "language", value = "nl", catalogKey = "shared", required = false),
-            VariantSelectionAttribute(key = "tone", value = "formal", catalogKey = "shared", namespace = "acme"),
+            VariantSelectionAttribute(key = "tone", value = "formal", catalogKey = "shared"),
         )
 
         assertEquals(mapOf("shared.language" to "nl"), criteria.optionalAttributes)

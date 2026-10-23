@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
@@ -11,6 +12,7 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
+import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -20,7 +22,7 @@ import app.epistola.suite.security.RequiresPermission
 import org.springframework.stereotype.Component
 
 /**
- * Previews what a subscriber-triggered upgrade of a SUBSCRIBED catalog would
+ * Previews what an upgrade of a catalog from its source would
  * do — **without applying it**. Re-fetches the source manifest and classifies
  * every `(type, slug)` against the live installed working copy:
  *
@@ -86,6 +88,9 @@ class PreviewCatalogUpgradeHandler(
     private val fingerprintService: CatalogFingerprintService,
     private val analyzer: CatalogUpgradeAnalyzer,
     private val catalogClient: CatalogClient,
+    private val assembler: ReleaseContentAssembler,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
 ) : QueryHandler<PreviewCatalogUpgrade, UpgradeDiff> {
 
     override fun handle(query: PreviewCatalogUpgrade): UpgradeDiff {
@@ -95,22 +100,21 @@ class PreviewCatalogUpgradeHandler(
         val sourceUrl = catalog.sourceUrl
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,
-                "not a subscribed catalog (no source URL) — only subscribed catalogs can be upgraded",
+                "it has no source URL — only a catalog with a source can be upgraded",
             )
 
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
 
-        val incoming = fingerprintService.perResourceFingerprintsFromSource(
+        val incoming = fingerprintService.resourceFingerprintsFromSource(
             sourceUrl,
             catalog.sourceAuthType,
             catalog.sourceAuthCredential?.value,
         )
 
-        // Source-vs-source: the baseline was captured from the source manifest
-        // at register/upgrade (same provenance as the incoming side), so a
-        // CHANGED verdict means the publisher changed that resource — never
-        // install round-trip noise. SUBSCRIBED catalogs always have it.
-        val installed = catalog.installedResourceFingerprints
+        // Source-vs-source: the baseline was captured from the source at register/upgrade (same
+        // provenance and the same function as the incoming side), so a CHANGED verdict means the
+        // publisher changed that resource — never install round-trip noise.
+        val installed = installedBaseline(query, catalog, manifest.release, incoming)
             ?: throw CatalogNotUpgradeableException(
                 query.catalogKey,
                 "no per-resource baseline captured yet — re-register or upgrade it to capture one",
@@ -156,4 +160,27 @@ class PreviewCatalogUpgradeHandler(
             conflicts = conflicts,
         )
     }
+
+    /**
+     * The installed release's per-resource baseline, in the function [incoming] was computed with.
+     * A stored one that names another function (a flat V3 map, stored before baselines named theirs)
+     * counts as none and is recomputed: from the source when it still serves the installed release,
+     * else from the installed release's retained content. The next upgrade stores it anew.
+     */
+    private fun installedBaseline(
+        query: PreviewCatalogUpgrade,
+        catalog: Catalog,
+        offered: app.epistola.catalog.protocol.ReleaseInfo,
+        incoming: Map<String, String>,
+    ): Map<String, String>? {
+        fingerprintService.readBaseline(catalog.installedResourceFingerprints)?.let { return it }
+        val sourceServesInstalled = catalog.installedReleaseVersion == offered.version &&
+            (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
+        if (sourceServesInstalled) return incoming
+        val version = catalog.installedReleaseVersion ?: return null
+        return assembler.assemble(query.tenantKey, query.catalogKey, version)?.content?.let(fingerprintService::resourceFingerprints)
+    }
+
+    /** Whether release [version] the tenant has is the one [fingerprint] names, by content (ADR 0034). */
+    private fun isInstalled(query: PreviewCatalogUpgrade, version: String, fingerprint: String): Boolean = jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.tenantKey, query.catalogKey, version, fingerprint) }
 }

@@ -131,11 +131,10 @@ class DeleteCatalogReleaseHandler(
                 SELECT r.version, r.fingerprint, r.released_at
                 FROM catalog_releases r
                 WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
-                ORDER BY r.version_major DESC NULLS LAST, r.version_minor DESC NULLS LAST,
-                         r.version_patch DESC NULLS LAST, r.released_at DESC
+                ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
                 LIMIT 1
             ) AS latest
-            WHERE c.tenant_key = :t AND c.catalog_key = :c
+            WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c)
             """,
         )
             .bind("t", command.tenantKey)
@@ -153,7 +152,7 @@ class DeleteCatalogReleaseHandler(
             """
             UPDATE catalogs
             SET released_version = NULL, released_fingerprint = NULL, released_at = NULL, updated_at = NOW()
-            WHERE tenant_key = :t AND catalog_key = :c
+            WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
             """,
         )
             .bind("t", command.tenantKey)

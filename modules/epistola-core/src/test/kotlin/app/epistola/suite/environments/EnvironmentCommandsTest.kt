@@ -12,7 +12,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.mediator.execute
@@ -79,7 +79,7 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         assertThat(GetEnvironment(id = envId).query()).isNotNull()
 
         // Once the release is undeployed the delete goes through.
-        val removed = UndeployCatalogVersion(environmentId = envId, catalogKey = templateId.catalogKey, version = version).execute()
+        val removed = UndeployCatalogRelease(environmentId = envId, catalogKey = templateId.catalogKey, version = version).execute()
         assertThat(removed).isTrue()
         assertThat(DeleteEnvironment(id = envId).execute()).isTrue()
     }

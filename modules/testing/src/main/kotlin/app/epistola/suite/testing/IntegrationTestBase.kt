@@ -14,7 +14,6 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -150,6 +149,6 @@ abstract class IntegrationTestBase {
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)
 
     protected fun createTenant(name: String): Tenant = withMediator {
-        CreateTenant(id = TenantKey.of(nextTenantSlug()), name = name).execute()
+        TestNamespaces.createTenant(TenantKey.of(nextTenantSlug()), name).execute()
     }
 }

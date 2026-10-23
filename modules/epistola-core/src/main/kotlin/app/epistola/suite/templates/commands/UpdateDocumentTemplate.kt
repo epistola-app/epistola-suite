@@ -5,10 +5,10 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -21,9 +21,11 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
@@ -32,7 +34,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 /**
- * Updates a template's metadata (name, theme, pdfaEnabled).
+ * Updates a template's metadata (name, description, theme, pdfaEnabled).
  * The data contract is updated with [app.epistola.suite.templates.contracts.commands.UpdateDataContract].
  */
 data class UpdateDocumentTemplate(
@@ -43,10 +45,12 @@ data class UpdateDocumentTemplate(
     val clearThemeId: Boolean = false,
     val pdfaEnabled: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The template's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+    /** The new description; null keeps the current one, blank removes it. */
+    val description: String? = null,
+) : CatalogReleaseScoped,
     Command<DocumentTemplate?>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -58,6 +62,7 @@ data class UpdateDocumentTemplate(
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
         validate("themeCatalogKey", themeId == null || themeCatalogKey != null) { "A theme needs the catalog it lives in" }
+        validate("description", description.fitsTemplateDescription()) { "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less" }
     }
 }
 
@@ -84,6 +89,10 @@ class UpdateDocumentTemplateHandler(
         if (command.name != null) {
             updates.add("name = :name")
             bindings["name"] = command.name
+        }
+        if (command.description != null) {
+            updates.add("description = :description")
+            bindings["description"] = command.description.takeIf { it.isNotBlank() }
         }
         if (command.clearThemeId) {
             updates.add("theme_resource_id = NULL")
@@ -154,7 +163,7 @@ class UpdateDocumentTemplateHandler(
 
         if (rowsUpdated == 0) return null
 
-        // Refetch with full context (catalog_type via JOIN)
+        // Refetch with full context (catalog key via JOIN)
         return GetDocumentTemplate(id = command.id).query()
     }
 

@@ -28,7 +28,7 @@
            name="q"
            data-testid="search-input"
            th:placeholder="${placeholder}"
-           th:hx-get="${searchUrl}"
+           th:hx-get="@{${searchUrl}}"
            hx-trigger="input changed delay:300ms, search"
            th:hx-target="${'#' + targetId}"
            hx-include="[data-search-param]"

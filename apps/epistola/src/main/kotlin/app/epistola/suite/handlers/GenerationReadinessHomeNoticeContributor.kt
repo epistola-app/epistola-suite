@@ -46,8 +46,8 @@ data class GenerationReadinessNoticeData(
 ) {
     val upgrading: String? get() = when (readiness.catalogsUpgrading) {
         0 -> null
-        1 -> "1 catalog is still being prepared for Epistola 2.0. Its documents can be made once its first version is published and deployed."
-        else -> "${readiness.catalogsUpgrading} catalogs are still being prepared for Epistola 2.0. Their documents can be made once their first versions are published and deployed."
+        1 -> "1 catalog is still being prepared for Epistola 2.0. Its documents can be made once its first release is published and deployed."
+        else -> "${readiness.catalogsUpgrading} catalogs are still being prepared for Epistola 2.0. Their documents can be made once their first releases are published and deployed."
     }
 
     val idle: String? get() = readiness.idleEnvironments.map { it.second }.takeIf { it.isNotEmpty() }?.let { names ->

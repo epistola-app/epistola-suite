@@ -6,9 +6,9 @@ package app.epistola.suite.attributes.queries
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -23,8 +23,8 @@ data class ListAttributeDefinitions(
     val tenantId: TenantId,
     val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<List<VariantAttributeDefinition>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
@@ -39,7 +39,7 @@ class ListAttributeDefinitionsHandler(
         val sql = buildString {
             append(
                 """
-                SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.type AS catalog_type, a.display_name, a.allowed_values,
+                SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.display_name, a.allowed_values,
                        cl_cat.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug,
                        a.created_at, a.updated_at, a.revision
                 FROM variant_attribute_definitions a

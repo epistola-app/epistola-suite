@@ -19,7 +19,7 @@ import org.springframework.util.unit.DataSize
 import java.time.Duration
 
 @Configuration
-@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class, CatalogIdentityProperties::class)
+@EnableConfigurationProperties(CatalogSizeLimits::class, CatalogUpstreamCheckProperties::class, CatalogSourceProperties::class, CatalogIdentityProperties::class, CatalogEditingProperties::class)
 class CatalogConfiguration {
 
     /**
@@ -83,6 +83,24 @@ data class CatalogIdentityProperties(
         fun defaultNamespace(tenantKey: TenantKey): String = tenantKey.value.padEnd(CatalogNamespaces.MIN_LENGTH, '0')
     }
 }
+
+/**
+ * Whether people may change catalogs in this installation (ADR 0032, section 3). With [enabled] off
+ * the installation is run-only: no draft is started, changed, discarded, merged or released, and
+ * nothing offers to; receiving releases, deploying and rolling back work as before. A typical
+ * production installation turns it off.
+ *
+ * ```yaml
+ * epistola:
+ *   catalog:
+ *     editing:
+ *       enabled: false
+ * ```
+ */
+@ConfigurationProperties(prefix = "epistola.catalog.editing")
+data class CatalogEditingProperties(
+    val enabled: Boolean = true,
+)
 
 /**
  * How often a subscribed catalog's source is asked whether it has published anything newer.

@@ -57,7 +57,7 @@ class DriftRatchetTest {
                 Files.readString(path).lineSequence().count { "INSERT INTO" in it }
             }
         },
-        Counter("UUID.randomUUID() in main", 8, "UUIDv7.generate()") {
+        Counter("UUID.randomUUID() in main", 7, "UUIDv7.generate()") {
             mainLines(Regex("""UUID\.randomUUID\(\)"""))
         },
         Counter("files importing the catalog.CatalogKey typealias", 34, "common.ids.CatalogKey") {

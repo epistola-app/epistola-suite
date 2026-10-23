@@ -71,4 +71,12 @@ object FieldLimits {
      */
     const val MAX_KEYWORD_LENGTH = 30
     const val MAX_KEYWORDS = 20
+
+    /**
+     * Max length of a template's description, in characters (Unicode code points): the catalog
+     * contract's `TemplateResource.MAX_DESCRIPTION_LENGTH` (wire v8), and the
+     * `document_templates.description VARCHAR(2000)` column. One ceiling for typed and imported
+     * descriptions alike, since the wire bounds both.
+     */
+    const val MAX_TEMPLATE_DESCRIPTION_LENGTH = app.epistola.catalog.protocol.TemplateResource.MAX_DESCRIPTION_LENGTH
 }

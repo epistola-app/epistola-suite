@@ -6,10 +6,10 @@ package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -40,6 +40,7 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateTheme(
     val id: ThemeId,
     val name: String? = null,
+    /** The new description; null keeps the current one, blank removes it (as [clearDescription] does). */
     val description: String? = null,
     val clearDescription: Boolean = false,
     val documentStyles: DocumentStyles? = null,
@@ -52,10 +53,10 @@ data class UpdateTheme(
     val spacingUnit: Float? = null,
     val clearSpacingUnit: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The theme's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<Theme?>,
     RequiresPermission {
     override val permission = Permission.THEME_EDIT
@@ -100,7 +101,8 @@ class UpdateThemeHandler(
             bindings["name"] = command.name
         }
 
-        if (command.clearDescription) {
+        // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+        if (command.clearDescription || command.description?.isBlank() == true) {
             updates.add("description = NULL")
         } else if (command.description != null) {
             updates.add("description = :description")

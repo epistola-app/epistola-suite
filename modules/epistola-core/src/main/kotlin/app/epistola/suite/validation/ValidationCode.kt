@@ -60,6 +60,26 @@ enum class ValidationCode(val wire: String) {
     // Catalog identity (contract ADR 0003).
     CATALOG_NAMESPACE_INVALID("CATALOG_NAMESPACE_INVALID"),
 
+    // Namespaces granted to tenants (ADR 0034, sections 3 and 7).
+
+    /** The tenant does not hold the namespace a catalog is named, or released, in. */
+    CATALOG_NAMESPACE_NOT_HELD("CATALOG_NAMESPACE_NOT_HELD"),
+
+    /** A new catalog names no namespace, and the tenant holds none or several to choose from. */
+    CATALOG_NAMESPACE_REQUIRED("CATALOG_NAMESPACE_REQUIRED"),
+
+    /** The tenant holds the namespace under another authority already (ADR 0034, section 2). */
+    CATALOG_NAMESPACE_TAKEN("CATALOG_NAMESPACE_TAKEN"),
+
+    /** Catalogs of the tenant are named in the namespace, so it is not revoked. */
+    CATALOG_NAMESPACE_IN_USE("CATALOG_NAMESPACE_IN_USE"),
+
+    /** A catalog named under `local` never leaves the organisation. */
+    CATALOG_NAMESPACE_LOCAL("CATALOG_NAMESPACE_LOCAL"),
+
+    /** A catalog key names several catalogs of the tenant, and nothing said which namespace (ADR 0034, phase 4). */
+    CATALOG_KEY_AMBIGUOUS("CATALOG_KEY_AMBIGUOUS"),
+
     // Declared catalog dependencies (contract ADR 0003).
     CATALOG_DEPENDENCY_INVALID("CATALOG_DEPENDENCY_INVALID"),
     CATALOG_DEPENDENCY_UNRESOLVED("CATALOG_DEPENDENCY_UNRESOLVED"),
@@ -98,7 +118,7 @@ enum class ValidationCode(val wire: String) {
     PUBLICATION_UNAVAILABLE("PUBLICATION_UNAVAILABLE"),
     PUBLICATION_FORBIDDEN_BY_POLICY("PUBLICATION_FORBIDDEN_BY_POLICY"),
     PUBLICATION_NO_RELEASE("PUBLICATION_NO_RELEASE"),
-    PUBLICATION_ALREADY_QUEUED("PUBLICATION_ALREADY_QUEUED"),
+    PUBLICATION_REJECTED("PUBLICATION_REJECTED"),
     PUBLICATION_ARCHIVE_MISSING("PUBLICATION_ARCHIVE_MISSING"),
     EXCHANGE_NAMESPACE_UNAVAILABLE("EXCHANGE_NAMESPACE_UNAVAILABLE"),
     EXCHANGE_AUTHORIZATION_INVALID("EXCHANGE_AUTHORIZATION_INVALID"),
@@ -112,6 +132,14 @@ enum class ValidationCode(val wire: String) {
     EXCHANGE_CATALOG_KEY_TAKEN("EXCHANGE_CATALOG_KEY_TAKEN"),
     EXCHANGE_RELEASE_UNAVAILABLE("EXCHANGE_RELEASE_UNAVAILABLE"),
     EXCHANGE_ARCHIVE_REJECTED("EXCHANGE_ARCHIVE_REJECTED"),
+
+    // Moving catalog releases through a container registry (alpha, ADR 0032).
+    REGISTRY_UNKNOWN("REGISTRY_UNKNOWN"),
+    REGISTRY_REFERENCE_INVALID("REGISTRY_REFERENCE_INVALID"),
+    REGISTRY_TAG_TAKEN("REGISTRY_TAG_TAKEN"),
+    REGISTRY_RELEASE_UNAVAILABLE("REGISTRY_RELEASE_UNAVAILABLE"),
+    REGISTRY_ARCHIVE_REJECTED("REGISTRY_ARCHIVE_REJECTED"),
+    REGISTRY_CATALOG_KEY_TAKEN("REGISTRY_CATALOG_KEY_TAKEN"),
 
     /**
      * A catalog or code-list source URL Epistola will not read: a `classpath:` URL, a `file:` path

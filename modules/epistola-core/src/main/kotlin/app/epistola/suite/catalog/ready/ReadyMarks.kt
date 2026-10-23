@@ -46,6 +46,45 @@ class ReadyMarks {
         .list()
         .toMap()
 
+    /**
+     * The resources of [catalogKey] a merge into the version its callers mean wrote as merged content
+     * (`MERGED` in `catalog_draft_merges.resolutions`) that nobody has reviewed since, keyed `"type/key"`.
+     *
+     * A resource stops awaiting review once every part of it has been marked ready at or after the
+     * latest merge that merged it: marking it ready is the review, and so is publishing, which marks
+     * it. An edit alone does not end it, since the rest of the merged content is still unreviewed; a
+     * mark made before the merge does not count (the merge clears them). A later merge that takes the
+     * release's side marks it ready, which ends it too. Catalog settings carry no ready marks and are
+     * not listed.
+     */
+    fun mergedAwaitingReview(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> = handle
+        .createQuery(
+            """
+            SELECT merged.address
+            FROM (
+                SELECT m.version_id, e.key AS address, MAX(m.merged_at) AS merged_at
+                FROM catalog_draft_merges m
+                CROSS JOIN LATERAL jsonb_each_text(m.resolutions) e
+                WHERE m.tenant_key = :t AND m.version_id = ${versionAt("t", "c")} AND e.value = :merged
+                GROUP BY m.version_id, e.key
+            ) merged
+            JOIN catalog_resources r ON r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
+                 AND r.resource_type || '/' || r.resource_key = merged.address
+            WHERE NOT COALESCE((
+                SELECT bool_and(mk.marked_at IS NOT NULL AND mk.marked_at >= merged.merged_at)
+                FROM resource_content_digests d
+                LEFT JOIN resource_ready_marks mk ON mk.tenant_key = d.tenant_key AND mk.version_id = d.version_id
+                     AND mk.resource_id = d.resource_id AND mk.part = d.part
+                WHERE d.tenant_key = :t AND d.resource_id = r.resource_id AND d.version_id = merged.version_id
+            ), FALSE)
+            """,
+        )
+        .bind("t", tenantKey)
+        .bind("c", catalogKey)
+        .bind("merged", app.epistola.suite.catalog.merge.MergeResolution.Content.WIRE)
+        .mapTo(String::class.java)
+        .set()
+
     /** Whether every part of [resourceId] is ready, in the version its catalog's callers mean (see [versionAt]). */
     fun isReady(handle: Handle, tenantKey: TenantKey, resourceId: UUID): Boolean = handle
         .createQuery(
@@ -84,6 +123,22 @@ class ReadyMarks {
             .bind("id", resourceId)
             .bind("part", part)
             .bind("by", currentUserIdOrNull()?.value)
+            .execute()
+    }
+
+    /**
+     * Removes every mark of [resourceId] in the version its catalog's callers mean (the targeted
+     * draft, else the current one), so it is not ready until someone marks it again.
+     */
+    fun clear(handle: Handle, tenantKey: TenantKey, resourceId: UUID) {
+        handle.createUpdate(
+            """
+            DELETE FROM resource_ready_marks m
+            WHERE m.tenant_key = :t AND m.resource_id = :id AND ${inCurrentVersion("m")}
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("id", resourceId)
             .execute()
     }
 

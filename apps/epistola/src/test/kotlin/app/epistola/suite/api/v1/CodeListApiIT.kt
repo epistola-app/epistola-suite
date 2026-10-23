@@ -8,8 +8,8 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import com.jayway.jsonpath.JsonPath
@@ -75,8 +75,7 @@ class CodeListApiIT : IntegrationTestBase() {
         // All system catalog rows are read-only at the API layer.
         val readOnlyFlags: List<Boolean> = JsonPath.read(body, "$.items[*].readOnly")
         assertThat(readOnlyFlags).allMatch { it }
-        val catalogTypes: List<String> = JsonPath.read(body, "$.items[*].catalogType")
-        assertThat(catalogTypes).allMatch { it == "subscribed" }
+        assertThat(body).doesNotContain("catalogType")
     }
 
     @Test
@@ -93,7 +92,7 @@ class CodeListApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("iso-639-1")
         assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
+        assertThat(body).doesNotContain("catalogType")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
         assertThat(JsonPath.read<String>(body, "$.sourceType")).isEqualTo("inline")
     }
@@ -132,13 +131,13 @@ class CodeListApiIT : IntegrationTestBase() {
             HttpEntity(body, baseHeaders(key)),
             String::class.java,
         )
-        // A SUBSCRIBED catalog has no draft: its versions are the releases it installed, and a
-        // released version does not change, surfaced as RFC 9457 problem details.
+        // Epistola supplies the system catalog, so it cannot be changed here (ADR 0032), surfaced as
+        // RFC 9457 problem details.
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
         val problem = response.body!!
-        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
-        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Version Released")
+        assertThat(JsonPath.read<String>(problem, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
+        assertThat(JsonPath.read<String>(problem, "$.title")).isEqualTo("Catalog Read Only")
         assertThat(JsonPath.read<Int>(problem, "$.status")).isEqualTo(409)
         assertThat(JsonPath.read<String>(problem, "$.catalogKey")).isEqualTo("system")
         assertThat(JsonPath.read<String>(problem, "$.instance")).isEqualTo("${versionPath(tenantKey, "system")}/code-lists")
@@ -346,10 +345,12 @@ class CodeListApiIT : IntegrationTestBase() {
         val body = response.body!!
         assertThat(JsonPath.read<String>(body, "$.key")).isEqualTo("locale")
         assertThat(JsonPath.read<String>(body, "$.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.catalogType")).isEqualTo("subscribed")
+        assertThat(body).doesNotContain("catalogType")
         assertThat(JsonPath.read<Boolean>(body, "$.readOnly")).isTrue
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.catalogKey")).isEqualTo("system")
-        assertThat(JsonPath.read<String>(body, "$.codeListBinding.key")).isEqualTo("bcp-47")
+        // A code list of the attribute's own catalog: bound without an alias (contract `codeListBinding`).
+        val binding = JsonPath.read<Map<String, Any?>>(body, "$.codeListBinding")
+        assertThat(binding["catalogKey"]).isNull()
+        assertThat(binding["key"]).isEqualTo("bcp-47")
     }
 
     private fun baseHeaders(apiKey: String): HttpHeaders = HttpHeaders().apply {
@@ -365,7 +366,7 @@ class CodeListApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("cl-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "CodeList Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "CodeList Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "cl-it").execute()
         tenantKey to created.plaintextKey
     }

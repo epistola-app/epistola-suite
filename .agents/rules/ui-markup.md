@@ -43,6 +43,14 @@ when the principal may act _and_ there is something to act on. It loads alongsid
 - Page headers go through `epistola-web/page-header` with valid arguments (`PageHeaderUsageTest`).
 - Text inputs carry `maxlength` matching the domain limit (`InputMaxLengthTest`).
 - UI must never call `/api/**` (`UiRestApiSeparationTest`).
+- Page-header actions are filled or outlined, never ghost (`PageHeaderActionStyleTest`).
+- No `th:if`/`th:unless` beside `th:replace`/`th:insert`: the fragment renders first
+  (`ThymeleafPrecedenceTest`).
+- A fixed-layout table has one `<col>` per header cell (`TableColumnsTest`); content stays in its
+  column, no viewport-sized negative margins (`NoViewportBreakoutTest`).
+- A form posting to `/logout` sets `hx-boost="false"` (`LogoutNotBoostedTest`).
+- Resource lists are a catalog's (`/catalogs/{catalog}/themes`); nothing links to a tenant-wide
+  one (`NoTenantWideListTest`).
 
 ## Verify
 

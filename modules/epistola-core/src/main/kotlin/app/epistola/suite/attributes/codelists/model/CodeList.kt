@@ -5,7 +5,6 @@
 package app.epistola.suite.attributes.codelists.model
 
 import app.epistola.suite.catalog.AuthType
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,15 +35,6 @@ data class CodeList(
     val lastRefreshError: String? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-    /**
-     * Type of the catalog the code list lives in, populated when the row is
-     * read via a JOIN to catalogs. Used by the UI to gate edit affordances.
-     * Null when the row is read without the join. Explicit `@ColumnName`
-     * because JDBI's Kotlin plugin doesn't always reach JOIN aliases via
-     * default snake_case mapping when the field has a default value.
-     */
-    @get:ColumnName("catalog_type")
-    val catalogType: CatalogType? = null,
     /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
     val revision: Long = 1,
 )

@@ -11,8 +11,8 @@ import { pathAfterMove, type CatalogOrganise } from './CatalogOrganise.js';
 const BASE = '/tenants/acme/catalogs/organise';
 
 const catalogs = [
-  { key: 'letters', name: 'Letters', type: 'authored' },
-  { key: 'shared', name: 'Shared', type: 'authored' },
+  { key: 'letters', name: 'Letters', editable: true },
+  { key: 'shared', name: 'Shared', editable: true },
 ];
 
 function resource(type: string, catalogKey: string, key: string, name = key) {

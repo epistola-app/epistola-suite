@@ -13,9 +13,11 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mcp.dto.ImageInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
@@ -51,18 +53,21 @@ class ImageMcpTools(
         search: String?,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<ImageInfo> = mediator.query(
-        ListAssets(
-            tenantId = mcpTenantKey(),
-            searchTerm = search?.takeIf { it.isNotBlank() },
-            catalogKey = catalogFilter(catalogId),
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
-        ),
-    )
-        .asSequence()
-        .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-        .map(ImageInfo::from)
-        .toList()
+    ): List<ImageInfo> {
+        val editability = catalogEditability()
+        return mediator.query(
+            ListAssets(
+                tenantId = mcpTenantKey(),
+                searchTerm = search?.takeIf { it.isNotBlank() },
+                catalogKey = catalogFilter(catalogId),
+                catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            ),
+        )
+            .asSequence()
+            .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
+            .map { ImageInfo.from(it, editability.editable(it.catalogKey)) }
+            .toList()
+    }
 
     @McpTool(
         name = "get_image",
@@ -82,24 +87,24 @@ class ImageMcpTools(
         return mediator.query(
             ListAssets(
                 tenantId = mcpTenantKey(),
-                catalogKey = CatalogKey.of(catalogId),
+                catalogKey = mcpCatalogKey(catalogId),
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ),
         )
             .firstOrNull { it.id == key && it.mediaType.category == AssetMediaCategory.IMAGE }
-            ?.let(ImageInfo::from)
+            ?.let { ImageInfo.from(it, catalogEditability().editable(it.catalogKey)) }
     }
 
     @McpTool(
         name = "upload_image",
-        description = "Upload an image (PNG, JPEG, SVG, ...) to an AUTHORED catalog so templates and stencils " +
+        description = "Upload an image (PNG, JPEG, SVG, ...) to a catalog that can be changed here so templates and stencils " +
             "can show it. Returns the image's `id`; an `image` node references it with the props `assetId` (the `id`) " +
             "and `catalogKey` (the `catalogId`). Images are immutable: upload " +
             "a changed image as a new one. Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun uploadImage(
-        @McpToolParam(description = "Catalog key to upload into. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to upload into. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Display name, e.g. the original file name.")
         name: String,
@@ -139,10 +144,12 @@ class ImageMcpTools(
                 content = decoded.bytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
-                catalogKey = CatalogKey.of(catalogId),
+                catalogKey = mcpCatalogKey(catalogId),
                 id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ).execute(),
+            // The upload went through, so the catalog can be changed here.
+            editable = true,
         )
     }
 

@@ -4,9 +4,9 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
 data class GetTheme(
     val id: ThemeId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<Theme?>,
     RequiresPermission {
     override val permission get() = Permission.THEME_VIEW
@@ -35,7 +35,7 @@ class GetThemeHandler(
     override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type
+            SELECT t.*, c.catalog_key AS catalog_key
             FROM themes t
             JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE t.id = :id

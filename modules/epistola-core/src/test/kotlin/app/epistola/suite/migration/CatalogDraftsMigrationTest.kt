@@ -67,9 +67,11 @@ class CatalogDraftsMigrationTest {
                 "SELECT c.catalog_key, v.is_next, v.version, v.base_version, v.name FROM catalog_versions v " +
                     "JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'draft' ORDER BY c.catalog_key",
             )
-            assertThat(drafts).containsExactly(
+            assertThat(drafts).`as`("a subscribed catalog's installed copy became its next version on its installed release (ADR 0032)").containsExactly(
                 listOf("fresh", "t", null, null, null),
+                listOf("mirror", "t", null, "3.1.0", null),
                 listOf("released", "t", null, null, null),
+                listOf("waiting", "t", null, null, null),
             )
             assertThat(connection.rows("SELECT count(*) FROM catalog_releases")).`as`("1.x releases kept no content").containsExactly(listOf("0"))
             assertThat(connection.rows("SELECT catalog_key, released_version, released_fingerprint, released_at FROM catalogs WHERE released_version IS NOT NULL OR released_fingerprint IS NOT NULL OR released_at IS NOT NULL"))
@@ -79,12 +81,8 @@ class CatalogDraftsMigrationTest {
                     "SELECT c.catalog_key, q.continues_after FROM catalog_upgrade_queue q JOIN catalogs c ON c.catalog_id = q.catalog_id WHERE c.type = 'AUTHORED' ORDER BY 1",
                 ),
             ).`as`("1.10.0 is the highest by SemVer, not by text").containsExactly(listOf("fresh", null), listOf("released", "1.10.0"))
-            assertThat(
-                connection.rows(
-                    "SELECT c.catalog_key, v.version FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.kind = 'installed' ORDER BY 1",
-                ),
-            ).`as`("a subscribed catalog's content is its installed release, 0.0.0 until it installs one")
-                .containsExactly(listOf("mirror", "3.1.0"), listOf("waiting", "0.0.0"))
+            assertThat(connection.rows("SELECT count(*) FROM catalog_versions WHERE kind <> 'draft' OR version IS NOT NULL"))
+                .`as`("no installed copy is left (ADR 0032)").containsExactly(listOf("0"))
 
             // The working copy's content is in the next version, and that is what a caller naming none means.
             val next = connection.rows(

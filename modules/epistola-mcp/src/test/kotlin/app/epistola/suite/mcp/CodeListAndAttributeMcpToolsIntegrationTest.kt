@@ -55,10 +55,10 @@ class CodeListAndAttributeMcpToolsIntegrationTest : IntegrationTestBase() {
         // System catalog ships these three.
         val slugs = all.map { it.slug }
         assertThat(slugs).contains("bcp-47", "iso-639-1", "iso-3166-1-alpha2")
-        // All system entries are SUBSCRIBED/readOnly.
+        // The system catalog cannot be changed here: every entry is read-only.
         val systemLists = all.filter { it.catalog == "system" }
         assertThat(systemLists).isNotEmpty
-        assertThat(systemLists).allMatch { it.readOnly && it.catalogType == "SUBSCRIBED" }
+        assertThat(systemLists).allMatch { it.readOnly && !it.editable }
     }
 
     @Test
@@ -106,7 +106,7 @@ class CodeListAndAttributeMcpToolsIntegrationTest : IntegrationTestBase() {
         val all = runAsApiKey(tenantId) { attributeMcpTools.listAttributes(catalogId = "system") }
         val keys = all.map { it.key }
         assertThat(keys).contains("locale", "language", "country")
-        assertThat(all).allMatch { it.readOnly && it.catalogType == "SUBSCRIBED" }
+        assertThat(all).allMatch { it.readOnly && !it.editable }
     }
 
     @Test

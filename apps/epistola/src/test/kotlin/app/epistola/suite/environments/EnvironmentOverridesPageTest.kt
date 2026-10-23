@@ -7,10 +7,10 @@ package app.epistola.suite.environments
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogDraft
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -19,7 +19,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.GetEnvironment
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.mediator.execute
@@ -59,15 +59,15 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
             val brand = ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant.id)))
             CreateTheme(brand, "Brand").execute()
             MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogVersion(tenant.id, letters, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, letters, version = "1.0.0").execute()
             UpdateTheme(brand, name = "Brand, corrected").execute()
             MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogVersion(tenant.id, letters, version = "1.0.1").execute()
+            ReleaseCatalogDraft(tenant.id, letters, version = "1.0.1").execute()
             for ((key, production) in listOf("test" to false, "production" to true)) {
                 val id = env(tenant, key)
                 CreateEnvironment(id, key.replaceFirstChar { it.uppercase() }, production = production).execute()
-                DeployCatalogVersion(id, letters, "1.0.0").execute()
-                DeployCatalogVersion(id, letters, "1.0.1").execute()
+                DeployCatalogRelease(id, letters, "1.0.0").execute()
+                DeployCatalogRelease(id, letters, "1.0.1").execute()
             }
         }
         return tenant
@@ -93,15 +93,15 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the production mark is shown and changed on the page, and refused while it serves work in progress`() {
         val tenant = setup("page-production")
-        assertThat(page(tenant, "production")).contains("Only published versions are used here.").contains("Not production")
+        assertThat(page(tenant, "production")).contains("Only published releases are used here.").contains("Not production")
         assertThat(page(tenant, "test")).contains("Mark as production").contains("a draft can be deployed here").doesNotContain("follow work in progress")
 
-        withMediator { DeployCatalogVersion(env(tenant, "test"), letters, GetCatalogDraft(tenant.id, letters).query()!!.versionId).execute() }
+        withMediator { DeployCatalogRelease(env(tenant, "test"), letters, GetCatalogDraft(tenant.id, letters).query()!!.versionId).execute() }
         val refused = post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
 
-        assertThat(refused.body).contains("serves work in progress").contains("Next version")
+        assertThat(refused.body).contains("serves work in progress").contains("Next release")
         assertThat(withMediator { GetEnvironment(env(tenant, "test")).query()!! }.production).isFalse()
-        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next version").contains("Undeploy")
+        assertThat(page(tenant, "test").substringAfter("data-testid=\"environment-following\"")).contains("Letters: Next release").contains("Undeploy")
 
         post("/tenants/${tenant.id.value}/environments/test/drafts/letters/undeploy")
         post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
@@ -118,7 +118,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         val dialog = getHtmx("$at/follow").body!!
         assertThat(dialog.substringAfter("data-environment=\"test\"").substringBefore("</tr>")).contains(">Follow<")
         assertThat(dialog.substringAfter("data-environment=\"production\"").substringBefore("</tr>"))
-            .`as`("production is listed, not offered").contains("uses only published versions").doesNotContain("follow-toggle")
+            .`as`("production is listed, not offered").contains("uses only published releases").doesNotContain("follow-toggle")
 
         val followed = postHtmx("$at/follow", "environment" to "test")
 

@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
@@ -39,7 +38,7 @@ class GetCatalogDependencyGraphTest : IntegrationTestBase() {
         val graph = withMediator { GetCatalogDependencyGraph(tenant).query() }
 
         assertThat(graph.nodes.map { it.catalogKey }).contains("shared", "letters")
-        assertThat(graph.nodes.single { it.catalogKey == "letters" }.type).isEqualTo(CatalogType.AUTHORED)
+        assertThat(graph.nodes.single { it.catalogKey == "letters" }.identity).endsWith("/letters")
         val edge = graph.edges.single { it.from == "letters" }
         assertThat(edge.to).isEqualTo("shared")
         assertThat(edge.release).`as`("pinned to the highest release, as declaring does").isEqualTo("1.0.0")

@@ -7,7 +7,7 @@
     <section th:fragment="section" id="catalog-theme-settings" class="ep-panel detail-section" data-testid="catalog-theme-settings">
         <div class="detail-section-header"><h3>Default theme and presets</h3></div>
         <div class="detail-section-body">
-            <div th:if="${saved}" class="alert alert-success" data-testid="catalog-theme-settings-saved">Saved. It goes out with the next version you publish.</div>
+            <div th:if="${saved}" class="alert alert-success" data-testid="catalog-theme-settings-saved">Saved. It goes out with the next release you publish.</div>
             <div th:if="${error != null}" class="alert alert-error" th:text="${error}">Preset keys must be unique</div>
 
             <th:block th:unless="${editable}">

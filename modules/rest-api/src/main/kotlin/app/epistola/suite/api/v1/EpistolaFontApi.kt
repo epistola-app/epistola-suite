@@ -17,7 +17,7 @@ import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDto
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantId
@@ -94,7 +94,7 @@ class EpistolaFontApi : FontsApi {
      * (`RecordInstalledRelease`); one recorded before it did lists none, so the installation's
      * bundled faces fill in the ones the release lacks.
      */
-    private fun FontResource.toReleasedDto(at: ResolvedCatalogVersion): FontDto {
+    private fun FontResource.toReleasedDto(at: ResolvedCatalogRelease): FontDto {
         val dto = toDto(at)
         val installed = GetFontVariants(fontId = FontId(FontKey.of(key), at.catalogId), catalogVersion = at.ref).query()
             .filter { it.source == FontVariantSource.CLASSPATH }
@@ -103,7 +103,7 @@ class EpistolaFontApi : FontsApi {
         return if (installed.isEmpty()) dto else dto.copy(variants = dto.variants + installed)
     }
 
-    private fun Font.toDto(at: ResolvedCatalogVersion): FontDto {
+    private fun Font.toDto(at: ResolvedCatalogRelease): FontDto {
         val variants = GetFontVariants(fontId = FontId(slug, at.catalogId), catalogVersion = at.ref).query().map { FontVariantDto(it.weight, it.italic) }
         return toDto(at.catalog, variants)
     }

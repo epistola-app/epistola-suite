@@ -11,9 +11,9 @@ import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.GetCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.CatalogSegment
@@ -38,7 +38,7 @@ data class DependencyRowView(val catalog: String, val version: String)
 data class DependencyOptionView(val value: String, val label: String)
 
 /**
- * The actions that prepare an authored catalog's next release, from its page's "Next release"
+ * The actions that prepare the next release of a catalog that can be changed here, from its page's "Next release"
  * section (`catalogs/next-release.html`): marking everything ready and declaring the catalogs it
  * depends on. Releasing itself is [CatalogHandler.release]; a draft is numbered when it is released.
  */
@@ -152,7 +152,8 @@ class CatalogReleaseHandler {
         row.version.takeIf { it.isNotEmpty() }?.let { return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = it) }
         // No release named: its highest, or its next version while it has none (contract ADR 0002).
         val target = runCatching { CatalogKey.of(key) }.getOrNull()?.let { GetCatalog(tenantId.key, it).query() } ?: return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = "")
-        val highest = target.releasedVersion ?: target.installedReleaseVersion
+        // Released here or received, whichever is higher (ADR 0032).
+        val highest = target.highestReleaseVersion
         if (highest != null) return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = highest)
         val next = GetCatalogDraft(tenantId.key, target.id).query()
         return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = if (next == null) "" else null, versionId = next?.versionId)

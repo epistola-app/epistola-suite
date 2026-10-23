@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -22,6 +23,12 @@ import org.springframework.stereotype.Component
  * a draft of that catalog instead ([draftId], its public id, and [draftName]), to build on work not
  * released yet. All are null for a declaration that pins nothing yet (one migrated from wire v7).
  * Releasing refuses either until it pins a release.
+ *
+ * [alias] is what the catalog's content names the dependency by (contract ADR 0003, ADR 0034): a
+ * reference into it names the alias and a resource key. This installation tells catalogs apart by
+ * key within a tenant until ADR 0034's phase 4, and stores references by the catalog's key, so a
+ * dependency's alias is always its [catalogKey], the contract's default; an archive that declares
+ * another is refused on receipt ([DependencyAliases.unsupported]).
  */
 data class CatalogDependencyDeclaration(
     val registry: String,
@@ -31,6 +38,7 @@ data class CatalogDependencyDeclaration(
     val releaseFingerprint: String? = null,
     val draftId: String? = null,
     val draftName: String? = null,
+    val alias: String = catalogKey,
 ) {
     val identity: Triple<String, String, String> get() = Triple(registry, namespace, catalogKey)
 
@@ -40,7 +48,7 @@ data class CatalogDependencyDeclaration(
     val namesDraft: Boolean get() = draftId != null
 
     /** A release never pins a draft, so the wire form of a declaration naming one pins nothing. */
-    fun toWire(): CatalogDependency = CatalogDependency(registry, namespace, catalogKey, releaseVersion, releaseFingerprint)
+    fun toWire(): CatalogDependency = CatalogDependency(registry, namespace, catalogKey, releaseVersion, releaseFingerprint, alias)
 
     override fun toString(): String = "$registry~$namespace/$catalogKey@${releaseVersion ?: draftName?.let { "draft '$it'" } ?: "unpinned"}"
 
@@ -51,11 +59,15 @@ data class CatalogDependencyDeclaration(
             wire.catalogKey,
             wire.releaseVersion,
             wire.releaseFingerprint,
+            alias = wire.alias,
         )
     }
 }
 
-/** A release of a dependency, as a declaration pins it. */
+/**
+ * A release of a dependency, as a declaration pins it: its number and the fingerprint a pin copies,
+ * its content hash (ADR 0034), or the fingerprint it was recorded with while it has none.
+ */
 data class CatalogDependencyRelease(val version: String, val fingerprint: String)
 
 /**
@@ -63,12 +75,12 @@ data class CatalogDependencyRelease(val version: String, val fingerprint: String
  * transaction: every method takes the handle it runs on.
  */
 @Component
-class CatalogDependencyStore {
+class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity) {
 
     fun declarations(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT d.registry, d.namespace, d.dependency_key, d.release_version, d.release_fingerprint,
+            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
             FROM catalog_dependencies d
             LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
@@ -89,13 +101,14 @@ class CatalogDependencyStore {
         rs.getString("release_fingerprint"),
         rs.getString("draft_key"),
         rs.getString("draft_name"),
+        rs.getString("alias"),
     )
 
     /** The declarations of draft [versionId], by its internal id, whatever the running message targets. */
     fun declarationsOf(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT d.registry, d.namespace, d.dependency_key, d.release_version, d.release_fingerprint,
+            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
             FROM catalog_dependencies d
             LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
@@ -117,7 +130,7 @@ class CatalogDependencyStore {
      */
     fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
         // Only a change counts: the same declarations again leave the version's revision as it is.
-        fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, releaseVersion, releaseFingerprint, draftId)
+        fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, alias, releaseVersion, releaseFingerprint, draftId)
         val current = declarations(handle, tenantKey, catalogKey)
         if (current.map { it.what() } == declarations.map { it.what() }) return
         requireNoCycle(handle, tenantKey, catalogKey, declarations.filter { new -> current.none { it.identity == new.identity } })
@@ -128,9 +141,9 @@ class CatalogDependencyStore {
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, position,
+            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position,
                                               release_version, release_fingerprint, dependency_version_id)
-            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :position, :releaseVersion, :releaseFingerprint,
+            VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
                     (SELECT dv.version_id FROM catalog_versions dv
                      JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
                      WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.version_key = :draftKey
@@ -143,6 +156,7 @@ class CatalogDependencyStore {
                 .bind("registry", declaration.registry)
                 .bind("namespace", declaration.namespace)
                 .bind("key", declaration.catalogKey)
+                .bind("alias", declaration.alias)
                 .bind("position", position)
                 .bind("releaseVersion", declaration.releaseVersion)
                 .bind("releaseFingerprint", declaration.releaseFingerprint)
@@ -209,9 +223,9 @@ class CatalogDependencyStore {
         if (pins.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_release_dependencies (tenant_key, catalog_id, version, registry, namespace, dependency_key,
+            INSERT INTO catalog_release_dependencies (tenant_key, catalog_id, version, registry, namespace, dependency_key, alias,
                                                       position, release_version, release_fingerprint)
-            VALUES (:t, ${catalogAt("t", "c")}, :version, :registry, :namespace, :key, :position, :releaseVersion, :releaseFingerprint)
+            VALUES (:t, ${catalogAt("t", "c")}, :version, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint)
             """,
         )
         pins.forEachIndexed { position, pin ->
@@ -221,6 +235,7 @@ class CatalogDependencyStore {
                 .bind("registry", pin.registry)
                 .bind("namespace", pin.namespace)
                 .bind("key", pin.catalogKey)
+                .bind("alias", pin.alias)
                 .bind("position", position)
                 .bind("releaseVersion", pin.releaseVersion)
                 .bind("releaseFingerprint", pin.releaseFingerprint)
@@ -233,7 +248,7 @@ class CatalogDependencyStore {
     fun releasePins(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT registry, namespace, dependency_key, release_version, release_fingerprint
+            SELECT registry, namespace, dependency_key, alias, release_version, release_fingerprint
             FROM catalog_release_dependencies
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             ORDER BY position
@@ -249,6 +264,7 @@ class CatalogDependencyStore {
                 rs.getString("dependency_key"),
                 rs.getString("release_version"),
                 rs.getString("release_fingerprint"),
+                alias = rs.getString("alias"),
             )
         }
         .list()
@@ -273,25 +289,37 @@ class CatalogDependencyStore {
      * its algorithm, which a pin copies. A release installed with a legacy fingerprint has a bare one
      * and is not a candidate.
      */
-    fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> {
+    fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> = recordedCandidates(handle, tenantKey, declaration)
+        .map { CatalogDependencyRelease(it.version, it.contentHash ?: it.fingerprint) }
+
+    private fun recordedCandidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
         return handle
-            .createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bind("c", catalog)
-            .map { rs, _ -> CatalogDependencyRelease(rs.getString("version"), rs.getString("fingerprint")) }
+            .map { rs, _ -> app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
             .list()
             .filter { QualifiedCatalogFingerprint.parse(it.fingerprint) != null }
     }
 
+    /** [recorded] as a pin takes it: by its content hash, computed now when it has none yet. */
+    private fun pinOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, recorded: app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded): CatalogDependencyRelease {
+        val hash = recorded.contentHash ?: catalogNamed(handle, tenantKey, declaration)?.let { identity.contentHash(handle, tenantKey, it, recorded) }
+        return CatalogDependencyRelease(recorded.version, hash ?: recorded.fingerprint)
+    }
+
     /** The highest release of the catalog [declaration] names that can be pinned, or null when there is none. */
-    fun highest(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyRelease? = candidates(handle, tenantKey, declaration)
+    fun highest(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyRelease? = recordedCandidates(handle, tenantKey, declaration)
         .mapNotNull { release -> Semver.parse(release.version)?.let { release to it } }
         .maxWithOrNull { a, b -> a.second.compareTo(b.second) }
         ?.first
+        ?.let { pinOf(handle, tenantKey, declaration, it) }
 
     /** The release [version] of the catalog [declaration] names, when the tenant has it and it can be pinned. */
-    fun release(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, version: String): CatalogDependencyRelease? = candidates(handle, tenantKey, declaration).firstOrNull { it.version == version }
+    fun release(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, version: String): CatalogDependencyRelease? = recordedCandidates(handle, tenantKey, declaration)
+        .firstOrNull { it.version == version }
+        ?.let { pinOf(handle, tenantKey, declaration, it) }
 
     /**
      * The open draft [draftKey] of the catalog [declaration] names, by its internal `version_id`, with
@@ -369,19 +397,24 @@ class CatalogDependencyStore {
         .list()
 
     /**
-     * Whether [declaration]'s pin still holds: the tenant still has the pinned release, with the
-     * fingerprint the pin recorded.
+     * Whether [declaration]'s pin still holds: the tenant still has the pinned release, the one the
+     * pin's fingerprint names, by its content hash or the fingerprint it was recorded with
+     * ([app.epistola.suite.catalog.revisions.ReleaseIdentity.isRelease]), so a pin taken as V5 and a
+     * release received as V6, or the other way round, are one release when their content is.
      */
     fun pinHolds(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): Boolean {
         val version = declaration.releaseVersion ?: return false
-        return release(handle, tenantKey, declaration, version)?.fingerprint == declaration.releaseFingerprint
+        val pin = declaration.releaseFingerprint ?: return false
+        val catalog = catalogNamed(handle, tenantKey, declaration) ?: return false
+        val recorded = recordedCandidates(handle, tenantKey, declaration).firstOrNull { it.version == version } ?: return false
+        return identity.isRelease(handle, tenantKey, catalog, recorded, pin)
     }
 
     private companion object {
-        /** A draft's label over alias `dv`: its name, or "Next version" for the next version. */
-        const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN 'Next version' ELSE dv.name END"
+        /** A draft's label over alias `dv`: its name, or "Next release" for the next release. */
+        const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END"
 
         /** The same over alias `v`, for the declaring draft. */
-        const val DECLARING_LABEL = "CASE WHEN v.is_next THEN 'Next version' ELSE v.name END"
+        const val DECLARING_LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
     }
 }

@@ -60,4 +60,48 @@ class SemVerTest {
         assertEquals(SemVer(1, 5, 0), SemVer(1, 4, 7).bumpMinor())
         assertEquals(SemVer(1, 4, 8), SemVer(1, 4, 7).bumpPatch())
     }
+
+    /** A patch release (ADR 0034, contract `CatalogReleaseVersions`): `MAJOR.MINOR.PATCH-<namespace>.<N>`. */
+    @Test
+    fun `parses a patch release, and nothing else after the core`() {
+        val patch = SemVer.parse("1.3.1-gemeente-x.1")
+        assertEquals(SemVer(1, 3, 1, "gemeente-x", 1), patch)
+        assertTrue(patch.isPatchRelease)
+        assertEquals("1.3.1-gemeente-x.1", patch.toString())
+        assertEquals(SemVer(1, 3, 1), patch.core)
+
+        assertNull(SemVer.parseOrNull("1.3.1-gemeente-x"), "a label names a sequence number")
+        assertNull(SemVer.parseOrNull("1.3.1-gemeente-x.0"), "the sequence counts from 1")
+        assertNull(SemVer.parseOrNull("1.3.1-ab.1"), "a namespace has at least 3 characters")
+        assertNull(SemVer.parseOrNull("1.3.1-Gemeente.1"), "a namespace is lowercase")
+        assertNull(SemVer.parseOrNull("1.3.1+build.1"), "no build part")
+        assertNull(SemVer.parseOrNull("1.3.1-rc.1.2"), "no other pre-release")
+    }
+
+    @Test
+    fun `a patch release of any namespace parses, and nothing over 128 characters does`() {
+        val namespace = "n" + "a".repeat(62)
+        assertEquals(namespace, SemVer.parse("2147483647.2147483647.2147483647-$namespace.2147483647").patchNamespace)
+        assertNull(SemVer.parseOrNull("1.0.0-$namespace" + "a" + ".1"), "a namespace has at most 63 characters")
+        assertNull(SemVer.parseOrNull("1.0.0-${"a".repeat(60)}.1" + "0".repeat(129)), "longer than 128 characters")
+    }
+
+    @Test
+    fun `a patch release sorts above the release it fixes and below the next`() {
+        val patch = SemVer.parse("1.3.1-gemeente-x.1")
+        assertTrue(patch > SemVer.parse("1.3.0"))
+        assertTrue(patch < SemVer.parse("1.3.1"))
+        assertTrue(patch < SemVer.parse("1.3.1-gemeente-x.2"))
+        assertTrue(SemVer.parse("1.3.1-gemeente-x.2") < SemVer.parse("1.3.1-gemeente-x.10"), "the sequence is a number")
+        assertTrue(SemVer.parse("1.3.1-bureau.9") < SemVer.parse("1.3.1-gemeente-x.1"), "labels as ASCII")
+        assertEquals(listOf("1.3.0", "1.3.1-bureau.9", "1.3.1-gemeente-x.1", "1.3.1", "1.4.0"), listOf("1.4.0", "1.3.1", "1.3.1-gemeente-x.1", "1.3.0", "1.3.1-bureau.9").sortedBy(SemVer::parse))
+    }
+
+    @Test
+    fun `bumping a patch release bumps its core`() {
+        val patch = SemVer.parse("1.3.1-gemeente-x.1")
+        assertEquals(SemVer(1, 3, 1), patch.bumpPatch())
+        assertEquals(SemVer(1, 4, 0), patch.bumpMinor())
+        assertEquals(SemVer(2, 0, 0), patch.bumpMajor())
+    }
 }

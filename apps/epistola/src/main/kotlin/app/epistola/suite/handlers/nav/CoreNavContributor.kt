@@ -111,7 +111,7 @@ class CoreNavContributor : NavContributor {
     }
 
     /**
-     * How many subscribed catalogs have an update waiting, or null when none do.
+     * How many catalogs with a source have an update waiting, or null when none do.
      *
      * This runs on every page render for every signed-in user, so it is one indexed count over
      * state the background check already recorded — never a call to anybody's server. It is the

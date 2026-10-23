@@ -5,6 +5,8 @@
 package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.catalog.Catalog
+import app.epistola.suite.catalog.queries.CatalogEditability
+import app.epistola.suite.catalog.queries.ReleaseContentHashes
 import java.time.OffsetDateTime
 
 /**
@@ -15,57 +17,73 @@ import java.time.OffsetDateTime
 data class CatalogInfo(
     /** Catalog key (slug). Used as `catalogId` arg to other tools. */
     val id: String,
+    /** The authority of its name (the contract's `registry`): a domain, or `local` (ADR 0034). */
+    val authority: String,
+    /** The namespace it is named in, under [authority]. */
+    val namespace: String,
+    /** How a tool's `catalogId` names it when another namespace has a catalog with its key: `namespace/key`. */
+    val address: String,
     val name: String,
     val description: String?,
     val attributes: List<CatalogAttributeInfo>,
     val keywords: Set<String>,
     val presentation: CatalogPresentationInfo?,
     val license: CatalogLicenseInfo?,
-    /** AUTHORED (editable in this tenant) or SUBSCRIBED (read-only mirror of remote source). */
-    val type: String,
-    val sourceUrl: String?,
+    /**
+     * Whether the catalog can be changed here (ADR 0032): drafts started, resources created and
+     * changed, releases cut. Where its releases come from does not decide it.
+     */
+    val editable: Boolean,
+    /** Why it cannot be changed here, in a sentence; null when it can. */
+    val readOnlyReason: String?,
+    /** Where its releases come from (an Exchange, manifest or `classpath:` URI); null for one only released here or imported from files. */
+    val source: String?,
     val installedReleaseVersion: String?,
     val installedAt: OffsetDateTime?,
-    /**
-     * Current version label: latest released SemVer (AUTHORED) or installed
-     * version (SUBSCRIBED). Null when an AUTHORED catalog was never released.
-     */
+    /** Its highest release, released here or received; null when it has none. */
     val releasedVersion: String?,
     /**
-     * Content fingerprint identifying the catalog's content independently of
-     * the version label. Null when never released.
+     * Content fingerprint of [releasedVersion], identifying the content independently of the
+     * version label. Null when it has no release.
      */
     val fingerprint: String?,
+    /**
+     * The content hash of [releasedVersion] (ADR 0034), its identity, as REST's `CatalogDto`. Null when
+     * it has no release, or one without a content hash yet.
+     */
+    val contentHash: String?,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 ) {
     companion object {
-        fun from(catalog: Catalog): CatalogInfo {
-            val authored = catalog.type.name == "AUTHORED"
-            return CatalogInfo(
-                id = catalog.id.value,
-                name = catalog.name,
-                description = catalog.description,
-                attributes = catalog.catalogMetadata.attributes.map {
-                    CatalogAttributeInfo(catalog = it.catalogKey, key = it.key, value = it.value)
-                },
-                keywords = catalog.catalogMetadata.keywords,
-                presentation = catalog.catalogMetadata.presentation?.let {
-                    CatalogPresentationInfo(iconAssetSlug = it.iconImageKey, imageAssetSlugs = it.imageKeys)
-                },
-                license = catalog.catalogMetadata.license?.let {
-                    CatalogLicenseInfo(it.name, it.spdxExpression, it.url, it.copyrightText)
-                },
-                type = catalog.type.name,
-                sourceUrl = catalog.sourceUrl,
-                installedReleaseVersion = catalog.installedReleaseVersion,
-                installedAt = catalog.installedAt,
-                releasedVersion = if (authored) catalog.releasedVersion else catalog.installedReleaseVersion,
-                fingerprint = if (authored) catalog.releasedFingerprint else catalog.installedFingerprint,
-                createdAt = catalog.createdAt,
-                updatedAt = catalog.updatedAt,
-            )
-        }
+        fun from(catalog: Catalog, editability: CatalogEditability, hashes: ReleaseContentHashes): CatalogInfo = CatalogInfo(
+            id = catalog.id.value,
+            authority = catalog.registry,
+            namespace = catalog.namespace,
+            address = "${catalog.namespace}/${catalog.id.value}",
+            name = catalog.name,
+            description = catalog.description,
+            attributes = catalog.catalogMetadata.attributes.map {
+                CatalogAttributeInfo(catalog = it.catalogKey, key = it.key, value = it.value)
+            },
+            keywords = catalog.catalogMetadata.keywords,
+            presentation = catalog.catalogMetadata.presentation?.let {
+                CatalogPresentationInfo(iconAssetSlug = it.iconImageKey, imageAssetSlugs = it.imageKeys)
+            },
+            license = catalog.catalogMetadata.license?.let {
+                CatalogLicenseInfo(it.name, it.spdxExpression, it.url, it.copyrightText)
+            },
+            editable = editability.editable,
+            readOnlyReason = editability.reason?.explanation,
+            source = catalog.sourceUrl,
+            installedReleaseVersion = catalog.installedReleaseVersion,
+            installedAt = catalog.installedAt,
+            releasedVersion = catalog.highestReleaseVersion,
+            fingerprint = catalog.highestReleaseFingerprint,
+            contentHash = hashes.of(app.epistola.suite.catalog.CatalogAddress(catalog.namespace, catalog.id), catalog.highestReleaseVersion),
+            createdAt = catalog.createdAt,
+            updatedAt = catalog.updatedAt,
+        )
     }
 }
 

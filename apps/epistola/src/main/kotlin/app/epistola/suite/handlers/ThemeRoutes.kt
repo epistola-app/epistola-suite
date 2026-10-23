@@ -4,6 +4,8 @@
 
 package app.epistola.suite.themes
 
+import app.epistola.suite.htmx.CatalogScopedRoutes
+import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -17,22 +19,25 @@ class ThemeRoutes(private val handler: ThemeHandler) {
         "/tenants/{tenantId}".nest {
             POST("/default-theme", handler::setDefault)
             POST("/house-theme/apply", handler::applyHouseTheme)
-            POST("/catalogs/{catalogId}/default-theme", handler::setCatalogDefault)
-
-            // A list belongs to a catalog; there is none across the tenant.
-            GET("/catalogs/{catalogId}/themes", handler::list)
             "/themes".nest {
                 GET("/search", handler::search)
             }
-            // A resource's pages and actions are its catalog's, like its list.
-            "/catalogs/{catalogId}/themes".nest {
-                GET("/new", handler::newForm)
-                POST("", handler::create)
-                GET("/{themeId}", handler::detail)
-                GET("/{themeId}/usage", handler::usage)
-                PATCH("/{themeId}", handler::update)
-                POST("/{themeId}/delete", handler::delete)
-            }
+        }
+    }
+
+    // A list belongs to a catalog; there is none across the tenant. A resource's pages and actions are
+    // its catalog's, like its list.
+    @Bean
+    fun themeCatalogRoutes(): CatalogScopedRoutes = catalogScopedRoutes {
+        POST("/{catalogId}/default-theme", handler::setCatalogDefault)
+        GET("/{catalogId}/themes", handler::list)
+        "/{catalogId}/themes".nest {
+            GET("/new", handler::newForm)
+            POST("", handler::create)
+            GET("/{themeId}", handler::detail)
+            GET("/{themeId}/usage", handler::usage)
+            PATCH("/{themeId}", handler::update)
+            POST("/{themeId}/delete", handler::delete)
         }
     }
 }

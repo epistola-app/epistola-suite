@@ -4,6 +4,8 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.htmx.CatalogScopedRoutes
+import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -12,12 +14,12 @@ import org.springframework.web.servlet.function.router
 
 @Configuration
 class CodeListRoutes(private val handler: CodeListHandler) {
+    // A list belongs to a catalog; there is none across the tenant. A resource's pages and actions are
+    // its catalog's, like its list.
     @Bean
-    fun codeListRouterFunction(): RouterFunction<ServerResponse> = router {
-        // A list belongs to a catalog; there is none across the tenant.
-        GET("/tenants/{tenantId}/catalogs/{catalogId}/code-lists", handler::list)
-        // A resource's pages and actions are its catalog's, like its list.
-        "/tenants/{tenantId}/catalogs/{catalogId}/code-lists".nest {
+    fun codeListCatalogRoutes(): CatalogScopedRoutes = catalogScopedRoutes {
+        GET("/{catalogId}/code-lists", handler::list)
+        "/{catalogId}/code-lists".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
             GET("/{codeListId}", handler::detail)

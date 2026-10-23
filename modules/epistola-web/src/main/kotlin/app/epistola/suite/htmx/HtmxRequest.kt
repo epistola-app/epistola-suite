@@ -4,9 +4,11 @@
 
 package app.epistola.suite.htmx
 
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.catalog.protocol.CatalogNamespaces
+import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -124,13 +126,18 @@ fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("ten
  * session, so a link to a draft is shareable, and every link, HTMX request and editor call built from
  * the segment stays on that draft. Without one the route works on the catalog's current version: its
  * next version. `@` cannot occur in a catalog key, so the two never collide.
+ *
+ * A catalog's [namespace] goes before its key, `acme/letters` (ADR 0034, phase 4): within a tenant a
+ * catalog is unique by namespace and key, so where two catalogs share a key their pages are addressed
+ * `/tenants/{t}/catalogs/{namespace}/{key}/…` ([catalogScopedRoutes]). Without one the key names the
+ * tenant's one catalog with it.
  */
-data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
-    /** The segment as it appears in a URL. */
-    val value: String get() = draft?.let { "${key.value}@$it" } ?: key.value
+data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val namespace: String? = null) {
+    /** The segment as it appears in a URL: `[namespace/]key[@draft]`. */
+    val value: String get() = (namespace?.let { "$it/" } ?: "") + (draft?.let { "${key.value}@$it" } ?: key.value)
 
     /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
-    fun ref(tenantKey: TenantKey): CatalogVersionRef? = draft?.let { CatalogVersionRef(tenantKey, key, DraftRef.Id(it)) }
+    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(tenantKey, key, DraftRef.Id(it)) }
 
     /** The same catalog at draft [draft], or at its current version when that is null. */
     fun at(draft: String?): CatalogSegment = copy(draft = draft)
@@ -145,16 +152,23 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
 
     companion object {
         /**
-         * Parses `key` or `key@<version id>`. Throws [IllegalArgumentException] for an invalid key, and
-         * [CatalogVersionNotFoundException] for a draft part that is not a version id: a link naming a
-         * release number (`letters@1.0.1`) is a draft that is not there, not a bad request.
+         * Parses `[namespace/]key[@<version id>]`. Throws [IllegalArgumentException] for an invalid key
+         * or namespace, and [CatalogReleaseNotFoundException] for a draft part that is not a version
+         * id: a link naming a release number (`letters@1.0.1`) is a draft that is not there, not a bad
+         * request.
          */
         fun parse(raw: String): CatalogSegment {
+            val slash = raw.indexOf('/')
+            if (slash >= 0) {
+                val namespace = raw.substring(0, slash)
+                require(CatalogNamespaces.isValid(namespace)) { "Invalid catalog namespace: $namespace" }
+                return parse(raw.substring(slash + 1)).copy(namespace = namespace)
+            }
             val at = raw.indexOf('@')
             if (at < 0) return CatalogSegment(CatalogKey.of(raw))
             val key = CatalogKey.of(raw.substring(0, at))
             val draft = raw.substring(at + 1).trim()
-            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogVersionNotFoundException(key, draft)
+            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogReleaseNotFoundException(key, draft)
             return CatalogSegment(key, draft)
         }
 
@@ -162,8 +176,14 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null) {
     }
 }
 
-/** The `catalogId` path variable: the catalog, and the draft it names if any. */
-fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId"))
+/**
+ * The catalog in the route: the `catalogId` path variable, and the draft it names if any, with the
+ * namespace the address names before it (`{catalogNamespace}`, [catalogScopedRoutes]) when it names one.
+ */
+fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId")).copy(namespace = pathVariables()[CATALOG_NAMESPACE_VARIABLE]).named()
+
+/** This segment, with the namespace it names learned for the rest of the request ([CatalogNames.name]). */
+fun CatalogSegment.named(): CatalogSegment = also { s -> s.namespace?.let { CatalogNames.name(s.key, it) } }
 
 /**
  * Extract a [CatalogKey] from the `catalogId` path variable (without the `@version` of a draft).
@@ -177,7 +197,7 @@ fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
     catalogSegment().key
 } catch (_: IllegalArgumentException) {
     null
-} catch (e: CatalogVersionNotFoundException) {
+} catch (e: CatalogReleaseNotFoundException) {
     e.catalogKey
 }
 
@@ -185,7 +205,7 @@ fun ServerRequest.catalogIdOrNull(): CatalogKey? = try {
  * The draft the `catalogId` path variable names (`letters@<draft id>`), for a message's
  * `catalogVersion`; null when it names none, which means the catalog's next version.
  */
-fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(tenantId().key)
+fun ServerRequest.catalogVersion(): CatalogReleaseRef? = catalogSegment().ref(tenantId().key)
 
 /**
  * The catalog a request is in: the `catalogId` path variable of a page or action under
@@ -193,8 +213,8 @@ fun ServerRequest.catalogVersion(): CatalogVersionRef? = catalogSegment().ref(te
  * (an editor's picker search). Either may name a draft as `letters@<draft id>`; null when neither is
  * there or it is blank.
  */
-fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = pathVariables()["catalogId"]?.let { CatalogSegment.parse(it) }
-    ?: param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()) }
+fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = pathVariables()["catalogId"]?.let { catalogSegment() }
+    ?: param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()).named() }
 
 /**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.

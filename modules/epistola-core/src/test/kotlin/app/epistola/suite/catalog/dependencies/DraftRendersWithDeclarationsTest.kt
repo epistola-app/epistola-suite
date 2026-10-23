@@ -8,13 +8,13 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -66,7 +66,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", content = footer("Acme")).execute()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
@@ -105,7 +105,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
             TemplateKey.of("invoice"),
             VariantKey.INITIAL,
             JsonNodeFactory.instance.objectNode().put("name", "x"),
-            CatalogVersionRef(tenant, letters, DraftRef.Next),
+            CatalogReleaseRef(tenant, letters, DraftRef.Next),
         ).query()
     }
 
@@ -123,7 +123,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
     @Test
     fun `a named draft renders from that draft, live`() {
         val tenant = setUp("draft-named")
-        val sharedNext = withMediator { app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, shared).query() }!!.versionId
+        val sharedNext = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, shared).query() }!!.versionId
         val target = withMediator { GetCatalog(tenant, shared).query() }!!
         withMediator { UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute() }
 
@@ -140,7 +140,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
             UpdateStencil(
                 StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant))),
                 content = footer("Acme Redesign"),
-                catalogVersion = CatalogVersionRef(tenant, shared, DraftRef.Id(redesign)),
+                catalogVersion = CatalogReleaseRef(tenant, shared, DraftRef.Id(redesign)),
             ).execute()
         }
         val target = withMediator { GetCatalog(tenant, shared).query() }!!

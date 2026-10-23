@@ -38,7 +38,6 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.model.DataExample
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -87,6 +86,7 @@ class InstallFromCatalogHandler(
     private val protocolMapper: ProtocolMapper,
     private val sizeLimits: CatalogSizeLimits,
     private val installedCatalogCheck: InstalledCatalogCheck,
+    private val receivedReleases: ReceivedReleases,
     transactionManager: PlatformTransactionManager,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
@@ -125,6 +125,8 @@ class InstallFromCatalogHandler(
         val migratedManifest = catalogClient.fetchMigratedManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
+        // Kept as it says it is, or refused before anything is fetched or written.
+        receivedReleases.requireKeepable(command.tenantKey, command.catalogKey, manifest.release)
 
         // The whole manifest, always. `DependencyResolver` still runs: it cannot add anything to a
         // set that is already complete, but it validates that every same-catalog reference points at
@@ -174,18 +176,19 @@ class InstallFromCatalogHandler(
             results
         }
 
+        // The publisher's content as fetched, when the install covered all of it: what the release keeps.
+        val published = staged.takeIf { items -> results.none { it.status == InstallStatus.FAILED } && items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
+            publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
+        }
         // A fresh install records the publisher's release it just installed, so it can be rendered.
         // Inside an upgrade the catalog still names the previous version here; the upgrade records
-        // the new release once it has moved the pointer.
+        // the new release once it has moved the pointer, from the content handed to it here.
+        InstalledContentHandoff.offer(published)
         if (results.none { it.status == InstallStatus.FAILED } &&
             catalog.installedReleaseVersion == manifest.release.version &&
             !InstalledReleaseRecording.isDeferred
         ) {
-            // The publisher's content as fetched, when the install covered all of it.
-            val published = staged.takeIf { items -> items.size == manifest.resources.size && items.all { it.resource != null } }?.let { items ->
-                publishedContent(manifest, items.associate { "${it.entry.type}/${it.entry.key}" to it.resource!! }, items.flatMap { it.binaries.entries }.associate { it.key to it.value })
-            }
-            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published).execute()
+            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
         }
         results
     }
@@ -264,28 +267,7 @@ class InstallFromCatalogHandler(
     }
 
     private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
-        val input = ImportTemplateInput(
-            slug = resource.key,
-            name = resource.name,
-            version = releaseVersion,
-            themeId = resource.themeKey,
-            themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: command.catalogKey.value else null,
-            pdfaEnabled = resource.pdfaEnabled,
-            dataModel = protocolMapper.toObjectNode(resource.dataModel),
-            dataExamples = resource.dataExamples?.map {
-                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = protocolMapper.toObjectNode(it.data)!!, key = it.key)
-            } ?: emptyList(),
-            templateModel = resource.templateModel,
-            variants = resource.variants.map { variant ->
-                ImportVariantInput(
-                    id = variant.key,
-                    title = variant.title,
-                    attributes = variant.attributes ?: emptyMap(),
-                    templateModel = variant.templateModel,
-                    isDefault = variant.isDefault,
-                )
-            },
-        )
+        val input = templateImportInput(resource, command.catalogKey, releaseVersion, protocolMapper)
 
         val results = ImportTemplates(
             tenantId = TenantId(command.tenantKey),

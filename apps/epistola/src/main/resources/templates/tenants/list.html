@@ -46,6 +46,23 @@
                         <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
                         <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
                     </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('namespace')} ? 'error' : ''">
+                        <label for="namespace">Namespace</label>
+                        <input type="text" id="namespace" name="namespace" required placeholder="acme"
+                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
+                               data-testid="tenant-namespace"
+                               th:value="${formData?.get('namespace')}">
+                        <span class="form-hint">The namespace its catalogs are named in, granted to it now; more can be granted under Namespaces.</span>
+                        <span class="form-error" th:if="${errors?.containsKey('namespace')}" th:text="${errors.namespace}"></span>
+                    </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('authority')} ? 'error' : ''">
+                        <label for="authority">Authority</label>
+                        <input type="text" id="authority" name="authority" required maxlength="253"
+                               data-testid="tenant-authority"
+                               th:value="${formData?.get('authority') ?: defaultAuthority}">
+                        <span class="form-hint">The domain the namespace is granted under: the organisation's own, such as gemeente-x.nl, or exchange.epistola.app.</span>
+                        <span class="form-error" th:if="${errors?.containsKey('authority')}" th:text="${errors.authority}"></span>
+                    </div>
                     <button type="submit" class="ep-btn ep-btn-primary">Create Tenant</button>
                 </form>
             </section>
@@ -90,6 +107,10 @@
                             </td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${tenant.createdAt}" th:title="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
+                                <a th:if="${auth.has('TENANT_MANAGER')}" th:href="@{/platform/tenants/{id}/namespaces(id=${tenant.id})}"
+                                   class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Namespaces" data-testid="tenant-namespaces-link">
+                                    <th:block th:replace="~{epistola-web/icon :: icon(name='tag', class='ep-icon ep-icon-sm')}" />
+                                </a>
                                 <a th:href="@{/tenants/{id}(id=${tenant.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Open tenant">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />

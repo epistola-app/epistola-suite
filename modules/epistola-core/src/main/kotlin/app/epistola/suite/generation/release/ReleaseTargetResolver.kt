@@ -5,12 +5,12 @@
 package app.epistola.suite.generation.release
 
 import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.CatalogVersionSelector
+import app.epistola.suite.catalog.CatalogReleaseSelector
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -158,7 +158,7 @@ class ReleaseTargetResolver(
     /** The variant chosen among those [draft] holds now, by the same rule as for a release. */
     private fun resolveInDraft(tenantKey: TenantKey, draft: DraftSource, templateKey: TemplateKey, variantKey: VariantKey?, criteria: VariantSelectionCriteria?): VariantKey {
         val templateId = TemplateId(templateKey, CatalogId(draft.catalogKey, TenantId(tenantKey)))
-        val summaries = mediator.query(GetVariantSummaries(templateId, CatalogVersionRef(tenantKey, draft.catalogKey, DraftRef.Id(draft.draftId))))
+        val summaries = mediator.query(GetVariantSummaries(templateId, CatalogReleaseRef(tenantKey, draft.catalogKey, DraftRef.Id(draft.draftId))))
         fun missing(variant: VariantKey?) = TemplateNotInReleaseException(tenantKey, draft.catalogKey, draft.label, templateKey, variant, draftLabel = draft.label)
         val candidates = summaries.map { VariantCandidate(it.id, it.attributes, it.isDefault) }
         return when {
@@ -196,7 +196,7 @@ class ReleaseTargetResolver(
      *
      * A selector that names a candidate exactly picks it, so an exact version keeps working for a
      * release whose number is not SemVer (a label from before 2.0); otherwise the selector is an npm
-     * range evaluated as [CatalogVersionSelector] does. Highest is SemVer precedence for a range and
+     * range evaluated as [CatalogReleaseSelector] does. Highest is SemVer precedence for a range and
      * the catalog's release order ([LATEST_RELEASE_ORDER]) without a selector; they agree for every
      * `MAJOR.MINOR.PATCH` release.
      *
@@ -249,7 +249,7 @@ class ReleaseTargetResolver(
                 selector == null -> candidates("", "LIMIT 1").firstOrNull()
 
                 else -> candidates("AND r.version = :v").firstOrNull() ?: run {
-                    val range = CatalogVersionSelector.parseOrNull(selector)
+                    val range = CatalogReleaseSelector.parseOrNull(selector)
                         ?: throw ValidationException("version", "'$selector' is not a version selector: give a release version such as 1.4.0, or a range such as ^1.4.0")
                     // A range is evaluated here, not in SQL; the candidates are one column per release.
                     range.highestMatch(candidates(""))

@@ -22,21 +22,36 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.commands.CatalogBundleException
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CatalogImportDependenciesMissingException
+import app.epistola.suite.catalog.commands.CatalogNameMismatchException
+import app.epistola.suite.catalog.commands.CatalogNameRequiredException
+import app.epistola.suite.catalog.commands.CatalogReleaseTakenException
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
+import app.epistola.suite.catalog.merge.MergeBaseMissingException
+import app.epistola.suite.catalog.merge.MergeConflictsUnresolvedException
+import app.epistola.suite.catalog.merge.MergeEntryNotFoundException
+import app.epistola.suite.catalog.merge.MergeNotApplicableException
+import app.epistola.suite.catalog.merge.MergePreviewOutdatedException
+import app.epistola.suite.catalog.merge.MergeRefusedException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.registry.NamespaceNotGrantedException
+import app.epistola.suite.catalog.registry.RegistryArchiveRejectedException
+import app.epistola.suite.catalog.registry.RegistryReleaseNotFoundException
+import app.epistola.suite.catalog.registry.ReleaseNumberTakenException
+import app.epistola.suite.catalog.registry.ReleaseRegistryConflictException
+import app.epistola.suite.catalog.registry.ReleaseRegistryNotFoundException
+import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
+import app.epistola.suite.catalog.releases.CatalogDraftInUseException
+import app.epistola.suite.catalog.releases.CatalogDraftIsNextException
+import app.epistola.suite.catalog.releases.CatalogDraftNameInUseException
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseHeldException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.CatalogHasNoSourceException
-import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
-import app.epistola.suite.catalog.versions.CatalogDraftInUseException
-import app.epistola.suite.catalog.versions.CatalogDraftIsNextException
-import app.epistola.suite.catalog.versions.CatalogDraftNameInUseException
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionHeldException
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.DefaultVariantNotFoundException
@@ -495,6 +510,31 @@ object ApiExceptionMappings {
             logMessage = { "Import refused: ${it.message}" },
         )
 
+        builder.register<CatalogReleaseTakenException>(
+            problemType = ApiProblemTypes.RELEASE_NUMBER_TAKEN,
+            defaultDetail = "The tenant has this release as another: its number with other content, or its id",
+            logMessage = { "Import refused, release taken: ${it.message}" },
+        )
+
+        builder.register<CatalogNameRequiredException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The archive is from before catalogs named their registry and namespace; name both",
+            logMessage = { "Import refused, catalog unnamed: ${it.message}" },
+        )
+
+        builder.register<CatalogNameMismatchException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The archive names another registry or namespace; an import never renames a catalog",
+            logMessage = { "Import refused, another name: ${it.message}" },
+        )
+
+        builder.register<app.epistola.suite.catalog.releases.CatalogDraftUnchangedException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The draft has nothing to release: nothing changed against its base",
+            extensions = { mapOf("base" to it.base) },
+            logMessage = { "Release refused: ${it.message}" },
+        )
+
         builder.register<CatalogDraftInUseException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "Another catalog's draft builds on this draft",
@@ -536,9 +576,51 @@ object ApiExceptionMappings {
 
         builder.register<CatalogReadOnlyException>(
             problemType = ApiProblemTypes.CATALOG_READ_ONLY,
-            defaultDetail = "Catalog is subscribed and cannot be modified through this API",
-            extensions = { emptyMap() },
+            defaultDetail = "The catalog cannot be changed in this installation",
+            extensions = { listOfNotNull("catalogKey" to it.catalogKey.value, it.reason?.let { reason -> "readOnlyReason" to reason.wire }).toMap() },
             logMessage = { "Write to read-only catalog rejected: ${it.message}" },
+        )
+
+        builder.register<MergeConflictsUnresolvedException>(
+            problemType = ApiProblemTypes.MERGE_CONFLICTS_UNRESOLVED,
+            defaultDetail = "Every resource changed on both sides needs a resolution",
+            extensions = { mapOf("unresolvedConflicts" to it.conflicts) },
+            logMessage = { "Merge refused, conflicts without a resolution: ${it.message}" },
+        )
+
+        builder.register<MergeRefusedException>(
+            problemType = ApiProblemTypes.MERGE_REFUSED,
+            defaultDetail = "The merge's result would leave a reference that does not resolve; keep the draft's side, or take the release's side of what it needs too",
+            extensions = { emptyMap() },
+            logMessage = { "Merge refused: ${it.message}" },
+        )
+
+        builder.register<MergeEntryNotFoundException>(
+            problemType = ApiProblemTypes.NOT_FOUND,
+            defaultDetail = "The merge does not list that entry",
+            logMessage = { "Merge entry not found: ${it.message}" },
+        )
+
+        builder.register<MergeNotApplicableException>(
+            problemType = ApiProblemTypes.MERGE_NOT_APPLICABLE,
+            defaultDetail = "The merge does not apply",
+            extensions = { emptyMap() },
+            logMessage = { "Merge not applicable: ${it.message}" },
+        )
+
+        // Merging, and reading the sides of an entry of a merge, without the merge base (contract ADR 0005).
+        builder.register<MergeBaseMissingException>(
+            problemType = ApiProblemTypes.MERGE_BASE_MISSING,
+            defaultDetail = "This installation does not have the release both the draft and the release come from; get it first",
+            extensions = { mapOf("version" to it.version, "fingerprint" to it.fingerprint) },
+            logMessage = { "Merge refused, merge base missing: ${it.message}" },
+        )
+
+        builder.register<MergePreviewOutdatedException>(
+            problemType = ApiProblemTypes.MERGE_PREVIEW_OUTDATED,
+            defaultDetail = "The draft or the release changed since the preview; preview again",
+            extensions = { emptyMap() },
+            logMessage = { "Merge refused, preview outdated: ${it.message}" },
         )
 
         builder.register<CatalogNotFoundException>(
@@ -610,14 +692,14 @@ object ApiExceptionMappings {
             logMessage = { "API operation not implemented: ${it.operation}" },
         )
 
-        builder.register<CatalogVersionNotFoundException>(
+        builder.register<CatalogReleaseNotFoundException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_NOT_FOUND,
             defaultDetail = "Catalog version not found",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
             logMessage = { "Catalog version not found: catalog=${it.catalogKey} version=${it.version}" },
         )
 
-        builder.register<CatalogVersionReleasedException>(
+        builder.register<CatalogReleaseIsReleasedException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_RELEASED,
             defaultDetail = "The catalog version is released and cannot change",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version) },
@@ -640,7 +722,7 @@ object ApiExceptionMappings {
 
         builder.register<CatalogDraftIsNextException>(
             problemType = ApiProblemTypes.CONFLICT,
-            defaultDetail = "The next version has no name of its own",
+            defaultDetail = "The next release has no name of its own",
             extensions = { mapOf("catalogKey" to it.catalogKey.value) },
             logMessage = { "Draft operation refused for its kind: ${it.message}" },
         )
@@ -658,20 +740,56 @@ object ApiExceptionMappings {
             logMessage = { "Environment deployment refused: ${it.message}" },
         )
 
+        builder.register<ReleaseRegistryNotFoundException>(
+            problemType = ApiProblemTypes.RELEASE_REGISTRY_NOT_FOUND,
+            defaultDetail = "This installation has no release registry of that name",
+            logMessage = { "Release registry not found: ${it.name}" },
+        )
+
+        builder.register<ReleaseNumberTakenException>(
+            problemType = ApiProblemTypes.RELEASE_NUMBER_TAKEN,
+            defaultDetail = "The release registry holds this version with other content",
+            logMessage = { "Release number taken: ${it.message}" },
+        )
+
+        builder.register<NamespaceNotGrantedException>(
+            problemType = ApiProblemTypes.NAMESPACE_NOT_GRANTED,
+            defaultDetail = "The release registry does not grant this installation the catalog's namespace",
+            logMessage = { "Namespace not granted: ${it.message}" },
+        )
+
+        builder.register<RegistryReleaseNotFoundException>(
+            problemType = ApiProblemTypes.NOT_FOUND,
+            defaultDetail = "The release registry does not hold that release",
+            logMessage = { "Registry release not found: ${it.message}" },
+        )
+
+        builder.register<RegistryArchiveRejectedException>(
+            problemType = ApiProblemTypes.BAD_REQUEST,
+            defaultDetail = "The release registry served something that is not the catalog release asked for",
+            logMessage = { "Registry archive rejected: ${it.message}" },
+        )
+
+        builder.register<ReleaseRegistryConflictException>(
+            problemType = ApiProblemTypes.CONFLICT,
+            defaultDetail = "The request conflicts with what the tenant has",
+            logMessage = { "Release registry refused: ${it.message}" },
+        )
+
         builder.register<CatalogHasNoSourceException>(
             problemType = ApiProblemTypes.CONFLICT,
             defaultDetail = "The catalog has no source",
             logMessage = { "No catalog source: ${it.message}" },
         )
 
-        builder.register<CatalogVersionBehindException>(
+        builder.register<CatalogReleaseBehindException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_BEHIND,
             defaultDetail = "The draft is behind releases it does not contain",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "behind" to it.behind) },
             logMessage = { "Release refused, behind not acknowledged: ${it.message}" },
         )
 
-        builder.register<CatalogVersionHeldException>(
+        builder.register<CatalogReleaseHeldException>(
             problemType = ApiProblemTypes.CATALOG_VERSION_HELD,
             defaultDetail = "The draft alone holds resources something outside it still uses",
             extensions = { mapOf("catalogKey" to it.catalogKey.value, "version" to it.version, "heldBy" to it.holders) },

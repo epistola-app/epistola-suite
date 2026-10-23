@@ -62,7 +62,7 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
         val systemFonts = runAsApiKey(tenantId) { fontMcpTools.listFonts(catalogId = "system") }
         assertThat(systemFonts).hasSize(9)
         assertThat(systemFonts.map { it.slug }).contains("inter", "roboto", "jetbrains-mono", "liberation-sans")
-        assertThat(systemFonts).allMatch { it.readOnly && it.catalogType == "SUBSCRIBED" }
+        assertThat(systemFonts).allMatch { it.readOnly && !it.editable }
         val inter = systemFonts.single { it.slug == "inter" }
         assertThat(inter.name).isEqualTo("Inter")
         assertThat(inter.kind).isEqualTo("sans")
@@ -98,7 +98,7 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
         val all = runAsApiKey(tenantId) { fontMcpTools.listFonts(catalogId = null) }
         val acme = all.single { it.slug == "acme-sans" }
         assertThat(acme.catalog).isEqualTo("default")
-        assertThat(acme.catalogType).isEqualTo("AUTHORED")
+        assertThat(acme.editable).isTrue
         assertThat(acme.readOnly).isFalse
         assertThat(acme.variants.map { it.weight to it.italic }).containsExactly(400 to false)
         // System families still present in the unfiltered listing.

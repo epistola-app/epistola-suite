@@ -5,7 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.common.ids.StencilId
@@ -67,7 +67,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         assertThat(plan.warnings).isEmpty()
 
         withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogVersion(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
 
         assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
     }

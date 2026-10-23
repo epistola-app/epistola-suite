@@ -5,7 +5,6 @@
 package app.epistola.suite.templates
 
 import app.epistola.catalog.archive.CatalogArchiveReader
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -181,10 +180,11 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
             entries[name] = json.replace("\"language\":\"jsonata\"", "\"language\":\"javascript\"").toByteArray()
         }
 
-        // Installing a release is all or nothing: the template is refused, and so is the release.
-        assertThatThrownBy {
-            withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries), catalogType = CatalogType.AUTHORED).execute() }
-        }.hasMessageContaining("JavaScript expressions are no longer supported")
+        // Installing a release is all or nothing: the template is refused, and so is the release, and
+        // the catalog the import would have created is not left behind.
+        val result = withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries)).execute() }
+        assertThat(result.aborted).isTrue()
+        assertThat(result.results.mapNotNull { it.errorMessage }).anyMatch { it.contains("JavaScript expressions are no longer supported") }
         assertThat(withMediator { GetCatalog(target.id, catalogKey).query() }).isNull()
     }
 

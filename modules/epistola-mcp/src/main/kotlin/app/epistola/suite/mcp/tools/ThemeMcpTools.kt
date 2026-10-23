@@ -4,15 +4,14 @@
 
 package app.epistola.suite.mcp.tools
 
-import app.epistola.suite.catalog.versions.ApplyHouseTheme
-import app.epistola.suite.catalog.versions.ApplyHouseThemeResult
-import app.epistola.suite.catalog.versions.AvailablePreset
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.GetAvailablePresets
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.releases.ApplyHouseTheme
+import app.epistola.suite.catalog.releases.AvailablePreset
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.GetAvailablePresets
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.ThemeId
@@ -23,6 +22,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -90,20 +90,20 @@ class ThemeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): ThemeInfo? {
-        val id = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+        val id = ThemeId(ThemeKey.of(themeId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
         return mediator.query(GetTheme(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
     }
 
     @McpTool(
         name = "create_theme",
-        description = "Create a theme in an AUTHORED catalog: document-level styles, page settings and named " +
+        description = "Create a theme in a catalog that can be changed here: document-level styles, page settings and named " +
             "block style presets that templates share. Each styling argument is a JSON string in the shape " +
             "`get_theme` returns for the same field. Apply it to a template with `update_template`. " +
             "Requires the THEME_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createTheme(
-        @McpToolParam(description = "Catalog key to create the theme in. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to create the theme in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Key for the new theme: lowercase letters, digits and hyphens, e.g. `corporate`.")
         themeId: String,
@@ -210,7 +210,7 @@ class ThemeMcpTools(
     @Suppress("UNCHECKED_CAST")
     private fun parseDocumentStyles(json: String?): DocumentStyles? = objectMapper.parseOptionalArgument("documentStyles", json, Map::class.java) as DocumentStyles?
 
-    private fun themeId(catalogId: String, themeId: String) = ThemeId(ThemeKey.of(themeId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun themeId(catalogId: String, themeId: String) = ThemeId(ThemeKey.of(themeId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 
     private companion object {
         const val DOCUMENT_STYLES = "JSON object string of document-level style defaults, e.g. " +
@@ -235,7 +235,7 @@ class ThemeMcpTools(
 
     @McpTool(
         name = "get_catalog_theme_settings",
-        description = "A catalog version's theme settings: its default theme (the theme its templates that name " +
+        description = "The theme settings of a catalog's draft or release: its default theme (the theme its templates that name " +
             "none render with) and the block style presets it declares, plus the presets its content may use " +
             "(its own and its dependencies'). A block's stylePreset must be one of those once any are declared.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
@@ -249,7 +249,7 @@ class ThemeMcpTools(
 
     @McpTool(
         name = "set_catalog_theme_settings",
-        description = "Set a catalog version's default theme and/or the block style presets it declares. The default " +
+        description = "Set a catalog draft's default theme and/or the block style presets it declares. The default " +
             "theme may be in the catalog itself or in a catalog it depends on (declared as a use of it). " +
             "Omitted arguments are kept. `presets` replaces the declared presets: a JSON array of " +
             "{\"key\", \"name\", \"description\"?}; keys are lowercase with dashes, each once.",
@@ -270,7 +270,7 @@ class ThemeMcpTools(
         catalogVersion: String? = null,
     ): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         if (defaultThemeKey != null || clearDefaultTheme == true) {
             val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.let(CatalogKey::of) ?: catalogKey) }
@@ -292,15 +292,16 @@ class ThemeMcpTools(
     @McpTool(
         name = "apply_house_theme",
         description = "Make the tenant's house theme (its default theme, never used while rendering) the default theme " +
-            "of every catalog the tenant authors, in each one's next version. Each takes it on its next publish. " +
-            "Returns which catalogs took it and which had no next version.",
+            "of every catalog the tenant authors, in each one's next release. Each takes it on its next publish. " +
+            "Returns which catalogs took it and which had no next release, each by its `address`, `namespace/key`.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, idempotentHint = true),
     )
-    fun applyHouseTheme(): ApplyHouseThemeResult = ApplyHouseTheme(mcpTenantId().key).execute()
+    fun applyHouseTheme(): HouseThemeApplied = ApplyHouseTheme(mcpTenantId().key).execute()
+        .let { result -> HouseThemeApplied(result.applied.map { it.toString() }, result.skipped.map { it.toString() }) }
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
         val tenantKey = mcpTenantId().key
-        val catalogKey = CatalogKey.of(catalogId)
+        val catalogKey = mcpCatalogKey(catalogId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         val settings = GetCatalogThemeSettings(tenantKey, catalogKey, version).query()
         return CatalogThemeSettingsInfo(
@@ -310,3 +311,6 @@ class ThemeMcpTools(
         )
     }
 }
+
+/** Which catalogs [ThemeMcpTools.applyHouseTheme] gave the house theme, and which it could not, by address (`namespace/key`). */
+data class HouseThemeApplied(val applied: List<String>, val skipped: List<String>)

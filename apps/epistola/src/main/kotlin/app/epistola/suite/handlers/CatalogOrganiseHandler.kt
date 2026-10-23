@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.relocation.CatalogResourceMoveBlockedException
 import app.epistola.suite.catalog.relocation.CatalogResourceMovePreview
@@ -115,8 +116,10 @@ class CatalogOrganiseHandler {
             ?.let { ListRelocatableResources(tenantKey, limit = it.size, addresses = it).query() }
             .orEmpty()
         val resources = (named + page.take(PAGE_SIZE)).distinctBy { it.address }
+        // Whether each can be changed here (ADR 0032): only such a catalog is offered as a destination.
+        val editability = ListCatalogEditability(tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query().map {
-            mapOf("key" to it.id.value, "name" to it.name, "type" to it.type.name.lowercase())
+            mapOf("key" to it.id.value, "name" to it.name, "editable" to editability.editable(it.id))
         }
         return json(
             mapOf(

@@ -10,7 +10,6 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.declareDependency
@@ -158,8 +157,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
         val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
         val fresh = createTenant("Installs $what move").id
         withMediator {
-            ImportCatalogZip(fresh, sharedZip, CatalogType.AUTHORED).execute()
-            ImportCatalogZip(fresh, lettersZip, CatalogType.AUTHORED).execute()
+            ImportCatalogZip(fresh, sharedZip).execute()
+            ImportCatalogZip(fresh, lettersZip).execute()
         }
         return fresh
     }
@@ -198,8 +197,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
         val fresh = createTenant("Installs ${moved.type.wireName} move").id
         withMediator {
-            ImportCatalogZip(fresh, sharedZip, CatalogType.AUTHORED).execute()
-            ImportCatalogZip(fresh, lettersZip, CatalogType.AUTHORED).execute()
+            ImportCatalogZip(fresh, sharedZip).execute()
+            ImportCatalogZip(fresh, lettersZip).execute()
         }
         val edge = withMediator { GetTenantResourceGraph(fresh, includeHistory = true).query() }.edges
             .single { it.source == address(CatalogResourceType.TEMPLATE, letters, "invoice") && it.targetSelector.type == moved.type }

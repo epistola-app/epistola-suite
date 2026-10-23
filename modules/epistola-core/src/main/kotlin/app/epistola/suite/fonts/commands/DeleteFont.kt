@@ -5,10 +5,10 @@
 package app.epistola.suite.fonts.commands
 
 import app.epistola.suite.assets.commands.DeleteAsset
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component
  * Deletes a font family and the uploaded binaries it owned.
  *
  * Mirrors `app.epistola.suite.assets.commands.DeleteAsset`:
- *  - `requireCatalogEditable` — SUBSCRIBED catalogs (e.g. `system`) reject the
+ *  - `requireCatalogEditable` — a catalog that cannot be changed here (e.g. `system`) rejects the
  *    delete with `CatalogReadOnlyException`, the same exception every other
  *    catalog-mutating command throws.
  *  - Usage guard — unless [force], a font referenced by a theme or template
@@ -47,8 +47,8 @@ data class DeleteFont(
     val fontId: FontId,
     val force: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Command<Boolean>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT
@@ -67,7 +67,7 @@ class DeleteFontHandler(
         val catalogKey = command.fontId.catalogKey
         val slug = command.fontId.key
 
-        // Catalog editability — SUBSCRIBED (e.g. `system`) rejects.
+        // Catalog editability — one Epistola supplies (e.g. `system`) rejects.
         requireCatalogEditable(tenantKey, catalogKey)
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->

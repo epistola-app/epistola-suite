@@ -86,7 +86,7 @@
                     <td class="actions">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                 th:disabled="${!canInstall or catalog.latestVersion == null}"
-                                th:title="${canInstall} ? 'Choose a version and install' : 'You need both catalog management and template editing permission to install'"
+                                th:title="${canInstall} ? 'Choose a release and install' : 'You need both catalog management and template editing permission to install'"
                                 th:hx-get="@{/tenants/{tenantId}/catalogs/exchange/{namespace}/{catalogKey}(tenantId=${tenantId},namespace=${catalog.namespace},catalogKey=${catalog.catalogKey})}"
                                 hx-target="#exchange-dialog-container" hx-swap="innerHTML"
                                 data-testid="exchange-install-open">
@@ -160,9 +160,9 @@
             <div th:replace="~{epistola-web/form-error :: form-error(id='exchange-install-error')}"></div>
             <div class="ep-dialog-body">
                 <div class="form-group">
-                    <span class="ep-label">Installed</span>
+                    <span class="ep-label">Highest release here</span>
                     <p style="margin: var(--ep-space-1) 0 0;">
-                        <strong th:text="${catalog.installedReleaseVersion != null ? 'v' + catalog.installedReleaseVersion : '—'}"></strong>
+                        <strong th:text="${highestRelease != null ? 'v' + highestRelease : '—'}"></strong>
                     </p>
                 </div>
                 <div class="form-group" th:if="${!detail.installable.isEmpty()}">
@@ -177,7 +177,7 @@
                     <p class="text-muted" style="font-size: var(--ep-text-xs); margin-top: var(--ep-space-2);">
                         Resources in this catalog are replaced by the ones in that release, and any
                         it no longer contains are removed. If a single resource fails, nothing is
-                        changed and the catalog stays on the version it is running.
+                        changed and the catalog stays on the release it is running.
                     </p>
                 </div>
                 <div th:if="${detail.installable.isEmpty()}" class="alert alert-error">

@@ -22,8 +22,8 @@ import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
 import app.epistola.suite.api.v1.shared.toQuery
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.versions.GetCatalogNames
-import app.epistola.suite.catalog.versions.ResolveCatalogVersion
+import app.epistola.suite.catalog.releases.GetCatalogNames
+import app.epistola.suite.catalog.releases.ResolveCatalogRelease
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
@@ -77,7 +77,7 @@ class EpistolaDocumentGenerationApi(
     ): ResponseEntity<Resource> {
         val pdfBytes = previewDocumentRequest.toQuery(tenantKey, catalogsOf(tenantKey)) { catalog, version ->
             // A preview of a draft names the draft; a released version is not one (use `version`).
-            val resolved = ResolveCatalogVersion(catalog.tenantKey, catalog.registry, catalog.namespace, catalog.id, version).query()
+            val resolved = ResolveCatalogRelease(catalog.tenantKey, catalog.registry, catalog.namespace, catalog.id, version).query()
             if (!resolved.isDraft) {
                 throw ValidationException(field = "draftVersion", message = "Version $version is released, not a draft; render it with 'version'")
             }

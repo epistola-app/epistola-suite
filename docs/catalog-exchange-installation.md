@@ -6,8 +6,9 @@
 > follow a publisher's resource moves; [ADR 0025](adr/0025-relocation-without-aliases.md) sets out
 > where installation is going.
 
-A catalog installed from Epistola Exchange is an ordinary **subscribed** catalog: a read-only mirror
-of somebody else's content, kept up to date deliberately rather than automatically. What Exchange
+A catalog installed from Epistola Exchange is an ordinary catalog whose source is Exchange
+(`exchange:namespace/key`): it holds somebody else's releases, kept up to date deliberately rather
+than automatically, and can be changed here like any other (ADR 0032). What Exchange
 changes is where the content comes from and how a newer release is noticed.
 
 ## The controls
@@ -44,12 +45,13 @@ documented in [catalog-exchange-publication.md](catalog-exchange-publication.md#
 
 **Catalogs → Browse Exchange.** Search, open a catalog, choose a version, install.
 
-What happens then is the existing ZIP import in its subscribed mode, so the guarantees are the ones
-that path already had:
+What happens then is the existing ZIP import, which receives the release, so the guarantees are the
+ones that path already had:
 
-- The catalog arrives **read-only**. Editing controls are hidden and mutating commands refuse.
-- Resources are mirrored: what the release contains replaces what is there, and what it no longer
-  contains is removed.
+- The release is recorded beside the catalog's others. While the next version has no changes of its
+  own it moves to the release: what the release contains replaces what is there, and what it no
+  longer contains is removed. With changes of its own the next version stays, behind the release, to
+  be merged.
 - **The whole catalog installs, or none of it does.** There is no way to take a subset, and a
   resource that fails takes the rest with it — no resources are pruned, no version is advanced, and
   the next attempt starts over. See [Why a catalog is one unit](#why-a-catalog-is-one-unit).
@@ -60,13 +62,13 @@ knowing about.
 ### The catalog ID
 
 A catalog is addressed within a tenant by the slug in its own manifest. `acme/invoices` and
-`globex/invoices` therefore both want to be `invoices` here, and both would be subscribed catalogs —
-so nothing about their _type_ distinguishes them.
+`globex/invoices` therefore both want to be `invoices` here, and nothing about the catalogs
+distinguishes them but their source.
 
 Installing the second is **refused**, naming what already holds the ID. It is not merged, and it does
 not overwrite. Installing the same catalog under a different local ID is not supported: every
 cross-catalog reference in the imported templates is written against that ID, so a rename would
-produce a mirror that no longer matches its source.
+produce a catalog that no longer matches its source.
 
 If you need both, install them into different tenants.
 
@@ -106,12 +108,12 @@ upgrade. The upgrade preview lists what will be added before anything is applied
 
 ## Updates
 
-Installed catalogs are checked in the background: every subscribed catalog's source is asked, every
+Installed catalogs are checked in the background: every catalog with a source is asked, every
 six hours by default, whether it has published anything newer. The answer is recorded, and the
 catalogs list, the navigation count and the home-page notice all render from that record rather than
 asking while a page loads.
 
-This applies to **every** subscribed catalog, not only Exchange ones — a catalog subscribed from a
+This applies to **every** catalog with a source, not only Exchange ones — a catalog registered from a
 manifest URL gets the same treatment. Only the asking differs.
 
 | Property (`epistola.catalog.upstream-check.`) | Default | Meaning                                                             |
@@ -131,16 +133,16 @@ the catalog is shown as running something no longer offered, and the update it o
 
 Exchange publishes no catalog wire-format version on a release, so a release published by a **newer**
 Epistola is only rejected when it is imported, with a message saying to upgrade this installation.
-Catalogs subscribed from a manifest URL do not have this limitation — their manifest carries the
+Catalogs registered from a manifest URL do not have this limitation — their manifest carries the
 version, so the list shows "out of sync" or "upgrade Epistola" without a download. See
 [ADR 0021](adr/0021-catalog-upstream-release-discovery.md).
 
 ## Relocation
 
-Resources in an installed catalog **cannot be moved or renamed**. Relocation refuses a move whose
-source or target is not an `AUTHORED` catalog, and an installed catalog is `SUBSCRIBED` — so the
-Organise page will not offer them. That is the right answer rather than a gap: the catalog is a
-mirror, and an address the publisher did not choose would be overwritten by the next upgrade.
+Relocation moves resources only between catalogs that can be changed here (ADR 0032), and an
+installed catalog is one of them. Moving a resource out of a catalog received from Exchange is a
+change of its own: its next version no longer fast-forwards to the publisher's next release, which is
+recorded beside it to be merged.
 
 Resource identities still exist for installed resources — they are minted by a database trigger on
 insert, like any other resource — so an installed catalog participates in the reference graph.
@@ -159,8 +161,8 @@ Installing requires **both** `CATALOG_MANAGE` and `TEMPLATE_EDIT`.
 
 `CATALOG_MANAGE` is the catalog-lifecycle permission — the same one that registers, upgrades and
 removes a catalog. The nested ZIP import carries `TEMPLATE_EDIT`, and authorization is enforced on
-every dispatch, so the effective requirement is the pair. This is not new (applying any subscribed
-upgrade has always needed both), but the two are not held by the same role: `TENANT_ADMINISTRATOR`
+every dispatch, so the effective requirement is the pair. This is not new (applying any upgrade from
+a source has always needed both), but the two are not held by the same role: `TENANT_ADMINISTRATOR`
 has the first without the second, and `CONTENT_AUTHOR` the reverse. The UI checks both, so a reader
 is told before a release is downloaded rather than after.
 
@@ -175,7 +177,7 @@ installation path is actually wanted.
 
 ## What is not here
 
-- **No resource-level diff before an upgrade.** A URL-subscribed catalog gets one, built by walking
+- **No resource-level diff before an upgrade.** A catalog registered from a URL gets one, built by walking
   the source manifest; an Exchange release is an archive, so its dialog shows release metadata and
   states the abort guarantee instead. A real diff would mean downloading before previewing.
 - **No automatic upgrading.** Deliberate — see ADR 0021.

@@ -8,7 +8,10 @@ import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.banner.SiteBanner
 import app.epistola.suite.banner.SiteBannerSeverity
 import app.epistola.suite.banner.commands.SeedSiteBannerIfAbsent
+import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
+import app.epistola.suite.catalog.namespaces.GrantTenantNamespace
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -56,6 +59,7 @@ import tools.jackson.databind.ObjectMapper
 )
 class DemoLoader(
     private val mediator: Mediator,
+    private val identity: CatalogIdentityProperties,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
     private val apiKeyService: ApiKeyService,
@@ -90,6 +94,9 @@ class DemoLoader(
 
         if (exists) {
             log.info("Demo tenant already exists")
+            // The namespace its catalogs are named in (ADR 0034, section 3): a database from before
+            // grants holds it from the migration, and asserting it here keeps any other one working.
+            mediator.send(GrantTenantNamespace(tenantKey, identity.defaultRegistry, DEMO_NAMESPACE))
             // Still (re-)assert the demo API key on every boot so its scope self-heals
             // across upgrades — e.g. the api_key roles migration backfilled it to
             // CONTENT_VIEWER; this restores the full "everything key" scope. The upsert is
@@ -99,7 +106,7 @@ class DemoLoader(
         }
 
         transactionTemplate.executeWithoutResult {
-            val tenant = mediator.send(CreateTenant(id = tenantKey, name = DEMO_TENANT_NAME))
+            val tenant = mediator.send(CreateTenant(id = tenantKey, name = DEMO_TENANT_NAME, namespaces = listOf(NamespaceName(identity.defaultRegistry, DEMO_NAMESPACE))))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
             val tenantId = TenantId(tenant.id)
@@ -277,6 +284,12 @@ class DemoLoader(
 
         /** The shared demo tenant every demo user also gets read/write on — see [DemoLoginMembershipResolver]. */
         const val DEMO_TENANT_ID = "demo"
+
+        /**
+         * The namespace the demo tenant holds and names its catalogs in, under the default registry: the
+         * name they had before namespaces were granted, chosen here rather than derived from the key.
+         */
+        const val DEMO_NAMESPACE = "demo"
         private const val DEMO_TENANT_NAME = "Demo"
 
         /** The deliberately-flawed template the quality demo hangs off. */

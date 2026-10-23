@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mcp.dto.CatalogChangesInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
@@ -30,7 +31,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Ready marks (contract ADR 0002): a catalog release contains only content someone marked ready, and
- * an edit makes a mark stale. Releasing is `release_next_version` (CatalogVersionMcpTools). Each tool dispatches the command
+ * an edit makes a mark stale. Releasing is `release_next_version` (CatalogReleaseMcpTools). Each tool dispatches the command
  * the UI and REST API use, so the same checks apply, including that every stencil instance fits.
  */
 @Component
@@ -38,17 +39,21 @@ class ReadyMcpTools {
 
     @McpTool(
         name = "get_catalog_changes",
-        description = "List what an AUTHORED catalog's next release would contain that its last one did not: " +
+        description = "List what the next release of a catalog that can be changed here would contain that its last one did not: " +
             "every resource with its state (`NEW`, `MODIFIED`, `RELEASED`, `REMOVED`) and whether it " +
-            "is marked ready. `releasable` is false while a changed resource is not ready.",
+            "is marked ready; `mergedForReview` marks merged content a merge wrote that nobody has marked ready since, " +
+            "to review with the user. `settings` lists what changed beside the resources, which is content of the release too: " +
+            "a dependency added, removed or locked to another release (`catalogDependency/<alias>`), the default theme, " +
+            "the presets, the license (`catalog/<key>`); these need no ready mark. " +
+            "`releasable` is false while a changed resource is not ready.",
         annotations = McpTool.McpAnnotations(readOnlyHint = true, idempotentHint = true),
     )
     fun getCatalogChanges(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
+    ): CatalogChangesInfo = CatalogChangesInfo.from(GetCatalogResourceChanges(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).query())
 
     @McpTool(
         name = "mark_variant_ready",
@@ -105,23 +110,23 @@ class ReadyMcpTools {
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogChangesInfo {
-        MarkStencilReady(StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId())), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
+        MarkStencilReady(StencilId(StencilKey.of(stencilId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId())), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute()
         return getCatalogChanges(catalogId, catalogVersion)
     }
 
     @McpTool(
         name = "mark_catalog_ready",
-        description = "Mark every new or modified resource of an AUTHORED catalog ready in one action, and return " +
+        description = "Mark every new or modified resource of a catalog that can be changed here ready in one action, and return " +
             "the changes that remain. Stops at the first resource that cannot be marked. " +
             "Requires the TEMPLATE_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = true),
     )
     fun markCatalogReady(
-        @McpToolParam(description = "Catalog key of an AUTHORED catalog. From `list_catalogs`.")
+        @McpToolParam(description = "Catalog key of a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): CatalogChangesInfo = CatalogChangesInfo.from(MarkCatalogReady(mcpTenantKey(), CatalogKey.of(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
+    ): CatalogChangesInfo = CatalogChangesInfo.from(MarkCatalogReady(mcpTenantKey(), mcpCatalogKey(catalogId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)).execute())
 
-    private fun templateId(catalogId: String, templateId: String) = TemplateId(TemplateKey.of(templateId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun templateId(catalogId: String, templateId: String) = TemplateId(TemplateKey.of(templateId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 }

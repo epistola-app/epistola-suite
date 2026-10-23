@@ -12,8 +12,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -26,10 +26,7 @@ class DataContractExampleDefaultsUiTest : BasePlaywrightTest() {
     @Test
     fun `the example form shows the default of a field the example leaves out`() {
         val (tenant, template) = withMediator {
-            val tenant = CreateTenant(
-                id = TenantKey.of("example-defaults-ui-${System.nanoTime()}"),
-                name = "Example Defaults UI Tenant",
-            ).execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("example-defaults-ui-${System.nanoTime()}"), "Example Defaults UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(id = templateId, name = "Example Defaults UI Template").execute()
             UpdateDataContract(

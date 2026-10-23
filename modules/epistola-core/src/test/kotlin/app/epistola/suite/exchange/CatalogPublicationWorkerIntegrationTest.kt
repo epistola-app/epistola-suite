@@ -7,7 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -143,6 +144,36 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
     }
 
     @Test
+    fun `publishing a release again answers what happened to it and queues nothing more`() {
+        val tenant = createTenant("Worker Repeat")
+        val catalogKey = CatalogKey.of("worker-repeat")
+
+        withMediator {
+            enroll(tenant)
+            releaseWithPublication(tenant, catalogKey)
+            val queued = publication(tenant.id, catalogKey)
+
+            // Queued, not yet sent: a repeat gets the same publication, still queued.
+            val again = PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+            assertThat(again).isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_QUEUED))
+
+            // Sent and being decided: still queued.
+            worker.run()
+            assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
+            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute().status).isEqualTo(ExchangePublicationOutcome.Status.ALREADY_QUEUED)
+
+            // Accepted: published already, and nothing is queued again.
+            forceDue(queued.id)
+            exchange.statusResponse = { FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "ACCEPTED")) }
+            worker.run()
+            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute())
+                .isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_PUBLISHED))
+            assertThat(state(tenant.id, catalogKey).publications).singleElement().extracting { it.status }.isEqualTo(CatalogPublicationStatus.ACCEPTED)
+            assertThat(exchange.submittedNamespaces).hasSize(1)
+        }
+    }
+
+    @Test
     fun `a submission Exchange never decides is given up on instead of polled for ever`() {
         val tenant = createTenant("Worker Waits Out")
         val catalogKey = CatalogKey.of("worker-waits-out")
@@ -196,7 +227,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
         withMediator {
             enroll(tenant)
-            CreateCatalog(tenant.id, catalogKey, "Worker chooses ns").execute()
+            CreateCatalog(tenant.id, catalogKey, "Worker chooses ns", namespace = TestNamespaces.of(tenant.id).namespace).execute()
 
             // Nothing bound: publishing would have nowhere to go, and the form asks.
             assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
@@ -204,7 +235,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
             ChangeCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
-            ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("epistola")
@@ -286,9 +317,9 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
      * publishable catalog rather than something the tenant default does behind the scenes.
      */
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
-        CreateCatalog(tenant.id, catalogKey, catalogKey.value).execute()
+        CreateCatalog(tenant.id, catalogKey, catalogKey.value, namespace = TestNamespaces.of(tenant.id).namespace).execute()
         namespace?.let { ChangeCatalogNamespace(tenant.id, catalogKey, it).execute() }
-        ReleaseCatalogVersion(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+        ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 
     private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())

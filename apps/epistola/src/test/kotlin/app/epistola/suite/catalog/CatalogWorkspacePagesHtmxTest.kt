@@ -8,7 +8,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -37,6 +37,7 @@ import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
@@ -66,7 +67,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
                     CreateStencil(StencilId(StencilKey.of("footer"), sharedId), "Footer").execute()
                     CreateTheme(ThemeId(ThemeKey.of("brand"), sharedId), "Brand").execute()
                     MarkCatalogReady(tenant.id, shared).execute()
-                    ReleaseCatalogVersion(tenant.id, shared, "1.0.0").execute()
+                    ReleaseCatalogDraft(tenant.id, shared, "1.0.0").execute()
                     val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id)))
                     CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
                     UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
@@ -104,6 +105,21 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         }
         assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/stencils/new", String::class.java).statusCode.value())
             .`as`("creating is the catalog's: there is no create outside one").isEqualTo(404)
+    }
+
+    /**
+     * Where people add a dependency, its "Depends on" table names it as the content does (ADR 0034),
+     * in the same column, with the same header, as the draft's Dependencies table.
+     */
+    @Test
+    fun `the Dependencies page shows the name the content uses for each catalog it depends on`() {
+        val tenant = seed("Workspace Dependency Alias")
+
+        val table = get(tenant, "/catalogs/letters/dependencies").substringAfter("data-testid=\"catalog-borrowed\"").substringBefore("</table>")
+
+        assertThat(table).contains("<th title=\"What the templates, themes and stencils of this catalog call it\">Named in content as</th>")
+        val row = table.substringAfter("data-testid=\"catalog-borrowed-catalog\" data-catalog=\"shared\"").substringBefore("</tr>")
+        assertThat(row.substringAfter("data-testid=\"catalog-borrowed-alias\"").substringBefore("</td>")).isEqualTo("><code>shared</code>")
     }
 
     @Test
@@ -155,7 +171,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
     fun `every version says what it started from`() {
         val tenant = seed("Workspace Versions")
 
-        val versions = get(tenant, "/catalogs/shared/versions")
+        val versions = get(tenant, "/catalogs/shared/releases")
         val published = versions.substringAfter("data-version=\"1.0.0\"").substringBefore("</tr>")
         assertThat(published.substringAfter("data-testid=\"catalog-version-base\"")).contains("Started from nothing")
         val next = versions.substringAfter("data-status=\"draft\"").substringBefore("</tr>")
@@ -163,11 +179,11 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `every version can be removed from Versions, a draft discarded and a published version deleted, landing back there`() {
+    fun `every version can be removed from Releases, a draft discarded and a published version deleted, landing back there`() {
         // Discarding the next version throws its changes away; it is opened again on the latest release.
         val tenant = seed("Workspace Remove")
 
-        val versions = get(tenant, "/catalogs/shared/versions")
+        val versions = get(tenant, "/catalogs/shared/releases")
         assertThat(versions.substringAfter("data-status=\"draft\"").substringBefore("</tr>"))
             .contains("action=\"/tenants/${tenant.id}/catalogs/shared/drafts/discard\"").contains(">Discard<")
         assertThat(versions.substringAfter("data-version=\"1.0.0\"").substringBefore("</tr>"))
@@ -181,14 +197,14 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             ),
             String::class.java,
         )
-        assertThat(discarded.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
+        assertThat(discarded.headers.location.toString()).isEqualTo("/tenants/${tenant.id}/catalogs/shared/releases")
         // The next version is not gone: it starts again on the latest published version.
-        assertThat(get(tenant, "/catalogs/shared/versions").substringAfter("data-status=\"draft\"").substringBefore("</tr>"))
-            .contains(">Next version<").contains(">v1.0.0<")
+        assertThat(get(tenant, "/catalogs/shared/releases").substringAfter("data-status=\"draft\"").substringBefore("</tr>"))
+            .contains(">Next release<").contains(">v1.0.0<")
     }
 
     @Test
-    fun `a resource's back link returns to its catalog's list, and a published version's to Versions`() {
+    fun `a resource's back link returns to its catalog's list, and a published release's to Releases`() {
         val tenant = seed("Workspace Back")
 
         fun back(path: String) = Regex("""href="([^"]+)"\s+class="back-link"""").find(get(tenant, path))!!.groupValues[1]
@@ -196,7 +212,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
         assertThat(back("/catalogs/letters/templates/invoice")).isEqualTo("/tenants/${tenant.id}/catalogs/letters/templates")
         assertThat(back("/catalogs/shared/stencils/footer")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/stencils")
         assertThat(back("/catalogs/shared/themes/brand")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/themes")
-        assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/versions")
+        assertThat(back("/catalogs/shared/releases/1.0.0")).isEqualTo("/tenants/${tenant.id}/catalogs/shared/releases")
     }
 
     @Test
@@ -206,7 +222,7 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
             // Shared 1.1.0 only adds something: everything Letters uses still fits.
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(shared, TenantId(tenant.id))), "Seasonal").execute()
             MarkCatalogReady(tenant.id, shared).execute()
-            ReleaseCatalogVersion(tenant.id, shared, "1.1.0").execute()
+            ReleaseCatalogDraft(tenant.id, shared, "1.1.0").execute()
         }
 
         val page = get(tenant, "/catalogs/letters/dependencies")
@@ -216,6 +232,29 @@ class CatalogWorkspacePagesHtmxTest : BaseIntegrationTest() {
 
         val dialog = htmx(tenant, "/catalogs/letters/dependencies/edit")
         assertThat(dialog).`as`("no range to choose").doesNotContain("dependency-version-").contains("type=\"hidden\" name=\"version\"")
+    }
+
+    @Test
+    fun `Releases' former address leads there for good, its query kept, and an HTMX request is sent there too`() {
+        val tenant = seed("Workspace Former Address")
+        val former = "/tenants/${tenant.id}/catalogs/shared/versions?from=bookmark"
+        val releases = "/tenants/${tenant.id}/catalogs/shared/releases?from=bookmark"
+
+        val opened = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW).getForEntity(former, String::class.java)
+        assertThat(opened.statusCode).isEqualTo(HttpStatus.PERMANENT_REDIRECT)
+        assertThat(opened.headers.location.toString()).isEqualTo(releases)
+
+        val swapped = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW).exchange(
+            former,
+            HttpMethod.GET,
+            HttpEntity<Void>(HttpHeaders().apply { set("HX-Request", "true") }),
+            String::class.java,
+        )
+        assertThat(swapped.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(swapped.headers.getFirst("HX-Location")).isEqualTo(releases)
+
+        assertThat(get(tenant, "/catalogs/shared/releases")).`as`("the page at its new address")
+            .contains("<span id=\"page-title-text\">Releases</span>").contains("data-testid=\"catalog-versions\"")
     }
 
     private fun get(tenant: Tenant, path: String): String = restTemplate.withRedirects(HttpRedirects.DONT_FOLLOW)

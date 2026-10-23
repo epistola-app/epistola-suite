@@ -4,6 +4,12 @@
 
 package app.epistola.suite.exchange
 
+import app.epistola.catalog.protocol.CatalogNamespaces
+import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.namespaces.GrantOutcome
+import app.epistola.suite.catalog.namespaces.NamespaceGrantSource
+import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.installation.InstallationService
@@ -177,7 +183,10 @@ class StartExchangeConnectionHandler(
 class CompleteExchangeConnectionHandler(
     private val jdbi: Jdbi,
     private val client: ExchangeClient,
+    private val grants: NamespaceGrantStore,
+    private val identity: CatalogIdentityProperties,
 ) : CommandHandler<CompleteExchangeConnection, ExchangeTenantConnection> {
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: CompleteExchangeConnection): ExchangeTenantConnection {
         val pending = jdbi.withHandle<ExchangeAuthorizationTransaction?, Exception> { handle ->
@@ -258,7 +267,24 @@ class CompleteExchangeConnectionHandler(
                 .bind("accessExpiresAt", now.plus(token.accessTokenExpiresIn)).bind("refreshToken", Secret(token.refreshToken))
                 .bind("refreshExpiresAt", now.plus(token.refreshTokenExpiresIn)).bind("tenantKey", command.tenantKey).execute()
             clearPendingAuthorization(handle, command.tenantKey)
+            grantConnectionNamespaces(handle, command.tenantKey, context.namespaces)
             requireNotNull(current(handle, command.tenantKey))
+        }
+    }
+
+    /**
+     * The tenant holds every namespace the connection grants, under the Exchange's authority (ADR
+     * 0034, section 3). A grant outlives the connection: a namespace the Exchange no longer lists, or a
+     * disconnect, leaves the catalogs named in it able to release here, while publishing still asks
+     * the connection what it grants now. A namespace the tenant holds under another authority is not
+     * granted twice (ADR 0034, section 2); an administrator settles that.
+     */
+    private fun grantConnectionNamespaces(handle: Handle, tenantKey: TenantKey, namespaces: Collection<String>) {
+        namespaces.filter(CatalogNamespaces::isValid).forEach { namespace ->
+            val outcome = grants.grant(handle, tenantKey, NamespaceName(identity.defaultRegistry, namespace), NamespaceGrantSource.EXCHANGE_CONNECTION, grantedBy = null)
+            if (outcome is GrantOutcome.TakenUnder) {
+                logger.warn("Exchange grants tenant {} the namespace {}, which it holds under {}; not granted again", tenantKey, namespace, outcome.authority)
+            }
         }
     }
 

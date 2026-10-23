@@ -8,11 +8,15 @@ import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -21,13 +25,15 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.parallelReleaseLines
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -97,7 +103,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val byId = restTemplate.exchange(versionPath(tenantKey, catalogSlug, before), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
         assertThat(JsonPath.read<String>(byId, "$.version")).`as`("its id addresses the release").isEqualTo("1.0.0")
         val next = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "next"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java).body!!
-        assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(next, "$.name")).isEqualTo("Next release")
         assertThat(JsonPath.read<String>(next, "$.releaseId")).isNotEqualTo(before)
         assertThat(JsonPath.read<String?>(next, "$.version")).`as`("numbered only when released").isNull()
         assertThat(JsonPath.read<String>(next, "$.base")).isEqualTo("1.0.0")
@@ -128,7 +134,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
-            ReleaseCatalogVersion(
+            ReleaseCatalogDraft(
                 tenantKey = tenantKey,
                 catalogKey = CatalogKey.of(catalogSlug),
                 version = "1.0.0",
@@ -155,7 +161,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
             DeleteTheme(ThemeId(ThemeKey.of("tha"), CatalogId(CatalogKey.of(catalogSlug), TenantId(tenantKey)))).execute()
             MarkCatalogReady(tenantKey, CatalogKey.of(catalogSlug)).execute()
         }
@@ -184,8 +190,8 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val catalogSlug = "rel-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug)).execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug)).execute()
         }
 
         val response = restTemplate.exchange(versionPath(tenantKey, catalogSlug, "1.0.1"), HttpMethod.GET, HttpEntity<String>(baseHeaders(apiKey)), String::class.java)
@@ -205,7 +211,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "drafts-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator { ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
+        withMediator { ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
 
@@ -225,7 +231,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/$work/themes/tha").body!!, "$.name")).isEqualTo("Th, redesigned")
         assertThat(JsonPath.read<String>(call(HttpMethod.GET, "$versions/next/themes/tha").body!!, "$.name")).isEqualTo("Th")
         val listed = call(HttpMethod.GET, versions).body!!
-        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next version", "Redesign", null)
+        assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].name")).containsExactly("Next release", "Redesign", null)
         assertThat(JsonPath.read<List<String?>>(listed, "$.items[*].version")).containsExactly(null, null, "1.0.0")
 
         val renamed = call(HttpMethod.PATCH, "$versions/$work", """{"name":"Redesign 2027"}""")
@@ -268,7 +274,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogSlug = "behind-${UUID.randomUUID().toString().take(8)}"
         seedAuthoredCatalog(tenantKey, catalogSlug)
-        withMediator { ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
+        withMediator { ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = CatalogKey.of(catalogSlug), version = "1.0.0").execute() }
         val versions = "${withMediator { CatalogApiPaths.catalog(tenantKey, catalogSlug) }}/releases"
         fun call(method: HttpMethod, path: String, body: String? = null) = restTemplate.exchange(path, method, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
         val work = JsonPath.read<String>(call(HttpMethod.POST, versions, """{"name":"Redesign"}""").body!!, "$.releaseId")
@@ -290,7 +296,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         seedAuthoredCatalog(tenantKey, catalogSlug)
         withMediator {
             val catalogKey = CatalogKey.of(catalogSlug)
-            ReleaseCatalogVersion(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), CatalogId(catalogKey, TenantId(tenantKey))), "Seasonal").execute()
             SetTenantDefaultTheme(tenantKey, ThemeKey.of("seasonal"), catalogKey).execute()
         }
@@ -304,14 +310,14 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `release rejects a subscribed catalog with read only problem details`() {
+    fun `release rejects a catalog the suite supplies with read only problem details`() {
         val (tenantKey, apiKey) = seedTenantAndKey()
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
             InstallFromCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of("epistola-demo")).execute()
         }
 
-        // A subscribed catalog has no draft: its versions are the releases it installed.
+        // From a classpath: source, so Epistola supplies it and it cannot be changed here (ADR 0032).
         val response = restTemplate.exchange(
             "${versionPath(tenantKey, "epistola-demo")}/release",
             HttpMethod.POST,
@@ -321,7 +327,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
         assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_PROBLEM_JSON)).isTrue()
-        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-version-released")
+        assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/catalog-read-only")
     }
 
     @Test
@@ -332,7 +338,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
             InstallFromCatalog(tenantKey = tenantKey, catalogKey = CatalogKey.of("epistola-demo")).execute()
         }
         val catalog = withMediator { CatalogApiPaths.catalog(tenantKey, "epistola-demo") }
-        val installed = withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(tenantKey, CatalogKey.of("epistola-demo")).query().single().version }
+        val installed = withMediator { app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries(tenantKey, CatalogKey.of("epistola-demo")).query().single().version }
 
         val available = restTemplate.exchange("$catalog/available-releases", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
         assertThat(available.statusCode).describedAs(available.body).isEqualTo(HttpStatus.OK)
@@ -363,6 +369,124 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(response.body!!, "$.type")).isEqualTo("https://epistola.app/errors/conflict")
     }
 
+    @Test
+    fun `a catalog says whether it can be changed here, why not, and where its releases come from`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val response = restTemplate.exchange("/api/tenants/${tenantKey.value}/catalogs", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        val body = response.body!!
+        assertThat(JsonPath.read<List<Boolean>>(body, "$.items[?(@.catalogKey == 'default')].editable")).containsExactly(true)
+        assertThat(JsonPath.read<List<Boolean>>(body, "$.items[?(@.catalogKey == 'system')].editable")).containsExactly(false)
+        assertThat(JsonPath.read<List<String>>(body, "$.items[?(@.catalogKey == 'system')].readOnlyReason")).containsExactly("supplied-by-epistola")
+        assertThat(JsonPath.read<List<String>>(body, "$.items[?(@.catalogKey == 'system')].source").single()).startsWith("classpath:")
+        assertThat(body).doesNotContain("\"type\"")
+    }
+
+    @Test
+    fun `a draft behind a release previews the merge, needs a choice for a conflict, merges, and then does not apply again`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val slug = "merge-api"
+        seedAuthoredCatalog(tenantKey, slug)
+        val catalogKey = CatalogKey.of(slug)
+        val theme = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, TenantId(tenantKey)))
+        withMediator {
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            val fix = CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(fix.versionId))
+            UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            UpdateTheme(theme, name = "Ours").execute()
+        }
+        val next = versionPath(tenantKey, slug, "next")
+
+        val preview = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(preview.body!!, "$.base")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.resources[*].outcome")).containsExactly("conflict")
+        assertThat(JsonPath.read<List<String>>(preview.body!!, "$.resources[*].resourceKey")).containsExactly("tha")
+
+        fun merge(body: String) = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val unresolved = merge("""{"release":"1.0.1"}""")
+        assertThat(unresolved.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(unresolved.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-conflicts-unresolved")
+        assertThat(JsonPath.read<List<String>>(unresolved.body!!, "$.unresolvedConflicts")).containsExactly("theme/tha")
+
+        val merged = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"theirs"}}""")
+        assertThat(merged.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(merged.body!!, "$.taken")).containsExactly("theme/tha")
+
+        val again = merge("""{"release":"1.0.1"}""")
+        assertThat(again.statusCode).isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+        assertThat(JsonPath.read<String>(again.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-not-applicable")
+    }
+
+    @Test
+    fun `a merge sent with a preview's token applies only what that preview showed`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val slug = "merge-token-api"
+        seedAuthoredCatalog(tenantKey, slug)
+        val catalogKey = CatalogKey.of(slug)
+        val theme = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, TenantId(tenantKey)))
+        withMediator {
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            val fix = CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(fix.versionId))
+            UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
+            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            UpdateTheme(theme, name = "Ours").execute()
+        }
+        val next = versionPath(tenantKey, slug, "next")
+        fun preview() = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        fun merge(body: String) = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity(body, baseHeaders(apiKey)), String::class.java)
+
+        val token = JsonPath.read<String>(preview().body!!, "$.token")
+        assertThat(token).isNotBlank()
+        assertThat(JsonPath.read<String>(preview().body!!, "$.token")).isEqualTo(token)
+
+        // The draft changes after the preview: the merge confirmed against it is refused.
+        withMediator { UpdateTheme(theme, name = "Ours, again").execute() }
+        val outdated = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$token"}""")
+        assertThat(outdated.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(outdated.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-preview-outdated")
+
+        val current = JsonPath.read<String>(preview().body!!, "$.token")
+        assertThat(current).isNotEqualTo(token)
+        val merged = merge("""{"release":"1.0.1","resolutions":{"theme/tha":"ours"},"expectedToken":"$current"}""")
+        assertThat(merged.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<List<String>>(merged.body!!, "$.kept")).containsExactly("theme/tha")
+    }
+
+    @Test
+    fun `without the merge base the preview names it and classifies nothing, and the merge is refused with merge-base-missing`() {
+        val (tenantKey, apiKey) = seedTenantAndKey()
+        val producer = createTenant("Merge Base Producer").id
+        val slug = "merge-base-api"
+        val fingerprint = withMediator {
+            val lines = mediator.parallelReleaseLines(producer, CatalogKey.of(slug))
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v110).execute()
+            ImportCatalogZip(tenantKey = tenantKey, zipBytes = lines.v101).execute()
+            ListCatalogReleaseSummaries(producer, CatalogKey.of(slug)).query().single { it.version == "1.0.0" }.fingerprint
+        }
+        val next = versionPath(tenantKey, slug, "next")
+
+        val preview = restTemplate.exchange("$next/merge-preview?version=1.0.1", HttpMethod.GET, HttpEntity<Void>(baseHeaders(apiKey)), String::class.java)
+        assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(JsonPath.read<String>(preview.body!!, "$.missingBase.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(preview.body!!, "$.missingBase.fingerprint")).isEqualTo(fingerprint)
+        assertThat(JsonPath.read<List<Any>>(preview.body!!, "$.resources")).isEmpty()
+        assertThat(JsonPath.read<Int>(preview.body!!, "$.unchanged")).isZero()
+
+        val merge = restTemplate.exchange("$next/merge", HttpMethod.POST, HttpEntity("""{"release":"1.0.1"}""", baseHeaders(apiKey)), String::class.java)
+        assertThat(merge.statusCode).isEqualTo(HttpStatus.CONFLICT)
+        assertThat(JsonPath.read<String>(merge.body!!, "$.type")).isEqualTo("https://epistola.app/errors/merge-base-missing")
+        assertThat(JsonPath.read<String>(merge.body!!, "$.version")).isEqualTo("1.0.0")
+        assertThat(JsonPath.read<String>(merge.body!!, "$.fingerprint")).isEqualTo(fingerprint)
+    }
+
     private fun versionPath(tenantKey: TenantKey, catalogKey: String, version: String? = null): String = withMediator { CatalogApiPaths.version(tenantKey, catalogKey, version) }
 
     private fun seedAuthoredCatalog(tenantKey: TenantKey, slug: String) = withMediator {
@@ -384,7 +508,7 @@ class EpistolaCatalogApiIT : IntegrationTestBase() {
 
     private fun seedTenantAndKey(): Pair<TenantKey, String> = withMediator {
         val tenantKey = TenantKey.of("ca-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenantKey, name = "Catalog API Tenant").execute()
+        TestNamespaces.createTenant(tenantKey, "Catalog API Tenant").execute()
         val created = CreateApiKey(tenantId = tenantKey, name = "ca-it").execute()
         tenantKey to created.plaintextKey
     }

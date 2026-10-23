@@ -7,12 +7,12 @@ package app.epistola.suite.catalog.dependencies
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
@@ -61,11 +61,11 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer").execute()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
         tenant
     }
 
-    private fun invoiceOnSharedTheme(tenant: TenantKey, version: CatalogVersionRef? = null) = withMediator {
+    private fun invoiceOnSharedTheme(tenant: TenantKey, version: CatalogReleaseRef? = null) = withMediator {
         val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
         if (version == null) CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
         UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared, catalogVersion = version).execute()
@@ -82,7 +82,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         assertThat(used.catalogKey).isEqualTo("shared")
         assertThat(used.declared).isTrue()
         assertThat(used.release).`as`("no pin: it names a draft").isNull()
-        assertThat(used.draftName).isEqualTo("Next version")
+        assertThat(used.draftName).isEqualTo("Next release")
         assertThat(used.uses.map { Triple(it.type, it.key, it.name) }).containsExactly(Triple("theme", "brand", "Brand"))
         assertThat(used.publishAlong).`as`("its next version has nothing unpublished").isFalse()
         assertThat(borrowing.undeclared).isEmpty()
@@ -126,10 +126,10 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         val work = withMediator {
             CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, letters, "1.0.0").execute()
             CreateCatalogDraft(tenant, letters, "Redesign").execute()
         }
-        val draft = CatalogVersionRef(tenant, letters, DraftRef.Id(work.versionId))
+        val draft = CatalogReleaseRef(tenant, letters, DraftRef.Id(work.versionId))
         invoiceOnSharedTheme(tenant, draft)
 
         assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs).`as`("the next version uses nothing").isEmpty()
@@ -150,7 +150,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     private fun releaseShared(tenant: TenantKey, version: String, change: () -> Unit) = withMediator {
         change()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, version).execute()
+        ReleaseCatalogDraft(tenant, shared, version).execute()
     }
 
     @Test
@@ -209,6 +209,6 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     private fun releaseSharedNow(tenant: TenantKey, version: String, change: () -> Unit) {
         change()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, version).execute()
+        ReleaseCatalogDraft(tenant, shared, version).execute()
     }
 }

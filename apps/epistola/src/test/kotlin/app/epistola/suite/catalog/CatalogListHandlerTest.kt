@@ -14,9 +14,10 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -441,14 +442,14 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("ct1"), CatalogId(clean, TenantId(t.id))), name = "C1").execute()
                 MarkCatalogReady(t.id, clean).execute()
-                ReleaseCatalogVersion(t.id, clean, version = "1.0.0").execute()
+                ReleaseCatalogDraft(t.id, clean, version = "1.0.0").execute()
 
                 // Drifted: released, then edited.
                 val drift = CatalogKey.of("drift-cat")
                 CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt1"), CatalogId(drift, TenantId(t.id))), name = "D1").execute()
                 MarkCatalogReady(t.id, drift).execute()
-                ReleaseCatalogVersion(t.id, drift, version = "2.0.0").execute()
+                ReleaseCatalogDraft(t.id, drift, version = "2.0.0").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("dt2"), CatalogId(drift, TenantId(t.id))), name = "D2 (post-release)").execute()
             }
         }
@@ -535,7 +536,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(t.id))), name = "Brand").execute()
                 MarkCatalogReady(t.id, catalogKey).execute()
-                ReleaseCatalogVersion(t.id, catalogKey, version = "1.0.0").execute()
+                ReleaseCatalogDraft(t.id, catalogKey, version = "1.0.0").execute()
             }
         }
 
@@ -590,7 +591,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // An import adds the archive's release as it is; there is nothing to merge or replace.
             assertThat(body).doesNotContain("name=\"authoredMode\"")
             assertThat(body).contains("type=\"file\"")
-            assertThat(body).contains("name=\"catalogType\"")
+            // An import receives the release, whatever the catalog: there is no type to choose (ADR 0032).
+            assertThat(body).doesNotContain("name=\"catalogType\"").doesNotContain("Subscribed").doesNotContain("Authored")
+            assertThat(body).contains("Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next release afterwards.")
             // It is a fragment, not the whole page (no app shell).
             assertThat(body).doesNotContain("<html")
         }
@@ -602,9 +605,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         given { t = tenant("Catalog Import No File") }
 
         whenever {
-            // Multipart POST with a catalogType part but NO file part.
+            // Multipart POST with another part but NO file part.
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "AUTHORED")
+            payload.add("confirmMigration", "false")
             val headers = HttpHeaders().apply {
                 contentType = MediaType.MULTIPART_FORM_DATA
                 add("HX-Request", "true")
@@ -666,7 +669,6 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "SUBSCRIBED")
             payload.add(
                 "file",
                 HttpEntity(
@@ -696,7 +698,147 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Redirect"))
                 .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
+            // A catalog the tenant did not have is created holding the release, and can be changed here.
+            val imported = withMediator { GetCatalog(consumer.id, CatalogKey.of("epistola-demo")).query() }
+            assertThat(imported?.installedReleaseVersion).isNotNull()
+            assertThat(withMediator { GetCatalogEditability(consumer.id, CatalogKey.of("epistola-demo")).query().editable }).isTrue()
         }
+    }
+
+    @Test
+    fun `an import whose release fails to install says so and leaves no catalog behind`() {
+        val consumer = createTenant("Catalog Import Broken")
+        // An image the renderer would fetch from a URL is refused on every write path.
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><image href="http://169.254.169.254/latest/meta-data" width="96" height="96"/></svg>"""
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(svg.toByteArray()).joinToString("") { "%02x".format(it) }
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                mapOf(
+                    "catalog.json" to """{"schemaVersion":8,"catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"broken","name":"Broken","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},"publisher":{"name":"Test","url":null},"release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},"compatibility":null,"includes":null,"dependencies":[],"resources":[{"type":"image","key":"mark","name":"Mark","description":null,"updatedAt":null,"detailUrl":"./resources/image/mark.json"}]}""",
+                    "resources/image/mark.json" to """{"schemaVersion":8,"resource":{"key":"mark","name":"Mark","mediaType":"image/svg+xml","width":96,"height":96,"contentHash":"$hash","type":"image"}}""",
+                    "bin/$hash" to svg,
+                ).forEach { (name, body) ->
+                    zip.putNextEntry(java.util.zip.ZipEntry(name))
+                    zip.write(body.toByteArray())
+                    zip.closeEntry()
+                }
+            }
+        }.toByteArray()
+        val payload = LinkedMultiValueMap<String, Any>()
+        payload.add(
+            "file",
+            HttpEntity(
+                object : ByteArrayResource(archive) {
+                    override fun getFilename(): String = "broken.zip"
+                },
+                HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+            ),
+        )
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${consumer.id}/catalogs/import",
+            HttpEntity(
+                payload,
+                HttpHeaders().apply {
+                    contentType = MediaType.MULTIPART_FORM_DATA
+                    add("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
+
+        assertThat(response.headers.getFirst("HX-Redirect")).`as`("no browse page of a catalog that is not there").isNull()
+        assertThat(response.body).contains("could not be installed").contains("image/mark")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("broken")).query() }).isNull()
+    }
+
+    @Test
+    fun `an archive from before wire v8 is not installed until its registry and namespace are named`() {
+        val consumer = createTenant("Catalog Import Pre V8")
+        val manifest = """{"schemaVersion":7,"catalog":{"slug":"old-letters","name":"Old letters"},"publisher":{"name":"Test"},"release":{"version":"1.0.0"},"resources":[]}"""
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("catalog.json"))
+                zip.write(manifest.toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        fun upload(vararg fields: Pair<String, String>): org.springframework.http.ResponseEntity<String> {
+            val payload = LinkedMultiValueMap<String, Any>()
+            payload.add(
+                "file",
+                HttpEntity(
+                    object : ByteArrayResource(archive) {
+                        override fun getFilename(): String = "old.zip"
+                    },
+                    HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+                ),
+            )
+            fields.forEach { (k, v) -> payload.add(k, v) }
+            return restTemplate.postForEntity(
+                "/tenants/${consumer.id}/catalogs/import",
+                HttpEntity(
+                    payload,
+                    HttpHeaders().apply {
+                        contentType = MediaType.MULTIPART_FORM_DATA
+                        add("HX-Request", "true")
+                    },
+                ),
+                String::class.java,
+            )
+        }
+
+        val asked = upload()
+        assertThat(asked.headers.getFirst("HX-Redirect")).isNull()
+        val prompt = asked.body!!.substringAfter("data-testid=\"import-name-required\"")
+        assertThat(prompt).`as`("proposed: the default registry and this tenant's namespace")
+            .contains("name=\"registry\"", "value=\"exchange.epistola.app\"", "name=\"namespace\"", "value=\"${app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(consumer.id)}\"")
+            .contains("name=\"confirmMigration\" value=\"true\"")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query() }).`as`("nothing decided silently").isNull()
+
+        val named = upload("registry" to "exchange.epistola.app", "namespace" to "old-letters-ns", "confirmMigration" to "true")
+        assertThat(named.headers.getFirst("HX-Redirect")).`as`(named.body).contains("/catalogs/old-letters/browse")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query()!!.namespace }).isEqualTo("old-letters-ns")
+    }
+
+    @Test
+    fun `an import of a release that renders with newer rendering defaults says to upgrade Epistola`() {
+        val consumer = createTenant("Catalog Import Too New Defaults")
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("catalog.json"))
+                zip.write(
+                    """{"schemaVersion":8,"catalog":{"registry":"exchange.epistola.app","namespace":"acme","key":"newer","name":"Newer","description":null,"attributes":[],"keywords":[],"presentation":null,"license":null},"publisher":{"name":"Test","url":null},"release":{"version":"1.0.0","releasedAt":null,"fingerprint":null,"metadata":{"app.epistola.suite":{"renderingDefaultsVersion":99}}},"compatibility":null,"includes":null,"dependencies":[],"resources":[]}""".toByteArray(),
+                )
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val payload = LinkedMultiValueMap<String, Any>()
+        payload.add(
+            "file",
+            HttpEntity(
+                object : ByteArrayResource(archive) {
+                    override fun getFilename(): String = "newer.zip"
+                },
+                HttpHeaders().apply { contentType = MediaType.parseMediaType("application/zip") },
+            ),
+        )
+
+        val response = restTemplate.postForEntity(
+            "/tenants/${consumer.id}/catalogs/import",
+            HttpEntity(
+                payload,
+                HttpHeaders().apply {
+                    contentType = MediaType.MULTIPART_FORM_DATA
+                    add("HX-Request", "true")
+                },
+            ),
+            String::class.java,
+        )
+
+        assertThat(response.headers.getFirst("HX-Redirect")).isNull()
+        assertThat(response.body).contains("this release needs a newer Epistola").contains("Upgrade Epistola to receive this release")
+        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("newer")).query() }).isNull()
     }
 
     @Test

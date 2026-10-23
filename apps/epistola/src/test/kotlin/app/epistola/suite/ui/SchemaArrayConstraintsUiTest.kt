@@ -12,8 +12,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import com.microsoft.playwright.options.AriaRole
@@ -25,10 +25,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
     @Test
     fun `array field maxItems and minItems constraints are editable and validated`() {
         val (tenant, template) = withMediator {
-            val tenant = CreateTenant(
-                id = TenantKey.of("array-constraints-ui-${System.nanoTime()}"),
-                name = "Array Constraints UI Tenant",
-            ).execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("array-constraints-ui-${System.nanoTime()}"), "Array Constraints UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(
                 id = templateId,
@@ -97,10 +94,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
     @Test
     fun `a scalar field default value is editable and validated`() {
         val (tenant, template) = withMediator {
-            val tenant = CreateTenant(
-                id = TenantKey.of("default-value-ui-${System.nanoTime()}"),
-                name = "Default Value UI Tenant",
-            ).execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("default-value-ui-${System.nanoTime()}"), "Default Value UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(
                 id = templateId,
@@ -153,10 +147,7 @@ class SchemaArrayConstraintsUiTest : BasePlaywrightTest() {
     @Test
     fun `a date-time field default value control is a native datetime-local input`() {
         val (tenant, template) = withMediator {
-            val tenant = CreateTenant(
-                id = TenantKey.of("default-datetime-ui-${System.nanoTime()}"),
-                name = "Default Datetime UI Tenant",
-            ).execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("default-datetime-ui-${System.nanoTime()}"), "Default Datetime UI Tenant").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))
             val template = CreateDocumentTemplate(
                 id = templateId,

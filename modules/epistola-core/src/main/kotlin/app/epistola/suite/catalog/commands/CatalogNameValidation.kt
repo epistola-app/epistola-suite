@@ -11,8 +11,8 @@ import app.epistola.suite.validation.validate
  * Validates a catalog display name arriving from a remote or ZIP manifest against
  * the `catalogs.name VARCHAR(255)` column ceiling (issue #692).
  *
- * Manifest-sourced writes (`RegisterCatalog`, `UpgradeCatalog`, and the SUBSCRIBED
- * paths of `ImportCatalogZip`) validate at the **column width**, not the tighter
+ * Manifest-sourced writes (`RegisterCatalog`, `UpgradeCatalog`, and the receiving
+ * path of `ImportCatalogZip`) validate at the **column width**, not the tighter
  * interactive [app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH]: a
  * manifest name that fits the column keeps registering, while an over-length one
  * is rejected with a clear [app.epistola.suite.validation.ValidationException]

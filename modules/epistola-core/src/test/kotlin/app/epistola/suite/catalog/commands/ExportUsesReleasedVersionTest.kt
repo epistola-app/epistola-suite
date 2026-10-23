@@ -7,8 +7,8 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -55,14 +55,14 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
 
             // 1. Never released: there is nothing to export (contract 2.0 exports releases only).
             assertThatThrownBy { ExportCatalogZip(tenantKey, catalogKey).execute() }
-                .isInstanceOf(CatalogVersionNotFoundException::class.java)
+                .isInstanceOf(CatalogReleaseNotFoundException::class.java)
 
             // 2. Released: that release, with its fingerprint.
             MarkCatalogReady(tenantKey, catalogKey).execute()
-            val released = ReleaseCatalogVersion(tenantKey, catalogKey, "1.0.0").execute()
+            val released = ReleaseCatalogDraft(tenantKey, catalogKey, "1.0.0").execute()
             val clean = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
             assertThat(clean.release.version).isEqualTo("1.0.0")
-            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v5:[0-9a-f]{64}")
+            assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v6:[0-9a-f]{64}")
 
             // 3. Edited since: still the release, not the edits.
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "Th2").execute()

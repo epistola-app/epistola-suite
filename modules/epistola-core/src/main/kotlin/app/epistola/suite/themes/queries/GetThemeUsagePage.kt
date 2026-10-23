@@ -5,8 +5,8 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.inCurrentVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -57,8 +57,8 @@ data class GetThemeUsagePage(
     val limit: Int = DEFAULT_USAGE_PAGE_SIZE,
     val offset: Int = 0,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<ThemeUsagePage>,
     RequiresPermission {
     override val permission: Permission get() = Permission.THEME_VIEW

@@ -17,8 +17,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.publishAndRelease
@@ -42,7 +42,7 @@ class EnvironmentTryDocumentHtmxTest : BaseIntegrationTest() {
     fun `the environment page offers its deployed templates and makes a PDF of one`() {
         val tenantKey = TenantKey.of("try-doc-${System.nanoTime()}")
         val (templateKey, version) = withMediator {
-            CreateTenant(tenantKey, "Try Document").execute()
+            TestNamespaces.createTenant(tenantKey, "Try Document").execute()
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenantKey)))
             CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)

@@ -15,6 +15,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.mcpCatalogKey
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -121,13 +122,13 @@ class StencilMcpTools(
     @McpTool(
         name = "create_stencil",
         description = "Create a stencil — a reusable content block, such as a letterhead or a signature — in an " +
-            "AUTHORED catalog, with `content` (or an empty document). Templates use it with a `stencil` " +
+            "catalog that can be changed here, with `content` (or an empty document). Templates use it with a `stencil` " +
             "component that names it by `stencilKey`; see the MCP guide for the instance shape. " +
             "Requires the STENCIL_EDIT permission.",
         annotations = McpTool.McpAnnotations(readOnlyHint = false, destructiveHint = false, idempotentHint = false),
     )
     fun createStencil(
-        @McpToolParam(description = "Catalog key to create the stencil in. Must be an AUTHORED catalog.")
+        @McpToolParam(description = "Catalog key to create the stencil in. Must be a catalog that can be changed here (`editable` in `list_catalogs`).")
         catalogId: String,
         @McpToolParam(description = "Key for the new stencil: lowercase letters, digits and hyphens, e.g. `letterhead`.")
         stencilId: String,
@@ -212,5 +213,5 @@ class StencilMcpTools(
         expectedRevision = expectedRevision,
     ).execute()?.let { StencilInfo.from(it) } ?: throw notFound("Stencil", catalogId, stencilId)
 
-    private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(CatalogKey.of(catalogId), mcpTenantId()))
+    private fun stencilId(catalogId: String, stencilId: String) = StencilId(StencilKey.of(stencilId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
 }

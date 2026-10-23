@@ -5,12 +5,13 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.CatalogPreset
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
-import app.epistola.suite.catalog.versions.SetCatalogPresets
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.SetCatalogPresets
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
@@ -76,7 +77,7 @@ class CatalogThemeSettingsHandler {
             fragment("catalogs/theme-settings", "section") {
                 "tenantId" to tenantId.key
                 "segmentValue" to segment.value
-                "editable" to (catalog.type.name == "AUTHORED")
+                "editable" to IsCatalogEditable(tenantId.key, catalog.id).query()
                 "settings" to settings
                 "defaultThemeValue" to settings.defaultTheme?.let { "${it.catalogKey.value}/${it.themeKey.value}" }
                 "themeOptions" to themeOptions(tenantId.key, segment)

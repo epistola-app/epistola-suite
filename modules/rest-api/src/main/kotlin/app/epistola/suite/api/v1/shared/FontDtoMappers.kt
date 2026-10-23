@@ -7,7 +7,6 @@ package app.epistola.suite.api.v1.shared
 import app.epistola.api.model.FontDto
 import app.epistola.api.model.FontVariantDto
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.fonts.model.Font
 
 /**
@@ -16,26 +15,20 @@ import app.epistola.suite.fonts.model.Font
  *
  * The DTOs are generated from the `epistola-contract` OpenAPI spec (tag
  * `Fonts`), so this mapper only converts domain → generated. `kind` maps via
- * the lowercase wire form to the generated `FontDto.Kind` enum; `catalogType`
- * maps SUBSCRIBED/AUTHORED to the generated `FontDto.CatalogType` enum.
+ * the lowercase wire form to the generated `FontDto.Kind` enum; `readOnly`
+ * says whether the font's catalog cannot be changed here.
  *
  * Fonts are read-only over REST (the asset precedent: binaries are managed
  * through the UI / catalog exchange only), so there is no `toModel` direction.
  */
-internal fun Font.toDto(catalog: Catalog, variants: List<FontVariantDto>) = FontDto(
+internal fun Font.toDto(catalog: Catalog, variants: List<FontVariantDto>, readOnly: Boolean = catalog.readOnlyHere()) = FontDto(
     key = slug.value,
     name = name,
     kind = FontDto.Kind.forValue(kind.wire),
     registry = catalog.registry,
     namespace = catalog.namespace,
     catalogKey = catalogKey.value,
-    // `catalogType` is loaded via the JOIN in `ListFonts`, so for any row that
-    // exists it's non-null. AUTHORED is the safe fallback for the orphan case.
-    catalogType = when (catalogType) {
-        CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-        else -> app.epistola.api.model.CatalogType.AUTHORED
-    },
-    readOnly = catalogType == CatalogType.SUBSCRIBED,
+    readOnly = readOnly,
     variants = variants,
     createdAt = createdAt,
     lastModified = updatedAt,

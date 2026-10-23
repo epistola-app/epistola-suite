@@ -48,15 +48,18 @@ class CatalogImportRows(
 
     fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_key = :c")
+            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)")
                 .bind("t", tenantKey)
                 .bind("c", catalogKey)
                 .execute()
         }
     }
 
-    /** Inserts an empty SUBSCRIBED catalog row (no source URL — ZIP-sourced). */
-    fun insertSubscribedCatalog(
+    /**
+     * Inserts an empty catalog row for a release received from [sourceUrl] (null for an archive
+     * somebody uploaded); the database opens its next version.
+     */
+    fun insertCatalog(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
         name: String,
@@ -68,8 +71,8 @@ class CatalogImportRows(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, type, source_url, created_at, updated_at)
-                VALUES (:c, :t, :registry, :namespace, :name, :description, 'SUBSCRIBED', :sourceUrl, NOW(), NOW())
+                INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, description, source_url, created_at, updated_at)
+                VALUES (:c, :t, :registry, :namespace, :name, :description, :sourceUrl, NOW(), NOW())
                 """,
             )
                 .bind("c", catalogKey)
@@ -84,12 +87,12 @@ class CatalogImportRows(
     }
 
     /**
-     * Advances the SUBSCRIBED install pointer from the imported ZIP — the same
-     * `installed_*` state a URL [RegisterCatalog]/[UpgradeCatalog] records,
-     * so the upgrade preview / drift detection work identically. Run last,
-     * only on a fully successful import.
+     * Advances the install pointer from a received archive — the same `installed_*` state a URL
+     * [RegisterCatalog]/[UpgradeCatalog] records, so the upgrade preview / drift detection work
+     * identically; the database moves the next version to it. Run last, only on a fully
+     * successful import.
      */
-    fun updateSubscribedInstalledState(
+    fun updateInstalledState(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
         version: String,
@@ -107,7 +110,7 @@ class CatalogImportRows(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
                 """,
             )
                 .bind("t", tenantKey)
@@ -122,7 +125,8 @@ class CatalogImportRows(
         }
     }
 
-    fun updateAuthoredMetadata(
+    /** The catalog's name, description and metadata from a restored archive. */
+    fun updateMetadata(
         tenantKey: TenantKey,
         catalogKey: CatalogKey,
         name: String,
@@ -135,7 +139,7 @@ class CatalogImportRows(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_key = :c
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
                 """,
             )
                 .bind("t", tenantKey)

@@ -311,7 +311,7 @@ export class CatalogOrganise extends LitElement {
     }
 
     const destination = this.selected.get(resource.id);
-    const authored = this.catalogs.filter((catalog) => catalog.type === 'authored');
+    const destinations = this.catalogs.filter((catalog) => catalog.editable);
 
     return html`
       <div class="ep-panel" style="padding: var(--ep-space-4); margin-bottom: var(--ep-space-4);">
@@ -335,7 +335,7 @@ export class CatalogOrganise extends LitElement {
             }}
           >
             <option value="">Stay in ${resource.catalogName}</option>
-            ${authored
+            ${destinations
               .filter((catalog) => catalog.key !== resource.catalogKey)
               .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
           </select>
@@ -365,7 +365,7 @@ export class CatalogOrganise extends LitElement {
     const visible = this.catalogFilter
       ? this.resources.filter((resource) => resource.catalogKey === this.catalogFilter)
       : this.resources;
-    const authored = this.catalogs.filter((catalog) => catalog.type === 'authored');
+    const destinations = this.catalogs.filter((catalog) => catalog.editable);
 
     const banners = html`
       ${this.error ? html`<p class="alert alert-error" role="alert">${this.error}</p>` : nothing}
@@ -411,7 +411,7 @@ export class CatalogOrganise extends LitElement {
         </label>
       </div>
 
-      ${this.renderDestinationBar(authored)} ${this.renderResources(visible, authored)}
+      ${this.renderDestinationBar(destinations)} ${this.renderResources(visible, destinations)}
       ${this.renderSummary()}
     `;
   }
@@ -420,7 +420,7 @@ export class CatalogOrganise extends LitElement {
    * One destination for the whole selection. Rows that overrode it are called out here rather than
    * only in their own row, so the count always explains itself without scanning the table.
    */
-  private renderDestinationBar(authored: OrganiseCatalog[]) {
+  private renderDestinationBar(destinations: OrganiseCatalog[]) {
     if (this.selected.size === 0) return nothing;
     const overridden = [...this.selected.values()].filter(
       (destination) => destination.overridden,
@@ -443,7 +443,7 @@ export class CatalogOrganise extends LitElement {
           }}
         >
           <option value="">Leave where they are</option>
-          ${authored.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
+          ${destinations.map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
         </select>
       </label>
       <span class="text-muted">
@@ -453,14 +453,14 @@ export class CatalogOrganise extends LitElement {
     </div>`;
   }
 
-  private renderResources(visible: OrganiseResource[], authored: OrganiseCatalog[]) {
+  private renderResources(visible: OrganiseResource[], destinations: OrganiseCatalog[]) {
     if (this.busy && visible.length === 0) return html`<p class="text-muted">Loading…</p>`;
     if (visible.length === 0) {
       return html`<p class="text-muted">
         ${
           this.search || this.catalogFilter
             ? 'No resources match this filter.'
-            : 'No resources to move. Templates, stencils, themes, fonts, images, code lists and attributes in authored catalogs can be moved.'
+            : 'No resources to move. Templates, stencils, themes, fonts, images, code lists and attributes in catalogs that can be changed here can be moved.'
         }
       </p>`;
     }
@@ -514,7 +514,7 @@ export class CatalogOrganise extends LitElement {
                 ${resource.note ? html`<br /><small class="text-muted">${resource.note}</small>` : nothing}
               </td>
               <td>
-                ${destination ? this.renderDestinationCell(resource, destination, authored) : nothing}
+                ${destination ? this.renderDestinationCell(resource, destination, destinations) : nothing}
                 ${blockers.map(
                   (blocker) =>
                     html`<br /><small class="alert alert-error">${blocker.message}</small>`,
@@ -534,10 +534,10 @@ export class CatalogOrganise extends LitElement {
   private renderDestinationCell(
     resource: OrganiseResource,
     destination: Destination,
-    authored: OrganiseCatalog[],
+    destinations: OrganiseCatalog[],
   ) {
     if (!destination.overridden) {
-      const target = authored.find((catalog) => catalog.key === this.sharedDestination);
+      const target = destinations.find((catalog) => catalog.key === this.sharedDestination);
       return html`
         ${
           target && target.key !== resource.catalogKey
@@ -565,7 +565,7 @@ export class CatalogOrganise extends LitElement {
         }}
       >
         <option value="">Stay in ${resource.catalogName}</option>
-        ${authored
+        ${destinations
           .filter((catalog) => catalog.key !== resource.catalogKey)
           .map((catalog) => html`<option value=${catalog.key}>${catalog.name}</option>`)}
       </select>

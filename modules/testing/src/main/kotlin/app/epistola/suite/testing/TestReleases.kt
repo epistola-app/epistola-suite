@@ -5,7 +5,7 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.VariantId
@@ -37,7 +37,7 @@ fun Mediator.publishAndRelease(variantId: VariantId): String {
  */
 fun Mediator.releaseNext(catalogId: CatalogId): String {
     send(MarkCatalogReady(catalogId.tenantKey, catalogId.key))
-    return send(ReleaseCatalogVersion(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key)).version
+    return send(ReleaseCatalogDraft(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key)).version
 }
 
 /**
@@ -48,7 +48,7 @@ fun Mediator.releaseNext(catalogId: CatalogId): String {
  */
 fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.EnvironmentId, catalogId: CatalogId): String {
     val version = query(GetLatestCatalogRelease(catalogId.tenantKey, catalogId.key)).latestVersion ?: releaseNext(catalogId)
-    send(app.epistola.suite.environments.commands.DeployCatalogVersion(environmentId, catalogId.key, version))
+    send(app.epistola.suite.environments.commands.DeployCatalogRelease(environmentId, catalogId.key, version))
     return version
 }
 
@@ -58,9 +58,9 @@ fun Mediator.deployLatestRelease(environmentId: app.epistola.suite.common.ids.En
  * builds on, since only releases are exported (contract 2.0).
  */
 fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean = false): app.epistola.suite.catalog.commands.ExportCatalogZipResult {
-    val catalog = requireNotNull(query(app.epistola.suite.catalog.queries.GetCatalog(catalogId.tenantKey, catalogId.key))) { "No catalog ${catalogId.key.value}" }
-    if (catalog.type == app.epistola.suite.catalog.CatalogType.SUBSCRIBED) {
-        // A subscribed catalog's releases are its publisher's: it exports the one it installed.
+    requireNotNull(query(app.epistola.suite.catalog.queries.GetCatalog(catalogId.tenantKey, catalogId.key))) { "No catalog ${catalogId.key.value}" }
+    if (!query(app.epistola.suite.catalog.queries.GetCatalogEditability(catalogId.tenantKey, catalogId.key)).editable) {
+        // A catalog that cannot be changed here (Epistola supplies it) exports its highest release.
         return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId.tenantKey, catalogId.key, includeDependencies = includeDependencies))
     }
     val unreleased = query(app.epistola.suite.catalog.queries.GetCatalogResourceChanges(catalogId.tenantKey, catalogId.key)).resources
@@ -70,7 +70,7 @@ fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean =
         // each marked ready first, as their authors would have.
         markDraftDependenciesReady(catalogId.tenantKey, catalogId.key, null, mutableSetOf())
         send(MarkCatalogReady(catalogId.tenantKey, catalogId.key))
-        send(ReleaseCatalogVersion(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key, releaseDependencies = true)).version
+        send(ReleaseCatalogDraft(tenantKey = catalogId.tenantKey, catalogKey = catalogId.key, releaseDependencies = true)).version
     }
     return send(app.epistola.suite.catalog.commands.ExportCatalogZip(catalogId.tenantKey, catalogId.key, version, includeDependencies = includeDependencies))
 }
@@ -79,12 +79,12 @@ fun Mediator.exportReleased(catalogId: CatalogId, includeDependencies: Boolean =
 private fun Mediator.markDraftDependenciesReady(
     tenantKey: app.epistola.suite.common.ids.TenantKey,
     catalogKey: app.epistola.suite.common.ids.CatalogKey,
-    at: app.epistola.suite.catalog.versions.CatalogVersionRef?,
+    at: app.epistola.suite.catalog.releases.CatalogReleaseRef?,
     seen: MutableSet<String>,
 ) {
     query(app.epistola.suite.catalog.queries.ListCatalogDependencies(tenantKey, catalogKey, at)).filter { it.namesDraft }.forEach { declaration ->
         val key = app.epistola.suite.common.ids.CatalogKey.of(declaration.catalogKey)
-        val ref = app.epistola.suite.catalog.versions.CatalogVersionRef(tenantKey, key, app.epistola.suite.catalog.versions.DraftRef.Id(requireNotNull(declaration.draftId)))
+        val ref = app.epistola.suite.catalog.releases.CatalogReleaseRef(tenantKey, key, app.epistola.suite.catalog.releases.DraftRef.Id(requireNotNull(declaration.draftId)))
         if (!seen.add("${declaration.catalogKey}/${declaration.draftId}")) return@forEach
         markDraftDependenciesReady(tenantKey, key, ref, seen)
         send(MarkCatalogReady(tenantKey, key, catalogVersion = ref))

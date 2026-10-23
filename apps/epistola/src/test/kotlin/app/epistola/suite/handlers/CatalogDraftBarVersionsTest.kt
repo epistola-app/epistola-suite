@@ -4,8 +4,8 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.CatalogSegment
@@ -15,7 +15,7 @@ import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
- * The catalog page's view of an authored catalog's versions (docs/catalog-working-model.md, contract
+ * The catalog page's view of the versions of a catalog that can be changed here (docs/catalog-working-model.md, contract
  * ADR 0002 amendment 2): the next version, parallel work next to it, and the published versions.
  */
 class CatalogDraftBarVersionsTest {
@@ -24,13 +24,13 @@ class CatalogDraftBarVersionsTest {
     private val redesignId = "k7m2x9qa"
     private val nextId = "n3xtv3rs"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = nextId, isNext = true)
+    private fun next(base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = nextId, isNext = true)
 
-    private fun work(name: String, base: String?, id: String = redesignId) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = id, name = name)
+    private fun work(name: String, base: String?, id: String = redesignId) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = id, name = name)
 
-    private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogVersion(
+    private fun release(version: String, liveIn: List<String> = emptyList(), base: String? = null) = CatalogRelease(
         version,
-        CatalogVersionStatus.RELEASED,
+        CatalogReleaseStatus.RELEASED,
         versionId = "r" + version.replace(".", ""),
         base = base,
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
@@ -38,15 +38,15 @@ class CatalogDraftBarVersionsTest {
     )
 
     private fun bar(
-        drafts: List<CatalogVersion>,
-        releases: List<CatalogVersion>,
+        drafts: List<CatalogRelease>,
+        releases: List<CatalogRelease>,
         segment: CatalogSegment = CatalogSegment(letters),
         mayEdit: Boolean = true,
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,
         catalogName = "Letters",
-        authored = true,
+        editable = true,
         segment = segment,
         drafts = drafts,
         releases = releases,
@@ -64,7 +64,7 @@ class CatalogDraftBarVersionsTest {
         ).versionRows
 
         assertThat(rows.map { Triple(it.label, it.next, it.draft) }).containsExactly(
-            Triple("Next version", true, true),
+            Triple("Next release", true, true),
             Triple("Redesign", false, true),
             Triple("v1.2.0", false, false),
             Triple("v1.1.0", false, false),
@@ -86,7 +86,7 @@ class CatalogDraftBarVersionsTest {
             releases = listOf(release("1.2.0", base = "1.1.0"), release("1.1.0")),
         ).versionRows
 
-        assertThat(rows.map { it.label to it.base }).containsExactly("Next version" to "1.2.0", "v1.2.0" to "1.1.0", "v1.1.0" to null)
+        assertThat(rows.map { it.label to it.base }).containsExactly("Next release" to "1.2.0", "v1.2.0" to "1.1.0", "v1.1.0" to null)
     }
 
     @Test
@@ -94,7 +94,7 @@ class CatalogDraftBarVersionsTest {
         val drafts = listOf(next("1.2.0"), work("Redesign", "1.2.0"))
 
         val onNext = bar(drafts, listOf(release("1.2.0")))
-        assertThat(onNext.draftTitle).isEqualTo("Next version")
+        assertThat(onNext.draftTitle).isEqualTo("Next release")
         assertThat(onNext.isNext).isTrue()
         assertThat(onNext.onParallelWork).isFalse()
         assertThat(onNext.offerRelease).isTrue()
@@ -122,7 +122,7 @@ class CatalogDraftBarVersionsTest {
         val releases = listOf(release("1.2.0"))
 
         val publisher = bar(drafts, releases).copy(mayDeleteReleases = false)
-        assertThat(publisher.versionRows.map { it.label to it.offerRemove }).containsExactly("Next version" to true, "Redesign" to true, "v1.2.0" to false)
+        assertThat(publisher.versionRows.map { it.label to it.offerRemove }).containsExactly("Next release" to true, "Redesign" to true, "v1.2.0" to false)
         assertThat(publisher.removalWithheld).isTrue()
 
         val manager = bar(drafts, releases).copy(mayDeleteReleases = true)
@@ -133,5 +133,19 @@ class CatalogDraftBarVersionsTest {
             "/tenants/acme/catalogs/letters@$redesignId/drafts/discard",
             "/tenants/acme/catalogs/letters/releases/1.2.0/delete",
         )
+    }
+
+    @Test
+    fun `the releases of a catalog Epistola supplies are not offered for deleting, those of a received catalog are`() {
+        val releases = listOf(release("1.2.0"))
+        val supplied = bar(emptyList(), releases).copy(editable = false, suppliedByEpistola = true, mayDeleteReleases = true)
+        assertThat(supplied.versionRows.map { it.label to it.offerRemove }).containsExactly("v1.2.0" to false)
+        assertThat(supplied.removalWithheld).`as`("nothing for a role to fix").isFalse()
+
+        // Read-only because the installation only runs releases: its own releases can still be removed.
+        val runOnly = bar(emptyList(), releases).copy(editable = false, mayDeleteReleases = true)
+        assertThat(runOnly.versionRows.single().offerRemove).isTrue()
+        assertThat(runOnly.offerCreateDraft).isFalse()
+        assertThat(runOnly.offerRelease).isFalse()
     }
 }

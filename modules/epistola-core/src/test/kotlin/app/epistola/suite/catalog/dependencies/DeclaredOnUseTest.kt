@@ -11,7 +11,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
@@ -37,6 +37,8 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.stencilDocument
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.withRequiredDataExample
@@ -66,7 +68,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer").execute()
         CreateCodeList(CodeListId(CodeListKey.of("colours"), catalog), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         tenant
     }
@@ -91,7 +93,32 @@ class DeclaredOnUseTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
+    }
+
+    /**
+     * A variant attribute of another catalog is keyed by that catalog's alias (`shared.tone`, contract
+     * ADR 0003), which a catalog must declare, as every other reference into another catalog.
+     */
+    @Test
+    fun `a variant attribute of another catalog declares that catalog, on create and on update`() {
+        val tenant = setUp("on-use-variant-attribute")
+        withMediator {
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), CatalogId(shared, TenantId(tenant))), "Tone").execute()
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("size"), CatalogId(letters, TenantId(tenant))), "Size").execute()
+            CreateVariant(VariantId(VariantKey.of("formal"), invoice(tenant)), "Formal", description = null, attributes = mapOf("letters.size" to "a4")).execute()
+        }
+        assertThat(declared(tenant)).`as`("its own catalog's attribute declares nothing").isEmpty()
+
+        withMediator { CreateVariant(VariantId(VariantKey.of("friendly"), invoice(tenant)), "Friendly", description = null, attributes = mapOf("shared.tone" to "warm")).execute() }
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
+
+        val other = setUp("on-use-variant-attribute-update")
+        withMediator {
+            CreateAttributeDefinition(AttributeId(AttributeKey.of("tone"), CatalogId(shared, TenantId(other))), "Tone").execute()
+            UpdateVariant(VariantId(VariantKey.INITIAL, invoice(other)), title = "Default", attributes = mapOf("shared.tone" to "warm")).execute()
+        }
+        assertThat(declared(other)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -99,7 +126,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
         val tenant = setUp("on-use-theme")
         withMediator { UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute() }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -113,7 +140,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
             ).execute()
         }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test
@@ -148,7 +175,7 @@ class DeclaredOnUseTest : IntegrationTestBase() {
 
         withMediator { UpgradeCatalogDependencies(tenant, letters).execute() }
 
-        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next version"))
+        assertThat(declared(tenant)).containsExactly(Triple("shared", null, "Next release"))
     }
 
     @Test

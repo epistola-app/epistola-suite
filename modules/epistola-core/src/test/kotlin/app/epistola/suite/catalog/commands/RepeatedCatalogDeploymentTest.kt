@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -297,7 +296,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 val result = ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = exportResult.zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
                 assertThat(result.results).allSatisfy { r ->
                     assertThat(r.status)
@@ -361,7 +359,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 val result = ImportCatalogZip(
                     tenantKey = tenantKey,
                     zipBytes = zipBytes,
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
 
                 assertThat(result.results).allSatisfy { r ->

@@ -5,6 +5,8 @@ bootstrap, the migration launcher, observability and the page chrome (`layout/sh
 `fragments/*`). Business logic belongs in `epistola-core`, not here.
 
 The repo-wide source guards live in `modules/guards`; the ones needing the Spring context (`MediatorWiringTest`) stay here.
+Every entry point running the suite's application hands `EPISTOLA_MIGRATION_MODE=migrate` to
+`MigrationLauncher` first, as the chart's migration Job needs (`MigrationEntryPointTest`).
 
 ## Two endpoint layers that never mix
 

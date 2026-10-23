@@ -6,7 +6,6 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -52,7 +51,6 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
             ImportCatalogZip(
                 tenantKey = tenant.id,
                 zipBytes = archiveDependingOnImage(BRAND.value),
-                catalogType = CatalogType.AUTHORED,
             ).execute()
 
             assertThat(GetCatalog(tenant.id, CatalogKey.of("letters")).query()).isNotNull()
@@ -81,7 +79,6 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 ImportCatalogZip(
                     tenantKey = tenant.id,
                     zipBytes = archiveDependingOnImage("house"),
-                    catalogType = CatalogType.AUTHORED,
                 ).execute()
             }
                 .isInstanceOf(IllegalArgumentException::class.java)
@@ -100,8 +97,8 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
              "publisher":{"name":"Test","url":null},
              "release":{"version":"1.0.0","releasedAt":null,"fingerprint":null},
              "compatibility":null,"includes":null,
-             "dependencies":[{"type":"image","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","key":"logo"}],
-             "catalogDependencies":[{"registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
+             "dependencies":[{"type":"image","catalogKey":"$imageCatalog","key":"logo"}],
+             "catalogDependencies":[{"alias":"$imageCatalog","registry":"$REGISTRY","namespace":"$NAMESPACE","catalogKey":"$imageCatalog","version":"*","releaseVersion":null,"releaseFingerprint":null}],
              "resources":[]}
         """.trimIndent()
         val out = ByteArrayOutputStream()

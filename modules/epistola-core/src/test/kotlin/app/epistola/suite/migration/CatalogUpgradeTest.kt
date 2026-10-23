@@ -16,11 +16,11 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.GetReleasedResource
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.upgrade.CatalogUpgradeRunner
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.GetReleasedResource
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -102,7 +102,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     /** As the cluster scheduler runs an install-wide task: a mediator, and no principal. */
     private fun runUpgrade() = MediatorContext.runWithMediator(mediator) { upgrade.run() }
 
-    private fun versions(catalog: CatalogId) = withMediator { ListCatalogVersions(catalog.tenantKey, catalog.key).query() }.map { it.label to it.status }
+    private fun versions(catalog: CatalogId) = withMediator { ListCatalogReleases(catalog.tenantKey, catalog.key).query() }.map { it.label to it.status }
 
     private fun queueRow(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT COALESCE(last_error, 'queued') FROM catalog_upgrade_queue WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
@@ -185,7 +185,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val declared = withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }
         assertThat(declared.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
         assertThat(declared.single().releaseVersion).`as`("pinned to the installed system release").isNotNull()
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT, "v1.0.0" to CatalogReleaseStatus.RELEASED)
         assertThat(queueRow(catalog)).isNull()
     }
 
@@ -201,7 +201,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT, "v1.3.1" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT, "v1.3.1" to CatalogReleaseStatus.RELEASED)
     }
 
     @Test
@@ -258,7 +258,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", tenant).bind("c", catalog.key).execute()
-            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp WHERE tenant_key = :t AND catalog_key = :c")
+            // A 1.x subscribed catalog: typed so (the suite no longer writes the column), with a legacy fingerprint.
+            handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp, type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
                 .bind("fp", "0".repeat(64)).bind("t", tenant).bind("c", catalog.key).execute()
         }
         return catalog
@@ -280,8 +281,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         val recorded = releases(subscribed)
-        assertThat(recorded.map { it.first }).containsExactly("5.17.2")
-        assertThat(recorded.single().second).`as`("qualified, so a dependent can lock to it").startsWith("v5:")
+        assertThat(recorded.map { it.first }).containsExactly("5.17.3")
+        assertThat(recorded.single().second).`as`("qualified, so a dependent can lock to it").startsWith("v6:")
         assertThat(queueRow(subscribed)).isNull()
     }
 
@@ -302,9 +303,9 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(letters)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(letters)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
         assertThat(withMediator { ListCatalogDependencies(letters.tenantKey, letters.key).query() }.map { it.catalogKey to it.releaseVersion })
-            .contains("epistola-demo" to "5.17.2")
+            .contains("epistola-demo" to "5.17.3")
     }
 
     // ── Order and retries ──
@@ -329,8 +330,8 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        assertThat(versions(sharedCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
-        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(sharedCatalog)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
+        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
         assertThat(queueRow(lettersCatalog)).isNull()
     }
 
@@ -342,13 +343,13 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(queueRow(lettersCatalog)).contains("uses drafts of other catalogs")
-        assertThat(versions(lettersCatalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(lettersCatalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
 
         queue(sharedCatalog)
         runUpgrade()
 
         assertThat(queueRow(lettersCatalog)).isNull()
-        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogVersionStatus.RELEASED)
+        assertThat(versions(lettersCatalog)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
     }
 
     /** A 1.x published variant on the `corporate` theme of catalog `ghost`, which the tenant does not have. */
@@ -380,7 +381,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(queueRow(catalog)).`as`("not \"dependency names no namespace\"").contains("catalog 'ghost', which this tenant does not have")
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
     }
 
     @Test
@@ -396,6 +397,6 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         // Only what its author's own write declared, as it used the system catalog's font: nothing added behind it.
         assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
-        assertThat(versions(catalog)).containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+        assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
     }
 }

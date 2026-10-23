@@ -49,8 +49,8 @@
                             </div>
                         </div>
                         <div class="asset-card-actions">
-                            <span th:if="${font.catalogType == 'SUBSCRIBED'}" class="badge badge-muted" title="Subscribed catalogs are read-only">Read-only</span>
-                            <th:block th:if="${font.catalogType == 'AUTHORED'}">
+                            <span th:unless="${catalogEditing.editable(font.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(font.catalogKey)}">Read-only</span>
+                            <th:block th:if="${catalogEditing.editable(font.catalogKey)}">
                                 <button type="button"
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete font"

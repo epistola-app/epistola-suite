@@ -44,6 +44,13 @@
                 <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
                 <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
             </div>
+            <div class="form-group" th:classappend="${errors?.containsKey('description')} ? 'error' : ''">
+                <label class="ep-label" for="description">Description (optional)</label>
+                <textarea maxlength="2000" id="description" name="description" class="ep-textarea" rows="2"
+                          placeholder="What this template is for, design decisions, known gaps. Not rendered."
+                          th:text="${formData?.description}"></textarea>
+                <span class="form-error" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
+            </div>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"

@@ -9,8 +9,8 @@ import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -24,7 +24,7 @@ import app.epistola.suite.mediator.query
  */
 fun draftAssetResolver(
     tenantKey: TenantKey,
-    catalogVersion: CatalogVersionRef?,
+    catalogVersion: CatalogReleaseRef?,
     dependencies: DraftDependencyView?,
 ): AssetResolver = AssetResolver { assetId, assetCatalog ->
     val catalog = assetCatalog?.let(CatalogKey::of)
@@ -32,7 +32,7 @@ fun draftAssetResolver(
         val image = dependencies.released(catalog, "image", assetId) as? ImageResource ?: return@AssetResolver null
         return@AssetResolver dependencies.releasedBinary(image.contentHash)?.let { AssetResolution(it, image.mediaType) }
     }
-    val namedDraft = catalog?.let { dependencies?.draftOf(it) }?.let { CatalogVersionRef(tenantKey, catalog, DraftRef.Id(it.key)) }
+    val namedDraft = catalog?.let { dependencies?.draftOf(it) }?.let { CatalogReleaseRef(tenantKey, catalog, DraftRef.Id(it.key)) }
     GetAssetContent(tenantKey, AssetKey.of(assetId), catalog, catalogVersion = namedDraft ?: catalogVersion).query()
         ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
 }

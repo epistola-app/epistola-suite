@@ -8,11 +8,11 @@ import app.epistola.suite.catalog.DependencyScanner
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.PresetUse
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.PresetUse
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -45,6 +45,7 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateStencil(
     val id: StencilId,
     val name: String? = null,
+    /** The new description; null keeps the current one, blank removes it (as [clearDescription] does). */
     val description: String? = null,
     val tags: List<String>? = null,
     val clearDescription: Boolean = false,
@@ -53,10 +54,10 @@ data class UpdateStencil(
     val clearParameterSchema: Boolean = false,
     val readsTemplateData: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
+    override val catalogVersion: CatalogReleaseRef? = null,
     /** The stencil's revision the change was made against; null to write whatever it is at now. */
     val expectedRevision: Long? = null,
-) : CatalogVersionScoped,
+) : CatalogReleaseScoped,
     Command<Stencil?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_EDIT
@@ -116,7 +117,8 @@ class UpdateStencilHandler(
                 bindings["name"] = it
             }
 
-            if (command.clearDescription) {
+            // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+            if (command.clearDescription || command.description?.isBlank() == true) {
                 setClauses.add("description = NULL")
             } else {
                 command.description?.let {

@@ -40,7 +40,7 @@ import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -162,13 +162,12 @@ class EpistolaTemplateApi(
         release: String,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
-        // A template keeps no description; refuse it rather than drop it.
-        if (createTemplateRequest.description != null) throw ApiOperationNotImplementedException("createTemplate.description")
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val template = CreateDocumentTemplate(
             id = TemplateId(TemplateKey.of(createTemplateRequest.key), draft.catalogId),
             name = createTemplateRequest.name,
             catalogVersion = draft.ref,
+            description = createTemplateRequest.description,
         ).execute()
         return workingCopyDto(draft, template).let { created(it.key, it) }
     }
@@ -188,7 +187,7 @@ class EpistolaTemplateApi(
     }
 
     /**
-     * Updates the template's name and its data contract. The examples are always checked against the
+     * Updates the template's name, description and its data contract. The examples are always checked against the
      * schema (422 when they fail), whatever `forceUpdate` says: a template has no versions, so there
      * is no breaking change to confirm, and the contract never lets invalid examples through.
      */
@@ -202,11 +201,17 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
         ifMatch: String?,
     ): ResponseEntity<TemplateDto> {
-        // A template keeps no description; refuse it rather than drop it.
-        if (updateTemplateRequest.description != null) throw ApiOperationNotImplementedException("updateTemplate.description")
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.templateId(templateKey)
-        val template = UpdateDocumentTemplate(id = id, name = updateTemplateRequest.name, catalogVersion = draft.ref, expectedRevision = ETags.expected(ifMatch)).execute()
+        val template = UpdateDocumentTemplate(
+            id = id,
+            name = updateTemplateRequest.name,
+            // The generated request cannot tell an omitted description from an explicit null, so null
+            // keeps the current one and an empty string removes it.
+            description = updateTemplateRequest.description,
+            catalogVersion = draft.ref,
+            expectedRevision = ETags.expected(ifMatch),
+        ).execute()
             ?: throw TemplateNotFoundException(id.tenantKey, id.key)
         // The contract is part of the template: written against the revision the name change left.
         var revision = template.revision
@@ -483,35 +488,35 @@ class EpistolaTemplateApi(
 
     // ================== Helpers ==================
 
-    private fun ResolvedCatalogVersion.templateId(key: String) = TemplateId(TemplateKey.of(key), catalogId)
+    private fun ResolvedCatalogRelease.templateId(key: String) = TemplateId(TemplateKey.of(key), catalogId)
 
-    private fun ResolvedCatalogVersion.variantId(templateKey: String, variantKey: String) = VariantId(VariantKey.of(variantKey), templateId(templateKey))
+    private fun ResolvedCatalogRelease.variantId(templateKey: String, variantKey: String) = VariantId(VariantKey.of(variantKey), templateId(templateKey))
 
-    private fun workingCopy(at: ResolvedCatalogVersion, templateKey: String): DocumentTemplate {
+    private fun workingCopy(at: ResolvedCatalogRelease, templateKey: String): DocumentTemplate {
         val id = at.templateId(templateKey)
         return GetDocumentTemplate(id = id, catalogVersion = at.ref).query() ?: throw TemplateNotFoundException(id.tenantKey, id.key)
     }
 
-    private fun workingVariant(at: ResolvedCatalogVersion, templateKey: String, variantKey: String): TemplateVariant {
+    private fun workingVariant(at: ResolvedCatalogRelease, templateKey: String, variantKey: String): TemplateVariant {
         val id = at.variantId(templateKey, variantKey)
         return GetVariant(variantId = id, catalogVersion = at.ref).query() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
     }
 
-    private fun released(at: ResolvedCatalogVersion, templateKey: String): TemplateResource = at.releasedResource<TemplateResource>(TEMPLATE, templateKey)
+    private fun released(at: ResolvedCatalogRelease, templateKey: String): TemplateResource = at.releasedResource<TemplateResource>(TEMPLATE, templateKey)
         ?: throw TemplateNotFoundException(at.catalog.tenantKey, TemplateKey.of(templateKey))
 
-    private fun releasedVariant(at: ResolvedCatalogVersion, template: TemplateResource, variantKey: String) = template.variants.firstOrNull { it.key == variantKey }
+    private fun releasedVariant(at: ResolvedCatalogRelease, template: TemplateResource, variantKey: String) = template.variants.firstOrNull { it.key == variantKey }
         ?: throw TemplateVariantNotFoundException(at.catalog.tenantKey, TemplateKey.of(template.key), VariantKey.of(variantKey))
 
     /** Whether each variant of the template is marked ready as it is now. */
-    private fun readiness(at: ResolvedCatalogVersion, templateId: TemplateId): Map<VariantKey, Boolean> = GetVariantSummaries(templateId = templateId, catalogVersion = at.ref).query().associate { it.id to it.ready }
+    private fun readiness(at: ResolvedCatalogRelease, templateId: TemplateId): Map<VariantKey, Boolean> = GetVariantSummaries(templateId = templateId, catalogVersion = at.ref).query().associate { it.id to it.ready }
 
     /**
      * The template's working copy and its revision. The template and its data contract are read
      * separately; when a write lands in between, they disagree on the revision and are read again, so
      * the ETag never claims a contract the body does not show.
      */
-    private fun workingCopyAtRevision(at: ResolvedCatalogVersion, templateKey: String): Pair<TemplateDto, Long> {
+    private fun workingCopyAtRevision(at: ResolvedCatalogRelease, templateKey: String): Pair<TemplateDto, Long> {
         repeat(2) {
             val template = workingCopy(at, templateKey)
             val contract = GetDataContract(templateId = at.templateId(templateKey), catalogVersion = at.ref).query()
@@ -522,7 +527,7 @@ class EpistolaTemplateApi(
     }
 
     private fun workingCopyDto(
-        at: ResolvedCatalogVersion,
+        at: ResolvedCatalogRelease,
         template: DocumentTemplate,
         contract: app.epistola.suite.templates.model.DataContract? = GetDataContract(templateId = at.templateId(template.id.value), catalogVersion = at.ref).query(),
     ): TemplateDto {
@@ -535,13 +540,13 @@ class EpistolaTemplateApi(
         )
     }
 
-    private fun variantDto(at: ResolvedCatalogVersion, variant: TemplateVariant): VariantDto {
+    private fun variantDto(at: ResolvedCatalogRelease, variant: TemplateVariant): VariantDto {
         val ready = readiness(at, at.templateId(variant.templateKey.value))[variant.id]
         return variant.toDto(ResourceStatuses.of(at).of(TEMPLATE, variant.templateKey.value, ready))
     }
 
     /** The variant's working content, with the revision the model was read at. */
-    private fun workingContent(at: ResolvedCatalogVersion, templateKey: String, variantKey: String): Pair<VariantContentDto, Long> {
+    private fun workingContent(at: ResolvedCatalogRelease, templateKey: String, variantKey: String): Pair<VariantContentDto, Long> {
         val variant = workingVariant(at, templateKey, variantKey)
         val id = at.variantId(templateKey, variantKey)
         val content = GetVariantContentAtRevision(variantId = id, catalogVersion = at.ref).query()

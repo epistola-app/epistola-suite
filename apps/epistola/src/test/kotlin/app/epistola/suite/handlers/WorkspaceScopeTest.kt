@@ -4,8 +4,9 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
+import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.CatalogSegment
@@ -25,29 +26,29 @@ class WorkspaceScopeTest {
 
     private val redesignId = "k7m2x9qa"
 
-    private fun next(base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
+    private fun next(base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = "n3xtv3rs", isNext = true)
 
-    private fun parallel(name: String, base: String?) = CatalogVersion(null, CatalogVersionStatus.DRAFT, base = base, versionId = redesignId, name = name)
+    private fun parallel(name: String, base: String?) = CatalogRelease(null, CatalogReleaseStatus.DRAFT, base = base, versionId = redesignId, name = name)
 
-    private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogVersion(
+    private fun release(version: String, liveIn: List<String> = emptyList()) = CatalogRelease(
         version,
-        CatalogVersionStatus.RELEASED,
+        CatalogReleaseStatus.RELEASED,
         versionId = "r" + version.replace(".", ""),
         releasedAt = OffsetDateTime.parse("2026-10-01T10:00:00Z"),
         deployedTo = liveIn,
     )
 
     private fun bar(
-        drafts: List<CatalogVersion>,
-        releases: List<CatalogVersion>,
+        drafts: List<CatalogRelease>,
+        releases: List<CatalogRelease>,
         segment: CatalogSegment = CatalogSegment(letters),
-        authored: Boolean = true,
-        installed: CatalogVersion? = null,
+        readOnlyReason: CatalogReadOnlyReason? = null,
+        installed: CatalogRelease? = null,
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
         catalogKey = letters,
         catalogName = "Letters",
-        authored = authored,
+        editable = readOnlyReason == null,
         segment = segment,
         drafts = drafts,
         releases = releases,
@@ -55,6 +56,7 @@ class WorkspaceScopeTest {
         mayOpenDrafts = true,
         mayDiscardDrafts = true,
         installed = installed,
+        readOnlyReason = readOnlyReason,
         pageAt = { "/tenants/acme/catalogs/${it.value}/templates" },
     )
 
@@ -67,7 +69,7 @@ class WorkspaceScopeTest {
     @Test
     fun `the bar names the next version plainly, parallel work by its name`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versionLabel)
-            .isEqualTo("Next version")
+            .isEqualTo("Next release")
 
         val parallel = WorkspaceBuilder.scope(bar(work, published, onRedesign), null, "/tenants/acme/templates", everything)
         assertThat(parallel.versionLabel).isEqualTo("Redesign")
@@ -75,14 +77,20 @@ class WorkspaceScopeTest {
     }
 
     @Test
-    fun `a published version's page and a subscribed catalog each say so`() {
+    fun `a published version's page and a catalog that cannot be changed here each say so`() {
         assertThat(WorkspaceBuilder.scope(bar(work, published), "v1.1.0, published", "/tenants/acme/catalogs/letters/releases/1.1.0", everything).versionLabel)
             .isEqualTo("v1.1.0, published")
 
-        val subscribed = WorkspaceBuilder.scope(bar(emptyList(), published, authored = false, installed = release("1.2.0")), null, "/", everything)
-        assertThat(subscribed.versionLabel).isEqualTo("v1.2.0")
-        assertThat(subscribed.readOnly).isTrue()
-        assertThat(subscribed.statusHref).`as`("nothing to publish in a subscribed catalog").isNull()
+        val supplied = WorkspaceBuilder.scope(bar(emptyList(), published, readOnlyReason = CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA, installed = release("1.2.0")), null, "/", everything)
+        assertThat(supplied.versionLabel).isEqualTo("v1.2.0")
+        assertThat(supplied.readOnly).isTrue()
+        assertThat(supplied.readOnlyLabel).isEqualTo("Supplied by Epistola")
+        assertThat(supplied.offerVersionMenu).isFalse()
+        assertThat(supplied.statusHref).`as`("nothing to publish in a catalog that cannot be changed here").isNull()
+
+        val runOnly = WorkspaceBuilder.scope(bar(emptyList(), emptyList(), readOnlyReason = CatalogReadOnlyReason.EDITING_DISABLED), null, "/", everything)
+        assertThat(runOnly.versionLabel).isEqualTo("No release yet")
+        assertThat(runOnly.readOnlyLabel).isEqualTo("This installation only runs releases")
     }
 
     @Test
@@ -90,7 +98,7 @@ class WorkspaceScopeTest {
         val versions = WorkspaceBuilder.scope(bar(work, published), null, "/tenants/acme/templates", everything).versions
 
         assertThat(versions.map { it.label to it.detail }).containsExactly(
-            "Next version" to "Based on v1.2.0",
+            "Next release" to "Based on v1.2.0",
             "Redesign" to "Parallel work, started from v1.1.0",
         )
         // The same from every page, so the bar is not sent again while moving around in a version; the
@@ -110,7 +118,7 @@ class WorkspaceScopeTest {
             .containsEntry("stencils", "/tenants/acme/catalogs/letters@$redesignId/stencils")
             .containsEntry("dependencies", "/tenants/acme/catalogs/letters@$redesignId/dependencies")
             .containsEntry("settings", "/tenants/acme/catalogs/letters@$redesignId/settings")
-            .containsEntry("versions", "/tenants/acme/catalogs/letters/versions")
+            .containsEntry("versions", "/tenants/acme/catalogs/letters/releases")
             .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
             .`as`("parallel work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")

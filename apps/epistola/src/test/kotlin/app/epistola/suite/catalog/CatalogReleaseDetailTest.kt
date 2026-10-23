@@ -8,7 +8,7 @@ import app.epistola.catalog.protocol.AttributeAssignment
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -55,7 +55,7 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                     ).execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
                     MarkCatalogReady(tenant.id, catalogKey).execute()
-                    ReleaseCatalogVersion(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
+                    ReleaseCatalogDraft(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(
@@ -82,5 +82,8 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
             .doesNotContain("Renamed since", "Described differently since", "later-keyword")
         // The resources are the release's own, listed from what it retained.
         assertThat(body).contains("Brand theme", "brand")
+        // Who released it: here, by the user who released it.
+        assertThat(body.substringAfter("data-testid=\"release-released-by\"").substringBefore("</p>"))
+            .contains("Released here by ${app.epistola.suite.testing.TestPrincipalUser.DISPLAY_NAME}")
     }
 }

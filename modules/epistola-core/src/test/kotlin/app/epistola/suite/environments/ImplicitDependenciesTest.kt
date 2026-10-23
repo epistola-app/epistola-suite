@@ -6,7 +6,7 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
@@ -46,12 +46,12 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
             MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(letters, TenantId(tenant))), "House").execute()
             declareDependency(tenant, letters, on = shared)
             MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, letters, "1.0.0").execute()
         }
         return tenant to production
     }
@@ -60,12 +60,12 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `a deploy uses what it is pinned to without deploying it, and the environment says it uses it`() {
         val (tenant, production) = setUp("implicit-deploy")
 
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0", replace = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0", replace = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("only what was deployed").containsExactly("letters@1.0.0")
         val implicit = withMediator { ListImplicitDeployments(tenant, production.key).query() }
-        assertThat(implicit.map { Triple(it.catalogKey.value, it.version, it.neededBy.map { k -> k.value }) })
+        assertThat(implicit.map { Triple(it.catalogKey.value, it.version, it.neededBy.map { k -> k.key.value }) })
             .containsExactly(Triple("shared", "1.0.0", listOf("letters")))
     }
 
@@ -73,7 +73,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `asked to, it deploys them explicitly too`() {
         val (tenant, production) = setUp("explicit-deploy")
 
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .containsExactlyInAnyOrder("letters@1.0.0", "shared@1.0.0")

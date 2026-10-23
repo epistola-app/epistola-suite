@@ -22,9 +22,9 @@
         <th:block th:if="${readiness != null}">
             <div th:replace="~{catalogs/content :: borrowed}"></div>
         </th:block>
-        <div th:if="${readiness == null}" class="ep-panel detail-section" data-testid="catalog-uses-subscribed">
+        <div th:if="${readiness == null}" class="ep-panel detail-section" data-testid="catalog-uses-read-only">
             <div class="detail-section-body">
-                <p class="text-muted" style="margin: 0;">What a subscribed catalog depends on is decided by its publisher, and installed with it.</p>
+                <p class="text-muted" style="margin: 0;">This catalog cannot be changed here, so what it depends on is what the release it is on depends on.</p>
             </div>
         </div>
 

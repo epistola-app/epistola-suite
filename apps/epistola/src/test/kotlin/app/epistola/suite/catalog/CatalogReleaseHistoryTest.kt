@@ -7,7 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -45,10 +45,10 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             val catalog = CatalogId(CatalogKey.of("hist-cat"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0", notes = "first cut").execute()
+            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0", notes = "first cut").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
             MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.10.0").execute()
+            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.10.0").execute()
         }
 
         val body = versions(versionsPage(tenant.id.value, "hist-cat"))
@@ -120,7 +120,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             val catalog = CatalogId(CatalogKey.of("hist-publish"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0").execute()
         }
 
         val body = release(tenant.id.value, "hist-publish", "1.0.0")
@@ -140,10 +140,10 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
             val catalog = CatalogId(CatalogKey.of("hist-delete"), TenantId(tenant.id))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.0.0").execute()
+            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
             MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogVersion(tenant.id, catalog.key, version = "1.1.0").execute()
+            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.1.0").execute()
         }
 
         assertThat(release(tenant.id.value, "hist-delete", "1.1.0")).contains("data-testid=\"release-delete\"")
@@ -176,7 +176,7 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
 
     /** A catalog's Versions page (docs/workspace-shell.md). */
     private fun versionsPage(tenantKey: String, catalogKey: String): String = restTemplate
-        .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/versions", String::class.java)
+        .getForEntity("/tenants/$tenantKey/catalogs/$catalogKey/releases", String::class.java)
         .body!!
 
     private fun release(tenantKey: String, catalogKey: String, version: String): String = restTemplate

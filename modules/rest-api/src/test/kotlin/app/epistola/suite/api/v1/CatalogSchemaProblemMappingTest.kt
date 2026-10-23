@@ -4,12 +4,15 @@
 
 package app.epistola.suite.api.v1
 
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.common.ids.CatalogKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletRequest
 
 /**
  * The catalog wire-format migration exceptions map to dedicated RFC 9457
@@ -27,6 +30,21 @@ class CatalogSchemaProblemMappingTest {
         assertThat(mapping.problemType.status).isEqualTo(HttpStatus.BAD_REQUEST)
         assertThat(mapping.extensions(CatalogSchemaTooNewException(version = 9, current = 2)))
             .containsExactlyInAnyOrderEntriesOf(mapOf("version" to 9, "supportedVersion" to 2))
+    }
+
+    @Test
+    fun `a release rendering with defaults this instance lacks is the contract's catalog-rendering-defaults-too-new`() {
+        val exception = ReleaseRenderingDefaultsTooNewException(CatalogKey.of("invoices"), "1.1.0", "9", supported = 6)
+        assertThat(ApiExceptionMappings.forException(exception)).`as`("built by the contract's helper, not the generic mapping").isNull()
+
+        val response = ApiExceptionHandler().handleRenderingDefaultsTooNew(exception, MockHttpServletRequest("POST", "/api/tenants/acme/catalogs/import"))
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+        val problem = response.body!!
+        assertThat(problem.type.toString()).isEqualTo("$PROBLEM_TYPE_BASE_URL/catalog-rendering-defaults-too-new")
+        assertThat(problem.title).isEqualTo("Catalog Rendering Defaults Too New")
+        assertThat(problem.instance.toString()).isEqualTo("/api/tenants/acme/catalogs/import")
+        assertThat(problem.properties).containsExactlyInAnyOrderEntriesOf(mapOf("renderingDefaultsVersion" to "9", "supportedVersion" to 6))
     }
 
     @Test

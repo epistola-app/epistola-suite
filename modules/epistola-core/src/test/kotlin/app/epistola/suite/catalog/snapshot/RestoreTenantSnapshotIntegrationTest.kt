@@ -12,17 +12,23 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.ExportCatalogZip
+import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.relocation.MoveCatalogResources
 import app.epistola.suite.catalog.relocation.PreviewCatalogResourceMove
 import app.epistola.suite.catalog.relocation.movedTo
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -36,7 +42,10 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestPrincipalUser
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
+import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -130,8 +139,8 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
             assertThat(restoredTenant.defaultThemeCatalogKey?.value).isEqualTo("main")
 
             // A restored authored catalog has a draft to keep working in.
-            assertThat(ListCatalogVersions(tenant.id, main).query().map { it.label to it.status })
-                .containsExactly("Next version" to CatalogVersionStatus.DRAFT)
+            assertThat(ListCatalogReleases(tenant.id, main).query().map { it.label to it.status })
+                .containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
 
             // The restored tenant is content-identical to the snapshot.
             val rebuilt = BuildTenantSnapshot(tenant.id).execute()
@@ -197,6 +206,145 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         withMediator { RestoreTenantSnapshot(tenant.id, withAliases).execute() }
 
         assertThat(themeIdentity(tenant.id.value, catalog.value, "brand")).isEqualTo(identityBefore)
+    }
+
+    /**
+     * Snapshots still say `SUBSCRIBED` or `AUTHORED` per catalog, a format the hub shares, but catalogs
+     * have no type (ADR 0032): a restore fills every catalog's next version alike, as it was.
+     */
+    @Test
+    fun `a snapshot's catalog type is ignored, and every catalog's next version is filled as it was`() {
+        val tenant = createTenant("Restore Ignores Type")
+        val catalog = CatalogKey.of("brand")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id))), name = "Brand").execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        assertThat(readManifest(snapshot.bytes).catalogs.single { it.catalogKey == "brand" }.type)
+            .`as`("a catalog without a source is written as AUTHORED, for the hub")
+            .isEqualTo("AUTHORED")
+
+        val typedSubscribed = rewriteEntry(snapshot.bytes, "snapshot.json") { json ->
+            val manifest = objectMapper.readTree(json) as tools.jackson.databind.node.ObjectNode
+            manifest.get("catalogs").forEach { (it as tools.jackson.databind.node.ObjectNode).put("type", "SUBSCRIBED") }
+            objectMapper.writeValueAsBytes(manifest)
+        }
+        withMediator { RestoreTenantSnapshot(tenant.id, typedSubscribed).execute() }
+
+        withMediator {
+            val restored = GetCatalog(tenant.id, catalog).query()!!
+            assertThat(restored.installedReleaseVersion).`as`("not installed as a received release").isNull()
+            assertThat(ListCatalogReleaseSummaries(tenant.id, catalog).query()).isEmpty()
+            assertThat(GetCatalogEditability(tenant.id, catalog).query().editable).isTrue()
+        }
+        themeIdentity(tenant.id.value, catalog.value, "brand")
+    }
+
+    @Test
+    fun `a snapshot writes SUBSCRIBED for a catalog with a source, for the hub`() {
+        val tenant = createTenant("Snapshot Source Type")
+        withMediator {
+            app.epistola.suite.catalog.commands.RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json").execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        assertThat(readManifest(snapshot.bytes).catalogs.single { it.catalogKey == "epistola-demo" }.type).isEqualTo("SUBSCRIBED")
+    }
+
+    @Test
+    fun `a restored catalog keeps its releases, who released them, and the release its next release is on`() {
+        val tenant = createTenant("Restore Keeps Releases")
+        val catalog = CatalogKey.of("released")
+        val theme = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id)))
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Released").execute()
+            CreateTheme(id = theme, name = "Brand 1").execute()
+            MarkCatalogReady(tenant.id, catalog).execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
+            UpdateTheme(theme, name = "Brand 2").execute()
+            MarkCatalogReady(tenant.id, catalog).execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.1.0").execute()
+            UpdateTheme(theme, name = "Brand 3, not released").execute()
+        }
+        val before = withMediator { releasesOf(tenant.id, catalog) }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+
+        withMediator { RestoreTenantSnapshot(tenant.id, snapshot.bytes).execute() }
+
+        withMediator {
+            assertThat(releasesOf(tenant.id, catalog)).`as`("number, id, fingerprint and base of each").isEqualTo(before)
+            val next = ListCatalogReleases(tenant.id, catalog).query().single { it.isNext }
+            assertThat(next.base).`as`("the next release is on the release it was on").isEqualTo("1.1.0")
+            assertThat(GetCatalog(tenant.id, catalog).query()!!.releasedVersion).isEqualTo("1.1.0")
+            assertThat(GetTheme(theme).query()!!.name).`as`("the working copy as it was").isEqualTo("Brand 3, not released")
+            assertThat(GetCatalogReleaseDetail(tenant.id, catalog, "1.0.0").query()!!.releasedByLine).isEqualTo("Released here by ${TestPrincipalUser.DISPLAY_NAME}")
+            // The releases kept their content: they export, and the next one is cut on 1.1.0.
+            assertThat(ExportCatalogZip(tenant.id, catalog, "1.0.0").execute().zipBytes).isNotEmpty()
+            MarkCatalogReady(tenant.id, catalog).execute()
+            assertThat(ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.2.0").execute().version).isEqualTo("1.2.0")
+        }
+    }
+
+    @Test
+    fun `a restored catalog keeps where it receives releases from`() {
+        val tenant = createTenant("Restore Keeps Source")
+        val source = "classpath:epistola/catalogs/fixture/catalog.json"
+        val catalog = CatalogKey.of("epistola-demo")
+        withMediator { app.epistola.suite.catalog.commands.RegisterCatalog(tenantKey = tenant.id, sourceUrl = source).execute() }
+        val before = withMediator { GetCatalog(tenant.id, catalog).query()!! }
+        val releases = withMediator { releasesOf(tenant.id, catalog) }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+
+        withMediator { RestoreTenantSnapshot(tenant.id, snapshot.bytes).execute() }
+
+        withMediator {
+            val restored = GetCatalog(tenant.id, catalog).query()!!
+            assertThat(restored.sourceUrl).isEqualTo(source)
+            assertThat(restored.sourceAuthType).isEqualTo(before.sourceAuthType)
+            assertThat(restored.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
+            assertThat(releasesOf(tenant.id, catalog)).isEqualTo(releases)
+        }
+    }
+
+    @Test
+    fun `a snapshot from before it carried sources and releases still restores, with neither`() {
+        val tenant = createTenant("Restore Schema Two")
+        val catalog = CatalogKey.of("older")
+        withMediator {
+            CreateCatalog(tenantKey = tenant.id, id = catalog, name = "Older").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant.id))), name = "Brand").execute()
+            MarkCatalogReady(tenant.id, catalog).execute()
+            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalog, version = "1.0.0").execute()
+        }
+        val snapshot = withMediator { BuildTenantSnapshot(tenant.id).execute() }
+        val schemaTwo = rewriteEntry(snapshot.bytes, "snapshot.json") { json ->
+            val manifest = objectMapper.readTree(json) as tools.jackson.databind.node.ObjectNode
+            manifest.put("schemaVersion", 2)
+            manifest.get("catalogs").forEach { (it as tools.jackson.databind.node.ObjectNode).remove(listOf("source", "installed", "nextBase", "releases")) }
+            objectMapper.writeValueAsBytes(manifest)
+        }
+
+        withMediator { RestoreTenantSnapshot(tenant.id, schemaTwo).execute() }
+
+        withMediator {
+            assertThat(ListCatalogReleaseSummaries(tenant.id, catalog).query()).isEmpty()
+            assertThat(GetCatalog(tenant.id, catalog).query()!!.sourceUrl).isNull()
+        }
+    }
+
+    private data class RestoredRelease(val version: String, val releaseId: String, val fingerprint: String, val baseVersion: String?, val baseFingerprint: String?)
+
+    private fun releasesOf(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<RestoredRelease> = ListCatalogReleases(tenant, catalog).query()
+        .filter { it.status == CatalogReleaseStatus.RELEASED }
+        .map { RestoredRelease(it.version!!, it.versionId, it.fingerprint!!, it.base, null) }
+        .sortedBy { it.version }
+        .zip(baseFingerprints(tenant, catalog)) { release, fingerprint -> release.copy(baseFingerprint = fingerprint) }
+
+    private fun baseFingerprints(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<String?> = jdbi.withHandle<List<String?>, Exception> { handle ->
+        handle.createQuery("SELECT base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version")
+            .bind("t", tenant).bind("c", catalog)
+            .map { rs, _ -> rs.getString(1) }
+            .list()
     }
 
     private fun rewriteEntry(archive: ByteArray, name: String, transform: (ByteArray) -> ByteArray): ByteArray {

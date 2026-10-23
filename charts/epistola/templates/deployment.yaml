@@ -218,6 +218,10 @@ spec:
               value: {{ .Values.generation.fontCache.maxFaces | quote }}
             {{- end }}
 
+            {{- /* Whether catalogs are changed here, or only received and run (ADR 0032) */}}
+            - name: EPISTOLA_CATALOG_EDITING_ENABLED
+              value: {{ .Values.catalog.editing.enabled | quote }}
+
             {{- /* Catalog and code-list source rules (closed by default) */}}
             {{- with .Values.catalog.fileRoots }}
             - name: EPISTOLA_CATALOG_FILEROOTS

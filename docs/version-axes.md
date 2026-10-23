@@ -20,7 +20,7 @@ the map; each axis links to its detailed doc.
 
 - **Catalog release version + fingerprint** — _"which release of this
   catalog?"_ It is the only content version: generation renders a release, and
-  another instance that subscribed to your catalog can detect that something
+  another instance that receives your catalog's releases can detect that something
   changed and upgrade. The SemVer is the human-declared release; the
   fingerprint is the content identity that decides "did anything actually
   change?". See [catalog-versioning.md](catalog-versioning.md).
@@ -57,13 +57,13 @@ The old version tables stay in the database as history nobody reads.
   bumps the `schemaVersion` but not the release. The fingerprint **excludes**
   `schemaVersion` by construction, so a wire-format migration is fingerprint-
   transparent (see [catalog-versioning.md](catalog-versioning.md#fingerprint-algorithm)).
-- **A below-current `schemaVersion` is handled differently per catalog type and
-  transport.** A SUBSCRIBED mirror is never migrated locally (its source must
-  republish — the catalog list flags this as _out of sync_); an AUTHORED ZIP is
-  blocked when no migration path exists, or prompts for confirmation when one
-  does (migrating mutates the imported content). See
+- **A below-current `schemaVersion` is handled the same for every import.** An
+  archive is blocked when no migration path exists, or migrated when one does,
+  after the web UI asks to confirm (migrating mutates the imported content);
+  installs nobody is asked about confirm up front. A source that publishes an
+  older wire version is flagged _out of sync_ in the catalog list. See
   [exchange/README.md → Import action for a below-current payload](exchange/README.md#import-action-for-a-below-current-payload)
-  and [Subscribed source schema sync](exchange/README.md#subscribed-source-schema-sync).
+  and [Source schema sync](exchange/README.md#source-schema-sync).
 
 ## See also
 

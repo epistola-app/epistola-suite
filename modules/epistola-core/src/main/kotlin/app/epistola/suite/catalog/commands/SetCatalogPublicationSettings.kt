@@ -38,7 +38,7 @@ class SetCatalogPublicationSettingsHandler(
                 """
                 UPDATE catalogs
                 SET exchange_publication_policy = :policy
-                WHERE tenant_key = :tenantKey AND catalog_key = :catalogKey
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
                 RETURNING *
                 """,
             )

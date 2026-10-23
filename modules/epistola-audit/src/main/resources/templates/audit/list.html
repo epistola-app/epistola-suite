@@ -8,8 +8,9 @@
         )}"></div>
 
         <style>
-            /* Break the dense table out of the centered content column. */
-            .audit-fullbleed { width: 96vw; position: relative; left: 50%; margin-left: -48vw; }
+            /* The dense table fills the content column and scrolls sideways within it, so it never
+               overlaps the workspace's side menu. */
+            .audit-fullbleed { width: 100%; max-width: 100%; overflow-x: auto; }
             .audit-table { table-layout: fixed; width: 100%; font-size: var(--ep-text-xs, 0.75rem); }
             .audit-table th, .audit-table td { padding: var(--ep-space-1, 0.25rem) var(--ep-space-2, 0.5rem); }
             .audit-table td { vertical-align: top; }

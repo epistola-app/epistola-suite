@@ -13,9 +13,9 @@ import java.time.OffsetDateTime
  * to a code list as their value constraint (e.g. `system.locale` →
  * `system.bcp-47`).
  *
- * `catalogType` indicates whether the catalog is editable here (AUTHORED) or
- * a read-only mirror (SUBSCRIBED — e.g. the bundled `system` catalog). The
- * `readOnly` flag is the explicit signal AI clients should respect.
+ * `editable` says whether its catalog can be changed here (not, e.g., the
+ * bundled `system` catalog); `readOnly` is its opposite, the explicit signal AI
+ * clients should respect.
  */
 data class CodeListInfo(
     val slug: String,
@@ -26,7 +26,7 @@ data class CodeListInfo(
     val sourceType: String,
     val sourceUrl: String?,
     val authType: String,
-    val catalogType: String,
+    val editable: Boolean,
     val readOnly: Boolean,
     val lastRefreshedAt: OffsetDateTime?,
     val lastRefreshError: String?,
@@ -34,7 +34,7 @@ data class CodeListInfo(
     val updatedAt: OffsetDateTime,
 ) {
     companion object {
-        fun from(codeList: CodeList): CodeListInfo = CodeListInfo(
+        fun from(codeList: CodeList, editable: Boolean): CodeListInfo = CodeListInfo(
             slug = codeList.slug.value,
             catalog = codeList.catalogKey.value,
             displayName = codeList.displayName,
@@ -42,12 +42,11 @@ data class CodeListInfo(
             sourceType = codeList.sourceType.name,
             sourceUrl = codeList.sourceUrl,
             authType = codeList.authType.name,
-            // Code lists imported by the bundled catalog land with INLINE
-            // source but their catalog is SUBSCRIBED — clients should
-            // gate edit affordances off `readOnly`/`catalogType`, not
-            // `sourceType`.
-            catalogType = codeList.catalogType?.name ?: "AUTHORED",
-            readOnly = codeList.catalogType?.name == "SUBSCRIBED",
+            // Code lists of the bundled catalog have an INLINE source but
+            // their catalog cannot be changed — clients should gate edit
+            // affordances off `readOnly`/`editable`, not `sourceType`.
+            editable = editable,
+            readOnly = !editable,
             lastRefreshedAt = codeList.lastRefreshedAt,
             lastRefreshError = codeList.lastRefreshError,
             createdAt = codeList.createdAt,

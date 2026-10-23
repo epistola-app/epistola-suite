@@ -6,11 +6,13 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.queries.ListCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -168,7 +170,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("needs at least 2.0.0").contains("template &#39;letter&#39;: removed")
-            assertThat(withMediator { ListCatalogReleases(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
+            assertThat(withMediator { ListCatalogReleaseSummaries(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
         }
     }
 
@@ -200,6 +202,73 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val declared = withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }.single()
             assertThat(declared.catalogKey).isEqualTo("shared")
             assertThat(declared.releaseVersion).isEqualTo("1.0.0")
+        }
+    }
+
+    /**
+     * Each dependency with the name the catalog's content uses for it (ADR 0034), next to its
+     * namespace and key: always the key here, and still what a reference into it says.
+     */
+    @Test
+    fun `the draft's dependencies show the name the content uses for each`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Dependencies Alias")
+            seedCatalogWithTemplate(tenant, "letters", "letter")
+            val shared = seedCatalogWithTemplate(tenant, "shared", "header")
+            withMediator {
+                mediator.publishAndRelease(shared)
+                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
+                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+
+        then {
+            val table = result<ResponseEntity<String>>().body!!.substringAfter("data-testid=\"catalog-dependencies\"").substringBefore("</table>")
+            assertThat(table).contains("<th title=\"What the templates, themes and stencils of this catalog call it\">Named in content as</th>")
+            val row = table.substringAfter("data-testid=\"catalog-dependency-row\" data-catalog=\"shared\"").substringBefore("</tr>")
+            assertThat(row.substringAfter("data-testid=\"catalog-dependency-alias\"").substringBefore("</td>")).isEqualTo("><code>shared</code>")
+            assertThat(row).contains("v1.0.0")
+        }
+    }
+
+    /**
+     * A dependency is content of the release (ADR 0034): adding one to a draft whose resources are all
+     * published is something to publish, listed in words on the draft's page and in the dialog.
+     */
+    @Test
+    fun `a dependency added to a published draft is listed, and publishing it is offered`() = fixture {
+        lateinit var tenant: Tenant
+
+        given {
+            tenant = tenant("Dependency Added")
+            val letters = seedCatalogWithTemplate(tenant, "letters", "letter")
+            val shared = seedCatalogWithTemplate(tenant, "shared", "header", name = "Shared")
+            withMediator {
+                mediator.publishAndRelease(letters)
+                mediator.publishAndRelease(shared)
+                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
+                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            }
+        }
+
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+
+        then {
+            val page = result<ResponseEntity<String>>().body!!
+            assertThat(page).doesNotContain("data-testid=\"catalog-no-changes\"")
+            assertThat(page).contains("data-testid=\"catalog-release-open\"")
+            val row = page.substringAfter("data-testid=\"catalog-change-row\" data-resource=\"catalogDependency/shared\"").substringBefore("</tr>")
+            assertThat(row).contains(">Added<").contains(">Shared<").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+            assertThat(dialog).doesNotContain("data-testid=\"publish-nothing\"")
+            val change = dialog.substringAfter("data-testid=\"publish-change\"").substringBefore("</li>")
+            assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
+            assertThat(dialog).`as`("a dependency added is an addition").contains("It will be published as <strong>v1.1.0</strong>")
         }
     }
 
@@ -257,9 +326,9 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     /** An authored catalog [catalogKey] holding one template [templateKey] with a releasable contract. */
-    private fun seedCatalogWithTemplate(tenant: Tenant, catalogKey: String, templateKey: String): VariantId = withMediator {
+    private fun seedCatalogWithTemplate(tenant: Tenant, catalogKey: String, templateKey: String, name: String = catalogKey): VariantId = withMediator {
         val key = CatalogKey.of(catalogKey)
-        CreateCatalog(tenantKey = tenant.id, id = key, name = catalogKey).execute()
+        CreateCatalog(tenantKey = tenant.id, id = key, name = name).execute()
         val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId(key, TenantId(tenant.id)))
         CreateDocumentTemplate(id = templateId, name = templateKey).execute().withRequiredDataExample()
         VariantId(VariantKey.INITIAL, templateId)

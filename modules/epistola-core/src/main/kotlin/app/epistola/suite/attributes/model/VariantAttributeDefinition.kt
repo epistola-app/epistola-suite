@@ -4,7 +4,6 @@
 
 package app.epistola.suite.attributes.model
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -36,8 +35,6 @@ data class VariantAttributeDefinition(
     val id: AttributeKey,
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-    @get:org.jdbi.v3.core.mapper.reflect.ColumnName("catalog_type")
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val displayName: String,
     @Json val allowedValues: List<String> = emptyList(),
     val codeListCatalogKey: CatalogKey? = null,

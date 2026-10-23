@@ -7,7 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -16,7 +16,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -91,9 +91,9 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         val published = get(tenant, "/catalogs/letters/browse").body!!
         assertThat(status(published)).contains("Everything is published, as v1.0.0.").doesNotContain("data-testid=\"catalog-release-open\"")
-        assertThat(status(published)).contains("Not deployed").contains("The latest published version is v1.0.0.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
+        assertThat(status(published)).contains("Not deployed").contains("The latest published release is v1.0.0.").contains("href=\"/tenants/${tenant.id}/catalogs/letters/deployments\"")
         assertThat(get(tenant, "/catalogs/letters/deployments").body!!).contains("id=\"catalog-deployments\"")
-        assertThat(get(tenant, "/catalogs/letters/versions").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
+        assertThat(get(tenant, "/catalogs/letters/releases").body!!).contains("href=\"/tenants/${tenant.id}/catalogs/letters/releases/1.0.0\"")
     }
 
     @Test
@@ -102,7 +102,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
             invoice(catalog)
             mediator.releaseNext(catalog)
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val status = status(get(tenant, "/catalogs/letters/browse").body!!)
@@ -154,7 +154,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
 
         assertThat(page.statusCode).isEqualTo(HttpStatus.OK)
         val body = page.body!!
-        assertThat(body).contains("<span id=\"page-title-text\">Next version</span>")
+        assertThat(body).contains("<span id=\"page-title-text\">Next release</span>")
         assertThat(body).contains("data-testid=\"catalog-next-release\"").contains("<h2>Not published yet</h2>")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/templates/invoice\"")
         assertThat(body).contains("href=\"/tenants/${tenant.id}/catalogs/letters/settings\"")
@@ -234,10 +234,10 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
     fun `the editor is given the presets the catalog declares`() {
         val tenant = catalog("Editor Presets") { t, c ->
             invoice(c)
-            app.epistola.suite.catalog.versions.SetCatalogPresets(
+            app.epistola.suite.catalog.releases.SetCatalogPresets(
                 t.id,
                 letters,
-                listOf(app.epistola.suite.catalog.versions.CatalogPreset("heading-accent", "Heading accent")),
+                listOf(app.epistola.suite.catalog.releases.CatalogPreset("heading-accent", "Heading accent")),
             ).execute()
         }
 
@@ -286,7 +286,7 @@ class CatalogPageHtmxTest : BaseIntegrationTest() {
         ).body!!
 
         assertThat(saved).contains("data-testid=\"catalog-theme-settings-saved\"")
-        val settings = withMediator { app.epistola.suite.catalog.versions.GetCatalogThemeSettings(tenant.id, letters).query() }
+        val settings = withMediator { app.epistola.suite.catalog.releases.GetCatalogThemeSettings(tenant.id, letters).query() }
         assertThat(settings.defaultTheme?.themeKey?.value).isEqualTo("brand")
         assertThat(settings.presets.map { it.key }).containsExactly("heading-accent")
     }

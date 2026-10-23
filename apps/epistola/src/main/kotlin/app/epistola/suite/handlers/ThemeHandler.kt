@@ -5,12 +5,11 @@
 package app.epistola.suite.themes
 
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.ApplyHouseTheme
-import app.epistola.suite.catalog.versions.CatalogDefaultTheme
-import app.epistola.suite.catalog.versions.GetCatalogThemeSettings
-import app.epistola.suite.catalog.versions.SetCatalogDefaultTheme
+import app.epistola.suite.catalog.releases.ApplyHouseTheme
+import app.epistola.suite.catalog.releases.CatalogDefaultTheme
+import app.epistola.suite.catalog.releases.GetCatalogThemeSettings
+import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -132,11 +131,6 @@ class ThemeHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.THEME_EDIT)
-        // Fragment models are lazy, so only the branch that renders evaluates —
-        // one ListCatalogs per request, shared by the list filter and the
-        // dialog's authored-only <select>.
-        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("themes/new", "dialog") {
@@ -145,7 +139,6 @@ class ThemeHandler(
                 // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
                 // creates there, rather than in whichever catalog sorts first.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
@@ -153,7 +146,6 @@ class ThemeHandler(
                 page("themes/list") {
                     themePageModel(request)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -206,14 +198,10 @@ class ThemeHandler(
         }
 
         if (result.hasErrors()) {
-            // One ListCatalogs whichever branch renders (fragment models are lazy).
-            val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             return request.htmx {
                 // Re-render the form inside the dialog (retargeted to the form, not
-                // the list) with inline errors + preserved values. `tenantId` and
-                // `authoredCatalogs` are the prefill the form fragment needs to
-                // rebuild its action URL and catalog <select>.
+                // the list) with inline errors + preserved values. `tenantId` is the
+                // prefill the form fragment needs to rebuild its action URL.
                 dialogFieldErrors(
                     template = "themes/new",
                     fragmentName = "theme-form",
@@ -222,13 +210,11 @@ class ThemeHandler(
                 ) {
                     "tenantId" to tenantId.key
                     "draftSegment" to request.catalogParam()
-                    "authoredCatalogs" to authoredCatalogs
                 }
                 onFullPage {
                     page(422, "themes/list") {
                         themePageModel(request)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }
@@ -274,7 +260,7 @@ class ThemeHandler(
             "revision" to theme.revision,
         )
 
-        val editable = theme.catalogType == app.epistola.suite.catalog.CatalogType.AUTHORED
+        val editable = draftBar.editable
 
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"

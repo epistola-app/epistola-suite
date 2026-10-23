@@ -7,7 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -120,7 +120,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             val catalogId = CatalogId(CatalogKey.of("diff-cat"), TenantId(testTenant.id))
             withMediator {
                 MarkCatalogReady(testTenant.id, catalogId.key).execute()
-                ReleaseCatalogVersion(testTenant.id, catalogId.key, version = "1.0.0").execute()
+                ReleaseCatalogDraft(testTenant.id, catalogId.key, version = "1.0.0").execute()
                 UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B").execute()
             }

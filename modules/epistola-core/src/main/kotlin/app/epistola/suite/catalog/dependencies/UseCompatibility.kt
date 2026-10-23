@@ -5,9 +5,9 @@
 package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.protocol.DependencyRef
+import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.ChangeKindEvaluator
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.versions.ChangeKind
-import app.epistola.suite.catalog.versions.ChangeKindEvaluator
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.springframework.stereotype.Component

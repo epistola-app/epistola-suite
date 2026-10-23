@@ -8,6 +8,8 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
 
 private const val CATALOG_KEY = "catalogKey"
+private const val NAMESPACE = "namespace"
+private const val REGISTRY = "registry"
 
 /**
  * The catalog-resource reference shapes that can appear inside template, stencil, and theme JSON.
@@ -57,7 +59,11 @@ class ReferenceSite internal constructor(
 ) {
     val key: String get() = holder.path(kind.keyField).stringValue()
 
-    /** The explicitly authored catalog, or null when the reference is unqualified. */
+    /**
+     * The explicitly authored catalog, or null when the reference is unqualified. On the wire it is
+     * the alias the catalog's dependency list declares (contract ADR 0003, ADR 0034); stored, it is
+     * the tenant's catalog key, which this installation uses as every dependency's alias.
+     */
     val catalogKey: String? get() = holder.path(CATALOG_KEY).textOrNull()
 
     /** The pinned version a stencil insertion carries, when it has one. */
@@ -74,6 +80,18 @@ class ReferenceSite internal constructor(
     fun clearCatalogKey() {
         holder.remove(CATALOG_KEY)
     }
+
+    /**
+     * Drops the `namespace` and `registry` an earlier draft of wire v8 let a reference carry: a
+     * reference names another catalog by alias, and the name is the declaration's (contract ADR 0003,
+     * ADR 0034). @return true when it carried one.
+     */
+    fun dropNameQualifiers(): Boolean {
+        val had = holder.has(NAMESPACE) || holder.has(REGISTRY)
+        holder.remove(NAMESPACE)
+        holder.remove(REGISTRY)
+        return had
+    }
 }
 
 /** Locates every [ReferenceSite] in a template, stencil, or theme JSON payload. */
@@ -85,24 +103,35 @@ object ResourceReferenceSites {
     fun scan(root: JsonNode, path: String = ""): List<ReferenceSite> = buildList { collect(root, path, this) }
 
     /**
-     * Fills in [containingCatalogKey] on every unqualified relative reference, in place.
+     * Fills in [containingCatalogKey] on every unqualified relative reference, in place, and drops the
+     * name qualifiers no reference carries any more ([ReferenceSite.dropNameQualifiers]).
      *
      * Applied when content is persisted, so a stored reference always names the catalog it
      * resolves against and keeps that meaning if its owner is later relocated. Assets are left
      * alone: they resolve tenant-globally, so qualifying one would change what it means rather
      * than pin it.
      *
-     * @return true when anything was qualified.
+     * @return true when anything was qualified or dropped.
      */
     fun qualifyRelative(root: JsonNode, containingCatalogKey: String): Boolean {
         var changed = false
         for (site in scan(root)) {
+            if (site.dropNameQualifiers()) changed = true
             if (!site.kind.relativeWhenUnqualified || site.catalogKey != null) continue
             site.setCatalogKey(containingCatalogKey)
             changed = true
         }
         return changed
     }
+
+    /**
+     * Drops the name qualifiers of every reference in [root], in place
+     * ([ReferenceSite.dropNameQualifiers]): content built from rows stored before references named
+     * their catalog by alias, or from a release retained then, travels without them.
+     *
+     * @return true when any reference carried one.
+     */
+    fun dropNameQualifiers(root: JsonNode): Boolean = scan(root).fold(false) { changed, site -> site.dropNameQualifiers() || changed }
 
     /**
      * Drops [containingCatalogKey] from references that target it, the inverse of [qualifyRelative].

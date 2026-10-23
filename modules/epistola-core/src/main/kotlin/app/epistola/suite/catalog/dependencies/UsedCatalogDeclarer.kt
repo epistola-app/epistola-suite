@@ -5,7 +5,9 @@
 package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.protocol.DependencyRef
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.CatalogEditingProperties
+import app.epistola.suite.catalog.catalogsAt
+import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -16,19 +18,28 @@ import org.springframework.stereotype.Component
  * which other catalogs it uses (contract ADR 0003) and every surface declares the same way.
  *
  * A write that references a resource of another catalog the current version (the draft the
- * running message targets) does not declare yet declares that catalog: an authored one by naming
- * its next version, which is what the draft then renders it from ([DraftDependencyView]); a
- * subscribed one by pinning its installed release. Releasing pins a named draft once that draft is
+ * running message targets) does not declare yet declares that catalog: one that can be changed
+ * here by naming its next version, which is what the draft then renders it from
+ * ([DraftDependencyView]); one that cannot (Epistola supplies it, or the installation is run-only,
+ * ADR 0032) by pinning its highest release. Releasing pins a named draft once that draft is
  * released. A declaration already there is left as the author set it, and a reference to a catalog
- * the tenant does not have is left alone: releasing refuses it.
+ * the tenant does not have is left alone: releasing refuses it. A key two catalogs share (ADR 0034)
+ * declares the one the running work names, and is refused when it names neither.
  */
 @Component
 class UsedCatalogDeclarer(
     private val jdbi: Jdbi,
     private val store: CatalogDependencyStore,
+    private val editing: CatalogEditingProperties,
 ) {
     /** [declareCatalogs] for the catalogs [references] point into. @return the declarations added. */
     fun declare(tenantKey: TenantKey, catalogKey: CatalogKey, references: Collection<DependencyRef>): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, references.map { CatalogKey.of(it.catalogKey) })
+
+    /**
+     * [declareCatalogs] for the catalogs a variant's [attributes] name: an attribute of another catalog
+     * is keyed `<alias>.<key>` (`system.locale`, contract ADR 0003), and its alias is that catalog's key.
+     */
+    fun declareAttributes(tenantKey: TenantKey, catalogKey: CatalogKey, attributes: Collection<String>): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, attributeCatalogs(attributes))
 
     /** [declareCatalogs] for one catalog a direct reference names, such as a template's theme or an attribute's code list. */
     fun declare(tenantKey: TenantKey, catalogKey: CatalogKey, used: CatalogKey?): List<CatalogDependencyDeclaration> = declareCatalogs(tenantKey, catalogKey, listOfNotNull(used))
@@ -42,14 +53,14 @@ class UsedCatalogDeclarer(
             val missing = used.filter { key -> declared.none { it.catalogKey == key } }
             if (missing.isEmpty()) return@inTransaction emptyList()
             val added = handle.createQuery(
-                "SELECT catalog_key, registry, namespace, type FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>) ORDER BY catalog_key",
+                "SELECT catalog_key, registry, namespace, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :t AND catalog_id IN ${catalogsAt("t", "keys")} ORDER BY catalog_key",
             )
                 .bind("t", tenantKey)
                 .bindList("keys", missing)
-                .map { rs, _ -> Pair(CatalogDependencyDeclaration(rs.getString("registry"), rs.getString("namespace"), rs.getString("catalog_key")), rs.getString("type")) }
+                .map { rs, _ -> Pair(CatalogDependencyDeclaration(rs.getString("registry"), rs.getString("namespace"), rs.getString("catalog_key")), rs.getBoolean("supplied")) }
                 .list()
-                .map { (declaration, type) ->
-                    if (type == CatalogType.AUTHORED.name) {
+                .map { (declaration, supplied) ->
+                    if (CatalogEditability.of(supplied, editing.enabled).editable) {
                         store.nextVersionOf(handle, tenantKey, declaration)?.let { (key, label) -> declaration.copy(draftId = key, draftName = label) }
                     } else {
                         store.highest(handle, tenantKey, declaration)?.let { declaration.copy(releaseVersion = it.version, releaseFingerprint = it.fingerprint) }
@@ -60,3 +71,8 @@ class UsedCatalogDeclarer(
         }
     }
 }
+
+/** The catalogs variant attribute keys name by their qualifier (`system.locale` names `system`). */
+fun attributeCatalogs(attributes: Collection<String>): List<CatalogKey> = attributes.mapNotNull { key ->
+    key.substringBefore('.', "").takeIf { it.isNotEmpty() }?.let { runCatching { CatalogKey.of(it) }.getOrNull() }
+}.distinct()

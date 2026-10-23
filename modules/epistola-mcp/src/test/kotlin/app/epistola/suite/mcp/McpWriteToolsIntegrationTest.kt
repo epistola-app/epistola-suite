@@ -162,6 +162,34 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a template's description is set on create, read back, changed and removed by update_template`() {
+        val tenantId = newTenant()
+
+        val created = runAsApiKey(tenantId) { templateTools.createTemplate("default", "brief", "Brief", null, null, null, description = "For residents") }
+        assertThat(created.description).isEqualTo("For residents")
+        assertThat(runAsApiKey(tenantId) { templateTools.getTemplate("default", "brief") }!!.description).isEqualTo("For residents")
+
+        val kept = runAsApiKey(tenantId) { templateTools.updateTemplate("default", "brief", "Brief 2", null, null, null, null) }
+        assertThat(kept.description).isEqualTo("For residents")
+        val changed = runAsApiKey(tenantId) { templateTools.updateTemplate("default", "brief", null, null, null, null, null, description = "For companies") }
+        assertThat(changed.description).isEqualTo("For companies")
+        val removed = runAsApiKey(tenantId) { templateTools.updateTemplate("default", "brief", null, null, null, null, null, description = "") }
+        assertThat(removed.description).isNull()
+    }
+
+    @Test
+    fun `list_templates gives each template's description`() {
+        val tenantId = newTenant()
+        runAsApiKey(tenantId) {
+            templateTools.createTemplate("default", "described", "Described", null, null, null, description = "For residents")
+            templateTools.createTemplate("default", "plain", "Plain", null, null, null)
+        }
+
+        val listed = runAsApiKey(tenantId) { templateTools.listTemplates("default", null) }.associate { it.id to it.description }
+        assertThat(listed).containsEntry("described", "For residents").containsEntry("plain", null)
+    }
+
+    @Test
     fun `create_template with invalid variant attributes creates nothing`() {
         val tenantId = newTenant()
 

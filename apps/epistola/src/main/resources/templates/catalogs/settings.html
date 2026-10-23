@@ -7,7 +7,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='Details',
-            pageDescription=${catalog.type.name() == 'AUTHORED'} ? 'Published with each version: change them here, and the next version you publish carries them.' : 'As its publisher describes it.'
+            pageDescription=${draftBar.editable} ? 'Published with each release: change them here, and the next release you publish carries them.' : 'As the release it is on describes it.'
         )}"></div>
         <div id="catalog-alert"></div>
         <div th:replace="~{catalogs/content :: metadata-card}"></div>
@@ -25,17 +25,15 @@
                 </p>
                 <th:block th:unless="${catalog.id == 'system'}">
                     <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);"
-                       th:text="${catalog.type.name() == 'AUTHORED'}
-                                ? 'Permanently delete this catalog with all its versions, templates, themes, stencils and other resources. It is refused while another catalog uses it or an environment serves one of its versions.'
-                                : 'Remove this catalog and every version of it installed here. It is refused while another catalog uses it or an environment serves one of its versions.'">
+                       th:text="'Permanently delete this catalog with all its releases, templates, themes, stencils and other resources. It is refused while another catalog uses it or an environment serves one of its releases.'">
                         Permanently delete this catalog.</p>
                     <form th:action="@{/tenants/{t}/catalogs/{c}/delete(t=${tenantId},c=${catalog.id})}"
                           method="post" hx-boost="false" data-testid="catalog-delete-form">
                         <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="catalog-delete"
                                 data-confirm-submit
-                                th:attr="data-confirm-submit-title=${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog' : 'Remove catalog',data-confirm-submit-message=${catalog.type.name() == 'AUTHORED'} ? 'Delete ' + ${catalog.name} + ' and all its versions and resources? This cannot be undone.' : 'Remove ' + ${catalog.name} + ' and every version of it installed here? This cannot be undone.'"
-                                data-confirm-submit-label="Delete"
-                                th:text="${catalog.type.name() == 'AUTHORED'} ? 'Delete catalog' : 'Remove catalog'">Delete catalog</button>
+                                data-confirm-submit-title="Delete catalog"
+                                th:attr="data-confirm-submit-message='Delete ' + ${catalog.name} + ' and all its releases and resources? This cannot be undone.'"
+                                data-confirm-submit-label="Delete">Delete catalog</button>
                     </form>
                 </th:block>
             </div>

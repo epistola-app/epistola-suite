@@ -15,8 +15,8 @@ import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -141,7 +141,7 @@ internal fun GenerateDocumentRequest.toCommand(
         catalogKey = catalog.id,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
         releaseVersion = versionRange,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
@@ -162,7 +162,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         catalogKey = catalog.id,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
         releaseVersion = versionRange,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         data = data,
@@ -172,14 +172,11 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     )
 }
 
-private fun List<VariantSelectionAttribute>.toSelectionCriteria(
-    template: Catalog,
-    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
-): VariantSelectionCriteria {
+private fun List<VariantSelectionAttribute>.toSelectionCriteria(template: Catalog): VariantSelectionCriteria {
     val required = mutableMapOf<String, String>()
     val optional = mutableMapOf<String, String>()
     for (attr in this) {
-        val storageKey = attr.toStorageKey(template, catalogAt)
+        val storageKey = attr.toStorageKey(template)
         if (attr.required != false) {
             required[storageKey] = attr.value
         } else {
@@ -194,22 +191,13 @@ private fun List<VariantSelectionAttribute>.toSelectionCriteria(
 
 /**
  * The storage key of a `VariantSelectionAttribute`: `"<catalogKey>.<key>"`, as variants store their
- * attributes. Without `catalogKey`, the attribute is the template's own catalog's. A `namespace`
- * (and `registry`) names a catalog other than the template's, which must exist; omitted, they are
- * the template's.
+ * attributes. `catalogKey` is the alias the rendering release's dependency declarations give the
+ * attribute's catalog (contract ADR 0003, ADR 0034); this installation declares every catalog under
+ * its key, so the alias is that key. Without one, or with the template's own catalog key, the
+ * attribute is the template's own catalog's. An alias the release does not declare names no
+ * attribute, so it selects no variant.
  */
-private fun VariantSelectionAttribute.toStorageKey(
-    template: Catalog,
-    catalogAt: (registry: String?, namespace: String, catalogKey: String) -> Catalog,
-): String {
-    val qualifier = catalogKey ?: template.id.value
-    val catalog = if (namespace == null) {
-        qualifier
-    } else {
-        catalogAt(registry ?: template.registry, namespace!!, qualifier).id.value
-    }
-    return "$catalog.$key"
-}
+private fun VariantSelectionAttribute.toStorageKey(template: Catalog): String = "${catalogKey ?: template.id.value}.$key"
 
 internal fun GenerateBatchRequest.toCommand(
     tenantKey: String,
@@ -241,12 +229,12 @@ internal fun PreviewDocumentRequest.toQuery(
         catalogKey = catalog.id,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
-        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog, catalogAt),
+        variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
         data = data,
         releaseVersion = versionRange,
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         // The draft it names: the next version, or parallel work by its id.
-        catalogVersion = draft?.let { CatalogVersionRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
+        catalogVersion = draft?.let { CatalogReleaseRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
     )
 }

@@ -7,9 +7,11 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
+import app.epistola.suite.storage.AssetContentStore
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -58,6 +60,7 @@ const val TEMPLATE_MODEL_KIND = "templateModel"
 @Component
 class ResourceRevisionStore(
     private val objectMapper: ObjectMapper,
+    private val contentStore: AssetContentStore,
 ) {
 
     /**
@@ -67,7 +70,8 @@ class ResourceRevisionStore(
      * @return each resource's revision digest, keyed `"type/slug"` as the catalog content keys it.
      */
     fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent): Map<String, String> {
-        val scopes = resolveBinaryScopes(handle, tenantKey, content.resourceDetails.values.flatMap { contentHashes(it.resource) })
+        val hashes = content.resourceDetails.values.flatMap { contentHashes(it.resource) }
+        val scopes = resolveBinaryScopes(handle, tenantKey, hashes) + storeCarried(content, hashes)
 
         return content.resourceDetails.mapValues { (_, detail) ->
             val resource = detail.resource
@@ -208,6 +212,28 @@ class ResourceRevisionStore(
             .bind("scope", scope)
             .bind("hash", contentHash)
             .execute()
+    }
+
+    /**
+     * The bytes [content] carries that no asset of the tenant holds: a release received beside the
+     * others (ADR 0032) brings resources no version has, so nothing stored their bytes. Stored in
+     * the shared scope, as published content is, so the release keeps them; the retained revision's
+     * binary reference is what keeps them from being collected. Bytes that do not hash to what their
+     * resource names are not stored.
+     */
+    private fun storeCarried(content: CatalogContent, hashes: List<String>): Map<String, String> {
+        val carried = content.resourceDetails.values.flatMap { detail ->
+            when (val resource = detail.resource) {
+                is ImageResource -> listOf(Triple(resource.contentHash, resource.contentPath(), resource.mediaType))
+                is FontResource -> resource.variants.map { Triple(it.contentHash, it.contentPath(), it.mediaType) }
+                else -> emptyList()
+            }
+        }
+        return carried.filter { it.first in hashes }.mapNotNull { (hash, path, mediaType) ->
+            val bytes = content.assetContents[path]?.takeIf { sha256Hex(it) == hash } ?: return@mapNotNull null
+            contentStore.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, bytes, mediaType, bytes.size.toLong())
+            hash to GLOBAL_ASSET_SCOPE
+        }.toMap()
     }
 
     /** Every binary a resource needs: an image's own, and each of a font family's faces. */

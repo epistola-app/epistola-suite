@@ -28,7 +28,7 @@ class CatalogDependencyCyclesTest {
         val addresses = edges.flatMap { listOf(it.first, it.second) }.distinct()
         return TenantResourceGraph(
             nodes = addresses.map {
-                ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey, "AUTHORED")
+                ResourceNode(ResourceIdentity.of(UUID.nameUUIDFromBytes(it.id.toByteArray())), it, it.key, it.catalogKey)
             },
             edges = edges.mapIndexed { index, (from, to, kind) ->
                 ResourceEdge(
@@ -93,7 +93,7 @@ class CatalogDependencyCyclesTest {
     fun `an unresolved edge has no target catalog and cannot form a cycle`() {
         val header = address("letters", "header")
         val graph = TenantResourceGraph(
-            nodes = listOf(ResourceNode(ResourceIdentity.generate(), header, "Header", "letters", "AUTHORED")),
+            nodes = listOf(ResourceNode(ResourceIdentity.generate(), header, "Header", "letters")),
             edges = listOf(
                 ResourceEdge(
                     id = "dangling",

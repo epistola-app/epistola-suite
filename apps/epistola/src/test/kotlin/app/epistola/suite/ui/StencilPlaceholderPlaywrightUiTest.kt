@@ -18,8 +18,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -107,10 +107,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
     private data class TemplateAndStencil(val editorUrl: String, val variantId: VariantId, val stencilKey: String)
 
     private fun setupTemplateAndStencil(): TemplateAndStencil {
-        val tenant = CreateTenant(
-            id = TenantKey.of("ui-stencil-ins-${System.nanoTime()}"),
-            name = "Stencil Insert UI Test",
-        ).execute()
+        val tenant = TestNamespaces.createTenant(TenantKey.of("ui-stencil-ins-${System.nanoTime()}"), "Stencil Insert UI Test").execute()
         val tenantId = TenantId(tenant.id)
         val sId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
         CreateStencil(id = sId, name = "Letter Body", content = stencilContent("v1 default")).execute()
@@ -150,10 +147,7 @@ class StencilPlaceholderPlaywrightUiTest : BasePlaywrightTest() {
      * relative URL to the variant editor (so the test can navigate to it).
      */
     private fun setupOverrideSurvivingPublish(): String {
-        val tenant = CreateTenant(
-            id = TenantKey.of("ui-stencil-${System.nanoTime()}"),
-            name = "Stencil UI Test",
-        ).execute()
+        val tenant = TestNamespaces.createTenant(TenantKey.of("ui-stencil-${System.nanoTime()}"), "Stencil UI Test").execute()
         val tenantId = TenantId(tenant.id)
         val sId = StencilId(TestIdHelpers.nextStencilId(), CatalogId.default(tenantId))
 

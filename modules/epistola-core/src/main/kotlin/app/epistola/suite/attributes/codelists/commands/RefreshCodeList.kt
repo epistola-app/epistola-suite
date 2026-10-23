@@ -9,11 +9,11 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.attributes.codelists.service.CodeListFetchException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -38,8 +38,8 @@ import org.springframework.stereotype.Component
 data class RefreshCodeList(
     val id: CodeListId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Command<CodeList?>,
     RequiresPermission,
     // Fetches entries from the source URL mid-command, and a fetch error must be
@@ -58,7 +58,7 @@ const val REFRESH_FAILED_MESSAGE = "The code list could not be fetched from its 
 class RefreshCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
-    private val targeting: CatalogVersionTargeting,
+    private val targeting: CatalogReleaseTargeting,
 ) : CommandHandler<RefreshCodeList, CodeList?> {
     private val logger = LoggerFactory.getLogger(javaClass)
 

@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.CatalogNotReleasedException
 import app.epistola.suite.documents.NoReleaseDeployedException
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.loadtest.commands.StartLoadTest
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.mediator.execute
@@ -66,7 +66,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
         withMediator {
             CreateEnvironment(production, "Production").execute()
-            DeployCatalogVersion(production, variant.catalogKey, "1.0.0").execute()
+            DeployCatalogRelease(production, variant.catalogKey, "1.0.0").execute()
         }
 
         val run = start(tenant, variant, environment = production.key)

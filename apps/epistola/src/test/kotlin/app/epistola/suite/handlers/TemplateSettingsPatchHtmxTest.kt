@@ -456,6 +456,55 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `PATCH description stores it and returns the textarea with the persisted value`() = fixture {
+        lateinit var templateId: TemplateId
+
+        given {
+            templateId = withMediator {
+                val tenantId = TenantId(createTenant("Settings Patch Description").id)
+                TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)).also { CreateDocumentTemplate(id = it, name = "Invoice").execute() }
+            }
+        }
+
+        whenever {
+            patchForm(
+                "/tenants/${templateId.tenantKey}/catalogs/default/templates/${templateId.key}/description",
+                "description" to "Sent to residents & companies",
+            )
+        }
+
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            val textarea = Regex("<textarea[^>]*template-description-input[^>]*>[^<]*</textarea>").find(response.body!!)?.value
+            assertThat(textarea).contains("maxlength=\"2000\"").contains("Sent to residents &amp; companies")
+            assertThat(withMediator { GetDocumentTemplate(id = templateId).query() }!!.description).isEqualTo("Sent to residents & companies")
+        }
+    }
+
+    @Test
+    fun `PATCH description with an empty value removes it`() = fixture {
+        lateinit var templateId: TemplateId
+
+        given {
+            templateId = withMediator {
+                val tenantId = TenantId(createTenant("Settings Patch Description Clear").id)
+                TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId))
+                    .also { CreateDocumentTemplate(id = it, name = "Invoice", description = "Old notes").execute() }
+            }
+        }
+
+        whenever {
+            patchForm("/tenants/${templateId.tenantKey}/catalogs/default/templates/${templateId.key}/description", "description" to "")
+        }
+
+        then {
+            assertThat(result<ResponseEntity<String>>().statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(withMediator { GetDocumentTemplate(id = templateId).query() }!!.description).isNull()
+        }
+    }
+
+    @Test
     fun `PATCH name for an unknown template returns 404`() = fixture {
         lateinit var tenant: Tenant
 

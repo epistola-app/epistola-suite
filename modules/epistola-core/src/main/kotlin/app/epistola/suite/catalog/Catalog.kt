@@ -25,7 +25,6 @@ data class Catalog(
     val namespace: String,
     val name: String,
     val description: String? = null,
-    val type: CatalogType,
     val sourceUrl: String? = null,
     val sourceAuthType: AuthType = AuthType.NONE,
     /** Encrypted at rest via the JDBI [Secret] mappers; plaintext only in memory. */
@@ -33,12 +32,14 @@ data class Catalog(
     val installedReleaseVersion: String? = null,
     val installedFingerprint: String? = null,
     /**
-     * Per-resource source-side digests (`"type/slug"` -> SHA-256) of the
-     * installed release, captured from the source manifest at register/upgrade.
-     * The source-vs-source baseline for [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade].
-     * Never publisher-authored; null for AUTHORED catalogs.
+     * Per-resource source-side digests of the installed release as stored, captured from the source
+     * at register/upgrade: a baseline naming its function (`{"algorithm", "entries"}`), read with
+     * [CatalogFingerprintService.readBaseline], which counts one stored before baselines named theirs
+     * (a flat V3 map) as none. The source-vs-source baseline for
+     * [PreviewCatalogUpgrade][app.epistola.suite.catalog.queries.PreviewCatalogUpgrade]. Never
+     * publisher-authored; null for a catalog that never received a release.
      */
-    @Json val installedResourceFingerprints: Map<String, String>? = null,
+    @Json val installedResourceFingerprints: tools.jackson.databind.JsonNode? = null,
     @Json val catalogMetadata: CatalogMetadata = CatalogMetadata(),
     val installedAt: OffsetDateTime? = null,
     val releasedVersion: String? = null,
@@ -47,7 +48,7 @@ data class Catalog(
     val exchangePublicationPolicy: CatalogPublicationPolicy = CatalogPublicationPolicy.INHERIT,
     /**
      * When catalog content was last set wholesale by a ZIP import. With
-     * [releasedAt] it forms the AUTHORED drift baseline
+     * [releasedAt] it forms the drift baseline
      * `GREATEST(releasedAt, importedAt)`: a resource changed after it = the
      * working copy has unreleased changes (the catalog list's "pending
      * changes" hint). A no-op re-import advances this in lockstep with the
@@ -57,7 +58,31 @@ data class Catalog(
     val contentUpdatedAt: OffsetDateTime,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-)
+) {
+    /**
+     * Epistola supplies this catalog (a `classpath:` source: the system and demo catalogs) and
+     * replaces it on every upgrade, so it is never changed here (ADR 0032).
+     */
+    val suppliedByEpistola: Boolean get() = sourceUrl?.startsWith(CLASSPATH_SOURCE) == true
+
+    /** Its releases come from a source that can be asked for newer ones (ADR 0032, section 7). */
+    val hasSource: Boolean get() = sourceUrl != null
+
+    /**
+     * Its highest release, released here or received ([installedReleaseVersion]), by version
+     * number; null when it has none. A received catalog can be released here too (ADR 0032), so
+     * neither pointer alone is the highest.
+     */
+    val highestReleaseVersion: String? get() = listOfNotNull(releasedVersion, installedReleaseVersion)
+        .maxWithOrNull(compareBy(nullsFirst()) { SemVer.parseOrNull(it) })
+
+    /** The fingerprint of [highestReleaseVersion]. */
+    val highestReleaseFingerprint: String? get() = if (highestReleaseVersion != null && highestReleaseVersion == releasedVersion) releasedFingerprint else installedFingerprint
+
+    companion object {
+        const val CLASSPATH_SOURCE = "classpath:"
+    }
+}
 
 /** This catalog's full name. */
 val Catalog.catalogName: CatalogName get() = CatalogName(registry, namespace, id)
@@ -121,11 +146,6 @@ data class CatalogMetadata(
             license = info.license,
         )
     }
-}
-
-enum class CatalogType {
-    AUTHORED,
-    SUBSCRIBED,
 }
 
 enum class AuthType {

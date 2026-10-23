@@ -62,18 +62,18 @@ class ExchangeCatalogReleaseSource(
             ?: throw CatalogSourceUnavailableException("Epistola Exchange would not issue an access token for this tenant. Reconnect it on the Exchange page.")
         return translate { call(connection.baseUrl, token, coordinates.namespace, coordinates.catalogKey) }
     }
+}
 
-    /** Exchange's failures, as the contract names them: unreachable 503, a bad answer 502. */
-    private fun <T> translate(block: () -> T): T = try {
-        block()
-    } catch (e: ValidationException) {
-        throw e
-    } catch (e: ResourceAccessException) {
-        throw CatalogSourceUnavailableException("Epistola Exchange could not be reached: ${e.message}", cause = e)
-    } catch (e: RestClientResponseException) {
-        val retryAfter = e.responseHeaders?.getFirst("Retry-After")?.toLongOrNull()
-        throw CatalogSourceUnavailableException("Epistola Exchange answered ${e.statusCode.value()}: ${e.message}", badGateway = e.statusCode.value() != 503, retryAfterSeconds = retryAfter, cause = e)
-    } catch (e: RestClientException) {
-        throw CatalogSourceUnavailableException("Epistola Exchange answered with something that is not a valid answer: ${e.message}", badGateway = true, cause = e)
-    }
+/** Exchange's failures, as the contract names them: unreachable 503, a bad answer 502. */
+internal fun <T> translate(block: () -> T): T = try {
+    block()
+} catch (e: ValidationException) {
+    throw e
+} catch (e: ResourceAccessException) {
+    throw CatalogSourceUnavailableException("Epistola Exchange could not be reached: ${e.message}", cause = e)
+} catch (e: RestClientResponseException) {
+    val retryAfter = e.responseHeaders?.getFirst("Retry-After")?.toLongOrNull()
+    throw CatalogSourceUnavailableException("Epistola Exchange answered ${e.statusCode.value()}: ${e.message}", badGateway = e.statusCode.value() != 503, retryAfterSeconds = retryAfter, cause = e)
+} catch (e: RestClientException) {
+    throw CatalogSourceUnavailableException("Epistola Exchange answered with something that is not a valid answer: ${e.message}", badGateway = true, cause = e)
 }

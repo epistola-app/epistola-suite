@@ -5,11 +5,11 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
+import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ResourceModifiedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -56,10 +56,10 @@ import tools.jackson.databind.ObjectMapper
  * Where a stencil stands for its catalog's next release, and whether to offer "Mark ready".
  *
  * @property state how the stencil differs from the catalog's last release; null for a stencil of a
- *   subscribed catalog, which has no next release.
+ *   catalog that cannot be changed here, which has no next release.
  * @property ready whether its working copy is marked ready as it is now.
  * @property offerMarkReady the one name the page gates "Mark ready" on: the viewer may edit
- *   stencils, the catalog is authored (so editable), and the working copy is not ready yet.
+ *   stencils, the catalog can be changed here, and the working copy is not ready yet.
  */
 data class StencilReadiness(
     val state: CatalogResourceState?,
@@ -151,11 +151,6 @@ class StencilHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.STENCIL_EDIT)
-        // Fragment models are lazy, so only the branch that renders evaluates —
-        // one ListCatalogs per request, shared by the list filter and the
-        // dialog's authored-only <select>.
-        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("stencils/new", "dialog") {
@@ -164,7 +159,6 @@ class StencilHandler(
                 // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
                 // creates there, rather than in whichever catalog sorts first.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
@@ -172,7 +166,6 @@ class StencilHandler(
                 page("stencils/list") {
                     stencilPageModel(request)
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -261,9 +254,6 @@ class StencilHandler(
         }
 
         if (result.hasErrors()) {
-            // One ListCatalogs whichever branch renders (fragment models are lazy).
-            val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-            val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
             // Re-render the form inside the dialog (retargeted to the form, not the
             // list) with inline errors + preserved values. The onFullPage fallback
             // (boosted / history-restore only — see the function KDoc) re-renders the
@@ -278,13 +268,11 @@ class StencilHandler(
                 ) {
                     "tenantId" to tenantId.key
                     "draftSegment" to request.catalogParam()
-                    "authoredCatalogs" to authoredCatalogs
                 }
                 onFullPage {
                     page(422, "stencils/list") {
                         stencilPageModel(request)
                         "openDialog" to true
-                        "authoredCatalogs" to authoredCatalogs
                         "formData" to result.formData
                         "errors" to result.errors
                     }
@@ -371,17 +359,18 @@ class StencilHandler(
     }
 
     /** The stencil, whether the viewer may change it here, and its readiness. */
-    private fun ModelBuilder.stencilModel(stencil: Stencil, error: String? = null, version: CatalogVersionRef? = null) {
-        val editable = stencil.catalogType == CatalogType.AUTHORED &&
-            AuthContext.from(SecurityContext.current(), stencil.tenantKey).has(Permission.STENCIL_EDIT)
+    private fun ModelBuilder.stencilModel(stencil: Stencil, error: String? = null, version: CatalogReleaseRef? = null) {
+        val catalogEditable = IsCatalogEditable(stencil.tenantKey, stencil.catalogKey).query()
+        val editable = catalogEditable && AuthContext.from(SecurityContext.current(), stencil.tenantKey).has(Permission.STENCIL_EDIT)
         "stencil" to stencil
         "stencilEditable" to editable
-        "readiness" to readinessOf(stencil, editable, version)
+        "readiness" to readinessOf(stencil, catalogEditable, editable, version)
         if (error != null) "readinessError" to error
     }
 
-    private fun readinessOf(stencil: Stencil, editable: Boolean, version: CatalogVersionRef?): StencilReadiness {
-        if (stencil.catalogType != CatalogType.AUTHORED) return StencilReadiness(state = null, ready = false, offerMarkReady = false)
+    private fun readinessOf(stencil: Stencil, catalogEditable: Boolean, editable: Boolean, version: CatalogReleaseRef?): StencilReadiness {
+        // A catalog that cannot be changed here has no next release to get ready.
+        if (!catalogEditable) return StencilReadiness(state = null, ready = false, offerMarkReady = false)
         val change = GetCatalogResourceChanges(stencil.tenantKey, stencil.catalogKey, catalogVersion = version).query()
             .resources.firstOrNull { it.type == "stencil" && it.slug == stencil.id.value }
         val ready = change?.ready == true
@@ -574,7 +563,7 @@ class StencilHandler(
                     "stencilId" to stencil.id.value,
                     "catalogKey" to stencil.catalogKey.value,
                     "name" to stencil.name,
-                    "editable" to (stencil.catalogType == CatalogType.AUTHORED),
+                    "editable" to IsCatalogEditable(stencil.tenantKey, stencil.catalogKey).query(),
                     "content" to stencil.content,
                     "parameterSchema" to stencil.parameterSchema,
                     "readsTemplateData" to stencil.readsTemplateData,

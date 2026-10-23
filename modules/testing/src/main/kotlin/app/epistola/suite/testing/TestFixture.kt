@@ -22,7 +22,6 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.stereotype.Component
@@ -106,7 +105,7 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class GivenContext {
-        fun tenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+        fun tenant(name: String): Tenant = TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name).execute()
 
         fun noTenants() {
             this@TestFixture.deleteAllTenants()
@@ -138,7 +137,7 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class WhenContext {
-        fun createTenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+        fun createTenant(name: String): Tenant = TestNamespaces.createTenant(TenantKey.of(this@TestFixture.nextTenantSlug()), name).execute()
 
         fun deleteTenant(id: TenantKey): Boolean = DeleteTenant(id).execute()
 

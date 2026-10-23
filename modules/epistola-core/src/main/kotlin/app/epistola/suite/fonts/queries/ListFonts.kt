@@ -5,9 +5,9 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.model.Font
@@ -23,16 +23,16 @@ import org.springframework.stereotype.Component
  * Lists font families owned by a tenant, optionally filtered to a single
  * catalog.
  *
- * Each row carries the owning catalog's `type` so the UI can gate edit
- * affordances (AUTHORED is editable, SUBSCRIBED is read-only). Variants are
+ * Whether a row can be edited is the owning catalog's editability
+ * (`ListCatalogEditability`, ADR 0032), not a field of the row. Variants are
  * not fetched here; use `GetFontVariants` for that.
  */
 data class ListFonts(
     val tenantId: TenantId,
     val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<List<Font>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
@@ -48,8 +48,7 @@ class ListFontsHandler(
             append(
                 """
                 SELECT f.slug, f.tenant_key, c.catalog_key AS catalog_key, f.name, f.kind,
-                       f.created_at, f.updated_at,
-                       c.type AS catalog_type
+                       f.created_at, f.updated_at
                 FROM fonts f
                 JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
                 WHERE f.tenant_key = :tenantId

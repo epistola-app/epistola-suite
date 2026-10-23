@@ -6,6 +6,7 @@ package app.epistola.suite.handlers.nav
 
 import app.epistola.suite.catalog.CatalogUpstreamCheck
 import app.epistola.suite.catalog.UpstreamAvailability
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.GetCatalogUpstreamStates
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.htmx.UiRequestContext
@@ -31,7 +32,7 @@ class CatalogUpdateHomeNoticeContributor : HomeNoticeContributor {
     override fun notices(context: UiRequestContext): List<HomeNotice> {
         if (!context.hasPermission(Permission.CATALOG_VIEW)) return emptyList()
 
-        val installed = ListCatalogs(context.tenantKey).query().associateBy { it.id }
+        val installed = ListCatalogs(context.tenantKey).query().associateBy { it.address }
         val checks = GetCatalogUpstreamStates(context.tenantKey).query()
 
         val updates = checks.entries.mapNotNull { (key, check) ->

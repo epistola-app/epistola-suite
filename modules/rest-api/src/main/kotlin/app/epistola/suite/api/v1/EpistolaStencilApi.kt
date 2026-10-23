@@ -30,7 +30,7 @@ import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
 import app.epistola.suite.api.v1.shared.toUsageDto
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
@@ -292,14 +292,14 @@ class EpistolaStencilApi(
 
     // ==================== Helpers ====================
 
-    private fun ResolvedCatalogVersion.stencilId(key: String) = StencilId(StencilKey.of(key), catalogId)
+    private fun ResolvedCatalogRelease.stencilId(key: String) = StencilId(StencilKey.of(key), catalogId)
 
-    private fun workingCopy(at: ResolvedCatalogVersion, key: String): Stencil {
+    private fun workingCopy(at: ResolvedCatalogRelease, key: String): Stencil {
         val id = at.stencilId(key)
         return GetStencil(id = id, catalogVersion = at.ref).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
     }
 
-    private fun released(at: ResolvedCatalogVersion, key: String): StencilResource = at.releasedResource<StencilResource>(STENCIL, key)
+    private fun released(at: ResolvedCatalogRelease, key: String): StencilResource = at.releasedResource<StencilResource>(STENCIL, key)
         ?: throw StencilNotFoundException(at.catalog.tenantKey, StencilKey.of(key))
 
     private fun <T> Sequence<T>.takeWhileInclusive(predicate: (T) -> Boolean): Sequence<T> = sequence {

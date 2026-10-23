@@ -19,8 +19,8 @@
         (`import-catalog-error`), OOB-swapped by CatalogHandler.importError
         (HX-Reswap: none), which also OOB-resets #import-error. The body is
         untouched.
-      - the TWO structured responses (import-schema-error,
-        import-migration-confirm) render into the in-form
+      - the THREE structured responses (import-schema-error,
+        import-migration-confirm, import-name-required) render into the in-form
         `#import-error` div, which sits ABOVE the file input, so the file input
         is never touched. import-migration-confirm carries an in-form submit
         button that re-posts the same file with confirmMigration=true.
@@ -49,20 +49,13 @@
                 <input type="file" id="import-file" name="file" class="ep-input"
                        accept=".zip,application/zip" required />
             </div>
-            <div class="form-group">
-                <label class="ep-label">Catalog type</label>
-                <div class="ep-row ep-gap-4" style="margin-top: var(--ep-space-2);">
-                    <label class="ep-row">
-                        <input type="radio" name="catalogType" value="AUTHORED" checked />
-                        Authored
-                    </label>
-                    <label class="ep-row">
-                        <input type="radio" name="catalogType" value="SUBSCRIBED" />
-                        Subscribed (read-only)
-                    </label>
-                </div>
-                <span class="form-hint">Authored catalogs can be edited. Subscribed catalogs are read-only. Chosen once: importing into a catalog you have keeps its type and adds the archive's release.</span>
-            </div>
+            <p class="form-hint" data-testid="catalog-import-hint">Installs the release in this file beside the catalog's others. If you have changed the catalog here, merge the release into your next release afterwards.</p>
+            <!-- Alpha: the other way to get a release, offered when a registry is configured. -->
+            <p th:if="${registryInstallAvailable}" class="form-hint" data-testid="import-registry-hint">
+                No file? <a href="#" th:hx-get="@{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId})}"
+                            hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
+                            data-testid="import-registry-open">Get a release from a registry</a> instead.
+            </p>
         </div>
         <div class="ep-dialog-footer">
             <button type="button" class="ep-btn ep-btn-ghost"
@@ -92,12 +85,12 @@
          (CatalogHandler.importError). -->
     <div th:fragment="import-error-reset" id="import-error" hx-swap-oob="outerHTML"></div>
 
-    <!-- Inline "update?" prompt for the Import ZIP dialog: an AUTHORED ZIP below
+    <!-- Inline "update?" prompt for the Import ZIP dialog: a ZIP below
          the current catalog schema version that the migration chain can upgrade.
          Importing migrates (mutates) the content, so we confirm first. The button
          is a submit inside the import form (this renders into the in-form
          `#import-error` slot), so it re-submits the same file with
-         confirmMigration=true. SUBSCRIBED is never offered this — it is blocked. -->
+         confirmMigration=true. -->
     <th:block th:fragment="import-migration-confirm">
         <div class="alert alert-warning">
             <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
@@ -114,9 +107,42 @@
                         <span th:text="${notice.message}">migration detail</span>
                     </li>
                 </ul>
+                <input th:if="${registry != null}" type="hidden" name="registry" th:value="${registry}">
+                <input th:if="${namespace != null}" type="hidden" name="namespace" th:value="${namespace}">
                 <button type="submit" name="confirmMigration" value="true"
                         class="ep-btn ep-btn-primary ep-btn-sm" style="margin-top: var(--ep-space-2);"
                         th:text="'Import and update to v' + ${toSchemaVersion}">Import and update</button>
+            </div>
+        </div>
+    </th:block>
+
+    <!-- Inline "name it" prompt for the Import ZIP dialog: an archive from before wire v8 names no
+         registry or namespace, which are the catalog's name. The importer proposes the default
+         registry and this tenant's namespace; the operator decides. Renders into the in-form
+         `#import-error` slot, so its fields and button belong to the import form and re-submit the
+         same file with them, the migration to the current format confirmed. -->
+    <th:block th:fragment="import-name-required">
+        <div class="alert alert-warning" data-testid="import-name-required">
+            <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-lg')}" />
+            <div>
+                <div class="alert-title">Name this catalog</div>
+                <p style="margin: var(--ep-space-1) 0 0;">
+                    This archive is from before catalogs named their registry and namespace. Say under
+                    which name to install it; it keeps that name wherever its releases go. Importing
+                    also updates it to the current catalog format.
+                </p>
+                <div class="form-group" style="margin-top: var(--ep-space-2);">
+                    <label class="ep-label" for="import-registry">Registry</label>
+                    <input type="text" id="import-registry" name="registry" class="ep-input" required
+                           maxlength="253" th:value="${registry}" data-testid="import-registry">
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="import-namespace">Namespace</label>
+                    <input type="text" id="import-namespace" name="namespace" class="ep-input" required
+                           minlength="3" maxlength="63" th:value="${namespace}" data-testid="import-namespace">
+                </div>
+                <button type="submit" name="confirmMigration" value="true"
+                        class="ep-btn ep-btn-primary ep-btn-sm" data-testid="import-name-submit">Import under this name</button>
             </div>
         </div>
     </th:block>

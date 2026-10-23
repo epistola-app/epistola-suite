@@ -9,12 +9,12 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
@@ -81,7 +81,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
 
     private fun invoice(tenant: Tenant) = TemplateId(TemplateKey.of("invoice"), catalogId(tenant))
 
-    private fun at(tenant: Tenant, draft: DraftRef) = CatalogVersionRef(tenant.id, letters, draft)
+    private fun at(tenant: Tenant, draft: DraftRef) = CatalogReleaseRef(tenant.id, letters, draft)
 
     private fun next(tenant: Tenant) = at(tenant, DraftRef.Next)
 
@@ -91,7 +91,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         CreateTheme(brand(tenant), "Brand").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
         MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogVersion(tenant.id, letters, "1.0.0").execute()
+        ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
     }
 
     /** [released], then parallel work "Redesign", and the invoice named differently in each; its id. */
@@ -105,7 +105,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
     }
 
-    private fun drafts(tenant: Tenant) = withMediator { ListCatalogVersions(tenant.id, letters, CatalogVersionStatus.DRAFT).query() }.map { it.label }
+    private fun drafts(tenant: Tenant) = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.DRAFT).query() }.map { it.label }
 
     @Test
     fun `the next version's page says it is numbered when published, and the Versions page offers parallel work`() = fixture {
@@ -114,7 +114,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Drafts One")
             released(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters/draft") to get("/tenants/${tenant.id}/catalogs/letters/versions") }
+        whenever { get("/tenants/${tenant.id}/catalogs/letters/draft") to get("/tenants/${tenant.id}/catalogs/letters/releases") }
         then {
             val (draft, catalog) = result<Pair<ResponseEntity<String>, ResponseEntity<String>>>()
             assertThat(draft.body!!).contains("has no number until it is published").doesNotContain("catalog-renumber-open")
@@ -131,7 +131,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant)
         }
         whenever {
-            val catalog = get("/tenants/${tenant.id}/catalogs/letters/versions").body!!
+            val catalog = get("/tenants/${tenant.id}/catalogs/letters/releases").body!!
             // The next version is linked plainly, parallel work by its id.
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters/draft\"")
             assertThat(catalog).contains("href=\"/tenants/${tenant.id}/catalogs/letters@$work/draft\"").contains(">Redesign<")
@@ -216,7 +216,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             String::class.java,
         )
         assertThat(missing.statusCode.value()).isEqualTo(404)
-        assertThat(missing.body).contains("Not in this version").contains("Templates in this version")
+        assertThat(missing.body).contains("Not in this release").contains("Templates in this release")
             .contains("/tenants/${tenant.id}/catalogs/letters@$work/templates")
     }
 
@@ -238,7 +238,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         then {
             // The context bar names the version; its menu offers the parallel work.
-            assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next version<")
+            assertThat(result<String>()).contains("data-testid=\"ws-crumb-version\"").contains(">Next release<")
                 .doesNotContain("/templates/letters@")
             assertThat(several).doesNotContain("Invoice redesigned").contains("data-testid=\"ws-version-link\"").contains("/catalogs/letters@$work/switch")
         }
@@ -355,9 +355,9 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         then {
             val response = result<ResponseEntity<String>>()
-            val fromOne = withMediator { ListCatalogVersions(tenant.id, letters).query() }.single { it.name == "From one" }
+            val fromOne = withMediator { ListCatalogReleases(tenant.id, letters).query() }.single { it.name == "From one" }
             assertThat(fromOne.base).isEqualTo("1.0.0")
-            assertThat(drafts(tenant)).containsExactly("Next version", "Redesign", "From one")
+            assertThat(drafts(tenant)).containsExactly("Next release", "Redesign", "From one")
             assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@${fromOne.versionId}/draft")
         }
     }
@@ -379,7 +379,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             } else {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             }
-            assertThat(drafts(tenant)).containsExactly("Next version")
+            assertThat(drafts(tenant)).containsExactly("Next release")
             assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).`as`("the next version is untouched").isEqualTo("Invoice, fixed")
         }
     }
@@ -393,7 +393,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever { postForm("/tenants/${tenant.id}/catalogs/letters/drafts/discard", emptyMap(), htmx = false) }
         then {
-            assertThat(drafts(tenant)).containsExactly("Next version", "Redesign")
+            assertThat(drafts(tenant)).containsExactly("Next release", "Redesign")
             assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).isEqualTo("Invoice")
         }
     }
@@ -434,7 +434,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
         }
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
-            assertThat(drafts(tenant)).`as`("the work became the release").containsExactly("Next version")
+            assertThat(drafts(tenant)).`as`("the work became the release").containsExactly("Next release")
             assertThat(withMediator { GetTheme(brand(tenant)).query() }!!.name).`as`("the next version is left as it was").isEqualTo("Brand")
         }
     }
@@ -448,7 +448,7 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant) // from 1.0.0
             withMediator {
                 MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogVersion(tenant.id, letters, version = "2.0.0").execute()
+                ReleaseCatalogDraft(tenant.id, letters, version = "2.0.0").execute()
             }
         }
         whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!! }
@@ -468,21 +468,21 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
             work = withRedesign(tenant)
             withMediator {
                 MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogVersion(tenant.id, letters).execute() // 1.0.1, which the work does not contain
+                ReleaseCatalogDraft(tenant.id, letters).execute() // 1.0.1, which the work does not contain
             }
         }
         whenever {
             val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release").body!!
-            assertThat(dialog).contains("data-testid=\"publish-afterwards\"").contains("value=\"Next version before Redesign\"")
+            assertThat(dialog).contains("data-testid=\"publish-afterwards\"").contains("value=\"Next release before Redesign\"")
             val publish = mapOf("version" to "1.0.2", "acknowledgedBehind" to "1.0.1", "afterwards" to "keep")
             val refused = postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", publish + ("keepAs" to ""))
             assertThat(refused.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
-            assertThat(refused.body).contains("Give the current next version a name")
+            assertThat(refused.body).contains("Give the current next release a name")
             postForm("/tenants/${tenant.id}/catalogs/letters@$work/release", publish + ("keepAs" to "Old"))
         }
         then {
             assertThat(result<ResponseEntity<String>>().headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters/browse")
-            assertThat(drafts(tenant)).containsExactlyInAnyOrder("Next version", "Old")
+            assertThat(drafts(tenant)).containsExactlyInAnyOrder("Next release", "Old")
             assertThat(withMediator { GetDocumentTemplate(invoice(tenant)).query() }!!.name).`as`("everyday work continues from the redesign").isEqualTo("Invoice redesigned")
         }
     }

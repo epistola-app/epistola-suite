@@ -406,6 +406,11 @@ demo:
 # checked against these rules; the defaults are closed. See docs/exchange/README.md
 # ("Allowed sources").
 catalog:
+  editing:
+    # Whether people may change catalogs here (epistola.catalog.editing.enabled). Off makes the
+    # installation run-only: it receives releases, deploys and rolls back, and nothing in a catalog
+    # can be started, changed, merged or released. Typical for production. Default true.
+    enabled: true
   # Directories a file:/// catalog or code-list source may be read from. Empty
   # turns file: sources off. Mount each directory into the pod yourself via
   # `volumes` / `volumeMounts`; a path is accepted only when its canonical form

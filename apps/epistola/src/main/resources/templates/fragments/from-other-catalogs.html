@@ -17,7 +17,7 @@
             <table class="ep-table">
                 <tbody>
                     <tr th:each="item : ${items}" data-testid="from-other-catalog-row">
-                        <td><a th:href="${item.href}" th:text="${item.name}">Footer</a></td>
+                        <td><a th:href="@{${item.href}}" th:text="${item.name}">Footer</a></td>
                         <td class="text-muted" th:text="'In ' + ${item.catalogName}">In Shared</td>
                     </tr>
                 </tbody>

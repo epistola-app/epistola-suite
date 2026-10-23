@@ -4,10 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -16,7 +15,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -44,22 +43,24 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
             CreateCatalogDraft(tenant, letters, "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in the next version
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
         }
 
         val overview = withMediator { GetCatalogOverview(tenant).query() }
 
-        assertThat(overview.map { it.catalogKey.value }).`as`("authored first, then subscribed")
+        assertThat(overview.map { it.catalogKey.value }).`as`("the ones that can be changed here first, then the read-only ones")
             .containsSubsequence("default", "letters", SYSTEM_CATALOG_KEY.value)
         val entry = overview.single { it.catalogKey == letters }
-        assertThat(entry.type).isEqualTo(CatalogType.AUTHORED)
-        assertThat(entry.drafts.map { it.label to it.isNext }).containsExactly("Next version" to true, "Redesign" to false)
+        assertThat(entry.editable).isTrue()
+        assertThat(entry.drafts.map { it.label to it.isNext }).containsExactly("Next release" to true, "Redesign" to false)
         assertThat(entry.latestRelease?.version).isEqualTo("1.0.0")
         assertThat(entry.notReady).`as`("the new theme in the next version").isEqualTo(1)
         assertThat(entry.served).containsEntry("production", listOf("1.0.0"))
 
         val system = overview.single { it.catalogKey == SYSTEM_CATALOG_KEY }
         assertThat(system.drafts).isEmpty()
+        assertThat(system.readOnlyReason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+        assertThat(system.latestRelease).`as`("the release its content is on").isNotNull()
         assertThat(system.notReady).isNull()
     }
 }

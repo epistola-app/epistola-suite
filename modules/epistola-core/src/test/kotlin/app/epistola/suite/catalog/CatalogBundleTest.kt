@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -17,6 +16,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -92,35 +93,44 @@ class CatalogBundleTest : IntegrationTestBase() {
         val bundle = fat(chain("bundle-source")).zipBytes
         val target = withMediator { createTenant("bundle-target").id }
 
-        val imported = withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() }
+        val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
 
         assertThat(imported.catalogKey).isEqualTo(letters)
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
-        assertThat(withMediator { ListCatalogs(target).query() }.filter { it.type == CatalogType.SUBSCRIBED }.map { it.id.value to it.installedReleaseVersion })
+        assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.installedReleaseVersion })
             .contains(base.value to "1.0.0", shared.value to "1.0.0", letters.value to "1.0.0")
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(target)))).query()!! }.themeCatalogKey)
             .isEqualTo(shared)
 
-        val again = withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() }
+        val again = withMediator { ImportCatalogZip(target, bundle).execute() }
         assertThat(again.installedDependencies).isEmpty()
         assertThat(again.presentDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
     }
 
     @Test
-    fun `an export with dependencies that would install a catalog the installation has under another name is refused, and nothing changes`() {
-        val bundle = fat(chain("bundle-conflict-source")).zipBytes
+    fun `an export with dependencies installs a carried catalog beside one of the installation with the same key in another namespace`() {
+        val bundle = fat(chain("bundle-beside-source")).zipBytes
         val target = withMediator {
-            val target = createTenant("bundle-conflict-target").id
+            val target = createTenant("bundle-beside-target").id
+            SaveFeatureToggle(target, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             // Its own Shared, in its own namespace: another catalog than the one the archive carries.
             CreateCatalog(target, shared, "Our shared").execute()
             target
         }
 
-        assertThatThrownBy { withMediator { ImportCatalogZip(target, bundle, CatalogType.SUBSCRIBED).execute() } }
-            .isInstanceOf(CatalogImportConflictException::class.java)
-            .hasMessageContaining("another catalog")
-        assertThat(withMediator { GetCatalog(target, base).query() }).`as`("not even what did not conflict").isNull()
-        assertThat(withMediator { GetCatalog(target, letters).query() }).isNull()
+        val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
+
+        // ADR 0034, phase 4: within a tenant a catalog is named by namespace and key.
+        assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
+        assertThat(withMediator { ListCatalogs(target).query() }.filter { it.id == shared }.map { it.name }).containsExactlyInAnyOrder("Our shared", "Shared")
+        val carried = withMediator { ListCatalogs(target).query() }.single { it.id == shared && it.name == "Shared" }
+        // The template's theme is the carried Shared's, which its declaration names.
+        withMediator {
+            CatalogNames.within(shared, carried.namespace) {
+                assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(target)))).query()!!.themeCatalogKey).isEqualTo(shared)
+                assertThat(GetCatalog(target, shared).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            }
+        }
     }
 
     private fun names(zip: ByteArray): List<String> = ZipInputStream(zip.inputStream()).use { stream -> generateSequence { stream.nextEntry }.map { it.name }.toList() }

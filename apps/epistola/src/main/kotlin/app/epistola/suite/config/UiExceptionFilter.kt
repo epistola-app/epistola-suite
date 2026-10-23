@@ -94,6 +94,11 @@ class UiExceptionFilter(
             log.warn("Over-length input rejected by the database (SQLSTATE 22001): {}", truncation.message)
             return UiError(400, ApiProblemTypes.BAD_REQUEST, "A value you entered is too long.")
         }
+        // A catalog key that names several catalogs (ADR 0034, phase 4), wherever the database refused it.
+        app.epistola.suite.catalog.CatalogNames.ambiguity(ex)?.let { ambiguous ->
+            log.warn("Ambiguous catalog key on UI request: {}", ambiguous.message)
+            return UiError(400, ApiProblemTypes.BAD_REQUEST, ambiguous.message)
+        }
         val cause = unwrap(ex)
         return when (cause::class.simpleName) {
             "TenantAccessDeniedException" -> {
@@ -118,17 +123,17 @@ class UiExceptionFilter(
                 UiError(400, ApiProblemTypes.BAD_REQUEST, cause.message ?: "The request is invalid.")
             }
 
-            "CatalogVersionNotFoundException" -> {
+            "CatalogReleaseNotFoundException" -> {
                 log.warn("Catalog version not found: {}", cause.message)
-                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such version.")
+                UiError(404, ApiProblemTypes.CATALOG_VERSION_NOT_FOUND, cause.message ?: "The catalog has no such release or draft.")
             }
 
-            "CatalogVersionReleasedException" -> {
+            "CatalogReleaseIsReleasedException" -> {
                 log.warn("Write to a released catalog version: {}", cause.message)
-                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This version is released and cannot change.")
+                UiError(409, ApiProblemTypes.CATALOG_VERSION_RELEASED, cause.message ?: "This release is published and cannot change.")
             }
 
-            "CatalogVersionHeldException" -> {
+            "CatalogReleaseHeldException" -> {
                 log.warn("Discarding a draft refused: {}", cause.message)
                 UiError(409, ApiProblemTypes.CATALOG_VERSION_HELD, cause.message ?: "The draft holds what something else uses.")
             }

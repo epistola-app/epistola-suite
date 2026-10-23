@@ -11,13 +11,13 @@
             <span class="ws-status-text" data-testid="catalog-draft-none">Nothing in progress</span>
         </th:block>
         <th:block th:if="${readiness != null}">
-            <a class="ws-status-text" th:href="${overview}" data-testid="ws-pending"
+            <a class="ws-status-text" th:href="@{${overview}}" data-testid="ws-pending"
                th:text="${bar.onParallelWork}
-                        ? (${readiness.changed.isEmpty()} ? 'No changes yet' : (${readiness.changed.size() == 1} ? '1 change' : ${readiness.changed.size()} + ' changes'))
+                        ? (${readiness.changeCount == 0} ? 'No changes yet' : (${readiness.changeCount == 1} ? '1 change' : ${readiness.changeCount} + ' changes'))
                         : (${readiness.nothingToPublish} ? 'Everything is published'
                         : (${bar.latestPublished == null} ? 'Not published yet'
                         : (${readiness.onlyOthersChanged} ? 'Changes from other catalogs'
-                        : (${readiness.changed.size() == 1} ? '1 change not published' : ${readiness.changed.size()} + ' changes not published'))))">2 changes not published</a>
+                        : (${readiness.changeCount == 1} ? '1 change not published' : ${readiness.changeCount} + ' changes not published'))))">2 changes not published</a>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
                     data-testid="catalog-bar-publish"
                     th:hx-get="@{/tenants/{t}/catalogs/{c}/release(t=${tenantId},c=${bar.segmentValue})}"

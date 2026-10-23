@@ -11,7 +11,7 @@ import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.security.Permission
 
 /**
- * What a version of an authored catalog holds, grouped by kind as people think of it — templates
+ * What a version of a catalog holds, grouped by kind as people think of it — templates
  * first — with a way to add each kind there (docs/catalog-workspace-navigation.md). Shown on the
  * catalog page for the next version and on every draft's page.
  *

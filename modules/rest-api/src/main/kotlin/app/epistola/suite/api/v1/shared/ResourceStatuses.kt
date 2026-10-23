@@ -9,7 +9,7 @@ import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.queries.CatalogResourceChange
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.mediator.query
 
 /**
@@ -49,7 +49,7 @@ internal class ResourceStatuses private constructor(
 
     companion object {
         /** Reads the version's changes once; reuse the result for every resource on one response. */
-        fun of(version: ResolvedCatalogVersion): ResourceStatuses {
+        fun of(version: ResolvedCatalogRelease): ResourceStatuses {
             if (!version.isDraft) return ResourceStatuses(null)
             val changes = try {
                 GetCatalogResourceChanges(version.tenantKey, version.catalogKey, catalogVersion = version.ref).query()

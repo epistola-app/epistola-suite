@@ -39,6 +39,8 @@ class CommonViewModel(
      * - `auth` — resolved from the current principal + `tenantId` (only if not
      *   already in [model], so a handler that set its own `auth` keeps it).
      * - `isManager` — derived from the effective `auth`.
+     * - `catalogEditing` — whether each catalog can be changed here ([CatalogEditingView]), read on the
+     *   first question; only when `tenantId` is present.
      * - `footerFragments` — only when `tenantId` is present.
      * - `footerStatusFragments` — installation-wide status in the footer bar (the support badge),
      *   on every view.
@@ -73,6 +75,8 @@ class CommonViewModel(
         result["isManager"] = auth.has(Permission.TENANT_SETTINGS)
 
         if (tenantId != null) {
+            // Which catalogs can be changed here, read only when a template asks.
+            if (model["catalogEditing"] == null) result["catalogEditing"] = CatalogEditingView(TenantKey.of(tenantId))
             val context = UiRequestContext(TenantKey.of(tenantId)) { auth.has(it) }
             // Module-contributed footer chrome (e.g. the feedback FAB).
             result["footerFragments"] = footerFragmentResolver.resolve(context)

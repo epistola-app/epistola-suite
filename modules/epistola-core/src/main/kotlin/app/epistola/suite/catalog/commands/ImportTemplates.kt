@@ -21,6 +21,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
@@ -30,6 +31,7 @@ import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
 import app.epistola.suite.themes.themeAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
+import app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -57,6 +59,9 @@ data class ImportTemplates(
         // catalog fan-out, so a rejection isolates to that resource.
         templates.forEach { template ->
             validate("name", template.name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
+            validate("description", template.description.fitsTemplateDescription()) {
+                "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less"
+            }
             template.variants.forEach { variant ->
                 validate("title", variant.resolvedTitle().length <= MAX_NAME_COLUMN_LENGTH) { "Title must be $MAX_NAME_COLUMN_LENGTH characters or less" }
             }
@@ -75,6 +80,8 @@ data class ImportTemplateInput(
     val dataExamples: List<DataExample>,
     val templateModel: TemplateDocument,
     val variants: List<ImportVariantInput>,
+    /** Plain-text notes for the template's authors (wire v8 `TemplateResource.description`); null when it has none. */
+    val description: String? = null,
 )
 
 data class ImportVariantInput(
@@ -83,6 +90,11 @@ data class ImportVariantInput(
     val attributes: Map<String, String>,
     val templateModel: TemplateDocument?,
     val isDefault: Boolean = false,
+    /**
+     * Producer-specific data by reverse-DNS namespace (wire v8 `VariantEntry.metadata`), kept as it
+     * came and written back on export; null or empty when the variant has none.
+     */
+    val metadata: Map<String, Map<String, Any?>>? = null,
 )
 
 /**
@@ -178,10 +190,10 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
+                    INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, description, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, version_id, id) DO UPDATE
-                    SET name = :name, theme_resource_id = EXCLUDED.theme_resource_id,
+                    SET name = :name, description = :description, theme_resource_id = EXCLUDED.theme_resource_id,
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
@@ -189,6 +201,7 @@ class ImportTemplatesHandler(
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
+                .bind("description", input.description)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
                 .bind("pdfaEnabled", input.pdfaEnabled)
@@ -199,7 +212,7 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     UPDATE document_templates
-                    SET name = :name, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
+                    SET name = :name, description = :description, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
                         pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
                     WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
                     """,
@@ -208,6 +221,7 @@ class ImportTemplatesHandler(
                 .bind("tenantId", tenantId.key)
                 .bind("catalogKey", catalogKey)
                 .bind("name", input.name)
+                .bind("description", input.description)
                 .bind("themeKey", input.themeId)
                 .bind("themeCatalogKey", input.themeCatalogKey)
                 .bind("pdfaEnabled", input.pdfaEnabled)
@@ -255,11 +269,11 @@ class ImportTemplatesHandler(
             handle.createUpdate(
                 """
                     INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
-                                                   created_at, updated_at, created_by, updated_by)
+                                                   metadata, created_at, updated_at, created_by, updated_by)
                     VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault,
-                            :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
+                            :templateModel::jsonb, :referencedPaths::jsonb, CAST(:metadata AS JSONB), NOW(), NOW(), :createdBy, :updatedBy)
                     ON CONFLICT (tenant_key, version_id, template_resource_id, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault,
+                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, metadata = CAST(:metadata AS JSONB),
                         template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb, updated_at = NOW(), updated_by = :updatedBy
                     """,
             )
@@ -273,6 +287,8 @@ class ImportTemplatesHandler(
                 .bind("title", variantInput.resolvedTitle())
                 .bind("attributes", attributesJson)
                 .bind("isDefault", variantInput.isDefault)
+                // Empty metadata is no metadata: the wire forbids `{}`.
+                .bind("metadata", variantInput.metadata?.takeIf { it.isNotEmpty() }?.let(objectMapper::writeValueAsString))
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
         }

@@ -4,8 +4,7 @@
 
 package app.epistola.suite.templates
 
-import app.epistola.suite.catalog.CatalogType
-import app.epistola.suite.catalog.versions.CatalogVersionRef
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.handlers.CatalogDraftBar
 import app.epistola.suite.htmx.catalogId
@@ -30,7 +29,7 @@ data class TemplateDetailContext(
     /** The route's catalog segment (`letters@2.0.0` for a draft), which the page's links carry. */
     val catalogSegment: String = catalogId,
     /** The draft the page works in, for every message it dispatches; null for the current version. */
-    val catalogVersion: CatalogVersionRef? = null,
+    val catalogVersion: CatalogReleaseRef? = null,
     /** Which draft this is and the others to switch to. */
     val draftBar: CatalogDraftBar? = null,
 )
@@ -56,7 +55,7 @@ class TemplateDetailHelper {
         val version = segment.ref(tenantId.key)
 
         val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query() ?: return null
-        val editable = template.catalogType == CatalogType.AUTHORED
+        val editable = draftBar.editable
 
         return TemplateDetailContext(
             tenantId = tenantId.key.value,

@@ -10,10 +10,10 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -28,7 +28,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * Creates a code list in an AUTHORED catalog.
+ * Creates a code list in a catalog that can be changed here.
  *
  * For `INLINE` source the caller passes initial entries directly; for `URL`
  * the caller passes a URL plus optional auth and `entries` is empty (entries
@@ -47,8 +47,8 @@ data class CreateCodeList(
     val credential: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Command<CodeList>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_EDIT

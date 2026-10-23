@@ -16,7 +16,7 @@ import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.attributes.codelists.queries.ListCodeLists
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.queries.IsCatalogEditable
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -84,11 +84,6 @@ class CodeListHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TENANT_SETTINGS)
-        // Fragment models are lazy, so only the branch that renders evaluates —
-        // one ListCatalogs per request, shared by the list filter and the
-        // dialog's authored-only <select>.
-        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("code-lists/new", "dialog") {
@@ -97,7 +92,6 @@ class CodeListHandler(
                 // The catalog it was opened on, a draft or plain: a dialog opened from a catalog's page
                 // creates there, rather than in whichever catalog sorts first.
                 "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
             }
             // Direct navigation / boost: the host list page with the dialog
             // embedded in its mount (openDialog=true), opened on load by the JS.
@@ -105,7 +99,6 @@ class CodeListHandler(
                 page("code-lists/list") {
                     listModel(request, GetTenant(tenantId.key).query())
                     "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
                 }
             }
         }
@@ -187,36 +180,29 @@ class CodeListHandler(
      * The single error-render path for [create]: re-render the form inside the
      * dialog (retargeted to the form, not the list) with inline errors + preserved
      * values for HTMX, or the host list page with the dialog embedded and open for
-     * a non-HTMX submit. `tenantId` and `authoredCatalogs` are the prefill the form
-     * fragment needs to rebuild its action URL and catalog <select>.
+     * a non-HTMX submit. `tenantId` is the prefill the form fragment needs to
+     * rebuild its action URL.
      */
     private fun renderCreateError(
         request: ServerRequest,
         formData: FormData,
         tenantId: TenantId,
-    ): ServerResponse {
-        // One ListCatalogs whichever branch renders (fragment models are lazy).
-        val allCatalogs by lazy { ListCatalogs(tenantId.key).query() }
-        val authoredCatalogs by lazy { allCatalogs.filter { it.type == CatalogType.AUTHORED } }
-        return request.htmx {
-            dialogFieldErrors(
-                template = "code-lists/new",
-                fragmentName = "code-list-form",
-                formTarget = "#create-code-list-form",
-                formData = formData,
-            ) {
-                "tenantId" to tenantId.key
-                "draftSegment" to request.catalogParam()
-                "authoredCatalogs" to authoredCatalogs
-            }
-            onFullPage {
-                page(422, "code-lists/list") {
-                    listModel(request, GetTenant(tenantId.key).query())
-                    "openDialog" to true
-                    "authoredCatalogs" to authoredCatalogs
-                    "formData" to formData.formData
-                    "errors" to formData.errors
-                }
+    ): ServerResponse = request.htmx {
+        dialogFieldErrors(
+            template = "code-lists/new",
+            fragmentName = "code-list-form",
+            formTarget = "#create-code-list-form",
+            formData = formData,
+        ) {
+            "tenantId" to tenantId.key
+            "draftSegment" to request.catalogParam()
+        }
+        onFullPage {
+            page(422, "code-lists/list") {
+                listModel(request, GetTenant(tenantId.key).query())
+                "openDialog" to true
+                "formData" to formData.formData
+                "errors" to formData.errors
             }
         }
     }
@@ -231,7 +217,7 @@ class CodeListHandler(
         val includeHidden = request.queryParam("show") == "all"
         val entries = ListCodeListEntries(codeListId, includeHidden = includeHidden, catalogVersion = version).query()
         val tenant = GetTenant(tenantId.key).query() ?: return ServerResponse.notFound().build()
-        val editable = codeList.catalogType == CatalogType.AUTHORED
+        val editable = draftBar.editable
         return ServerResponse.ok().page("code-lists/detail") {
             "pageTitle" to "${codeList.displayName} - Code list"
             "tenant" to tenant
@@ -280,7 +266,7 @@ class CodeListHandler(
                     "codeList" to codeList
                     "catalogSegment" to request.catalogSegment().value
                     "entries" to ListCodeListEntries(codeListId, catalogVersion = request.catalogVersion()).query()
-                    "editable" to (codeList.catalogType == CatalogType.AUTHORED)
+                    "editable" to IsCatalogEditable(tenantId.key, codeListId.catalogId.key).query()
                     "includeHidden" to false
                     "error" to (e.message ?: "Cannot delete")
                 }

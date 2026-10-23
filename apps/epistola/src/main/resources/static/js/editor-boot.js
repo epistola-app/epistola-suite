@@ -28,6 +28,8 @@ async function mount(container) {
   // the editor reads and writes the draft it was opened in; other catalogs are addressed plainly.
   // `catalogId` stays the bare key, which is what template documents store.
   const catalogSegment = config.catalogSegment || catalogId;
+  // A catalog segment may name its namespace, `acme/letters` (ADR 0034): its parts are encoded apart.
+  const catalogPath = (segment) => String(segment).split('/').map(encodeURIComponent).join('/');
   const inDraft = catalogSegment !== catalogId;
   const segmentOf = (catalog) => (catalog === catalogId ? catalogSegment : catalog);
   // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
@@ -49,7 +51,7 @@ async function mount(container) {
     // The catalog's available presets (ADR 0007) travel with the theme the inspector reads.
     theme:
       config.availablePresets && config.availablePresets.length > 0
-        ? { ...(config.theme ?? {}), availablePresets: config.availablePresets }
+        ? { ...config.theme, availablePresets: config.availablePresets }
         : (config.theme ?? undefined),
     dataExamples: config.dataExamples,
     dataModel: config.dataModel,
@@ -118,7 +120,7 @@ async function mount(container) {
         '/tenants/' +
         tenantId +
         '/catalogs/' +
-        encodeURIComponent(segmentOf(ref.catalogKey)) +
+        catalogPath(segmentOf(ref.catalogKey)) +
         '/stencils/' +
         encodeURIComponent(ref.stencilKey);
       // Each stencil's revision as last read or saved here, by its URL; a save names it.
@@ -218,7 +220,7 @@ async function mount(container) {
         '/tenants/' +
           tenantId +
           '/catalogs/' +
-          encodeURIComponent(catalogSegment) +
+          catalogPath(catalogSegment) +
           '/templates/' +
           templateId +
           '/variants/' +
@@ -284,7 +286,7 @@ async function mount(container) {
         '/tenants/' +
           tenantId +
           '/catalogs/' +
-          encodeURIComponent(catalogSegment) +
+          catalogPath(catalogSegment) +
           '/templates/' +
           templateId +
           '/variants/' +

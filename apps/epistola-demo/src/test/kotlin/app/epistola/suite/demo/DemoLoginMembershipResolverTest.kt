@@ -18,10 +18,10 @@ import app.epistola.suite.security.LoginMembershipResolver
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -163,7 +163,7 @@ class DemoLoginMembershipResolverTest {
     @Test
     fun `the resulting principal sees only its own tenant`() {
         val otherTenant = TenantKey.of("someone-elses-tenant")
-        asSystem { mediator.send(CreateTenant(id = otherTenant, name = "Someone Else")) }
+        asSystem { mediator.send(TestNamespaces.createTenant(otherTenant, "Someone Else")) }
         val tenantKey = keyFor("isolated@acme.io")
         createdTenants.add(otherTenant)
         track("isolated@acme.io")

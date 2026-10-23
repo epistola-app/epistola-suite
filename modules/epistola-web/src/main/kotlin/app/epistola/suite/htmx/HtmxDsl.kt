@@ -146,7 +146,7 @@ class FullPageBuilder {
      * Only the last page() or redirect() call is used.
      */
     fun redirect(url: String) {
-        response = ServerResponse.seeOther(URI.create(url)).build()
+        response = ServerResponse.seeOther(URI.create(CatalogAddresses.address(url))).build()
     }
 
     internal fun build(): ServerResponse? = response
@@ -355,7 +355,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * @param url The URL to push
      */
     fun pushUrl(url: String) {
-        headers["HX-Push-Url"] = url
+        headers["HX-Push-Url"] = CatalogAddresses.address(url)
     }
 
     /**
@@ -364,7 +364,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * @param url The URL to replace with
      */
     fun replaceUrl(url: String) {
-        headers["HX-Replace-Url"] = url
+        headers["HX-Replace-Url"] = CatalogAddresses.address(url)
     }
 
     /**
@@ -492,8 +492,9 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * submit just 303-redirects to the same resource.
      */
     fun dialogRedirect(url: String) {
-        redirectUrl = url
-        headers["HX-Redirect"] = url
+        val addressed = CatalogAddresses.address(url)
+        redirectUrl = addressed
+        headers["HX-Redirect"] = addressed
         status(200)
     }
 
@@ -517,8 +518,9 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * submit still 303-redirects to the same resource.
      */
     fun dialogLocation(url: String) {
-        redirectUrl = url
-        headers["HX-Location"] = url
+        val addressed = CatalogAddresses.address(url)
+        redirectUrl = addressed
+        headers["HX-Location"] = addressed
         status(200)
     }
 
@@ -787,4 +789,4 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
  * @param url The URL to redirect to
  * @return A 303 See Other response
  */
-fun redirect(url: String): ServerResponse = ServerResponse.seeOther(URI.create(url)).build()
+fun redirect(url: String): ServerResponse = ServerResponse.seeOther(URI.create(CatalogAddresses.address(url))).build()

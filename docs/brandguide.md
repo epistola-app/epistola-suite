@@ -268,8 +268,8 @@ A value inside a link keeps its own shape _inside_ the link. Wrap the `<code>` i
 put the value class on the anchor and drop the shape.
 
 Two label lists side by side get the **same** variant. Reach for a different one only when the
-difference is real — `badge-info` versus `badge-default` distinguishes an authored catalog from a
-subscribed one, which is a genuine distinction; keywords versus discovery attributes is not.
+difference is real — `badge-info` versus `badge-default` distinguishes a catalog that can be changed
+here from one that cannot, which is a genuine distinction; keywords versus discovery attributes is not.
 
 ### Buttons
 

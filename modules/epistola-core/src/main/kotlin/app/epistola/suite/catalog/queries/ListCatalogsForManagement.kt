@@ -21,8 +21,9 @@ import org.springframework.stereotype.Component
  * One [Catalog] plus the catalog-management-list-only `pendingChanges` flag.
  *
  * `pendingChanges` is **not** a property of a catalog — it is "this catalog
- * *as shown in the management list right now*": an AUTHORED-and-released
- * catalog whose working copy has drifted since the last release/import. It is
+ * *as shown in the management list right now*": a catalog that can be changed
+ * here, whose next version is on a release, and that has drifted since it was put
+ * on it (a release here, or one received). It is
  * deliberately *not* on [Catalog] (which browse, REST and MCP also read and
  * which must stay a plain `SELECT *` via `listForTenant`); it lives only on
  * this list-page row, computed in the same query.
@@ -33,7 +34,7 @@ data class CatalogListRow(
 )
 
 /**
- * Whether an AUTHORED catalog has been touched since it was last released, in three shareable
+ * Whether a catalog has been touched since its next version was put on its base release, in three shareable
  * pieces: the activity roll-up, the flag computed from it, and the join between them.
  *
  * Kept apart so the rule has one home: two copies of a drift rule is how one page comes to say
@@ -60,24 +61,30 @@ internal val CATALOG_ACTIVITY_CTE = """
 """
 
 internal const val CATALOG_PENDING_CHANGES = """COALESCE(
-                       c.type = 'AUTHORED'
-                       AND c.released_at IS NOT NULL
-                       AND a.last_activity > GREATEST(c.released_at, c.imported_at),
+                       NOT COALESCE(c.source_url LIKE 'classpath:%', FALSE)
+                       AND nv.base_version IS NOT NULL
+                       AND a.last_activity > GREATEST(c.released_at, c.imported_at, nv.created_at),
                        FALSE
                    ) AS pending_changes"""
+
+/** The catalog's next version, whose base and the moment it was put on it [CATALOG_PENDING_CHANGES] compares with. */
+internal const val CATALOG_NEXT_VERSION_JOIN = """LEFT JOIN catalog_versions nv
+              ON nv.tenant_key = c.tenant_key AND nv.catalog_id = c.catalog_id AND nv.is_next"""
 
 internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_id, MAX(ts) AS last_activity FROM activity GROUP BY catalog_id) a
               ON a.catalog_id = c.catalog_id"""
 
 /**
  * The catalog-management list. [ListCatalogs] (the shared read model, used by
- * browse / REST / MCP) plus the cheap AUTHORED working-copy drift signal —
+ * browse / REST / MCP) plus the cheap next-version drift signal —
  * computed here in **one** `LEFT JOIN` against a timestamp aggregate, so the
  * UI never cross-references a parallel id set in the template.
  *
- * `pendingChanges` ⇔ `type = AUTHORED` AND `released_at IS NOT NULL` AND the
- * most recent content-activity timestamp across the catalog's resources is
- * **after** `GREATEST(released_at, imported_at)`. **Not** a content
+ * `pendingChanges` ⇔ the catalog can be changed here (Epistola does not supply
+ * it, ADR 0032) AND its next version is on a release AND the most recent
+ * content-activity timestamp across the catalog's resources is **after**
+ * `GREATEST(released_at, imported_at, next version's created_at)` — the moment
+ * the next version was put on that release, by releasing it or receiving one. **Not** a content
  * fingerprint (that is O(catalog-size); `ExportCatalogZip` remains the
  * authoritative `-dev` truth).
  *
@@ -118,6 +125,7 @@ class ListCatalogsForManagementHandler(
             SELECT c.*, $CATALOG_PENDING_CHANGES
             FROM catalogs c
             $CATALOG_ACTIVITY_JOIN
+            $CATALOG_NEXT_VERSION_JOIN
             WHERE c.tenant_key = :t
             ORDER BY c.name
             """,

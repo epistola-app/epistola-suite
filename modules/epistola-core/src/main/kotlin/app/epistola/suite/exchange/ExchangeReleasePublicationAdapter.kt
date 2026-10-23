@@ -35,8 +35,10 @@ class ExchangeReleasePublicationAdapter(
             // The catalog's namespace must be one the connection grants now: an organization can
             // withdraw a namespace, and queueing into one we no longer hold would create work that
             // cannot move, which is the thing this check exists to prevent.
+            // A catalog named under local never leaves the organisation (ADR 0034, section 7), even
+            // when its namespace token is one the connection grants.
             val namespace = namespaceBinder.namespaceOf(handle, tenantKey, catalogKey)
-            namespace != null && namespace in namespaceBinder.grantedNamespaces(handle, tenantKey)
+            namespace != null && !namespaceBinder.isLocal(handle, tenantKey, catalogKey) && namespace in namespaceBinder.grantedNamespaces(handle, tenantKey)
         }
 
     /**

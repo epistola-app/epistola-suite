@@ -22,6 +22,21 @@
                                hx-trigger="change" hx-swap="outerHTML"
                                style="max-width: 300px;">
                     </dd>
+                    <dt><label for="template-description-input">Description</label></dt>
+                    <dd>
+                        <!-- Plain-text notes for authors, travelling with the template in its
+                             catalog (wire v8). Committing the field (blur) fires change, which
+                             hx-patches it and swaps the persisted value back; an emptied field
+                             removes the description. -->
+                        <textarea id="template-description-input" class="ep-textarea" maxlength="2000" rows="3"
+                                  th:fragment="description-input"
+                                  name="description" th:text="${template.description}" th:disabled="${!editable}"
+                                  data-testid="template-description-input" data-revert-on-error
+                                  placeholder="What this template is for, design decisions, known gaps. Not rendered."
+                                  th:hx-patch="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/description(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
+                                  hx-trigger="change" hx-swap="outerHTML"
+                                  style="max-width: 600px;"></textarea>
+                    </dd>
                     <dt>ID</dt>
                     <dd><code th:text="${template.id}"></code></dd>
                     <dt>Catalog</dt>

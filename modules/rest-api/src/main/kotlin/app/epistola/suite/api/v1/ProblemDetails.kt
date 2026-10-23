@@ -88,7 +88,12 @@ object ApiProblemTypes {
     val UNSUPPORTED_ASSET_TYPE = problem("UNSUPPORTED_ASSET_TYPE", "Unsupported Asset Type", HttpStatus.BAD_REQUEST, "The asset media type is not supported.", emptyList())
     val ASSET_IN_USE = problem("ASSET_IN_USE", "Asset In Use", HttpStatus.CONFLICT, "The asset cannot be deleted because template versions still reference it.", listOf("assetId", "usages"))
     val ENVIRONMENT_IN_USE = problem("ENVIRONMENT_IN_USE", "Environment In Use", HttpStatus.CONFLICT, "The environment cannot be deleted while it serves catalog releases.", listOf("environmentId", "deploymentCount"))
-    val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog is subscribed/read-only and cannot be modified through this API.", emptyList())
+    val CATALOG_READ_ONLY = problem("CATALOG_READ_ONLY", "Catalog Read Only", HttpStatus.CONFLICT, "The catalog cannot be changed in this installation: the installation only receives and runs releases, or Epistola supplies the catalog.", listOf("catalogKey", "readOnlyReason"))
+    val MERGE_CONFLICTS_UNRESOLVED = problem("MERGE_CONFLICTS_UNRESOLVED", "Merge Conflicts Unresolved", HttpStatus.CONFLICT, "A resource changed in both the draft and the release has no resolution; `unresolvedConflicts` lists them.", listOf("unresolvedConflicts"))
+    val MERGE_REFUSED = problem("MERGE_REFUSED", "Merge Refused", HttpStatus.CONFLICT, "The release removes something the draft still uses.", emptyList())
+    val MERGE_BASE_MISSING = problem("MERGE_BASE_MISSING", "Merge Base Missing", HttpStatus.CONFLICT, "This installation does not have the merge base, the release both the draft and the release come from; `version` and `fingerprint` name it, to get first.", listOf("version", "fingerprint"))
+    val MERGE_PREVIEW_OUTDATED = problem("MERGE_PREVIEW_OUTDATED", "Merge Preview Outdated", HttpStatus.CONFLICT, "The draft or the release changed since the preview whose token the request sent as expectedToken; preview again.", emptyList())
+    val MERGE_NOT_APPLICABLE = problem("MERGE_NOT_APPLICABLE", "Merge Not Applicable", HttpStatus.UNPROCESSABLE_CONTENT, "The draft already contains the release, or a resolution names something that is not a conflict.", emptyList())
     val CATALOG_NOT_FOUND = problem("CATALOG_NOT_FOUND", "Catalog Not Found", HttpStatus.NOT_FOUND, "The requested catalog does not exist or is not visible to the caller.", listOf("catalogId"))
     val CATALOG_VERSION_NOT_FOUND = problem("CATALOG_VERSION_NOT_FOUND", "Catalog Version Not Found", HttpStatus.NOT_FOUND, "The catalog has no such version: no release with this number, or no such draft.", listOf("catalogKey", "version"))
     val CATALOG_VERSION_RELEASED = problem("CATALOG_VERSION_RELEASED", "Catalog Version Released", HttpStatus.CONFLICT, "The catalog version is released and cannot change; change a draft.", listOf("catalogKey", "version"))
@@ -97,6 +102,9 @@ object ApiProblemTypes {
     val ENVIRONMENT_DEPLOYMENT_REFUSED = problem("ENVIRONMENT_DEPLOYMENT_REFUSED", "Environment Deployment Refused", HttpStatus.CONFLICT, "The environment cannot serve that: a production environment serves only releases, never a draft.", emptyList())
     val CATALOG_SOURCE_UNAVAILABLE = problem("CATALOG_SOURCE_UNAVAILABLE", "Catalog Source Unavailable", HttpStatus.SERVICE_UNAVAILABLE, "The catalog's source could not be reached or did not answer in time (503), or answered badly (502).", emptyList())
     val CONFLICT = problem("CONFLICT", "Conflict", HttpStatus.CONFLICT, "The request conflicts with the current state of the resource.", emptyList())
+    val RELEASE_REGISTRY_NOT_FOUND = problem("RELEASE_REGISTRY_NOT_FOUND", "Release Registry Not Found", HttpStatus.NOT_FOUND, "This installation has no release registry of that name: none configured, and not connected to an Exchange of that name.", emptyList())
+    val RELEASE_NUMBER_TAKEN = problem("RELEASE_NUMBER_TAKEN", "Release Number Taken", HttpStatus.CONFLICT, "The release registry, or the tenant importing it, holds this version with other content, or this release id as another release; one number and one id name one release. Release the changes under a new version.", emptyList())
+    val NAMESPACE_NOT_GRANTED = problem("NAMESPACE_NOT_GRANTED", "Namespace Not Granted", HttpStatus.CONFLICT, "The release registry (the Exchange) does not grant this installation the catalog's namespace.", emptyList())
     val RELEASE_DEPENDENCIES_UNRELEASED = problem("RELEASE_DEPENDENCIES_UNRELEASED", "Release Dependencies Unreleased", HttpStatus.CONFLICT, "The draft's dependency declarations name drafts of other catalogs and the request does not release them along (`releaseDependencies`); `unreleasedDependencies` lists each.", listOf("unreleasedDependencies"))
     val CATALOG_VERSION_HELD = problem("CATALOG_VERSION_HELD", "Catalog Version Held", HttpStatus.CONFLICT, "The draft alone holds resources something outside it still uses; change those first.", listOf("catalogKey", "version", "heldBy"))
     val CATALOG_VERSION_BEHIND = problem("CATALOG_VERSION_BEHIND", "Catalog Version Behind", HttpStatus.CONFLICT, "The draft is behind releases it does not contain; name every one in acknowledgedBehind to release it.", listOf("catalogKey", "version", "behind"))
@@ -104,6 +112,7 @@ object ApiProblemTypes {
     val CATALOG_RELEASE_VERSION_INVALID = problem("CATALOG_RELEASE_VERSION_INVALID", "Invalid Catalog Release Version", HttpStatus.BAD_REQUEST, "The requested catalog release version is invalid or does not advance the current version.", emptyList())
     val CATALOG_UPGRADE_CONFLICT = problem("CATALOG_UPGRADE_CONFLICT", "Catalog Upgrade Conflict", HttpStatus.CONFLICT, "The catalog upgrade would remove resources that are still in use.", listOf("conflicts"))
     val CATALOG_SCHEMA_TOO_NEW = problem("CATALOG_SCHEMA_TOO_NEW", "Catalog Wire Schema Too New", HttpStatus.BAD_REQUEST, "The catalog was exported by a newer Epistola than this instance can read; upgrade this instance.", listOf("version", "supportedVersion"))
+    val CATALOG_RENDERING_DEFAULTS_TOO_NEW = problem("CATALOG_RENDERING_DEFAULTS_TOO_NEW", "Catalog Rendering Defaults Too New", HttpStatus.BAD_REQUEST, "The release renders with rendering defaults this instance does not have; upgrade this instance to receive it.", listOf("renderingDefaultsVersion", "supportedVersion"))
     val CATALOG_SCHEMA_TOO_OLD = problem("CATALOG_SCHEMA_TOO_OLD", "Catalog Wire Schema Too Old", HttpStatus.BAD_REQUEST, "The catalog's wire format predates the oldest version this instance can upgrade; re-export from a current source.", listOf("version", "baselineVersion"))
     val CATALOG_SCHEMA_UNKNOWN = problem("CATALOG_SCHEMA_UNKNOWN", "Catalog Wire Schema Unrecognised", HttpStatus.BAD_REQUEST, "The uploaded payload is not a recognised catalog wire format (not valid JSON, or a missing or non-integer schemaVersion).", emptyList())
     val CODE_LIST_IN_USE = problem("CODE_LIST_IN_USE", "Code List In Use", HttpStatus.CONFLICT, "The code list cannot be deleted because an attribute still references it.", emptyList())
@@ -166,6 +175,11 @@ object ApiProblemTypes {
         ASSET_IN_USE,
         ENVIRONMENT_IN_USE,
         CATALOG_READ_ONLY,
+        MERGE_CONFLICTS_UNRESOLVED,
+        MERGE_REFUSED,
+        MERGE_PREVIEW_OUTDATED,
+        MERGE_BASE_MISSING,
+        MERGE_NOT_APPLICABLE,
         CATALOG_NOT_FOUND,
         CATALOG_VERSION_NOT_FOUND,
         CATALOG_VERSION_RELEASED,
@@ -181,6 +195,7 @@ object ApiProblemTypes {
         CATALOG_RELEASE_VERSION_INVALID,
         CATALOG_UPGRADE_CONFLICT,
         CATALOG_SCHEMA_TOO_NEW,
+        CATALOG_RENDERING_DEFAULTS_TOO_NEW,
         CATALOG_SCHEMA_TOO_OLD,
         CATALOG_SCHEMA_UNKNOWN,
         CODE_LIST_IN_USE,

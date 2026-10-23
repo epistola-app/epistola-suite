@@ -4,11 +4,13 @@
 
 package app.epistola.suite.tenants.commands
 
-import app.epistola.suite.catalog.CatalogIdentityProperties
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceGrantSource
+import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
+import app.epistola.suite.catalog.namespaces.NamespaceName
+import app.epistola.suite.catalog.namespaces.validateNamespaceName
 import app.epistola.suite.catalog.system.InstallSystemCatalog
-import app.epistola.suite.catalog.versions.CatalogDrafts
 import app.epistola.suite.common.EntityIdentifiable
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -16,8 +18,10 @@ import app.epistola.suite.mediator.Routable
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.RequiresPlatformRole
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -25,9 +29,16 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
+/**
+ * Creates a tenant, with its default catalog and the system catalog. [namespaces] are granted to it
+ * at once (ADR 0034, section 3), by the administrator creating it, and its default catalog is named in
+ * the first; without one it is named under `local`, in [LocalAuthority.DEFAULT_NAMESPACE], since
+ * nothing is derived from the tenant key.
+ */
 data class CreateTenant(
     val id: TenantKey,
     val name: String,
+    val namespaces: List<NamespaceName> = emptyList(),
 ) : Command<Tenant>,
     EntityIdentifiable,
     Routable,
@@ -38,14 +49,20 @@ data class CreateTenant(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        namespaces.forEach { namespace ->
+            validateNamespaceName(namespace.authority, namespace.namespace)
+            validate("namespaces", !namespace.isLocal, ValidationCode.CATALOG_NAMESPACE_INVALID) { "A local namespace needs no grant." }
+        }
+        validate("namespaces", namespaces.map { it.namespace }.distinct().size == namespaces.size, ValidationCode.CATALOG_NAMESPACE_TAKEN) {
+            "A tenant holds a namespace under one authority."
+        }
     }
 }
 
 @Component
 class CreateTenantHandler(
     private val jdbi: Jdbi,
-    private val identity: CatalogIdentityProperties,
-    private val drafts: CatalogDrafts,
+    private val grants: NamespaceGrantStore,
 ) : CommandHandler<CreateTenant, Tenant> {
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
@@ -67,19 +84,22 @@ class CreateTenantHandler(
                 .mapTo<Tenant>()
                 .one()
 
-            // Create the tenant's default catalog so authored resources have a home.
+            command.namespaces.forEach { grants.grant(handle, command.id, it, NamespaceGrantSource.ADMINISTRATOR, currentUserIdOrNull()) }
+
+            // Create the tenant's default catalog so authored resources have a home, named in the
+            // first namespace it was granted, or under local.
+            val defaultName = command.namespaces.firstOrNull() ?: NamespaceName(LocalAuthority.NAME, LocalAuthority.DEFAULT_NAMESPACE)
             handle.createUpdate(
                 """
-                INSERT INTO catalogs (catalog_id, catalog_key, tenant_key, registry, namespace, name, type, created_at, updated_at)
-                VALUES (epistola_uuidv7(), 'default', :tenantKey, :registry, :namespace, 'Default', 'AUTHORED', NOW(), NOW())
+                INSERT INTO catalogs (catalog_id, catalog_key, tenant_key, registry, namespace, name, created_at, updated_at)
+                VALUES (epistola_uuidv7(), 'default', :tenantKey, :registry, :namespace, 'Default', NOW(), NOW())
                 """,
             )
                 .bind("tenantKey", command.id)
-                .bind("registry", identity.defaultRegistry)
-                .bind("namespace", CatalogIdentityProperties.defaultNamespace(command.id))
+                .bind("registry", defaultName.authority)
+                .bind("namespace", defaultName.namespace)
                 .execute()
-            // Its working copy is its first draft (contract ADR 0002), as for any authored catalog.
-            drafts.open(handle, command.id, CatalogKey.DEFAULT, base = null)
+            // Its next version (contract ADR 0002) is opened by the database with the row, as for any catalog.
 
             inserted
         }

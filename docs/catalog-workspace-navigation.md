@@ -62,7 +62,8 @@ A context is `(catalog, version)`:
 
 - an authored catalog's **draft** — editable;
 - an authored catalog's **release** — read-only: view, preview, export, deploy, open a draft from it;
-- a subscribed catalog's **installed release** — read-only.
+- a catalog that cannot be changed here (Epistola supplies it, or the installation only runs
+  releases, ADR 0032) — read-only, on the release its content is on, with the reason.
 
 ### Context bar
 
@@ -105,8 +106,8 @@ The model people see, decided 17 October (see "Simple model" below): one working
 
 - **One short bar** above every catalog content page: `Catalog Letters · Your work · [Publish…]`.
   A fix is a banner instead: "You are fixing Letters v1.4.0, which is live in production. Changes
-  here go only into this fix. [Publish fix…] [Back to your work]". A subscribed catalog: `v2.0.0 ·
-  can't be edited`. No version numbers for your work. `CatalogDraftBar`, `catalogs/drafts.html ::
+  here go only into this fix. [Publish fix…] [Back to your work]". A catalog that cannot be changed here:
+  `v2.0.0 · Supplied by Epistola`. No version numbers for your work. `CatalogDraftBar`, `catalogs/drafts.html ::
   content-draft-bar`.
 - **URLs:** a plain segment (`/themes/letters/house`) is your work; a fix or a published version is
   named by its number (`letters@1.4.1`). An explicit-version redirect was built and dropped the same
@@ -150,7 +151,7 @@ The context is in the path, so links, tabs and back buttons keep it, and the ser
   UI keeps the key-only catalog segment it uses today.
 - Today's `letters@2.0.0` segment and the tenant-level resource routes redirect to the new form, so
   existing links keep working.
-- Every handler passes the context's `CatalogVersionRef` to every message, as the `@version` segment
+- Every handler passes the context's `CatalogReleaseRef` to every message, as the `@version` segment
   does today; a release context reads release content (`GetReleasedResource`,
   `ListReleasedResources`, the release render path), which the core already provides.
 
@@ -204,7 +205,7 @@ either way.
 
 ## What exists and what is new
 
-Exists in core and REST: version-scoped messages (`CatalogVersionRef`), release reads, change lists,
+Exists in core and REST: version-scoped messages (`CatalogReleaseRef`), release reads, change lists,
 behind, the draft lifecycle, the draft-number check. Exists in the UI but moves: the draft bar
 (`CatalogDraftBar`), next release (`CatalogReleaseHandler`, `next-release.html`), the catalog
 segment. New: the context bar and its pickers, context routes and redirects, read-only rendering of

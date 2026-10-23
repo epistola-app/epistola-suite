@@ -5,10 +5,10 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
@@ -18,10 +18,12 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
+import app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -39,8 +41,10 @@ data class CreateDocumentTemplate(
     val id: TemplateId,
     val name: String,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+    /** Plain-text notes for the template's authors; blank counts as none. */
+    val description: String? = null,
+) : CatalogReleaseScoped,
     Command<DocumentTemplate>,
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
@@ -49,6 +53,7 @@ data class CreateDocumentTemplate(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        validate("description", description.fitsTemplateDescription()) { "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less" }
     }
 }
 
@@ -67,15 +72,16 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, name, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
+                INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, description, pdfa_enabled, created_at, updated_at, created_by, updated_by)
+                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
+                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, name, description, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("catalogKey", command.id.catalogKey)
                     .bind("name", command.name)
+                    .bind("description", command.description?.takeIf { it.isNotBlank() })
                     .bind("createdBy", auditUser)
                     .bind("updatedBy", auditUser)
                     .mapTo<DocumentTemplate>()

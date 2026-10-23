@@ -148,13 +148,13 @@ theme snapshot instead; those snapshots are gone.)
 
 ## Surfaces
 
-| Surface                           | What                                                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Web UI (`apps/epistola`)          | Font picker (backend-driven, `@font-face` injected, grouped into `<optgroup>` by catalog); upload/list/delete (`FontHandler`/`FontRoutes`, AUTHORED catalogs only) |
-| REST (`modules/rest-api`)         | **Read-only** list/get (`EpistolaFontApi`) — deliberately no CRUD, mirroring assets                                                                                |
-| MCP (`modules/epistola-mcp`)      | `list_fonts`; `upload_font` (beta) creates or replaces a family                                                                                                    |
-| Catalog exchange                  | Font families + (asset-backed) faces export/import; cross-catalog refs emit `DependencyRef.Font`                                                                   |
-| Generation (`modules/generation`) | `FontFamilyResolver` SPI, `FontCache`, `FontBytesValidator` — JDBI/tenant-free                                                                                     |
+| Surface                           | What                                                                                                                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web UI (`apps/epistola`)          | Font picker (backend-driven, `@font-face` injected, grouped into `<optgroup>` by catalog); upload/list/delete (`FontHandler`/`FontRoutes`, catalogs that can be changed here only) |
+| REST (`modules/rest-api`)         | **Read-only** list/get (`EpistolaFontApi`) — deliberately no CRUD, mirroring assets                                                                                                |
+| MCP (`modules/epistola-mcp`)      | `list_fonts`; `upload_font` (beta) creates or replaces a family                                                                                                                    |
+| Catalog exchange                  | Font families + (asset-backed) faces export/import; cross-catalog refs emit `DependencyRef.Font`                                                                                   |
+| Generation (`modules/generation`) | `FontFamilyResolver` SPI, `FontCache`, `FontBytesValidator` — JDBI/tenant-free                                                                                                     |
 
 ## Not yet built
 

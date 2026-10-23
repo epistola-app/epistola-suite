@@ -35,9 +35,9 @@ import org.springframework.web.servlet.function.ServerResponse
  * highlighting Catalogs and installing reads as what it is: another way to get a catalog, beside
  * subscribing to a URL and importing a ZIP.
  *
- * Both permissions are required to install. [Permission.CATALOG_MANAGE] is the catalog-lifecycle
- * one, and the nested ZIP import carries [Permission.TEMPLATE_EDIT] — checked here so someone
- * holding only one is told before a release is downloaded rather than after.
+ * Installing takes [Permission.CATALOG_MANAGE], the catalog-lifecycle permission, which is what
+ * `InstallExchangeCatalog` and the archive import it dispatches require: receiving a release writes
+ * no draft. Checked here so someone without it is told before a release is downloaded.
  */
 @Component
 class ExchangeCatalogHandler {
@@ -153,7 +153,7 @@ class ExchangeCatalogHandler {
     /**
      * The upgrade dialog for an Exchange catalog.
      *
-     * Release metadata only, not the resource-by-resource diff a URL-subscribed catalog gets: that
+     * Release metadata only, not the resource-by-resource diff a catalog from a manifest URL gets: that
      * diff is built by walking a manifest, and an Exchange release is an archive. What the dialog
      * can say instead is the guarantee — a failed resource abandons the whole upgrade — which is
      * the thing a reader actually needs before pressing the button.
@@ -176,6 +176,8 @@ class ExchangeCatalogHandler {
                 "tenantId" to tenantKey,
                 "catalogId" to catalogKey.value,
                 "catalog" to catalog,
+                // The catalog's highest release, received or released here, as the catalog list shows it.
+                "highestRelease" to catalog?.highestReleaseVersion,
                 "detail" to detail,
                 "canInstall" to canInstall(tenantKey),
             ),
@@ -230,14 +232,10 @@ class ExchangeCatalogHandler {
         onFullPage { redirect("/tenants/${request.tenantId().key}/catalogs") }
     }
 
-    private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().let { principal ->
-        principal.hasPermission(tenantKey, Permission.CATALOG_MANAGE) &&
-            principal.hasPermission(tenantKey, Permission.TEMPLATE_EDIT)
-    }
+    private fun canInstall(tenantKey: TenantKey): Boolean = SecurityContext.current().hasPermission(tenantKey, Permission.CATALOG_MANAGE)
 
     private fun requireInstallPermissions(tenantKey: TenantKey) {
         requirePermission(tenantKey, Permission.CATALOG_MANAGE)
-        requirePermission(tenantKey, Permission.TEMPLATE_EDIT)
     }
 
     private companion object {

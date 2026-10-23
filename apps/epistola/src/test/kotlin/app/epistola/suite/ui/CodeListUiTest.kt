@@ -20,8 +20,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
@@ -365,6 +365,6 @@ class CodeListUiTest : BasePlaywrightTest() {
      */
     private fun createUiTenant(): Tenant {
         val tenantKey = TenantKey.of("test-cl-${System.nanoTime()}")
-        return CreateTenant(id = tenantKey, name = "Code List UI Test").execute()
+        return TestNamespaces.createTenant(tenantKey, "Code List UI Test").execute()
     }
 }

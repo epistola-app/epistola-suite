@@ -16,7 +16,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataContract
@@ -31,16 +30,8 @@ internal fun Tenant.toDto() = TenantDto(
     createdAt = createdAt,
 )
 
-internal fun CatalogType.toAttributeCatalogType() = when (this) {
-    CatalogType.AUTHORED -> app.epistola.api.model.CatalogType.AUTHORED
-    CatalogType.SUBSCRIBED -> app.epistola.api.model.CatalogType.SUBSCRIBED
-}
-
-/**
- * An attribute of the working copy. [bindingCatalog] is the catalog of its code list binding, which
- * the binding names in full.
- */
-internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: Catalog?) = AttributeDto(
+/** An attribute of a draft; its code-list binding names another catalog by alias. */
+internal fun VariantAttributeDefinition.toDto(catalog: Catalog, readOnly: Boolean = catalog.readOnlyHere()) = AttributeDto(
     key = id.value,
     tenantKey = tenantKey.value,
     registry = catalog.registry,
@@ -48,19 +39,15 @@ internal fun VariantAttributeDefinition.toDto(catalog: Catalog, bindingCatalog: 
     catalogKey = catalog.id.value,
     displayName = displayName,
     allowedValues = allowedValues,
-    catalogType = catalogType.toAttributeCatalogType(),
-    readOnly = catalogType == CatalogType.SUBSCRIBED,
+    readOnly = readOnly,
     createdAt = createdAt,
     lastModified = updatedAt,
     // Attributes keep no description.
     description = null,
+    // By the alias the draft's declarations give the code list's catalog (contract ADR 0003): its key,
+    // in this installation; null for the attribute's own catalog.
     codeListBinding = codeListId?.let { id ->
-        AttributeDtoCodeListBinding(
-            registry = bindingCatalog?.registry ?: catalog.registry,
-            namespace = bindingCatalog?.namespace ?: catalog.namespace,
-            catalogKey = id.catalogKey.value,
-            key = id.key.value,
-        )
+        AttributeDtoCodeListBinding(catalogKey = id.catalogKey.value.takeUnless { id.catalogKey == catalog.id }, key = id.key.value)
     },
 )
 
@@ -78,8 +65,7 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     name = name,
     createdAt = createdAt,
     lastModified = updatedAt,
-    // Templates keep no description.
-    description = null,
+    description = description,
 )
 
 /** A template of the working copy, with its variants' statuses and its data contract. */
@@ -92,7 +78,7 @@ internal fun DocumentTemplate.toDto(
     key = id.value,
     tenantKey = tenantKey.value,
     name = name,
-    description = null,
+    description = description,
     // The contract's `schema` (input parameters) has no counterpart in the suite: the data model is the schema.
     schema = null,
     dataModel = contract?.dataModel,

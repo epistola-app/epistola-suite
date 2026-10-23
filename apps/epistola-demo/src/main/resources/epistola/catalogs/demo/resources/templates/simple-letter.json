@@ -4,6 +4,7 @@
     "type": "template",
     "key": "simple-letter",
     "name": "Simple Letter",
+    "description": "A basic letter template with sender, recipient, subject, and body.",
     "themeKey": "corporate",
     "dataModel": {
       "type": "object",

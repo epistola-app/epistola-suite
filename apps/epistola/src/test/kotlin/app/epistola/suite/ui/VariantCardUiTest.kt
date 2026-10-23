@@ -20,8 +20,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
@@ -388,7 +388,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
 
     private fun createTenantAndTemplate(): Pair<Tenant, DocumentTemplate> {
         val tenantKey = TenantKey.of("test-ui-tenant-${System.nanoTime()}")
-        val tenant = CreateTenant(id = tenantKey, name = "UI Test Tenant").execute()
+        val tenant = TestNamespaces.createTenant(tenantKey, "UI Test Tenant").execute()
         val tenantId = TenantId(tenant.id)
         val template = CreateDocumentTemplate(
             id = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(tenantId)),

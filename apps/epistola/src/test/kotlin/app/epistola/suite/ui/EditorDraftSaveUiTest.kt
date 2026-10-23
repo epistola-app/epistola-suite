@@ -6,10 +6,10 @@ package app.epistola.suite.ui
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CreateCatalogDraft
-import app.epistola.suite.catalog.versions.DraftRef
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CreateCatalogDraft
+import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -22,7 +22,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.withRequiredDataExample
 import com.microsoft.playwright.Response
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
@@ -43,11 +43,11 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenantKey)))
         val variant = VariantId(VariantKey.INITIAL, template)
         val work = withMediator {
-            CreateTenant(id = tenantKey, name = "Editor Draft Tenant").execute()
+            TestNamespaces.createTenant(tenantKey, "Editor Draft Tenant").execute()
             CreateCatalog(tenantKey = tenantKey, id = letters, name = "Letters").execute()
             CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
             MarkCatalogReady(tenantKey, letters).execute()
-            ReleaseCatalogVersion(tenantKey, letters, "1.0.0").execute()
+            ReleaseCatalogDraft(tenantKey, letters, "1.0.0").execute()
             requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().versionId)
         }
 
@@ -65,7 +65,7 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         Assertions.assertThat(saved.status()).isEqualTo(200)
         Assertions.assertThat(saved.url()).contains("/catalogs/letters%40$work/templates/invoice/")
         fun containers(draft: DraftRef) = withMediator {
-            GetVariantContent(variant, catalogVersion = CatalogVersionRef(tenantKey, letters, draft)).query()!!
+            GetVariantContent(variant, catalogVersion = CatalogReleaseRef(tenantKey, letters, draft)).query()!!
         }.nodes.values.count { it.type == "container" }
         Assertions.assertThat(containers(DraftRef.Id(work))).isEqualTo(1)
         Assertions.assertThat(containers(DraftRef.Next)).isZero()

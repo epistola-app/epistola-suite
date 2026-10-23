@@ -1,7 +1,9 @@
 config:
-  # The documented staging/test profile supplies self-contained form login.
+  # Self-contained form login on the default image, the one the chart installs by
+  # default (appVersion). The demo profile needs the -demo image, which the default
+  # image refuses (docs/auth.md, "Two images"); nothing here needs demo mode.
   # The chart still exercises its external database and migration Job wiring.
-  profiles: demo,localauth
+  profiles: localauth
 
 # The smoke environment is disposable. Exercise the chart's production database
 # wiring and migration hook without provisioning a test encryption keyset.

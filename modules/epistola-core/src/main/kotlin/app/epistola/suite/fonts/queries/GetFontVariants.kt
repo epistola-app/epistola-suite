@@ -4,8 +4,8 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.model.FontVariantRow
@@ -24,8 +24,8 @@ import org.springframework.stereotype.Component
 data class GetFontVariants(
     val fontId: FontId,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<List<FontVariantRow>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW

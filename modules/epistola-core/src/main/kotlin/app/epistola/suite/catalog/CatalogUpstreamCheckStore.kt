@@ -22,13 +22,13 @@ import java.time.OffsetDateTime
 class CatalogUpstreamCheckStore(
     private val jdbi: Jdbi,
 ) {
-    /** Every recorded check for a tenant, keyed by catalog, for rendering a whole list at once. */
-    fun statesFor(tenantKey: TenantKey): Map<CatalogKey, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogKey, CatalogUpstreamCheck>, Exception> { handle ->
+    /** Every recorded check for a tenant, by catalog (namespace and key, ADR 0034), for rendering a whole list at once. */
+    fun statesFor(tenantKey: TenantKey): Map<CatalogAddress, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogAddress, CatalogUpstreamCheck>, Exception> { handle ->
         handle.createQuery("$SELECT_CHECK WHERE u.tenant_key = :t")
             .bind("t", tenantKey)
-            .map(::map)
+            .map { rs, ctx -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) to map(rs, ctx) }
             .list()
-            .associateBy(CatalogUpstreamCheck::catalogKey)
+            .toMap()
     }
 
     fun stateFor(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogUpstreamCheck? = jdbi.withHandle<CatalogUpstreamCheck?, Exception> { handle ->
@@ -240,7 +240,7 @@ class CatalogUpstreamCheckStore(
 
     private companion object {
         const val SELECT_CHECK = """
-            SELECT c.catalog_key, u.available_release_version, u.available_schema_version,
+            SELECT c.catalog_key, c.namespace, u.available_release_version, u.available_schema_version,
                    u.installed_availability, u.installed_archive_sha256, u.last_checked_at,
                    u.error_code, u.error_detail
             FROM catalog_upstream_checks u

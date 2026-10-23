@@ -58,7 +58,7 @@
             <div class="card-header">
                 <h2>Catalog publishing</h2>
                 <p class="subtitle">
-                    Choose the default for new authored catalog releases. Each catalog can override this default.
+                    Choose the default for new catalog releases. Each catalog can override this default.
                 </p>
             </div>
             <div class="card-content">
@@ -67,7 +67,7 @@
                         <label>
                             <input type="checkbox" name="publishByDefault" value="true"
                                    th:checked="${tenant.publishCatalogsByDefault}">
-                            Publish authored catalog releases by default
+                            Publish catalog releases by default
                         </label>
                         <p class="form-hint">
                             This only queues a release when the deployment gate and the tenant's Catalog publishing

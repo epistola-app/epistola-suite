@@ -220,7 +220,7 @@ class ApiKeyHandler {
             RoleOption(TenantRole.CONTENT_VIEWER.name, "Viewer", "Read-only access across the tenant.", defaultChecked = true),
             RoleOption(TenantRole.CONTENT_AUTHOR.name, "Author", "Create and edit templates, themes, stencils, and reference data.", defaultChecked = false),
             RoleOption(TenantRole.DOCUMENT_GENERATOR.name, "Generator", "Generate documents.", defaultChecked = false),
-            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish catalog versions and deploy them to environments.", defaultChecked = false),
+            RoleOption(TenantRole.CONTENT_PUBLISHER.name, "Publisher", "Publish catalog releases and deploy them to environments.", defaultChecked = false),
             RoleOption(
                 TenantRole.TENANT_ADMINISTRATOR.name,
                 "Administrator",

@@ -6,7 +6,7 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -19,8 +19,8 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.MissingDependencyReason.UNAVAILABLE
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
@@ -54,7 +54,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     fun `a release whose dependencies the environment does not serve is deployed, using them implicitly, direct and transitive`() {
         val (tenant, production) = chain("deps-implicit")
 
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThat(served(tenant)).`as`("only what was deployed").containsExactly("letters@1.0.0")
         assertThat(implicit(tenant, production)).containsExactlyInAnyOrder("shared@1.0.0", "base@1.0.0")
@@ -65,9 +65,9 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     @Test
     fun `a dependency the environment serves itself is not used implicitly`() {
         val (tenant, production) = chain("deps-served")
-        withMediator { DeployCatalogVersion(production, base, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, base, "1.0.0").execute() }
 
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "letters@1.0.0")
         assertThat(implicit(tenant, production)).containsExactly("shared@1.0.0")
@@ -77,7 +77,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     fun `with includeDependencies the missing releases are deployed along, and each is logged`() {
         val (tenant, production) = chain("deps-along")
 
-        val deployment = withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
+        val deployment = withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
 
         assertThat(deployment.catalogKey to deployment.version).isEqualTo(letters to "1.0.0")
         assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "shared@1.0.0", "letters@1.0.0")
@@ -88,9 +88,9 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     @Test
     fun `undeploying a release another served release renders with is not refused, and it is used implicitly from then on`() {
         val (tenant, production) = chain("deps-undeploy-used")
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
 
-        val undeployed = withMediator { UndeployCatalogVersion(production, shared, "1.0.0").execute() }
+        val undeployed = withMediator { UndeployCatalogRelease(production, shared, "1.0.0").execute() }
 
         assertThat(undeployed).isTrue()
         assertThat(served(tenant)).containsExactlyInAnyOrder("base@1.0.0", "letters@1.0.0")
@@ -100,9 +100,9 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
     @Test
     fun `a release used only implicitly is not deployed, so there is nothing to undeploy`() {
         val (tenant, production) = chain("deps-undeploy-implicit")
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
-        val undeployed = withMediator { UndeployCatalogVersion(production, shared, "1.0.0").execute() }
+        val undeployed = withMediator { UndeployCatalogRelease(production, shared, "1.0.0").execute() }
 
         assertThat(undeployed).`as`("REST answers 404").isFalse()
         assertThat(implicit(tenant, production)).containsExactlyInAnyOrder("shared@1.0.0", "base@1.0.0")
@@ -144,14 +144,14 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
             ).bind("t", tenant).execute()
         }
 
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThat(served(tenant)).containsExactly("letters@1.0.0")
     }
 
     private fun refusedDeploying(production: EnvironmentId, catalog: CatalogKey, includeDependencies: Boolean): ReleaseDependenciesMissingException {
         var refusal: ReleaseDependenciesMissingException? = null
-        assertThatThrownBy { withMediator { DeployCatalogVersion(production, catalog, "1.0.0", includeDependencies).execute() } }
+        assertThatThrownBy { withMediator { DeployCatalogRelease(production, catalog, "1.0.0", includeDependencies).execute() } }
             .isInstanceOfSatisfying(ReleaseDependenciesMissingException::class.java) { refusal = it }
         return refusal!!
     }
@@ -179,7 +179,7 @@ class DeploymentDependenciesTest : IntegrationTestBase() {
                 CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))), "Brand").execute()
                 if (index > 0) declareDependency(tenant, catalog, on = listOf(base, shared)[index - 1])
                 MarkCatalogReady(tenant, catalog).execute()
-                ReleaseCatalogVersion(tenant, catalog, "1.0.0").execute()
+                ReleaseCatalogDraft(tenant, catalog, "1.0.0").execute()
             }
         }
         return tenant to production

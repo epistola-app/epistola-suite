@@ -7,22 +7,26 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.dependencies.CatalogBorrowing
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
+import app.epistola.suite.catalog.namespaces.CatalogNamespaceHolding
+import app.epistola.suite.catalog.namespaces.GetCatalogNamespaceHolding
 import app.epistola.suite.catalog.queries.CatalogResourceChange
 import app.epistola.suite.catalog.queries.CatalogResourceChanges
 import app.epistola.suite.catalog.queries.CatalogResourceState
+import app.epistola.suite.catalog.queries.CatalogSettingChange
+import app.epistola.suite.catalog.queries.DependencyLock
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
-import app.epistola.suite.catalog.versions.AssessDraftNumber
-import app.epistola.suite.catalog.versions.CatalogVersion
-import app.epistola.suite.catalog.versions.ChangeKind
-import app.epistola.suite.catalog.versions.DraftNumberAssessment
+import app.epistola.suite.catalog.releases.AssessDraftNumber
+import app.epistola.suite.catalog.releases.CatalogRelease
+import app.epistola.suite.catalog.releases.ChangeKind
+import app.epistola.suite.catalog.releases.DraftNumberAssessment
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.SecurityContext
 
 /**
- * Where an authored catalog's next release stands, and which of its actions to offer: the draft's
+ * Where the next release of a catalog that can be changed here stands, and which of its actions to offer: the draft's
  * number, what changed since the last release and whether each change is ready, and the declared
  * dependencies the release is cut with. It is about the draft the page works in, [drafts]`.chosen`;
  * only the next version is published (contract ADR 0002, amendment 2), so parallel work shows what
@@ -39,7 +43,7 @@ import app.epistola.suite.security.SecurityContext
 data class CatalogReleaseReadiness(
     val catalogKey: CatalogKey,
     /** The draft the page works in; null for a catalog with no open draft. */
-    val draft: CatalogVersion?,
+    val draft: CatalogRelease?,
     /** Which draft this is, its siblings, and what may be done to them. */
     val drafts: CatalogDraftBar,
     val changes: CatalogResourceChanges,
@@ -51,7 +55,15 @@ data class CatalogReleaseReadiness(
     val numbering: DraftNumberAssessment? = null,
     /** What the draft takes from other catalogs, and whether each is declared. */
     val borrowing: CatalogBorrowing = CatalogBorrowing(emptyList(), emptyList()),
+    /** Whether the tenant holds the catalog's namespace, which releasing needs (ADR 0034, section 2); null when not read. */
+    val namespaceHolding: CatalogNamespaceHolding? = null,
 ) {
+    /**
+     * Why this tenant cannot release the catalog: it does not hold its namespace. In words, naming who
+     * can change that; null when it does, or the catalog is under local.
+     */
+    val namespaceRefusal: String? get() = namespaceHolding?.refusal
+
     /**
      * Catalogs used here but not declared, which releasing refuses: using a resource declares its
      * catalog, so only a catalog the tenant lacks, or one left undeclared by an upgrade, is here.
@@ -70,8 +82,25 @@ data class CatalogReleaseReadiness(
     /** The changed resources not marked ready; releasing refuses while there is one. */
     val notReady: List<CatalogResourceChange> get() = changes.notReady
 
+    /**
+     * The changed resources a merge wrote as merged content, neither side's, that nobody has marked
+     * ready since: the page badges each and the publish dialog names them, so publishing them (which
+     * marks them ready) is a deliberate act.
+     */
+    val mergedForReview: List<CatalogResourceChange> get() = changes.mergedForReview
+
     /** Every resource that differs from the last release, in manifest order. */
     val changed: List<CatalogResourceChange> get() = changes.resources.filter { it.state != CatalogResourceState.RELEASED }
+
+    /**
+     * What differs beside the resources (ADR 0034): a dependency added, removed or locked to another
+     * release, the default theme, the presets, the license. Each is content of the release, and none
+     * needs a ready mark.
+     */
+    val settingChanges: List<CatalogSettingChange> get() = changes.settings
+
+    /** How many changes there are to publish: the resources and the catalog settings that differ. */
+    val changeCount: Int get() = changed.size + settingChanges.size
 
     /**
      * The declarations that pin no release and name no draft, which releasing refuses
@@ -85,7 +114,7 @@ data class CatalogReleaseReadiness(
      * but something blocks it, [releaseBlocked] says so and the page names what, instead of offering
      * a release that would be refused.
      */
-    val offerRelease: Boolean get() = mayRelease && publishable && notReady.isEmpty() && unresolvedDependencies.isEmpty()
+    val offerRelease: Boolean get() = mayRelease && publishable && notReady.isEmpty() && unresolvedDependencies.isEmpty() && namespaceRefusal == null
 
     /** The viewer may release, but a resource is not ready or a dependency is unresolved. */
     val releaseBlocked: Boolean get() = mayRelease && publishable && !offerRelease
@@ -103,7 +132,7 @@ data class CatalogReleaseReadiness(
      * Nothing in this catalog itself changed, but a catalog it uses did, in a way publishing would
      * take over (published along): publishing is how that change reaches what is live.
      */
-    val onlyOthersChanged: Boolean get() = !nothingToPublish && changed.isEmpty() && publishedAlong.isNotEmpty()
+    val onlyOthersChanged: Boolean get() = !nothingToPublish && changeCount == 0 && publishedAlong.isNotEmpty()
 
     /**
      * The number this is published as, picked for the person from what changed since the latest
@@ -140,20 +169,39 @@ data class CatalogReleaseReadiness(
             !nothingToPublish &&
             unresolvedDependencies.isEmpty() &&
             (notReady.isEmpty() || mayMarkReady) &&
-            blockingBorrowed.isEmpty()
+            blockingBorrowed.isEmpty() &&
+            namespaceRefusal == null
 
     /** The viewer may publish and there is something to, but a dependency (or an unready change they may not mark) stops it. */
     val publishBlocked: Boolean get() = mayRelease && publishable && !nothingToPublish && !offerPublish
 
-    /** The changed resources, with a readable kind, for the "what changes" list. */
+    /** The changed resources, then the catalog settings that changed, with a readable kind, for the "what changes" list. */
     val changedForPeople: List<PublishedChange>
-        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state) }
+        get() = changed.map { PublishedChange(typeLabel(it.type), it.name ?: it.slug, it.state, it.mergedForReview) } + settingChangesForPeople
+
+    /** [settingChanges] in words: `Shared (Dependency) — locked to v1.0.0`, `Default theme (Catalog setting)`. */
+    val settingChangesForPeople: List<PublishedChange>
+        get() = settingChanges.map { PublishedChange(typeLabel(it.type), it.name, it.state, detail = detailOf(it), entry = it.entry) }
 
     /** A resource type as people say it, for templates. */
     fun labelOf(type: String): String = typeLabel(type)
 
-    /** One line of "what changes": the kind of resource in words, its name, and how it changed. */
-    data class PublishedChange(val kind: String, val name: String, val state: CatalogResourceState)
+    /** The [changedForPeople] a merge wrote as merged content, for "these were merged, review them". */
+    val mergedForPeople: List<PublishedChange> get() = changedForPeople.filter { it.mergedForReview }
+
+    /**
+     * One line of "what changes": the kind of resource in words, its name, how it changed, and
+     * whether it is merged content awaiting review ([mergedForReview]). A catalog setting carries its
+     * entry (`catalogDependency/shared`) and, for a dependency, what it is locked to now ([detail]).
+     */
+    data class PublishedChange(
+        val kind: String,
+        val name: String,
+        val state: CatalogResourceState,
+        val mergedForReview: Boolean = false,
+        val detail: String? = null,
+        val entry: String? = null,
+    )
 
     /** Whether to offer "Mark all ready": the viewer may mark, and a changed resource is not ready. */
     val offerMarkAllReady: Boolean get() = mayMarkReady && hasDraft && notReady.isNotEmpty()
@@ -163,6 +211,16 @@ data class CatalogReleaseReadiness(
 
     /** Whether to offer editing the declared dependencies: the viewer may, and there is a draft to declare them in. */
     val offerEditDependencies: Boolean get() = mayEditDraft && hasDraft
+
+    /**
+     * Whether to offer merging a published version this draft is behind into it (ADR 0032, alpha):
+     * the viewer may edit the draft, and there is a version it lacks. Merging changes the draft's
+     * content, which `MergeReleaseIntoDraft` gates on `TEMPLATE_EDIT`.
+     */
+    val offerMerge: Boolean get() = mayEditDraft && hasDraft && drafts.behind.isNotEmpty()
+
+    /** The draft is behind a published version, but the viewer may not merge it in: the page says why. */
+    val mergeWithheld: Boolean get() = !mayEditDraft && hasDraft && drafts.behind.isNotEmpty()
 
     companion object {
         /** `type 'key': reason`, as `ChangeReason` words it. */
@@ -177,7 +235,29 @@ data class CatalogReleaseReadiness(
             "attribute" -> "Attribute"
             "font" -> "Font"
             "image" -> "Image"
+            "catalog" -> "Catalog setting"
+            "catalogDependency" -> "Dependency"
             else -> type.replaceFirstChar { it.uppercase() }
+        }
+
+        /**
+         * What a dependency is locked to, said for its change: `locked to v1.0.0` when added,
+         * `now locked to v1.1.0 (was v1.0.0)` when moved, `was locked to v1.0.0` when removed. The
+         * other catalog settings need no more than their name.
+         */
+        fun detailOf(change: CatalogSettingChange): String? {
+            if (!change.isDependency) return null
+            fun DependencyLock.words() = when {
+                releaseVersion != null -> "locked to v$releaseVersion"
+                draftName != null -> "its draft $draftName, published along"
+                else -> "no release chosen"
+            }
+            return when (change.state) {
+                CatalogResourceState.NEW -> change.lock?.words()
+                CatalogResourceState.MODIFIED -> change.lock?.words()?.let { now -> "now $now" + change.baseLock?.releaseVersion?.let { " (was v$it)" }.orEmpty() }
+                CatalogResourceState.REMOVED -> change.baseLock?.releaseVersion?.let { "was locked to v$it" }
+                CatalogResourceState.RELEASED -> null
+            }
         }
 
         /** Reads the readiness of the draft [drafts] works in, for the current principal. */
@@ -203,6 +283,7 @@ data class CatalogReleaseReadiness(
                 // The number this draft needs against its own base: a fix to an older line is numbered on that line.
                 numbering = draft?.draftRef?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
                 borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
+                namespaceHolding = GetCatalogNamespaceHolding(tenantKey, catalogKey).query(),
             )
         }
     }

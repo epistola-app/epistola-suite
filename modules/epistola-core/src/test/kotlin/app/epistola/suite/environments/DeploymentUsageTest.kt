@@ -18,8 +18,8 @@ import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -59,8 +59,8 @@ class DeploymentUsageTest : IntegrationTestBase() {
             mediator.publishAndRelease(variant)
             val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
             CreateEnvironment(test, "Test").execute()
-            DeployCatalogVersion(test, CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployCatalogVersion(test, CatalogKey.DEFAULT, "1.0.1").execute()
+            DeployCatalogRelease(test, CatalogKey.DEFAULT, "1.0.0").execute()
+            DeployCatalogRelease(test, CatalogKey.DEFAULT, "1.0.1").execute()
             tenant to variant
         }
         val test = EnvironmentKey.of("test")
@@ -85,8 +85,8 @@ class DeploymentUsageTest : IntegrationTestBase() {
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("the request naming it exactly").isEqualTo(1)
 
         withMediator {
-            UndeployCatalogVersion(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployCatalogVersion(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
+            UndeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
+            DeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
         }
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("a new deployment starts again").isZero()
         assertThat(deployments().getValue("1.0.0").lastUsedAt).isNull()

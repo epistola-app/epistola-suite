@@ -49,12 +49,16 @@ These three are the **catalog-level** axes. For the full picture — including t
 
 ## Concepts
 
-### Catalog Types
+### No catalog types
 
-- **Authored**: Created within the Epistola instance. Resources are authored and managed here. Can be exported as ZIP archives.
-- **Subscribed**: Sourced from a remote URL. Resources are installed from the remote catalog. The installed release version is tracked for upgrade detection.
+A catalog has no type (ADR 0032). Every catalog has drafts and releases; it may have a **source**
+(`source_url`: a manifest URL, Epistola Exchange, a registry, or `classpath:` for the catalogs
+Epistola supplies) that can be asked for newer releases. Releases arrive by import, install or
+upgrade; the installed release version is tracked for upgrade detection. See
+[`catalog-versioning.md`](../catalog-versioning.md).
 
-Every tenant has a `default` catalog (authored) that cannot be deleted. Additional catalogs can be created or subscribed to.
+Every tenant has a `default` catalog that cannot be deleted. Additional catalogs can be created,
+imported or registered from a source.
 
 ### Resource Types
 
@@ -76,9 +80,9 @@ All catalog-scoped tables use a composite primary key: `(tenant_key, catalog_key
 
 ### Read-Only Enforcement
 
-Resources in subscribed catalogs are read-only. All mutating command handlers call `requireCatalogEditable()` which checks `IsCatalogEditable` (verifying the catalog type is `AUTHORED`). The UI hides edit/delete controls and shows a "Read-only" badge for subscribed resources.
+A catalog can be changed unless the installation is run-only (`epistola.catalog.editing.enabled=false`) or Epistola supplies it (a `classpath:` source). All mutating command handlers call `requireCatalogEditable()`, which checks `GetCatalogEditability`. The UI hides edit/delete controls and shows the reason for a catalog that cannot be changed.
 
-During catalog import, the `CatalogImportContext` ScopedValue bypasses editability checks so that `InstallFromCatalog` can write resources into subscribed catalogs.
+During catalog import, the `CatalogImportContext` ScopedValue bypasses editability checks so that an install can write resources into a catalog that cannot be changed.
 
 ## Architecture
 
@@ -90,7 +94,7 @@ and registry projections.
 
 Suite integration remains in `modules/epistola-core` under
 `app.epistola.suite.catalog`. It owns tenant authorization, persistence,
-import/upsert orchestration, authored/subscribed lifecycle, dependency
+import/upsert orchestration, the release lifecycle, dependency
 installation, and conflict handling. Its validators and archive services are
 adapters around `epistola-catalog`, not an independent portable specification:
 
@@ -104,7 +108,7 @@ catalog/
   DependencyScanner.kt                # Scan template model for refs
   MultipleStencilVersionsInUseException.kt  # Export-side stencil pin drift
   commands/
-    CreateCatalog.kt                  # Create authored catalog
+    CreateCatalog.kt                  # Create a catalog
     RegisterCatalog.kt                # Subscribe to remote catalog
     DeleteCatalog.kt              # Remove catalog + all resources
     InstallFromCatalog.kt             # Import orchestrator
@@ -134,31 +138,31 @@ follow-up for RC3 stencil draft markers.
 
 ### `catalogs`
 
-| Field                       | Type              | Description                                       |
-| --------------------------- | ----------------- | ------------------------------------------------- |
-| `id`                        | CatalogKey (slug) | URL-safe slug. Unique per tenant.                 |
-| `tenant_key`                | TenantKey         | Owning tenant.                                    |
-| `name`                      | varchar(255)      | Display name.                                     |
-| `description`               | text, nullable    | Optional description.                             |
-| `type`                      | varchar(20)       | `AUTHORED` or `SUBSCRIBED`.                       |
-| `source_url`                | text, nullable    | Remote catalog URL. Required for `SUBSCRIBED`.    |
-| `source_auth_type`          | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                   |
-| `source_auth_credential`    | text, nullable    | Credential for authenticated remote catalogs.     |
-| `installed_release_version` | varchar(50)       | Installed release version. `SUBSCRIBED` only.     |
-| `installed_fingerprint`     | char(64)          | Installed content fingerprint. `SUBSCRIBED` only. |
-| `installed_at`              | timestamptz       | Last install/upgrade timestamp.                   |
-| `released_version`          | varchar(50)       | Latest released SemVer. `AUTHORED` only.          |
-| `released_fingerprint`      | char(64)          | Latest released content fingerprint. `AUTHORED`.  |
-| `released_at`               | timestamptz       | When the latest `AUTHORED` release was cut.       |
-| `created_at`                | timestamptz       | Creation timestamp.                               |
-| `updated_at`                | timestamptz       | Last modification timestamp.                      |
+| Field                       | Type              | Description                                    |
+| --------------------------- | ----------------- | ---------------------------------------------- |
+| `id`                        | CatalogKey (slug) | URL-safe slug. Unique per tenant.              |
+| `tenant_key`                | TenantKey         | Owning tenant.                                 |
+| `name`                      | varchar(255)      | Display name.                                  |
+| `description`               | text, nullable    | Optional description.                          |
+| `type`                      | varchar(20)       | Unused since ADR 0032; defaults to `AUTHORED`. |
+| `source_url`                | text, nullable    | Where releases come from; null for none.       |
+| `source_auth_type`          | varchar(20)       | `NONE`, `API_KEY`, or `BEARER`.                |
+| `source_auth_credential`    | text, nullable    | Credential for authenticated remote catalogs.  |
+| `installed_release_version` | varchar(50)       | Release last received into the next version.   |
+| `installed_fingerprint`     | char(64)          | Its content fingerprint.                       |
+| `installed_at`              | timestamptz       | Last install/upgrade timestamp.                |
+| `released_version`          | varchar(50)       | Highest SemVer released here.                  |
+| `released_fingerprint`      | char(64)          | Its content fingerprint.                       |
+| `released_at`               | timestamptz       | When it was released.                          |
+| `created_at`                | timestamptz       | Creation timestamp.                            |
+| `updated_at`                | timestamptz       | Last modification timestamp.                   |
 
 Primary key: `(tenant_key, id)`.
 
 ### `catalog_releases`
 
-Immutable release history for `AUTHORED` catalogs — one row per **Release
-version** action. Not parallel installs; the changelog + Phase 2 upgrade-diff
+Immutable release history of a catalog, released here or received — one row
+per release. Not parallel installs; the changelog + Phase 2 upgrade-diff
 source. PK `(tenant_key, catalog_key, version)`, columns `version` (SemVer),
 `fingerprint`, `notes`, `manifest_snapshot` (jsonb), `released_at`,
 `released_by`. See [`catalog-versioning.md`](../catalog-versioning.md).
@@ -393,7 +397,7 @@ Remote catalogs support three authentication types:
 
 > **Cross-catalog dependencies are not checked on this path.** `ImportCatalogZip` verifies that a manifest's declared `dependencies[]` exist in the target tenant before it writes anything; the URL-subscribed path above does not, so a catalog that depends on another tenant-local catalog installs and fails later at render. Tracked in [#917](https://github.com/epistola-app/epistola-suite/issues/917).
 
-The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the subscribed catalog.
+The import runs within `CatalogImportContext.runAsImport {}` to bypass editability checks on the catalog it installs into.
 
 ### Wire-format version gate
 
@@ -423,20 +427,19 @@ rejected before this decision can authorize an import.
 If a future contract adds a migration, Suite will apply these product rules
 after portable migration and before database mutation:
 
-| Case (payload `schemaVersion` below current)                   | Action                                                                                                                                                                                                         |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SUBSCRIBED**, below current                                  | `BLOCK_TOO_OLD` → `CatalogSchemaTooOldException`. A subscribed catalog is a mirror; we never migrate it locally — the **source must republish** at the current version.                                        |
-| **AUTHORED**, below current, **no** migration path             | `BLOCK_TOO_OLD` → `CatalogSchemaTooOldException`. Nothing can bring it to current — re-export from a current source.                                                                                           |
-| **AUTHORED**, below current, **migratable**, not yet confirmed | `CONFIRM_MIGRATION` → `CatalogMigrationConfirmationRequiredException`. Migrating **mutates** the imported content, so the operator confirms first. Not a `CatalogSchemaException` — a prompt, not a rejection. |
-| **AUTHORED**, below current, **migratable**, confirmed         | `IMPORT` — the `ImportCatalogZip` command was re-issued with `confirmMigration = true`.                                                                                                                        |
+| Case (payload `schemaVersion` below current)     | Action                                                                                                                                                                                                         |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Below current, **no** migration path             | `BLOCK_TOO_OLD` → `CatalogSchemaTooOldException`. Nothing can bring it to current — re-export from a current source.                                                                                           |
+| Below current, **migratable**, not yet confirmed | `CONFIRM_MIGRATION` → `CatalogMigrationConfirmationRequiredException`. Migrating **mutates** the imported content, so the operator confirms first. Not a `CatalogSchemaException` — a prompt, not a rejection. |
+| Below current, **migratable**, confirmed         | `IMPORT` — the `ImportCatalogZip` command was re-issued with `confirmMigration = true`.                                                                                                                        |
 
-This decision applies only to ZIP imports. URL subscriptions re-fetch their
+This decision is the same for every import, whichever catalog receives it; installs nobody is asked about (REST, Exchange, a registry) confirm up front. It applies only to archives. URL subscriptions re-fetch their
 source and surface the schema sync state below instead. `CONFIRM_MIGRATION`
 remains unreachable until the contract publishes its first real migration.
 
-### Subscribed source schema sync
+### Source schema sync
 
-For a **SUBSCRIBED** catalog whose source is a URL, [`CheckCatalogUpgrade`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/CheckCatalogUpgrade.kt) (the cheap, manifest-only "is an upgrade available?" check behind the list's per-row **Check for updates**) also reports how the source's wire `schemaVersion` compares with this instance's `CATALOG_SCHEMA_VERSION`, as a `CatalogSchemaSyncState`:
+For a catalog whose source is a URL, [`CheckCatalogUpgrade`](../../modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/queries/CheckCatalogUpgrade.kt) (the cheap, manifest-only "is an upgrade available?" check behind the list's per-row **Check for updates**) also reports how the source's wire `schemaVersion` compares with this instance's `CATALOG_SCHEMA_VERSION`, as a `CatalogSchemaSyncState`:
 
 | `CatalogSchemaSyncState` | Meaning                                                               | List badge                                                                                               |
 | ------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -448,8 +451,8 @@ The schema mismatch takes **priority** over the release-version upgrade state �
 
 **Operator surfaces for a rejected, confirmable, or out-of-sync payload:**
 
-- **Web UI** (import dialog): a **rejection** renders inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation — upgrade this instance, or re-export from a current source. A **confirmable** AUTHORED migration renders an inline "Update available — Import & update to v*N*" prompt (`import-migration-confirm`) whose button re-submits the same form with `confirmMigration=true`. A subscribed source's **out-of-sync** state shows as the amber / "upgrade Epistola" badge in the catalog list's Version cell (`version-status` fragment).
-- **REST** (`POST /api/tenants/{id}/catalogs/import`): non-interactive, so it sets `confirmMigration = true` implicitly — a migratable-old AUTHORED import migrates without a round-trip. A **rejection** is an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
+- **Web UI** (import dialog): a **rejection** renders inline in the dialog (the same `alert-error` slot as a stencil conflict) with the actionable remediation — upgrade this instance, or re-export from a current source. A **confirmable** migration renders an inline "Update available — Import & update to v*N*" prompt (`import-migration-confirm`) whose button re-submits the same form with `confirmMigration=true`. A source's **out-of-sync** state shows as the amber / "upgrade Epistola" badge in the catalog list's Version cell (`version-status` fragment).
+- **REST** (`POST /api/tenants/{id}/catalogs/import`): non-interactive, so it sets `confirmMigration = true` implicitly — a migratable-old import migrates without a round-trip. A **rejection** is an [RFC 9457](../adr/0004-rfc7807-problem-details.md) problem with a dedicated `type` — `…/errors/catalog-schema-too-new` (extensions `version`, `supportedVersion`), `…/catalog-schema-too-old` (`version`, `baselineVersion`), or `…/catalog-schema-unknown` — all `400`.
 - **MCP**: catalog import is not an MCP surface (MCP writes stop at drafts), so there is no MCP change.
 
 ### Dependency Resolution
@@ -482,7 +485,7 @@ resources/
 
 The ZIP structure matches the protocol layout, so it can be served as a static catalog. Available via `GET /tenants/{tenantId}/catalogs/{catalogId}/export`.
 
-Both authored and subscribed catalogs can be exported. For authored catalogs, all resources in the catalog are included. For subscribed catalogs, all installed resources are included.
+Every catalog with a release can be exported; an export carries a release (see [`catalog-versioning.md`](../catalog-versioning.md#exporting-a-release)).
 
 The export stamps `release.version` with the catalog's latest released SemVer
 and `release.fingerprint` with the fingerprint of the actual exported bytes. A
@@ -552,11 +555,13 @@ are assembled.
 
 ### ZIP Import
 
-`ImportCatalogZip` imports a catalog from a ZIP archive:
+`ImportCatalogZip` receives the release a ZIP archive carries (see
+[`catalog-versioning.md`](../catalog-versioning.md#importing-installs-a-release)):
 
-- If the catalog slug already exists and is AUTHORED: resources are updated in place
-- If the catalog slug already exists and is SUBSCRIBED: the import is rejected
-- If the catalog slug is new: a new catalog is created with the specified type
+- If the catalog is new: it is created as the archive names it, holding the release
+- If the tenant has that release with the same fingerprint: nothing changes; other content is refused
+- If the release is lower than the catalog's highest, or its next version has changes of its own: the release is recorded beside the others
+- Otherwise its next version moves to the release
 
 Available via:
 
@@ -664,8 +669,8 @@ reject `RENUMBER` with `IllegalArgumentException`.
 
 ### Catalog List (`/tenants/{tenantId}/catalogs`)
 
-- Create authored catalog (dialog)
-- Subscribe to remote catalog (dialog with URL, auth type, credential)
+- Create catalog (dialog)
+- Register a catalog from a manifest URL (dialog with URL, auth type, credential); refused when the tenant has a catalog under its key
 - Browse catalog resources
 - Export catalog as ZIP (all catalogs)
 - Delete catalog (all except default, with confirmation)
@@ -685,4 +690,4 @@ All resource list pages (templates, themes, stencils, attributes, assets) have:
 - Catalog selector in create forms
 - `/{catalogId}/{resourceId}` URL patterns for detail pages
 
-Resources in subscribed catalogs show as read-only with disabled edit/delete controls.
+Resources in a catalog that cannot be changed here show as read-only with disabled edit/delete controls.

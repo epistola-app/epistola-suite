@@ -14,8 +14,8 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.TestNamespaces
 import com.microsoft.playwright.Browser
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -31,7 +31,7 @@ class EditorSidebarTabsUiTest : BasePlaywrightTest() {
     @Test
     fun `no tab of the side panel is cut off`() {
         val path = withMediator {
-            val tenant = CreateTenant(TenantKey.of("sidebar-tabs-${System.nanoTime()}"), "Sidebar Tabs").execute()
+            val tenant = TestNamespaces.createTenant(TenantKey.of("sidebar-tabs-${System.nanoTime()}"), "Sidebar Tabs").execute()
             // The plugin tabs a tenant can switch on, as the demo has them: Quality last.
             listOf(KnownFeatures.QUALITY, KnownFeatures.AI_CHAT).forEach { SaveFeatureToggle(tenant.id, it, enabled = true).execute() }
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId.default(TenantId(tenant.id)))

@@ -7,11 +7,10 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -25,8 +24,8 @@ data class BrowseCatalog(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     /** The catalog version this addresses; null for its catalog's current version. */
-    override val catalogVersion: CatalogVersionRef? = null,
-) : CatalogVersionScoped,
+    override val catalogVersion: CatalogReleaseRef? = null,
+) : CatalogReleaseScoped,
     Query<BrowseResult>,
     RequiresPermission {
     override val permission get() = Permission.CATALOG_VIEW
@@ -64,17 +63,14 @@ class BrowseCatalogHandler(
                 ?: throw IllegalArgumentException("Catalog not found: ${query.catalogKey}")
         }
 
-        return when (catalog.type) {
-            CatalogType.AUTHORED -> browseAuthored(catalog, query)
-            CatalogType.SUBSCRIBED -> browseSubscribed(catalog, query)
-        }
+        return browse(catalog, query)
     }
 
     /**
      * The locally-installed resources of `(tenant, catalog)`, all marked
-     * INSTALLED. The ground truth for an AUTHORED catalog, and the safe fallback
-     * for a SUBSCRIBED one with no reachable source (ZIP-managed, or remote
-     * temporarily unavailable) — browsing must never hard-fail.
+     * INSTALLED. The ground truth for a catalog without a source, and the safe
+     * fallback for one whose source cannot be reached (or is not a manifest URL)
+     * — browsing must never hard-fail.
      */
     private fun installedResources(query: BrowseCatalog): List<BrowseResource> = jdbi.withHandle<List<BrowseResource>, Exception> { handle ->
         handle.createQuery(
@@ -108,17 +104,14 @@ class BrowseCatalogHandler(
             .list()
     }
 
-    /** AUTHORED — all resources are local; status is always INSTALLED. */
-    private fun browseAuthored(catalog: Catalog, query: BrowseCatalog): BrowseResult = BrowseResult(catalog = catalog, resources = installedResources(query))
-
     /**
-     * SUBSCRIBED — when a source URL is reachable, list the manifest's
+     * When the catalog has a source that is reachable, list the manifest's
      * resources and mark which are installed (so not-yet-installed ones show as
-     * AVAILABLE). When there is **no source URL** (a ZIP-managed mirror) or the
-     * source is unreachable, degrade gracefully to the locally-installed
-     * resources — browsing a catalog must never error the whole page.
+     * AVAILABLE). When there is **no source** (made here, or imported from a file)
+     * or the source is unreachable, the local resources, all INSTALLED — browsing
+     * a catalog must never error the whole page.
      */
-    private fun browseSubscribed(catalog: Catalog, query: BrowseCatalog): BrowseResult {
+    private fun browse(catalog: Catalog, query: BrowseCatalog): BrowseResult {
         val sourceUrl = catalog.sourceUrl
             ?: return BrowseResult(catalog = catalog, resources = installedResources(query))
 
@@ -126,7 +119,7 @@ class BrowseCatalogHandler(
             catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         } catch (e: Exception) {
             logger.warn(
-                "Browsing subscribed catalog '{}' — source {} unreachable ({}); showing installed resources only",
+                "Browsing catalog '{}' — source {} unreachable ({}); showing installed resources only",
                 query.catalogKey.value,
                 sourceUrl,
                 e.message,

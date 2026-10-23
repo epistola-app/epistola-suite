@@ -10,6 +10,9 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.catalogName
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.UUIDv7
@@ -27,7 +30,14 @@ import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 import java.util.UUID
 
-/** Explicitly queues the unchanged current release, or retries its failed Exchange attempt. */
+/**
+ * Explicitly queues the unchanged current release, or retries its failed Exchange attempt.
+ *
+ * Idempotent, as the contract's `publishReleaseToRegistry` is for the Exchange (ADR 0008): a release
+ * already queued answers [ExchangePublicationOutcome.Status.ALREADY_QUEUED] and is not queued again,
+ * one the Exchange accepted [ExchangePublicationOutcome.Status.ALREADY_PUBLISHED], so a retry gets the
+ * same answer. One the Exchange rejected is refused: that number cannot be published again.
+ */
 data class PublishCurrentCatalogRelease(
     override val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
@@ -45,9 +55,27 @@ data class PublishCurrentCatalogRelease(
      * would only be wrong in a different way the first time the two disagreed.
      */
     val version: String? = null,
-) : Command<UUID>,
+) : Command<ExchangePublicationOutcome>,
     RequiresPermission {
     override val permission = Permission.CATALOG_PUBLISH
+}
+
+/** What publishing a release to the Exchange did: its publication, and whether this call queued it. */
+data class ExchangePublicationOutcome(
+    val publicationId: UUID,
+    val version: String,
+    val status: Status,
+) {
+    enum class Status {
+        /** Queued by this call: a first attempt, or a failed or cancelled one queued again. */
+        QUEUED,
+
+        /** It was queued (or being sent) already; nothing was queued again. */
+        ALREADY_QUEUED,
+
+        /** The Exchange accepted it already; nothing was queued. */
+        ALREADY_PUBLISHED,
+    }
 }
 
 /**
@@ -66,9 +94,10 @@ class PublishCurrentCatalogReleaseHandler(
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
-) : CommandHandler<PublishCurrentCatalogRelease, UUID> {
+    private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
+) : CommandHandler<PublishCurrentCatalogRelease, ExchangePublicationOutcome> {
 
-    override fun handle(command: PublishCurrentCatalogRelease): UUID {
+    override fun handle(command: PublishCurrentCatalogRelease): ExchangePublicationOutcome {
         validate("publication", availability.isAvailable(command.tenantKey), ValidationCode.PUBLICATION_UNAVAILABLE) {
             "Exchange publishing is not enabled for this deployment and tenant."
         }
@@ -79,6 +108,12 @@ class PublishCurrentCatalogReleaseHandler(
             catalog!!.exchangePublicationPolicy != CatalogPublicationPolicy.NEVER,
             ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY,
         ) { "This catalog's publication policy forbids Exchange publishing." }
+
+        // A catalog named under local never leaves the organisation (ADR 0034, section 7), whatever
+        // namespace the connection grants.
+        validate("namespace", !LocalAuthority.isLocal(catalog.registry), ValidationCode.CATALOG_NAMESPACE_LOCAL) {
+            NamespaceMessages.notPublished(catalog.catalogName.toString())
+        }
 
         // Nothing is queued without a destination the connection grants, so this is checked first.
         validate(
@@ -91,33 +126,31 @@ class PublishCurrentCatalogReleaseHandler(
 
         val release = releaseToPublish(command)
         // Read the status without the archive: a 10 MB blob must not be fetched just to branch.
-        val previousStatus = jdbi.withHandle<CatalogPublicationStatus?, Exception> { handle ->
+        val previous = jdbi.withHandle<Pair<UUID, CatalogPublicationStatus>?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT status FROM catalog_release_publications
+                SELECT id, status FROM catalog_release_publications
                 WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version
                 """,
             ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
                 .bind("version", release.version)
-                .mapTo(CatalogPublicationStatus::class.java).findOne().orElse(null)
+                .map { rs, _ -> rs.getObject("id", UUID::class.java) to CatalogPublicationStatus.valueOf(rs.getString("status")) }
+                .findOne().orElse(null)
         }
-        val resumable = setOf(CatalogPublicationStatus.FAILED, CatalogPublicationStatus.CANCELLED)
-        validate(
-            "publication",
-            previousStatus == null || previousStatus in resumable,
-            ValidationCode.PUBLICATION_ALREADY_QUEUED,
-        ) { "This release already has an Exchange publication attempt." }
+        val previousStatus = previous?.second
+        previous?.let { (id, status) -> repeated(id, release.version, status)?.let { return it } }
 
         // A failed attempt kept its archive and must resubmit exactly those bytes. A first attempt —
         // or one that was cancelled, which released its archive — rebuilds from the working copy,
         // and is refused if that has drifted from the release.
         val archive = if (previousStatus == CatalogPublicationStatus.FAILED) null else buildReleaseArchive(command, release)
 
-        return jdbi.inTransaction<UUID, Exception> { handle ->
+        return jdbi.inTransaction<ExchangePublicationOutcome, Exception> { handle ->
             val namespace = requireNotNull(namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey))
             val existing = store.findByVersion(handle, command.tenantKey, command.catalogKey, release.version)
             when {
-                existing == null -> UUIDv7.generate().also { id ->
+                existing == null -> ExchangePublicationOutcome(UUIDv7.generate(), release.version, ExchangePublicationOutcome.Status.QUEUED).also { outcome ->
+                    val id = outcome.publicationId
                     store.insert(
                         handle = handle,
                         id = id,
@@ -131,22 +164,36 @@ class PublishCurrentCatalogReleaseHandler(
                     )
                 }
 
-                else -> {
-                    validate(
-                        "publication",
-                        existing.status in resumable,
-                        ValidationCode.PUBLICATION_ALREADY_QUEUED,
-                    ) { "This release already has an Exchange publication attempt." }
+                else -> repeated(existing.id, release.version, existing.status) ?: run {
                     validate(
                         "publication",
                         existing.status == CatalogPublicationStatus.CANCELLED || existing.archiveRetained,
                         ValidationCode.PUBLICATION_ARCHIVE_MISSING,
-                    ) { "The failed publication no longer has its released archive; release a new version instead." }
+                    ) { "The failed publication no longer has its released archive; publish a new release instead." }
                     store.requeue(handle, existing.id, namespace, UUIDv7.generate(), archive)
-                    existing.id
+                    ExchangePublicationOutcome(existing.id, release.version, ExchangePublicationOutcome.Status.QUEUED)
                 }
             }
         }
+    }
+
+    /**
+     * What a repeat of a publication in [status] answers, or null when it is to be queued (again): a
+     * first attempt, or a failed or cancelled one. Queued or being sent answers that, accepted answers
+     * published; a rejected one is refused, since the Exchange will not take that number again.
+     */
+    private fun repeated(id: UUID, version: String, status: CatalogPublicationStatus): ExchangePublicationOutcome? = when {
+        status.isActive -> ExchangePublicationOutcome(id, version, ExchangePublicationOutcome.Status.ALREADY_QUEUED)
+
+        status == CatalogPublicationStatus.ACCEPTED -> ExchangePublicationOutcome(id, version, ExchangePublicationOutcome.Status.ALREADY_PUBLISHED)
+
+        status == CatalogPublicationStatus.REJECTED -> throw ValidationException(
+            "publication",
+            "Epistola Exchange rejected v$version; that number cannot be published again. Release a new version instead.",
+            ValidationCode.PUBLICATION_REJECTED,
+        )
+
+        else -> null
     }
 
     /**
@@ -156,13 +203,9 @@ class PublishCurrentCatalogReleaseHandler(
      * the fingerprint it advertises would spread that rather than stop it.
      */
     private fun buildReleaseArchive(command: PublishCurrentCatalogRelease, release: Release): ByteArray {
-        val content = requireNotNull(assembler.assemble(command.tenantKey, command.catalogKey, release.version)) {
+        // Checked against what identifies it, and named by its content hash (ADR 0034).
+        val content = requireNotNull(identity.travelling(command.tenantKey, command.catalogKey, release.version)) {
             "Release ${release.version} of catalog '${command.catalogKey.value}' is gone"
-        }
-        val rebuilt = fingerprintService.fingerprint(content.content)
-        check(fingerprintService.matchesFingerprint(content.content, release.fingerprint)) {
-            "Release ${release.version} of catalog '${command.catalogKey.value}' rebuilds to fingerprint " +
-                "$rebuilt but was released as ${release.fingerprint}; its content has been altered."
         }
         return archiveBuilder.build(content.content, content.release)
     }
@@ -191,7 +234,7 @@ class PublishCurrentCatalogReleaseHandler(
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :tenantKey AND c.catalog_key = :catalogKey
+            WHERE r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }

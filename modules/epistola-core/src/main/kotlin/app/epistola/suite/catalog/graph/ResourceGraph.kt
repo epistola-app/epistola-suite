@@ -18,6 +18,7 @@ enum class CatalogResourceType(val wireName: String) {
 
 data class ResourceAddress(
     val type: CatalogResourceType,
+    /** The catalog's key; in the tenant graph `namespace/key` where two catalogs share the key (ADR 0034). */
     val catalogKey: String,
     val key: String,
 ) {
@@ -42,7 +43,6 @@ data class ResourceNode(
     val address: ResourceAddress,
     val name: String,
     val catalogName: String,
-    val catalogType: String,
 )
 
 enum class ReferenceSemantics {

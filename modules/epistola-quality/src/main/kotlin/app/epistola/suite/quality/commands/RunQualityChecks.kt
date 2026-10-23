@@ -155,7 +155,7 @@ class RunQualityChecksHandler(
      * catalog's default (contract ADR 0007); an empty set, named by no theme, when none applies.
      */
     private fun themePresets(subject: QualitySubject, context: app.epistola.suite.templates.queries.EditorContext): ThemePresets {
-        val catalogTheme = app.epistola.suite.catalog.versions.GetCatalogThemeSettings(subject.tenantKey, subject.catalogKey).query().defaultTheme
+        val catalogTheme = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(subject.tenantKey, subject.catalogKey).query().defaultTheme
         val theme = app.epistola.suite.themes.queries.ResolveTemplateTheme(
             tenantKey = subject.tenantKey,
             templateDefaultThemeId = context.templateThemeKey,

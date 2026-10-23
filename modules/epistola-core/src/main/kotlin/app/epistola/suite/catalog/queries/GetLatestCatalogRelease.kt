@@ -16,7 +16,7 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * Cheap read of an AUTHORED catalog's release pointer straight from
+ * Cheap read of a catalog's release pointer straight from
  * `catalog_releases` — **no catalog content build / fingerprint recompute**.
  *
  * Split out of [GetCatalogReleaseStatus] so callers that only need the latest
@@ -45,16 +45,25 @@ data class LatestCatalogRelease(
 )
 
 /**
- * Newest release of a catalog first.
- *
- * On the generated version components (V20260923150918): a version sorts by its parts, not as text.
- * Labels that are not MAJOR.MINOR.PATCH have null components — `SemVer.parseOrNull` tolerates them
- * — so they sort last and fall back to when they were released.
+ * Releases by number, highest first, over `catalog_releases` as [alias] (none for the table itself):
+ * by SemVer precedence on the generated version components (V20261022110352), so a patch release
+ * (`1.3.1-gemeente-x.1`) sorts above `1.3.0` and below `1.3.1`, patch labels compared as ASCII and
+ * then by number. Labels that are not release numbers have null components — `SemVer.parseOrNull`
+ * tolerates them — so they sort last; ties fall back to when they were released.
  */
-internal const val LATEST_RELEASE_ORDER = """
-    ORDER BY version_major DESC NULLS LAST, version_minor DESC NULLS LAST,
-             version_patch DESC NULLS LAST, released_at DESC
-"""
+internal fun releaseNumberOrder(alias: String = "", descending: Boolean = true): String {
+    val p = if (alias.isEmpty()) "" else "$alias."
+    return if (descending) {
+        "${p}version_major DESC NULLS LAST, ${p}version_minor DESC NULLS LAST, ${p}version_patch DESC NULLS LAST, " +
+            "(${p}version_label IS NULL) DESC, ${p}version_label COLLATE \"C\" DESC NULLS LAST, ${p}version_label_number DESC NULLS LAST, ${p}released_at DESC"
+    } else {
+        "${p}version_major NULLS FIRST, ${p}version_minor NULLS FIRST, ${p}version_patch NULLS FIRST, " +
+            "(${p}version_label IS NULL), ${p}version_label COLLATE \"C\" NULLS FIRST, ${p}version_label_number NULLS FIRST, ${p}released_at"
+    }
+}
+
+/** Newest release of a catalog first ([releaseNumberOrder]). */
+internal val LATEST_RELEASE_ORDER = "ORDER BY ${releaseNumberOrder()}"
 
 @Component
 class GetLatestCatalogReleaseHandler(

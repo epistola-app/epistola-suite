@@ -4,8 +4,10 @@
 
 package app.epistola.suite.mediator
 
-import app.epistola.suite.catalog.versions.CatalogVersionScoped
-import app.epistola.suite.catalog.versions.CatalogVersionTargeting
+import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.CatalogNamesApplier
+import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.security.Authorized
 import app.epistola.suite.security.RequiresAuthentication
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.DefaultTransactionDefinition
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.allSupertypes
@@ -46,9 +49,9 @@ import kotlin.reflect.full.allSupertypes
  * JDBI joins this transaction via SpringConnectionFactory + SpringAwareTransactionHandler,
  * so nested `jdbi.inTransaction { }` in handlers participates instead of committing early.
  *
- * A message that names a catalog version ([CatalogVersionScoped]) runs on that version: the version is
+ * A message that names a catalog version ([CatalogReleaseScoped]) runs on that version: the version is
  * resolved before the handler runs, a query that names one runs in a read-only transaction, and
- * [CatalogVersionTargeting] makes that transaction's content SQL answer the named version for its
+ * [CatalogReleaseTargeting] makes that transaction's content SQL answer the named version for its
  * catalog. Messages it dispatches inherit it; the caller's target is restored afterwards.
  *
  * Uses lazy handler discovery to support handlers that are initialized late
@@ -62,7 +65,8 @@ class SpringMediator(
     private val commandListeners: List<CommandListener>,
     private val queryListeners: List<QueryListener>,
     private val transactionManager: PlatformTransactionManager?,
-    private val versionTargeting: CatalogVersionTargeting? = null,
+    private val versionTargeting: CatalogReleaseTargeting? = null,
+    private val catalogNamesApplier: CatalogNamesApplier? = null,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -98,17 +102,19 @@ class SpringMediator(
             // listeners (EventLogSubscriber) bind to this transaction.
             val result = inCommandTransaction(command) {
                 // On the catalog version the command names, if any; IMMEDIATE handlers see it too.
-                inTargetedVersion(command) {
-                    val handled = handler.handle(command)
-                    logger.debug("Command {} completed successfully", commandName)
+                inCatalogNames {
+                    inTargetedVersion(command) {
+                        val handled = handler.handle(command)
+                        logger.debug("Command {} completed successfully", commandName)
 
-                    // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
-                    invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
+                        // Phase 1: Invoke IMMEDIATE event handlers (same transaction/call stack)
+                        invokeEventHandlers(command, handled, EventPhase.IMMEDIATE)
 
-                    // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
-                    eventPublisher.publishEvent(CommandCompleted(command, handled))
+                        // Phase 2: Publish Spring event for AFTER_COMMIT handlers and EventLogSubscriber
+                        eventPublisher.publishEvent(CommandCompleted(command, handled))
 
-                    handled
+                        handled
+                    }
                 }
             }
 
@@ -118,7 +124,9 @@ class SpringMediator(
             notifyCommandListeners(command, DispatchOutcome.SUCCESS, null)
 
             result
-        } catch (e: Exception) {
+        } catch (failure: Exception) {
+            // A key that names several catalogs, refused by the database, is refused in words.
+            val e = CatalogNames.ambiguity(failure) ?: failure
             outcome = "failure"
             logger.warn("Command {} failed: {}", commandName, e.message)
             notifyCommandListeners(command, DispatchOutcome.FAILURE, e)
@@ -150,10 +158,10 @@ class SpringMediator(
         val sample = Timer.start(meterRegistry)
         var outcome = "success"
         try {
-            val result = if (targetOf(query) == null) {
+            val result = if (targetOf(query) == null && CatalogNames.current().isEmpty()) {
                 handler.handle(query)
             } else {
-                inReadTransaction { inTargetedVersion(query) { handler.handle(query) } }
+                inReadTransaction { inCatalogNames { inTargetedVersion(query) { handler.handle(query) } } }
             }
             logger.debug("Query {} completed successfully", queryName)
 
@@ -162,7 +170,8 @@ class SpringMediator(
             notifyQueryListeners(query, DispatchOutcome.SUCCESS, null)
 
             result
-        } catch (e: Exception) {
+        } catch (failure: Exception) {
+            val e = CatalogNames.ambiguity(failure) ?: failure
             outcome = "failure"
             logger.warn("Query {} failed: {}", queryName, e.message)
             notifyQueryListeners(query, DispatchOutcome.FAILURE, e)
@@ -218,7 +227,15 @@ class SpringMediator(
         }
     }
 
-    private fun targetOf(message: Any) = (message as? CatalogVersionScoped)?.catalogVersion?.takeIf { versionTargeting != null }
+    /**
+     * Runs [block] with the catalog names the caller gave ([CatalogNames]) written into the
+     * transaction, so `epistola_catalog_id` looks each key up in its namespace; restores the caller's
+     * names afterwards, for a nested message that gave others.
+     */
+    // Not `?.run(block) ?: block()`: a message that answers null would then run a second time, without the names.
+    private fun <R> inCatalogNames(block: () -> R): R = if (catalogNamesApplier != null) catalogNamesApplier.run(block) else block()
+
+    private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }
 
     /** Runs [block] on the catalog version [message] names, if it names one. */
     private fun <R> inTargetedVersion(message: Any, block: () -> R): R {

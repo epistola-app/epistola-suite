@@ -4,17 +4,21 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.catalog.CatalogType
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.queries.CatalogDependencyGraph
+import app.epistola.suite.catalog.queries.CatalogEditabilities
+import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.CatalogGraphEdge
 import app.epistola.suite.catalog.queries.CatalogGraphNode
+import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
+import app.epistola.suite.common.ids.CatalogKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 /** Laying out the catalog dependency graph: what everything builds on stands left, and a focus narrows it. */
 class CatalogGraphViewTest {
 
-    private fun node(key: String) = CatalogGraphNode(key, key.replaceFirstChar { it.uppercase() }, CatalogType.AUTHORED, "r/n/$key")
+    private fun node(key: String) = CatalogGraphNode(key, key.replaceFirstChar { it.uppercase() }, "r/n/$key")
     private fun edge(from: String, to: String?, release: String? = "1.0.0") = CatalogGraphEdge(from, to, "r/n/${to ?: "elsewhere"}", release)
 
     // base <- shared <- letters ; reports -> shared ; unrelated stands alone ; letters -> elsewhere (not in the tenant)
@@ -53,5 +57,38 @@ class CatalogGraphViewTest {
 
         assertThat(view(focus = "unrelated").nodes.map { it.key }).containsExactly("unrelated")
         assertThat(view(focus = "unrelated").edges).isEmpty()
+    }
+
+    @Test
+    fun `a catalog that cannot be changed here says why under its name`() {
+        // `shared` can be changed here, so nothing marks it; `base` is supplied by Epistola.
+        val received = graph
+        val editability = CatalogEditabilities(
+            received.nodes.associate { node ->
+                CatalogAddress(node.namespace, CatalogKey.of(node.catalogKey)) to CatalogEditability(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA.takeIf { node.catalogKey == "base" })
+            },
+        )
+        val details = CatalogGraphView.of(received, readOnlyLabel = CatalogGraphView.readOnlyLabels(editability)) { "/c/$it" }.nodes.associate { it.key to it.detail }
+        assertThat(details.getValue("base")).isEqualTo("Supplied by Epistola · base")
+        assertThat(details.getValue("shared")).`as`("received, and can be changed here").isEqualTo("shared")
+    }
+
+    @Test
+    fun `two catalogs sharing a key are two boxes, each drawn and linked by namespace and key`() {
+        val twoLetters = CatalogDependencyGraph(
+            nodes = listOf(
+                CatalogGraphNode("letters", "Acme letters", "r/acme/letters", "acme"),
+                CatalogGraphNode("letters", "Bureau letters", "r/bureau/letters", "bureau"),
+                CatalogGraphNode("base", "Base", "r/acme/base", "acme"),
+            ),
+            edges = listOf(CatalogGraphEdge("letters", "base", "r/acme/base", "1.0.0", fromNamespace = "bureau", toNamespace = "acme")),
+        )
+        val view = CatalogGraphView.of(twoLetters) { "/c/$it" }
+        assertThat(view.nodes.map { it.href }).containsExactlyInAnyOrder("/c/acme/letters", "/c/bureau/letters", "/c/base")
+        assertThat(view.edges).hasSize(1)
+        // Focused on one, the other is not drawn: it uses nothing and nothing uses it.
+        assertThat(CatalogGraphView.of(twoLetters, focus = "bureau/letters") { "/c/$it" }.nodes.map { it.key }).containsExactlyInAnyOrder("bureau/letters", "base")
+        // A key nobody shares is drawn by itself, however the focus names it.
+        assertThat(CatalogGraphView.of(twoLetters, focus = "acme/base") { "/c/$it" }.nodes.single { it.focus }.key).isEqualTo("base")
     }
 }

@@ -198,21 +198,21 @@ class ThemeStyleResolver(
         val query = when {
             versionId != null -> handle.createQuery(
                 """
-                SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
                 WHERE t.id = :id AND t.tenant_key = :tenantId AND t.version_id = :versionId
                 """,
             ).bind("versionId", versionId)
 
             catalogKey != null -> handle.createQuery(
                 """
-                SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
                 WHERE t.id = :id AND t.tenant_key = :tenantId AND ${inCurrentVersion("t")} AND t.version_id = ${versionAt("tenantId", "catalogKey")}
                 """,
             ).bind("catalogKey", catalogKey)
 
             else -> handle.createQuery(
                 """
-                SELECT t.*, c.catalog_key AS catalog_key, c.type AS catalog_type FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
                 WHERE t.id = :id AND t.tenant_key = :tenantId AND ${inCurrentVersion("t")}
                 """,
             )

@@ -16,8 +16,8 @@ import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
@@ -32,8 +32,9 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.RegisterCatalog
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.ReleasePublication
+import app.epistola.suite.catalog.commands.ReleaseRenderingDefaultsTooNewException
 import app.epistola.suite.catalog.commands.SetCatalogPublicationSettings
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
 import app.epistola.suite.catalog.dependencies.ListCatalogDependents
@@ -41,27 +42,35 @@ import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooNewException
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
+import app.epistola.suite.catalog.namespaces.ListCatalogKeyNamespaces
+import app.epistola.suite.catalog.namespaces.ListHeldNamespaces
+import app.epistola.suite.catalog.namespaces.LocalAuthority
+import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.CatalogReleaseSummary
 import app.epistola.suite.catalog.queries.FindResourceUsages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
-import app.epistola.suite.catalog.queries.GetCatalogRelease
+import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
 import app.epistola.suite.catalog.queries.GetLatestCatalogRelease
-import app.epistola.suite.catalog.queries.ListCatalogReleases
+import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ListReleasesWithSameContent
 import app.epistola.suite.catalog.queries.PreviewInstall
 import app.epistola.suite.catalog.queries.ResourceStatus
+import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
+import app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException
+import app.epistola.suite.catalog.releases.CatalogReleaseRef
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.catalog.revisions.ReleaseInUseException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
-import app.epistola.suite.catalog.versions.CatalogVersionBehindException
-import app.epistola.suite.catalog.versions.CatalogVersionRef
-import app.epistola.suite.catalog.versions.CatalogVersionReleasedException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.ListCatalogVersions
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -70,8 +79,8 @@ import app.epistola.suite.documents.EnvironmentNotFoundException
 import app.epistola.suite.environments.EnvironmentDeploymentRefusedException
 import app.epistola.suite.environments.ReleaseDependenciesMissingException
 import app.epistola.suite.environments.ReleaseNotDeployableException
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
@@ -96,6 +105,7 @@ import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.wantsFragmentResponse
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
@@ -104,9 +114,11 @@ import app.epistola.suite.security.requirePermission
 import app.epistola.suite.validation.FieldLimits
 import app.epistola.suite.validation.ValidationException
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.net.URI
 import java.util.UUID
 
 private const val CATALOG_LOCALE_ATTRIBUTE = "system.locale"
@@ -129,9 +141,10 @@ class CatalogHandler {
     }
 
     /** The dependency drawing; each catalog links to its own Dependencies page, which narrows the drawing to it. */
-    private fun catalogGraph(tenantKey: TenantKey, focus: CatalogKey?): CatalogGraphView = CatalogGraphView.of(
+    private fun catalogGraph(tenantKey: TenantKey, focus: String?): CatalogGraphView = CatalogGraphView.of(
         GetCatalogDependencyGraph(tenantKey).query(),
-        focus = focus?.value,
+        focus = focus,
+        readOnlyLabel = CatalogGraphView.readOnlyLabels(ListCatalogEditability(tenantKey).query()),
     ) { key -> "/tenants/${tenantKey.value}/catalogs/$key/dependencies" }
 
     fun list(request: ServerRequest): ServerResponse {
@@ -148,16 +161,19 @@ class CatalogHandler {
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
+        val namespaces = ListHeldNamespaces(tenantId.key).query()
         return request.htmx {
             // In-app trigger (hx-get → #dialog-mount): just the dialog fragment.
             fragment("catalogs/new", "dialog") {
                 "tenantId" to tenantId.key
+                "namespaces" to namespaces
             }
             // Direct navigation / boost: the host list page with the create
             // dialog embedded in its mount (openDialog=true), opened on load by JS.
             onFullPage {
                 page("catalogs/list") {
                     catalogPageModel(request)
+                    "namespaces" to namespaces
                     "openDialog" to true
                     "openDialogFragment" to "catalogs/new :: dialog"
                 }
@@ -185,17 +201,26 @@ class CatalogHandler {
         // Field validation (incl. slug/CatalogKey) and the command-level failure
         // (duplicate slug) both land as `errors` on the FormData, so they share one
         // error path — mirroring the environment/attribute conversions.
+        var createdNamespace: String? = null
         val result = if (form.hasErrors()) {
             form
         } else {
             form.executeOrFormError {
-                CreateCatalog(
+                // Named where the person chose (ADR 0034, section 3): a held namespace, or local with one of
+                // its own; nothing chosen leaves it to the command, which takes the one the tenant holds.
+                val choice = form["namespaceChoice"].trim()
+                val local = LocalAuthority.isLocal(choice)
+                val held = if (local) null else NamespaceName.parse(choice)
+                createdNamespace = CreateCatalog(
                     tenantKey = tenantId.key,
                     id = CatalogKey.of(form["slug"]),
                     name = form["name"],
-                ).execute()
+                    registry = if (local) LocalAuthority.NAME else held?.authority,
+                    namespace = if (local) form["localNamespace"].trim().ifEmpty { null } else held?.namespace,
+                ).execute().namespace
             }
         }
+        val namespaces = ListHeldNamespaces(tenantId.key).query()
 
         if (result.hasErrors()) {
             return request.htmx {
@@ -208,10 +233,12 @@ class CatalogHandler {
                     formData = result,
                 ) {
                     "tenantId" to tenantId.key
+                    "namespaces" to namespaces
                 }
                 onFullPage {
                     page(422, "catalogs/list") {
                         catalogPageModel(request)
+                        "namespaces" to namespaces
                         "openDialog" to true
                         "openDialogFragment" to "catalogs/new :: dialog"
                         "formData" to result.formData
@@ -223,7 +250,9 @@ class CatalogHandler {
 
         // Success: on to the new catalog's page, where its next step is waiting (New template)
         // rather than back to the list it was created from.
-        val created = CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
+        // Its address names its namespace when another has a catalog with its key (ADR 0034, phase 4).
+        val shared = ListCatalogKeyNamespaces(tenantId.key, CatalogKey.of(form["slug"])).query().namespaces.size > 1
+        val created = if (shared) "/tenants/${tenantId.key}/catalogs/$createdNamespace/${form["slug"]}/browse" else CatalogPages.browse(tenantId, CatalogSegment(CatalogKey.of(form["slug"])))
         return request.htmx {
             dialogLocation(created)
             onFullPage { redirect(created) }
@@ -371,23 +400,27 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val version = request.pathVariable("version")
 
-        val release = GetCatalogRelease(tenantId.key, catalogKey, version).query()
+        val release = GetCatalogReleaseDetail(tenantId.key, catalogKey, version).query()
             ?: return listWithError(request, "Catalog '${catalogKey.value}' has no release $version.")
 
         // What may be done with it: the same decisions the catalog page used to make per row.
         val publication = GetCatalogPublicationState(tenantId.key, catalogKey).query()
-        val summary = ListCatalogReleases(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
+        val summary = ListCatalogReleaseSummaries(tenantId.key, catalogKey).query().firstOrNull { it.version == version }
         val bar = draftBar(tenantId, CatalogSegment(catalogKey, null))
         return ServerResponse.ok().page("catalogs/release") {
-            "pageTitle" to "${release.catalog.name} v$version - Published version - Epistola"
+            "pageTitle" to "${release.catalog.name} v$version - Published release - Epistola"
             "tenantId" to tenantId.key
             "activeNavSection" to "catalogs"
             "catalogId" to catalogKey.value
             "release" to release
+            // The other releases in the tenant with its content: "The same release as" (ADR 0034).
+            "sameAs" to ListReleasesWithSameContent(tenantId.key, catalogKey, version).query()?.releases.orEmpty()
             "releaseView" to summary?.let { releaseViews(listOf(it), publication).single() }
             "draftBar" to bar
             "liveIn" to bar.liveIn[version].orEmpty()
             "keywords" to release.catalog.keywords.sorted()
+            // Alpha: only when a registry is configured and the reader may publish.
+            "registryPublishAvailable" to CatalogRegistryHandler.canPublish(tenantId.key, app.epistola.suite.catalog.registry.ListReleaseRegistries(tenantId.key).query())
         }
     }
 
@@ -455,7 +488,7 @@ class CatalogHandler {
             "error" to error,
             // Publishing parallel work: where everyday work continues (`stay`, `keep`, `discard`).
             "afterwards" to afterwards,
-            "keepAs" to (keepAs ?: readiness.drafts.chosen?.let { "Next version before ${it.label}".take(100) }),
+            "keepAs" to (keepAs ?: readiness.drafts.chosen?.let { "${CatalogDraft.NEXT_LABEL} before ${it.label}".take(100) }),
         )
     }
 
@@ -505,9 +538,9 @@ class CatalogHandler {
         )
 
         if (form.hasErrors()) {
-            return reRenderWithError("Version must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
+            return reRenderWithError("The version number must be SemVer — MAJOR.MINOR.PATCH (e.g. 1.4.0).")
         }
-        if (afterwards == "keep" && keepAs == null) return reRenderWithError("Give the current next version a name to keep it under.")
+        if (afterwards == "keep" && keepAs == null) return reRenderWithError("Give the current next release a name to keep it under.")
 
         val notes = form.formData["notes"]?.ifBlank { null }
         val publicationChoice = when {
@@ -528,10 +561,10 @@ class CatalogHandler {
                 // So are the drafts of other catalogs it builds on, which publishing publishes first.
                 readiness.publishedAlong.forEach { other ->
                     val otherKey = CatalogKey.of(other.catalogKey)
-                    MarkCatalogReady(tenantId.key, otherKey, catalogVersion = CatalogVersionRef(tenantId.key, otherKey, DraftRef.Id(requireNotNull(other.draftId)))).execute()
+                    MarkCatalogReady(tenantId.key, otherKey, catalogVersion = CatalogReleaseRef(tenantId.key, otherKey, DraftRef.Id(requireNotNull(other.draftId)))).execute()
                 }
             }
-            val result = ReleaseCatalogVersion(
+            val result = ReleaseCatalogDraft(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
                 version = form["version"],
@@ -553,7 +586,7 @@ class CatalogHandler {
             if (liveIn.isNotEmpty()) requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
             liveIn.forEach { environment ->
                 try {
-                    DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
+                    DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, result.version, replace = replaceLive).execute()
                 } catch (e: ValidationException) {
                     return reRenderWithError("Published v${result.version}, but it could not be deployed to $environment: ${e.message} Deploy it under Deployments.")
                 } catch (e: RuntimeException) {
@@ -573,8 +606,8 @@ class CatalogHandler {
                 }
             }
         } catch (e: CatalogReleaseVersionException) {
-            reRenderWithError(e.message ?: "Invalid release version.")
-        } catch (e: CatalogVersionBehindException) {
+            reRenderWithError(e.message ?: "Invalid version number.")
+        } catch (e: CatalogReleaseBehindException) {
             reRenderWithError(
                 "Confirm that this draft may be released without " +
                     e.behind.joinToString { "v$it" } + ", which it is behind.",
@@ -631,7 +664,7 @@ class CatalogHandler {
         val draft = version.removePrefix("draft:").takeIf { it != version }
         if (draft != null && !DraftRef.isKey(draft)) return deployments(request, error = "Choose a draft of this catalog to deploy.")
         return try {
-            DeployCatalogVersion(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft ?: version, includeDependencies, replace = replace && draft == null).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), tenantId), catalogKey, draft ?: version, includeDependencies, replace = replace && draft == null).execute()
             redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
         } catch (failure: EnvironmentDeploymentRefusedException) {
             deployments(request, error = failure.message)
@@ -658,7 +691,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
-        UndeployCatalogVersion(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
+        UndeployCatalogRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalogKey, version).execute()
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
 
@@ -669,7 +702,7 @@ class CatalogHandler {
         val catalogKey = request.catalogId()
         val environment = EnvironmentKey.of(request.pathVariable("environmentId"))
         ListDraftDeployments(tenantId.key, environment, catalogKey).query().singleOrNull()?.let { deployed ->
-            UndeployCatalogVersion(EnvironmentId(environment, tenantId), catalogKey, deployed.draftId).execute()
+            UndeployCatalogRelease(EnvironmentId(environment, tenantId), catalogKey, deployed.draftId).execute()
         }
         return redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/deployments")
     }
@@ -679,7 +712,10 @@ class CatalogHandler {
         val served = ListDeployments(tenantKey, catalogKey).query().filter { !it.isDraft }.groupBy { it.environmentKey }
         // A draft it serves, which a request naming no version renders.
         val drafts = ListDraftDeployments(tenantKey, catalogKey = catalogKey).query().associateBy { it.environmentKey }
-        val names by lazy { ListCatalogs(tenantKey).query().associate { it.id to it.name } }
+        // By namespace and key: two catalogs can share a key (ADR 0034).
+        val catalogs by lazy { ListCatalogs(tenantKey).query() }
+        val names by lazy { catalogs.associate { it.address to it.name } }
+        val own by lazy { GetCatalog(tenantKey, catalogKey).query()?.address }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
             DeploymentRowView(
                 environmentKey = environment.id.value,
@@ -687,26 +723,26 @@ class CatalogHandler {
                 production = environment.production,
                 served = served[environment.id].orEmpty().map { ServedReleaseView(requireNotNull(it.version), it.deployedAt, it.documentsRequested, it.lastUsedAt) },
                 // Not deployed itself, but used there because a deployed catalog depends on it.
-                implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
-                    .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
+                implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalog == own }
+                    .map { ImplicitUseView(it.version, it.neededBy.map { catalog -> names[catalog] ?: catalog.key.value }) },
                 uses = drafts[environment.id]?.draftLabel,
                 followsDraft = drafts[environment.id]?.draftId,
             )
         }
     }
 
-    /** Removes a release from the history, landing on Versions. Refusals -- a send in flight -- land there too, with the reason. */
+    /** Removes a release from the history, landing on Releases. Refusals -- a send in flight -- land there too, with the reason. */
     fun deleteRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalogKey = request.catalogId()
         return try {
             DeleteCatalogRelease(tenantId.key, catalogKey, request.pathVariable("version")).execute()
-            redirect("/tenants/${tenantId.key}/catalogs/${catalogKey.value}/versions")
+            redirect(CatalogPages.releases(tenantId, catalogKey))
         } catch (failure: ReleaseInUseException) {
-            section(request, "catalogs/versions", failure.message)
+            section(request, "catalogs/releases", failure.message)
         } catch (failure: ValidationException) {
             logger.warn("Deleting a release of '{}' was rejected: {}", catalogKey.value, failure.message)
-            section(request, "catalogs/versions", failure.message)
+            section(request, "catalogs/releases", failure.message)
         }
     }
 
@@ -754,7 +790,7 @@ class CatalogHandler {
             logger.warn("Upgrade check failed for catalog {}: {}", catalogKey, e.message)
             null
         }
-        val status = CatalogVersionStatusView.of(
+        val status = CatalogReleaseStatusView.of(
             catalog,
             check,
             CATALOG_SCHEMA_VERSION,
@@ -856,8 +892,8 @@ class CatalogHandler {
 
     /**
      * `GET /{catalogId}/draft`: a draft's own page — what is not published yet, its contents and its
-     * details. A plain segment is the next version; `key@<draft id>` parallel work. A subscribed
-     * catalog has no drafts, and a catalog with nothing open goes to its catalog page, which offers to
+     * details. A plain segment is the next version; `key@<draft id>` parallel work. A catalog that
+     * cannot be changed here shows no drafts, and a catalog with nothing open goes to its catalog page, which offers to
      * start.
      */
     fun draftPage(request: ServerRequest): ServerResponse {
@@ -865,11 +901,23 @@ class CatalogHandler {
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
         if (bar.chosen == null) return redirect(CatalogPages.browse(tenantId, segment))
-        return catalogPage(request, "catalogs/version", segment, bar, error = null)
+        return catalogPage(request, "catalogs/draft", segment, bar, error = null)
     }
 
-    /** `GET /{catalogId}/versions`: every version of the catalog, each to its own page. */
-    fun versionsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/versions", catalogWide = true)
+    /** `GET /{catalogId}/releases`: every release and draft of the catalog, each to its own page. */
+    fun releasesPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/releases", catalogWide = true)
+
+    /**
+     * `GET /{catalogId}/versions`: where Releases was before releases were called releases. A
+     * permanent redirect there, its query kept; an HTMX request is sent there by `HX-Location`, the
+     * boosted navigation a link takes, since a redirect it follows would leave the old address shown.
+     */
+    fun formerVersionsPage(request: ServerRequest): ServerResponse {
+        val query = request.uri().rawQuery?.let { "?$it" }.orEmpty()
+        val target = CatalogPages.releases(request.tenantId(), request.catalogId()) + query
+        if (request.wantsFragmentResponse) return request.htmx { dialogLocation(target) }
+        return ServerResponse.status(HttpStatus.PERMANENT_REDIRECT).location(URI.create(target)).build()
+    }
 
     /** `GET /{catalogId}/deployments`: what each environment serves of the catalog, and deploying another version. */
     fun deploymentsPage(request: ServerRequest): ServerResponse = catalogSection(request, "catalogs/deployments", catalogWide = true)
@@ -913,7 +961,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val bar = draftBar(tenantId, segment)
-        val readiness = if (bar.authored && bar.chosen != null) CatalogReleaseReadiness.of(bar) else null
+        val readiness = if (bar.editable && bar.chosen != null) CatalogReleaseReadiness.of(bar) else null
         return request.htmx {
             fragment("catalogs/workspace", "bar-status") {
                 "tenantId" to tenantId.key
@@ -933,7 +981,7 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val bar = draftBar(tenantId, segment)
         return if (bar.chosen != null) {
-            catalogPage(request, "catalogs/version", segment, bar, error = null, draftError = message)
+            catalogPage(request, "catalogs/draft", segment, bar, error = null, draftError = message)
         } else {
             catalogPage(request, "catalogs/browse", segment.at(null), draftBar(tenantId, segment.at(null)), error = null, draftError = message)
         }
@@ -971,39 +1019,40 @@ class CatalogHandler {
             val usageCounts = usages.mapValues { it.value.size }
             val images = catalogImages(tenantId.key, catalogKey, version)
             val imagesBySlug = images.associateBy { it.id.value }
-            val publication = if (result.catalog.type == CatalogType.AUTHORED) {
+            // Releases are cut, and so published, only where the catalog can be changed.
+            val publication = if (drafts.editable) {
                 GetCatalogPublicationState(tenantId.key, catalogKey).query()
             } else {
                 null
             }
-            // An authored catalog's releases are the ones it cut; a subscribed catalog's are the ones
-            // it installed (each install records its release). Either can be deployed.
-            val releases = ListCatalogReleases(tenantId.key, catalogKey).query()
+            // The releases cut here and the ones received (each install records its release), side
+            // by side. Any of them can be deployed.
+            val releases = ListCatalogReleaseSummaries(tenantId.key, catalogKey).query()
             val deployments = deploymentRows(tenantId.key, catalogKey)
             // Every release can be deployed. Newest first, as the list is.
             val deployableVersions = releases.map { it.version }
             // The open drafts an environment can follow (not production): the next version and parallel work.
-            val followableDrafts = if (result.catalog.type == CatalogType.AUTHORED) {
-                ListCatalogVersions(tenantId.key, catalogKey).query().filter { it.status == CatalogVersionStatus.DRAFT }
+            val followableDrafts = if (drafts.editable) {
+                ListCatalogReleases(tenantId.key, catalogKey).query().filter { it.status == CatalogReleaseStatus.DRAFT }
             } else {
                 emptyList()
             }
             val releaseViews = releaseViews(releases, publication)
             // The catalog's page on Exchange, when it came from there. Null for a plain URL
-            // subscription, a ZIP import, or an authored catalog — the view falls back to the text
+            // source, a ZIP import, or a catalog only released here — the view falls back to the text
             // it rendered before. Resolved once per page: the rows append to it themselves.
             val exchangeCatalogUrl = GetExchangeCatalogLink(tenantId.key, result.catalog.sourceUrl).query()
-            // Installing a subscribed catalog installs the whole manifest (#850), so the action
-            // means something only while the manifest holds something this installation does not.
-            // Gated on that rather than on the catalog being subscribed, which was always true and
+            // Installing from a source installs the whole manifest (#850), so the action means
+            // something only while the manifest holds something this installation does not.
+            // Gated on that rather than on the catalog having a source, which was always true and
             // left the button offering to install what was already installed.
             val hasUninstalledResources = result.resources.any { it.status == ResourceStatus.AVAILABLE }
-            // Only an authored catalog has a next release to prepare.
-            val authored = result.catalog.type == CatalogType.AUTHORED
-            val readiness = if (authored) CatalogReleaseReadiness.of(drafts) else null
+            // Only a catalog that can be changed here has a next release to prepare.
+            val editable = drafts.editable
+            val readiness = if (editable) CatalogReleaseReadiness.of(drafts) else null
             val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
             // From a new catalog to an application generating from it; until something is live.
-            val gettingStarted = if (authored) {
+            val gettingStarted = if (editable) {
                 CatalogGettingStarted(
                     namespace = result.catalog.namespace,
                     catalogKey = catalogKey.value,
@@ -1023,11 +1072,11 @@ class CatalogHandler {
             val changeStates = readiness?.changes?.resources.orEmpty().associateBy({ "${it.type}/${it.slug}" }, { it.state })
             // Only the Dependencies page says who depends on this catalog; the others skip the lookup.
             val dependents = if (template == "catalogs/dependencies") ListCatalogDependents(tenantId.key, catalogKey).query() else emptyList()
-            val editsDependencies = authored && drafts.chosen != null
+            val editsDependencies = editable && drafts.chosen != null
             ServerResponse.ok().page(template) {
                 "pageTitle" to when (template) {
-                    "catalogs/version" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
-                    "catalogs/versions" -> "Versions - ${result.catalog.name} - Epistola"
+                    "catalogs/draft" -> "${drafts.draftTitle} - ${result.catalog.name} - Epistola"
+                    "catalogs/releases" -> "Releases - ${result.catalog.name} - Epistola"
                     "catalogs/deployments" -> "Deployments - ${result.catalog.name} - Epistola"
                     "catalogs/dependencies" -> "Dependencies - ${result.catalog.name} - Epistola"
                     "catalogs/settings" -> "Settings - ${result.catalog.name} - Epistola"
@@ -1042,17 +1091,17 @@ class CatalogHandler {
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
                 "dependents" to dependents
-                if (template == "catalogs/dependencies") "dependencyGraph" to catalogGraph(tenantId.key, focus = catalogKey)
+                if (template == "catalogs/dependencies") "dependencyGraph" to catalogGraph(tenantId.key, focus = "${result.catalog.namespace}/${catalogKey.value}")
                 "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
                 "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
                 // What the version holds, by kind, with a way to add each kind there; nothing is
-                // added to a subscribed catalog, whose content is its publisher's.
+                // added to a catalog that cannot be changed here.
                 "contents" to CatalogContents.of(
                     tenantId.key,
                     segment,
                     result.resources,
                     changeStates,
-                ) { authored && auth.has(it) }
+                ) { editable && auth.has(it) }
                 if (draftError != null) "nextReleaseError" to draftError
                 "exchangeCatalogUrl" to exchangeCatalogUrl
                 "publication" to publication
@@ -1159,7 +1208,7 @@ class CatalogHandler {
             ).execute()
 
             // Details go out with a version, so they are edited on a draft's page: back to it.
-            val back = if (catalog.type == CatalogType.AUTHORED) {
+            val back = if (GetCatalogEditability(tenantId.key, catalog.id).query().editable) {
                 CatalogPages.draft(tenantId, request.catalogSegment())
             } else {
                 CatalogPages.browse(tenantId, request.catalogSegment())
@@ -1262,7 +1311,7 @@ class CatalogHandler {
     private fun catalogImages(
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         catalogKey: CatalogKey,
-        version: app.epistola.suite.catalog.versions.CatalogVersionRef? = null,
+        version: app.epistola.suite.catalog.releases.CatalogReleaseRef? = null,
     ) = ListAssets(tenantKey, catalogKey = catalogKey, catalogVersion = version).query()
         .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
 
@@ -1270,7 +1319,10 @@ class CatalogHandler {
         tenantKey: app.epistola.suite.common.ids.TenantKey,
         catalogKey: CatalogKey,
     ) = GetCatalog(tenantKey, catalogKey).query()
-        ?.also { require(it.type == CatalogType.AUTHORED) { "Subscribed catalog metadata is read-only." } }
+        ?.also { catalog ->
+            val editability = GetCatalogEditability(tenantKey, catalog.id).query()
+            require(editability.editable) { editability.reason?.explanation ?: "This catalog cannot be changed here." }
+        }
         ?: throw IllegalArgumentException("Catalog not found: ${catalogKey.value}")
 
     private enum class CatalogMetadataSection(val value: String, val title: String) {
@@ -1428,138 +1480,6 @@ class CatalogHandler {
         }
     }
 
-    /**
-     * The Import-ZIP dialog, mirroring [newForm]/[registerForm]: an in-app
-     * trigger (hx-get → #dialog-mount) gets just the `dialog` fragment; direct
-     * navigation / boost gets the host list page with the dialog embedded in its
-     * mount (openDialog=true), opened on load by JS. Gated on TEMPLATE_EDIT —
-     * the same permission [ImportCatalogZip] enforces.
-     */
-    fun importForm(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        return request.htmx {
-            fragment("catalogs/import", "dialog") { "tenantId" to tenantId.key }
-            onFullPage {
-                page("catalogs/list") {
-                    catalogPageModel(request)
-                    "openDialog" to true
-                    "openDialogFragment" to "catalogs/import :: dialog"
-                }
-            }
-        }
-    }
-
-    fun importZip(request: ServerRequest): ServerResponse {
-        val tenantId = request.tenantId()
-        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-
-        val multipartData = request.multipartData()
-        val filePart = multipartData["file"]?.firstOrNull()
-            ?: return importError(request, "No file provided")
-
-        val zipBytes = filePart.inputStream.use { it.readAllBytes() }
-
-        val catalogTypeStr = multipartData["catalogType"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim()
-        } ?: "AUTHORED"
-        val catalogType = try {
-            CatalogType.valueOf(catalogTypeStr)
-        } catch (_: Exception) {
-            return importError(request, "Invalid catalog type: $catalogTypeStr")
-        }
-
-        // Set when the operator confirmed updating an AUTHORED ZIP that is below the
-        // current catalog schema version but migratable (re-submitted from the
-        // "update?" prompt).
-        val confirmMigration = multipartData["confirmMigration"]?.firstOrNull()?.let {
-            String(it.inputStream.readAllBytes()).trim().equals("true", ignoreCase = true)
-        } ?: false
-
-        return try {
-            val result = ImportCatalogZip(
-                tenantKey = tenantId.key,
-                zipBytes = zipBytes,
-                catalogType = catalogType,
-                confirmMigration = confirmMigration,
-            ).execute()
-
-            if (request.isHtmx) {
-                request.htmx {
-                    dialogRedirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse") }
-                }
-            } else {
-                redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-            }
-        } catch (e: CatalogSchemaException) {
-            // The uploaded catalog's wire format is too new, too old, or
-            // unrecognised — the migrator rejected it before binding. Render the
-            // actionable remediation message inline, so the operator knows whether to upgrade
-            // this instance or re-export from a current source.
-            logger.warn("Import blocked by catalog wire-format version: ${e.message}")
-            val title = when (e) {
-                is CatalogSchemaTooNewException -> "Import blocked: catalog format is too new"
-                is CatalogSchemaTooOldException -> "Import blocked: catalog format is too old"
-                is CatalogSchemaUnknownException -> "Import blocked: unrecognised catalog format"
-            }
-            fragmentOrPage(
-                request,
-                "catalogs/import",
-                "import-schema-error",
-                mapOf(
-                    "schemaErrorTitle" to title,
-                    "schemaErrorDetail" to (e.message ?: "Incompatible catalog wire format."),
-                ),
-            )
-        } catch (e: CatalogMigrationConfirmationRequiredException) {
-            // AUTHORED ZIP below the current catalog schema version but migratable:
-            // updating mutates the imported content, so prompt before importing. The
-            // "Update" button re-submits the same form with confirmMigration=true.
-            fragmentOrPage(
-                request,
-                "catalogs/import",
-                "import-migration-confirm",
-                mapOf(
-                    "tenantId" to tenantId.key,
-                    "fromSchemaVersion" to e.fromVersion,
-                    "toSchemaVersion" to e.toVersion,
-                    "migrationNotices" to e.notices,
-                ),
-            )
-        } catch (e: Exception) {
-            logger.warn("Failed to import catalog from ZIP: ${e.message}", e)
-            importError(request, e.message ?: "Failed to import catalog")
-        }
-    }
-
-    /**
-     * Plain single-message import failures go through the global form-error
-     * slot (shaped 422; see HtmxDsl.globalFormError). The structured import
-     * responses (schema error, migration confirm) keep
-     * rendering into the form's dedicated #import-error target instead — the
-     * text-only slot cannot hold them. Because the shaped response's primary
-     * swap is `none`, stale structured content in #import-error is OOB-reset
-     * in the same response.
-     */
-    private fun importError(request: ServerRequest, error: String): ServerResponse = request.htmx {
-        globalFormError("import-catalog-error", error)
-        oob("catalogs/import", "import-error-reset")
-        // Defensive only: unlike the subscribe/create forms, the import form is
-        // HTMX-only (no method/action fallback — a file upload has nothing to
-        // restore on a re-render anyway), so a genuine non-HTMX POST cannot reach
-        // this. Kept consistent with registerError so the branch stays correct if a
-        // fallback is ever added; `error` renders in the dialog's form-error slot.
-        onFullPage {
-            page(422, "catalogs/list") {
-                catalogPageModel(request)
-                "openDialog" to true
-                "openDialogFragment" to "catalogs/import :: dialog"
-                "error" to error
-            }
-        }
-    }
-
     /** The export dialog: the working copy, or a release that kept its content, as it was released. */
     fun exportCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -1572,7 +1492,7 @@ class CatalogHandler {
                 "tenantId" to tenantId.key,
                 "catalogId" to catalogKey.value,
                 // Every release can be handed over exactly as released.
-                "releases" to ListCatalogReleases(tenantId.key, catalogKey).query().map { it.version },
+                "releases" to ListCatalogReleaseSummaries(tenantId.key, catalogKey).query().map { it.version },
             ),
         )
     }

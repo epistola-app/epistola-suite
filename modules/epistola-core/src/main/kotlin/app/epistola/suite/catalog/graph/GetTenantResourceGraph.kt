@@ -64,15 +64,15 @@ class TenantResourceGraphBuilder(
 
     private fun loadNodes(handle: Handle, tenantKey: TenantKey): List<ResourceNode> = handle.createQuery(
         """
-            SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name, catalog_type
+            SELECT resource_id, resource_type, catalog_key, resource_key, resource_name, catalog_name
             FROM (
-                SELECT a.resource_id, 'image' resource_type, c.catalog_key::text, a.id::text resource_key, a.name resource_name, c.name catalog_name, c.type::text catalog_type FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                UNION ALL SELECT l.resource_id, 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name, c.type::text FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
-                UNION ALL SELECT f.resource_id, 'font', c.catalog_key::text, f.slug::text, f.name, c.name, c.type::text FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
-                UNION ALL SELECT a.resource_id, 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name, c.type::text FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                UNION ALL SELECT t.resource_id, 'theme', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
-                UNION ALL SELECT s.resource_id, 'stencil', c.catalog_key::text, s.id::text, s.name, c.name, c.type::text FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
-                UNION ALL SELECT t.resource_id, 'template', c.catalog_key::text, t.id::text, t.name, c.name, c.type::text FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                SELECT a.resource_id, 'image' resource_type, ${segmentOf("c")} AS catalog_key, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                UNION ALL SELECT l.resource_id, 'codeList', ${segmentOf("c")} AS catalog_key, l.slug::text, l.display_name, c.name FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
+                UNION ALL SELECT f.resource_id, 'font', ${segmentOf("c")} AS catalog_key, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
+                UNION ALL SELECT a.resource_id, 'attribute', ${segmentOf("c")} AS catalog_key, a.id::text, a.display_name, c.name FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                UNION ALL SELECT t.resource_id, 'theme', ${segmentOf("c")} AS catalog_key, t.id::text, t.name, c.name FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                UNION ALL SELECT s.resource_id, 'stencil', ${segmentOf("c")} AS catalog_key, s.id::text, s.name, c.name FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
+                UNION ALL SELECT t.resource_id, 'template', ${segmentOf("c")} AS catalog_key, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
         """,
@@ -84,7 +84,6 @@ class TenantResourceGraphBuilder(
                 address = ResourceAddress(resourceType(rs.getString("resource_type")), rs.getString("catalog_key"), rs.getString("resource_key")),
                 name = rs.getString("resource_name"),
                 catalogName = rs.getString("catalog_name"),
-                catalogType = rs.getString("catalog_type"),
             )
         }.list()
 
@@ -92,7 +91,7 @@ class TenantResourceGraphBuilder(
         val result = mutableListOf<Occurrence>()
         handle.createQuery(
             """
-                SELECT dc.catalog_key::text, dt.id::text, thc.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
+                SELECT ${segmentOf("dc")} AS catalog_key, dt.id::text, ${segmentOf("thc")} AS theme_catalog_key, th.id::text AS theme_key
                 FROM document_templates dt
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id AND ${inCurrentVersion("th")}
@@ -112,8 +111,8 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT ac.catalog_key::text, a.id::text,
-                       clc.catalog_key::text AS code_list_catalog_key, cl.slug::text AS code_list_slug
+                SELECT ${segmentOf("ac")} AS catalog_key, a.id::text,
+                       ${segmentOf("clc")} AS code_list_catalog_key, cl.slug::text AS code_list_slug
                 FROM variant_attribute_definitions a
                 JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
                 JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id AND ${inCurrentVersion("cl")}
@@ -133,8 +132,8 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT family_catalog.catalog_key::text, family.slug::text AS font_slug,
-                       asset_catalog.catalog_key::text AS asset_catalog_key,
+                SELECT ${segmentOf("family_catalog")} AS catalog_key, family.slug::text AS font_slug,
+                       ${segmentOf("asset_catalog")} AS asset_catalog_key,
                        binary_asset.id::text AS asset_key,
                        faces.weight, faces.italic
                 FROM font_variants faces
@@ -163,7 +162,7 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
+                SELECT ${segmentOf("template_catalog")} AS catalog_key, template.id::text AS template_key,
                        tv.id::text variant_key, attribute.key attribute_key
                 FROM template_variants tv
                 ${templateJoin("tv")}
@@ -190,7 +189,7 @@ class TenantResourceGraphBuilder(
 
     private fun loadThemeReferences(handle: Handle, tenantKey: TenantKey): List<Occurrence> = handle.createQuery(
         """
-            SELECT tc.catalog_key::text, th.id::text, th.document_styles::text, COALESCE(th.block_style_presets, '{}'::jsonb)::text presets
+            SELECT ${segmentOf("tc")} AS catalog_key, th.id::text, th.document_styles::text, COALESCE(th.block_style_presets, '{}'::jsonb)::text presets
             FROM themes th
             JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
             WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
@@ -206,7 +205,7 @@ class TenantResourceGraphBuilder(
     /** Each variant's working model; what releases hold is their own history, not this graph's. */
     private fun loadTemplateReferences(handle: Handle, tenantKey: TenantKey): List<Occurrence> = handle.createQuery(
         """
-            SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
+            SELECT ${segmentOf("template_catalog")} AS catalog_key, template.id::text AS template_key,
                    variant.id::text AS variant_key, variant.template_model::text
             FROM template_variants variant
             ${templateJoin("variant")}
@@ -224,7 +223,7 @@ class TenantResourceGraphBuilder(
 
     private fun loadStencilReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT stencil_catalog.catalog_key::text, stencil.id::text AS stencil_key, stencil.content::text
+            SELECT ${segmentOf("stencil_catalog")} AS catalog_key, stencil.id::text AS stencil_key, stencil.content::text
             FROM stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
@@ -285,6 +284,15 @@ class TenantResourceGraphBuilder(
         )
     }
 
+    /**
+     * How the graph names catalog [alias]: its key, or `namespace/key` where another catalog of the
+     * tenant has the same key (ADR 0034), so two `letters` are two catalogs of nodes, each linked by its
+     * own address.
+     */
+    private fun segmentOf(alias: String) = "(CASE WHEN EXISTS (SELECT 1 FROM catalogs same_key WHERE same_key.tenant_key = $alias.tenant_key " +
+        "AND same_key.catalog_key = $alias.catalog_key AND same_key.catalog_id <> $alias.catalog_id) " +
+        "THEN $alias.namespace || '/' || $alias.catalog_key ELSE $alias.catalog_key::text END)"
+
     private fun resolveAndAggregate(
         nodes: List<ResourceNode>,
         occurrences: List<Occurrence>,
@@ -294,7 +302,12 @@ class TenantResourceGraphBuilder(
         return occurrences.groupBy { occurrence ->
             val candidates = if (occurrence.selector.catalogKey != null) {
                 val requested = ResourceAddress(occurrence.selector.type, occurrence.selector.catalogKey, occurrence.selector.key)
-                listOfNotNull(byAddress[requested])
+                byAddress[requested]?.let(::listOf)
+                    // A key two catalogs share is named `namespace/key` here: the source's own catalog
+                    // if it is one of them, else either, which is ambiguous.
+                    ?: byTypeAndKey[occurrence.selector.type to occurrence.selector.key].orEmpty()
+                        .filter { it.address.catalogKey.substringAfter('/') == occurrence.selector.catalogKey && '/' in it.address.catalogKey }
+                        .let { shared -> shared.filter { it.address.catalogKey == occurrence.source.catalogKey }.ifEmpty { shared } }
             } else {
                 byTypeAndKey[occurrence.selector.type to occurrence.selector.key].orEmpty()
             }.map { it.address }.sortedBy { it.id }

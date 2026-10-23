@@ -9,7 +9,7 @@ import app.epistola.suite.apikeys.commands.CreateApiKey
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -29,8 +29,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
-import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
@@ -185,7 +185,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
             MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
             val target = GetCatalog(tenant, shared).query()!!
             UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
@@ -261,7 +261,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
             exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
         }
-        val next = withMediator { app.epistola.suite.catalog.versions.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
+        val next = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
 
         // Production serves only releases.
         val marked = exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":true}""")
@@ -276,7 +276,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         assertThat(deployed.statusCode).describedAs(deployed.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(deployed.body!!, "$.status")).isEqualTo("draft")
         assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseId")).isEqualTo(next)
-        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseName")).isEqualTo("Next version")
+        assertThat(JsonPath.read<String>(deployed.body!!, "$.releaseName")).isEqualTo("Next release")
         val fromDraft = generated("production", null)
         assertThat(JsonPath.read<String?>(fromDraft, "$.items[0].version")).isNull()
         assertThat(JsonPath.read<String>(fromDraft, "$.items[0].releaseId")).isEqualTo(next)
@@ -327,7 +327,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
     /** The default catalog with releases 1.0.0 and 1.0.1 of a template `invoice`, and an environment `production`. */
     private fun tenantWithTwoReleases(): Pair<TenantKey, String> = withMediator {
         val tenant = TenantKey.of("rel-${UUID.randomUUID().toString().take(8)}")
-        CreateTenant(id = tenant, name = "Release Tenant").execute()
+        TestNamespaces.createTenant(tenant, "Release Tenant").execute()
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         val variant = variant(tenant)
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()

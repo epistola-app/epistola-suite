@@ -5,14 +5,14 @@
 package app.epistola.suite.mcp.dto
 
 import app.epistola.suite.assets.Asset
-import app.epistola.suite.catalog.CatalogType
 import java.time.OffsetDateTime
 
 /** Metadata for an image available to templates, excluding its binary content. */
 data class ImageInfo(
     val id: String,
     val catalogId: String,
-    val catalogType: String,
+    /** Whether its catalog can be changed here; [readOnly] is the opposite. */
+    val editable: Boolean,
     val readOnly: Boolean,
     val name: String,
     val mediaType: String,
@@ -22,11 +22,11 @@ data class ImageInfo(
     val createdAt: OffsetDateTime,
 ) {
     companion object {
-        fun from(image: Asset): ImageInfo = ImageInfo(
+        fun from(image: Asset, editable: Boolean): ImageInfo = ImageInfo(
             id = image.id.value,
             catalogId = image.catalogKey.value,
-            catalogType = image.catalogType.name,
-            readOnly = image.catalogType == CatalogType.SUBSCRIBED,
+            editable = editable,
+            readOnly = !editable,
             name = image.name,
             mediaType = image.mediaType.mimeType,
             sizeBytes = image.sizeBytes,

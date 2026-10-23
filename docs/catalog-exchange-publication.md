@@ -5,7 +5,7 @@
 > [catalog-exchange-installation.md](catalog-exchange-installation.md). Releases are not yet
 > self-contained; [ADR 0025](adr/0025-relocation-without-aliases.md) sets out where they are going.
 
-Epistola Suite can publish immutable releases of locally authored catalogs to
+Epistola Suite can publish immutable releases cut here to
 Epistola Exchange. Publishing is opt-in at both the deployment and tenant
 levels, runs asynchronously, and never makes the local release depend on
 Exchange availability.
@@ -27,7 +27,7 @@ The implemented flow is outbound publication:
 
 This does not change the existing inbound catalog subscription or ZIP import
 flows. The inbound Exchange direction — browsing Exchange and installing a
-release as a subscribed catalog — is a separate delivery, documented in
+release — is a separate delivery, documented in
 [catalog-exchange-installation.md](catalog-exchange-installation.md). MCP is
 unchanged.
 
@@ -60,6 +60,10 @@ An unchanged current release can be queued explicitly from the catalog page;
 Suite refuses that action when the working-copy fingerprint differs from the
 release fingerprint, because publishing mutable content under an old version
 would violate the release contract.
+
+A catalog named under `local` (ADR 0034, section 7) is never published: it is not queued when it is
+released, and publishing it is refused (`CATALOG_NAMESPACE_LOCAL`), even when the connection grants
+a namespace of the same name.
 
 A namespace chosen by mistake can be corrected until a release of that catalog has reached
 Exchange; after that the catalog's published coordinates cannot move. That fact is recorded on the
@@ -195,7 +199,11 @@ state and S256 PKCE:
    stable human reference such as
    `tc_01HW9TGZT1FCF9Y2CE4XP3Y79M`. The UUID remains the internal and protocol
    identity.
-8. If exactly one namespace is allowed, Suite selects it as the tenant default.
+8. The tenant holds every namespace the connection grants, as a grant through its Exchange
+   connection (ADR 0034, section 3; `docs/catalog-versioning.md`, "Who names a catalog"): it may
+   name new catalogs and issue releases in them. A grant outlives the connection; publishing still
+   checks what the connection grants now.
+9. If exactly one namespace is allowed, Suite selects it as the tenant default.
    If several are allowed, the administrator must choose a default on the same
    Exchange settings page before an unbound catalog can publish.
 
@@ -332,7 +340,7 @@ so there is never a queue of work waiting on configuration.
 
 ## Release and publication transaction
 
-`ReleaseCatalogVersion` first builds and validates the authored catalog,
+`ReleaseCatalogDraft` first builds and validates the catalog's draft,
 computes its canonical fingerprint, and constructs the same portable ZIP used
 by export. When the resolved policy says publish, one database transaction:
 
@@ -359,7 +367,7 @@ is no network call in the release transaction. Consequently:
 imported release never republishes it accidentally. Stable REST release calls
 use `DEFAULT`; the Suite release dialog can send `PUBLISH` or `SKIP` where the
 catalog policy permits it. The dispositions are the `ReleasePublication` values
-on `ReleaseCatalogVersion`.
+on `ReleaseCatalogDraft`.
 
 ## Worker state machine
 
@@ -372,6 +380,12 @@ on `ReleaseCatalogVersion`.
 | `REJECTED`  | Exchange made a terminal content/policy rejection.                  | No                | Terminal; publish a corrected new version.                                      |
 | `FAILED`    | Exchange failed the attempt, or local retries were exhausted.       | Yes               | Terminal until an administrator selects **Retry publication**.                  |
 | `CANCELLED` | An administrator withdrew it before Exchange published it.          | No                | Terminal; the release can be queued again while the working copy still matches. |
+
+Publishing a release again (`PublishCurrentCatalogRelease`, the REST `publishReleaseToRegistry`
+with the Exchange) is idempotent: while its publication is `READY`, `SUBMITTED` or `RETRY` the
+answer is "queued" and nothing is queued again; once `ACCEPTED` it is "already published". A
+`FAILED` or `CANCELLED` one is queued again; a `REJECTED` one is refused, since that number cannot
+be published again.
 
 The worker is a single-owner cluster scheduled task and also uses
 `FOR UPDATE SKIP LOCKED` plus expiring `claimed_at` leases. Those two layers make processing

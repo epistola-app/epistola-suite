@@ -9,10 +9,10 @@ import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
+import app.epistola.suite.catalog.releases.CatalogDependenciesUnreleasedException
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.catalog.versions.CatalogDependenciesUnreleasedException
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -27,7 +27,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
@@ -96,24 +96,40 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `a release renders its theme's own spacing unit`() {
+        val catalog = authoredCatalog("rr-spacing")
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("airy"), catalog), "Airy", spacingUnit = 8f).execute()
+            invoice(catalog, theme = ThemeKey.of("airy"), nodeId = "body")
+            release(catalog, "1.0.0")
+        }
+
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+
+        assertThat(inputs.resolvedTheme.spacingUnit)
+            .`as`("the theme's spacing unit, not the default the renderer falls back to")
+            .isEqualTo(8f)
+    }
+
+    @Test
     fun `a template that names no theme renders with the default theme its release was published with`() {
         val catalog = authoredCatalog("rr-catalog-default")
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
             CreateTheme(ThemeId(ThemeKey.of("other"), catalog), "Other", documentStyles = mapOf("color" to "#0000ff")).execute()
-            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+            app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
                 catalog.tenantKey,
                 catalog.key,
-                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("brand"), catalog.key),
+                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("brand"), catalog.key),
             ).execute()
             invoice(catalog, theme = null, nodeId = "body")
             release(catalog, "1.0.0")
 
             // The next version moves on to another default; the release keeps the one it was published with.
-            app.epistola.suite.catalog.versions.SetCatalogDefaultTheme(
+            app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
                 catalog.tenantKey,
                 catalog.key,
-                app.epistola.suite.catalog.versions.CatalogDefaultTheme(ThemeKey.of("other"), catalog.key),
+                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("other"), catalog.key),
             ).execute()
         }
 
@@ -163,8 +179,8 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
             CreateEnvironment(production, "Production").execute()
             // shared@1.0.0 comes along with letters, since letters renders with it; 1.1.0 is the highest served.
-            DeployCatalogVersion(production, shared.key, "1.1.0").execute()
-            DeployCatalogVersion(production, letters.key, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(production, shared.key, "1.1.0").execute()
+            DeployCatalogRelease(production, letters.key, "1.0.0", includeDependencies = true).execute()
         }
 
         val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
@@ -252,7 +268,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         }
             .`as`("the declaration names shared's draft, which a release cannot pin")
             .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
-            .hasMessageContaining("shared (Next version)")
+            .hasMessageContaining("shared (Next release)")
     }
 
     @Test
@@ -323,7 +339,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
     private fun release(catalog: CatalogId, version: String) {
         MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-        ReleaseCatalogVersion(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = version).execute()
+        ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = version).execute()
     }
 
     private fun variant(catalog: CatalogId) = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))

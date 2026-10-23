@@ -9,7 +9,6 @@ import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
 import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeListResponse
-import app.epistola.api.model.CatalogReleaseStatus
 import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
@@ -34,6 +33,7 @@ import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.readOnlyHere
 import app.epistola.suite.api.v1.shared.ref
 import app.epistola.suite.api.v1.shared.releasedResource
 import app.epistola.suite.api.v1.shared.releasedResources
@@ -51,13 +51,15 @@ import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.catalog.versions.CatalogVersionNotFoundException
-import app.epistola.suite.catalog.versions.CatalogVersionStatus
-import app.epistola.suite.catalog.versions.DraftRef
-import app.epistola.suite.catalog.versions.GetCatalogNames
-import app.epistola.suite.catalog.versions.ListCatalogVersions
-import app.epistola.suite.catalog.versions.ResolvedCatalogVersion
+import app.epistola.suite.catalog.queries.ListReleaseDependencies
+import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.catalog.releases.CatalogReleaseStatus
+import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.GetCatalogNames
+import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.catalog.releases.ResolvedCatalogRelease
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -74,8 +76,8 @@ import app.epistola.suite.environments.CatalogDeployment
 import app.epistola.suite.environments.DeploymentAction
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
-import app.epistola.suite.environments.commands.UndeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
+import app.epistola.suite.environments.commands.UndeployCatalogRelease
 import app.epistola.suite.environments.commands.UpdateEnvironment
 import app.epistola.suite.environments.queries.CountDeploymentHistory
 import app.epistola.suite.environments.queries.GetEnvironment
@@ -90,11 +92,14 @@ import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.commands.RenameTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
+import app.epistola.suite.validation.validate
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import app.epistola.api.model.CatalogReleaseStatus as ApiCatalogReleaseStatus
 
 @RestController
 @RequestMapping("/api")
@@ -191,9 +196,9 @@ class EpistolaTenantApi(
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
-            val bindingCatalogs = bindingCatalogsOf(at)
+            val readOnly = at.catalog.readOnlyHere()
             ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
-                .map { it.toDto(at.catalog, it.codeListCatalogKey?.let(bindingCatalogs::get)) }
+                .map { it.toDto(at.catalog, readOnly) }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             at.releasedResources<AttributeResource>(ATTRIBUTE).map { it.toDto(at) }
@@ -216,7 +221,7 @@ class EpistolaTenantApi(
         // The constraint XOR check (allowedValues vs codeListBinding) is enforced in
         // `CreateAttributeDefinition.init { … }` and surfaces as a 4xx.
         val codeListId = createAttributeRequest.codeListBinding?.let { binding ->
-            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
+            draft.codeListAt(binding.catalogKey, binding.key)
         }
         val attribute = CreateAttributeDefinition(
             id = draft.attributeId(createAttributeRequest.key),
@@ -256,6 +261,8 @@ class EpistolaTenantApi(
     ): ResponseEntity<AttributeDto> {
         // An attribute keeps no description; refuse it rather than drop it.
         if (updateAttributeRequest.description != null) throw ApiOperationNotImplementedException("updateAttribute.description")
+        val clearsBinding = updateAttributeRequest.clearCodeListBinding == true
+        validate("clearCodeListBinding", !(clearsBinding && updateAttributeRequest.codeListBinding != null)) { "Send a codeListBinding or clearCodeListBinding, not both" }
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val id = draft.attributeId(attributeKey)
         // PATCH semantics: pull the current definition so we can write a
@@ -263,8 +270,8 @@ class EpistolaTenantApi(
         // client sent. UpdateAttributeDefinition isn't itself partial.
         val current = GetAttributeDefinition(id = id, catalogVersion = draft.ref).query() ?: throw draft.attributeNotFound(attributeKey)
         val codeListId = updateAttributeRequest.codeListBinding?.let { binding ->
-            draft.codeListAt(binding.registry, binding.namespace, binding.catalogKey, binding.key)
-        } ?: current.codeListId
+            draft.codeListAt(binding.catalogKey, binding.key)
+        } ?: current.codeListId.takeUnless { clearsBinding }
         val attribute = UpdateAttributeDefinition(
             id = id,
             displayName = updateAttributeRequest.displayName ?: current.displayName,
@@ -290,31 +297,27 @@ class EpistolaTenantApi(
         return ResponseEntity.noContent().build()
     }
 
-    private fun ResolvedCatalogVersion.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
+    private fun ResolvedCatalogRelease.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
 
-    private fun ResolvedCatalogVersion.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
+    private fun ResolvedCatalogRelease.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
 
     /**
-     * The code list a binding names. A binding's registry and namespace left out are the attribute's
-     * own catalog's; the catalog must exist by that name.
+     * The code list a binding names: in the attribute's own catalog when it names no alias or the
+     * catalog's own key, else in the catalog the draft declares under that alias (contract ADR 0003,
+     * ADR 0034). An alias the draft does not declare is refused, as the contract says.
      */
-    private fun ResolvedCatalogVersion.codeListAt(registry: String?, namespace: String?, catalogKey: String, key: String): CodeListId {
-        val catalog = catalogAt(
-            tenantKey.value,
-            registry ?: this.catalog.registry,
-            namespace ?: this.catalog.namespace,
-            catalogKey,
-        )
-        return CodeListId(key = CodeListKey.of(key), catalogId = catalog.catalogId)
+    private fun ResolvedCatalogRelease.codeListAt(alias: String?, key: String): CodeListId {
+        if (alias == null || alias == catalogKey.value) return CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
+        val declared = ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = ref).query().firstOrNull { it.alias == alias }
+            ?: throw ValidationException(
+                "codeListBinding.catalogKey",
+                "'$alias' is not an alias this draft declares a dependency under: declare the catalog the code list is in first (updateCatalogDependencies)",
+                ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED,
+            )
+        return CodeListId(key = CodeListKey.of(key), catalogId = app.epistola.suite.common.ids.CatalogId(CatalogKey.of(declared.catalogKey), TenantId(tenantKey)))
     }
 
-    /** The catalogs the draft's attributes bind code lists from, by key. */
-    private fun bindingCatalogsOf(at: ResolvedCatalogVersion): Map<CatalogKey, Catalog> = ListCatalogs(at.catalog.tenantKey).query().associateBy { it.id }
-
-    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogVersion) = toDto(
-        at.catalog,
-        codeListCatalogKey?.let { key -> if (key == at.catalogKey) at.catalog else GetCatalog(at.catalog.tenantKey, key).query() },
-    )
+    private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogRelease) = toDto(at.catalog)
 
     // ================== Environment operations ==================
 
@@ -397,9 +400,9 @@ class EpistolaTenantApi(
     ): ResponseEntity<DeploymentListResponse> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val deployments = ListDeployments(environment.tenantKey, environmentKey = environment.key).query()
-        val catalogs = GetCatalogNames(environment.tenantKey, deployments.map { it.catalogKey }).query()
+        // Each named by its own catalog: two catalogs can share a key (ADR 0034).
         return ResponseEntity.ok(
-            DeploymentListResponse(items = deployments.mapNotNull { deployment -> catalogs[deployment.catalogKey]?.let { deployment.toDto(it) } }),
+            DeploymentListResponse(items = deployments.map { deployment -> deployment.toDto(CatalogName(deployment.registry, deployment.namespace, deployment.catalogKey)) }),
         )
     }
 
@@ -414,7 +417,7 @@ class EpistolaTenantApi(
         replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployCatalogVersion(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
+        val deployment = DeployCatalogRelease(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
@@ -429,7 +432,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployCatalogVersion(environment, catalog.id, release).execute()) {
+        if (!UndeployCatalogRelease(environment, catalog.id, release).execute()) {
             throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
         }
         return ResponseEntity.noContent().build()
@@ -459,7 +462,7 @@ class EpistolaTenantApi(
                             DeploymentAction.RELEASED -> DeploymentEventDto.Action.RELEASED
                         },
                         releaseId = entry.versionKey.orEmpty(),
-                        status = if (entry.version == null) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+                        status = if (entry.version == null) ApiCatalogReleaseStatus.DRAFT else ApiCatalogReleaseStatus.RELEASED,
                         version = entry.version,
                         releaseName = if (entry.version == null || entry.action == DeploymentAction.RELEASED) entry.draftLabel else null,
                         changedAt = entry.changedAt,
@@ -484,7 +487,7 @@ class EpistolaTenantApi(
         namespace = catalog.namespace,
         catalogKey = catalogKey.value,
         releaseId = versionId.orEmpty(),
-        status = if (isDraft) CatalogReleaseStatus.DRAFT else CatalogReleaseStatus.RELEASED,
+        status = if (isDraft) ApiCatalogReleaseStatus.DRAFT else ApiCatalogReleaseStatus.RELEASED,
         version = version,
         releaseName = draftName,
         deployedAt = deployedAt,

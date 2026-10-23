@@ -103,7 +103,7 @@ class ApiKeyHandlerTest : BaseIntegrationTest() {
             assertThat(response.body).contains("id=\"create-api-key-form\"")
             assertThat(response.body).contains("name=\"name\"")
             // The roles say what they grant now: publishing deploys too, and backups were withdrawn.
-            assertThat(response.body).contains("Publish catalog versions and deploy them to environments.")
+            assertThat(response.body).contains("Publish catalog releases and deploy them to environments.")
             assertThat(response.body).doesNotContain("backups").doesNotContain("archive template and stencil versions")
             assertThat(response.body).contains("data-testid=\"api-key-roles\"")
             // A fragment, not the whole page (no app shell).

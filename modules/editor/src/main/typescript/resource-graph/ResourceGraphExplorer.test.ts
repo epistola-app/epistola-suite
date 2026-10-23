@@ -42,7 +42,7 @@ async function focused(type: ResourceType): Promise<HTMLElement> {
   // The focused subgraph, as the explorer holds it after loading one.
   (element as unknown as { graph: unknown }).graph = {
     focus,
-    nodes: [{ ...focus, resourceId: 'r1', catalogName: 'Letters', catalogType: 'AUTHORED' }],
+    nodes: [{ ...focus, resourceId: 'r1', catalogName: 'Letters' }],
     edges: [],
   };
   await element.updateComplete;

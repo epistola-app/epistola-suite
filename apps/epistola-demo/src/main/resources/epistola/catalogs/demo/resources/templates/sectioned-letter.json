@@ -4,6 +4,7 @@
     "type": "template",
     "key": "sectioned-letter",
     "name": "Sectioned Letter",
+    "description": "A cover, a letter and terms, each with its own page header and footer. Demonstrates headers and footers placed anywhere: a conditional cover header, a letterhead stencil, a section-start header after a page break, a header switching mid-section, footers that apply from the page they land on, and an empty footer that switches the band off.",
     "pdfaEnabled": false,
     "themeKey": "corporate",
     "dataModel": {

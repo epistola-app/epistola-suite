@@ -4,7 +4,6 @@
 
 package app.epistola.suite.fonts.model
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
@@ -40,15 +39,6 @@ data class Font(
     val kind: FontKind,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-    /**
-     * Type of the catalog the font lives in, populated when the row is read
-     * via a JOIN to catalogs. Used by the UI to gate edit affordances. Null
-     * when the row is read without the join. Explicit `@ColumnName` because
-     * JDBI's Kotlin plugin doesn't always reach JOIN aliases via default
-     * snake_case mapping when the field has a default value.
-     */
-    @get:ColumnName("catalog_type")
-    val catalogType: CatalogType? = null,
 )
 
 /**

@@ -198,7 +198,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade",
                 HttpEntity(
                     org.springframework.util.LinkedMultiValueMap<String, String>().apply {
-                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleases(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
+                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
                     },
                     htmxForm(),
                 ),
@@ -400,7 +400,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `upgrade-check reports ZIP-managed for a ZIP-imported subscribed catalog (no source URL)`() = fixture {
+    fun `upgrade-check says a catalog imported from a ZIP has no source to ask`() = fixture {
         lateinit var consumer: Tenant
         given {
             // Produce a valid catalog ZIP from the demo…
@@ -411,11 +411,10 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
                 zip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
             }
-            // …then import it as SUBSCRIBED into a fresh tenant → a mirror with
-            // no source URL.
+            // …then import it into a fresh tenant → a received catalog with no source URL.
             consumer = tenant("Zip Mirror Consumer")
             withMediator {
-                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip, catalogType = CatalogType.SUBSCRIBED).execute()
+                ImportCatalogZip(tenantKey = consumer.id, zipBytes = zip).execute()
             }
         }
 
@@ -431,7 +430,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("ZIP-managed")
+            assertThat(response.body).contains("No source to ask for newer releases").contains("· ZIP")
         }
     }
 
@@ -442,7 +441,6 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
 
         whenever {
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "AUTHORED")
             val headers = HttpHeaders().apply {
                 contentType = MediaType.MULTIPART_FORM_DATA
                 add("HX-Request", "true")
@@ -490,7 +488,6 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 zip.closeEntry()
             }
             val payload = LinkedMultiValueMap<String, Any>()
-            payload.add("catalogType", "AUTHORED")
             payload.add(
                 "file",
                 HttpEntity(

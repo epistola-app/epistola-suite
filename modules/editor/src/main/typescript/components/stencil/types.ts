@@ -37,7 +37,7 @@ export interface StencilSummary {
 export interface StencilWorkingCopy {
   ref: StencilRef;
   name: string;
-  /** False for a stencil of a read-only (subscribed or imported) catalog. */
+  /** False for a stencil of a catalog that cannot be changed here. */
   editable: boolean;
   /**
    * The stencil's content in stored form: instances of other stencils in it

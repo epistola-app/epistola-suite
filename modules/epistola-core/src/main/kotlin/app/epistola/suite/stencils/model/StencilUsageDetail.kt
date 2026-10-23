@@ -4,7 +4,6 @@
 
 package app.epistola.suite.stencils.model
 
-import app.epistola.suite.catalog.CatalogType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.VariantKey
@@ -19,7 +18,6 @@ import app.epistola.suite.common.ids.VariantKey
 data class StencilUsageDetail(
     val templateId: TemplateKey,
     val catalogKey: CatalogKey,
-    val catalogType: CatalogType = CatalogType.AUTHORED,
     val templateName: String,
     val variantId: VariantKey,
     /** Number of instances of this stencil in this variant's model. */

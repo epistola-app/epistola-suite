@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--/* A catalog's releases, the Releases page (docs/workspace-shell.md): the next release and any side work, then the
+           published versions, each to its own page. Model: the catalog page's. */-->
+    <th:block th:fragment="content">
+        <div th:replace="~{epistola-web/page-header :: page-header(
+            pageTitle='Releases',
+            pageDescription='Published releases never change. Change the next release and publish it; keep a large change apart as parallel work until it is ready.'
+        )}"></div>
+        <div id="catalog-alert"></div>
+        <div th:if="${publicationError != null}" class="alert alert-error" data-testid="catalog-versions-error" th:text="${publicationError}"></div>
+        <div th:if="${nextReleaseError != null}" class="alert alert-error" data-testid="catalog-next-release-error">
+            <span th:text="${nextReleaseError}"></span>
+        </div>
+        <div th:replace="~{catalogs/overview :: versions}"></div>
+        <div id="dialog-mount" data-dialog-mount></div>
+    </th:block>
+</body>
+</html>

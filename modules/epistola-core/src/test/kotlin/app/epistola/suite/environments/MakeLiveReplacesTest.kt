@@ -6,7 +6,7 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
-import app.epistola.suite.catalog.commands.ReleaseCatalogVersion
+import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -17,7 +17,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.environments.commands.DeployCatalogVersion
+import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeploymentHistory
 import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.environments.queries.ListImplicitDeployments
@@ -47,12 +47,12 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
             MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogVersion(tenant, shared, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(letters, TenantId(tenant))), "House").execute()
             declareDependency(tenant, letters, on = shared)
             MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.0.0").execute()
+            ReleaseCatalogDraft(tenant, letters, "1.0.0").execute()
         }
         return tenant to production
     }
@@ -60,7 +60,7 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     private fun releaseShared(tenant: TenantKey, version: String, theme: String) = withMediator {
         CreateTheme(ThemeId(ThemeKey.of(theme), CatalogId(shared, TenantId(tenant))), theme).execute()
         MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogVersion(tenant, shared, version).execute()
+        ReleaseCatalogDraft(tenant, shared, version).execute()
     }
 
     private fun served(tenant: TenantKey): List<String> = withMediator { ListDeployments(tenant).query().map { "${it.catalogKey.value}@${it.version}" } }
@@ -68,10 +68,10 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     @Test
     fun `making a version live replaces the one that was live, and the history says so`() {
         val (tenant, production) = setUp("live-replace")
-        withMediator { DeployCatalogVersion(production, shared, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, shared, "1.0.0").execute() }
         releaseShared(tenant, "1.1.0", "second")
 
-        withMediator { DeployCatalogVersion(production, shared, "1.1.0", replace = true).execute() }
+        withMediator { DeployCatalogRelease(production, shared, "1.1.0", replace = true).execute() }
 
         assertThat(served(tenant)).containsExactly("shared@1.1.0")
         val latest = withMediator { ListDeploymentHistory(production).query() }.first()
@@ -82,10 +82,10 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     @Test
     fun `a version another deployed release is pinned to goes when a newer one replaces it, and is used implicitly`() {
         val (tenant, production) = setUp("live-replace-needed")
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
         releaseShared(tenant, "1.1.0", "second")
 
-        withMediator { DeployCatalogVersion(production, shared, "1.1.0", replace = true).execute() }
+        withMediator { DeployCatalogRelease(production, shared, "1.1.0", replace = true).execute() }
 
         assertThat(served(tenant)).`as`("one deployed version per catalog").containsExactlyInAnyOrder("letters@1.0.0", "shared@1.1.0")
         assertThat(withMediator { ListImplicitDeployments(tenant, production.key).query() }.map { "${it.catalogKey.value}@${it.version}" })
@@ -95,14 +95,14 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     @Test
     fun `replacing a version also lets go of what only the replaced one needed`() {
         val (tenant, production) = setUp("live-replace-own")
-        withMediator { DeployCatalogVersion(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("second"), CatalogId(letters, TenantId(tenant))), "Second").execute()
             MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogVersion(tenant, letters, "1.1.0").execute()
+            ReleaseCatalogDraft(tenant, letters, "1.1.0").execute()
         }
 
-        withMediator { DeployCatalogVersion(production, letters, "1.1.0", includeDependencies = true, replace = true).execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.1.0", includeDependencies = true, replace = true).execute() }
 
         assertThat(served(tenant)).`as`("letters' own earlier version goes; shared stays, the new one pins it too")
             .containsExactlyInAnyOrder("letters@1.1.0", "shared@1.0.0")
@@ -111,10 +111,10 @@ class MakeLiveReplacesTest : IntegrationTestBase() {
     @Test
     fun `without replace a version is served beside the others, as the contract's deployRelease does`() {
         val (tenant, production) = setUp("live-beside")
-        withMediator { DeployCatalogVersion(production, shared, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, shared, "1.0.0").execute() }
         releaseShared(tenant, "1.1.0", "second")
 
-        withMediator { DeployCatalogVersion(production, shared, "1.1.0").execute() }
+        withMediator { DeployCatalogRelease(production, shared, "1.1.0").execute() }
 
         assertThat(served(tenant)).containsExactlyInAnyOrder("shared@1.0.0", "shared@1.1.0")
     }
