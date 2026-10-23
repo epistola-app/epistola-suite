@@ -217,12 +217,22 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   rows to `resource_references`.
 - **References between resources** are not foreign keys: a write checks that what the content refers
   to resolves, as the merge already does.
-- **Content nothing points at** (old draft saves, removed releases) is collected by a background job:
-  older than a grace period, per tenant, in batches with `FOR UPDATE SKIP LOCKED`, with a gauge of
-  what is left (as `ContentReaper` does for documents). The foreign key from `release_resources`
-  makes it safe: content a row points at cannot be deleted, and a save that reuses content locks it
-  against a concurrent collection. Keeping the last saves of a resource as undo history is a later
-  choice of that job.
+- **Content nothing points at** (the previous content of a saved resource, a removed draft, release
+  or resource) is garbage, collected by a background job; the rows go at once, the content later.
+  - **Sweep:** per tenant, in batches with `FOR UPDATE SKIP LOCKED`, content older than a grace
+    period (a day by default) that no `release_resources` row points at; its `resource_references` go
+    with it (`ON DELETE CASCADE`), its `resource_binaries` too, and in a second pass the bytes in
+    `asset_content` nothing else points at.
+  - **Safe by the foreign key** from `release_resources` (indexed `(tenant_key, content_hash)`):
+    content a row points at cannot be deleted, so a wrong query fails instead of losing data, and a save
+    that reuses content locks it against a sweep running at the same moment. The grace period covers
+    content written just before its row points at it.
+  - **Scheduled** as a cluster task (one node at a time) in a configurable window, nightly by default,
+    with small batches and a pause between them so a busy database is not held up; it can also be
+    started by hand (after removing many releases). A gauge shows what is left to collect, as
+    `ContentReaper` does for documents.
+  - Keeping the last saves of a resource as undo history is a later setting of the job, not another
+    model.
 
 ### Reading
 
