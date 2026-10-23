@@ -9,6 +9,8 @@ import org.flywaydb.core.api.CoreLocationPrefix
 import org.flywaydb.core.api.Location
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ExitCodeGenerator
+import org.springframework.boot.diagnostics.AbstractFailureAnalyzer
+import org.springframework.boot.diagnostics.FailureAnalysis
 import org.springframework.core.io.ClassPathResource
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver
 import org.springframework.core.io.support.PropertiesLoaderUtils
@@ -19,12 +21,29 @@ import java.sql.Connection
  * safe for code that predates it: the database was upgraded past this build by a change this build
  * cannot run against, so the process must not start. An [ExitCodeGenerator] for the same reason as
  * [app.epistola.suite.config.SchemaBehindException] — Spring Boot exits non-zero when it propagates.
+ *
+ * Carries what went wrong and what to do apart, so [SchemaAheadFailureAnalyzer] can log them as Spring
+ * Boot's "APPLICATION FAILED TO START" report; the message joins them for every other log path.
  */
 class SchemaAheadException(
-    message: String,
-) : IllegalStateException(message),
+    val description: String,
+    val action: String,
+) : IllegalStateException("$description $action"),
     ExitCodeGenerator {
     override fun getExitCode(): Int = 1
+}
+
+/**
+ * Reports a [SchemaAheadException] as Spring Boot's startup-failure block — a description and an
+ * action — instead of a bare stack trace, so the log leads with how to go back: restore a PostgreSQL
+ * backup. Registered in `META-INF/spring.factories`; it applies to the app and the isolated migration
+ * context alike.
+ */
+class SchemaAheadFailureAnalyzer : AbstractFailureAnalyzer<SchemaAheadException>() {
+    override fun analyze(
+        rootFailure: Throwable,
+        cause: SchemaAheadException,
+    ): FailureAnalysis = FailureAnalysis(cause.description, cause.action, cause)
 }
 
 /** What the database recorded about one applied migration. */
@@ -198,7 +217,7 @@ class SchemaRollbackGuard(
                 verdict.unshipped.joinToString(", "),
             )
 
-            is RollbackVerdict.AheadIncompatible -> throw SchemaAheadException(aheadMessage(verdict))
+            is RollbackVerdict.AheadIncompatible -> throw aheadException(verdict)
         }
     }
 
@@ -232,7 +251,7 @@ class SchemaRollbackGuard(
         }
     }
 
-    private fun aheadMessage(verdict: RollbackVerdict.AheadIncompatible): String {
+    private fun aheadException(verdict: RollbackVerdict.AheadIncompatible): SchemaAheadException {
         val blocking = verdict.blocking.joinToString(", ") { migration ->
             val recorded = migration.recorded
             when {
@@ -243,11 +262,16 @@ class SchemaRollbackGuard(
         }
         val floor = verdict.blocking.maxOf { it.version }
         val newestShipped = declarations.keys.maxOrNull() ?: "none"
-        return "Database schema is ahead of this build, which cannot run against it. The database holds " +
-            "migration(s) this build does not ship that are not rollback-compatible: $blocking. Code older than " +
-            "those migrations cannot run on the schema they leave behind. Deploy a build that ships migration " +
-            "$floor or later (this build ships up to $newestShipped), or restore the database backup taken " +
-            "before the upgrade. See docs/upgrades.md#rollback."
+        return SchemaAheadException(
+            description = "Database schema is ahead of this build, which cannot run against it. A newer release " +
+                "migrated the database with migration(s) this build does not ship and that are not " +
+                "rollback-compatible: $blocking. Code older than those migrations cannot run on the schema they " +
+                "leave behind.",
+            action = "To go back to this build, restore a PostgreSQL backup of the database taken before that " +
+                "upgrade, then start this build again; data written since the backup is lost. To keep that data, " +
+                "deploy a build that ships migration $floor or later instead (this build ships up to " +
+                "$newestShipped). See docs/upgrades.md#rollback.",
+        )
     }
 
     /** Successfully applied versioned migrations, those this build does not ship included. */

@@ -226,7 +226,9 @@ covers `embedded`, `migrate` and `validate` alike (`SchemaRollbackGuard`):
 - **The startup check.** Before Flyway touches the schema, the build compares the
   applied migrations with the ones it ships. Every applied migration it does not
   ship must be recorded as rollback-compatible; otherwise it throws
-  `SchemaAheadException` and exits non-zero. When they all are, it starts and logs
+  `SchemaAheadException` and exits non-zero. `SchemaAheadFailureAnalyzer` makes
+  Spring Boot log that as an "APPLICATION FAILED TO START" report whose action is
+  to restore a PostgreSQL backup taken before the upgrade. When they all are, it starts and logs
   a warning that it is running on a newer schema.
 - **Default deny.** A migration without the header counts as `false`, and so does
   an applied migration with no recorded row. `RollbackCompatibilityDeclarationTest`

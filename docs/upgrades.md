@@ -110,14 +110,24 @@ and each migration declares whether it can ([rollback compatibility](migrations.
 Every build checks this at startup, before it touches the schema. When the database holds migrations
 the build does not ship, each must be recorded as rollback-compatible. If one is not, the build
 refuses to start, in every migration mode — the app pod, the migration Job and the init container
-all exit non-zero:
+all exit non-zero, and the log leads with the way back:
 
 ```text
-SchemaAheadException: Database schema is ahead of this build, which cannot run against it. The
-database holds migration(s) this build does not ship that are not rollback-compatible:
-20261103091500 (not rollback-compatible, recorded by 1.7.0). ... Deploy a build that ships migration
-20261103091500 or later (this build ships up to 20261022152421), or restore the database backup
-taken before the upgrade.
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Database schema is ahead of this build, which cannot run against it. A newer release migrated the
+database with migration(s) this build does not ship and that are not rollback-compatible:
+20261103091500 (not rollback-compatible, recorded by 1.7.0). ...
+
+Action:
+
+To go back to this build, restore a PostgreSQL backup of the database taken before that upgrade,
+then start this build again; data written since the backup is lost. To keep that data, deploy a
+build that ships migration 20261103091500 or later instead ...
 ```
 
 So a rollback either works or fails fast; old code never serves from a schema it cannot read. When
@@ -140,6 +150,21 @@ SELECT version, recorded_by
 
 Any build that ships that migration can run on the database: the release that recorded it, or a
 later one.
+
+Each release's notes say the same before you install it: "can be rolled back to vA.B.C or later".
+At release time it comes from the repository — the newest migration that is not rollback-compatible,
+then the oldest release tag that ships it:
+
+```bash
+floor=$(grep -L -x -e '-- rollback-compatible: true' modules/*/src/main/resources/db/migration/*/V*.sql \
+  | xargs -n1 basename | sort | tail -1)
+for t in $(git tag -l 'v[0-9]*' --sort=v:refname | grep -v -e '-'); do
+  git ls-tree -r --name-only "$t" -- modules | grep -q "/$floor\$" && { echo "$t"; break; }
+done
+```
+
+No tag means the floor is a migration the release itself adds: it cannot be rolled back at all, and
+its notes say so as a breaking upgrade.
 
 Releases from before the check (those without migration `V20261022152421`) do not perform it, so a
 rollback to one of them is not guarded. When a rollback is refused, or the target predates the

@@ -7,6 +7,7 @@ package app.epistola.suite.migration
 import app.epistola.suite.testing.TestRuntimeLifecycle
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.assertj.core.api.Assertions.catchThrowable
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.sql.Connection
@@ -32,10 +33,12 @@ class SchemaRollbackGuardIT {
         assertThat(migrate(database, "classpath:rollback-probe/breaking")).isZero()
 
         for (mode in listOf("validate", "embedded")) {
-            assertThatThrownBy { boot(database, mode) }
-                .describedAs("older build in $mode mode")
-                .hasStackTraceContaining("SchemaAheadException")
-                .hasStackTraceContaining("29990101000000 (not rollback-compatible")
+            val failure = catchThrowable { boot(database, mode) }
+            assertThat(failure).describedAs("older build in $mode mode").isNotNull()
+            // What Spring Boot logs as "APPLICATION FAILED TO START": the cause, then how to go back.
+            val report = checkNotNull(SchemaAheadFailureAnalyzer().analyze(failure)) { "no failure report in $mode mode: $failure" }
+            assertThat(report.description).contains("29990101000000 (not rollback-compatible")
+            assertThat(report.action).contains("restore a PostgreSQL backup of the database taken before that upgrade")
         }
         // The dedicated migration step is the deploy gate: it must exit non-zero, not migrate.
         assertThat(migrate(database)).isEqualTo(1)
