@@ -22,6 +22,8 @@ async function mount(container) {
   // `letters`, or `letters@2.0.0` for a draft (several drafts per catalog): the theme's own
   // requests carry it, so the editor saves into the draft the page was opened in.
   const catalogSegment = config.catalogSegment || catalogId;
+  // A catalog segment may name its namespace, `acme/letters` (ADR 0034): its parts are encoded apart.
+  const catalogPath = (segment) => String(segment).split('/').map(encodeURIComponent).join('/');
   const themeId = config.themeId;
   const themeData = config.theme;
   // The theme's revision as last read or saved; each save names it (see editor-boot.js).
@@ -47,12 +49,7 @@ async function mount(container) {
     },
     onSave: async function save(payload, overwrite = false) {
       const response = await fetch(
-        '/tenants/' +
-          tenantId +
-          '/catalogs/' +
-          encodeURIComponent(catalogSegment) +
-          '/themes/' +
-          themeId,
+        '/tenants/' + tenantId + '/catalogs/' + catalogPath(catalogSegment) + '/themes/' + themeId,
         {
           method: 'PATCH',
           headers: {

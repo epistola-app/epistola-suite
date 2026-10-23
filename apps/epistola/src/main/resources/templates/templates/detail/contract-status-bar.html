@@ -14,7 +14,7 @@
 
             <th:block th:if="${editMode}">
                 <!--/* Not boosted: leaving the editor is a real navigation, so its unsaved-changes warning (beforeunload) can stop it. */-->
-                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
+                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id})}"
                    class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
                     Done editing
                 </a>
@@ -22,7 +22,7 @@
 
             <th:block th:if="${!editMode && editable && auth.has('TEMPLATE_EDIT')}">
                 <!--/* Not boosted: the editor is entered by a full page load, the way it is left. */-->
-                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},edit=true)}"
+                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}/data-contract(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${template.id},edit=true)}"
                    class="ep-btn ep-btn-outline ep-btn-sm" hx-boost="false">
                     Edit
                 </a>

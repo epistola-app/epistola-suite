@@ -20,7 +20,7 @@
                    th:text="'Presets: ' + ${#strings.listJoin(settings.presets.![name], ', ')}">Presets: Heading accent</p>
             </th:block>
 
-            <form th:if="${editable}" th:hx-post="@{/tenants/{t}/catalogs/{c}/theme-settings(t=${tenantId},c=${segmentValue})}"
+            <form th:if="${editable}" th:hx-post="@{/tenants/{t}/catalogs/{/c}/theme-settings(t=${tenantId},c=${segmentValue})}"
                   hx-target="#catalog-theme-settings" hx-swap="outerHTML" data-testid="catalog-theme-settings-form">
                 <div class="form-group">
                     <label class="ep-label" for="catalog-default-theme">Default theme</label>

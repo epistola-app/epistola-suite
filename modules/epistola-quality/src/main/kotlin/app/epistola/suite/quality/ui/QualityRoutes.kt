@@ -4,6 +4,8 @@
 
 package app.epistola.suite.quality.ui
 
+import app.epistola.suite.htmx.CatalogScopedRoutes
+import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -19,11 +21,6 @@ import org.springframework.web.servlet.function.router
 class QualityRoutes(private val handler: QualityHandler) {
     @Bean
     fun qualityRouterFunction(): RouterFunction<ServerResponse> = router {
-        // The pages are a catalog's (like its lists); the partials and actions they call stay here.
-        "/tenants/{tenantId}/catalogs/{catalogId}/quality".nest {
-            GET("", handler::list)
-            GET("/{findingId}", handler::detail)
-        }
         "/tenants/{tenantId}/quality".nest {
             GET("/search", handler::search)
             GET("/manual-form", handler::manualForm)
@@ -34,7 +31,17 @@ class QualityRoutes(private val handler: QualityHandler) {
             POST("/{findingId}/resolve", handler::resolve)
             POST("/{findingId}/comments", handler::addComment)
         }
-        "/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality".nest {
+    }
+
+    // The pages are a catalog's (like its lists), and so is the editor's panel; the partials and
+    // actions they call stay above.
+    @Bean
+    fun qualityCatalogRoutes(): CatalogScopedRoutes = catalogScopedRoutes {
+        "/{catalogId}/quality".nest {
+            GET("", handler::list)
+            GET("/{findingId}", handler::detail)
+        }
+        "/{catalogId}/templates/{id}/variants/{variantId}/quality".nest {
             GET("", handler::editorFindings)
             POST("/check", handler::runEditorChecks)
         }

@@ -86,7 +86,7 @@ class TenantHandler(
                 "catalogs" to catalogs,
                 "gettingStarted" to gettingStarted,
                 // Where the steps point: the first catalog that can be changed here; none sends them to create one.
-                "startCatalog" to catalogs.firstOrNull { it.editable }?.catalogKey,
+                "startCatalog" to catalogs.firstOrNull { it.editable }?.segment,
                 "mayViewCatalogs" to auth.has(Permission.CATALOG_VIEW),
                 "changelogVersion" to latestEntry?.version,
                 "changelogSummary" to latestEntry?.summary,

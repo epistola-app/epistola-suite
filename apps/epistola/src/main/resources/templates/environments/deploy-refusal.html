@@ -19,7 +19,7 @@
                 <span th:text="${dependency.explanation}">this tenant has it, but this environment does not serve it</span>
             </li>
         </ul>
-        <form th:if="${refusal.deployableAlong}" method="post" th:action="${refusal.deployUrl}" data-testid="deploy-with-dependencies">
+        <form th:if="${refusal.deployableAlong}" method="post" th:action="@{${refusal.deployUrl}}" data-testid="deploy-with-dependencies">
             <input th:each="field : ${refusal.fields}" type="hidden" th:name="${field.key}" th:value="${field.value}">
             <input type="hidden" name="includeDependencies" value="true">
             <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm">Deploy with what it needs</button>

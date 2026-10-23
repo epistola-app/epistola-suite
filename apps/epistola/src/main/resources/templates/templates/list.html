@@ -43,7 +43,7 @@
                         <div class="empty-state-description">This catalog has no templates yet. Create one here.</div>
                         <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                                 class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                                 data-testid="template-create-open-filtered">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -75,7 +75,7 @@
                     <tbody>
                         <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
                             <td th:title="${template.name}">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
                                    th:text="${template.name}" style="font-weight: 500;"></a>
                                 <!-- The template's notes for its authors, one line, cut with an ellipsis; the full text on hover. -->
                                 <div th:if="${template.description != null}" class="text-muted text-xs"
@@ -87,7 +87,7 @@
                             <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <span th:unless="${catalogEditing.editable(template.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(template.catalogKey)}">Read-only</span>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -101,7 +101,7 @@
                     <a th:if="${hasPrev}"
                        class="ep-btn ep-btn-ghost ep-btn-sm"
                        data-testid="pagination-prev"
-                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
+                       th:href="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
                        th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${prevPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
                        hx-include="[name='q']"
                        hx-target="#template-table"
@@ -113,7 +113,7 @@
                     <a th:if="${hasNext}"
                        class="ep-btn ep-btn-ghost ep-btn-sm"
                        data-testid="pagination-next"
-                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
+                       th:href="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalogSeg=${selectedCatalog})}"
                        th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},page=${nextPage},sort=${sort},dir=${sortDir},catalog=${selectedCatalog})}"
                        hx-include="[name='q']"
                        hx-target="#template-table"
@@ -150,7 +150,7 @@
         <a class="ep-sort"
            th:classappend="${active} ? 'is-active' : ''"
            th:data-testid="'sort-' + ${col}"
-           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},sort=${col},dir=${nextDir},catalogSeg=${selectedCatalog})}"
+           th:href="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},sort=${col},dir=${nextDir},catalogSeg=${selectedCatalog})}"
            th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId},sort=${col},dir=${nextDir},catalog=${selectedCatalog})}"
            hx-include="[name='q']"
            hx-target="#template-table"
@@ -173,7 +173,7 @@
 
     <th:block th:fragment="template-list-actions">
         <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates/new(tenantId=${tenantId},catalogSeg=${selectedCatalog})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="template-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

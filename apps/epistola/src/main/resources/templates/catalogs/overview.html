@@ -58,7 +58,7 @@
                              th:text="'From ' + ${other.name} + ': ' + ${#strings.listJoin(other.unpublished.![name ?: key], ', ')} + ', not published there yet'">From Shared: Brand</div>
                         <div th:if="${readiness.publishBlocked}" class="text-sm" data-testid="catalog-release-blocked">
                             It cannot be published yet.
-                            <a th:href="${bar.workHref}">See why</a>
+                            <a th:href="@{${bar.workHref}}">See why</a>
                         </div>
                         <div th:if="${bar.publishWithheld}" class="form-hint" data-testid="catalog-publish-withheld">Publishing needs the publisher role.</div>
                     </th:block>
@@ -68,12 +68,12 @@
                     </div>
                     <div class="catalog-box-actions">
                         <button th:if="${contents.isEmpty and contents.templates.mayCreate}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                                th:hx-get="${contents.templates.newHref}" hx-target="#dialog-mount" hx-swap="innerHTML"
+                                th:hx-get="@{${contents.templates.newHref}}" hx-target="#dialog-mount" hx-swap="innerHTML"
                                 data-testid="catalog-status-new-template">New template</button>
                         <!--/* Not for an empty catalog: a first version with nothing in it gives nobody anything.
                                A catalog of themes or stencils alone, which other catalogs use, is not empty. */-->
                         <button th:if="${readiness.offerPublish and !contents.isEmpty}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML"
                                 data-testid="catalog-release-open">Publish…</button>
                     </div>
@@ -92,7 +92,7 @@
                               data-testid="catalog-draft-follower" th:text="'Used by ' + ${row.environmentName}">Used by Test</span>
                     </div>
                     <div class="catalog-box-actions">
-                        <a th:href="${work.href}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-parallel-continue">Continue</a>
+                        <a th:href="@{${work.href}}" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-parallel-continue">Continue</a>
                     </div>
                 </div>
             </div>
@@ -110,7 +110,7 @@
         <div class="detail-section-header">
             <h2>Environments</h2>
             <a th:if="${gs != null and gs.published and !gs.needsEnvironment and gs.mayDeploy}" class="ep-btn ep-btn-outline ep-btn-sm"
-               th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Deploy…</a>
+               th:href="@{/tenants/{t}/catalogs/{/c}/deployments(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Deploy…</a>
         </div>
         <div class="detail-section-body">
             <p th:if="${deployments.isEmpty()}" class="text-muted" data-testid="catalog-step-no-environment" style="margin: 0;">
@@ -159,7 +159,7 @@
         <div class="detail-section-header">
             <h2>Releases</h2>
             <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML"
                     title="For a large change that is not ready to go out with everyday work"
                     data-testid="catalog-draft-new">Start parallel work…</button>
@@ -181,7 +181,7 @@
                         <tr th:each="row : ${bar.versionRows}" data-testid="catalog-version-row"
                             th:attr="data-version=${row.version},data-status=${row.draft} ? 'draft' : 'published',data-next=${row.next}">
                             <td style="font-weight: 500;">
-                                <a th:href="${row.href}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
+                                <a th:href="@{${row.href}}" data-testid="catalog-version-link" th:text="${row.label}">v1.0.0</a>
                                 <span th:if="${row.draft and !row.next}" class="text-muted" style="font-size: var(--ep-text-xs);">parallel work</span>
                             </td>
                             <!--/* Every version starts from a published one, unless it started from nothing. */-->
@@ -205,7 +205,7 @@
                                    deleted with its content. Both ask first. */-->
                             <td class="actions">
                                 <form th:if="${row.offerRemove}" method="post" style="display: inline;"
-                                      th:action="${row.removeAction}">
+                                      th:action="@{${row.removeAction}}">
                                     <input type="hidden" name="from" value="versions">
                                     <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                                             data-testid="catalog-version-remove"
@@ -233,7 +233,7 @@
         <div class="detail-section-header"><h2>Contents</h2></div>
         <div class="detail-section-body">
             <div class="ep-auto-grid catalog-counts">
-                <a th:each="group : ${contents.groups}" th:href="${group.listHref}" class="ep-panel stat-card"
+                <a th:each="group : ${contents.groups}" th:href="@{${group.listHref}}" class="ep-panel stat-card"
                    data-testid="catalog-count" th:attr="data-type=${group.type}">
                     <div class="stat-card-value" th:text="${group.count}">5</div>
                     <div class="stat-card-label" th:text="${group.label}">Templates</div>

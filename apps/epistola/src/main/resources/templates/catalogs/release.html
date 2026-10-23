@@ -5,23 +5,23 @@
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle='v' + ${release.version},
             pageDescription=${release.catalog.name} + ' · published ' + ${#temporals.format(release.releasedAt, 'yyyy-MM-dd')},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalogId}/releases(tenantId=${tenantId},catalogId=${catalogId})},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{/catalogId}/releases(tenantId=${tenantId},catalogId=${catalogId})},
             backLinkLabel='Releases',
             actions=~{::release-actions}
         )}"></div>
 
         <th:block th:fragment="release-actions">
             <a class="ep-btn ep-btn-outline"
-               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+               th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                hx-boost="false" download>Export as ZIP</a>
             <a class="ep-btn ep-btn-outline" data-testid="release-export-with-dependencies"
-               th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
+               th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/export(tenantId=${tenantId},catalogId=${catalogId},version=${release.version},includeDependencies=true)}"
                title="One file with the releases of the other catalogs it uses, to install where they are not"
                hx-boost="false" download>Export with what it uses</a>
             <button th:if="${registryPublishAvailable}" type="button" class="ep-btn ep-btn-outline"
                     data-testid="release-registry-publish"
                     title="Put this release in a container registry, so another installation can get it"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId},version=${release.version})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML">Publish to registry&hellip;</button>
         </th:block>
 
@@ -33,7 +33,7 @@
                 <p style="margin-top: 0;" data-testid="release-live">
                     <th:block th:if="${liveIn.isEmpty()}">Not deployed anywhere.</th:block>
                     <th:block th:unless="${liveIn.isEmpty()}">Deployed to <strong th:text="${#strings.listJoin(liveIn, ', ')}">production</strong>.</th:block>
-                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a release or undeploy it</a>
+                    <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId})}">Deploy a release or undeploy it</a>
                     under Deployments.
                 </p>
                 <p class="form-hint">A published release does not change. Change the next release and publish that; for a large change that is not ready yet, start parallel work from this release.</p>
@@ -41,13 +41,13 @@
                 <div class="ep-row" style="gap: var(--ep-space-2); flex-wrap: wrap;">
                     <button th:if="${bar.offerCreateDraft and bar.createFromOptions.contains(version)}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             data-testid="release-start-draft"
-                            th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
+                            th:hx-get="@{/tenants/{t}/catalogs/{/c}/drafts/new(t=${tenantId},c=${catalogId},from=${version})}"
                             hx-target="#ws-dialog-mount" hx-swap="innerHTML">Start parallel work from this release</button>
 
                     <!--/* Offered where it can be carried out: the catalog can publish at all, this
                            release kept content to send, and it has not been sent already. */-->
                     <form th:if="${releaseView != null and releaseView.publishable}" method="post" style="display: inline;"
-                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId})}">
+                          th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId})}">
                         <input type="hidden" name="version" th:value="${version}">
                         <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="release-exchange-publish">Send to Epistola Exchange</button>
                     </form>
@@ -56,7 +56,7 @@
 
                     <!--/* The stronger of the two: the version leaves the list altogether. */-->
                     <form th:if="${canManage}" method="post" style="display: inline;"
-                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
+                          th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/releases/{version}/delete(tenantId=${tenantId},catalogId=${catalogId},version=${version})}">
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm" data-testid="release-delete"
                                 data-confirm-submit
                                 data-confirm-submit-title="Delete this version"
@@ -136,7 +136,7 @@
                     <span class="catalog-detail-label">The same release as</span>
                     <p class="catalog-detail-value"><th:block th:each="other, stat : ${sameAs}"><a
                            data-testid="release-same-as-link" th:attr="data-catalog=${other.catalogKey},data-version=${other.version}"
-                           th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${other.catalogKey},v=${other.version})}"
+                           th:href="@{/tenants/{t}/catalogs/{/c}/releases/{v}(t=${tenantId},c=${other.catalogKey},v=${other.version})}"
                            th:text="${other.sameCatalog} ? 'v' + ${other.version} : ${other.catalogName} + ' v' + ${other.version}">v1.0.0</a><th:block
                            th:unless="${stat.last}">, </th:block></th:block></p>
                     <p class="form-hint" style="margin: var(--ep-space-1) 0 0;">The same content, under another number or in another catalog.</p>

@@ -43,10 +43,10 @@
                 <table class="ep-table">
                     <tbody>
                         <tr th:each="row : ${following}" th:attr="data-catalog=${row.catalogKey}">
-                            <td><a th:href="${row.href}" th:text="${row.catalogName} + ': ' + ${row.draftLabel}">Letters: Next release</a></td>
+                            <td><a th:href="@{${row.href}}" th:text="${row.catalogName} + ': ' + ${row.draftLabel}">Letters: Next release</a></td>
                             <td class="actions" th:if="${auth.has('ENVIRONMENT_DEPLOY')}">
                                 <form method="post" style="display: inline;"
-                                      th:action="@{/tenants/{t}/environments/{e}/drafts/{c}/undeploy(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
+                                      th:action="@{/tenants/{t}/environments/{e}/drafts/{/c}/undeploy(t=${tenantId},e=${environment.id},c=${row.catalogKey})}">
                                     <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="environment-stop-following">Undeploy</button>
                                 </form>
                             </td>
@@ -85,7 +85,7 @@
                     <tbody>
                         <tr th:each="row : ${deployments}" th:attr="data-catalog=${row.catalogKey},data-version=${row.version}">
                             <td>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${row.catalogKey})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/browse(tenantId=${tenantId},catalogId=${row.catalogKey})}"
                                    th:text="${row.catalogName}">Letters</a>
                             </td>
                             <td>
@@ -97,7 +97,7 @@
                             <td data-testid="environment-usage" th:text="${row.usage}">Not used since it was deployed</td>
                             <td class="actions" th:if="${canDeploy}">
                                 <form method="post" style="display: inline;"
-                                      th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
+                                      th:action="@{/tenants/{tenantId}/environments/{environmentId}/deployments/{/catalogId}/undeploy(tenantId=${tenantId},environmentId=${environment.id},catalogId=${row.catalogKey})}">
                                     <input type="hidden" name="version" th:value="${row.version}">
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
@@ -184,7 +184,7 @@
                     <thead><tr><th>Catalog</th><th>Version</th><th>Used by</th></tr></thead>
                     <tbody>
                         <tr th:each="used : ${implicit}" th:attr="data-catalog=${used.catalogKey}">
-                            <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${used.catalogKey})}" th:text="${used.catalogName}">Shared</a></td>
+                            <td><a th:href="@{/tenants/{t}/catalogs/{/c}/browse(t=${tenantId},c=${used.catalogKey})}" th:text="${used.catalogName}">Shared</a></td>
                             <td th:text="'v' + ${used.version}">v1.0.0</td>
                             <td th:text="${#strings.listJoin(used.neededBy, ', ')}">Letters</td>
                         </tr>

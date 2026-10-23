@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.htmx.CatalogSegment
 
 /**
@@ -21,7 +22,8 @@ object VersionSwitch {
     fun samePage(from: String, tenantKey: String, target: CatalogSegment): String? {
         val tenantPrefix = "/tenants/$tenantKey/"
         if (!from.startsWith(tenantPrefix) || "//" in from || "\\" in from) return null
-        val path = from.substringBefore('?')
+        // By key: the address is named again where it is used (CatalogAddresses).
+        val path = CatalogAddresses.byKey(from.substringBefore('?'))
         val query = from.substringAfter('?', missingDelimiterValue = "")
         val key = target.key.value
         val parts = path.split('/').toMutableList() // "", "tenants", tenant, "catalogs", catalog, …
@@ -32,13 +34,13 @@ object VersionSwitch {
             if (!isThisCatalog(segment)) return null
             return when (parts.getOrNull(5)) {
                 // A version's overview has its own address: the next version's, or the work's.
-                null, "browse", "draft" -> if (target.draft == null) "/tenants/$tenantKey/catalogs/$key/browse" else "/tenants/$tenantKey/catalogs/${target.value}/draft"
+                null, "browse", "draft" -> if (target.draft == null) "/tenants/$tenantKey/catalogs/$key/browse" else "/tenants/$tenantKey/catalogs/${target.copy(namespace = null).value}/draft"
 
                 // The same for every version.
                 "versions", "releases", "deployments" -> from
 
                 else -> {
-                    parts[4] = target.value
+                    parts[4] = target.copy(namespace = null).value
                     parts.joinToString("/") + (query.takeIf { it.isNotEmpty() }?.let { "?$it" } ?: "")
                 }
             }

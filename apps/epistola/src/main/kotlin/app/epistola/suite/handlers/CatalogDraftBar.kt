@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.tenantId
@@ -329,8 +330,9 @@ data class CatalogDraftBar(
          * `/tenants/{tenantId}/catalogs/{catalogId}/…`; the query string is kept.
          */
         fun inPath(path: String, segment: CatalogSegment, query: String? = null): (CatalogSegment) -> String = { target ->
-            val parts = path.split('/').toMutableList()
-            if (parts.size > CATALOG_PART && parts[CATALOG_PART] == segment.value) parts[CATALOG_PART] = target.value
+            // By key: the link is named again where it is built (CatalogAddresses).
+            val parts = CatalogAddresses.byKey(path).split('/').toMutableList()
+            if (parts.size > CATALOG_PART && parts[CATALOG_PART] == segment.copy(namespace = null).value) parts[CATALOG_PART] = target.copy(namespace = null).value
             parts.joinToString("/") + (query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: "")
         }
 
@@ -352,7 +354,7 @@ object CatalogPages {
     }
 
     /** The catalog page: the next version, every version, where each is live. */
-    fun browse(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.key.value}/browse"
+    fun browse(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.at(null).value}/browse"
 
     /** A draft's own page: the next version at a plain segment, parallel work at `key@<draft id>`. */
     fun draft(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.value}/draft"

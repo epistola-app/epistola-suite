@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogUpstreamCheck
 import app.epistola.suite.catalog.CatalogUpstreamCheckFailure
 import app.epistola.suite.catalog.UpstreamAvailability
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.GetCatalogUpstreamStates
 import app.epistola.suite.catalog.queries.ListCatalogsForManagement
 import app.epistola.suite.catalog.registry.ListReleaseRegistries
@@ -118,12 +119,13 @@ internal fun ModelBuilder.catalogListModel(tenantKey: TenantKey) {
     // Keys more than one catalog has (ADR 0034, phase 4): those rows link by namespace and key.
     "sharedKeys" to rows.groupBy { it.catalog.id.value }.filterValues { it.size > 1 }.keys
     // Pair() rather than `to`: inside this builder `to` is the model-binding infix, not Kotlin's.
+    // By `namespace/key`: two catalogs can share a key (ADR 0034).
     "versionStatus" to rows.associate { row ->
         Pair(
-            row.catalog.id.value,
+            row.catalog.address.toString(),
             CatalogReleaseStatusView.of(
                 row.catalog,
-                upstream[row.catalog.id],
+                upstream[row.catalog.address],
                 CATALOG_SCHEMA_VERSION,
                 fromExchange = ExchangeSourceUri.matches(row.catalog.sourceUrl),
             ).copy(registrySource = RegistrySourceUri.parse(row.catalog.sourceUrl)),

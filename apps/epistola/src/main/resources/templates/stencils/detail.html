@@ -9,7 +9,7 @@
 
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${stencil.name},
-            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
+            backLinkHref=${draftBar != null} ? @{/tenants/{tenantId}/catalogs/{/catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftBar.segmentValue})} : @{/tenants/{tenantId}/catalogs(tenantId=${tenantId})},
             backLinkLabel='Stencils'
         )}"></div>
 
@@ -40,7 +40,7 @@
                             <dt>Template data</dt>
                             <dd>
                                 <form th:if="${stencilEditable}"
-                                      th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/settings(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id})}"
+                                      th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}/settings(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id})}"
                                       hx-trigger="change" hx-target="#stencil-details" hx-swap="innerHTML">
                                     <label style="display: flex; align-items: center; gap: var(--ep-space-2); cursor: pointer;">
                                         <input type="checkbox" class="ep-checkbox" name="readsTemplateData" value="true"
@@ -64,7 +64,7 @@
                                         Changed since the last release. Publishing checks it and marks it ready.
                                     </span>
                                     <form th:if="${readiness.offerMarkReady}" style="display: inline; margin-left: var(--ep-space-2);"
-                                          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id})}"
+                                          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}/ready(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id})}"
                                           hx-target="#stencil-details" hx-swap="innerHTML">
                                         <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="stencil-mark-ready">Mark ready</button>
                                     </form>
@@ -115,7 +115,7 @@
                         <tbody>
                             <tr th:each="u : ${usage}" data-testid="stencil-usage-row">
                                 <td>
-                                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(u.catalogKey) ?: u.catalogKey},templateId=${u.templateId})}"
+                                    <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(u.catalogKey) ?: u.catalogKey},templateId=${u.templateId})}"
                                        th:text="${u.templateName}" style="font-weight: 500;"></a>
                                 </td>
                                 <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>
@@ -136,13 +136,13 @@
 
                     <div th:if="${usagePage.totalPages > 1}" class="ep-row" style="margin-top: var(--ep-space-3); align-items: center;">
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id},page=${usagePage.page - 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id},page=${usagePage.page - 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page le 1}">Previous</button>
                         <span class="text-muted" style="font-size: var(--ep-text-sm);"
                               th:text="'Page ' + ${usagePage.page} + ' of ' + ${usagePage.totalPages}"></span>
                         <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id},page=${usagePage.page + 1})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},stencilId=${stencil.id},page=${usagePage.page + 1})}"
                                 hx-target="#usage-list" hx-swap="innerHTML"
                                 th:disabled="${usagePage.page >= usagePage.totalPages}">Next</button>
                     </div>

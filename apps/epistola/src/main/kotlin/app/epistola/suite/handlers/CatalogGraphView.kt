@@ -4,6 +4,7 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.queries.CatalogDependencyGraph
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.CatalogGraphEdge
@@ -47,12 +48,29 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
         /**
          * Lays out [graph]. With [focus], only that catalog, what it depends on and what depends on it,
          * each followed transitively. [hrefOf] links a catalog the tenant has; [readOnlyLabel] says why
-         * one cannot be changed here ("Supplied by Epistola"), or null when it can.
+         * one cannot be changed here ("Supplied by Epistola"), or null when it can. Both are given a
+         * catalog's key, or `namespace/key` where two catalogs share the key, as [focus] may be.
          */
         fun of(
             graph: CatalogDependencyGraph,
             focus: String? = null,
             readOnlyLabel: (String) -> String? = { null },
+            hrefOf: (String) -> String,
+        ): CatalogGraphView {
+            // A catalog is drawn and linked by its key, or by `namespace/key` where two share the key (ADR 0034).
+            val shared = graph.nodes.groupingBy { it.catalogKey }.eachCount().filterValues { it > 1 }.keys
+            val idOf = { key: String, namespace: String? -> if (key in shared && namespace != null) "$namespace/$key" else key }
+            val named = graph.copy(
+                nodes = graph.nodes.map { it.copy(catalogKey = idOf(it.catalogKey, it.namespace)) },
+                edges = graph.edges.map { it.copy(from = idOf(it.from, it.fromNamespace), to = it.to?.let { to -> idOf(to, it.toNamespace) }) },
+            )
+            return layOut(named, focus?.let { f -> if (f.substringAfter('/') in shared || '/' !in f) f else f.substringAfter('/') }, readOnlyLabel, hrefOf)
+        }
+
+        private fun layOut(
+            graph: CatalogDependencyGraph,
+            focus: String?,
+            readOnlyLabel: (String) -> String?,
             hrefOf: (String) -> String,
         ): CatalogGraphView {
             val missingKey = { edge: CatalogGraphEdge -> edge.to ?: "missing:${edge.toIdentity}" }
@@ -69,7 +87,14 @@ data class CatalogGraphView(val width: Int, val height: Int, val nodes: List<Box
         }
 
         /** [of]'s `readOnlyLabel` for a tenant's catalogs: why each cannot be changed here. */
-        fun readOnlyLabels(editability: CatalogEditabilities): (String) -> String? = { key -> CatalogKey.validateOrNull(key)?.let { editability.of(it)?.reason?.label } }
+        fun readOnlyLabels(editability: CatalogEditabilities): (String) -> String? = { id ->
+            val key = CatalogKey.validateOrNull(id.substringAfter('/'))
+            when {
+                key == null -> null
+                '/' in id -> editability.of(CatalogAddress(id.substringBefore('/'), key))?.reason?.label
+                else -> editability.of(key)?.reason?.label
+            }
+        }
 
         /** Every key reachable from [start] along [next], [start] excluded. */
         private fun reach(start: String, next: Map<String, List<String>>): Set<String> {

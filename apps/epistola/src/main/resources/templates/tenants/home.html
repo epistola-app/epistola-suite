@@ -62,7 +62,7 @@
                 <ol style="margin: 0; padding-left: var(--ep-space-5); display: grid; gap: var(--ep-space-2);">
                     <li th:attr="data-done=${gettingStarted.hasTemplate}">
                         <th:block th:if="${startCatalog != null}">
-                            <a th:href="@{/tenants/{t}/catalogs/{c}/templates(t=${tenant.id},c=${startCatalog})}">Create a template</a>
+                            <a th:href="@{/tenants/{t}/catalogs/{/c}/templates(t=${tenant.id},c=${startCatalog})}">Create a template</a>
                             and design it in the editor.
                         </th:block>
                         <th:block th:if="${startCatalog == null}">
@@ -71,7 +71,7 @@
                         <span th:if="${gettingStarted.hasTemplate}" class="badge badge-success">Done</span>
                     </li>
                     <li th:attr="data-done=${gettingStarted.hasPublished}">
-                        <a th:if="${startCatalog != null}" th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${startCatalog})}">Publish a release</a>
+                        <a th:if="${startCatalog != null}" th:href="@{/tenants/{t}/catalogs/{/c}/browse(t=${tenant.id},c=${startCatalog})}">Publish a release</a>
                         <span th:if="${startCatalog == null}">Publish a release</span>
                         of its catalog, with Publish at the top of the catalog's pages.
                         <span th:if="${gettingStarted.hasPublished}" class="badge badge-success">Done</span>
@@ -97,10 +97,10 @@
             <h2>Catalogs</h2>
             <div class="ep-auto-grid home-catalogs-grid">
                 <div th:each="catalog : ${catalogs}" class="ep-panel catalog-tile" data-testid="catalog-overview-card"
-                     th:attr="data-catalog=${catalog.catalogKey}">
+                     th:attr="data-catalog=${catalog.segment}">
                     <div class="catalog-tile-header">
                         <div class="catalog-tile-title">
-                            <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}"
+                            <a th:href="@{/tenants/{t}/catalogs/{/c}/browse(t=${tenant.id},c=${catalog.segment})}"
                                th:text="${catalog.name}" data-testid="catalog-overview-name">Letters</a>
                             <span th:unless="${catalog.editable}" class="badge badge-default" data-testid="catalog-overview-read-only"
                                   th:title="${catalog.readOnlyReason.explanation}" th:text="${catalog.readOnlyReason.label}">Supplied by Epistola</span>
@@ -113,10 +113,10 @@
                             <dd>
                                 <div th:if="${catalog.next == null}" data-testid="catalog-overview-no-draft">
                                     <span class="text-muted">Nothing in progress.</span>
-                                    <a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenant.id},c=${catalog.catalogKey})}">Start the next release</a>
+                                    <a th:href="@{/tenants/{t}/catalogs/{/c}/browse(t=${tenant.id},c=${catalog.segment})}">Start the next release</a>
                                 </div>
                                 <div th:unless="${catalog.next == null}" data-testid="catalog-overview-work">
-                                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey})}">Next release</a>
+                                    <a th:href="@{/tenants/{t}/catalogs/{/c}/draft(t=${tenant.id},c=${catalog.segment})}">Next release</a>
                                     <span th:if="${catalog.notReady != null and catalog.notReady > 0}" data-testid="catalog-overview-not-ready"
                                           th:text="${catalog.notReady == 1} ? '· 1 change not published yet' : '· ' + ${catalog.notReady} + ' changes not published yet'">· 2 changes not published yet</span>
                                     <span th:if="${catalog.notReady == null or catalog.notReady == 0}" class="text-muted">· everything published</span>
@@ -127,7 +127,7 @@
                                 </div>
                                 <!--/* Parallel work next to the next release, each by its name. */-->
                                 <div th:each="work : ${catalog.drafts}" th:unless="${work.isNext}" data-testid="catalog-overview-parallel">
-                                    <a th:href="@{/tenants/{t}/catalogs/{c}/draft(t=${tenant.id},c=${catalog.catalogKey + '@' + work.draftId})}"
+                                    <a th:href="@{/tenants/{t}/catalogs/{/c}/draft(t=${tenant.id},c=${catalog.segment + '@' + work.draftId})}"
                                        th:text="${work.label}">Redesign 2027</a>
                                     <span class="text-muted">· parallel work</span>
                                 </div>

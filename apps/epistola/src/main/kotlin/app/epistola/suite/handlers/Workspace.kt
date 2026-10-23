@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.security.Permission
 
 /**
@@ -168,7 +169,7 @@ object CatalogNav {
      * for anything else.
      */
     fun sectionOf(path: String): SectionInVersion? {
-        val parts = path.substringBefore('?').trim('/').split('/')
+        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
         if (parts.size < 6 || parts[0] != "tenants" || parts[2] != "catalogs") return null
         val (tenant, segment, area) = Triple(parts[1], parts[3], parts[4])
         val label = when (area) {
@@ -182,7 +183,7 @@ object CatalogNav {
 
     /** Which catalog nav item [path] belongs to; null when none does. */
     fun activeKey(path: String, catalogKey: String): String? {
-        val parts = path.substringBefore('?').trim('/').split('/')
+        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
         // "tenants", tenant, "catalogs", catalog, page: every page of a catalog is under it.
         if (parts.getOrNull(2) != "catalogs") return null
         val page = parts.getOrNull(4)

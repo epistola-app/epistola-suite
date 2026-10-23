@@ -17,7 +17,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-attribute-dialog',
             title='New Attribute',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::attribute-form})}"></div>
     </th:block>
 
@@ -26,8 +26,8 @@
          enhancement is kept (method+action alongside th:hx-post) — the attribute
          create has no JSON path, so a non-HTMX submit lands on the same handler. -->
     <form th:fragment="attribute-form" id="create-attribute-form"
-          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#attribute-list" hx-swap="outerHTML"
           data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-attribute-error')}"></div>

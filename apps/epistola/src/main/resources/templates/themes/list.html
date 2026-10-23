@@ -21,7 +21,7 @@
         <!--/* Loaded after the page: the catalog's default theme and the presets its themes style
                (catalogs/theme-settings), next to the themes themselves. */-->
         <div th:if="${draftSegment != null}"
-             th:hx-get="@{/tenants/{t}/catalogs/{c}/theme-settings(t=${tenantId},c=${draftSegment.value})}"
+             th:hx-get="@{/tenants/{t}/catalogs/{/c}/theme-settings(t=${tenantId},c=${draftSegment.value})}"
              hx-trigger="load" hx-swap="outerHTML" data-testid="catalog-theme-settings-mount"></div>
         <form th:if="${!#lists.isEmpty(themes) and auth.has('TENANT_SETTINGS') and tenant?.defaultThemeKey != null}" method="post" hx-boost="false"
               th:action="@{/tenants/{t}/house-theme/apply(t=${tenantId},catalog=${draftSegment?.value})}"
@@ -39,7 +39,7 @@
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
             <button th:if="${auth.has('THEME_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="theme-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -86,7 +86,7 @@
                                   title="Templates of this catalog that name no theme use it">Catalog default</span>
                             <span th:if="${isDefault}" class="badge badge-outline" style="margin-right: var(--ep-space-2);" data-testid="theme-default-badge"
                                   title="The house theme: new catalogs start with it as their default theme">House theme</span>
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                th:text="${theme.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${theme.catalogKey}"><span class="badge badge-default" th:text="${theme.catalogKey}"></span></td>
@@ -98,7 +98,7 @@
                         <td class="actions">
                             <span th:unless="${catalogEditing.editable(theme.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(theme.catalogKey)}">Read-only</span>
                             <form th:if="${auth.has('TEMPLATE_EDIT') and draftSegment != null and !isCatalogDefault and catalogEditing.editable(theme.catalogKey) and workspace?.catalog?.readOnly != true}"
-                                  th:hx-post="@{/tenants/{t}/catalogs/{c}/default-theme(t=${tenantId},c=${draftSegment.value})}"
+                                  th:hx-post="@{/tenants/{t}/catalogs/{/c}/default-theme(t=${tenantId},c=${draftSegment.value})}"
                                   hx-target="#theme-rows" hx-swap="innerHTML" style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
                                 <input type="hidden" name="themeCatalogKey" th:value="${theme.catalogKey}">
@@ -129,7 +129,7 @@
                                 </button>
                             </form>
                             <th:block th:if="${catalogEditing.editable(theme.catalogKey)}">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{themeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Edit theme">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                 </a>
@@ -138,7 +138,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete theme"
                                         data-confirm-title="Delete Theme"
-                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
+                                        th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{themeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(theme.catalogKey) ?: theme.catalogKey},themeId=${theme.id})}"
                                         data-confirm-target="#theme-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -170,7 +170,7 @@
     </th:block>
     <th:block th:fragment="theme-list-actions">
         <button th:if="${auth.has('THEME_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/themes/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="theme-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

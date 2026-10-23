@@ -17,6 +17,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.commands.CatalogReleaseVersionException
 import app.epistola.suite.catalog.commands.CatalogUpgradeConflictException
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
@@ -140,9 +141,9 @@ class CatalogHandler {
     }
 
     /** The dependency drawing; each catalog links to its own Dependencies page, which narrows the drawing to it. */
-    private fun catalogGraph(tenantKey: TenantKey, focus: CatalogKey?): CatalogGraphView = CatalogGraphView.of(
+    private fun catalogGraph(tenantKey: TenantKey, focus: String?): CatalogGraphView = CatalogGraphView.of(
         GetCatalogDependencyGraph(tenantKey).query(),
-        focus = focus?.value,
+        focus = focus,
         readOnlyLabel = CatalogGraphView.readOnlyLabels(ListCatalogEditability(tenantKey).query()),
     ) { key -> "/tenants/${tenantKey.value}/catalogs/$key/dependencies" }
 
@@ -711,7 +712,10 @@ class CatalogHandler {
         val served = ListDeployments(tenantKey, catalogKey).query().filter { !it.isDraft }.groupBy { it.environmentKey }
         // A draft it serves, which a request naming no version renders.
         val drafts = ListDraftDeployments(tenantKey, catalogKey = catalogKey).query().associateBy { it.environmentKey }
-        val names by lazy { ListCatalogs(tenantKey).query().associate { it.id to it.name } }
+        // By namespace and key: two catalogs can share a key (ADR 0034).
+        val catalogs by lazy { ListCatalogs(tenantKey).query() }
+        val names by lazy { catalogs.associate { it.address to it.name } }
+        val own by lazy { GetCatalog(tenantKey, catalogKey).query()?.address }
         return ListEnvironments(tenantId = app.epistola.suite.common.ids.TenantId(tenantKey)).query().map { environment ->
             DeploymentRowView(
                 environmentKey = environment.id.value,
@@ -719,8 +723,8 @@ class CatalogHandler {
                 production = environment.production,
                 served = served[environment.id].orEmpty().map { ServedReleaseView(requireNotNull(it.version), it.deployedAt, it.documentsRequested, it.lastUsedAt) },
                 // Not deployed itself, but used there because a deployed catalog depends on it.
-                implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalogKey == catalogKey }
-                    .map { ImplicitUseView(it.version, it.neededBy.map { key -> names[key] ?: key.value }) },
+                implicit = ListImplicitDeployments(tenantKey, environment.id).query().filter { it.catalog == own }
+                    .map { ImplicitUseView(it.version, it.neededBy.map { catalog -> names[catalog] ?: catalog.key.value }) },
                 uses = drafts[environment.id]?.draftLabel,
                 followsDraft = drafts[environment.id]?.draftId,
             )
@@ -1087,7 +1091,7 @@ class CatalogHandler {
                 "readiness" to readiness
                 "gettingStarted" to gettingStarted
                 "dependents" to dependents
-                if (template == "catalogs/dependencies") "dependencyGraph" to catalogGraph(tenantId.key, focus = catalogKey)
+                if (template == "catalogs/dependencies") "dependencyGraph" to catalogGraph(tenantId.key, focus = "${result.catalog.namespace}/${catalogKey.value}")
                 "mayEditDependencies" to (editsDependencies && auth.has(Permission.TEMPLATE_EDIT))
                 "dependenciesWithheld" to (editsDependencies && !auth.has(Permission.TEMPLATE_EDIT))
                 // What the version holds, by kind, with a way to add each kind there; nothing is

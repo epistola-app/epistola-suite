@@ -63,7 +63,7 @@
 
     <th:block th:fragment="catalog-overview-actions">
         <a class="ep-btn ep-btn-outline" data-testid="catalog-about-settings"
-           th:href="@{/tenants/{t}/catalogs/{c}/settings(t=${tenantId},c=${catalogId})}"
+           th:href="@{/tenants/{t}/catalogs/{/c}/settings(t=${tenantId},c=${catalogId})}"
            th:text="${draftBar.editable and auth.has('CATALOG_MANAGE')} ? 'Change in Settings' : 'All settings'">Change in Settings</a>
     </th:block>
 
@@ -99,7 +99,7 @@
             </table>
         </div>
         <form id="install-confirm-form"
-              th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
+              th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/install(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
               hx-target="#resource-table"
               hx-swap="outerHTML"
               data-close-dialog-on-success="install-preview-dialog">
@@ -218,7 +218,7 @@
                                             · <span th:text="${served.usage}"></span></span>
                                         <form th:if="${canDeploy}"
                                               method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
+                                              th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/deployments/{environmentId}/undeploy(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
                                             <input type="hidden" name="version" th:value="${served.version}">
                                             <button type="button"
                                                     class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
@@ -235,7 +235,7 @@
                                         <span class="badge badge-warning" th:text="'Uses ' + ${row.uses}">Uses Redesign</span>
                                         <span class="text-muted" style="font-size: var(--ep-text-xs);">instead of what is deployed, as it is edited</span>
                                         <form th:if="${canDeploy}" method="post" style="display: inline;"
-                                              th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments/{environmentId}/unfollow(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
+                                              th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/deployments/{environmentId}/unfollow(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},environmentId=${row.environmentKey})}">
                                             <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-deployment-unfollow">Stop following</button>
                                         </form>
                                     </div>
@@ -247,7 +247,7 @@
                                 <td class="actions">
                                     <form th:if="${canDeploy and (!deployableVersions.isEmpty() or (!row.production and !followableDrafts.isEmpty()))}"
                                           method="post" style="display: inline-flex; gap: var(--ep-space-2);"
-                                          th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
+                                          th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/deployments(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}">
                                         <input type="hidden" name="environmentId" th:value="${row.environmentKey}">
                                         <select name="version" class="ep-select ep-select-sm" required data-testid="catalog-deploy-version"
                                                 th:attr="aria-label='Release to deploy to ' + ${row.environmentName}">
@@ -317,7 +317,7 @@
                     <div class="ep-row ep-gap-3"
                          th:if="${publication.hasPublishableDestination
                                   && (publication.canPublishCurrentRelease || publication.needsNamespaceChoice)}">
-                        <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
+                        <form th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/publish-current(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
                               method="post" class="ep-row ep-gap-3">
                             <select th:if="${publication.needsNamespaceChoice}" class="ep-select ep-select-sm"
                                     name="chosenNamespace" required aria-label="Publish to namespace">
@@ -412,7 +412,7 @@
                             <span th:text="${publication.policy.label}">Inherit tenant default</span>
                             <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                                     style="margin-left: var(--ep-space-3);"
-                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='publication')}"
+                                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='publication')}"
                                     hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                         </dd>
                         <dt>Namespace</dt>
@@ -486,7 +486,7 @@
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='external-link', class='ep-icon ep-icon-sm')}" />
                                 </a>
                                 <form th:if="${entry.status.isCancellable}"
-                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},publicationId=${entry.id})}"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/publications/{publicationId}/cancel(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},publicationId=${entry.id})}"
                                       method="post">
                                     <button type="button"
                                             class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"

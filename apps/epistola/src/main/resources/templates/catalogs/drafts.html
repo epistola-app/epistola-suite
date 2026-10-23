@@ -11,12 +11,12 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-draft-dialog',
             title='Start parallel work',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.catalogKey})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogId}/browse(tenantId=${tenantId},catalogId=${bar.catalogKey})},
             content=~{::create-form})}"></div>
     </th:block>
 
     <form th:fragment="create-form" id="create-draft-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.catalogKey})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.catalogKey})}"
           hx-target="#create-draft-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-draft-error')}"></div>
         <div class="ep-dialog-body">
@@ -57,7 +57,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='follow-dialog',
             title='Try it on an environment',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogId}/draft(tenantId=${tenantId},catalogId=${segment})},
             content=~{::follow-body})}"></div>
     </th:block>
 
@@ -82,8 +82,8 @@
                         <td class="actions">
                             <form th:unless="${env.production}" style="display: inline;"
                                   th:hx-post="${env.following}
-                                      ? @{/tenants/{t}/catalogs/{c}/unfollow(t=${tenantId},c=${segment})}
-                                      : @{/tenants/{t}/catalogs/{c}/follow(t=${tenantId},c=${segment})}"
+                                      ? @{/tenants/{t}/catalogs/{/c}/unfollow(t=${tenantId},c=${segment})}
+                                      : @{/tenants/{t}/catalogs/{/c}/follow(t=${tenantId},c=${segment})}"
                                   hx-target="#ws-dialog-mount" hx-swap="innerHTML">
                                 <input type="hidden" name="environment" th:value="${env.key}">
                                 <button type="submit" class="ep-btn ep-btn-sm" data-testid="follow-toggle"

@@ -52,7 +52,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog},address=${sharedKeys != null and sharedKeys.contains('' + row.catalog.id)} ? ${row.catalog.namespace + '/' + row.catalog.id} : ${'' + row.catalog.id}">
+                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog},fullAddress=${row.catalog.namespace + '/' + row.catalog.id},address=${sharedKeys != null and sharedKeys.contains('' + row.catalog.id)} ? ${row.catalog.namespace + '/' + row.catalog.id} : ${'' + row.catalog.id}">
                     <td style="font-weight: 500;" th:title="${catalog.name}">
                         <a th:href="@{|/tenants/${tenantId}/catalogs/${address}/browse|}"
                            th:text="${catalog.name}"></a>
@@ -60,13 +60,13 @@
                     <td th:title="${catalog.id}"><code th:text="${catalog.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                     <td>
                         <!--/* Whether it can be changed here, not where its releases come from (ADR 0032). */-->
-                        <span th:if="${catalogEditing.editable(catalog.id)}" class="badge badge-info" data-testid="catalog-list-editable">Can be changed</span>
-                        <span th:unless="${catalogEditing.editable(catalog.id)}" class="badge badge-default" data-testid="catalog-list-read-only"
-                              th:text="${catalogEditing.readOnlyLabel(catalog.id)}">Supplied by Epistola</span>
+                        <span th:if="${catalogEditing.editable(fullAddress)}" class="badge badge-info" data-testid="catalog-list-editable">Can be changed</span>
+                        <span th:unless="${catalogEditing.editable(fullAddress)}" class="badge badge-default" data-testid="catalog-list-read-only"
+                              th:text="${catalogEditing.readOnlyLabel(fullAddress)}">Supplied by Epistola</span>
                     </td>
                     <td>
                         <!--/* Without a source: its highest release, and whether it has changed since. */-->
-                        <th:block th:unless="${catalog.hasSource}" th:with="highest=${versionStatus[catalog.id]?.installedVersion}">
+                        <th:block th:unless="${catalog.hasSource}" th:with="highest=${versionStatus[fullAddress]?.installedVersion}">
                             <th:block th:if="${highest}">
                                 <span th:text="'v' + ${highest}"></span>
                                 <span th:if="${row.pendingChanges}"
@@ -77,8 +77,8 @@
                         </th:block>
                         <!--/* With a source: what it is on, and whether the source offers something newer. */-->
                         <th:block th:if="${catalog.hasSource}"
-                                  th:with="catalogId=${catalog.id}, status=${versionStatus[catalog.id]}">
-                            <span th:id="${'catver-' + catalog.id}">
+                                  th:with="catalogId=${address}, status=${versionStatus[fullAddress]}">
+                            <span th:id="${'catver-' + catalog.namespace + '--' + catalog.id}">
                                 <th:block th:replace="~{catalogs/list :: version-status}"></th:block>
                             </span>
                         </th:block>
@@ -96,7 +96,7 @@
                                 hx-target="#export-dialog-container" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='download', class='ep-icon ep-icon-sm')}" />
                         </button>
-                        <button type="button" th:if="${catalogEditing.editable(catalog.id)}"
+                        <button type="button" th:if="${catalogEditing.editable(fullAddress)}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Publish a new release"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/release|}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML">
@@ -106,7 +106,7 @@
                                 th:if="${catalog.hasSource and !#strings.startsWith(catalog.sourceUrl, 'oci:')}"
                                 class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="Check for updates"
                                 th:hx-get="@{|/tenants/${tenantId}/catalogs/${address}/upgrade-check|}"
-                                th:attr="hx-target=${'#catver-' + catalog.id}" hx-swap="innerHTML">
+                                th:attr="hx-target=${'#catver-' + catalog.namespace + '--' + catalog.id}" hx-swap="innerHTML">
                             <th:block th:replace="~{epistola-web/icon :: icon(name='refresh-cw', class='ep-icon ep-icon-sm')}" />
                         </button>
                         <button type="button"
@@ -160,7 +160,7 @@
             <div class="ep-dialog-header">
                 <h3 th:text="'Publish ' + ${readiness.drafts.catalogName}">Publish Letters</h3>
             </div>
-            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                   hx-target="#release-dialog-container" hx-swap="innerHTML">
                 <div th:replace="~{epistola-web/form-error :: form-error(id='release-catalog-error')}"></div>
                 <div class="ep-dialog-body">
@@ -451,7 +451,7 @@
             <!--/* A plain GET form, unboosted: the response is a ZIP with a Content-Disposition,
                    which the browser must handle as a download rather than HTMX as a swap. */-->
             <form method="get" hx-boost="false"
-                  th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}">
+                  th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/export(tenantId=${tenantId},catalogId=${catalogId})}">
             <div class="ep-dialog-body">
                 <!--/* Offered only where there is something to choose: a catalog with no release
                        can only be exported as it stands. */-->
@@ -496,7 +496,7 @@
     </th:block>
 
     <!-- Per-row version + update status of a catalog with a source, rendered into the Version
-         cell's #catver-<id> span. Explicit/user-driven: the row's
+         cell's #catver-<namespace>--<key> span. Explicit/user-driven: the row's
          "Check for updates" icon (actions cell) hx-gets `upgrade-check`, which
          returns this fragment swapped into that cell. `state` ∈ UNCHECKED |
          UP_TO_DATE | UPDATE_AVAILABLE | ZIP_MANAGED | CHECK_FAILED |
@@ -528,8 +528,8 @@
                     th:hx-get="${status.registrySource != null}
                         ? @{/tenants/{tenantId}/catalogs/registry(tenantId=${tenantId},registry=${status.registrySource?.registry},namespace=${status.registrySource?.namespace},catalogKey=${status.registrySource?.catalogKey})}
                         : (${status.fromExchange}
-                        ? @{/tenants/{tenantId}/catalogs/{catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}
-                        : @{/tenants/{tenantId}/catalogs/{catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})})"
+                        ? @{/tenants/{tenantId}/catalogs/{/catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}
+                        : @{/tenants/{tenantId}/catalogs/{/catalogId}/upgrade-preview(tenantId=${tenantId},catalogId=${catalogId})})"
                     th:attr="hx-target=${status.registrySource != null ? '#dialog-mount' : '#upgrade-dialog-container'}" hx-swap="innerHTML"
                     data-testid="catalog-upgrade-review">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='circle-arrow-up', class='ep-icon ep-icon-sm')}" />
@@ -547,7 +547,7 @@
             <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" style="font-weight: 500;"
                     th:title="${'This release has been withdrawn by its publisher'
                         + (status.availableVersion != null ? '. v' + status.availableVersion + ' is the newest still offered.' : '.')}"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#upgrade-dialog-container" hx-swap="innerHTML"
                     data-testid="catalog-withdrawn">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='alert-triangle', class='ep-icon ep-icon-sm')}" />
@@ -604,7 +604,7 @@
                          th:attr="data-version=${release.releaseVersion}">
                         <div style="display: flex; justify-content: space-between; align-items: center; gap: var(--ep-space-2);">
                             <strong th:text="'v' + ${release.releaseVersion}">v1.4.1</strong>
-                            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+                            <form th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                                   hx-target="#upgrade-dialog-container" hx-swap="innerHTML">
                                 <input type="hidden" name="releaseVersion" th:value="${release.releaseVersion}">
                                 <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="catalog-available-install">Install</button>

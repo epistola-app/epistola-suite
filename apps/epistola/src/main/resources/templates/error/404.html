@@ -21,9 +21,9 @@
             The page you’re looking for doesn’t exist, may have moved, or is no longer available.
         </p>
         <div th:if="${catalogSection != null}" class="not-found-actions">
-            <a th:href="${catalogSection.href}" class="ep-btn ep-btn-primary"
+            <a th:href="@{${catalogSection.href}}" class="ep-btn ep-btn-primary"
                th:text="${catalogSection.label} + ' in this release'">Templates in this release</a>
-            <a th:href="${catalogSection.overviewHref}" class="ep-btn ep-btn-outline">Catalog overview</a>
+            <a th:href="@{${catalogSection.overviewHref}}" class="ep-btn ep-btn-outline">Catalog overview</a>
         </div>
         <div th:unless="${catalogSection != null}" class="not-found-actions">
             <a th:if="${tenantId != null}"

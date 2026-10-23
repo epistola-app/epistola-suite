@@ -117,7 +117,7 @@
     </th:block>
 
     <form th:fragment="registry-publish-form" id="registry-publish-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/registry-publish(tenantId=${tenantId},catalogId=${catalogId})}"
           hx-swap="none">
         <div th:replace="~{epistola-web/form-error :: form-error(id='registry-publish-error')}"></div>
         <div class="ep-dialog-body">

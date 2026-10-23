@@ -4,6 +4,8 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.htmx.CatalogScopedRoutes
+import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.function.RouterFunction
@@ -14,13 +16,17 @@ import org.springframework.web.servlet.function.router
 class StencilRoutes(private val handler: StencilHandler) {
     @Bean
     fun stencilRouterFunction(): RouterFunction<ServerResponse> = router {
-        // A list belongs to a catalog; there is none across the tenant.
-        GET("/tenants/{tenantId}/catalogs/{catalogId}/stencils", handler::list)
         "/tenants/{tenantId}/stencils".nest {
             GET("/search", handler::search)
         }
-        // A resource's pages and actions are its catalog's, like its list.
-        "/tenants/{tenantId}/catalogs/{catalogId}/stencils".nest {
+    }
+
+    // A list belongs to a catalog; there is none across the tenant. A resource's pages and actions are
+    // its catalog's, like its list.
+    @Bean
+    fun stencilCatalogRoutes(): CatalogScopedRoutes = catalogScopedRoutes {
+        GET("/{catalogId}/stencils", handler::list)
+        "/{catalogId}/stencils".nest {
             GET("/new", handler::newForm)
             POST("", handler::create)
             "/{stencilId}".nest {
