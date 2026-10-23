@@ -79,8 +79,9 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode.value()).`as`(page).isEqualTo(200)
             val body = response.body.orEmpty()
             assertThat(body).`as`(page).contains("Acme letters", "Bureau letters")
-            // Never by key alone, which names both.
+            // Never by key alone, which names both, nor with the namespace's slash escaped.
             assertThat(lettersLinks(body)).`as`(page).doesNotContain("letters")
+            assertThat(body).`as`(page).doesNotContain("%2Fletters")
         }
         for (page in listOf("", "/catalogs", "/catalogs/graph", "/environments/production")) {
             assertThat(lettersLinks(get("/tenants/$tenant$page").body.orEmpty())).`as`(page).contains("acme/letters", "bureau/letters")
@@ -99,6 +100,7 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode.value()).`as`(page).isEqualTo(200)
             val links = lettersLinks(response.body.orEmpty())
             assertThat(links).`as`(page).contains("bureau/letters").doesNotContain("letters")
+            assertThat(response.body.orEmpty()).`as`(page).doesNotContain("%2Fletters")
         }
         // The catalog switcher links the other one by its own address.
         assertThat(lettersLinks(get("/tenants/$tenant/catalogs/bureau/letters/templates").body.orEmpty())).contains("acme/letters")

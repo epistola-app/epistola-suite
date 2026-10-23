@@ -22,7 +22,7 @@
             <div class="empty-state-description">Create a stencil to build reusable template components.</div>
             <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button"
                     class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="stencil-create-open">
                 <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />
@@ -63,7 +63,7 @@
                     </tr>
                     <tr th:each="stencil : ${stencils}">
                         <td th:title="${stencil.name}">
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                th:text="${stencil.name}" style="font-weight: 500;"></a>
                         </td>
                         <td th:title="${stencil.catalogKey}"><span class="badge badge-default" th:text="${stencil.catalogKey}"></span></td>
@@ -76,7 +76,7 @@
                         </td>
                         <td th:text="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${stencil.updatedAt}" th:title="${#temporals.format(stencil.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View stencil">
                                 <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                             </a>
@@ -87,7 +87,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete stencil"
                                         data-confirm-title="Delete Stencil"
-                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
+                                        th:attr="data-confirm-message='Delete stencil &quot;' + ${stencil.name} + '&quot;? Templates using copies of this stencil are not affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{stencilId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(stencil.catalogKey) ?: stencil.catalogKey},stencilId=${stencil.id})}"
                                         data-confirm-target="#stencil-rows">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -119,7 +119,7 @@
     </th:block>
     <th:block th:fragment="stencil-list-actions">
         <button th:if="${auth.has('STENCIL_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="stencil-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

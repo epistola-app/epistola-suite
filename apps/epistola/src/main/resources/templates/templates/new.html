@@ -17,13 +17,13 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-template-dialog',
             title='New Template',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::template-form})}"></div>
     </th:block>
 
     <form th:fragment="template-form" id="create-template-form"
-          method="post" th:action="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/templates(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-template-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-template-error')}"></div>
         <div class="ep-dialog-body">

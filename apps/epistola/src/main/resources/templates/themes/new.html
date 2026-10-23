@@ -17,13 +17,13 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-theme-dialog',
             title='New Theme',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::theme-form})}"></div>
     </th:block>
 
     <form th:fragment="theme-form" id="create-theme-form"
-          method="post" th:action="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/themes(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-theme-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-theme-error')}"></div>
         <div class="ep-dialog-body">

@@ -19,7 +19,7 @@
         <div class="detail-section-header">
             <h2 th:text="${readiness.drafts.isNext or !readiness.hasDraft} ? 'Not published yet' : 'Changed in this work'">Not published yet</h2>
             <button th:if="${readiness.offerPublish}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                     hx-target="#release-dialog-container" hx-swap="innerHTML"
                     data-testid="catalog-release-open">Publish…</button>
         </div>
@@ -74,13 +74,13 @@
                             </td>
                             <td>
                                 <a th:if="${change.type == 'template' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <a th:if="${change.type == 'stencil' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <a th:if="${change.type == 'theme' and change.state.name() != 'REMOVED'}"
-                                   th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
+                                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId},slug=${change.slug})}"
                                    th:text="${change.name ?: change.slug}"></a>
                                 <span th:unless="${(change.type == 'template' or change.type == 'stencil' or change.type == 'theme') and change.state.name() != 'REMOVED'}"
                                       th:text="${change.name ?: change.slug}"></span>
@@ -130,7 +130,7 @@
             </p>
             <div class="ep-row" style="gap: var(--ep-space-2); margin: var(--ep-space-2) 0;">
                 <form th:if="${readiness.drafts.offerDiscard}" method="post" style="display: inline;"
-                      th:action="@{/tenants/{tenantId}/catalogs/{/catalogId}/drafts/discard(tenantId=${tenantId},catalogId=${catalogId})}">
+                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/discard(tenantId=${tenantId},catalogId=${catalogId})}">
                     <button type="button" class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm"
                             data-testid="catalog-draft-discard"
                             data-confirm-submit
@@ -143,7 +143,7 @@
                             th:text="${readiness.drafts.isNext} ? 'Discard all changes' : 'Discard this work'">Discard draft</button>
                 </form>
                 <form th:if="${readiness.offerMarkAllReady}" style="display: inline;"
-                      th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/ready(tenantId=${tenantId},catalogId=${catalogId})}"
+                      th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/ready(tenantId=${tenantId},catalogId=${catalogId})}"
                       hx-target="#catalog-next-release" hx-swap="outerHTML">
                     <button type="submit" class="ep-btn ep-btn-outline ep-btn-sm" data-testid="catalog-mark-ready">Mark all ready</button>
                 </form>
@@ -165,12 +165,12 @@
                 <h3 style="margin: 0;">Dependencies</h3>
                 <div class="ep-row" style="gap: var(--ep-space-2);">
                     <form th:if="${readiness.offerUpgradeDependencies}" style="display: inline;"
-                          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/dependencies/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+                          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
                           hx-target="#catalog-next-release" hx-swap="outerHTML">
                         <button type="submit" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-dependencies-upgrade">Use the latest releases</button>
                     </form>
                     <button th:if="${readiness.offerEditDependencies}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                            th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/edit(tenantId=${tenantId},catalogId=${catalogId})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML"
                             data-testid="catalog-dependencies-edit">Edit dependencies</button>
                 </div>
@@ -218,12 +218,12 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='catalog-dependencies-dialog',
             title='Dependencies',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})},
             content=~{::dependencies-form})}"></div>
     </th:block>
 
     <form th:fragment="dependencies-form" id="catalog-dependencies-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies(tenantId=${tenantId},catalogId=${catalogId})}"
           hx-target="#catalog-dependencies-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='catalog-dependencies-error')}"></div>
         <div class="ep-dialog-body">

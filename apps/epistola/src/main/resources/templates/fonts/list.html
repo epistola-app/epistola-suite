@@ -23,7 +23,7 @@
                     <div class="empty-state-title">No fonts yet</div>
                     <div class="empty-state-description">Upload font families to use in your themes and templates.</div>
                     <button th:if="${auth.has('REFERENCE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                            th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/fonts/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="font-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
@@ -55,7 +55,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete font"
                                         data-confirm-title="Delete Font"
-                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{/catalogId}/fonts/{slug}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(font.catalogKey) ?: font.catalogKey},slug=${font.slug})}"
+                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/fonts/{slug}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(font.catalogKey) ?: font.catalogKey},slug=${font.slug})}"
                                         data-confirm-target="#font-grid-items" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -83,7 +83,7 @@
     </th:block>
     <th:block th:fragment="font-list-actions">
         <button th:if="${auth.has('REFERENCE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/fonts/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="font-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />

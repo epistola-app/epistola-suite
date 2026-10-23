@@ -41,7 +41,7 @@
                     <div class="empty-state-title">No images yet</div>
                     <div class="empty-state-description">Upload images to use in your document templates.</div>
                     <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary" style="margin-top: var(--ep-space-4);"
-                            th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                             data-testid="image-create-open">
                         <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon')}" />
@@ -52,7 +52,7 @@
                 <div th:if="${!#lists.isEmpty(assets)}" class="ep-auto-grid asset-grid">
                     <div th:each="asset : ${assets}" class="ep-panel asset-card">
                         <div class="asset-card-preview">
-                            <img th:src="@{/tenants/{tenantId}/catalogs/{/catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id})}"
+                            <img th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id})}"
                                  th:alt="${asset.name}"
                                  loading="lazy" />
                         </div>
@@ -71,7 +71,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete image"
                                         data-confirm-title="Delete Image"
-                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{/catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
+                                        th:attr="data-confirm-message='Delete image &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(asset.catalogKey) ?: asset.catalogKey},assetId=${asset.id},catalog=${selectedCatalog})}"
                                         data-confirm-target="#asset-grid-items">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -101,7 +101,7 @@
     </th:block>
     <th:block th:fragment="asset-list-actions">
         <button th:if="${auth.has('TEMPLATE_EDIT') and workspace?.catalog?.readOnly != true}" type="button" class="ep-btn ep-btn-primary"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="image-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='upload', class='ep-icon ep-icon-sm')}" />

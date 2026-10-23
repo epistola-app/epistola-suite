@@ -26,7 +26,7 @@
                     <!--/* Merging is alpha: it opens a dialog that shows what it would do first. */-->
                     <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
                             style="margin-left: var(--ep-space-2);"
-                            th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
+                            th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
                             hx-target="#dialog-mount" hx-swap="innerHTML"
                             data-testid="catalog-merge-open" th:data-version="${row.version}">Merge…</button>
                 </p>
@@ -62,7 +62,7 @@
                             <div th:if="${row.changed != null}" th:text="${#strings.capitalize(row.changed)}">Changed Invoice</div>
                         </div>
                         <button th:if="${readiness.offerMerge}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId},release=${row.version})}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML"
                                 data-testid="catalog-merge-open" th:data-version="${row.version}">Merge…</button>
                     </li>

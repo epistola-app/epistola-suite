@@ -20,7 +20,7 @@
                 Use them to constrain variant attribute values to a curated set.
             </div>
             <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/code-lists/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                     hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                     data-testid="code-list-create-open"
                     style="margin-top: var(--ep-space-4);">
@@ -54,7 +54,7 @@
             <tbody>
                 <tr th:each="cl : ${codeLists}">
                     <td th:title="${cl.slug}">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogKey) ?: cl.catalogKey},slug=${cl.slug})}"
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogKey) ?: cl.catalogKey},slug=${cl.slug})}"
                            th:text="${cl.slug}"></a>
                     </td>
                     <td th:title="${cl.catalogKey}">
@@ -77,7 +77,7 @@
                         <span th:if="${cl.lastRefreshedAt == null}" class="text-muted">never</span>
                     </td>
                     <td class="actions">
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogKey) ?: cl.catalogKey},slug=${cl.slug})}"
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(cl.catalogKey) ?: cl.catalogKey},slug=${cl.slug})}"
                            class="ep-btn ep-btn-sm ep-btn-ghost">View</a>
                     </td>
                 </tr>
@@ -104,7 +104,7 @@
     </th:block>
     <th:block th:fragment="code-list-list-actions">
         <button type="button" class="ep-btn ep-btn-primary" th:if="${auth.has('TENANT_SETTINGS') and workspace?.catalog?.readOnly != true}"
-                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/code-lists/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists/new(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
                 hx-target="#dialog-mount" hx-swap="innerHTML" hx-push-url="true"
                 data-testid="code-list-create-open-action">
             <th:block th:replace="~{epistola-web/icon :: icon(name='plus', class='ep-icon')}" />

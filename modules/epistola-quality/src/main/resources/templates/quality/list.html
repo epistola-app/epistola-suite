@@ -97,7 +97,7 @@
                             <tr th:each="f : ${findings}" th:data-testid="'quality-row-' + ${f.key}">
                                 <td><th:block th:insert="~{quality/fragments/badges :: severity-badge(${f.severity})}" /></td>
                                 <td>
-                                    <a th:href="@{/tenants/{tenantId}/catalogs/{/catalog}/quality/{id}(tenantId=${tenantId},catalog=${f.catalogKey},id=${f.key})}"
+                                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalog}/quality/{id}(tenantId=${tenantId},catalog=${f.catalogKey},id=${f.key})}"
                                        style="font-weight: 500;"
                                        th:text="${f.message}">Message</a>
                                 </td>
@@ -108,11 +108,11 @@
                                 <td style="font-size: var(--ep-text-sm);">
                                     <a
                                        th:if="${f.variantKey != null}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey},variantId=${f.variantKey})}"
                                        th:text="${f.templateKey}">invoice</a>
                                     <a
                                        th:unless="${f.variantKey != null}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${f.catalogKey},id=${f.templateKey})}"
                                        th:text="${f.templateKey}">invoice</a>
                                 </td>
                                 <td class="text-muted" style="font-size: var(--ep-text-sm);" th:text="${f.ruleId}">example.empty-text</td>
@@ -126,7 +126,7 @@
                     <nav th:if="${totalPages > 1}" class="ep-pagination" aria-label="Quality findings pagination" data-testid="quality-pagination">
                         <a th:if="${hasPrev}" class="ep-btn ep-btn-ghost ep-btn-sm"
                            data-testid="pagination-prev"
-                           th:href="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},catalog=${selectedCatalog},page=${prevPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            hx-target="#quality-findings"
                            hx-swap="innerHTML">Previous</a>
@@ -136,7 +136,7 @@
 
                         <a th:if="${hasNext}" class="ep-btn ep-btn-ghost ep-btn-sm"
                            data-testid="pagination-next"
-                           th:href="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
+                           th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/quality(tenantId=${tenantId},catalogSeg=${selectedCatalog},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            th:hx-get="@{/tenants/{tenantId}/quality/search(tenantId=${tenantId},catalog=${selectedCatalog},page=${nextPage},status=${selectedStatus},severity=${selectedSeverity},source=${selectedSource},template=${selectedTemplate},q=${searchTerm},sort=${sort},dir=${sortDir})}"
                            hx-target="#quality-findings"
                            hx-swap="innerHTML">Next</a>

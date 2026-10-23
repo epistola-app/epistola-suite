@@ -19,15 +19,15 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-code-list-dialog',
             title='New code list',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::code-list-form})}"></div>
     </th:block>
 
     <!-- data-radio-panes: the sourceType radios toggle the matching
          [data-source-pane] visibility (pages/asset-forms.js). -->
     <form th:fragment="code-list-form" id="create-code-list-form"
-          method="post" th:action="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          method="post" th:action="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/code-lists(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-code-list-form" hx-swap="outerHTML"
           data-radio-panes="sourceType" data-pane-attr="data-source-pane">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-code-list-error')}"></div>

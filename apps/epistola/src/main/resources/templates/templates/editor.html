@@ -73,7 +73,7 @@
            is marked as in the full bar. */-->
     <nav class="editor-nav" th:classappend="${editorScope.sideWork} ? 'ws-bar-side' : ''"
          th:with="scope=${editorScope}, bar=${editorScope.bar}">
-        <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
+        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
            class="editor-nav-back" data-testid="editor-back" th:title="'Back to ' + ${templateName}">
             <th:block th:replace="~{epistola-web/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
         </a>
@@ -83,7 +83,7 @@
             <span class="ws-crumb ws-crumb-version ws-crumb-here" th:classappend="${scope.sideWork} ? 'ws-crumb-side' : ''"
                   data-testid="editor-crumb-version" th:text="${scope.versionLabel}">Next release</span>
             <span class="ws-crumb-sep" aria-hidden="true">/</span>
-            <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
+            <a class="ws-crumb" th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId})}"
                th:text="${templateName}">Template Name</a>
             <span class="editor-nav-variant" th:text="${variantId}"></span>
         </div>
@@ -132,8 +132,8 @@
                 "feature": "quality",
                 "factoryExport": "createQualityEditorPlugin",
                 "config": {
-                    "findingsUrl": [[@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]],
-                    "checkUrl": [[@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]]
+                    "findingsUrl": [[@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]],
+                    "checkUrl": [[@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/quality/check(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},id=${templateId},variantId=${variantId})}]]
                 }
             },
             {

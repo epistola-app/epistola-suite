@@ -119,10 +119,10 @@ internal fun ModelBuilder.catalogListModel(tenantKey: TenantKey) {
     // Keys more than one catalog has (ADR 0034, phase 4): those rows link by namespace and key.
     "sharedKeys" to rows.groupBy { it.catalog.id.value }.filterValues { it.size > 1 }.keys
     // Pair() rather than `to`: inside this builder `to` is the model-binding infix, not Kotlin's.
-    // By `namespace/key`: two catalogs can share a key (ADR 0034).
+    // By the catalog itself, not its key: two catalogs can share a key (ADR 0034).
     "versionStatus" to rows.associate { row ->
         Pair(
-            row.catalog.address.toString(),
+            row.catalog,
             CatalogReleaseStatusView.of(
                 row.catalog,
                 upstream[row.catalog.address],

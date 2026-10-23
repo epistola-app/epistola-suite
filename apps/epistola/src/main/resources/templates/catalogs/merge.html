@@ -22,7 +22,7 @@
             dialogId='catalog-merge-dialog',
             title='Merge ' + ${releaseLabel},
             dialogClass='ep-dialog-wide',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogId}/draft(tenantId=${tenantId},catalogId=${catalogId})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${catalogId})},
             content=~{::merge-form})}"></div>
     </th:block>
 
@@ -40,7 +40,7 @@
     </div>
 
     <form th:fragment="merge-form" id="catalog-merge-form" data-testid="catalog-merge-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/merge(tenantId=${tenantId},catalogId=${catalogId})}"
           hx-target="#catalog-merge-form" hx-swap="outerHTML">
         <input type="hidden" name="release" th:value="${preview.release}">
         <!--/* The state this dialog shows: a merge refuses it once the draft or the release changed. */-->
@@ -95,7 +95,7 @@
                             Goes with shared (Dependency): choose them together.</p>
                         <!--/* Read-only: the three sides as JSON, loaded when asked for. */-->
                         <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm" data-testid="catalog-merge-compare"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/merge/sides(tenantId=${tenantId},catalogId=${catalogId},release=${preview.release},entry=${row.contentKey})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/merge/sides(tenantId=${tenantId},catalogId=${catalogId},release=${preview.release},entry=${row.contentKey})}"
                                 hx-target="next [data-merge-compare]" hx-swap="innerHTML">Compare</button>
                         <div data-merge-compare></div>
                         <label style="display: flex; gap: var(--ep-space-2); margin-top: var(--ep-space-1);">

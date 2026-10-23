@@ -51,7 +51,7 @@
                     <tbody>
                         <tr th:each="item : ${usage}">
                             <td>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{/catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(item.templateCatalogKey) ?: item.templateCatalogKey},templateId=${item.templateKey})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(item.templateCatalogKey) ?: item.templateCatalogKey},templateId=${item.templateKey})}"
                                    th:text="${item.templateName}" class="theme-usage-link"></a>
                                 <span class="theme-usage-resource-meta">
                                     <span class="badge badge-default" th:text="${item.templateCatalogKey}"></span>
@@ -74,12 +74,12 @@
 
             <div th:if="${usageTotalPages > 1}" class="theme-usage-pagination">
                 <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id},page=${usagePage - 1})}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id},page=${usagePage - 1})}"
                         hx-target="#theme-usage" hx-swap="innerHTML"
                         th:disabled="${usagePage le 1}">Previous</button>
                 <span class="text-muted" th:text="'Page ' + ${usagePage} + ' of ' + ${usageTotalPages}"></span>
                 <button type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id},page=${usagePage + 1})}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{themeId}/usage(tenantId=${tenantId},catalogId=${catalogSegment ?: catalogId},themeId=${theme.id},page=${usagePage + 1})}"
                         hx-target="#theme-usage" hx-swap="innerHTML"
                         th:disabled="${usagePage >= usageTotalPages}">Next</button>
             </div>

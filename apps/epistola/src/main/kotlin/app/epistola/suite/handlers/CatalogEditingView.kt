@@ -4,7 +4,9 @@
 
 package app.epistola.suite.handlers
 
+import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogAddress
+import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogEditability
@@ -24,7 +26,7 @@ class CatalogEditingView(private val tenantKey: TenantKey) {
     /**
      * Whether the catalog [catalogKey] can be changed here. A key or its text: a template reading a
      * row's `catalogKey` gets the text, since a value class reaches it unboxed. Or `namespace/key`,
-     * which names one of two catalogs that share a key (ADR 0034).
+     * which names one of two catalogs that share a key (ADR 0034), or the [Catalog] itself.
      */
     fun editable(catalogKey: Any?): Boolean = editability(catalogKey)?.editable ?: false
 
@@ -32,6 +34,7 @@ class CatalogEditingView(private val tenantKey: TenantKey) {
     fun readOnlyLabel(catalogKey: Any?): String? = editability(catalogKey)?.reason?.label
 
     private fun editability(catalog: Any?): CatalogEditability? {
+        if (catalog is Catalog) return all.of(catalog.address)
         val text = catalog?.toString() ?: return null
         val key = CatalogKey.validateOrNull(text.substringAfter('/')) ?: return null
         return if ('/' in text) all.of(CatalogAddress(text.substringBefore('/'), key)) else all.of(key)

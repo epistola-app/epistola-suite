@@ -155,7 +155,7 @@
         <div class="ep-dialog-header">
             <h3>Update from Epistola Exchange</h3>
         </div>
-        <form th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
+        <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/exchange-upgrade(tenantId=${tenantId},catalogId=${catalogId})}"
               hx-target="#exchange-dialog-container" hx-swap="innerHTML">
             <div th:replace="~{epistola-web/form-error :: form-error(id='exchange-install-error')}"></div>
             <div class="ep-dialog-body">

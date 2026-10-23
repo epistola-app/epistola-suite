@@ -73,7 +73,7 @@
                         <!--/* Not for an empty catalog: a first version with nothing in it gives nobody anything.
                                A catalog of themes or stencils alone, which other catalogs use, is not empty. */-->
                         <button th:if="${readiness.offerPublish and !contents.isEmpty}" type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/release(tenantId=${tenantId},catalogId=${catalogId})}"
                                 hx-target="#release-dialog-container" hx-swap="innerHTML"
                                 data-testid="catalog-release-open">Publish…</button>
                     </div>
@@ -110,7 +110,7 @@
         <div class="detail-section-header">
             <h2>Environments</h2>
             <a th:if="${gs != null and gs.published and !gs.needsEnvironment and gs.mayDeploy}" class="ep-btn ep-btn-outline ep-btn-sm"
-               th:href="@{/tenants/{t}/catalogs/{/c}/deployments(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Deploy…</a>
+               th:href="@{/tenants/{t}/catalogs/{c}/deployments(t=${tenantId},c=${catalog.id})}" data-testid="catalog-status-make-live">Deploy…</a>
         </div>
         <div class="detail-section-body">
             <p th:if="${deployments.isEmpty()}" class="text-muted" data-testid="catalog-step-no-environment" style="margin: 0;">
@@ -159,7 +159,7 @@
         <div class="detail-section-header">
             <h2>Releases</h2>
             <button th:if="${bar.offerCreateDraft}" type="button" class="ep-btn ep-btn-ghost ep-btn-sm"
-                    th:hx-get="@{/tenants/{tenantId}/catalogs/{/catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
+                    th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts/new(tenantId=${tenantId},catalogId=${catalog.id})}"
                     hx-target="#ws-dialog-mount" hx-swap="innerHTML"
                     title="For a large change that is not ready to go out with everyday work"
                     data-testid="catalog-draft-new">Start parallel work…</button>

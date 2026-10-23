@@ -17,7 +17,7 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-stencil-dialog',
             title='New Stencil',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::stencil-form})}"></div>
     </th:block>
 
@@ -30,7 +30,7 @@
     the progressive-enhancement fallback.
     -->
     <form th:fragment="stencil-form" id="create-stencil-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/stencils(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-target="#create-stencil-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-stencil-error')}"></div>
         <div class="ep-dialog-body">

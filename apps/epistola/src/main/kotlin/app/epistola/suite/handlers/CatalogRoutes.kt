@@ -8,6 +8,8 @@ import app.epistola.suite.htmx.CatalogScopedRoutes
 import app.epistola.suite.htmx.catalogScopedRoutes
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.web.servlet.function.RouterFunction
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
@@ -24,7 +26,9 @@ class CatalogRoutes(
     private val registry: CatalogRegistryHandler,
     private val importer: CatalogImportHandler,
 ) {
+    /** Before the per-catalog routes, which CatalogScopedRouting serves at the lowest precedence but one. */
     @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE - 2)
     fun catalogRouterFunction(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/catalogs".nest {
             GET("", handler::list)

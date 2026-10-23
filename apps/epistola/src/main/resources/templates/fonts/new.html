@@ -23,12 +23,12 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-font-dialog',
             title='Upload Font',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::font-upload-form})}"></div>
     </th:block>
 
     <form th:fragment="font-upload-form" id="upload-font-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/fonts(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-encoding="multipart/form-data"
           hx-target="#font-grid-items" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='upload-font-error')}"></div>

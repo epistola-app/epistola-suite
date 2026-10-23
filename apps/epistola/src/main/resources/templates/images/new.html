@@ -22,12 +22,12 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='upload-image-dialog',
             title='Upload Image',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{/catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})},
             content=~{::image-upload-form})}"></div>
     </th:block>
 
     <form th:fragment="image-upload-form" id="upload-image-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{/catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${draftSegment.value})}"
           hx-encoding="multipart/form-data"
           hx-target="#asset-list" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='upload-image-error')}"></div>

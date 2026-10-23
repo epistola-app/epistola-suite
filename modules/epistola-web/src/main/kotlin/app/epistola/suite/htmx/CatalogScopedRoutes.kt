@@ -42,10 +42,10 @@ fun catalogScopedRoutes(routes: RouterFunctionDsl.() -> Unit): CatalogScopedRout
 /**
  * Serves every [CatalogScopedRoutes] by key and by namespace and key.
  *
- * By key first, and both after every other router (the tenant-level routes under
- * `/tenants/{tenantId}/catalogs`, such as `/exchange/search`, among them): a catalog key may be any
- * slug, so a key-alone address must not take a tenant-level route, nor a namespaced address a
- * key-alone one. What remains is a namespaced address whose key is also the name of a resource list
+ * By key first, and both after every other router: a catalog key may be any slug, so a key-alone
+ * address must not take a tenant-level route, nor a namespaced address a key-alone one. A router of
+ * tenant-level routes under `/tenants/{tenantId}/catalogs` (`/registry/releases`, `/exchange/search`)
+ * says so with an `@Order` below `LOWEST_PRECEDENCE - 1`: one without an order comes after the key-alone routes. What remains is a namespaced address whose key is also the name of a resource list
  * (`templates`, `themes`, …): that one is taken by key, as a resource of the catalog named by the
  * namespace, which has no such resource.
  */
