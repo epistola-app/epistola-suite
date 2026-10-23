@@ -9,6 +9,9 @@ primitives in `snapshot/`, and reference discovery in `graph/`. There is no sepa
 `catalog` must **not** reference `exchange`. `CatalogExchangeIndependenceTest` checks this in
 bytecode, so a fully qualified reference fails too — there is no import line to grep for.
 
+Every SQL statement reading or writing catalog content names the catalog version it means, since a
+catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
+
 - **Outbound**: `ReleaseCatalogDraft` records publication intent through
   `CatalogReleasePublicationPort` (owned by `catalog`), handed the open release transaction so the
   outbox write stays atomic without inverting the dependency.
