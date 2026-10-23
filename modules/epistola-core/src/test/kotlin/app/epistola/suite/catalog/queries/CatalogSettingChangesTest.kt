@@ -123,7 +123,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `another default theme is a change, numbered as a fix`() {
+    fun `another default theme is a change, numbered as a minor`() {
         val tenant = released("settings-default-theme")
         withMediator {
             SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("brand"), letters)).execute()
@@ -132,7 +132,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.settings.map { it.entry to it.name }).containsExactly("catalog/defaultTheme" to "Default theme")
-            assertThat(AssessDraftNumber(tenant, letters).query()!!.needs).isEqualTo(ChangeKind.NONE)
+            assertThat(AssessDraftNumber(tenant, letters).query()!!.needs).isEqualTo(ChangeKind.ADDITIVE)
         }
     }
 
@@ -205,7 +205,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
             val release = ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, releaseDependencies = true).execute()
 
             val pinned = ListReleaseDependencies(tenant, letters, release.version).query().single()
-            assertThat(pinned.releaseVersion).`as`("shared's default theme was released with it").isEqualTo("1.1.1")
+            assertThat(pinned.releaseVersion).`as`("shared's default theme was released with it").isEqualTo("1.2.0")
         }
     }
 

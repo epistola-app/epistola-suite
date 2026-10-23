@@ -7,6 +7,7 @@ package app.epistola.suite.mcp.tools
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.commands.ContinueEverydayWork
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.merge.GetDraftMergeSides
 import app.epistola.suite.catalog.merge.MergeReleaseIntoDraft
 import app.epistola.suite.catalog.merge.MergeResolution
@@ -302,9 +303,10 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
                 ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
         }
         val content = mergedContent.orEmpty().mapValues { (entry, value) -> contentObject(entry, value) }
-        return MergedReleaseInfo.from(
-            MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, draftScope(catalogKey, draft), expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute(),
-        )
+        val scope = draftScope(catalogKey, draft)
+        val result = MergeReleaseIntoDraft(mcpTenantKey(), catalogKey, release.trim(), sides, scope, expectedToken = token?.trim()?.ifEmpty { null }, mergedContent = content).execute()
+        val unused = GetCatalogBorrowing(mcpTenantKey(), catalogKey, scope).query().unused.map { it.alias }
+        return MergedReleaseInfo.from(result, unused)
     }
 
     /** [value], merged content for [entry], as an object: given as one, or as a JSON object string. */

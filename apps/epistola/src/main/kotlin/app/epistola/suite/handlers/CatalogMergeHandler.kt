@@ -173,8 +173,9 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         }
 
         // The draft's own page, rebuilt: what was taken shows among its changes, and the version is
-        // no longer listed as missing.
-        val draftPage = CatalogPages.draft(tenantId, segment)
+        // no longer listed as missing. It names the release merged, so the page can ask about
+        // catalogs the merge left unused.
+        val draftPage = CatalogPages.draft(tenantId, segment) + "?merged=" + java.net.URLEncoder.encode(release, Charsets.UTF_8)
         return request.htmx {
             dialogLocation(draftPage)
             onFullPage { redirect(draftPage) }

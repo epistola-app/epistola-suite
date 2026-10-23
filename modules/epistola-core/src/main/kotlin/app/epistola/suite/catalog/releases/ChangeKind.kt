@@ -144,8 +144,10 @@ class ChangeKindEvaluator(
         was.keys.intersect(now.keys).sorted().filter { was[it] != now[it] }.forEach { reasons += ChangeReason(ChangeKind.NONE, "preset", it, "renamed or described differently") }
         // The own catalog's theme is the same whether or not the reference names its alias.
         fun CatalogInfo.theme() = defaultTheme?.let { (it.catalogKey ?: key) to it.key }
-        if (old.theme() != new.theme()) reasons += ChangeReason(ChangeKind.NONE, "catalog", "defaultTheme", "templates without a theme of their own render with another one")
-        if (old.license != new.license) reasons += ChangeReason(ChangeKind.NONE, "catalog", "license", "changed")
+        // Another default theme or license is a minor change: what a template renders with, or the terms
+        // it is used under, change for everyone who uses the catalog, though nothing they do stops working.
+        if (old.theme() != new.theme()) reasons += ChangeReason(ChangeKind.ADDITIVE, "catalog", "defaultTheme", "templates without a theme of their own render with another one")
+        if (old.license != new.license) reasons += ChangeReason(ChangeKind.ADDITIVE, "catalog", "license", "changed")
         return reasons
     }
 

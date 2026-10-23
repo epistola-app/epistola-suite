@@ -16,6 +16,23 @@
 
         <div id="catalog-alert"></div>
 
+        <!--/* After a merge: the catalogs the draft declares and no longer uses. Removing them is asked,
+               not done: they may be wanted again, and publishing with them only pins them. */-->
+        <div th:if="${unusedAfterMerge != null}" class="alert alert-info" data-testid="merge-unused-dependencies">
+            <p style="margin: 0 0 var(--ep-space-2);">After merging v<span th:text="${unusedAfterMerge.release}">1.0.1</span>,
+                this draft no longer uses <th:block th:each="unused, stat : ${unusedAfterMerge.catalogs}"><strong
+                    th:text="${unused.name}">Shared</strong><th:block th:unless="${stat.last}">, </th:block></th:block>.
+                Remove <th:block th:text="${unusedAfterMerge.catalogs.size() == 1} ? 'it' : 'them'">it</th:block>
+                from the catalogs it depends on?</p>
+            <form class="ep-row" style="gap: var(--ep-space-2);"
+                  th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/dependencies/remove-unused(tenantId=${tenantId},catalogId=${catalogId})}">
+                <input th:each="unused : ${unusedAfterMerge.catalogs}" type="hidden" name="alias" th:value="${unused.alias}">
+                <button type="submit" class="ep-btn ep-btn-primary ep-btn-sm" data-testid="merge-unused-remove">Remove</button>
+                <a class="ep-btn ep-btn-outline ep-btn-sm" data-testid="merge-unused-keep"
+                   th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/draft(tenantId=${tenantId},catalogId=${catalogId})}">Keep</a>
+            </form>
+        </div>
+
         <div th:replace="~{catalogs/next-release :: next-release}"></div>
 
         <div th:replace="~{catalogs/overview :: counts}"></div>

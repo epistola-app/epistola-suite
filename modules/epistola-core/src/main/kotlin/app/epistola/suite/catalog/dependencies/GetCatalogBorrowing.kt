@@ -62,6 +62,12 @@ data class CatalogBorrowing(val catalogs: List<BorrowedCatalog>, val others: Lis
      * refuses it until it is declared on the Dependencies page.
      */
     val undeclared: List<BorrowedCatalog> get() = catalogs.filter { it.used && !it.declared }
+
+    /**
+     * Declared but no longer used: after a merge took a version without what used it, say. Publishing
+     * would still pin them; whether they go is the author's call (`RemoveUnusedCatalogDependencies`).
+     */
+    val unused: List<BorrowedCatalog> get() = catalogs.filter { it.declared && !it.used }
 }
 
 /**
@@ -140,7 +146,7 @@ class GetCatalogBorrowingHandler(
         val content = contentBuilder.build(query.tenantKey, query.catalogKey)
         val own = query.catalogKey.value
         val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { store.declarations(it, query.tenantKey, query.catalogKey) }
-        val references = content.dependencies.orEmpty().map { it.toBorrowed() }.filter { it.first != own }
+        val references = (content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)).filter { it.first != own }
         val catalogs = ListCatalogs(query.tenantKey).query().filter { it.id.value != own }
 
         val involved = (references.map { it.first } + declared.map { it.catalogKey }).distinct()
@@ -194,6 +200,20 @@ class GetCatalogBorrowingHandler(
     }
 
     private fun latestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleaseSummaries(tenantKey, catalogKey, limit = 1).query().firstOrNull()?.version
+
+    /**
+     * What the version uses of other catalogs outside its resources' references: the default theme the
+     * catalog settings name, and the attributes of another catalog its variants carry
+     * (`<alias>.<key>`, as [attributeCatalogs] reads them).
+     */
+    private fun settingUses(content: app.epistola.suite.catalog.CatalogContent): List<Pair<String, BorrowedResource>> {
+        val theme = content.catalog.defaultTheme?.let { ref -> ref.catalogKey?.let { it to BorrowedResource("theme", ref.key, null) } }
+        val attributes = content.resourceDetails.values.map { it.resource }
+            .filterIsInstance<app.epistola.catalog.protocol.TemplateResource>()
+            .flatMap { template -> template.variants.orEmpty().flatMap { it.attributes.orEmpty().keys } }
+            .mapNotNull { key -> attributeCatalogs(listOf(key)).singleOrNull()?.let { it.value to BorrowedResource("attribute", key.substringAfter('.'), null) } }
+        return listOfNotNull(theme) + attributes
+    }
 
     private fun DependencyRef.toBorrowed(): Pair<String, BorrowedResource> = when (this) {
         is DependencyRef.Theme -> catalogKey to BorrowedResource("theme", key, null)

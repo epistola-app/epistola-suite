@@ -129,6 +129,17 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `publishing with nothing changed is refused, so new notes alone are no new version`() {
+        val tenant = published("Publish Notes Only")
+
+        val response = postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.1", "notes" to "Only new notes"))
+
+        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query().map { it.version } }
+        assertThat(released).containsExactly("1.0.0")
+        assertThat(response.body).contains("has nothing to release")
+    }
+
+    @Test
     fun `publishing marks the changes ready itself and publishes under the picked number`() {
         val tenant = published("Publish Submit")
         withMediator {

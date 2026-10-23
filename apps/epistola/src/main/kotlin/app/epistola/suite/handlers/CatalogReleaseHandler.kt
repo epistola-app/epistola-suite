@@ -6,6 +6,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.MarkCatalogReady
+import app.epistola.suite.catalog.commands.RemoveUnusedCatalogDependencies
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.commands.UpgradeCatalogDependencies
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -142,6 +143,28 @@ class CatalogReleaseHandler {
             e.message
         }
         return nextRelease(request, tenantId, segment, error)
+    }
+
+    /**
+     * `POST /{catalogId}/dependencies/remove-unused`: removes the declarations (`alias`) the draft page
+     * offered after a merge, then shows the draft page again without the question. One used again by
+     * now is refused, and the next-release section says so.
+     */
+    fun removeUnusedDependencies(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
+        val segment = request.catalogSegment()
+        val aliases = request.params()["alias"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }
+        try {
+            RemoveUnusedCatalogDependencies(tenantId.key, segment.key, aliases, catalogVersion = segment.ref(tenantId.key)).execute()
+        } catch (e: ValidationException) {
+            return nextRelease(request, tenantId, segment, e.message)
+        }
+        val draftPage = CatalogPages.draft(tenantId, segment)
+        return request.htmx {
+            dialogLocation(draftPage)
+            onFullPage { redirect(draftPage) }
+        }
     }
 
     private fun parseDependency(tenantId: TenantId, row: DependencyRowView): DeclaredCatalogDependency? {

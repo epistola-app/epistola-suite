@@ -100,17 +100,28 @@ data class MergedReleaseInfo(
     val kept: List<String>,
     val merged: List<String> = emptyList(),
     val notice: String? = null,
+    /**
+     * The catalogs (by alias) the draft declares and, after the merge, no longer uses. Ask the user
+     * whether to remove them (`update_catalog_dependencies` without them); never remove them unasked.
+     */
+    val unusedDependencies: List<String> = emptyList(),
 ) {
     companion object {
-        fun from(merged: MergedRelease) = MergedReleaseInfo(
+        fun from(merged: MergedRelease, unusedDependencies: List<String> = emptyList()) = MergedReleaseInfo(
             merged.release,
             merged.taken,
             merged.removed,
             merged.kept,
             merged.merged,
-            notice = merged.merged.takeIf { it.isNotEmpty() }?.let {
-                "Merged content is not marked ready: review ${it.joinToString()} with the user and mark it ready before releasing the draft."
-            },
+            notice = listOfNotNull(
+                merged.merged.takeIf { it.isNotEmpty() }?.let {
+                    "Merged content is not marked ready: review ${it.joinToString()} with the user and mark it ready before releasing the draft."
+                },
+                unusedDependencies.takeIf { it.isNotEmpty() }?.let {
+                    "The draft no longer uses ${it.joinToString()}: ask the user whether to remove ${if (it.size == 1) "it" else "them"} from its dependencies."
+                },
+            ).joinToString(" ").ifEmpty { null },
+            unusedDependencies = unusedDependencies,
         )
     }
 }
