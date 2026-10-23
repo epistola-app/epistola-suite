@@ -16,6 +16,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -110,6 +112,7 @@ class CatalogBundleTest : IntegrationTestBase() {
         val bundle = fat(chain("bundle-beside-source")).zipBytes
         val target = withMediator {
             val target = createTenant("bundle-beside-target").id
+            SaveFeatureToggle(target, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             // Its own Shared, in its own namespace: another catalog than the one the archive carries.
             CreateCatalog(target, shared, "Our shared").execute()
             target

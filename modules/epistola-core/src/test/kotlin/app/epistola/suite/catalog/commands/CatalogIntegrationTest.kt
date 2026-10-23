@@ -13,6 +13,8 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -59,6 +61,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Ours").execute()
+            SaveFeatureToggle(tenant.id, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
 
             // ADR 0034, phase 4: the demo catalog is named in Epistola's namespace, so it is another catalog.
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
