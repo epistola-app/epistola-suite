@@ -255,12 +255,18 @@ fonts, templates last (variants, the editor):
 - **a. Reads.** The type's JSON mapper and read interface: the release side reads `resource_contents`,
   the draft side is the existing queries moved behind the interface. Every caller switches to it.
   A parity test reads every resource of the bundled and demo catalogs both ways and compares.
-- **b. Storage.** The type's commands write JSON; a forward, data-preserving migration (a cluster task,
-  as `ReleaseContentHashBackfill`) turns its draft rows into JSON through the export path that
-  already builds the wire form (`CatalogContentBuilder`), hashes and stores it; the draft side of the
-  interface then reads JSON through the same mapper as releases. The content table is dropped in a
-  later release, once its data has moved everywhere. A guard (as `ContentVersionSqlTest`) refuses SQL
-  on a moved type's old table.
+- **b. Storage.** The type's commands write JSON; its draft rows are converted by a self-contained,
+  frozen code migration in Flyway (ADR 0035): columns to the wire form of that time, the V6 hash and
+  the references computed by its own frozen copy, content that does not validate converted as it is
+  and reported. The draft side of the interface then reads JSON through the same mapper as releases.
+  A guard (as `ContentVersionSqlTest`) refuses SQL on a moved type's old table.
+
+**Upgrades** (ADR 0035): every resource type's step b ships in one release, a non-rolling upgrade
+(stop, migrate, start), since the conversion moves the tables the previous version reads. The content
+tables move to the schema `legacy_v1` instead of being dropped, and stay until 1.x is declared end of
+life. Upgrading from any 1.x or 2.x version straight to any later one runs the conversion in order;
+`DataPreservationMigrationIT` proves it per type, 1.x data in, every resource the same through the
+read interface out.
 
 Themes are measured after 1a and after 1b, on realistic data: a list, a resource read, a save and a
 draft start, cold and cached. The measurement can change the pace or the order, not the end state.
@@ -278,5 +284,6 @@ Modules that query the content tables directly (quality, load test) move with th
 ## Related
 
 - [ADR 0026](0026-revisions-releases-and-the-working-copy.md) (release content), [ADR 0032](0032-catalog-sources-releases-and-merging.md) (catalogs are drafts and releases; §9 folds `catalog_versions` into `catalog_releases`, which option 4 completes).
+- [ADR 0035](0035-data-migrations-and-skipping-upgrades.md): how the conversion runs, and upgrading across versions.
 - [`docs/catalog-versioning.md`](../catalog-versioning.md), [`docs/catalog-workspace-navigation.md`](../catalog-workspace-navigation.md) (an earlier design of a
   catalog-and-version context).
