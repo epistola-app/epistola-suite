@@ -19,6 +19,8 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -53,6 +55,7 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
         withMediator {
             TestNamespaces.grant(tenant, "acme").execute()
             TestNamespaces.grant(tenant, "bureau").execute()
+            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
             CreateEnvironment(production, "Production").execute()
             for ((namespace, title) in listOf("acme" to "Acme", "bureau" to "Bureau")) {

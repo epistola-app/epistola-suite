@@ -18,6 +18,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mcp.dto.NamespaceNameInfo
 import app.epistola.suite.mcp.tools.CatalogMcpTools
 import app.epistola.suite.mcp.tools.ImageMcpTools
@@ -160,6 +162,7 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
         withMediator {
             TestNamespaces.grant(tenantId.key, "acme").execute()
             TestNamespaces.grant(tenantId.key, "bureau").execute()
+            SaveFeatureToggle(tenantId.key, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
         }
 
         CatalogNames.frame {

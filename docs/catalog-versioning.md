@@ -144,6 +144,12 @@ ADR 0034, phase 4. Within a tenant a catalog is unique by namespace and key
 (`uq_catalogs_namespace_key`, `V20261022200433`), so `acme/letters` and `bureau/letters` live side by
 side.
 
+For 2.0 that is an alpha feature per tenant, `shared-catalog-keys` (off by default): without it the
+trigger `epistola_catalog_key_unshared` (`V20261023090000`) refuses a second catalog with a key the
+tenant already uses, however it is made (created, imported, registered, installed, restored), since
+some reads across a tenant still tell catalogs apart by key alone (`progress.md`, #1125). The
+trigger reads the tenant's override only, so the feature has no global default.
+
 - **Lookups by key** go through the database function `epistola_catalog_id(tenant, key)`
   (`CatalogSql.catalogAt`, `versionAt`, `findCatalog` and every direct lookup). It looks the key up in
   the namespace the running work names for it, else takes the one catalog of the tenant with that key,

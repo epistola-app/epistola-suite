@@ -20,6 +20,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.queries.PreviewDocument
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -52,6 +54,7 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
 
     private fun tenant(name: String, vararg namespaces: NamespaceName): TenantKey = withMediator {
         CreateTenant(TenantKey.of("sidebyside-${TestTenantCounter.next("sidebyside")}"), name, namespaces.toList()).execute().id
+            .also { SaveFeatureToggle(it, KnownFeatures.SHARED_CATALOG_KEYS, true).execute() }
     }
 
     /** `letters` in [namespace] of [tenant], with an invoice titled [title], released as 1.0.0. */
@@ -124,6 +127,25 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
             CatalogNames.within(letters, "bureau") {
                 assertThat(GetDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(receiver)))).query()!!.name).isEqualTo("Bureau invoice")
             }
+        }
+    }
+
+    @Test
+    fun `without shared catalog keys a second letters is refused, made here or received`() {
+        val author = tenant("Side by side unshared author", acme)
+        authored(author, "acme", "Acme invoice")
+        val receiver = withMediator {
+            CreateTenant(TenantKey.of("unshared-${TestTenantCounter.next("unshared")}"), "Side by side unshared", listOf(acme, bureau)).execute().id
+        }
+
+        withMediator {
+            CreateCatalog(receiver, letters, "Bureau letters", namespace = "bureau").execute()
+            assertThatThrownBy { CreateCatalog(receiver, letters, "Acme letters", namespace = "acme").execute() }.hasMessageContaining("letters")
+
+            val archive = CatalogNames.within(letters, "acme") { ExportCatalogZip(author, letters, "1.0.0").execute().zipBytes }
+            assertThatThrownBy { ImportCatalogZip(receiver, archive).execute() }
+                .hasStackTraceContaining("This tenant already has a catalog with the key letters (bureau/letters).")
+            assertThat(ListCatalogs(receiver).query().filter { it.id == letters }.map { it.namespace }).containsExactly("bureau")
         }
     }
 }

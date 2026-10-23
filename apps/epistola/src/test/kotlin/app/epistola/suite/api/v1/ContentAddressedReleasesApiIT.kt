@@ -29,6 +29,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
@@ -200,6 +202,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val (tenant, apiKey) = withMediator {
             val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
             app.epistola.suite.tenants.commands.CreateTenant(tenant, "Two letters", listOf(app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "acme"), app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "bureau"))).execute()
+            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             for (namespace in listOf("acme", "bureau")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
                 app.epistola.suite.catalog.CatalogNames.within(letters, namespace) {

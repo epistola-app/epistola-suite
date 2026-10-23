@@ -11,6 +11,8 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TestNamespaces
@@ -49,6 +51,7 @@ class CatalogAddressHtmxTest : BaseIntegrationTest() {
         withMediator {
             TestNamespaces.grant(tenant, "acme").execute()
             TestNamespaces.grant(tenant, "bureau").execute()
+            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             CreateCatalog(tenant, letters, "Acme letters", namespace = "acme").execute()
             CreateCatalog(tenant, letters, "Bureau letters", namespace = "bureau").execute()
             CatalogNames.within(letters, "acme") { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Acme invoice").execute() }

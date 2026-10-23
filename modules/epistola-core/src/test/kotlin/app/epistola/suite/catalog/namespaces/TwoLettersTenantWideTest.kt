@@ -31,6 +31,8 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.environments.queries.GetEnvironmentLatest
 import app.epistola.suite.environments.queries.ListDeployments
+import app.epistola.suite.features.KnownFeatures
+import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.generation.release.CatalogSelection
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -67,6 +69,7 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
             name,
             listOf(NamespaceName("gemeente-x.nl", "acme"), NamespaceName("gemeente-x.nl", "bureau")),
         ).execute().id
+        SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
         CreateEnvironment(production, "Production").execute()
         for ((namespace, releases) in listOf("acme" to 1, "bureau" to 2)) {
