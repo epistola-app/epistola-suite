@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.CatalogKey
@@ -17,7 +18,9 @@ import org.springframework.stereotype.Component
 /**
  * The full names (registry, namespace, key; contract ADR 0003) of the tenant's catalogs with
  * [catalogKeys], for a response that names a catalog it refers to by key, such as a generated
- * document. A key the tenant has no catalog by is left out.
+ * document. A key the tenant has no catalog by is left out, and so is one two catalogs share (ADR
+ * 0034) unless the running work names one of them ([app.epistola.suite.catalog.CatalogNames]): a
+ * response that knows the namespace names the catalog by it.
  *
  * Any member of the tenant may read them: a catalog's name is how the operations a member may do
  * already address it, so a document generator can be told which catalog a document came from without
@@ -38,15 +41,14 @@ class GetCatalogNamesHandler(
         val keys = query.catalogKeys.map { it.value }.distinct()
         if (keys.isEmpty()) return emptyMap()
         return jdbi.withHandle<Map<CatalogKey, CatalogName>, Exception> { handle ->
-            handle.createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>)")
+            val found = handle.createQuery("SELECT catalog_key, registry, namespace FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>)")
                 .bind("t", query.tenantKey)
                 .bindList("keys", keys)
-                .map { rs, _ ->
-                    val key = CatalogKey.of(rs.getString("catalog_key"))
-                    key to CatalogName(rs.getString("registry"), rs.getString("namespace"), key)
-                }
+                .map { rs, _ -> CatalogName(rs.getString("registry"), rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) }
                 .list()
-                .toMap()
+            found.groupBy { it.key }.mapNotNull { (key, names) ->
+                CatalogAddress.lookUp(names.associateBy { CatalogAddress(it.namespace, key) }, key)?.let { key to it }
+            }.toMap()
         }
     }
 }

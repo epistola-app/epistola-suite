@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogEditingProperties
+import app.epistola.suite.catalog.catalogsAt
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -22,7 +23,8 @@ import org.springframework.stereotype.Component
  * ([DraftDependencyView]); one that cannot (Epistola supplies it, or the installation is run-only,
  * ADR 0032) by pinning its highest release. Releasing pins a named draft once that draft is
  * released. A declaration already there is left as the author set it, and a reference to a catalog
- * the tenant does not have is left alone: releasing refuses it.
+ * the tenant does not have is left alone: releasing refuses it. A key two catalogs share (ADR 0034)
+ * declares the one the running work names, and is refused when it names neither.
  */
 @Component
 class UsedCatalogDeclarer(
@@ -51,7 +53,7 @@ class UsedCatalogDeclarer(
             val missing = used.filter { key -> declared.none { it.catalogKey == key } }
             if (missing.isEmpty()) return@inTransaction emptyList()
             val added = handle.createQuery(
-                "SELECT catalog_key, registry, namespace, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :t AND catalog_key IN (<keys>) ORDER BY catalog_key",
+                "SELECT catalog_key, registry, namespace, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :t AND catalog_id IN ${catalogsAt("t", "keys")} ORDER BY catalog_key",
             )
                 .bind("t", tenantKey)
                 .bindList("keys", missing)

@@ -12,6 +12,7 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.suite.catalog.catalogsAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
@@ -196,7 +197,7 @@ class ExportCodeListsHandler(
               ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
             WHERE entries.tenant_key = :tenantKey
               AND ${inCurrentVersion("lists")}
-              AND list_catalog.catalog_key IN (<catalogs>)
+              AND list_catalog.catalog_id IN ${catalogsAt("tenantKey", "catalogs")}
               AND lists.slug IN (<slugs>)
             ORDER BY list_catalog.catalog_key, lists.slug, entries.sort_order, entries.code
             """,
@@ -347,7 +348,7 @@ class ExportFontsHandler(
             WHERE faces.tenant_key = :tenantKey
               AND ${inCurrentVersion("family")}
               AND faces.source = 'ASSET'
-              AND family_catalog.catalog_key IN (<catalogs>)
+              AND family_catalog.catalog_id IN ${catalogsAt("tenantKey", "catalogs")}
               AND family.slug IN (<slugs>)
             ORDER BY family_catalog.catalog_key, family.slug, faces.italic, faces.weight
             """,

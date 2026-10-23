@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogEditingProperties
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.catalogsAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
@@ -214,7 +215,7 @@ class CatalogResourceMovePlanner(
         val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
         if (keys.isEmpty()) return emptySet()
         return handle.createQuery(
-            "SELECT catalog_key::text, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key IN (<keys>)",
+            "SELECT catalog_key::text, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id IN ${catalogsAt("tenantKey", "keys")}",
         )
             .bind("tenantKey", tenantKey)
             .bindList("keys", keys)
@@ -235,7 +236,7 @@ class CatalogResourceMovePlanner(
             """
             SELECT c.catalog_key::text, count(v.version_id) AS drafts
             FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.kind = 'draft'
-            WHERE c.tenant_key = :tenantKey AND c.catalog_key IN (<keys>)
+            WHERE c.tenant_key = :tenantKey AND c.catalog_id IN ${catalogsAt("tenantKey", "keys")}
             GROUP BY c.catalog_key
             """,
         )

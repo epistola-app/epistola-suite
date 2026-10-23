@@ -400,9 +400,9 @@ class EpistolaTenantApi(
     ): ResponseEntity<DeploymentListResponse> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val deployments = ListDeployments(environment.tenantKey, environmentKey = environment.key).query()
-        val catalogs = GetCatalogNames(environment.tenantKey, deployments.map { it.catalogKey }).query()
+        // Each named by its own catalog: two catalogs can share a key (ADR 0034).
         return ResponseEntity.ok(
-            DeploymentListResponse(items = deployments.mapNotNull { deployment -> catalogs[deployment.catalogKey]?.let { deployment.toDto(it) } }),
+            DeploymentListResponse(items = deployments.map { deployment -> deployment.toDto(CatalogName(deployment.registry, deployment.namespace, deployment.catalogKey)) }),
         )
     }
 

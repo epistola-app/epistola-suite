@@ -38,7 +38,6 @@ import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.publishAndRelease
-import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
@@ -118,7 +117,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
         mediator.publishAndRelease(variant)
         CreateTheme(ThemeId(ThemeKey.of("added"), CatalogId(letters, TenantId(tenant))), "Added").execute()
-        mediator.releaseNext(CatalogId(letters, TenantId(tenant)))
+        mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))))
         Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-it").execute().plaintextKey)
     }
 
@@ -214,6 +213,22 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             val templates = get("/api/tenants/${tenant.value}/catalogs/gemeente-x.nl/$namespace/letters/releases/next/templates", seeded)
             assertThat(JsonPath.read<List<String>>(templates, "$.items[*].name")).containsExactly("Invoice of $namespace")
         }
+        // Listed as two catalogs, each saying it can be changed here.
+        val catalogs = get("/api/tenants/${tenant.value}/catalogs?size=100", seeded)
+        assertThat(JsonPath.read<List<String>>(catalogs, "$.items[?(@.catalogKey == 'letters')].namespace")).containsExactlyInAnyOrder("acme", "bureau")
+        assertThat(JsonPath.read<List<Boolean>>(catalogs, "$.items[?(@.catalogKey == 'letters')].editable")).containsExactly(true, true)
+        // Served side by side, each deployment named by its own catalog.
+        withMediator {
+            val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant))
+            app.epistola.suite.environments.commands.CreateEnvironment(production, "Production").execute()
+            for (namespace in listOf("acme", "bureau")) {
+                app.epistola.suite.catalog.CatalogNames.within(letters, namespace) {
+                    app.epistola.suite.environments.commands.DeployCatalogRelease(production, letters, mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))))).execute()
+                }
+            }
+        }
+        val deployments = get("/api/tenants/${tenant.value}/environments/production/deployments", seeded)
+        assertThat(JsonPath.read<List<String>>(deployments, "$.items[?(@.catalogKey == 'letters')].namespace")).containsExactlyInAnyOrder("acme", "bureau")
     }
 
     // ---- 2. Patch release numbers ----

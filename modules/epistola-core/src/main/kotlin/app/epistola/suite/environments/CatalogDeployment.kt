@@ -36,6 +36,8 @@ data class CatalogDeployment(
     val lastUsedAt: OffsetDateTime? = null,
     /** The catalog's namespace, which tells two catalogs sharing a key apart (ADR 0034). */
     val namespace: String = "",
+    /** The registry the catalog is named on. */
+    val registry: String = "",
 ) {
     /** It serves a draft, live, rather than a release. */
     val isDraft: Boolean get() = version == null
@@ -45,7 +47,7 @@ data class CatalogDeployment(
 object DeploymentRows {
     /** The columns and joins of a deployment row, over alias `d`. */
     const val FROM = """
-        SELECT d.environment_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, d.version,
+        SELECT d.environment_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, cat.registry AS registry, d.version,
                COALESCE(dv.version_key, r.version_key) AS version_id,
                CASE WHEN dv.version_id IS NULL THEN NULL WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END AS draft_name,
                d.deployed_at, d.deployed_by, d.documents_requested, d.last_used_at

@@ -24,6 +24,13 @@ import org.jdbi.v3.core.kotlin.mapTo
 fun catalogAt(tenantParam: String, catalogParam: String): String = "epistola_catalog_id(:$tenantParam, :$catalogParam)"
 
 /**
+ * The `catalog_id`s of the catalogs the keys of the bound list [listParam] name, each looked up as
+ * [catalogAt] looks one up, for `catalog_id IN ${'$'}{catalogsAt(…)}`: a key two catalogs share means
+ * the one the running work names, and is refused when it names none, rather than matching both.
+ */
+fun catalogsAt(tenantParam: String, listParam: String): String = "(SELECT epistola_catalog_id(:$tenantParam, k) FROM unnest(ARRAY[<$listParam>]::text[]) AS k)"
+
+/**
  * The `version_id` of the version a caller means of the catalog it named by key (the
  * `catalog_current_versions` view): the version its transaction targets, when that is a version of
  * this catalog; else its installed release when it is subscribed; else its next version.

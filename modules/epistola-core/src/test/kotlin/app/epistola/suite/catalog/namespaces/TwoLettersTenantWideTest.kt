@@ -7,11 +7,13 @@ package app.epistola.suite.catalog.namespaces
 import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.queries.GetCatalogDependencyGraph
 import app.epistola.suite.catalog.queries.GetCatalogOverview
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListReleaseContentHashes
 import app.epistola.suite.catalog.releases.ApplyHouseTheme
+import app.epistola.suite.catalog.releases.GetCatalogNames
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -38,8 +40,11 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTenantCounter
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.validation.ValidationCode
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * What a tenant reads across all its catalogs at once keeps two catalogs called `letters` apart
@@ -47,6 +52,8 @@ import org.junit.jupiter.api.Test
  * other, and no read across the tenant is refused for the key they share.
  */
 class TwoLettersTenantWideTest : IntegrationTestBase() {
+    @Autowired
+    private lateinit var usedCatalogs: UsedCatalogDeclarer
 
     private val letters = CatalogKey.of("letters")
     private val acme = CatalogAddress("acme", letters)
@@ -117,6 +124,23 @@ class TwoLettersTenantWideTest : IntegrationTestBase() {
             SetTenantDefaultTheme(tenant, ThemeKey.of("house"), catalogKey = brand).execute()
 
             assertThat(ApplyHouseTheme(tenant).execute().applied).contains(acme, bureau)
+        }
+    }
+
+    @Test
+    fun `a use of a key both have declares the one the work names, and names none of them otherwise`() {
+        val tenant = twoLetters("Two letters used")
+        withMediator {
+            val forms = CatalogKey.of("forms")
+            CreateCatalog(tenant, forms, "Forms", namespace = "acme").execute()
+            // Refused by the database; a message dispatching it says so in words (CatalogNames.ambiguity).
+            assertThatThrownBy { usedCatalogs.declare(tenant, forms, letters) }
+                .satisfies({ assertThat(CatalogNames.ambiguity(it)?.code).isEqualTo(ValidationCode.CATALOG_KEY_AMBIGUOUS) })
+            val declared = CatalogNames.within(letters, "bureau") { usedCatalogs.declare(tenant, forms, letters) }
+            assertThat(declared.map { it.namespace to it.catalogKey }).containsExactly("bureau" to "letters")
+
+            assertThat(GetCatalogNames(tenant, listOf(letters)).query()).`as`("named by neither").isEmpty()
+            assertThat(CatalogNames.within(letters, "acme") { GetCatalogNames(tenant, listOf(letters)).query() }[letters]?.namespace).isEqualTo("acme")
         }
     }
 }
