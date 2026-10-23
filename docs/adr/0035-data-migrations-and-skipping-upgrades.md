@@ -51,11 +51,10 @@ For a conversion SQL cannot say well, a Kotlin migration implementing Flyway's `
 versioned like an SQL one (`VYYYYMMDDHHMMSS__<module>_<desc>`) and ordered among them, run in the
 migration step and recorded in `flyway_schema_history`.
 
-- **Self-contained**: it uses JDBC and a JSON tree (Jackson `ObjectNode`) only. No domain classes, no
-  mediator, and no protocol classes from the contract, which change with every contract version. What
-  it knows (how the columns of that time map to the wire form of that time) is fixed and is written
-  into it. A guard test refuses an import of the suite's domain or of the contract in the migration
-  package.
+- **Self-contained**: it uses JDBC, a JSON tree (Jackson `ObjectNode`) and frozen code only (below).
+  No domain classes, no mediator, no unversioned protocol model. What it knows (how the columns of
+  that time map to the wire form of that time) is fixed and is written into it. A guard test refuses
+  an import in the migration package of anything but frozen code.
 - **Frozen**: never changed once merged, as an SQL migration. Flyway gives a code migration no
   checksum of its own, so it declares one (`getChecksum`), pinned to its source, and
   `checkMigrationVersions` treats it as it treats SQL.
@@ -64,28 +63,26 @@ migration step and recorded in `flyway_schema_history`.
 - **Tested from every major**: `DataPreservationMigrationIT` upgrades a 1.x database (and one of each
   later major, as they ship) to the current version on every build, through every migration.
 
-### What a code migration needs of the suite's logic
+### Frozen code
 
-A conversion often needs more than a column mapping: a content hash, the references a document holds,
-a default the domain fills in. Each of those is a pure function over knowledge fixed at the time of
-writing (fingerprint V6 is canonical JSON and SHA-256, and the contract never changes it under that
-name; the references of a wire version are where that version puts them), so the migration carries
-its own frozen copy, with a test that it agrees with the suite's code at the time it is written.
-Schema validation is not one of them: content that does not validate is converted as it is, never
-refused, and the suite reports it (a quality finding) once it runs.
+A conversion often needs more than a column mapping: a content hash, the references a document holds.
+A code migration may call such logic where it is **frozen**: a versioned algorithm whose version,
+once released, never changes meaning, such as the contract's fingerprints (V5, V6). It is frozen by
+**golden vectors**, not by its source: a fixed set of inputs with their expected outputs per version,
+pinned in the contract's conformance fixtures and tested in the suite, so the library may be
+refactored freely as long as each version computes what it always did. A hash of the source is not
+used: it fails on every harmless change and says nothing about the result.
+
+Logic of the suite that is not frozen this way (domain code, the release assembler) is not called:
+the migration reads what it needs from the tables itself, or that piece is first made a versioned
+algorithm with its own vectors. Schema validation is not needed: content that does not validate is
+converted as it is, never refused, and the suite reports it (a quality finding) once it runs.
 
 What cannot be done that way is not done after startup instead: it is a deliberate stop (below).
-`ReleaseContentHashBackfill`, a cluster task from before this decision, stays as it is until it can
-be retired; no new data migration takes its form.
-
-### Replaced data is kept until a declared end of life
-
-A migration that replaces tables (ADR 0033's content tables) moves them into their own schema
-(`ALTER TABLE … SET SCHEMA legacy_v1`: no copy, no extra space) instead of dropping them, so the
-original data stays for converting again after a bug, and for support. They are removed by one
-deliberate migration once the versions they came from are declared end of life. That removal drops
-data that exists in its new form, which is the only exception to "no destructive migrations", and it
-is named as such in its migration.
+`ReleaseContentHashBackfill`, a cluster task that hashes releases from before content hashes, is the
+first to become a code migration, in 2.0: it calls the contract's canonicalizer and reads the
+retained content with JDBC, in batches outside Flyway's single transaction, and leaves a release
+whose content no longer reproduces its fingerprint without a hash.
 
 ### Stops, when they cannot be avoided
 
@@ -104,10 +101,9 @@ rare: ADR 0033's storage ships all its resource types in one such release.
 ## Consequences
 
 - 1.x to any later version keeps working, which the upgrade test proves on every build.
-- A code migration copies the knowledge it needs instead of calling the domain; that is duplicated
-  code, deliberately, since it must not change when the domain does.
+- A code migration calls only frozen code; what a conversion needs of the suite's logic is either made
+  a versioned algorithm with golden vectors, or read from the tables by the migration itself.
 - No data migration runs after startup, so an installation never serves half-migrated data.
-- Replaced tables cost their space until the end of life of the versions they came from.
 - The migration rules card (`.agents/rules/migrations.md`) and `docs/migrations.md` gain code
   migrations when the first of them is built, with the guard and the checksum.
 
@@ -119,8 +115,12 @@ rare: ADR 0033's storage ships all its resource types in one such release.
   does). They need no freezing, but they run with the code of the version being installed: a 2.x
   conversion run by 3.x code breaks the first time the classes it calls change, and the application
   serves while they run. Rejected: what they need is fixed knowledge, and belongs in the migration.
-- **Copying the replaced tables into a backup before dropping them.** Moving them to their own schema
-  keeps the same data at no cost.
+- **Keeping replaced tables in their own schema** until the versions they came from reach end of life,
+  to convert again after a bug. Not now: a conversion is proven by the upgrade test before it ships,
+  and the tables go once converted. Can be added for a conversion that warrants it.
+- **A frozen copy of the logic inside each migration.** Safe, but more than a thousand duplicated
+  lines for the content hash alone, again for every migration that needs it; golden vectors freeze
+  the library in place instead.
 
 ## Related
 
