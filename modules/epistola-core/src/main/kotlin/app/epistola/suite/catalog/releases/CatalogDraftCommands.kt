@@ -330,7 +330,7 @@ class DeleteCatalogDraftHandler(
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM release_entries WHERE tenant_key = :t
+            UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t
         ),
         alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
         refs (holder, holder_resource_id, held_resource_id, ordinal) AS (

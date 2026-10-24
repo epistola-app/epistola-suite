@@ -125,7 +125,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
     private fun releaseFace(tenant: app.epistola.suite.common.ids.TenantKey, version: String): ByteArray? {
         val tenantRow = app.epistola.suite.tenants.queries.GetTenant(tenant).query()!!
         val template = jdbiForTest.withHandle<String, Exception> { h ->
-            h.createQuery("SELECT resource_key FROM release_entries WHERE tenant_key = :t AND version = :v AND resource_type = 'template'")
+            h.createQuery("SELECT resource_key FROM release_resources WHERE tenant_key = :t AND version = :v AND resource_type = 'template'")
                 .bind("t", tenant).bind("v", version).mapTo(String::class.java).one()
         }
         val inputs = releaseRenderSource.resolve(

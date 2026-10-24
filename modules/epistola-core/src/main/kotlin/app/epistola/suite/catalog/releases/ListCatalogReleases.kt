@@ -203,7 +203,7 @@ class CatalogReleaseReader(
      */
     private fun changesOf(handle: Handle, catalog: CatalogId, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
         // Each release's retained content, fingerprinted now by the function every comparison uses, not
-        // the digests `release_entries` stored.
+        // the digests `release_resources` stored.
         fun of(release: String) = assembler.assemble(handle, catalog, release)?.content
         val ownContent = of(version)
         val belowContent = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of)

@@ -46,7 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired
  * over the resources' own `updated_at` / `published_at` — and a deletion moves none of those. The row
  * simply goes, so the MAX can even move backwards, and a catalog whose only change since its last
  * release was a deletion reported **no** unreleased changes. The release dialog, which diffs digests
- * against `release_entries`, reported the resource being dropped. Two answers to one question, and
+ * against `release_resources`, reported the resource being dropped. Two answers to one question, and
  * the quiet one told the reader there was nothing to review right before a release removed something.
  *
  * The failure mode is silence, so each case asserts the catalog was quiet *before* the deletion as

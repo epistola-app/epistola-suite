@@ -42,7 +42,7 @@ data class RetainedRelease(
 /**
  * Rebuilds the content of a named release from what that release retained.
  *
- * This is the read side of [ResourceRevisionStore] and [ReleaseEntryStore], and the point of
+ * This is the read side of [ResourceContentStore] and [ReleaseResourceStore], and the point of
  * retaining anything: an earlier release stops being a fingerprint and a promise and becomes content
  * that can be reproduced, exported and rendered from, whatever the working copy has done since.
  *
@@ -56,7 +56,7 @@ data class RetainedRelease(
 class ReleaseContentAssembler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val releaseResourceStore: ReleaseResourceStore,
 ) {
 
     /**
@@ -76,15 +76,15 @@ class ReleaseContentAssembler(
      * holding the first can drain the pool when many such callers run at once.
      */
     fun assemble(handle: Handle, catalog: CatalogId, version: String): RetainedRelease? {
-        if (!releaseEntryStore.versions(handle, catalog).contains(version)) return null
-        val entries = releaseEntryStore.entriesOf(handle, catalog, version)
+        if (!releaseResourceStore.versions(handle, catalog).contains(version)) return null
+        val entries = releaseResourceStore.entriesOf(handle, catalog, version)
 
         val snapshot = loadManifestSnapshot(handle, catalog, version)
-        val payloads = loadPayloads(handle, catalog.tenantKey, entries.map { it.revisionDigest })
+        val payloads = loadPayloads(handle, catalog.tenantKey, entries.map { it.contentHash })
 
         val details = entries.associate { entry ->
-            val payload = requireNotNull(payloads[entry.revisionDigest]) {
-                "Release $version of ${catalog.key.value} names revision ${entry.revisionDigest}, which is not stored"
+            val payload = requireNotNull(payloads[entry.contentHash]) {
+                "Release $version of ${catalog.key.value} names revision ${entry.contentHash}, which is not stored"
             }
             entry.contentKey to detailOf(handle, catalog.tenantKey, payload)
         }
@@ -119,7 +119,7 @@ class ReleaseContentAssembler(
     ): CatalogResource? = jdbi.withHandle<CatalogResource?, Exception> { handle ->
         val digest = handle.createQuery(
             """
-            SELECT revision_digest FROM release_entries
+            SELECT content_hash FROM release_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = :type AND resource_key = :key
             """,
@@ -142,7 +142,7 @@ class ReleaseContentAssembler(
      * The bytes a release holds under [contentHash], or null when no retained revision of this tenant
      * holds them.
      *
-     * Read through `revision_binaries`, so it answers only for bytes a release retained -- never for an
+     * Read through `resource_binaries`, so it answers only for bytes a release retained -- never for an
      * asset that merely has the same hash today. Bundled font faces are the one exception: they live
      * on the classpath rather than in the content store, so a release holds their hash but no blob. A
      * bundled face is found by its hash and its bytes are checked against it, so a suite upgrade that
@@ -152,9 +152,9 @@ class ReleaseContentAssembler(
         handle.createQuery(
             """
             SELECT c.content
-            FROM revision_binaries b
-            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.content_hash
-            WHERE b.tenant_key = :t AND b.content_hash = :hash
+            FROM resource_binaries b
+            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+            WHERE b.tenant_key = :t AND b.binary_hash = :hash
             LIMIT 1
             """,
         )
@@ -186,7 +186,7 @@ class ReleaseContentAssembler(
     /** The latest release of a catalog, or null when it has none. */
     fun assembleLatest(catalog: CatalogId): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
-            releaseEntryStore.versions(handle, catalog).firstOrNull()
+            releaseResourceStore.versions(handle, catalog).firstOrNull()
         }
         return latest?.let { assemble(catalog, it) }
     }
@@ -256,7 +256,7 @@ class ReleaseContentAssembler(
      * `CatalogContentBuilder` produces, because the canonicaliser and the archive writer both ask
      * for them that way.
      *
-     * Read through `revision_binaries`, so the bytes come from what the release retained rather than
+     * Read through `resource_binaries`, so the bytes come from what the release retained rather than
      * from whatever an asset of that name holds now.
      */
     private fun loadAssetContents(handle: Handle, tenantKey: TenantKey, details: Collection<ResourceDetail>): Map<String, ByteArray> {
@@ -277,9 +277,9 @@ class ReleaseContentAssembler(
         val bytesByHash = handle.createQuery(
             """
             SELECT c.content_hash, c.content
-            FROM revision_binaries b
-            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.content_hash
-            WHERE b.tenant_key = :t AND b.content_hash IN (<hashes>)
+            FROM resource_binaries b
+            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+            WHERE b.tenant_key = :t AND b.binary_hash IN (<hashes>)
             """,
         )
             .bind("t", tenantKey)
@@ -298,10 +298,10 @@ class ReleaseContentAssembler(
 
     private fun loadPayloads(handle: Handle, tenantKey: TenantKey, digests: List<String>): Map<String, JsonNode> {
         if (digests.isEmpty()) return emptyMap()
-        return handle.createQuery("SELECT digest, payload::text AS payload FROM resource_revisions WHERE tenant_key = :t AND digest IN (<digests>)")
+        return handle.createQuery("SELECT content_hash, payload::text AS payload FROM resource_contents WHERE tenant_key = :t AND content_hash IN (<digests>)")
             .bind("t", tenantKey)
             .bindList("digests", digests.distinct())
-            .map { rs, _ -> rs.getString("digest") to objectMapper.readTree(rs.getString("payload")) }
+            .map { rs, _ -> rs.getString("content_hash") to objectMapper.readTree(rs.getString("payload")) }
             .list()
             .toMap()
     }
@@ -317,7 +317,7 @@ class ReleaseContentAssembler(
      * and the catalogs it declares it uses, with their pins. Null when the catalog has no such release.
      */
     fun readManifest(catalog: CatalogId, version: String): CatalogManifest? = jdbi.withHandle<CatalogManifest?, Exception> { handle ->
-        if (!releaseEntryStore.versions(handle, catalog).contains(version)) return@withHandle null
+        if (!releaseResourceStore.versions(handle, catalog).contains(version)) return@withHandle null
         loadManifestSnapshot(handle, catalog, version)
     }
 

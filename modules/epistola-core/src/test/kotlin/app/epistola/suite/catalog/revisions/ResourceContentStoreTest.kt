@@ -48,10 +48,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.util.UUID
 
 /**
- * [ResourceRevisionStore] retains the content behind a release, so that a release is content and
+ * [ResourceContentStore] retains the content behind a release, so that a release is content and
  * not only a fingerprint — and so the content sweep can no longer take it away.
  */
-class ResourceRevisionStoreTest : IntegrationTestBase() {
+class ResourceContentStoreTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
@@ -208,7 +208,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
                     .bind("h", hash)
                     .execute()
             }
-        }.hasMessageContaining("fk_revision_binaries_content")
+        }.hasMessageContaining("fk_resource_binaries_binary")
     }
 
     private fun emptyTemplate(): TemplateDocument = TemplateDocument(
@@ -229,27 +229,27 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
     // Every tenant installs the bundled system catalog, and installing records its release, so
     // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenant: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
+        handle.createQuery("SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenant).mapTo(Int::class.java).one()
     }
 
     private fun revisionKinds(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT kind FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY kind")
+        handle.createQuery("SELECT kind FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY kind")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 
     private fun digests(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT digest FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY digest")
+        handle.createQuery("SELECT content_hash FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) ORDER BY content_hash")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 
     private fun templatePayload(tenant: TenantKey): String = jdbi.withHandle<String, Exception> { handle ->
-        handle.createQuery("SELECT payload::text FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND kind = 'template'")
+        handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND kind = 'template'")
             .bind("t", tenant).mapTo(String::class.java).one()
     }
 
     private fun binaryHashes(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
-        handle.createQuery("SELECT content_hash FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
+        handle.createQuery("SELECT binary_hash FROM resource_binaries WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenant).mapTo(String::class.java).list()
     }
 }

@@ -271,7 +271,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                DELETE FROM release_entries e USING catalogs c
+                DELETE FROM release_resources e USING catalogs c
                 WHERE c.tenant_key = e.tenant_key AND c.catalog_id = e.catalog_id
                   AND e.tenant_key = :t AND c.catalog_key = :c AND e.version = '1.1.0' AND e.resource_key = 'added'
                 """,

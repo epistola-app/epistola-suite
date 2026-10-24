@@ -17,11 +17,11 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /** One resource as a release holds it. */
-data class ReleaseEntry(
+data class ReleaseResource(
     val resourceType: String,
     val resourceKey: String,
     val resourceId: UUID,
-    val revisionDigest: String,
+    val contentHash: String,
     val fingerprint: String,
     val name: String,
     val description: String?,
@@ -33,21 +33,21 @@ data class ReleaseEntry(
 /**
  * What a release contains, resource by resource.
  *
- * Sole owner of the `release_entries` SQL. Written inside the release transaction, beside the
+ * Sole owner of the `release_resources` SQL. Written inside the release transaction, beside the
  * revisions it points at, so a release never exists without the record of what it held.
  *
  * Each entry carries **both** digests, because they answer different questions and neither can be
- * derived from the other (ADR 0026 §5): `revisionDigest` is where the content is stored, and
+ * derived from the other (ADR 0026 §5): `contentHash` is where the content is stored, and
  * `fingerprint` is the contract's canonical digest over the wire form, which is what the working
  * copy is compared against to say a resource has changed.
  */
 @Component
-class ReleaseEntryStore {
+class ReleaseResourceStore {
 
     /**
      * Records the resources of a release.
      *
-     * @param revisionDigests each resource's revision, keyed `"type/slug"`, from [ResourceRevisionStore].
+     * @param contentHashes each resource's revision, keyed `"type/slug"`, from [ResourceContentStore].
      * @param fingerprints each resource's canonical wire digest, keyed the same way.
      * @param registerNew whether a resource the catalog never held gets an identity here: a release
      *   received beside the others (ADR 0032) may bring one that no version of the catalog has. A
@@ -58,7 +58,7 @@ class ReleaseEntryStore {
         catalog: CatalogId,
         version: String,
         content: CatalogContent,
-        revisionDigests: Map<String, String>,
+        contentHashes: Map<String, String>,
         fingerprints: Map<String, String>,
         registerNew: Boolean = false,
     ) {
@@ -80,9 +80,9 @@ class ReleaseEntryStore {
             }
             handle.createUpdate(
                 """
-                INSERT INTO release_entries (
+                INSERT INTO release_resources (
                     tenant_key, catalog_id, version, resource_type, resource_key,
-                    resource_id, revision_digest, fingerprint, name, description
+                    resource_id, content_hash, fingerprint, name, description
                 )
                 VALUES (:t, ${catalogAt("t", "c")}, :version, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
                 """,
@@ -93,7 +93,7 @@ class ReleaseEntryStore {
                 .bind("type", entry.type)
                 .bind("key", entry.key)
                 .bind("resourceId", resourceId)
-                .bind("revision", requireNotNull(revisionDigests[key]) { "No revision retained for $key" })
+                .bind("revision", requireNotNull(contentHashes[key]) { "No revision retained for $key" })
                 .bind("fingerprint", requireNotNull(fingerprints[key]) { "No fingerprint computed for $key" })
                 .bind("name", entry.name)
                 .bind("description", entry.description)
@@ -102,11 +102,11 @@ class ReleaseEntryStore {
     }
 
     /** The entries of one release, in the order a manifest lists them. */
-    fun entriesOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseEntry> = handle
+    fun entriesOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseResource> = handle
         .createQuery(
             """
-            SELECT resource_type, resource_key, resource_id, revision_digest, fingerprint, name, description
-            FROM release_entries
+            SELECT resource_type, resource_key, resource_id, content_hash, fingerprint, name, description
+            FROM release_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
             ORDER BY resource_type, resource_key
             """,
@@ -115,11 +115,11 @@ class ReleaseEntryStore {
         .bindCatalog("c", catalog)
         .bind("version", version)
         .map { rs, _ ->
-            ReleaseEntry(
+            ReleaseResource(
                 resourceType = rs.getString("resource_type"),
                 resourceKey = rs.getString("resource_key"),
                 resourceId = rs.getObject("resource_id", UUID::class.java),
-                revisionDigest = rs.getString("revision_digest"),
+                contentHash = rs.getString("content_hash"),
                 fingerprint = rs.getString("fingerprint"),
                 name = rs.getString("name"),
                 description = rs.getString("description"),
@@ -207,7 +207,7 @@ class ReleaseEntryStore {
 }
 
 /** The manifest entry a release entry describes, as [CatalogContent] carries it. */
-fun ReleaseEntry.toResourceEntry(): ResourceEntry = ResourceEntry(
+fun ReleaseResource.toResourceEntry(): ResourceEntry = ResourceEntry(
     type = resourceType,
     key = resourceKey,
     name = name,

@@ -48,7 +48,7 @@ it can connect as a limited role with **no** `CREATE`/`ALTER`/`DROP` privileges.
   `generation_results` (+ its sequence), `document_generation_batches`, and the cluster
   coordination tables (`cluster_nodes`, `cluster_tasks_scheduled`, `cluster_timers`).
 - `SELECT`: the render read-set — a request renders a catalog release, so `catalog_releases`,
-  `release_entries`, `environment_catalog_deployments`, `resource_revisions`, `revision_binaries` and
+  `release_resources`, `environment_catalog_deployments`, `resource_contents`, `resource_binaries` and
   `asset_content`; `tenants` and `font_variants` (for bundled faces); plus
   `flyway_schema_history` for the validate check. Requests accepted before 2.0 still read
   `template_versions`/`template_variants`, `document_templates`, `catalogs`, `contract_versions`,

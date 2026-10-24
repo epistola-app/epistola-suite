@@ -39,7 +39,7 @@ ALTER TABLE catalog_release_merges
     ALTER COLUMN merged_version TYPE VARCHAR(128);
 ALTER TABLE catalog_draft_merges ALTER COLUMN release_version TYPE VARCHAR(128);
 ALTER TABLE catalog_release_publications ALTER COLUMN version TYPE VARCHAR(128);
-ALTER TABLE release_entries ALTER COLUMN version TYPE VARCHAR(128);
+ALTER TABLE release_resources ALTER COLUMN version TYPE VARCHAR(128);
 ALTER TABLE environment_catalog_deployments ALTER COLUMN version TYPE VARCHAR(128);
 ALTER TABLE environment_deployment_log
     ALTER COLUMN version TYPE VARCHAR(128),

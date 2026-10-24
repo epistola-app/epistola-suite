@@ -19,8 +19,8 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseDescription
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
-import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
+import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -124,8 +124,8 @@ class RecordInstalledReleaseHandler(
     private val jdbi: Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
-    private val revisionStore: ResourceRevisionStore,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val revisionStore: ResourceContentStore,
+    private val releaseResourceStore: ReleaseResourceStore,
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val rows: CatalogImportRows,
@@ -175,7 +175,7 @@ class RecordInstalledReleaseHandler(
         // Its identity (ADR 0034): a V6 fingerprint is its content hash, verified on receipt; a release
         // received with an older one is hashed from the content it brings.
         val contentHash = fingerprint.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: fingerprintService.contentHash(content)
-        // `release_entries.fingerprint` keeps the V3 form, of what the release holds. The installed
+        // `release_resources.fingerprint` keeps the V3 form, of what the release holds. The installed
         // baseline is of another function (the complete form), so it is not mixed in.
         val resourceFingerprints = fingerprintService.perResourceFingerprints(content)
 
@@ -231,9 +231,9 @@ class RecordInstalledReleaseHandler(
                 version,
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
-            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
+            val contentHashes = revisionStore.retain(handle, command.tenantKey, content)
             // A release beside the installed one may hold resources no version of the catalog has.
-            releaseEntryStore.record(handle, command.catalog, version, content, revisionDigests, resourceFingerprints, registerNew = command.release != null)
+            releaseResourceStore.record(handle, command.catalog, version, content, contentHashes, resourceFingerprints, registerNew = command.release != null)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)

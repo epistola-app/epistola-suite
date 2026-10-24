@@ -22,7 +22,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -95,7 +95,7 @@ class ReleaseRenderException(message: String) : IllegalStateException(message)
 class ReleaseRenderSource(
     private val jdbi: Jdbi,
     private val assembler: ReleaseContentAssembler,
-    private val entryStore: ReleaseEntryStore,
+    private val entryStore: ReleaseResourceStore,
     private val objectMapper: ObjectMapper,
     private val dependencyStore: CatalogDependencyStore,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
@@ -257,7 +257,7 @@ class ReleaseRenderSource(
     fun templateResourceId(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT resource_id FROM release_entries
+            SELECT resource_id FROM release_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = 'template' AND resource_key = :key
             """,

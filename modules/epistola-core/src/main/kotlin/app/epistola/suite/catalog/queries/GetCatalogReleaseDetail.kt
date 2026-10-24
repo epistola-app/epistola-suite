@@ -9,8 +9,8 @@ import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.revisions.ReleaseEntry
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResource
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -28,7 +28,7 @@ import java.util.UUID
 /**
  * One release as it was: its resources and the catalog details it carried.
  *
- * Everything here comes from what the release froze — `release_entries` for the resources,
+ * Everything here comes from what the release froze — `release_resources` for the resources,
  * the manifest snapshot for the catalog's own name, keywords, presentation and license — and
  * nothing from the live catalog row. That is the point of the page it backs: a catalog's details
  * are version-dependent, and the working copy has been showing them as though they were not.
@@ -51,7 +51,7 @@ data class CatalogReleaseDetail(
     /** The catalog's own details as this release carried them, not as the working copy has them now. */
     val catalog: CatalogInfo,
     /** What the release contained. */
-    val resources: List<ReleaseEntry>,
+    val resources: List<ReleaseResource>,
     /** The installation that cut it; null when nothing says (a release recorded before 2.0 said it). */
     val releasedByInstallation: UUID? = null,
     /** Whether [releasedByInstallation] is this installation: the release was cut here. */
@@ -92,7 +92,7 @@ data class CatalogReleaseDetail(
 class GetCatalogReleaseDetailHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val releaseResourceStore: ReleaseResourceStore,
     private val installation: InstallationService,
 ) : QueryHandler<GetCatalogReleaseDetail, CatalogReleaseDetail?> {
 
@@ -127,7 +127,7 @@ class GetCatalogReleaseDetailHandler(
             ?: return@withHandle null
 
         row.copy(
-            resources = releaseEntryStore.entriesOf(handle, query.catalog, query.version),
+            resources = releaseResourceStore.entriesOf(handle, query.catalog, query.version),
             releasedHere = row.releasedByInstallation != null && row.releasedByInstallation == installation.get().id,
         )
     }

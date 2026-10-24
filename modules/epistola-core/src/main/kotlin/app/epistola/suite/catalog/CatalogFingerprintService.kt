@@ -75,7 +75,7 @@ class CatalogFingerprintService(
 
     /**
      * Per-resource digests of a live working copy in the V3 form, keyed `"type/slug"`. Recorded per
-     * release (`release_entries.fingerprint`, which the REST release detail shows) and nothing else:
+     * release (`release_resources.fingerprint`, which the REST release detail shows) and nothing else:
      * it leaves out what wire v8 added to a resource, so nothing that tells resources apart compares
      * it. That is [resourceFingerprints].
      */

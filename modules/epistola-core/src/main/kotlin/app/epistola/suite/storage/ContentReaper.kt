@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicLong
  * Two kinds of holder. A **live asset row** — scope derived from its `sensitive` flag exactly as at
  * write time, so a global blob survives while any asset references it and a sensitive one only
  * while its own tenant does. And a **revision**, which is the content a release retained:
- * `revision_binaries` names the bytes a released resource needs, and dropping that resource from
- * the working copy must not take them with it (ADR 0026). The foreign key from `revision_binaries`
+ * `resource_binaries` names the bytes a released resource needs, and dropping that resource from
+ * the working copy must not take them with it (ADR 0026). The foreign key from `resource_binaries`
  * says the same thing, so a miss here fails loudly rather than losing bytes.
  */
 private const val BLOB_IS_HELD = """
@@ -40,8 +40,8 @@ private const val BLOB_IS_HELD = """
           AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
     )
     OR EXISTS (
-        SELECT 1 FROM revision_binaries rb
-        WHERE rb.content_hash = ac.content_hash AND rb.scope = ac.scope
+        SELECT 1 FROM resource_binaries rb
+        WHERE rb.binary_hash = ac.content_hash AND rb.scope = ac.scope
     )
 """
 

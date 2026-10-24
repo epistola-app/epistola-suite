@@ -18,8 +18,8 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogDraft
-import app.epistola.suite.catalog.revisions.ReleaseEntry
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResource
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -131,7 +131,7 @@ class GetCatalogResourceChangesHandler(
     private val jdbi: Jdbi,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val releaseResourceStore: ReleaseResourceStore,
     private val readyMarks: ReadyMarks,
     private val drafts: CatalogDrafts,
     private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
@@ -227,7 +227,7 @@ class GetCatalogResourceChangesHandler(
      * Each resource of [version] by the function [working] is compared with: what the draft recorded
      * holding of it when it is the draft's base and was put in place as this suite holds content
      * (the draft's `base_fingerprints`), else its retained content, fingerprinted now. Never the
-     * digests `release_entries` stored, which another function computed.
+     * digests `release_resources` stored, which another function computed.
      */
     private fun baseline(catalog: CatalogId, version: String): Map<String, String> {
         val held = jdbi.withHandle<String?, Exception> { handle ->
@@ -263,7 +263,7 @@ class GetCatalogResourceChangesHandler(
     }
 
     private fun entriesOf(catalog: CatalogId, version: String) = jdbi
-        .withHandle<Map<String, ReleaseEntry>, Exception> { handle ->
-            releaseEntryStore.entriesOf(handle, catalog, version).associateBy { it.contentKey }
+        .withHandle<Map<String, ReleaseResource>, Exception> { handle ->
+            releaseResourceStore.entriesOf(handle, catalog, version).associateBy { it.contentKey }
         }
 }

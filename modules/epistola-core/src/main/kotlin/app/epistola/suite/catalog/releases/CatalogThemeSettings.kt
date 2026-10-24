@@ -184,7 +184,7 @@ class SetCatalogDefaultThemeHandler(
 
             pinned != null -> handle.createQuery(
                 """
-                SELECT r.resource_id FROM release_entries e
+                SELECT r.resource_id FROM release_resources e
                 JOIN catalog_resources r ON r.tenant_key = e.tenant_key AND r.resource_id = e.resource_id
                 WHERE e.tenant_key = :t AND e.catalog_id = ${catalogAt("t", "themeCatalog")} AND e.version = :version
                   AND e.resource_type = 'theme' AND e.resource_key = :theme
