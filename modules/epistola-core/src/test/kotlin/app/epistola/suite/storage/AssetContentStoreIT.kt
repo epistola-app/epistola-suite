@@ -141,6 +141,23 @@ class AssetContentStoreIT : IntegrationTestBase() {
         assertThat(orphanGauge()).isZero()
     }
 
+    /**
+     * Writing bytes that are stored already touches them (ADR 0033): an upload of an old,
+     * unreferenced blob's bytes is about to point at it, so the sweep must not take it in between.
+     */
+    @Test
+    fun `writing bytes that are stored already restarts their grace period`() {
+        val content = uniqueContent()
+        val hash = sha256Hex(content)
+        assetContentStore.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, content, "image/png", content.size.toLong())
+        jdbi.backdateAssetBlob(GLOBAL_ASSET_SCOPE, hash)
+
+        assetContentStore.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, content, "image/png", content.size.toLong())
+        reaper.reap()
+
+        assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash)).`as`("written again just now").isTrue()
+    }
+
     @Test
     fun `system-catalog assets dedup globally across tenants`(): Unit = withMediator {
         // The bundled system catalog (installed per tenant) ships the system-badge asset.

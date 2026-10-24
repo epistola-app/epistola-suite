@@ -82,14 +82,41 @@ reaper.
 (`core.content-reaper`, `epistola.storage.reaper.cron`) that:
 
 1. **Mark-and-sweeps** `asset_content` blobs older than a grace window
-   (`epistola.storage.reaper.asset-grace-minutes`, default 60) that no `assets` row
-   references. The grace window protects an in-flight upload (blob written, row not yet
-   inserted); a wrongly-swept blob self-heals on the next `putIfAbsent`.
+   (`epistola.storage.reaper.asset-grace-minutes`, default 60) that no `assets` row and no
+   `resource_binaries` row references. The grace window counts from the blob's last write:
+   writing bytes that are stored already touches them (`putIfAbsent`), so an upload that reuses
+   an old blob is never swept from under it.
 2. **Drives** each `ContentRetentionMaintainer` (the filesystem sweep).
 3. Publishes `epistola.storage.orphaned_blobs{namespace=asset}` (see
    [`docs/metrics.md`](metrics.md)).
 
 Disable with `epistola.storage.reaper.enabled=false`.
+
+## The content collector
+
+Release content is stored once per tenant by its content hash (ADR 0033): `release_resources`
+(one row per resource of a release) points at `resource_contents` through a foreign key, with
+`resource_binaries` naming the bytes in `asset_content` a content needs and `resource_references`
+what it refers to. Rows go at once; content nothing points at any more is collected later by
+`ResourceContentCollector`, a single-owner cluster task (`core.resource-content-collector`):
+
+1. Per tenant, in batches of `epistola.storage.gc.batch-size` (default 500), each its own
+   transaction with `epistola.storage.gc.pause` between them (default 200 ms), it deletes
+   `resource_contents` that no `release_resources` row and no other content (a template's lifted
+   variant model) refers to, stored longer ago than `epistola.storage.gc.grace` (default 1 day).
+   A batch selects `FOR UPDATE SKIP LOCKED`; storing content again touches and locks it
+   (`stored_at`), so a save that reuses content is skipped, and the foreign key refuses to delete
+   content a row points at. Its `resource_binaries` and `resource_references` cascade.
+2. Then it deletes `asset_content` that neither an asset nor any content holds, older than the
+   same grace period, in batches.
+3. It publishes `epistola.storage.orphaned_contents`: orphaned content past the grace period left
+   after the run, zero when it did its job.
+
+It runs on `epistola.storage.gc.cron` (default `0 0 2 * * ?`, nightly at 02:00); disable the
+schedule with `epistola.storage.gc.enabled=false`. An operator with diagnostics rights starts it
+by hand for one tenant from **Operations → Cluster → Stored content → Collect now** (the command
+`CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog
+still removes the content only it held at once, as before.
 
 ## Migration from the legacy `content_store`
 

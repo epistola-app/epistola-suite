@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong
  * the working copy must not take them with it (ADR 0026). The foreign key from `resource_binaries`
  * says the same thing, so a miss here fails loudly rather than losing bytes.
  */
-private const val BLOB_IS_HELD = """
+internal const val BLOB_IS_HELD = """
     EXISTS (
         SELECT 1 FROM assets a
         WHERE a.content_hash = ac.content_hash

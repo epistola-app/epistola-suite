@@ -24,8 +24,8 @@ package app.epistola.suite.storage
 interface AssetContentStore {
 
     /**
-     * Store [content] under `(scope, sha256)` if absent; a no-op if the blob already
-     * exists (deduplication). Idempotent — safe to call for every asset write.
+     * Store [content] under `(scope, sha256)` if absent; if the blob already exists, only its
+     * write time is touched (deduplication), so the content sweeps count their grace period from the last write. Idempotent — safe to call for every asset write.
      */
     fun putIfAbsent(scope: String, sha256: String, content: ByteArray, contentType: String, sizeBytes: Long)
 

@@ -28,7 +28,14 @@ still in the table, defaulted and unused, and goes in a later major release.
 
 - **Releases** — `catalog_releases` holds every release the catalog has, whether it was cut here or
   received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_resources` row
-  per resource naming the revision that holds its content and the digest it fingerprinted to.
+  per resource naming the content that holds it (`resource_contents`, by content hash, through a
+  foreign key) and the digest it fingerprinted to (ADR 0033). A release's resource list reads these
+  rows alone (`ListReleaseResources`); its content is read per type, its binaries when shown.
+  Content nothing points at is collected later ([`storage.md`](storage.md#the-content-collector)).
+- **A version reference** names the next version, a draft by its id, or a release by its number
+  (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
+  the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
+  through the draft queries do not switch to releases yet; each resource type does in its own step.
 - **Released here** — cutting a release advances `catalogs.released_version` /
   `released_fingerprint` / `released_at`.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a

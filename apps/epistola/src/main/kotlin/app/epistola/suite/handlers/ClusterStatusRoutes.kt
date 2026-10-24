@@ -21,6 +21,7 @@ class ClusterStatusRoutes(private val handler: ClusterStatusHandler) {
             GET("", handler::dashboard)
             GET("/refresh", handler::refresh)
             POST("/nodes/{nodeId}/forget", handler::forgetNode)
+            POST("/storage/collect", handler::collectStorage)
         }
     }
 }

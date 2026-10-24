@@ -375,7 +375,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 | `catalog_releases`                          | Gains provenance for installed releases; `content_retained` true for new rows | —                                   |
 | `catalogs.installed_*`                      | Reinterpreted as "selected release"; unchanged shape                          | The ERD split in #1036, when forced |
 | `catalogs`                                  | Gains `base_version` (#1036 step 5)                                           | —                                   |
-| `documents`, `document_generation_requests` | Gain `release_version`, `content_hash`; `version_key` nullable provenance  | —                                   |
+| `documents`, `document_generation_requests` | Gain `release_version`, `content_hash`; `version_key` nullable provenance     | —                                   |
 | `load_test_runs`                            | Gains release columns; FK into `template_versions` dropped as a constraint    | —                                   |
 | `quality_findings.version_key`              | Provenance; new findings name a revision                                      | —                                   |
 | `feature_toggles`                           | Rows for graduated keys left in place; `FeatureToggleService` ignores them    | —                                   |

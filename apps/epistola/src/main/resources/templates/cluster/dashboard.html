@@ -338,6 +338,19 @@
 
         <!-- Sits outside #cluster-results so the 2s refresh cannot tear the dialog down
              while an operator is confirming. -->
+
+        <!-- Outside #cluster-results too, so the refresh does not replace what a collection said. -->
+        <div class="cluster-work-section" data-testid="storage-collect">
+            <h2>Stored content</h2>
+            <p class="text-muted">Release content nothing points at any more is collected every night, after a grace period.
+                After removing many releases, collect it now.</p>
+            <button type="button" class="ep-btn ep-btn-sm"
+                    th:hx-post="@{/tenants/{tenantId}/cluster/storage/collect(tenantId=${tenantId})}"
+                    hx-target="#storage-collect-result" hx-swap="outerHTML"
+                    data-testid="storage-collect-now">Collect now</button>
+            <p th:fragment="storage-collect-result" id="storage-collect-result" class="text-muted"
+               th:text="${collection != null} ? 'Collected ' + ${collection.contents} + ' content(s) and ' + ${collection.blobs} + ' stored file(s).' : ''"></p>
+        </div>
     </th:block>
 </body>
 </html>

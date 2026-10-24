@@ -119,11 +119,16 @@ pauses admissions until the database has had a sustained healthy recovery period
 | `epistola.storage.operation.duration` | Timer (histogram)   | `operation`, `outcome`, `backend` |
 | `epistola.storage.put.bytes`          | DistributionSummary | `backend`                         |
 | `epistola.storage.orphaned_blobs`     | Gauge               | `namespace`                       |
+| `epistola.storage.orphaned_contents`  | Gauge               |                                   |
 
 `epistola.storage.orphaned_blobs{namespace=asset}` is the count of `asset_content`
 blobs no live asset references, updated by the content reaper each run — a
 persistently non-zero value means the mark-and-sweep reclaim is not keeping up
 (or has regressed). See [`docs/storage.md`](storage.md).
+
+`epistola.storage.orphaned_contents` is the count of `resource_contents` nothing points at any
+more, past the collector's grace period, after the content collector's last run: zero when it did
+its job. See [`docs/storage.md`](storage.md#the-content-collector).
 
 ### Mediator (CQRS)
 

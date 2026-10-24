@@ -68,6 +68,21 @@ class ClusterStatusHandler(
     }
 
     /**
+     * Starts the content collector by hand for this tenant (ADR 0033): what the nightly run would
+     * take, now. Answers with the line that says what it took.
+     */
+    fun collectStorage(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val collection = app.epistola.suite.catalog.revisions.CollectResourceContents(tenantId.key).execute()
+        return request.htmx {
+            fragment("cluster/dashboard", "storage-collect-result") {
+                "collection" to collection
+            }
+            onFullPage { redirect("/tenants/${tenantId.key}/cluster") }
+        }
+    }
+
+    /**
      * Removes a stale node from the registry, then re-renders the table.
      *
      * The command re-checks liveness inside the delete, so a node that heartbeats between
