@@ -28,7 +28,7 @@ import tools.jackson.databind.node.ObjectNode
 const val REVISION_REF_FIELD = "revisionDigest"
 
 /**
- * Revision kinds, matching the `resource_revision_kinds` rows. A resource's kind is its wire type.
+ * Revision kinds, matching the `resource_content_kinds` rows. A resource's kind is its wire type.
  *
  * The child kind takes the name of the field it is lifted out of, so [REVISION_REF_FIELD] and the
  * row it points at agree. It says nothing about ownership, and should not be read as doing so: a
@@ -40,7 +40,7 @@ const val TEMPLATE_MODEL_KIND = "templateModel"
 /**
  * Retains the content of a released catalog as immutable, content-addressed revisions.
  *
- * Sole owner of the `resource_revisions` / `revision_binaries` SQL, the way
+ * Sole owner of the `resource_contents` / `resource_binaries` SQL, the way
  * `CatalogUpstreamCheckStore` owns the upstream-check SQL. It is handed the open release
  * transaction, so a release and the content it retains commit together or not at all.
  *
@@ -58,7 +58,7 @@ const val TEMPLATE_MODEL_KIND = "templateModel"
  * appears on the wire (ADR 0026 §5). Neither may be derived from the other.
  */
 @Component
-class ResourceRevisionStore(
+class ResourceContentStore(
     private val objectMapper: ObjectMapper,
     private val contentStore: AssetContentStore,
 ) {
@@ -70,14 +70,14 @@ class ResourceRevisionStore(
      * @return each resource's revision digest, keyed `"type/slug"` as the catalog content keys it.
      */
     fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent): Map<String, String> {
-        val hashes = content.resourceDetails.values.flatMap { contentHashes(it.resource) }
+        val hashes = content.resourceDetails.values.flatMap { binaryHashes(it.resource) }
         val scopes = resolveBinaryScopes(handle, tenantKey, hashes) + storeCarried(content, hashes)
 
         return content.resourceDetails.mapValues { (_, detail) ->
             val resource = detail.resource
             val payload = payloadOf(handle, tenantKey, resource)
             val digest = write(handle, tenantKey, resource.type, payload)
-            for (hash in contentHashes(resource)) {
+            for (hash in binaryHashes(resource)) {
                 val scope = scopes[hash] ?: continue
                 writeBinary(handle, tenantKey, digest, scope, hash)
             }
@@ -109,20 +109,26 @@ class ResourceRevisionStore(
     }
 
     /**
-     * Writes one revision and returns its digest.
+     * Writes one content and returns its content hash, with what it refers to
+     * ([ContentReferences], `resource_references`).
      *
-     * The digest is taken over the canonical serialisation, not over whatever key order the mapper
-     * produced, so the same content digests the same however it was built — and JSONB does not
+     * The hash is taken over the canonical serialisation, not over whatever key order the mapper
+     * produced, so the same content hashes the same however it was built — and JSONB does not
      * preserve key order anyway, so the stored bytes could never serve as the identity.
+     *
+     * Content stored again is touched (`stored_at`), which locks its row until the transaction
+     * ends: the collector ([ResourceContentCollector]) skips a locked row and takes only content
+     * stored longer ago than its grace period, so content a save is about to point at again is never
+     * collected from under it (ADR 0033).
      */
     private fun write(handle: Handle, tenantKey: TenantKey, kind: String, payload: JsonNode): String {
         val canonical = objectMapper.writeValueAsString(sortKeys(payload))
         val digest = sha256Hex(canonical.toByteArray())
         handle.createUpdate(
             """
-            INSERT INTO resource_revisions (tenant_key, digest, kind, payload)
+            INSERT INTO resource_contents (tenant_key, content_hash, kind, payload)
             VALUES (:t, :digest, :kind, CAST(:payload AS JSONB))
-            ON CONFLICT (tenant_key, digest) DO NOTHING
+            ON CONFLICT (tenant_key, content_hash) DO UPDATE SET stored_at = NOW()
             """,
         )
             .bind("t", tenantKey)
@@ -130,7 +136,23 @@ class ResourceRevisionStore(
             .bind("kind", kind)
             .bind("payload", canonical)
             .execute()
+        writeReferences(handle, tenantKey, digest, ContentReferences.of(kind, payload))
         return digest
+    }
+
+    private fun writeReferences(handle: Handle, tenantKey: TenantKey, contentHash: String, references: Set<ContentReference>) {
+        if (references.isEmpty()) return
+        val batch = handle.prepareBatch(
+            """
+            INSERT INTO resource_references (tenant_key, content_hash, alias, resource_type, resource_key)
+            VALUES (:t, :hash, :alias, :type, :key)
+            ON CONFLICT DO NOTHING
+            """,
+        )
+        references.forEach { reference ->
+            batch.bind("t", tenantKey).bind("hash", contentHash).bind("alias", reference.alias).bind("type", reference.type).bind("key", reference.key).add()
+        }
+        batch.execute()
     }
 
     /**
@@ -138,25 +160,25 @@ class ResourceRevisionStore(
      *
      * Called wherever release entries stop existing — forgetting one release's content, and deleting
      * a catalog, which cascades its releases away. Without it those revisions are unreachable and
-     * permanent: nothing else ever deletes one, and `revision_binaries` would go on holding the
+     * permanent: nothing else ever deletes one, and `resource_binaries` would go on holding the
      * bytes they named against the content sweep, so an image deleted from a deleted catalog could
      * never be reclaimed.
      *
      * **Reachability is a graph, not a lookup.** A release entry names a resource's revision; a
      * template's revision names its models through [REVISION_REF_FIELD], so a model is reachable
-     * only through its parent. Deleting what no `release_entries` row names directly would take
+     * only through its parent. Deleting what no `release_resources` row names directly would take
      * every model with it. The closure below walks the refs out of the payloads, at any depth, so a
      * deeper tree costs a round trip rather than correctness.
      *
      * Deliberately not a scheduled sweep. Revisions become unreachable at exactly two moments, both
      * of them commands, and collecting inside the transaction that caused it means there is never a
      * window in which the database holds content nothing can reach. `ContentReaper` still owns the
-     * blobs: dropping the last `revision_binaries` row only makes them collectable.
+     * blobs: dropping the last `resource_binaries` row only makes them collectable.
      */
     fun collectUnreferenced(handle: Handle, tenantKey: TenantKey): Int {
         val reachable = mutableSetOf<String>()
         var frontier = handle.createQuery(
-            "SELECT DISTINCT revision_digest FROM release_entries WHERE tenant_key = :t",
+            "SELECT DISTINCT content_hash FROM release_resources WHERE tenant_key = :t",
         )
             .bind("t", tenantKey)
             .mapTo(String::class.java)
@@ -169,8 +191,8 @@ class ResourceRevisionStore(
 
         return handle.createUpdate(
             """
-            DELETE FROM resource_revisions
-            WHERE tenant_key = :t AND NOT (digest = ANY(:reachable))
+            DELETE FROM resource_contents
+            WHERE tenant_key = :t AND NOT (content_hash = ANY(:reachable))
             """,
         )
             .bind("t", tenantKey)
@@ -190,8 +212,8 @@ class ResourceRevisionStore(
         SELECT DISTINCT jsonb_array_elements_text(
                    jsonb_path_query_array(payload, '$.**.$REVISION_REF_FIELD')
                ) AS child
-        FROM resource_revisions
-        WHERE tenant_key = :t AND digest = ANY(:digests)
+        FROM resource_contents
+        WHERE tenant_key = :t AND content_hash = ANY(:digests)
         """,
     )
         .bind("t", tenantKey)
@@ -202,7 +224,7 @@ class ResourceRevisionStore(
     private fun writeBinary(handle: Handle, tenantKey: TenantKey, digest: String, scope: String, contentHash: String) {
         handle.createUpdate(
             """
-            INSERT INTO revision_binaries (tenant_key, digest, scope, content_hash)
+            INSERT INTO resource_binaries (tenant_key, content_hash, scope, binary_hash)
             VALUES (:t, :digest, :scope, :hash)
             ON CONFLICT DO NOTHING
             """,
@@ -237,7 +259,7 @@ class ResourceRevisionStore(
     }
 
     /** Every binary a resource needs: an image's own, and each of a font family's faces. */
-    private fun contentHashes(resource: CatalogResource): List<String> = when (resource) {
+    private fun binaryHashes(resource: CatalogResource): List<String> = when (resource) {
         is ImageResource -> listOf(resource.contentHash)
         is FontResource -> resource.variants.map { it.contentHash }
         else -> emptyList()

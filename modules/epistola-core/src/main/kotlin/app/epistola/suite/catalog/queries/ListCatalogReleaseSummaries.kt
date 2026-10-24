@@ -57,7 +57,7 @@ class ListCatalogReleaseSummariesHandler(
         handle.createQuery(
             """
             SELECT r.version, r.released_at, r.notes, r.fingerprint,
-                   (SELECT count(*) FROM release_entries e
+                   (SELECT count(*) FROM release_resources e
                      WHERE e.tenant_key = r.tenant_key AND e.catalog_id = r.catalog_id AND e.version = r.version
                    ) AS resource_count
             FROM catalog_releases r

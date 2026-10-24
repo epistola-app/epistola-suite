@@ -47,7 +47,7 @@ import org.springframework.beans.factory.annotation.Autowired
  * Reclaiming what releases hold.
  *
  * Nothing deleted a revision. Not a sweep, not a command, not a cascade short of dropping the whole
- * tenant — so content accumulated for the life of an installation, and `revision_binaries` went on
+ * tenant — so content accumulated for the life of an installation, and `resource_binaries` went on
  * holding the bytes it named against the content sweep. Two moments make a revision unreachable:
  * deleting a release, and deleting a catalog, whose releases cascade away with it. Both collect, and
  * these tests are what say so.
@@ -83,8 +83,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     /**
      * The reason this is a graph walk. A template revision names its models through
-     * `revisionDigest`; no release entry names a model directly. Collecting by "nothing in
-     * release_entries names it" would delete every model and leave each template unassemblable —
+     * `revisionDigest`; no release resource names a model directly. Collecting by "nothing in
+     * release_resources names it" would delete every model and leave each template unassemblable —
      * and a round-trip test of the *other* release would still pass, because it has its own.
      */
     @Test
@@ -116,13 +116,13 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
         // And 1.1.0 is still readable as released, which is what those models are for.
         withMediator {
-            assertThat(ReleaseEntryStoreProbe(jdbi).entryCount(tenant.id, "shared-cat", "1.1.0")).isGreaterThan(0)
+            assertThat(ReleaseResourceStoreProbe(jdbi).entryCount(tenant.id, "shared-cat", "1.1.0")).isGreaterThan(0)
         }
     }
 
     /**
      * The live leak this fixes. Deleting a catalog cascades its releases away, and their entries
-     * with them, leaving the revisions unreachable — and `revision_binaries` still naming the bytes,
+     * with them, leaving the revisions unreachable — and `resource_binaries` still naming the bytes,
      * so the content sweep would hold them for ever. Before the collector, deleting a catalog made
      * its content permanently unreclaimable.
      */
@@ -149,7 +149,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     /**
      * What the reclaim is actually for. A release holds an image's bytes through
-     * `revision_binaries`, which is what stops the content sweep taking them when the asset is
+     * `resource_binaries`, which is what stops the content sweep taking them when the asset is
      * deleted from the working copy. Deleting the release releases that hold, so the bytes become
      * collectable — the sweep itself still owns when.
      */
@@ -310,7 +310,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     // its revisions are in every tenant. The counts below are about this test's catalog.
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
-            "SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND (:kind IS NULL OR kind = :kind)",
+            "SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND (:kind IS NULL OR kind = :kind)",
         )
             .bind("t", tenantKey)
             .bind("kind", kind)
@@ -319,12 +319,12 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     private fun entryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id <> (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')")
+        handle.createQuery("SELECT count(*) FROM release_resources WHERE tenant_key = :t AND catalog_id <> (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
     private fun binaryCount(tenantKey: TenantKey): Int = jdbi.withHandle<Int, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM revision_binaries WHERE tenant_key = :t AND digest NOT IN (SELECT revision_digest FROM release_entries WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
+        handle.createQuery("SELECT count(*) FROM resource_binaries WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system'))")
             .bind("t", tenantKey).mapTo(Int::class.java).one()
     }
 
@@ -350,10 +350,10 @@ class RevisionCollectionTest : IntegrationTestBase() {
             .orElse(null)
     }
 
-    private class ReleaseEntryStoreProbe(private val jdbi: Jdbi) {
+    private class ReleaseResourceStoreProbe(private val jdbi: Jdbi) {
         fun entryCount(tenantKey: TenantKey, catalogKey: String, version: String): Int = jdbi.withHandle<Int, Exception> { handle ->
             handle.createQuery(
-                "SELECT count(*) FROM release_entries WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+                "SELECT count(*) FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
             )
                 .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)
                 .mapTo(Int::class.java)

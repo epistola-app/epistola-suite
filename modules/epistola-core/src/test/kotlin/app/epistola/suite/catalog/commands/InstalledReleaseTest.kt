@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -49,7 +49,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     private lateinit var jdbi: Jdbi
 
     @Autowired
-    private lateinit var entries: ReleaseEntryStore
+    private lateinit var entries: ReleaseResourceStore
 
     @Autowired
     private lateinit var renderSource: ReleaseRenderSource

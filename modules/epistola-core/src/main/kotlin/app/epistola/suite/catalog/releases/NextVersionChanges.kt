@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalogEditability
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -36,7 +36,7 @@ import org.springframework.stereotype.Component
 class NextVersionChanges(
     private val jdbi: Jdbi,
     private val drafts: CatalogDrafts,
-    private val entries: ReleaseEntryStore,
+    private val entries: ReleaseResourceStore,
     private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprints: CatalogFingerprintService,

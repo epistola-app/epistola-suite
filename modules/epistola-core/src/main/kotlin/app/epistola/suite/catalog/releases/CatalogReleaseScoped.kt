@@ -18,9 +18,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.UUID
 
 /**
- * A draft of a catalog as a message names it (contract ADR 0002): its next version (a convention of
- * this suite), or a draft by its id. A draft has no number until it is released, so a number never
- * names one.
+ * A version of a catalog as a message names it (contract ADR 0002; ADR 0033): its next version (a
+ * convention of this suite), a draft by its id, or a release by its number ([Released]). A draft has
+ * no number until it is released, so a number never names a draft, and a version id never has a dot,
+ * so the two never collide. A release is read-only: no command may target one.
  */
 sealed interface DraftRef {
     /** The catalog's next version: the draft everyday work goes into. */
@@ -33,6 +34,15 @@ sealed interface DraftRef {
         override fun toString(): String = key
     }
 
+    /**
+     * A released version by its number (`1.2.0`), read-only (ADR 0033): the write guard refuses every
+     * command that targets one ([ReleasedVersionReadOnlyException]). Reads of a release through the
+     * draft queries do not switch to it yet; each resource type does in its own step.
+     */
+    data class Released(val version: String) : DraftRef {
+        override fun toString(): String = version
+    }
+
     companion object {
         /** How [Next] is written in an address. */
         const val NEXT: String = "next"
@@ -43,12 +53,16 @@ sealed interface DraftRef {
         /** Whether [value] has the shape of a version id. */
         fun isKey(value: String): Boolean = value.length in 4..36 && KEY.matches(value)
 
-        /** [value] as an address writes it: `next` or a version id; null when it is neither. */
+        /** [value] as an address writes it: `next`, a version id or a release number; null when it is none. */
         fun parse(value: String): DraftRef? = when {
             value == NEXT -> Next
             isKey(value) -> Id(value)
+            app.epistola.catalog.protocol.CatalogReleaseVersions.isValid(value) -> Released(value)
             else -> null
         }
+
+        /** [value] as a draft: `next` or a version id; null for a release number or anything else. */
+        fun parseDraft(value: String): DraftRef? = parse(value)?.takeUnless { it is Released }
     }
 }
 
@@ -106,7 +120,11 @@ class CatalogReleaseTargeting(
     fun resolve(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val match = when (val draft = ref.draft) {
             DraftRef.Next -> "v.is_next"
+
             is DraftRef.Id -> "v.version_key = :id"
+
+            // A release has no draft rows; reading one through the draft queries comes per type (ADR 0033).
+            is DraftRef.Released -> throw CatalogReleaseNotFoundException(ref.catalogKey, draft.version)
         }
         handle.createQuery(
             """

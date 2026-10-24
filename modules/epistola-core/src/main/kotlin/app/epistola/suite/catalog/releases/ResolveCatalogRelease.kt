@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -75,7 +76,7 @@ class ResolveCatalogReleaseHandler(
         val version = when (val ref = DraftRef.parse(query.version)) {
             DraftRef.Next -> all.firstOrNull { it.isNext }
             is DraftRef.Id -> all.firstOrNull { it.versionId == ref.key }
-            null -> all.firstOrNull { it.status == CatalogReleaseStatus.RELEASED && it.version == query.version }
+            is DraftRef.Released, null -> all.firstOrNull { it.status == CatalogReleaseStatus.RELEASED && it.version == query.version }
         } ?: throw CatalogReleaseNotFoundException(query.catalogKey, query.version)
         ResolvedCatalogRelease(catalog, version)
     }
@@ -121,12 +122,41 @@ class GetReleasedResourceHandler(
     override fun handle(query: GetReleasedResource): CatalogResource? = assembler.readResource(query.catalog, query.version, query.type, query.key)
 }
 
+/**
+ * Reads only that type's rows and contents (ADR 0033): not the whole release, nor its binaries. A
+ * list that shows only keys and names reads [ListReleaseResources] instead.
+ */
 @Component
 class ListReleasedResourcesHandler(
     private val assembler: ReleaseContentAssembler,
 ) : QueryHandler<ListReleasedResources, List<CatalogResource>> {
-    override fun handle(query: ListReleasedResources): List<CatalogResource> {
-        val content = assembler.assemble(query.catalog, query.version)?.content ?: return emptyList()
-        return content.resourceDetails.filterKeys { it.startsWith("${query.type}/") }.toSortedMap().values.map { it.resource }
+    override fun handle(query: ListReleasedResources): List<CatalogResource> = assembler.readResources(query.catalog, query.version, query.type)
+}
+
+/** One resource of a release as a list shows it: its type, key, name and description. */
+data class ReleasedResourceSummary(val type: String, val key: String, val name: String, val description: String?)
+
+/**
+ * The resources a released version holds, of [type] or of every type, in type and key order, read
+ * from `release_resources` alone (ADR 0033: a list reads no content and no binaries). Empty when
+ * the catalog has no such release.
+ */
+data class ListReleaseResources(
+    val catalog: CatalogId,
+    val version: String,
+    val type: String? = null,
+) : Query<List<ReleasedResourceSummary>>,
+    RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    override val permission get() = Permission.CATALOG_VIEW
+}
+
+@Component
+class ListReleaseResourcesHandler(
+    private val jdbi: Jdbi,
+    private val rows: ReleaseResourceStore,
+) : QueryHandler<ListReleaseResources, List<ReleasedResourceSummary>> {
+    override fun handle(query: ListReleaseResources): List<ReleasedResourceSummary> = jdbi.withHandle<List<ReleasedResourceSummary>, Exception> { handle ->
+        rows.entriesOf(handle, query.catalog, query.version, query.type).map { ReleasedResourceSummary(it.resourceType, it.resourceKey, it.name, it.description) }
     }
 }

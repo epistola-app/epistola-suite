@@ -11,7 +11,7 @@ import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.upgrade.CatalogUpgradeRunner
 import app.epistola.suite.common.ids.CatalogKey
@@ -87,7 +87,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
 
     @Autowired private lateinit var assembler: ReleaseContentAssembler
 
-    @Autowired private lateinit var entries: ReleaseEntryStore
+    @Autowired private lateinit var entries: ReleaseResourceStore
 
     @Autowired private lateinit var fingerprints: CatalogFingerprintService
 
@@ -128,7 +128,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
             }
 
             val reproduced = fingerprints.perResourceFingerprints(retained)
-            for (entry in jdbi.withHandle<List<app.epistola.suite.catalog.revisions.ReleaseEntry>, Exception> { entries.entriesOf(it, testCatalog(TENANT, release.catalogKey), release.version) }) {
+            for (entry in jdbi.withHandle<List<app.epistola.suite.catalog.revisions.ReleaseResource>, Exception> { entries.entriesOf(it, testCatalog(TENANT, release.catalogKey), release.version) }) {
                 softly.assertThat(entry.fingerprint)
                     .`as`("$name records ${entry.contentKey} with the fingerprint of the revision it points at")
                     .isEqualTo(reproduced[entry.contentKey])

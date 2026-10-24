@@ -35,7 +35,7 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
 
     @Autowired private lateinit var assembler: ReleaseContentAssembler
 
-    @Autowired private lateinit var entries: ReleaseEntryStore
+    @Autowired private lateinit var entries: ReleaseResourceStore
 
     @Autowired private lateinit var fingerprints: CatalogFingerprintService
 
@@ -79,7 +79,7 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
     private fun assertEntriesAreOfWhatIsKept(tenant: TenantKey, version: String, retained: CatalogContent) {
         val kept = fingerprints.perResourceFingerprints(retained)
         val softly = SoftAssertions()
-        for (entry in jdbi.withHandle<List<ReleaseEntry>, Exception> { entries.entriesOf(it, testCatalog(tenant, SYSTEM_CATALOG_KEY), version) }) {
+        for (entry in jdbi.withHandle<List<ReleaseResource>, Exception> { entries.entriesOf(it, testCatalog(tenant, SYSTEM_CATALOG_KEY), version) }) {
             softly.assertThat(entry.fingerprint).`as`("${entry.contentKey} is recorded with the fingerprint of what it keeps").isEqualTo(kept[entry.contentKey])
         }
         softly.assertAll()

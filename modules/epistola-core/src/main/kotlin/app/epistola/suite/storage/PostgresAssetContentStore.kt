@@ -25,7 +25,10 @@ class PostgresAssetContentStore(
                 """
                 INSERT INTO asset_content (scope, content_hash, content, content_type, size_bytes, created_at)
                 VALUES (:scope, :hash, :content, :contentType, :sizeBytes, :createdAt)
-                ON CONFLICT (scope, content_hash) DO NOTHING
+                -- Writing bytes that are there already touches them: the sweeps' grace period counts
+                -- from the last write, and the row is locked until this commits, so a blob an upload
+                -- is about to point at again is never collected from under it (ADR 0033).
+                ON CONFLICT (scope, content_hash) DO UPDATE SET created_at = GREATEST(asset_content.created_at, EXCLUDED.created_at)
                 """,
             )
                 .bind("scope", scope)

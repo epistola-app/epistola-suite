@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseInUse
-import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -59,7 +59,7 @@ data class DeleteCatalogRelease(
 @Component
 class DeleteCatalogReleaseHandler(
     private val jdbi: Jdbi,
-    private val revisions: ResourceRevisionStore,
+    private val revisions: ResourceContentStore,
     /** Absent on an installation with no publication integration, where nothing can be in flight. */
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<DeleteCatalogRelease, Boolean> {

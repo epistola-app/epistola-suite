@@ -175,6 +175,7 @@ class CatalogDrafts {
         when (ref) {
             DraftRef.Next -> draft.isNext
             is DraftRef.Id -> draft.key == ref.key
+            is DraftRef.Released -> false
         }
     }
 

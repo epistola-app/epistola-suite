@@ -190,7 +190,7 @@ WP1 and WP2 can start now because they read data that already exists.
 ### WP1 — The resolver seam
 
 One query family answers "resource X of catalog Y at Z", where Z is a release version, _working_,
-or _deployed-for-environment E_. It reads `release_entries → resource_revisions` for a release and
+or _deployed-for-environment E_. It reads `release_resources → resource_contents` for a release and
 the domain tables for the working copy, and returns domain objects, not wire form — the import
 path already knows how to turn a wire resource into domain shape, so the seam reuses it.
 
@@ -229,7 +229,7 @@ path already knows how to turn a wire resource into domain shape, so the seam re
   column maintained at the same choke point. Both are added to the seven resource tables and
   `template_variants`, as ADR 0026 §3 specifies.
 - The status in §3.3 is derived per resource and per variant; `GetCatalogResourceChanges` already
-  computes most of it against `release_entries`.
+  computes most of it against `release_resources`.
 - The release command refuses while anything is modified, and the release dialog marks everything
   ready in one action.
 - The template header revision is written at release and references the model revisions already
@@ -263,7 +263,7 @@ path already knows how to turn a wire resource into domain shape, so the seam re
   foreign key to `catalog_releases` that **restricts** deleting a deployed release. Forgetting a
   deployed release's content is refused in the command (#1036 question 4).
 - Generation by environment resolves the deployment when the request is accepted and records
-  `release_version` and `revision_digest` on `documents` and `document_generation_requests`.
+  `release_version` and `content_hash` on `documents` and `document_generation_requests`.
   `version_key` stays as provenance for documents generated before the major. Batches bind once, at
   acceptance.
 - A request may name a release (contract addition). Payload validation follows the named release.
@@ -375,7 +375,7 @@ Code is deleted in the major. Schema goes dead in the major and is dropped later
 | `catalog_releases`                          | Gains provenance for installed releases; `content_retained` true for new rows | —                                   |
 | `catalogs.installed_*`                      | Reinterpreted as "selected release"; unchanged shape                          | The ERD split in #1036, when forced |
 | `catalogs`                                  | Gains `base_version` (#1036 step 5)                                           | —                                   |
-| `documents`, `document_generation_requests` | Gain `release_version`, `revision_digest`; `version_key` nullable provenance  | —                                   |
+| `documents`, `document_generation_requests` | Gain `release_version`, `content_hash`; `version_key` nullable provenance     | —                                   |
 | `load_test_runs`                            | Gains release columns; FK into `template_versions` dropped as a constraint    | —                                   |
 | `quality_findings.version_key`              | Provenance; new findings name a revision                                      | —                                   |
 | `feature_toggles`                           | Rows for graduated keys left in place; `FeatureToggleService` ignores them    | —                                   |

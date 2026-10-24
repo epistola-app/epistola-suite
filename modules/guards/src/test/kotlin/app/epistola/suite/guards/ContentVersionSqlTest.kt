@@ -79,7 +79,7 @@ class ContentVersionSqlTest {
         // being assembled may hold a face no current version still has.
         "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ReleaseContentAssembler.kt" to
             "font face bytes looked up by content hash",
-        "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ResourceRevisionStore.kt" to
+        "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ResourceContentStore.kt" to
             "asset storage scope looked up by content hash",
         // A blob is held while an asset row in any version, draft or installed, holds it.
         "modules/epistola-core/src/main/kotlin/app/epistola/suite/storage/ContentReaper.kt" to

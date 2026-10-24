@@ -196,7 +196,7 @@ data class MergeInputs(
 /**
  * Reads [MergeInputs]. The draft's content is built from its rows; each release's from the content it
  * retained ([ReleaseContentAssembler]). All three are fingerprinted by the same function
- * ([CatalogFingerprintService.resourceFingerprints], the complete per-resource form of V5), not taken from `release_entries`: a release
+ * ([CatalogFingerprintService.resourceFingerprints], the complete per-resource form of V5), not taken from `release_resources`: a release
  * received from a source records its publisher's digests there, which need not be what this suite
  * computes for the same content, and comparing the two reports changes nobody made.
  *

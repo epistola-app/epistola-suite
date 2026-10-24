@@ -127,7 +127,7 @@ class CreateCatalogDraftHandler(
             if (open.any { it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(catalogKey, name)
             val all = versions.all(handle, catalog)
             val from = command.from?.trim()
-            val source = from?.let { DraftRef.parse(it) }?.let { ref -> open.firstOrNull { it.ref == ref || (ref is DraftRef.Id && it.key == ref.key) } }
+            val source = from?.let { DraftRef.parseDraft(it) }?.let { ref -> open.firstOrNull { it.ref == ref || (ref is DraftRef.Id && it.key == ref.key) } }
             val release = if (source != null) {
                 null
             } else if (from != null) {
@@ -330,7 +330,7 @@ class DeleteCatalogDraftHandler(
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM release_entries WHERE tenant_key = :t
+            UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t
         ),
         alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
         refs (holder, holder_resource_id, held_resource_id, ordinal) AS (

@@ -27,8 +27,15 @@ is only whether it can be changed here and where its releases come from (below).
 still in the table, defaulted and unused, and goes in a later major release.
 
 - **Releases** — `catalog_releases` holds every release the catalog has, whether it was cut here or
-  received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_entries` row
-  per resource naming the revision that holds its content and the digest it fingerprinted to.
+  received: SemVer, content fingerprint, notes, a manifest snapshot, and one `release_resources` row
+  per resource naming the content that holds it (`resource_contents`, by content hash, through a
+  foreign key) and the digest it fingerprinted to (ADR 0033). A release's resource list reads these
+  rows alone (`ListReleaseResources`); its content is read per type, its binaries when shown.
+  Content nothing points at is collected later ([`storage.md`](storage.md#the-content-collector)).
+- **A version reference** names the next version, a draft by its id, or a release by its number
+  (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
+  the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
+  through the draft queries do not switch to releases yet; each resource type does in its own step.
 - **Released here** — cutting a release advances `catalogs.released_version` /
   `released_fingerprint` / `released_at`.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
@@ -791,7 +798,7 @@ a change. Every comparison of resources uses it: this one, what a next release c
 (`NextVersionChanges`), a merge's three sides, what a behind release changed, and what an available
 release changes. The base side is what the draft recorded holding of its base when that was put in
 place (`catalog_versions.base_fingerprints`), else the base's retained content, fingerprinted now;
-`release_entries.fingerprint` (V3, stored per release) is not compared any more. A stored baseline
+`release_resources.fingerprint` (V3, stored per release) is not compared any more. A stored baseline
 names the function that computed it (`{"algorithm": "complete-v5", "entries": …}`); one stored before,
 without it, is as good as none. The upgrade diff from a source compares the same way:
 `installed_resource_fingerprints` holds the complete form of the installed release, stored as such a
@@ -913,7 +920,7 @@ template per variant or per block, an editor merge tool — adds to it rather th
   The draft (ours) is built from its rows; the merge base and the release (theirs) from the content
   each release retained (`ReleaseContentAssembler`). All three are fingerprinted by one function,
   `CatalogFingerprintService.resourceFingerprints`, the complete fingerprint (settings by
-  `settingFingerprint`, a digest over a fixed shape), not read from `release_entries`, which for a
+  `settingFingerprint`, a digest over a fixed shape), not read from `release_resources`, which for a
   release received from a source holds its publisher's digests. A received release is written into a
   draft as this suite holds content (a default written out, a slot a stencil needs added), so the draft
   is compared with the base _as it holds it_ (`heldBase`): `catalog_versions.base_fingerprints`,

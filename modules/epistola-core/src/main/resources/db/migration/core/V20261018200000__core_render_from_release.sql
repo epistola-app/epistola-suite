@@ -1,6 +1,6 @@
 -- 2.0 generates documents from catalog releases (contract 2.0), never from template versions.
 --
--- A release keeps the content it was cut with (resource_revisions, release_entries: see the release
+-- A release keeps the content it was cut with (resource_contents, release_resources: see the release
 -- content migration; the 1.x releases, which kept none, are removed by the upgrade), and it records
 -- the rendering defaults it was cut against, so an engine upgrade does not silently change what an
 -- existing release renders.

@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
-import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -32,7 +31,7 @@ class MergeReferenceCheck(
     private val jdbi: Jdbi,
     private val references: MergeReferences,
     private val dependencyStore: CatalogDependencyStore,
-    private val assembler: ReleaseContentAssembler,
+    private val releaseResources: app.epistola.suite.catalog.revisions.ReleaseResourceStore,
     private val contentBuilder: CatalogContentBuilder,
     private val targeting: CatalogReleaseTargeting,
 ) {
@@ -120,7 +119,7 @@ class MergeReferenceCheck(
                 }
 
                 version != null -> {
-                    val keys = held.getOrPut("${other.address}@" to version) { assembler.assemble(other, version)?.content?.resourceDetails?.keys.orEmpty() }
+                    val keys = held.getOrPut("${other.address}@" to version) { jdbi.withHandle<Set<String>, Exception> { handle -> releaseResources.entriesOf(handle, other, version).map { it.contentKey }.toSet() } }
                     Reason.NotInRelease(version).takeIf { wanted !in keys }
                 }
 

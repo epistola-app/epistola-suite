@@ -49,8 +49,8 @@ import app.epistola.suite.catalog.releases.UnreleasedDependency
 import app.epistola.suite.catalog.releases.validateDraftName
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.revisions.ReleaseDescription
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
-import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
+import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.bindJsonb
@@ -188,8 +188,8 @@ class ReleaseCatalogDraftHandler(
     private val contentBuilder: CatalogContentBuilder,
     private val archiveBuilder: CatalogArchiveBuilder,
     private val fingerprintService: CatalogFingerprintService,
-    private val revisionStore: ResourceRevisionStore,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val revisionStore: ResourceContentStore,
+    private val releaseResourceStore: ReleaseResourceStore,
     private val objectMapper: ObjectMapper,
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
     private val stencilCheck: ReleaseStencilCheck,
@@ -482,13 +482,13 @@ class ReleaseCatalogDraftHandler(
             // what it contained commit together, so there is no state where one exists without the
             // others.
             dependencyStore.recordRelease(handle, command.catalog, newVersion.toString(), pins)
-            val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
-            releaseEntryStore.record(
+            val contentHashes = revisionStore.retain(handle, command.tenantKey, content)
+            releaseResourceStore.record(
                 handle,
                 command.catalog,
                 newVersion.toString(),
                 content,
-                revisionDigests,
+                contentHashes,
                 resourceFingerprints,
             )
 

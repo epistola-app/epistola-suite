@@ -233,6 +233,6 @@ internal fun PreviewDocumentRequest.toQuery(
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         // The draft it names: the next version, or parallel work by its id.
-        catalogVersion = draft?.let { CatalogReleaseRef(catalog.catalogId, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
+        catalogVersion = draft?.let { CatalogReleaseRef(catalog.catalogId, requireNotNull(DraftRef.parseDraft(it)) { "Not a draft: '$it'" }) },
     )
 }

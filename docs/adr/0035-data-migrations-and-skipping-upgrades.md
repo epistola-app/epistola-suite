@@ -1,6 +1,6 @@
 # ADR 0035: Data migrations, and upgrading across any number of versions
 
-- **Status:** Accepted (2026-10-23; first applied by ADR 0033's storage, after 2.0)
+- **Status:** Accepted (2026-10-23; first applied by ADR 0033's storage, in 2.0)
 - **Date:** 2026-10-23
 - **Deciders:** Epistola team
 - **Tags:** migrations, upgrades, database, stability
@@ -96,7 +96,8 @@ upgrade notes of that release.
 
 A migration that moves tables cannot run beside nodes of the previous version, which still read them.
 Such a release is a non-rolling upgrade (stop, migrate, start), said so in its upgrade notes, and kept
-rare: ADR 0033's storage ships all its resource types in one such release.
+rare: ADR 0033's storage ships all its resource types in one such release, 2.0, which converts straight
+from the 1.x content tables during the 1.x → 2.0 upgrade.
 
 ## Consequences
 

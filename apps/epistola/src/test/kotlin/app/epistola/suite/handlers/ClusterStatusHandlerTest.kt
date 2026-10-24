@@ -123,6 +123,27 @@ class ClusterStatusHandlerTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `the dashboard offers collecting stored content now, and POST collect says what it took`() = fixture {
+        lateinit var tenant: Tenant
+
+        given { tenant = tenant("Cluster Storage Collect") }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            restTemplate.getForEntity("/tenants/${tenant.id}/cluster", String::class.java).body!! to
+                restTemplate.exchange("/tenants/${tenant.id}/cluster/storage/collect", HttpMethod.POST, HttpEntity<Void>(headers), String::class.java)
+        }
+
+        then {
+            val (page, collect) = result<Pair<String, org.springframework.http.ResponseEntity<String>>>()
+            assertThat(page).contains("data-testid=\"storage-collect-now\"").contains("/tenants/${tenant.id}/cluster/storage/collect")
+            assertThat(collect.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(collect.body!!).doesNotContain("<html").contains("id=\"storage-collect-result\"").contains("Collected 0 content(s)")
+        }
+    }
+
+    @Test
     fun `POST forget removes a stale node and returns the refreshed table`() = fixture {
         lateinit var tenant: Tenant
 

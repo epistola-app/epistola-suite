@@ -8,7 +8,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
-import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -146,7 +146,7 @@ class GetCatalogPublicationStateHandler(
     private val availability: ExchangeAvailability,
     private val namespaceBinder: ExchangeNamespaceBinder,
     private val store: CatalogPublicationStore,
-    private val releaseEntryStore: ReleaseEntryStore,
+    private val releaseResourceStore: ReleaseResourceStore,
     private val credentials: ExchangeCredentialService,
 ) : QueryHandler<GetCatalogPublicationState, CatalogPublicationState?> {
 

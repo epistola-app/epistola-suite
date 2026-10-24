@@ -345,16 +345,16 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                UPDATE resource_revisions m
+                UPDATE resource_contents m
                 SET payload = jsonb_set(jsonb_set(m.payload, '{nodes,header,props,namespace}', '"$partsNamespace"'),
                                         '{nodes,header,props,registry}', '"$partsRegistry"')
-                FROM release_entries e
-                JOIN resource_revisions t ON t.tenant_key = e.tenant_key AND t.digest = e.revision_digest
+                FROM release_resources e
+                JOIN resource_contents t ON t.tenant_key = e.tenant_key AND t.content_hash = e.content_hash
                 WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter'
-                  AND m.tenant_key = t.tenant_key AND m.digest = t.payload -> 'templateModel' ->> 'revisionDigest'
+                  AND m.tenant_key = t.tenant_key AND m.content_hash = t.payload -> 'templateModel' ->> 'revisionDigest'
                 """,
             ).bind("t", a).execute()
-            assertThat(handle.createQuery("SELECT count(*) FROM resource_revisions WHERE tenant_key = :t AND payload::text LIKE '%registry.example.com%'").bind("t", a).mapTo(Int::class.java).one())
+            assertThat(handle.createQuery("SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND payload::text LIKE '%registry.example.com%'").bind("t", a).mapTo(Int::class.java).one())
                 .`as`("the retained bytes carry the qualifiers").isGreaterThan(0)
         }
         withMediator {

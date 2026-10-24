@@ -10,7 +10,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.revisions.ReleaseInUse
-import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
@@ -35,7 +35,7 @@ data class DeleteCatalog(
 @Component
 class DeleteCatalogHandler(
     private val jdbi: Jdbi,
-    private val revisions: ResourceRevisionStore,
+    private val revisions: ResourceContentStore,
 ) : CommandHandler<DeleteCatalog, Boolean> {
 
     override fun handle(command: DeleteCatalog): Boolean {
@@ -80,7 +80,7 @@ class DeleteCatalogHandler(
 
             // The catalog's releases cascade away with it, and their entries with them -- which
             // leaves the revisions those entries named reachable from nothing, and permanent:
-            // nothing else deletes a revision, and `revision_binaries` would hold the bytes they
+            // nothing else deletes a revision, and `resource_binaries` would hold the bytes they
             // named against the content sweep for good. Collecting here is what makes deleting a
             // catalog actually free its content.
             if (deleted > 0) revisions.collectUnreferenced(handle, command.tenantKey)

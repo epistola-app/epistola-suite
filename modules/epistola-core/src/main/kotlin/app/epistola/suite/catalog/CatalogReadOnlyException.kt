@@ -12,7 +12,17 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 
 /** A change to a catalog that cannot be changed here (ADR 0032); [reason] says why. */
-class CatalogReadOnlyException(val catalogKey: CatalogKey, val reason: CatalogReadOnlyReason? = null) : RuntimeException("Catalog '${catalogKey.value}' cannot be changed here." + (reason?.let { " ${it.explanation}" } ?: ""))
+open class CatalogReadOnlyException(
+    val catalogKey: CatalogKey,
+    val reason: CatalogReadOnlyReason? = null,
+    message: String = "Catalog '${catalogKey.value}' cannot be changed here." + (reason?.let { " ${it.explanation}" } ?: ""),
+) : RuntimeException(message)
+
+/**
+ * A command that targets a released version (ADR 0033): a release is read-only, whatever the
+ * catalog's editability. The write guard in the mediator refuses it before any handler runs.
+ */
+class ReleasedVersionReadOnlyException(val catalog: CatalogId, val version: String) : CatalogReadOnlyException(catalog.key, null, "Release $version of catalog '${catalog.address}' cannot be changed: a release is read-only. Start a draft from it to change it.")
 
 /**
  * Checks that the given catalog can be changed in this installation ([GetCatalogEditability]).

@@ -79,6 +79,7 @@ class SpringMediator(
     @Suppress("UNCHECKED_CAST")
     override fun <R> send(command: Command<R>): R = withExecutionContext {
         enforceAuthorization(command)
+        refuseWriteToRelease(command)
 
         val commandName = command::class.simpleName ?: "Unknown"
         logger.debug("Dispatching command: {}", commandName)
@@ -216,6 +217,16 @@ class SpringMediator(
             }
             throw e
         }
+    }
+
+    /**
+     * The write guard of ADR 0033: a command that targets a released version is refused, whatever
+     * the catalog's editability. A release is read-only; changing it means starting a draft from it.
+     */
+    private fun refuseWriteToRelease(command: Command<*>) {
+        val target = (command as? CatalogReleaseScoped)?.catalogVersion ?: return
+        val released = target.draft as? app.epistola.suite.catalog.releases.DraftRef.Released ?: return
+        throw app.epistola.suite.catalog.ReleasedVersionReadOnlyException(target.catalog, released.version)
     }
 
     private fun targetOf(message: Any) = (message as? CatalogReleaseScoped)?.catalogVersion?.takeIf { versionTargeting != null }

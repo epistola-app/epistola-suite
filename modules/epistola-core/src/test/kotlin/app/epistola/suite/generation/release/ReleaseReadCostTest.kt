@@ -66,7 +66,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
     fun `a template with several variants is read in one query per revision level, not one per variant`() {
         val catalog = releasedLetterWithThreeVariants("cost-levels")
 
-        val revisionReads = countStatements("FROM resource_revisions") {
+        val revisionReads = countStatements("FROM resource_contents") {
             assembler.readResource(testCatalog(catalog.tenantKey, catalog.key), "1.0.0", "template", "letter")
         }
 
@@ -79,7 +79,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
         val catalog = releasedLetterWithThreeVariants("cost-shared")
         val tenant = withMediator { GetTenant(catalog.tenantKey).query()!! }
 
-        val templateLookups = countStatements("SELECT revision_digest FROM release_entries") {
+        val templateLookups = countStatements("SELECT content_hash FROM release_resources") {
             val target = resolver.resolveLatest(testCatalog(catalog.tenantKey, catalog.key), TemplateKey.of("letter"), VariantKey.of("nld"), criteria = null)
             source.resolve(tenant, target.release, "letter", target.variantKey.value)
             // A second request against the same release.

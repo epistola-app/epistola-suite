@@ -126,6 +126,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
                     "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
             ).bind("t", tenant).bind("c", letters).mapTo(UUID::class.java).one()
         }
+
+        is DraftRef.Released -> error("A release is not a draft: $draft")
     }
 
     /** Every resource part's content digest a version holds: equal maps are equal content. */
@@ -379,7 +381,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
             DeleteTheme(seasonal).execute()
         }
         fun released(): UUID = jdbi.withHandle<UUID, Exception> { handle ->
-            handle.createQuery("SELECT resource_id FROM release_entries WHERE tenant_key = :t AND version = '1.1.0' AND resource_type = 'theme' AND resource_key = 'seasonal'")
+            handle.createQuery("SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version = '1.1.0' AND resource_type = 'theme' AND resource_key = 'seasonal'")
                 .bind("t", tenant).mapTo(UUID::class.java).one()
         }
 
