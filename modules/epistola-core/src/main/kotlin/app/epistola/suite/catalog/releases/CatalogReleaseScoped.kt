@@ -92,7 +92,7 @@ interface CatalogReleaseScoped {
 
 /**
  * A query that can read a released version as well as a draft (ADR 0033): its SQL reads through
- * `catalog_version_resources` (or a view on it, such as `current_themes`), which answers the rows
+ * `catalog_version_resources(type)` (or a view on it, such as `current_themes`), which answers the rows
  * of the release a message targets. A message that is not this, and names a release, finds nothing
  * there ([CatalogReleaseNotFoundException]), until its resource type moves.
  */

@@ -102,7 +102,7 @@ class UpdateThemeHandler(
             Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, revision)
             val current = checkNotNull(ThemeReads.get(handle, objectMapper, catalog, command.id.key)) { "Theme ${command.id.key.value} is locked, so it is there" }
             if (!command.changesSomething()) return@withHandle current
-            themes.save(handle, command.id, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
+            themes.save(handle, current, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
         }
     }
 

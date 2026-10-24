@@ -37,7 +37,10 @@ import java.nio.file.Path
  * every catalog released once (so each holds a release and its next version), the themes carrying
  * the bundled system themes' styles, page settings and presets. Measured in the first tenant.
  *
- * - **cold**: the first call of each operation, before the JVM or the database has seen it.
+ * Measured twice: straight after seeding, before the planner has statistics on the grown tables (a
+ * fresh installation's first minutes), and after an `ANALYZE`, as an installation runs.
+ *
+ * - **cold**: the first call of each operation in the phase.
  * - **cached**: the median and 95th percentile of [RUNS] calls after [WARMUP] more.
  *
  * Seeding reports what creating a theme and releasing a catalog took on average, as the data set grew.
@@ -53,6 +56,9 @@ import java.nio.file.Path
 @Tag("integration")
 class ThemeStoragePerfTest : IntegrationTestBase() {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
     private data class Result(val operation: String, val coldMs: Double, val medianMs: Double, val p95Ms: Double)
 
     @Test
@@ -66,20 +72,26 @@ class ThemeStoragePerfTest : IntegrationTestBase() {
 
         var flip = 0
         var draft = 0
-        val results = listOf(
-            measure("list a catalog's themes") { ListThemes(TenantId(tenant), catalog = catalog).query() },
-            measure("list a tenant's themes") { ListThemes(TenantId(tenant)).query() },
-            measure("read one theme") { GetTheme(one).query() },
-            measure("save a theme") { UpdateTheme(one, name = "Theme ${flip++}").execute() },
-            measure("start a draft", runs = 40, warmup = 5) {
+        fun phase(name: String) = listOf(
+            measure("$name,list a catalog's themes") { ListThemes(TenantId(tenant), catalog = catalog).query() },
+            measure("$name,list a tenant's themes") { ListThemes(TenantId(tenant)).query() },
+            measure("$name,read one theme") { GetTheme(one).query() },
+            measure("$name,save a theme") { UpdateTheme(one, name = "Theme ${flip++}").execute() },
+            measure("$name,start a draft", runs = 40, warmup = 5) {
                 // Each on a catalog of its own, so no catalog collects drafts as the runs go on.
                 val on = testCatalog(tenant, CatalogKey.of("cat-${draft++ % CATALOGS}"))
                 CreateCatalogDraft(on, "Work $draft").execute()
             },
         )
 
+        // Straight after seeding, before autoanalyze has run: a fresh installation's first minutes.
+        val fresh = phase("before statistics")
+        // Then as an installation runs, with statistics (the test analyzes; autoanalyze would).
+        jdbi.useHandle<Exception> { it.execute("ANALYZE") }
+        val results = fresh + phase("with statistics")
+
         val report = buildString {
-            appendLine("operation,cold_ms,median_ms,p95_ms")
+            appendLine("phase,operation,cold_ms,median_ms,p95_ms")
             results.forEach { appendLine("${it.operation},${"%.2f".format(it.coldMs)},${"%.2f".format(it.medianMs)},${"%.2f".format(it.p95Ms)}") }
         }
         println("Theme storage perf: $TENANTS tenants x $CATALOGS catalogs x $THEMES_PER_CATALOG themes, seeded in ${"%.0f".format(seedSeconds)} s (creating themes ${"%.1f".format(createNanos / 1e9 / (TENANTS * CATALOGS * THEMES_PER_CATALOG) * 1000)} ms each, releasing ${"%.0f".format(releaseNanos / 1e6 / (TENANTS * CATALOGS))} ms a catalog)\n$report")

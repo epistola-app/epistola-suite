@@ -21,7 +21,7 @@ sealed interface VersionSelection {
 
 /**
  * Reads one version of a catalog through the views every moved resource type reads
- * (`catalog_version_resources` and the views on it, ADR 0033), on a handle: the settings those views
+ * (the function `catalog_version_resources` and the views on it, ADR 0033), on a handle: the settings those views
  * read are set for the block and restored after it, so a caller reading a dependency's release or
  * another draft does not leak that choice into the rest of its transaction. The one place, beside the
  * mediator's targeting ([CatalogReleaseTargeting]), that says which version a read means.

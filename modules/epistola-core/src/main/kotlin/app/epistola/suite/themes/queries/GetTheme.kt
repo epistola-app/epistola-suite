@@ -50,7 +50,7 @@ class GetThemeHandler(
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
             .bindCatalog("catalogKey", query.id.catalogId)
-            .map(ThemeRows(objectMapper))
+            .map(ThemeRows.of(objectMapper, query.id.catalogId))
             .findOne()
             .orElse(null)
     }

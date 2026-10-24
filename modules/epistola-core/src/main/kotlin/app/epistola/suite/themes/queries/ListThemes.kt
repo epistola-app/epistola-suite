@@ -68,7 +68,7 @@ class ListThemesHandler(
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }
         jdbiQuery
-            .map(ThemeRows(objectMapper))
+            .map(query.catalog?.let { ThemeRows.of(objectMapper, it) } ?: ThemeRows.ofTenant(handle, objectMapper, query.tenantId.key))
             .list()
     }
 }

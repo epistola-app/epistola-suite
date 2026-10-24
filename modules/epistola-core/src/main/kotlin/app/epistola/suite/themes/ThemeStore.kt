@@ -55,9 +55,12 @@ class ThemeStore(
             documentStyles = fields.documentStyles,
             pageSettings = fields.pageSettings,
             blockStylePresets = fields.blockStylePresets?.toMap(),
-            spacingUnit = fields.spacingUnit?.let { BigDecimal(it.toString()).setScale(2, RoundingMode.HALF_UP).toFloat() },
+            spacingUnit = fields.spacingUnit?.let(::stored),
         ),
     )
+
+    /** The spacing unit as stored: two decimals. */
+    private fun stored(spacingUnit: Float): Float = BigDecimal(spacingUnit.toString()).setScale(2, RoundingMode.HALF_UP).toFloat()
 
     /** Stores [fields] as theme [key] of [catalog]'s tenant and returns its content hash. */
     fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields): String = contents.store(handle, catalog.tenantKey, THEME, payload(key, fields))
@@ -69,19 +72,31 @@ class ThemeStore(
     }
 
     /**
-     * Saves [fields] as theme [id] of the targeted draft, when its revision is still
-     * [expectedRevision] (null: whatever it is); null when it has no such theme, or it moved on.
+     * Saves [fields] as theme [current] of the targeted draft, which the caller read (and locked)
+     * in this transaction; null when the draft no longer holds it.
      */
-    fun save(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?, expectedRevision: Long? = null): Theme? {
+    fun save(handle: Handle, current: Theme, fields: ThemeFields, actor: UUID?): Theme? {
+        val id = ThemeId(current.id, current.catalogId)
         val hash = store(handle, id.catalogId, id.key.value, fields)
-        if (!DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor, expectedRevision)) return null
-        return ThemeReads.get(handle, objectMapper, id.catalogId, id.key)
+        val updated = DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor) ?: return null
+        // What it says now, without reading it back: the content just written, the row's new bookkeeping.
+        return current.copy(
+            name = fields.name,
+            description = fields.description,
+            documentStyles = fields.documentStyles,
+            pageSettings = fields.pageSettings,
+            blockStylePresets = fields.blockStylePresets,
+            spacingUnit = fields.spacingUnit?.let(::stored),
+            revision = updated.revision,
+            updatedAt = updated.updatedAt,
+            updatedBy = actor?.let(app.epistola.suite.common.ids.UserKey::of),
+        )
     }
 
     /** Creates or replaces theme [id] in the targeted draft; true when it was there already. */
     fun put(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?): Boolean {
         val hash = store(handle, id.catalogId, id.key.value, fields)
-        if (DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor)) return true
+        if (DraftResources.update(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor) != null) return true
         DraftResources.insert(handle, id.catalogId, THEME, id.key.value, hash, fields.name, fields.description, actor)
         return false
     }

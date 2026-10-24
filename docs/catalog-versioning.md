@@ -44,11 +44,13 @@ still in the table, defaulted and unused, and goes in a later major release.
   in `resource_contents`: the theme's wire form, the same row a release of it shares. Writes go
   through `ThemeStore` and `DraftResources`; the database keeps identity, revision, `updated_at`
   and the catalog's `content_updated_at` on those rows as it does for a content table. Every read
-  goes through one place: the view `catalog_version_resources`, the rows of the version a caller
+  goes through one place: the SQL function `catalog_version_resources(type)`, the rows of the version a caller
   means (the draft its message targets, or the release a `ReleaseReadable` query names, settings
   `epistola.release_catalog` and `epistola.release_version`), and per type a view on it
   (`current_themes`) mapped by one mapper (`ThemeContent`). A read of another version than the
-  message's (a dependency's release, another draft) selects it with `VersionReads.at`. So
+  message's (a dependency's release, another draft) selects it with `VersionReads.at`. The function fixes the plan's
+  shape (current versions first, then each one's rows by the draft key), so reads plan the same
+  before the planner has statistics, as on a fresh installation (`ThemePlanStabilityTest`). So
   `GetTheme`/`ListThemes`, the REST and MCP theme reads and the theme page read a release as they
   read a draft (`…/catalogs/{namespace}/{key}@1.2.0/themes/{theme}` opens read-only).
 - **Released here** — cutting a release advances `catalogs.released_version` /

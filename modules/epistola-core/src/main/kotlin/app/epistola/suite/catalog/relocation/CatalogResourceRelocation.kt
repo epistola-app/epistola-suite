@@ -274,7 +274,7 @@ class MoveCatalogResourcesHandler(
             blockStylePresets = rewrite.replacementPresets?.let { objectMapper.readValue(it, app.epistola.suite.themes.BlockStylePresets::class.java) },
         )
         // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
-        return if (themes.save(handle, app.epistola.suite.common.ids.ThemeId(key, catalog), fields, theme.updatedBy?.value) != null) 1 else 0
+        return if (themes.save(handle, theme, fields, theme.updatedBy?.value) != null) 1 else 0
     }
 
     private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)

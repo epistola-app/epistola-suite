@@ -10,13 +10,14 @@ import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
+import java.time.OffsetDateTime
 import java.util.UUID
 
 /**
  * The rows a draft holds of the resource types stored as JSON (ADR 0033): one `release_resources`
  * row per resource, keyed by the draft (`version_id`) where a release's row is keyed by its number,
  * naming its content in `resource_contents`. The one writer of draft rows; reads go through
- * `catalog_version_resources` and the per-type views on it.
+ * the function `catalog_version_resources` and the per-type views on it.
  *
  * Every write here names the version its message targets (`versionAt`). The database keeps the
  * rest, as it does for the relational content tables: the identity at the address
@@ -51,7 +52,8 @@ object DraftResources {
 
     /**
      * Points the targeted draft's row of [type] [key] at [contentHash], when its revision is still
-     * [expectedRevision] (null: whatever it is). False when there is no such row, or it moved on.
+     * [expectedRevision] (null: whatever it is). Null when there is no such row, or it moved on;
+     * else the row's revision and `updated_at` after the change.
      */
     fun update(
         handle: Handle,
@@ -63,13 +65,14 @@ object DraftResources {
         description: String?,
         actor: UUID?,
         expectedRevision: Long? = null,
-    ): Boolean = handle
-        .createUpdate(
+    ): Updated? = handle
+        .createQuery(
             """
             UPDATE release_resources
             SET content_hash = :hash, name = :name, description = :description, updated_by = :actor
-            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
               AND ${Revisions.MATCHES}
+            RETURNING revision, updated_at
             """,
         )
         .bind("t", catalog.tenantKey)
@@ -81,12 +84,17 @@ object DraftResources {
         .bind("description", description)
         .bind("actor", actor)
         .bind("expectedRevision", expectedRevision)
-        .execute() > 0
+        .map { rs, _ -> Updated(rs.getLong("revision"), rs.getObject("updated_at", OffsetDateTime::class.java)) }
+        .findOne()
+        .orElse(null)
+
+    /** A draft row after an [update]: its revision and when it changed. */
+    data class Updated(val revision: Long, val updatedAt: OffsetDateTime)
 
     /** Removes [type] [key] from the targeted draft of [catalog]; false when it held none. */
     fun delete(handle: Handle, catalog: CatalogId, type: String, key: String): Boolean = handle
         .createUpdate(
-            "DELETE FROM release_resources WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key",
+            "DELETE FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key",
         )
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
@@ -102,7 +110,7 @@ object DraftResources {
         .createQuery(
             """
             SELECT revision FROM release_resources
-            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
             FOR UPDATE
             """,
         )
@@ -124,7 +132,7 @@ object DraftResources {
             """
             UPDATE release_resources
             SET catalog_id = ${catalogAt("t", "target")}, version_id = ${versionAt("t", "target")}, resource_key = :targetKey, content_hash = :hash
-            WHERE tenant_key = :t AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key
             """,
         )
         .bind("t", source.tenantKey)

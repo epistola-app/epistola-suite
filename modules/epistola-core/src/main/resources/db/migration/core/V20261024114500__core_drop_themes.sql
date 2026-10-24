@@ -193,22 +193,19 @@ SELECT u.*,
        NULLIF(u.payload -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
        CAST(u.payload ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
 FROM (
+    -- The content by its key, row by row, rather than a join: a join's order is the planner's to
+    -- choose, and a plan made before the tables have statistics put every stored content of the
+    -- tenant outermost (ThemePlanStabilityTest).
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
-           c.payload, r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
-    FROM catalog_version_resources r
-    JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-    WHERE r.resource_type = 'theme'
+           (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash) AS payload,
+           r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
+    FROM catalog_version_resources('theme') r
 ) u;
 
--- 6. A catalog's resources of a type, of its drafts: what a catalog's list reads. The draft key
---    (tenant, draft, type, key) cannot serve it, since which draft is current is decided by a join.
-CREATE INDEX idx_release_resources_draft_catalog ON release_resources (tenant_key, catalog_id, resource_type)
-    WHERE version_id IS NOT NULL;
-
--- 7. Nothing reads or writes the table any more.
+-- 6. Nothing reads or writes the table any more.
 DROP TABLE themes;
 
--- 8. The conversion filled release_resources and resource_contents at once; the planner must see
+-- 7. The conversion filled release_resources and resource_contents at once; the planner must see
 --    them as they are before the first node serves (a catalog's reads are planned on their size).
 ANALYZE release_resources;
 ANALYZE resource_contents;

@@ -93,6 +93,10 @@ class ThemeStorageTest : IntegrationTestBase() {
         assertThat(after.revision).isEqualTo(2)
         assertThat(after.resourceId).isEqualTo(before.resourceId)
         assertThat(renamed?.spacingUnit).`as`("two decimals, as the column kept it").isEqualTo(1.33f)
+        val styled = withMediator {
+            UpdateTheme(brand, documentStyles = mapOf("fontSize" to "11pt", "lineHeight" to 1.5, "margin" to 4), blockStylePresets = BlockStylePresets.of("callout" to app.epistola.template.model.BlockStylePreset(label = "Callout", styles = mapOf("padding" to "4sp")))).execute()
+        }
+        assertThat(styled).`as`("what a save returns is what a read gives").isEqualTo(withMediator { app.epistola.suite.themes.queries.GetTheme(brand).query() })
     }
 
     @Test
