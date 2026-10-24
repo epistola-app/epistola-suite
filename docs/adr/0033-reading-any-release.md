@@ -1,6 +1,6 @@
 # ADR 0033: Reading any release, draft or released
 
-- **Status:** Accepted (2026-10-23: one JSON storage, built per type after 2.0, #1125)
+- **Status:** Accepted (2026-10-23: one JSON storage, built per type, #1125; 2026-10-24: in 2.0)
 - **Date:** 2026-10-21
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, storage, database, performance
@@ -262,8 +262,10 @@ fonts, templates last (variants, the editor):
   The type's content table is dropped once converted. A guard (as `ContentVersionSqlTest`) refuses
   SQL on a moved type's old table.
 
-**Upgrades** (ADR 0035): every resource type's step b ships in one release, a non-rolling upgrade
-(stop, migrate, start), since the conversion replaces the tables the previous version reads.
+**Upgrades** (ADR 0035): every resource type's step b ships in one release, 2.0, a non-rolling upgrade
+(stop, migrate, start), since the conversion replaces the tables the previous version reads. The
+conversion runs during the 1.x → 2.0 upgrade, straight from the 1.x content tables, and the 2.0
+upgrade is the one non-rolling upgrade.
 Upgrading from any 1.x or 2.x version straight to any later one runs the conversion in order;
 `DataPreservationMigrationIT` proves it per type, 1.x data in, every resource the same through the
 read interface out.
