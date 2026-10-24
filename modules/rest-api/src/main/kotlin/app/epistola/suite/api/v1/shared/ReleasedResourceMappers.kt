@@ -130,19 +130,6 @@ internal fun StencilResource.toContentDto(at: ResolvedCatalogRelease, objectMapp
     readyAt = null,
 )
 
-internal fun ThemeResource.toDto(at: ResolvedCatalogRelease) = ThemeDto(
-    key = key,
-    tenantKey = at.tenantKey.value,
-    name = name,
-    documentStyles = documentStyles.orEmpty().mapNotNull { (key, value) -> value?.let { key to it } }.toMap(),
-    createdAt = at.releasedAt,
-    lastModified = at.releasedAt,
-    description = description,
-    pageSettings = pageSettings,
-    blockStylePresets = blockStylePresets,
-    spacingUnit = spacingUnit?.toBigDecimal(),
-)
-
 /**
  * A binding names the code list's catalog by the alias the release declares it under (contract ADR
  * 0003), as the release's content does; null for the attribute's own catalog.

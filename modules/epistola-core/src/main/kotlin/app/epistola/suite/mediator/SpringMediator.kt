@@ -235,6 +235,11 @@ class SpringMediator(
     private fun <R> inTargetedVersion(message: Any, block: () -> R): R {
         val target = targetOf(message) ?: return block()
         val targeting = requireNotNull(versionTargeting)
+        // A release is read by a message that can read one (ADR 0033); for any other, resolve says it is not found.
+        val released = target.draft as? app.epistola.suite.catalog.releases.DraftRef.Released
+        if (released != null && message is app.epistola.suite.catalog.releases.ReleaseReadable) {
+            return targeting.withinRelease(targeting.resolveRelease(target), released.version, block)
+        }
         return targeting.within(targeting.resolve(target), block)
     }
 

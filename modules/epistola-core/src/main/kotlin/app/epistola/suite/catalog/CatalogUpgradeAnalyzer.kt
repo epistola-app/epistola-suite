@@ -52,7 +52,7 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'theme', id::text FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
@@ -116,8 +116,8 @@ class CatalogUpgradeAnalyzer(
             """
             SELECT dt.name, dc.catalog_key AS catalog_key FROM document_templates dt
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-            JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            WHERE dt.tenant_key = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
+            JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+            WHERE dt.tenant_key = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
               AND ${inCurrentVersion("dt")}
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
@@ -127,8 +127,8 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT t.id FROM tenants t
-            JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
-            WHERE t.id = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug
+            JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+            WHERE t.id = :t AND th.catalog_id = ${catalogAt("t", "c")} AND th.id = :slug
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .mapTo(String::class.java).findOne().ifPresent {
@@ -208,10 +208,10 @@ class CatalogUpgradeAnalyzer(
         handle.createQuery(
             """
             SELECT th.name, tc.catalog_key AS catalog_key
-            FROM themes th
+            FROM current_themes th
             JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
             WHERE th.tenant_key = :t
-              AND ${inCurrentVersion("th")}
+             
               AND (
                 jsonb_path_exists(th.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                 OR jsonb_path_exists(COALESCE(th.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))

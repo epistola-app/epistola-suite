@@ -104,7 +104,7 @@ class ListRelocatableResourcesHandler(
                 WHERE f.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'theme', c.namespace, c.catalog_key::text, th.id::text, th.name, c.name, c.released
-                FROM themes th JOIN editable c ON c.version_id = th.version_id
+                FROM current_themes th JOIN editable c ON c.version_id = th.version_id
                 WHERE th.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)

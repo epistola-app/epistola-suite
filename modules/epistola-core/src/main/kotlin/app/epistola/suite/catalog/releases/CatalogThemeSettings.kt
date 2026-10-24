@@ -172,35 +172,34 @@ class SetCatalogDefaultThemeHandler(
             draftKey != null -> {
                 val (versionId, label) = dependencyStore.draftOf(handle, command.tenantKey, declaration, draftKey)
                     ?: throw ValidationException("defaultTheme", "Theme '$name' cannot be looked up: the draft of '${theme.catalogKey.value}' this catalog uses is gone")
-                handle.createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v AND id = :theme")
-                    .bind("t", command.tenantKey)
-                    .bind("v", versionId)
-                    .bind("theme", theme.themeKey)
-                    .mapTo(java.util.UUID::class.java)
-                    .findOne()
+                // That draft's themes, read where every version's are (ADR 0033).
+                VersionReads.at(handle, VersionSelection.Draft(versionId)) { at ->
+                    at.createQuery("SELECT resource_id FROM current_themes WHERE tenant_key = :t AND version_id = :v AND id = :theme")
+                        .bind("t", command.tenantKey)
+                        .bind("v", versionId)
+                        .bind("theme", theme.themeKey)
+                        .mapTo(java.util.UUID::class.java)
+                        .findOne()
+                }
                     .orElse(null)
                     ?: throw ValidationException("defaultTheme", "Theme '$name' is not in $label of '${theme.catalogKey.value}', which this catalog uses")
             }
 
-            pinned != null -> handle.createQuery(
-                """
-                SELECT r.resource_id FROM release_resources e
-                JOIN catalog_resources r ON r.tenant_key = e.tenant_key AND r.resource_id = e.resource_id
-                WHERE e.tenant_key = :t AND e.catalog_id = ${catalogAt("t", "themeCatalog")} AND e.version = :version
-                  AND e.resource_type = 'theme' AND e.resource_key = :theme
-                """,
-            )
-                .bind("t", command.tenantKey)
-                .bindCatalog("themeCatalog", theme.catalog)
-                .bind("version", pinned)
-                .bind("theme", theme.themeKey)
-                .mapTo(java.util.UUID::class.java)
-                .findOne()
+            pinned != null -> VersionReads.at(handle, VersionSelection.Release(theme.catalog, pinned)) { at ->
+                at.createQuery(
+                    "SELECT resource_id FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
+                )
+                    .bind("t", command.tenantKey)
+                    .bindCatalog("themeCatalog", theme.catalog)
+                    .bind("theme", theme.themeKey)
+                    .mapTo(java.util.UUID::class.java)
+                    .findOne()
+            }
                 .orElse(null)
                 ?: throw ValidationException("defaultTheme", "Theme '$name' is not in v$pinned of '${theme.catalogKey.value}', the release this catalog uses")
 
             else -> handle.createQuery(
-                "SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = :theme",
+                "SELECT resource_id FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = :theme",
             )
                 .bind("t", command.tenantKey)
                 .bindCatalog("themeCatalog", theme.catalog)

@@ -70,7 +70,7 @@ class TenantResourceGraphBuilder(
                 UNION ALL SELECT l.resource_id, 'codeList', c.namespace, c.catalog_key::text AS catalog_key, l.slug::text, l.display_name, c.name FROM code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
                 UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
                 UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id::text, a.display_name, c.name FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
                 UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id::text, s.name, c.name FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
                 UNION ALL SELECT t.resource_id, 'template', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
             ) resources
@@ -111,7 +111,7 @@ class TenantResourceGraphBuilder(
                 SELECT dc.namespace AS namespace, dc.catalog_key::text AS catalog_key, dt.id::text, thc.namespace AS theme_namespace, thc.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
                 FROM document_templates dt
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-                JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id AND ${inCurrentVersion("th")}
+                JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                 WHERE dt.tenant_key = :tenantKey AND ${inCurrentVersion("dt")}
             """,
@@ -213,9 +213,9 @@ class TenantResourceGraphBuilder(
     private fun loadThemeReferences(handle: Handle, tenantKey: TenantKey): List<Occurrence> = handle.createQuery(
         """
             SELECT tc.namespace AS namespace, tc.catalog_key::text AS catalog_key, th.id::text, th.document_styles::text, COALESCE(th.block_style_presets, '{}'::jsonb)::text presets
-            FROM themes th
+            FROM current_themes th
             JOIN catalogs tc ON tc.tenant_key = th.tenant_key AND tc.catalog_id = th.catalog_id
-            WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
+            WHERE th.tenant_key = :tenantKey
         """,
     ).bind("tenantKey", tenantKey).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.THEME, rs.getString("namespace"), rs.getString("catalog_key"), rs.getString("id"))

@@ -176,8 +176,11 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         assertThatThrownBy { runAsApiKey(tenantId) { themeTools.listThemes(null, null, catalogVersion = "next") } }
             .isInstanceOf(ValidationException::class.java)
             .hasMessageContaining("catalogId")
-        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = "1.0.0") } }
+        assertThatThrownBy { runAsApiKey(tenantId) { templateTools.listTemplates("default", null, catalogVersion = "1.0.0") } }
             .`as`("a draft has no number").isInstanceOf(ValidationException::class.java)
+        // A theme read reads a release by its number (ADR 0033): one the catalog does not have is not found.
+        assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = "1.0.0") } }
+            .isInstanceOf(CatalogReleaseNotFoundException::class.java)
         assertThatThrownBy { runAsApiKey(tenantId) { themeTools.getTheme("default", "brand", catalogVersion = UUID.randomUUID().toString()) } }
             .isInstanceOf(CatalogReleaseNotFoundException::class.java)
     }

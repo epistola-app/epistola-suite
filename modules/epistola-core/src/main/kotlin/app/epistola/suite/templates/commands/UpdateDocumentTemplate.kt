@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -131,11 +132,10 @@ class UpdateDocumentTemplateHandler(
                 val themeExists = handle.createQuery(
                     """
                     SELECT 1
-                    FROM themes
+                    FROM current_themes
                     WHERE tenant_key = :tenantId
-                      AND version_id = ${versionAt("tenantId", "themeCatalogKey")}
+                      AND catalog_id = ${catalogAt("tenantId", "themeCatalogKey")}
                       AND id = :themeId
-                    FOR KEY SHARE
                     """,
                 )
                     .bind("tenantId", command.id.tenantKey)

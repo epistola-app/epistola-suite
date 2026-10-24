@@ -59,6 +59,12 @@ internal val ResolvedCatalogRelease.tenantKey: TenantKey get() = catalog.tenantK
  */
 internal val ResolvedCatalogRelease.ref: CatalogReleaseRef? get() = if (isDraft) CatalogReleaseRef(catalog.catalogId, draftRef) else null
 
+/**
+ * The version a read of a resource type that reads releases through the draft queries means (ADR
+ * 0033): the draft, or the release by its number.
+ */
+internal val ResolvedCatalogRelease.readRef: CatalogReleaseRef get() = ref ?: CatalogReleaseRef(catalog.catalogId, app.epistola.suite.catalog.releases.DraftRef.Released(requireNotNull(version.version)))
+
 /** How a message names the draft this address names: `next`, or parallel work by its id. */
 internal val ResolvedCatalogRelease.draftRef: DraftRef get() = requireNotNull(version.draftRef) { "not a draft" }
 

@@ -10,6 +10,8 @@ import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.releases.VersionReads
+import app.epistola.suite.catalog.releases.VersionSelection
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -52,8 +54,8 @@ data class ResolvedStyles(
 @Service
 class ThemeStyleResolver(
     private val jdbi: Jdbi,
-    private val protocolMapper: ProtocolMapper,
     private val references: app.epistola.suite.catalog.CatalogReferences,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) {
     /**
      * Resolves document-level styles with the theme cascade (contract ADR 0007): the variant's own
@@ -127,54 +129,15 @@ class ThemeStyleResolver(
     }
 
     /**
-     * Gets a theme by ID for a tenant, optionally scoped to a catalog.
+     * The theme [themeId] of [catalog] in the version a read means: the release or draft
+     * [dependencies] say the template's version uses of that catalog, else its meant version. Read
+     * through `current_themes` ([ThemeReads]) whatever the version, so a release and a draft give the
+     * same theme for the same content (ADR 0033).
      */
     private fun getTheme(catalog: CatalogId, themeId: ThemeKey, dependencies: DraftDependencyView?): Theme? {
-        dependencies?.releaseOf(catalog)?.let { release -> return releasedTheme(release, themeId, dependencies) }
-        val draft = dependencies?.draftOf(catalog)
-        return jdbi.withHandle<Theme?, Exception> { handle -> getTheme(handle, catalog, themeId, draft?.versionId) }
-    }
-
-    /** [themeId] as the release [release] holds it, in the shape of a stored theme. */
-    private fun releasedTheme(release: DraftDependencyView.Source.Release, themeId: ThemeKey, dependencies: DraftDependencyView): Theme? {
-        val theme = dependencies.released(release.catalog, "theme", themeId.value) as? ThemeResource ?: return null
-        val at = EpistolaClock.offsetDateTime()
-        return Theme(
-            id = themeId,
-            tenantKey = release.catalog.tenantKey,
-            catalogKey = release.catalog.key,
-            name = theme.name,
-            description = theme.description,
-            documentStyles = protocolMapper.mapToDocumentStyles(theme.documentStyles),
-            pageSettings = theme.pageSettings,
-            blockStylePresets = protocolMapper.mapToBlockStylePresets(theme.blockStylePresets),
-            spacingUnit = theme.spacingUnit,
-            createdAt = at,
-            updatedAt = at,
-        )
-    }
-
-    private fun getTheme(handle: Handle, catalog: CatalogId, themeId: ThemeKey, versionId: UUID?): Theme? {
-        val query = when {
-            versionId != null -> handle.createQuery(
-                """
-                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                WHERE t.id = :id AND t.tenant_key = :tenantKey AND t.version_id = :versionId
-                """,
-            ).bind("versionId", versionId)
-
-            else -> handle.createQuery(
-                """
-                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                WHERE t.id = :id AND t.tenant_key = :tenantKey AND t.version_id = ${versionAt("tenantKey", "catalogKey")}
-                """,
-            ).bindCatalog("catalogKey", catalog)
-        }
-            .bind("id", themeId)
-            .bind("tenantKey", catalog.tenantKey)
-        return query.mapTo<Theme>()
-            .findOne()
-            .orElse(null)
+        val selection = dependencies?.releaseOf(catalog)?.let { VersionSelection.Release(it.catalog, it.version) }
+            ?: dependencies?.draftOf(catalog)?.let { VersionSelection.Draft(it.versionId) }
+        return jdbi.withHandle<Theme?, Exception> { handle -> VersionReads.at(handle, selection) { ThemeReads.get(it, objectMapper, catalog, themeId) } }
     }
 
     /**

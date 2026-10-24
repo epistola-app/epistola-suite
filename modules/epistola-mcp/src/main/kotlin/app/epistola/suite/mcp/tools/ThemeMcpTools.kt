@@ -19,8 +19,10 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mcp.dto.ThemeInfo
 import app.epistola.suite.mcp.dto.ThemeSummaryInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -65,14 +67,14 @@ class ThemeMcpTools(
             required = false,
         )
         search: String?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<ThemeSummaryInfo> = mediator.query(
         ListThemes(
             tenantId = mcpTenantId(),
             catalog = catalogFilter(catalogId),
             searchTerm = search,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
         ),
     ).map { ThemeSummaryInfo.from(it) }
 
@@ -87,11 +89,11 @@ class ThemeMcpTools(
         catalogId: String,
         @McpToolParam(description = "Theme key.")
         themeId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): ThemeInfo? {
         val id = ThemeId(ThemeKey.of(themeId), mcpCatalog(catalogId))
-        return mediator.query(GetTheme(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
+        return mediator.query(GetTheme(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { ThemeInfo.from(it) }
     }
 
     @McpTool(

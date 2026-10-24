@@ -9,7 +9,6 @@ import app.epistola.api.model.CreateThemeRequest
 import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
-import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
@@ -18,9 +17,8 @@ import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
@@ -58,14 +56,8 @@ class EpistolaThemeApi : ThemesApi {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        val items = if (at.isDraft) {
-            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.ref).query().map { it.toDto() }
-        } else {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            at.releasedResources<ThemeResource>("theme")
-                .filter { q.isNullOrBlank() || it.name.contains(q, ignoreCase = true) }
-                .map { it.toDto(at) }
-        }
+        // A draft or a release, read the same way (ADR 0033).
+        val items = ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.readRef).query().map { it.toDto() }
         val slice = Pagination.paginate(items, page, size)
         return ResponseEntity.ok(ThemeListResponse(items = slice.items, page = slice.page))
     }
@@ -103,10 +95,7 @@ class EpistolaThemeApi : ThemesApi {
     ): ResponseEntity<ThemeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = ThemeKey.of(themeKey)
-        if (!at.isDraft) {
-            return ResponseEntity.ok(at.releasedResource<ThemeResource>("theme", themeKey)?.toDto(at) ?: throw ThemeNotFoundException(key))
-        }
-        val theme = GetTheme(id = ThemeId(key, at.catalogId), catalogVersion = at.ref).query() ?: throw ThemeNotFoundException(key)
+        val theme = GetTheme(id = ThemeId(key, at.catalogId), catalogVersion = at.readRef).query() ?: throw ThemeNotFoundException(key)
         return okWithETag(theme.revision, theme.toDto())
     }
 
