@@ -78,8 +78,7 @@ data class CatalogBehindView(
          * release was made on one of them.
          */
         fun of(
-            tenantKey: TenantKey,
-            catalogKey: CatalogKey,
+            catalog: app.epistola.suite.common.ids.CatalogId,
             draftLabel: String,
             isNext: Boolean,
             behind: List<BehindRelease>,
@@ -97,7 +96,7 @@ data class CatalogBehindView(
                 val changed = changedWords(release.changes)
                 Row(
                     version = release.version,
-                    href = CatalogPages.release(tenantKey, catalogKey, release.version),
+                    href = CatalogPages.release(catalog, release.version),
                     madeOn = madeOn,
                     changed = changed,
                     publishedAt = release.releasedAt,

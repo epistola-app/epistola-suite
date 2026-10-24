@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -138,7 +139,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
             // these coordinates. Locking the namespace here would freeze a catalog that has never
             // published, and tell its author it had.
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "internal-forms").execute()
             assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
         }
     }
@@ -154,19 +155,19 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
             val queued = publication(tenant.id, catalogKey)
 
             // Queued, not yet sent: a repeat gets the same publication, still queued.
-            val again = PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+            val again = PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey), version = "1.0.0").execute()
             assertThat(again).isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_QUEUED))
 
             // Sent and being decided: still queued.
             worker.run()
             assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
-            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute().status).isEqualTo(ExchangePublicationOutcome.Status.ALREADY_QUEUED)
+            assertThat(PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute().status).isEqualTo(ExchangePublicationOutcome.Status.ALREADY_QUEUED)
 
             // Accepted: published already, and nothing is queued again.
             forceDue(queued.id)
             exchange.statusResponse = { FakeExchangeServer.Response(200, exchange.publicationBody(exchange.remotePublicationId, "ACCEPTED")) }
             worker.run()
-            assertThat(PublishCurrentCatalogRelease(tenant.id, catalogKey).execute())
+            assertThat(PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute())
                 .isEqualTo(ExchangePublicationOutcome(queued.id, "1.0.0", ExchangePublicationOutcome.Status.ALREADY_PUBLISHED))
             assertThat(state(tenant.id, catalogKey).publications).singleElement().extracting { it.status }.isEqualTo(CatalogPublicationStatus.ACCEPTED)
             assertThat(exchange.submittedNamespaces).hasSize(1)
@@ -214,7 +215,7 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
 
             // Not enrolled means no namespace, and no namespace means nothing was ever queued —
             // there is no work sitting in a queue that cannot move.
-            assertThat(GetCatalogPublicationState(tenant.id, catalogKey).query()?.publications).isEmpty()
+            assertThat(GetCatalogPublicationState(testCatalog(tenant.id, catalogKey)).query()?.publications).isEmpty()
             assertThat(exchange.submittedIdempotencyKeys).isEmpty()
         }
     }
@@ -230,17 +231,17 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Worker chooses ns", namespace = TestNamespaces.of(tenant.id).namespace).execute()
 
             // Nothing bound: publishing would have nowhere to go, and the form asks.
-            assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
+            assertThat(requireNotNull(GetCatalogPublicationState(testCatalog(tenant.id, catalogKey)).query()).needsNamespaceChoice)
                 .isTrue()
 
             // Picking one at the point of publishing is the whole setup — no visit to settings.
-            ChangeCatalogNamespace(tenant.id, catalogKey, "epistola").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "epistola").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("epistola")
             assertThat(exchange.submittedNamespaces).containsExactly("epistola")
-            assertThat(requireNotNull(GetCatalogPublicationState(tenant.id, catalogKey).query()).needsNamespaceChoice)
+            assertThat(requireNotNull(GetCatalogPublicationState(testCatalog(tenant.id, catalogKey)).query()).needsNamespaceChoice)
                 .isFalse()
         }
     }
@@ -318,11 +319,11 @@ class CatalogPublicationWorkerIntegrationTest : ExchangeIntegrationTestBase() {
      */
     private fun releaseWithPublication(tenant: Tenant, catalogKey: CatalogKey, namespace: String? = "public-services") {
         CreateCatalog(tenant.id, catalogKey, catalogKey.value, namespace = TestNamespaces.of(tenant.id).namespace).execute()
-        namespace?.let { ChangeCatalogNamespace(tenant.id, catalogKey, it).execute() }
-        ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+        namespace?.let { ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), it).execute() }
+        ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
     }
 
-    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())
 
     private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications.single()
 

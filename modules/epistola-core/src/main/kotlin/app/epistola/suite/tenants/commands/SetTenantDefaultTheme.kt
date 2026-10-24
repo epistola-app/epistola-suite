@@ -4,9 +4,11 @@
 
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -35,13 +37,18 @@ import org.springframework.transaction.annotation.Transactional
  */
 data class SetTenantDefaultTheme(
     val tenantId: TenantKey,
+    val catalog: CatalogId? = null,
     val themeId: ThemeKey?,
-    val catalogKey: CatalogKey? = null,
 ) : Command<Tenant>,
     TenantScoped,
     EntityIdentifiable,
     Routable,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission = Permission.TENANT_SETTINGS
     override val tenantKey: TenantKey get() = tenantId
     override val entityId: String get() = tenantId.value
@@ -67,7 +74,7 @@ class SetTenantDefaultThemeHandler(
                 .one()
         }
 
-        val catalogKey = checkNotNull(command.catalogKey) { "validated in init" }
+        val catalog = checkNotNull(command.catalog) { "validated in init" }
 
         val themeExists = handle.createQuery(
             """
@@ -77,7 +84,7 @@ class SetTenantDefaultThemeHandler(
         )
             .bind("themeId", command.themeId)
             .bind("tenantId", command.tenantId)
-            .bind("catalogKey", catalogKey)
+            .bindCatalog("catalogKey", catalog)
             .mapTo<Long>()
             .one() > 0
 
@@ -93,7 +100,7 @@ class SetTenantDefaultThemeHandler(
         )
             .bind("tenantId", command.tenantId)
             .bind("themeId", command.themeId)
-            .bind("catalogKey", catalogKey)
+            .bindCatalog("catalogKey", catalog)
             .mapTo<Tenant>()
             .one()
     }

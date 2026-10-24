@@ -18,6 +18,8 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.SimulatedConsumerFactory
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
@@ -64,7 +66,7 @@ abstract class CollectScenarioTestBase : IntegrationTestBase() {
         correlationId: String? = null,
     ): DocumentGenerationRequest = withMediator {
         GenerateDocument(
-            tenantId = setup.tenant.id,
+            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
             templateId = setup.template.id,
             variantId = setup.variant.id,
             environmentId = null,
@@ -72,7 +74,6 @@ abstract class CollectScenarioTestBase : IntegrationTestBase() {
             filename = filename,
             correlationId = correlationId,
             routingKey = routingKey,
-            catalogKey = CatalogKey.DEFAULT,
         ).execute()
     }
 }

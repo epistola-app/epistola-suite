@@ -264,6 +264,7 @@ data class CatalogReleaseReadiness(
         fun of(drafts: CatalogDraftBar): CatalogReleaseReadiness {
             val tenantKey = drafts.tenantKey
             val catalogKey = drafts.catalogKey
+            val catalog = drafts.catalog
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
             val draft = drafts.chosen
             return CatalogReleaseReadiness(
@@ -274,16 +275,16 @@ data class CatalogReleaseReadiness(
                 changes = if (draft == null) {
                     CatalogResourceChanges(catalogKey, drafts.releases.firstOrNull()?.version, resources = emptyList())
                 } else {
-                    GetCatalogResourceChanges(tenantKey, catalogKey, catalogVersion = drafts.ref).query()
+                    GetCatalogResourceChanges(catalog, catalogVersion = drafts.ref).query()
                 },
-                dependencies = if (draft == null) emptyList() else ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
+                dependencies = if (draft == null) emptyList() else ListCatalogDependencies(catalog, catalogVersion = drafts.ref).query(),
                 mayRelease = auth.has(Permission.CATALOG_RELEASE),
                 mayEditDraft = auth.has(Permission.TEMPLATE_EDIT),
                 mayMarkReady = auth.has(Permission.TEMPLATE_EDIT),
                 // The number this draft needs against its own base: a fix to an older line is numbered on that line.
-                numbering = draft?.draftRef?.let { AssessDraftNumber(tenantKey, catalogKey, it).query() },
-                borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(tenantKey, catalogKey, catalogVersion = drafts.ref).query(),
-                namespaceHolding = GetCatalogNamespaceHolding(tenantKey, catalogKey).query(),
+                numbering = draft?.draftRef?.let { AssessDraftNumber(catalog, it).query() },
+                borrowing = if (draft == null) CatalogBorrowing(emptyList(), emptyList()) else GetCatalogBorrowing(catalog, catalogVersion = drafts.ref).query(),
+                namespaceHolding = GetCatalogNamespaceHolding(catalog).query(),
             )
         }
     }

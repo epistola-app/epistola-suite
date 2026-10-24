@@ -44,7 +44,9 @@ fun currentTemplateJoin(alias: String): String = "JOIN document_templates templa
 const val TEMPLATE_ADDRESS_COLUMNS: String =
     "(SELECT template_catalog.catalog_key FROM catalogs template_catalog" +
         " WHERE template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id)" +
-        " AS catalog_key, template.id AS template_key"
+        " AS catalog_key, (SELECT template_catalog.namespace FROM catalogs template_catalog" +
+        " WHERE template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id)" +
+        " AS catalog_namespace, template.id AS template_key"
 
 /**
  * The address columns for a query already filtered to the template at `(:catalogKey, :templateKey)`.

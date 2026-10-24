@@ -4,10 +4,10 @@
 
 package app.epistola.suite.catalog.namespaces
 
-import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
+import app.epistola.suite.catalog.queries.FindCatalogsByKey
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -20,8 +20,6 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.documents.queries.PreviewDocument
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -33,17 +31,15 @@ import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestTenantCounter
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.withRequiredDataExample
-import app.epistola.suite.validation.ValidationCode
-import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.node.JsonNodeFactory
 
 /**
- * ADR 0034, phase 4: within a tenant a catalog is unique by namespace and key, so two catalogs called
- * `letters`, from two namespaces, live side by side. Work names the namespace it means
- * ([CatalogNames]); a key that names both is refused rather than taken to mean either.
+ * ADR 0034, section 9: within a tenant a catalog is unique by namespace and key, and named by both
+ * ([CatalogId]), so two catalogs called `letters`, from two namespaces, live side by side, with no
+ * switch to turn on. A key alone names a catalog only while one has it ([FindCatalogsByKey]).
  */
 class SideBySideCatalogsTest : IntegrationTestBase() {
 
@@ -54,22 +50,21 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
 
     private fun tenant(name: String, vararg namespaces: NamespaceName): TenantKey = withMediator {
         CreateTenant(TenantKey.of("sidebyside-${TestTenantCounter.next("sidebyside")}"), name, namespaces.toList()).execute().id
-            .also { SaveFeatureToggle(it, KnownFeatures.SHARED_CATALOG_KEYS, true).execute() }
     }
+
+    private fun letters(tenant: TenantKey, namespace: String) = CatalogId(namespace, letters, TenantId(tenant))
 
     /** `letters` in [namespace] of [tenant], with an invoice titled [title], released as 1.0.0. */
     private fun authored(tenant: TenantKey, namespace: String, title: String) = withMediator {
         CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-        CatalogNames.within(letters, namespace) {
-            val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, CatalogId(letters, TenantId(tenant))))
-            CreateDocumentTemplate(variant.templateId, title).execute().withRequiredDataExample()
-            UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = title)).execute()
-            mediator.publishAndRelease(variant)
-        }
+        val variant = VariantId(VariantKey.INITIAL, TemplateId(invoice, letters(tenant, namespace)))
+        CreateDocumentTemplate(variant.templateId, title).execute().withRequiredDataExample()
+        UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = title)).execute()
+        mediator.publishAndRelease(variant)
     }
 
     @Test
-    fun `two letters live side by side, each created, edited, released and rendered in its namespace`() {
+    fun `two letters live side by side, each created, edited, released and rendered at its address`() {
         val tenant = tenant("Side by side", acme, bureau)
         assertThat(authored(tenant, "acme", "Acme invoice")).isEqualTo("1.0.0")
         assertThat(authored(tenant, "bureau", "Bureau invoice")).isEqualTo("1.0.0")
@@ -77,33 +72,30 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
         withMediator {
             assertThat(ListCatalogs(tenant).query().filter { it.id == letters }.map { it.namespace }).containsExactlyInAnyOrder("acme", "bureau")
             for ((namespace, title) in listOf("acme" to "Acme invoice", "bureau" to "Bureau invoice")) {
-                CatalogNames.within(letters, namespace) {
-                    assertThat(GetCatalog(tenant, letters).query()!!.namespace).isEqualTo(namespace)
-                    assertThat(GetDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(tenant)))).query()!!.name).isEqualTo(title)
-                    assertThat(ListCatalogReleaseSummaries(tenant, letters).query().map { it.version }).containsExactly("1.0.0")
-                    val pdf = PreviewDocument(tenant, letters, invoice, JsonNodeFactory.instance.objectNode(), releaseVersion = "1.0.0").query()
-                    assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
-                }
+                val catalog = letters(tenant, namespace)
+                assertThat(GetCatalog(catalog).query()!!.namespace).isEqualTo(namespace)
+                assertThat(GetDocumentTemplate(TemplateId(invoice, catalog)).query()!!.name).isEqualTo(title)
+                assertThat(ListCatalogReleaseSummaries(catalog).query().map { it.version }).containsExactly("1.0.0")
+                val pdf = PreviewDocument(catalog, invoice, JsonNodeFactory.instance.objectNode(), releaseVersion = "1.0.0").query()
+                assertThat(String(pdf.copyOfRange(0, 4))).isEqualTo("%PDF")
             }
         }
     }
 
     @Test
-    fun `a key that names both is refused, saying which`() {
-        val tenant = tenant("Side by side ambiguous", acme, bureau)
+    fun `an address names one catalog, and a key alone none while two have it`() {
+        val tenant = tenant("Side by side addresses", acme, bureau)
         withMediator {
             CreateCatalog(tenant, letters, "Acme letters", namespace = "acme").execute()
+            assertThat(FindCatalogsByKey(tenant, letters).query().only).isEqualTo(letters(tenant, "acme"))
             CreateCatalog(tenant, letters, "Bureau letters", namespace = "bureau").execute()
 
-            assertThatThrownBy { GetCatalog(tenant, letters).query() }
-                .isInstanceOfSatisfying(ValidationException::class.java) {
-                    assertThat(it.code).isEqualTo(ValidationCode.CATALOG_KEY_AMBIGUOUS)
-                    assertThat(it.message).isEqualTo("The catalog key letters names several catalogs of this tenant (acme/letters, bureau/letters): name its namespace.")
-                }
-            assertThatThrownBy { CreateDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(tenant))), "Which?").execute() }
-                .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.CATALOG_KEY_AMBIGUOUS) }
-            // A namespace that holds no catalog with the key names none: an answer of none is not asked again without the names.
-            assertThat(CatalogNames.within(letters, "elsewhere") { GetCatalog(tenant, letters).query() }).isNull()
+            assertThat(GetCatalog(letters(tenant, "acme")).query()!!.name).isEqualTo("Acme letters")
+            assertThat(GetCatalog(letters(tenant, "bureau")).query()!!.name).isEqualTo("Bureau letters")
+            assertThat(FindCatalogsByKey(tenant, letters).query().catalogs).containsExactly(letters(tenant, "acme"), letters(tenant, "bureau"))
+            assertThat(FindCatalogsByKey(tenant, letters).query().only).isNull()
+            // A namespace that holds no catalog with the key names none.
+            assertThat(GetCatalog(letters(tenant, "elsewhere")).query()).isNull()
             // The same namespace twice is still one catalog.
             assertThatThrownBy { CreateCatalog(tenant, letters, "Again", namespace = "acme").execute() }.hasMessageContaining("letters")
         }
@@ -117,35 +109,12 @@ class SideBySideCatalogsTest : IntegrationTestBase() {
         authored(receiver, "bureau", "Bureau invoice")
 
         withMediator {
-            val archive = CatalogNames.within(letters, "acme") { ExportCatalogZip(author, letters, "1.0.0").execute().zipBytes }
+            val archive = ExportCatalogZip(letters(author, "acme"), "1.0.0").execute().zipBytes
             ImportCatalogZip(receiver, archive).execute()
 
             assertThat(ListCatalogs(receiver).query().filter { it.id == letters }.map { it.namespace }).containsExactlyInAnyOrder("acme", "bureau")
-            CatalogNames.within(letters, "acme") {
-                assertThat(GetDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(receiver)))).query()!!.name).isEqualTo("Acme invoice")
-            }
-            CatalogNames.within(letters, "bureau") {
-                assertThat(GetDocumentTemplate(TemplateId(invoice, CatalogId(letters, TenantId(receiver)))).query()!!.name).isEqualTo("Bureau invoice")
-            }
-        }
-    }
-
-    @Test
-    fun `without shared catalog keys a second letters is refused, made here or received`() {
-        val author = tenant("Side by side unshared author", acme)
-        authored(author, "acme", "Acme invoice")
-        val receiver = withMediator {
-            CreateTenant(TenantKey.of("unshared-${TestTenantCounter.next("unshared")}"), "Side by side unshared", listOf(acme, bureau)).execute().id
-        }
-
-        withMediator {
-            CreateCatalog(receiver, letters, "Bureau letters", namespace = "bureau").execute()
-            assertThatThrownBy { CreateCatalog(receiver, letters, "Acme letters", namespace = "acme").execute() }.hasMessageContaining("letters")
-
-            val archive = CatalogNames.within(letters, "acme") { ExportCatalogZip(author, letters, "1.0.0").execute().zipBytes }
-            assertThatThrownBy { ImportCatalogZip(receiver, archive).execute() }
-                .hasStackTraceContaining("This tenant already has a catalog with the key letters (bureau/letters).")
-            assertThat(ListCatalogs(receiver).query().filter { it.id == letters }.map { it.namespace }).containsExactly("bureau")
+            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "acme"))).query()!!.name).isEqualTo("Acme invoice")
+            assertThat(GetDocumentTemplate(TemplateId(invoice, letters(receiver, "bureau"))).query()!!.name).isEqualTo("Bureau invoice")
         }
     }
 }

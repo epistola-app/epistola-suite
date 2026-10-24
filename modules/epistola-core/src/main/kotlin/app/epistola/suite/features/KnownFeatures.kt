@@ -60,17 +60,6 @@ object KnownFeatures {
      */
     val EDITOR_WALKTHROUGH = FeatureKey.of("editor-walkthrough")
 
-    /**
-     * Two catalogs of a tenant with one key, in different namespaces (`acme/letters` beside
-     * `bureau/letters`, ADR 0034). Off, a second catalog with a key the tenant already uses is
-     * refused. Some reads across a tenant still tell catalogs apart by key alone (`progress.md`), so
-     * it stays off until the catalog identifier work after 2.0 (#1125).
-     *
-     * The database enforces it (`epistola_catalog_key_unshared`), from the tenant's override alone,
-     * so it has no global default in [FeatureDefaults]: it is on only where a tenant switches it on.
-     */
-    val SHARED_CATALOG_KEYS = FeatureKey.of("shared-catalog-keys")
-
     val all: List<FeatureKey> = listOf(
         SUPPORT_FEEDBACK,
         SUPPORT_COMPATIBILITY_CHECK,
@@ -81,7 +70,6 @@ object KnownFeatures {
         RESOURCE_RELOCATION,
         CATALOG_PUBLISHING,
         CATALOG_INSTALLING,
-        SHARED_CATALOG_KEYS,
     )
 
     /**
@@ -121,12 +109,6 @@ object KnownFeatures {
     )
 
     val metadata: Map<FeatureKey, FeatureMetadata> = mapOf(
-        SHARED_CATALOG_KEYS to FeatureMetadata(
-            "Catalogs sharing a key",
-            "Allows two catalogs with the same key in different namespaces, such as letters from two " +
-                "suppliers. Tenant snapshots, background checks and some pages do not tell them apart yet.",
-            stage = FeatureStage.ALPHA,
-        ),
         SUPPORT_FEEDBACK to FeatureMetadata(
             "Feedback",
             "Enables the Support → Feedback feature (sync to epistola-hub).",

@@ -19,6 +19,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -181,7 +183,7 @@ class AttributeValidationCodeListTest : IntegrationTestBase() {
         val sharedCatalogKey = app.epistola.suite.common.ids.CatalogKey.of("shared")
         val codeListId = CodeListId(
             CodeListKey.of("regions"),
-            CatalogId(sharedCatalogKey, tenantId),
+            testCatalog(tenantId, sharedCatalogKey),
         )
 
         withMediator {

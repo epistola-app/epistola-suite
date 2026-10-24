@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -33,6 +34,8 @@ data class EditorContext(
     val templateName: String,
     val templateThemeKey: ThemeKey?,
     val templateThemeCatalogKey: CatalogKey?,
+    /** The catalog of [templateThemeKey], by its address (ADR 0034, section 9). */
+    val templateThemeCatalog: app.epistola.suite.common.ids.CatalogId? = null,
     val variantAttributes: Map<String, String>,
     /**
      * The variant's document with its stencil instances expanded from the stencils' working copies
@@ -74,6 +77,7 @@ class GetEditorContextHandler(
                 dt.name as template_name,
                 th.id AS theme_key,
                 th_cat.catalog_key AS theme_catalog_key,
+                th_cat.namespace AS theme_catalog_namespace,
                 dt.data_model,
                 dt.data_examples,
                 tv.attributes as variant_attributes,
@@ -92,7 +96,7 @@ class GetEditorContextHandler(
         )
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
-            .bind("catalogKey", query.variantId.catalogKey)
+            .bindCatalog("catalogKey", query.variantId.catalogId)
             .bind("variantId", query.variantId.key)
             .mapToMap()
             .findOne()
@@ -142,9 +146,12 @@ class GetEditorContextHandler(
             templateName = row["template_name"] as String,
             templateThemeKey = (row["theme_key"] as String?)?.let(ThemeKey::of),
             templateThemeCatalogKey = (row["theme_catalog_key"] as String?)?.let(CatalogKey::of),
+            templateThemeCatalog = (row["theme_catalog_key"] as String?)?.let { key ->
+                app.epistola.suite.common.ids.CatalogId(row["theme_catalog_namespace"] as String, CatalogKey.of(key), query.variantId.tenantId)
+            },
             variantAttributes = variantAttributes,
             variantRevision = (row["variant_revision"] as Number).toLong(),
-            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.tenantKey, query.variantId.catalogKey, templateModel, dependencyViews.of(query.variantId.tenantKey, query.variantId.catalogKey)),
+            templateModel = stencilResolvers.expandWithWorkingCopies(query.variantId.catalogId, templateModel, dependencyViews.of(query.variantId.catalogId)),
             dataExamples = dataExamples,
             dataModel = row["data_model"]?.let { raw ->
                 val json = raw.toString()

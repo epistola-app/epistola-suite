@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -61,8 +62,7 @@ import java.io.ByteArrayOutputStream
  *   of the catalog that kept its content is. With neither, the highest candidate is rendered.
  */
 data class PreviewDocument(
-    val tenantId: TenantKey,
-    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val data: ObjectNode,
     val variantId: VariantKey? = null,
@@ -79,6 +79,8 @@ data class PreviewDocument(
 ) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 
@@ -108,21 +110,20 @@ class PreviewDocumentHandler(
     override fun handle(query: PreviewDocument): ByteArray {
         if (query.workingCopy) return previewWorkingCopy(query)
         // Through an environment that follows a draft, the preview is that draft, as generation renders it.
-        val selection = query.environmentId?.let { targetResolver.select(query.tenantId, query.catalogKey, it, query.releaseVersion) }
+        val selection = query.environmentId?.let { targetResolver.select(query.catalog, it, query.releaseVersion) }
         if (selection is CatalogSelection.Draft) return previewDraft(query, selection)
         return previewRelease(query)
     }
 
     private fun previewDraft(query: PreviewDocument, selection: CatalogSelection.Draft): ByteArray {
-        val target = targetResolver.resolveIn(query.tenantId, query.catalogKey, selection, query.templateId, query.variantId, query.variantSelectionCriteria)
+        val target = targetResolver.resolveIn(query.catalog, selection, query.templateId, query.variantId, query.variantSelectionCriteria)
         return mediator.query(
             PreviewVariant(
-                tenantId = query.tenantId,
-                catalogKey = query.catalogKey,
+                catalog = query.catalog,
                 templateId = query.templateId,
                 variantId = target.variantKey,
                 data = query.data,
-                catalogVersion = CatalogReleaseRef(query.tenantId, query.catalogKey, DraftRef.Id(selection.source.draftId)),
+                catalogVersion = CatalogReleaseRef(query.catalog, DraftRef.Id(selection.source.draftId)),
             ),
         )
     }
@@ -133,8 +134,7 @@ class PreviewDocumentHandler(
      */
     private fun previewRelease(query: PreviewDocument): ByteArray {
         val preview = releasePreview.resolve(
-            query.tenantId,
-            query.catalogKey,
+            query.catalog,
             query.templateId,
             query.data,
             query.variantId,
@@ -164,15 +164,14 @@ class PreviewDocumentHandler(
 
     /** Each variant's draft with live resources: the editor's view, reachable from the API. */
     private fun previewWorkingCopy(query: PreviewDocument): ByteArray {
-        val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantId)))
+        val templateId = TemplateId(query.templateId, query.catalog)
         val variant = query.variantId
             ?: query.variantSelectionCriteria?.let { variantResolver.resolve(templateId, it) }
             ?: mediator.query(GetVariantSummaries(templateId)).firstOrNull { it.isDefault }?.id
             ?: throw DefaultVariantNotFoundException(query.tenantId, query.templateId)
         return mediator.query(
             PreviewVariant(
-                tenantId = query.tenantId,
-                catalogKey = query.catalogKey,
+                catalog = query.catalog,
                 templateId = query.templateId,
                 variantId = variant,
                 data = query.data,

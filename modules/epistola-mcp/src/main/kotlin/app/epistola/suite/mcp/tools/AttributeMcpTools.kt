@@ -15,7 +15,7 @@ import app.epistola.suite.mcp.dto.AttributeInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import org.springframework.ai.mcp.annotation.McpTool
@@ -48,11 +48,11 @@ class AttributeMcpTools(
         catalogVersion: String? = null,
     ): List<AttributeInfo> {
         val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalogKey(it) }
-        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalogKey = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
+        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
             .let { definitions ->
                 val editability = catalogEditability()
-                definitions.map { AttributeInfo.from(it, editability.editable(it.catalogKey)) }
+                definitions.map { AttributeInfo.from(it, editability.editable(it.catalogId)) }
             }
     }
 
@@ -71,7 +71,7 @@ class AttributeMcpTools(
         catalogVersion: String? = null,
     ): AttributeInfo? {
         val tenantId = TenantId(mcpTenantKey())
-        val id = AttributeId(AttributeKey.of(attributeKey), CatalogId(mcpCatalogKey(catalogId), tenantId))
-        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogKey)) }
+        val id = AttributeId(AttributeKey.of(attributeKey), mcpCatalog(catalogId))
+        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
     }
 }

@@ -40,7 +40,7 @@ class CatalogDraftBarVersionsTest {
     private fun bar(
         drafts: List<CatalogRelease>,
         releases: List<CatalogRelease>,
-        segment: CatalogSegment = CatalogSegment(letters),
+        segment: CatalogSegment = CatalogSegment(letters, namespace = "acme"),
         mayEdit: Boolean = true,
     ) = CatalogDraftBar(
         tenantKey = TenantKey.of("acme"),
@@ -71,10 +71,10 @@ class CatalogDraftBarVersionsTest {
         )
         assertThat(rows.map { it.version }).`as`("a draft has no number").containsExactly(null, null, "1.2.0", "1.1.0")
         assertThat(rows.map { it.href }).containsExactly(
-            "/tenants/acme/catalogs/letters/draft",
-            "/tenants/acme/catalogs/letters@$redesignId/draft",
-            "/tenants/acme/catalogs/letters/releases/1.2.0",
-            "/tenants/acme/catalogs/letters/releases/1.1.0",
+            "/tenants/acme/catalogs/acme/letters/draft",
+            "/tenants/acme/catalogs/acme/letters@$redesignId/draft",
+            "/tenants/acme/catalogs/acme/letters/releases/1.2.0",
+            "/tenants/acme/catalogs/acme/letters/releases/1.1.0",
         )
         assertThat(rows[2].liveIn).containsExactly("production")
     }
@@ -98,9 +98,9 @@ class CatalogDraftBarVersionsTest {
         assertThat(onNext.isNext).isTrue()
         assertThat(onNext.onParallelWork).isFalse()
         assertThat(onNext.offerRelease).isTrue()
-        assertThat(onNext.parallelWork.map { it.label to it.href }).containsExactly("Redesign" to "/tenants/acme/catalogs/letters@$redesignId/draft")
+        assertThat(onNext.parallelWork.map { it.label to it.href }).containsExactly("Redesign" to "/tenants/acme/catalogs/acme/letters@$redesignId/draft")
 
-        val onWork = bar(drafts, listOf(release("1.2.0")), CatalogSegment(letters, redesignId))
+        val onWork = bar(drafts, listOf(release("1.2.0")), CatalogSegment(letters, redesignId, "acme"))
         assertThat(onWork.draftTitle).isEqualTo("Redesign")
         assertThat(onWork.onParallelWork).isTrue()
         assertThat(onWork.offerRelease).`as`("parallel work is not published").isFalse()
@@ -129,9 +129,9 @@ class CatalogDraftBarVersionsTest {
         assertThat(manager.versionRows.all { it.offerRemove }).isTrue()
         assertThat(manager.removalWithheld).isFalse()
         assertThat(manager.versionRows.map { it.removeAction }).containsExactly(
-            "/tenants/acme/catalogs/letters/drafts/discard",
-            "/tenants/acme/catalogs/letters@$redesignId/drafts/discard",
-            "/tenants/acme/catalogs/letters/releases/1.2.0/delete",
+            "/tenants/acme/catalogs/acme/letters/drafts/discard",
+            "/tenants/acme/catalogs/acme/letters@$redesignId/drafts/discard",
+            "/tenants/acme/catalogs/acme/letters/releases/1.2.0/delete",
         )
     }
 

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -105,7 +106,7 @@ class RecordManualFindingHandler(
                 .bind("subjectUrn", command.subject.urn)
                 .bind("subjectType", command.subject.type.name)
                 .bind("ignoreScopeUrn", command.subject.ignoreScopeUrn)
-                .bind("catalogKey", command.subject.catalogKey)
+                .bindCatalog("catalogKey", command.subject.catalogId)
                 .bind("templateKey", command.subject.templateKey)
                 .bind("variantKey", command.subject.variantKey)
                 .bind("versionKey", command.subject.versionKey)

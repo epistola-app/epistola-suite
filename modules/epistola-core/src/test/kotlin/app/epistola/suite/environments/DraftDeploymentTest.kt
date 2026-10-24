@@ -62,6 +62,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -128,7 +129,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
     /** A letter released as 1.0.0 and 1.0.1 (both requiring `name`), served by `test` and `production`. */
     private fun setup(name: String): Setup = withMediator {
         val tenant = createTenant(name).id
-        val templateId = TemplateId(app.epistola.suite.templates.commands.CreateDocumentTemplate(TemplateId(app.epistola.suite.common.ids.TemplateKey.of("letter"), CatalogId(default, TenantId(tenant))), "Letter").execute().id, CatalogId(default, TenantId(tenant)))
+        val templateId = TemplateId(app.epistola.suite.templates.commands.CreateDocumentTemplate(TemplateId(app.epistola.suite.common.ids.TemplateKey.of("letter"), testCatalog(TenantId(tenant), default)), "Letter").execute().id, testCatalog(TenantId(tenant), default))
         val variant = VariantId(app.epistola.suite.common.ids.VariantKey.of("standard"), templateId)
         CreateVariant(id = variant, title = "Standard", description = null, attributes = emptyMap()).execute()
         UpdateDataContract(templateId, dataModel = contract("name"), dataExamples = listOf(DataExample("e", "E", data("name")))).execute()
@@ -138,29 +139,28 @@ class DraftDeploymentTest : IntegrationTestBase() {
         mediator.publishAndRelease(variant)
         for (key in listOf(test, production)) {
             CreateEnvironment(EnvironmentId(key, TenantId(tenant)), key.value, production = key == production).execute()
-            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.0").execute()
-            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), default, "1.0.1").execute()
+            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), testCatalog(EnvironmentId(key, TenantId(tenant)).tenantKey, default), "1.0.0").execute()
+            DeployCatalogRelease(EnvironmentId(key, TenantId(tenant)), testCatalog(EnvironmentId(key, TenantId(tenant)).tenantKey, default), "1.0.1").execute()
         }
         Setup(tenant, variant)
     }
 
     private fun env(setup: Setup, key: EnvironmentKey) = EnvironmentId(key, TenantId(setup.tenant))
 
-    private fun nextVersion(setup: Setup): String = withMediator { GetCatalogDraft(setup.tenant, default).query()!!.versionId }
+    private fun nextVersion(setup: Setup): String = withMediator { GetCatalogDraft(testCatalog(setup.tenant, default)).query()!!.versionId }
 
     /** Deploys draft [draftId] (the next version by default) to [environment]. */
-    private fun deployDraft(setup: Setup, environment: EnvironmentKey, draftId: String = nextVersion(setup)) = withMediator { DeployCatalogRelease(env(setup, environment), default, draftId).execute() }
+    private fun deployDraft(setup: Setup, environment: EnvironmentKey, draftId: String = nextVersion(setup)) = withMediator { DeployCatalogRelease(env(setup, environment), testCatalog(env(setup, environment).tenantKey, default), draftId).execute() }
 
     private fun generate(setup: Setup, environment: EnvironmentKey?, selector: String? = null, field: String = "name"): DocumentGenerationRequest = withMediator {
         GenerateDocument(
-            tenantId = setup.tenant,
+            catalog = testCatalog(setup.tenant, CatalogKey.DEFAULT),
             templateId = setup.variant.templateId.key,
             variantId = setup.variant.key,
             environmentId = environment,
             releaseVersion = selector,
             data = data(field),
             filename = null,
-            catalogKey = CatalogKey.DEFAULT,
         ).execute()
     }
 
@@ -170,7 +170,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat(generate(setup, production).releaseVersion).`as`("the highest it serves").isEqualTo("1.0.1")
         assertThat(generate(setup, production, "1.0.0").releaseVersion).`as`("an exact release").isEqualTo("1.0.0")
 
-        withMediator { UndeployCatalogRelease(env(setup, production), default, "1.0.1").execute() }
+        withMediator { UndeployCatalogRelease(env(setup, production), testCatalog(env(setup, production).tenantKey, default), "1.0.1").execute() }
 
         assertThat(generate(setup, production).releaseVersion).isEqualTo("1.0.0")
         assertThat(generate(setup, production, "^1.0.0").releaseVersion).isEqualTo("1.0.0")
@@ -180,21 +180,21 @@ class DraftDeploymentTest : IntegrationTestBase() {
     @Test
     fun `a draft is deployed by its id, at most one per catalog, and another replaces it in the history`() {
         val setup = setup("deploy-draft-replace")
-        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
+        val work = withMediator { CreateCatalogDraft(testCatalog(setup.tenant, default), name = "Redesign").execute() }
         deployDraft(setup, test)
 
         val replaced = deployDraft(setup, test, work.versionId)
 
         assertThat(replaced.isDraft).isTrue()
         assertThat(replaced.draftName).isEqualTo("Redesign")
-        assertThat(withMediator { ListDeployments(setup.tenant, default, test).query() }.map { it.version ?: it.draftName })
+        assertThat(withMediator { ListDeployments(setup.tenant, testCatalog(setup.tenant, default), test).query() }.map { it.version ?: it.draftName })
             .`as`("the draft first, then the releases").containsExactly("Redesign", "1.0.1", "1.0.0")
         assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.take(3).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
             Triple(DeploymentAction.DEPLOYED, null, "Redesign"),
             Triple(DeploymentAction.UNDEPLOYED, null, "Next release"),
             Triple(DeploymentAction.DEPLOYED, null, "Next release"),
         )
-        assertThat(withMediator { UndeployCatalogRelease(env(setup, test), default, work.versionId).execute() }).isTrue()
+        assertThat(withMediator { UndeployCatalogRelease(env(setup, test), testCatalog(env(setup, test).tenantKey, default), work.versionId).execute() }).isTrue()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
     }
 
@@ -225,7 +225,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat(withMediator { GetGenerationJob(setup.tenant, stale.id).query()!! }.request.errorMessage).contains("reference")
 
         val preview = withMediator {
-            PreviewDocument(setup.tenant, default, setup.variant.templateId.key, data("reference"), variantId = setup.variant.key, environmentId = test).query()
+            PreviewDocument(testCatalog(setup.tenant, default), setup.variant.templateId.key, data("reference"), variantId = setup.variant.key, environmentId = test).query()
         }
         assertThat(String(preview, 0, 5)).`as`("previewing through the environment renders the draft").isEqualTo("%PDF-")
     }
@@ -238,7 +238,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         val batch = withMediator {
             GenerateDocumentBatch(
                 setup.tenant,
-                listOf(BatchGenerationItem(templateId = setup.variant.templateId.key, variantId = setup.variant.key, data = data("name"), filename = null, environmentId = test, catalogKey = CatalogKey.DEFAULT)),
+                listOf(BatchGenerationItem(templateId = setup.variant.templateId.key, variantId = setup.variant.key, data = data("name"), filename = null, environmentId = test, catalog = setup.variant.templateId.catalogId)),
             ).execute()
         }
 
@@ -264,13 +264,13 @@ class DraftDeploymentTest : IntegrationTestBase() {
     @Test
     fun `discarding a deployed draft undeploys it, recorded in the history`() {
         val setup = setup("override-discard")
-        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
+        val work = withMediator { CreateCatalogDraft(testCatalog(setup.tenant, default), name = "Redesign").execute() }
         deployDraft(setup, test, work.versionId)
         assertThat(generate(setup, test).draftLabel).isEqualTo("Redesign")
 
-        withMediator { DeleteCatalogDraft(setup.tenant, default, DraftRef.Id(work.versionId)).execute() }
+        withMediator { DeleteCatalogDraft(testCatalog(setup.tenant, default), DraftRef.Id(work.versionId)).execute() }
 
-        assertThat(withMediator { ListDeployments(setup.tenant, default, test).query() }.none { it.isDraft }).isTrue()
+        assertThat(withMediator { ListDeployments(setup.tenant, testCatalog(setup.tenant, default), test).query() }.none { it.isDraft }).isTrue()
         assertThat(generate(setup, test).releaseVersion).isEqualTo("1.0.1")
         assertThat(withMediator { ListDeploymentHistory(env(setup, test)).query() }.take(2).map { Triple(it.action, it.version, it.draftLabel) }).containsExactly(
             Triple(DeploymentAction.UNDEPLOYED, null, "Redesign"),
@@ -282,15 +282,15 @@ class DraftDeploymentTest : IntegrationTestBase() {
     fun `a deployment names a draft by its id, so another draft taking over the next version does not move it`() {
         val setup = setup("override-promote")
         val next = deployDraft(setup, test)
-        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
+        val work = withMediator { CreateCatalogDraft(testCatalog(setup.tenant, default), name = "Redesign").execute() }
 
         withMediator {
-            val at = CatalogReleaseRef(setup.tenant, default, DraftRef.Id(work.versionId))
-            MarkCatalogReady(setup.tenant, default, catalogVersion = at).execute()
-            ReleaseCatalogDraft(setup.tenant, default, catalogVersion = at, continueEverydayWork = ContinueEverydayWork(keepPreviousAs = "Old next")).execute()
+            val at = CatalogReleaseRef(testCatalog(setup.tenant, default), DraftRef.Id(work.versionId))
+            MarkCatalogReady(testCatalog(setup.tenant, default), catalogVersion = at).execute()
+            ReleaseCatalogDraft(testCatalog(setup.tenant, default), catalogVersion = at, continueEverydayWork = ContinueEverydayWork(keepPreviousAs = "Old next")).execute()
         }
 
-        val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.single { it.isDraft }
+        val deployed = withMediator { ListDeployments(setup.tenant, testCatalog(setup.tenant, default), test).query() }.single { it.isDraft }
         assertThat(deployed.versionId).isEqualTo(next.versionId)
         assertThat(deployed.draftName).isEqualTo("Old next")
     }
@@ -305,7 +305,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         assertThat((withMediator { GetEnvironmentLatest(setup.tenant, test).query().mapKeys { it.key.key } }.getValue(default) as CatalogSelection.Draft).source.label)
             .isEqualTo("Next release")
 
-        withMediator { UndeployCatalogRelease(env(setup, test), default, nextVersion(setup)).execute() }
+        withMediator { UndeployCatalogRelease(env(setup, test), testCatalog(env(setup, test).tenantKey, default), nextVersion(setup)).execute() }
         assertThat(withMediator { GetEnvironmentLatest(setup.tenant, test).query().mapKeys { it.key.key } })
             .isEqualTo(mapOf(default to CatalogSelection.Release("1.0.1")))
     }
@@ -316,7 +316,7 @@ class DraftDeploymentTest : IntegrationTestBase() {
         deployDraft(setup, test)
         withMediator { UpdateDataContract(setup.variant.templateId, dataModel = contract("reference"), dataExamples = listOf(DataExample("e", "E", data("reference"))), forceUpdate = true).execute() }
         fun analyze(environment: EnvironmentKey) = withMediator {
-            AnalyzeTemplateData(setup.tenant, default, setup.variant.templateId.key, data("name"), variantId = setup.variant.key, environmentId = environment).query()
+            AnalyzeTemplateData(testCatalog(setup.tenant, default), setup.variant.templateId.key, data("name"), variantId = setup.variant.key, environmentId = environment).query()
         }
 
         assertThat(analyze(production).valid).`as`("production's release asks for name").isTrue()
@@ -326,17 +326,17 @@ class DraftDeploymentTest : IntegrationTestBase() {
     @Test
     fun `releasing a deployed draft keeps the deployment, as the release that keeps its id, logged as released`() {
         val setup = setup("deploy-released")
-        val work = withMediator { CreateCatalogDraft(setup.tenant, default, name = "Redesign").execute() }
-        val ref = CatalogReleaseRef(setup.tenant, default, DraftRef.Id(work.versionId))
+        val work = withMediator { CreateCatalogDraft(testCatalog(setup.tenant, default), name = "Redesign").execute() }
+        val ref = CatalogReleaseRef(testCatalog(setup.tenant, default), DraftRef.Id(work.versionId))
         withMediator {
             app.epistola.suite.templates.commands.variants.UpdateVariantContent(setup.variant, TestTemplateBuilder.buildMinimal(name = "Letter 3"), catalogVersion = ref).execute()
-            MarkCatalogReady(setup.tenant, default, catalogVersion = ref).execute()
+            MarkCatalogReady(testCatalog(setup.tenant, default), catalogVersion = ref).execute()
         }
         deployDraft(setup, test, work.versionId)
 
-        val released = withMediator { ReleaseCatalogDraft(setup.tenant, default, catalogVersion = ref).execute() }
+        val released = withMediator { ReleaseCatalogDraft(testCatalog(setup.tenant, default), catalogVersion = ref).execute() }
 
-        val deployed = withMediator { ListDeployments(setup.tenant, default, test).query() }.first()
+        val deployed = withMediator { ListDeployments(setup.tenant, testCatalog(setup.tenant, default), test).query() }.first()
         assertThat(deployed.isDraft).isFalse()
         assertThat(deployed.version).isEqualTo(released.version)
         assertThat(deployed.versionId).`as`("the release keeps the draft's id").isEqualTo(work.versionId)
@@ -349,12 +349,12 @@ class DraftDeploymentTest : IntegrationTestBase() {
     fun `a document from a draft is rendered outside any transaction, each font read on its own`() {
         val setup = setup("override-draft-tx")
         withMediator {
-            val theme = ThemeId(ThemeKey.of("house"), CatalogId(default, TenantId(setup.tenant)))
+            val theme = ThemeId(ThemeKey.of("house"), testCatalog(TenantId(setup.tenant), default))
             CreateTheme(theme, "House", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value))).execute()
-            UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalogKey = default).execute()
+            UpdateDocumentTemplate(setup.variant.templateId, themeId = theme.key, themeCatalog = testCatalog(setup.variant.templateId.tenantKey, default)).execute()
             // Using the system font pinned the system release, whose font the draft reads from that
             // release. Undeclared, the system catalog is read live, through the font query this watches.
-            UpdateCatalogDependencies(setup.tenant, default, emptyList()).execute()
+            UpdateCatalogDependencies(testCatalog(setup.tenant, default), emptyList()).execute()
         }
         deployDraft(setup, test)
         val accepted = generate(setup, test)

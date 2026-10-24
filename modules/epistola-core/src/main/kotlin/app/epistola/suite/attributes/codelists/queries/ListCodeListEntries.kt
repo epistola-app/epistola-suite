@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -59,7 +60,7 @@ class ListCodeListEntriesHandler(
 
         handle.createQuery(sql)
             .bind("tenantKey", query.codeListId.tenantKey)
-            .bind("catalogKey", query.codeListId.catalogKey)
+            .bindCatalog("catalogKey", query.codeListId.catalogId)
             .bind("slug", query.codeListId.key)
             .mapTo<CodeListEntry>()
             .list()

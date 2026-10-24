@@ -17,6 +17,6 @@ class CatalogScopedRoutingTest {
         val request = ServerRequest.create(MockHttpServletRequest("GET", "/tenants/acme/catalogs/letters/browse"), emptyList())
 
         assertThat(routing.catalogRoutesByKey(emptyList()).route(request)).isEmpty()
-        assertThat(routing.catalogRoutesByNamespace(emptyList()).route(request)).isEmpty()
+        assertThat(routing.catalogRoutesByAddress(emptyList()).route(request)).isEmpty()
     }
 }

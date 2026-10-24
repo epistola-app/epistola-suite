@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
@@ -50,6 +51,8 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -84,7 +87,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
     private fun catalog(tenant: TenantKey, key: CatalogKey): CatalogId = withMediator {
         CreateCatalog(tenant, key, key.value).execute()
-        CatalogId(key, TenantId(tenant))
+        testCatalog(TenantId(tenant), key)
     }
 
     /**
@@ -94,7 +97,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     private fun queue(catalog: CatalogId, continuesAfter: String? = null) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate("INSERT INTO catalog_upgrade_queue (tenant_key, catalog_id, continues_after) VALUES (:t, ${catalogAt("t", "c")}, :after)")
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
+            .bindCatalog("c", catalog)
             .bind("after", continuesAfter)
             .execute()
     }
@@ -102,12 +105,12 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     /** As the cluster scheduler runs an install-wide task: a mediator, and no principal. */
     private fun runUpgrade() = MediatorContext.runWithMediator(mediator) { upgrade.run() }
 
-    private fun versions(catalog: CatalogId) = withMediator { ListCatalogReleases(catalog.tenantKey, catalog.key).query() }.map { it.label to it.status }
+    private fun versions(catalog: CatalogId) = withMediator { ListCatalogReleases(catalog).query() }.map { it.label to it.status }
 
     private fun queueRow(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery("SELECT COALESCE(last_error, 'queued') FROM catalog_upgrade_queue WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
+            .bindCatalog("c", catalog)
             .mapTo(String::class.java)
             .findOne()
             .orElse(null)
@@ -142,7 +145,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
             "SELECT count(*) FROM catalog_upgrade_published p JOIN catalog_resources r ON r.tenant_key = p.tenant_key AND r.resource_id = p.resource_id WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
+            .bindCatalog("c", catalog)
             .mapTo(Int::class.java)
             .one()
     }
@@ -150,7 +153,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     private fun resourceId(catalog: CatalogId, type: String, key: String): java.util.UUID = jdbi.withHandle<java.util.UUID, Exception> { handle ->
         handle.createQuery("SELECT resource_id FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND resource_type = :type AND resource_key = :k")
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.key)
+            .bindCatalog("c", catalog)
             .bind("type", type)
             .bind("k", key)
             .mapTo(java.util.UUID::class.java)
@@ -182,7 +185,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        val declared = withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }
+        val declared = withMediator { ListCatalogDependencies(catalog).query() }
         assertThat(declared.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
         assertThat(declared.single().releaseVersion).`as`("pinned to the installed system release").isNotNull()
         assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT, "v1.0.0" to CatalogReleaseStatus.RELEASED)
@@ -205,6 +208,30 @@ class CatalogUpgradeTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `two catalogs with one key are each upgraded, continuing their own numbering`() {
+        val tenant = tenant("upgrade-two-letters")
+        val (acme, bureau) = withMediator {
+            TestNamespaces.grant(tenant, "acme").execute()
+            TestNamespaces.grant(tenant, "bureau").execute()
+            listOf("acme", "bureau").map { namespace ->
+                CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
+                CatalogId(namespace, letters, TenantId(tenant)).also { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), it), "Invoice").execute().withRequiredDataExample() }
+            }
+        }
+        published1x("variant", resourceId(acme, "template", "invoice"), VariantKey.INITIAL.value, document("acme"))
+        published1x("variant", resourceId(bureau, "template", "invoice"), VariantKey.INITIAL.value, document("bureau"))
+        queue(acme, continuesAfter = "1.3.0")
+        queue(bureau, continuesAfter = "2.0.0")
+
+        runUpgrade()
+
+        assertThat(versions(acme)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT, "v1.3.1" to CatalogReleaseStatus.RELEASED)
+        assertThat(versions(bureau)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT, "v2.0.1" to CatalogReleaseStatus.RELEASED)
+        assertThat(queueRow(acme)).isNull()
+        assertThat(queueRow(bureau)).isNull()
+    }
+
+    @Test
     fun `the first release holds what was last published, and the draft keeps the unpublished work`() {
         val catalog = catalog(tenant("upgrade-published"), letters)
         val invoice = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
@@ -219,9 +246,9 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        val released = withMediator { GetReleasedResource(catalog.tenantKey, catalog.key, "1.0.0", "template", "invoice").query() } as TemplateResource
+        val released = withMediator { GetReleasedResource(catalog, "1.0.0", "template", "invoice").query() } as TemplateResource
         assertThat(released.templateModel.texts()).containsExactly("published")
-        assertThat(withMediator { GetReleasedResource(catalog.tenantKey, catalog.key, "1.0.0", "template", "never-published").query() })
+        assertThat(withMediator { GetReleasedResource(catalog, "1.0.0", "template", "never-published").query() })
             .`as`("a template never published is not released").isNull()
         assertThat(withMediator { GetVariantContent(invoice).query()!! }.texts()).`as`("the draft").containsExactly("draft work")
         assertThat(publishedRows(catalog)).`as`("what 1.x published goes once the first release holds it").isZero()
@@ -237,7 +264,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         runUpgrade()
 
-        val released = withMediator { GetReleasedResource(catalog.tenantKey, catalog.key, "1.0.0", "stencil", "letterhead").query() } as StencilResource
+        val released = withMediator { GetReleasedResource(catalog, "1.0.0", "stencil", "letterhead").query() } as StencilResource
         assertThat(released.content.texts()).containsExactly("stencil published")
         assertThat(withMediator { GetStencil(stencil).query()!! }.content.texts()).containsExactly("stencil draft")
     }
@@ -250,14 +277,14 @@ class CatalogUpgradeTest : IntegrationTestBase() {
      * its recorded release is removed and the legacy fingerprint put back, as 1.x left it.
      */
     private fun subscribedIn1x(tenant: TenantKey): CatalogId {
-        val catalog = CatalogId(CatalogKey.of("epistola-demo"), TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = catalog.key).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, catalog.key)).execute()
         }
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("DELETE FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-                .bind("t", tenant).bind("c", catalog.key).execute()
+                .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog.key)).execute()
             // A 1.x subscribed catalog: typed so (the suite no longer writes the column), with a legacy fingerprint.
             handle.createUpdate("UPDATE catalogs SET installed_fingerprint = :fp, type = 'SUBSCRIBED' WHERE tenant_key = :t AND catalog_key = :c")
                 .bind("fp", "0".repeat(64)).bind("t", tenant).bind("c", catalog.key).execute()
@@ -267,7 +294,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
     private fun releases(catalog: CatalogId): List<Pair<String, String>> = jdbi.withHandle<List<Pair<String, String>>, Exception> { handle ->
         handle.createQuery("SELECT version, fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", catalog.tenantKey).bind("c", catalog.key)
+            .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }
             .list()
     }
@@ -294,7 +321,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         val invoice = TemplateId(TemplateKey.of("invoice"), letters)
         withMediator {
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalogKey = subscribed.key).execute()
+            UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("corporate"), themeCatalog = testCatalog(invoice.tenantKey, subscribed.key)).execute()
         }
         published1x("variant", resourceId(letters, "template", "invoice"), VariantKey.INITIAL.value, document("published"))
         // 'epistola-demo' sorts first, but queue the dependent first to be sure the order comes from the rounds.
@@ -304,7 +331,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         assertThat(versions(letters)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
-        assertThat(withMediator { ListCatalogDependencies(letters.tenantKey, letters.key).query() }.map { it.catalogKey to it.releaseVersion })
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(letters.tenantKey, letters.key)).query() }.map { it.catalogKey to it.releaseVersion })
             .contains("epistola-demo" to "5.17.3")
     }
 
@@ -396,7 +423,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         // Only what its author's own write declared, as it used the system catalog's font: nothing added behind it.
-        assertThat(withMediator { ListCatalogDependencies(catalog.tenantKey, catalog.key).query() }.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
+        assertThat(withMediator { ListCatalogDependencies(catalog).query() }.map { it.catalogKey }).containsExactly(SYSTEM_CATALOG_KEY.value)
         assertThat(versions(catalog)).containsExactly("Next release" to CatalogReleaseStatus.DRAFT)
     }
 }

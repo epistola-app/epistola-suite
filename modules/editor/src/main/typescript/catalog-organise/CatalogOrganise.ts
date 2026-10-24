@@ -255,7 +255,7 @@ export class CatalogOrganise extends LitElement {
     this.error = '';
     try {
       const moved = this.preview.relocations;
-      const destinations = new Set(moved.map((plan) => plan.target.catalogKey));
+      const destinations = new Set(moved.map((plan) => plan.target.catalogAddress));
       await this.post('execute', this.preview.planFingerprint);
       // Opened in a dialog from the moved resource's own page, whose address no longer exists.
       // Go to the same page at the resource's new address instead of reloading the old one.
@@ -621,8 +621,8 @@ export class CatalogOrganise extends LitElement {
               ${plans.map(
                 (plan) =>
                   html`<p>
-                    ${plan.source.catalogKey}/${plan.source.key} →
-                    <strong>${plan.target.catalogKey}/${plan.target.key}</strong> —
+                    ${plan.source.catalogAddress}/${plan.source.key} →
+                    <strong>${plan.target.catalogAddress}/${plan.target.key}</strong> —
                     ${plan.mutableRewriteCount} reference(s) rewritten,
                     ${plan.immutableReferenceCount} published reference(s) keep the old address and
                     will stop resolving; their catalog cannot be exported or released until those
@@ -673,22 +673,27 @@ declare global {
 
 /**
  * [path] with the moved resource's catalog and key replaced by its destination's — a resource page is
- * `/tenants/{t}/catalogs/{catalog}/{type}/{key}/…` — or [path] unchanged when it does not name the
- * resource.
+ * `/tenants/{t}/catalogs/{namespace}/{catalog}/{type}/{key}/…`, the catalog at its address (ADR 0034)
+ * — or [path] unchanged when it does not name the resource.
  */
 export function pathAfterMove(
   path: string,
   plan: Pick<RelocationPlan, 'source' | 'target'>,
 ): string {
   const segments = path.split('/');
+  const encoded = (address: string) => address.split('/').map(encodeURIComponent);
+  const [sourceNamespace, sourceCatalog] = encoded(plan.source.catalogAddress);
   const at = segments.findIndex(
     (segment, index) =>
       segments[index - 1] === 'catalogs' &&
-      segment === encodeURIComponent(plan.source.catalogKey) &&
-      segments[index + 2] === encodeURIComponent(plan.source.key),
+      segment === sourceNamespace &&
+      segments[index + 1] === sourceCatalog &&
+      segments[index + 3] === encodeURIComponent(plan.source.key),
   );
   if (at < 0) return path;
-  segments[at] = encodeURIComponent(plan.target.catalogKey);
-  segments[at + 2] = encodeURIComponent(plan.target.key);
+  const [targetNamespace, targetCatalog] = encoded(plan.target.catalogAddress);
+  segments[at] = targetNamespace;
+  segments[at + 1] = targetCatalog;
+  segments[at + 3] = encodeURIComponent(plan.target.key);
   return segments.join('/');
 }

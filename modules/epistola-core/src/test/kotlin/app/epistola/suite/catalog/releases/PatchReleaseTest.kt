@@ -31,6 +31,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -66,7 +67,7 @@ class PatchReleaseTest : IntegrationTestBase() {
      * theme added), for the tests to number as the holder or a patcher would.
      */
     private fun produce(producer: TenantKey): Pair<ByteArray, ByteArray> = withMediator {
-        val catalog = CatalogId(letters, TenantId(producer))
+        val catalog = testCatalog(TenantId(producer), letters)
         CreateCatalog(tenantKey = producer, id = letters, name = "Letters").execute()
         val variant = VariantId(VariantKey.INITIAL, TemplateId(INVOICE, catalog))
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
@@ -74,7 +75,7 @@ class PatchReleaseTest : IntegrationTestBase() {
         mediator.publishAndRelease(variant)
         CreateTheme(ThemeId(ThemeKey.of("fix"), catalog), "Fix").execute()
         val next = mediator.releaseNext(catalog)
-        ExportCatalogZip(producer, letters, "1.0.0").execute().zipBytes to ExportCatalogZip(producer, letters, next).execute().zipBytes
+        ExportCatalogZip(testCatalog(producer, letters), "1.0.0").execute().zipBytes to ExportCatalogZip(testCatalog(producer, letters), next).execute().zipBytes
     }
 
     /** [zip] numbered [version], as the one who issued that number exports it (an id of its own). */
@@ -100,12 +101,11 @@ class PatchReleaseTest : IntegrationTestBase() {
         return out.toByteArray()
     }
 
-    private fun versions(tenant: TenantKey) = withMediator { ListCatalogReleaseSummaries(tenant, letters).query().map { it.version } }
+    private fun versions(tenant: TenantKey) = withMediator { ListCatalogReleaseSummaries(testCatalog(tenant, letters)).query().map { it.version } }
 
     private fun generate(tenant: TenantKey, selector: String?): String? = withMediator {
         GenerateDocument(
-            tenantId = tenant,
-            catalogKey = letters,
+            catalog = testCatalog(tenant, letters),
             templateId = INVOICE,
             variantId = VariantKey.INITIAL,
             releaseVersion = selector,
@@ -127,8 +127,8 @@ class PatchReleaseTest : IntegrationTestBase() {
 
         assertThat(versions(receiver)).containsExactly("1.0.1-municipality.1", "1.0.0")
         withMediator {
-            assertThat(GetCatalog(receiver, letters).query()!!.highestReleaseVersion).isEqualTo("1.0.1-municipality.1")
-            assertThat(GetLatestCatalogRelease(receiver, letters).query().latestVersion).isEqualTo("1.0.1-municipality.1")
+            assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.highestReleaseVersion).isEqualTo("1.0.1-municipality.1")
+            assertThat(GetLatestCatalogRelease(testCatalog(receiver, letters)).query().latestVersion).isEqualTo("1.0.1-municipality.1")
         }
         // A range takes a patch release as npm takes a pre-release (contract "Version ranges").
         assertThat(generate(receiver, "^1.0.0")).`as`("a range naming no patch release does not take one").isEqualTo("1.0.0")
@@ -139,7 +139,7 @@ class PatchReleaseTest : IntegrationTestBase() {
         // The holder's 1.0.1 supersedes it.
         withMediator { ImportCatalogZip(tenantKey = receiver, zipBytes = numbered(v101, "1.0.1")).execute() }
         assertThat(versions(receiver)).containsExactly("1.0.1", "1.0.1-municipality.1", "1.0.0")
-        withMediator { assertThat(GetCatalog(receiver, letters).query()!!.highestReleaseVersion).isEqualTo("1.0.1") }
+        withMediator { assertThat(GetCatalog(testCatalog(receiver, letters)).query()!!.highestReleaseVersion).isEqualTo("1.0.1") }
         assertThat(generate(receiver, "^1.0.0")).isEqualTo("1.0.1")
         assertThat(generate(receiver, ">=1.0.1-municipality.1 <1.0.1")).isEqualTo("1.0.1-municipality.1")
     }
@@ -165,7 +165,7 @@ class PatchReleaseTest : IntegrationTestBase() {
         val producer = createTenant("Patch not issued").id
         produce(producer)
         withMediator {
-            assertThatThrownBy { ReleaseCatalogDraft(tenantKey = producer, catalogKey = letters, version = "1.1.1-municipality.1").execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(producer, letters), version = "1.1.1-municipality.1").execute() }
                 .isInstanceOf(CatalogReleaseVersionException::class.java)
                 .hasMessageContaining("patch release")
         }

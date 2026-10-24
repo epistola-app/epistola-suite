@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -42,11 +43,11 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
                 created = tenant("Graph Page")
                 withMediator {
                     listOf("shared", "letters", "unrelated").forEach { CreateCatalog(tenantKey = created.id, id = CatalogKey.of(it), name = it.replaceFirstChar { c -> c.uppercase() }).execute() }
-                    val shared = CatalogId(CatalogKey.of("shared"), TenantId(created.id))
+                    val shared = testCatalog(TenantId(created.id), CatalogKey.of("shared"))
                     CreateTheme(ThemeId(ThemeKey.of("brand"), shared), "Brand").execute()
                     mediator.releaseNext(shared)
-                    val target = GetCatalog(created.id, shared.key).query()!!
-                    UpdateCatalogDependencies(created.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                    val target = GetCatalog(testCatalog(created.id, shared.key)).query()!!
+                    UpdateCatalogDependencies(testCatalog(created.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
                 }
             }
         }
@@ -59,9 +60,9 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
 
         val graph = page("/tenants/${tenant.id.value}/catalogs/graph")
         assertThat(graph).contains("data-testid=\"catalog-graph\"")
-        listOf("shared", "letters", "unrelated").forEach { assertThat(graph).contains("data-catalog=\"$it\"") }
+        listOf("shared", "letters", "unrelated").forEach { assertThat(graph).contains("data-catalog=\"${tenant.id.value}/$it\"") }
         assertThat(graph).contains("data-testid=\"catalog-graph-edge\"").contains(">v1.0.0<")
-        assertThat(graph).`as`("each catalog opens its own Dependencies page").contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/dependencies\"")
+        assertThat(graph).`as`("each catalog opens its own Dependencies page").contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/dependencies\"")
 
         assertThat(page("/tenants/${tenant.id.value}/catalogs")).contains("href=\"/tenants/${tenant.id.value}/catalogs/graph\"")
     }
@@ -72,7 +73,7 @@ class CatalogGraphPageTest : BaseIntegrationTest() {
 
         val shared = page("/tenants/${tenant.id.value}/catalogs/shared/dependencies")
             .substringAfter("data-testid=\"catalog-dependency-graph\"").substringBefore("data-testid=\"catalog-dependents\"")
-        assertThat(shared).contains("data-catalog=\"shared\"").`as`("used by").contains("data-catalog=\"letters\"")
-        assertThat(shared).doesNotContain("data-catalog=\"unrelated\"")
+        assertThat(shared).contains("data-catalog=\"${tenant.id.value}/shared\"").`as`("used by").contains("data-catalog=\"${tenant.id.value}/letters\"")
+        assertThat(shared).doesNotContain("data-catalog=\"${tenant.id.value}/unrelated\"")
     }
 }

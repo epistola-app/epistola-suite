@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import java.util.UUID
@@ -27,7 +28,7 @@ interface CatalogReleasePublicationPort {
      * before any archive is built, and before a release is queued — work with nowhere to go is not
      * queued at all.
      */
-    fun isPublicationAvailable(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean
+    fun isPublicationAvailable(catalog: CatalogId): Boolean
 
     /** Records durable publication intent for a release being committed on [handle]. */
     fun recordReleasePublication(handle: Handle, request: CatalogReleasePublicationRequest): UUID
@@ -43,25 +44,25 @@ interface CatalogReleasePublicationPort {
      * Not about a release having *been* published. A decided, withdrawn or failed publication is
      * inert, and the copy Exchange holds is Exchange's to keep.
      */
-    fun isSendInFlight(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Boolean
+    fun isSendInFlight(handle: Handle, catalog: CatalogId, version: String): Boolean
 
     /**
      * True once a release of the catalog has been published under its namespace, which then can no
      * longer change: what the integration published stays under those coordinates.
      */
-    fun isNamespaceFixed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Boolean
+    fun isNamespaceFixed(handle: Handle, catalog: CatalogId): Boolean
 
     /**
      * The namespace a catalog under [catalogKey] was published under, which outlives the catalog:
      * one recreated under the same key returns to it. Null when nothing was published under the key.
      */
-    fun publishedNamespace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String?
+    fun publishedNamespace(handle: Handle, tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: app.epistola.suite.common.ids.CatalogKey): String?
 
     /** The namespace the integration suggests for a new catalog of [tenantKey], or null for none. */
     fun preferredNamespace(handle: Handle, tenantKey: TenantKey): String?
 
     /** The catalog's namespace changed: work queued for it and not yet sent goes there instead. */
-    fun namespaceChanged(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String)
+    fun namespaceChanged(handle: Handle, catalog: CatalogId, namespace: String)
 }
 
 /**
@@ -69,8 +70,7 @@ interface CatalogReleasePublicationPort {
  * identity and quietly mislead.
  */
 class CatalogReleasePublicationRequest(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: app.epistola.suite.common.ids.CatalogId,
     val version: String,
     val fingerprint: String,
     /** The exact bytes of this immutable release, retained until Exchange decides. */

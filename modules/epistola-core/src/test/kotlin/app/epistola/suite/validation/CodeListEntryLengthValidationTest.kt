@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_CODE_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_CODE_LIST_ENTRY_LABEL_LENGTH
 import org.junit.jupiter.api.Test
@@ -36,14 +37,14 @@ import kotlin.test.assertFailsWith
 class CodeListEntryLengthValidationTest {
 
     private val tenantId = TenantId(TenantKey("testtenant"))
-    private val catalogId = CatalogId(CatalogKey.DEFAULT, tenantId)
+    private val catalogId = testCatalog(tenantId, CatalogKey.DEFAULT)
     private val codeListId = CodeListId(CodeListKey.of("mycodelist"), catalogId)
 
     private fun createWith(entry: CodeListEntry) = CreateCodeList(codeListId, displayName = "Codes", sourceType = CodeListSource.INLINE, entries = listOf(entry))
 
     private fun updateWith(entry: CodeListEntry) = UpdateCodeList(codeListId, displayName = "Codes", entries = listOf(entry))
 
-    private fun importWith(entry: CodeListEntry) = ImportCodeList(tenantId, CatalogKey.DEFAULT, slug = "mycodelist", displayName = "Codes", entries = listOf(entry))
+    private fun importWith(entry: CodeListEntry) = ImportCodeList(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "mycodelist", displayName = "Codes", entries = listOf(entry))
 
     @Test
     fun `the canonical code-list entry limits match the DB columns`() {

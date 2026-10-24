@@ -28,6 +28,7 @@ import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -58,14 +59,14 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     fun `the page lists every release served, each with its own undeploy, and offers only unserved releases again`() {
         val (tenant, production) = tenantWithReleases("env-page")
         withMediator {
-            DeployCatalogRelease(production, LETTERS, "1.0.0").execute()
-            DeployCatalogRelease(production, LETTERS, "1.0.1").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.1").execute()
         }
 
         val body = page(tenant, "production")
 
         assertThat(body).contains("<h2>Deployed here</h2>").contains("<h2>History</h2>")
-        assertThat(body).contains("data-catalog=\"letters\" data-version=\"1.0.1\"").contains("data-catalog=\"letters\" data-version=\"1.0.0\"")
+        assertThat(body).contains("data-catalog=\"${tenant.id.value}/letters\" data-version=\"1.0.1\"").contains("data-catalog=\"${tenant.id.value}/letters\" data-version=\"1.0.0\"")
         assertThat(body).contains("name=\"version\" value=\"1.0.1\"").contains("name=\"version\" value=\"1.0.0\"")
         assertThat(body).contains("Deployed letters v1.0.1").doesNotContain("replacing v")
         // The deploy select lists the catalog's releases, marking each one served.
@@ -77,7 +78,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     @Test
     fun `deploying from the page adds the version, replaces the others when asked, and the history says which`() {
         val (tenant, production) = tenantWithReleases("env-deploy")
-        withMediator { DeployCatalogRelease(production, LETTERS, "1.0.1").execute() }
+        withMediator { DeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.1").execute() }
 
         val added = post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0")
         assertThat(added.statusCode.is2xxSuccessful).`as`("the redirect lands back on the environment").isTrue()
@@ -85,7 +86,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
             .`as`("beside the other").containsExactly("1.0.1", "1.0.0")
         assertThat(page(tenant, "production")).contains("Not used since it was deployed")
 
-        withMediator { UndeployCatalogRelease(production, LETTERS, "1.0.0").execute() }
+        withMediator { UndeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.0").execute() }
         post("/tenants/${tenant.id.value}/environments/production/deployments", "release" to "letters@1.0.0", "replace" to "true")
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { it.version }).containsExactly("1.0.0")
         assertThat(withMediator { ListDeploymentHistory(production).query() }.first().version).isEqualTo("1.0.0")
@@ -96,8 +97,8 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     fun `undeploying one release from the page keeps the others and records it`() {
         val (tenant, production) = tenantWithReleases("env-undeploy")
         withMediator {
-            DeployCatalogRelease(production, LETTERS, "1.0.0").execute()
-            DeployCatalogRelease(production, LETTERS, "1.0.1").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, LETTERS), "1.0.1").execute()
         }
 
         post("/tenants/${tenant.id.value}/environments/production/deployments/letters/undeploy", "version" to "1.0.1")
@@ -116,7 +117,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         assertThat(deployed.body.orEmpty()).doesNotContain("data-testid=\"deploy-refusal\"")
         assertThat(withMediator { ListDeployments(tenant.id, environmentKey = production.key).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .containsExactly("letters@$version")
-        assertThat(page(tenant, "production").substringAfter("data-testid=\"environment-implicit\"")).contains("data-catalog=\"shared\"").contains("v1.0.0")
+        assertThat(page(tenant, "production").substringAfter("data-testid=\"environment-implicit\"")).contains("data-catalog=\"${tenant.id.value}/shared\"").contains("v1.0.0")
     }
 
     @Test
@@ -152,7 +153,7 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         // Every tenant gets the system catalog, whose installed release can be deployed. Deleting it
         // leaves the tenant with nothing deployable.
         withMediator {
-            ListDeployableReleases(tenant.id).query().forEach { DeleteCatalogRelease(tenant.id, it.catalogKey, it.version).execute() }
+            ListDeployableReleases(tenant.id).query().forEach { DeleteCatalogRelease(testCatalog(tenant.id, it.catalogKey), it.version).execute() }
         }
 
         val body = page(tenant, "production")
@@ -184,14 +185,14 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
     private fun releaseDependingOnShared(tenant: Tenant): String = withMediator {
         val shared = CatalogKey.of("shared")
         CreateCatalog(tenantKey = tenant.id, id = shared, name = "shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
-        MarkCatalogReady(tenant.id, shared).execute()
-        ReleaseCatalogDraft(tenant.id, shared, version = "1.0.0").execute()
-        val target = GetCatalog(tenant.id, shared).query()!!
-        UpdateCatalogDependencies(tenant.id, LETTERS, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
-        MarkCatalogReady(tenant.id, LETTERS).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
+        MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0").execute()
+        val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!
+        UpdateCatalogDependencies(testCatalog(tenant.id, LETTERS), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+        MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
         // A dependency added is a breaking change: released as the number that needs.
-        ReleaseCatalogDraft(tenant.id, LETTERS).execute().version
+        ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS)).execute().version
     }
 
     /** A catalog `letters` with releases 1.0.0 and 1.0.1, and an environment `production`. */
@@ -202,14 +203,14 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = LETTERS, name = "letters").execute()
             CreateEnvironment(production, "Production").execute()
-            val catalog = CatalogId(LETTERS, TenantId(tenant.id))
+            val catalog = testCatalog(TenantId(tenant.id), LETTERS)
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
-            MarkCatalogReady(tenant.id, LETTERS).execute()
-            ReleaseCatalogDraft(tenant.id, LETTERS, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.0").execute()
             // A correction, so the next patch.
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, corrected").execute()
-            MarkCatalogReady(tenant.id, LETTERS).execute()
-            ReleaseCatalogDraft(tenant.id, LETTERS, version = "1.0.1").execute()
+            MarkCatalogReady(testCatalog(tenant.id, LETTERS)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, LETTERS), version = "1.0.1").execute()
         }
         return tenant to production
     }

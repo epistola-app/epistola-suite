@@ -4,8 +4,10 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component
 @Component
 class CatalogImportRows(
     private val jdbi: Jdbi,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
 ) {
     /**
      * The archive's theme settings (contract ADR 0007) on the version it was imported into: its
@@ -22,8 +25,9 @@ class CatalogImportRows(
      * the presets it declares. A default theme that is not there is left unset rather than failing the
      * import; the validator already checked it resolves.
      */
-    fun updateThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey, info: app.epistola.catalog.protocol.CatalogInfo, objectMapper: tools.jackson.databind.ObjectMapper) {
-        val themeCatalog = info.defaultTheme?.catalogKey?.let(CatalogKey::of) ?: catalogKey
+    fun updateThemeSettings(catalog: CatalogId, info: app.epistola.catalog.protocol.CatalogInfo, objectMapper: tools.jackson.databind.ObjectMapper) {
+        // The catalog its alias names, by what the catalog declares (stored before this, ADR 0034, section 9).
+        val themeCatalog = info.defaultTheme?.let { references.resolveReceived(catalog, it.catalogKey, null) }
         val presets = objectMapper.writeValueAsString(info.presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) })
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -37,20 +41,20 @@ class CatalogImportRows(
                 WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
-                .bind("themeCatalog", themeCatalog)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
+                .bindCatalog("themeCatalog", themeCatalog)
                 .bind("theme", info.defaultTheme?.key)
                 .bind("presets", presets)
                 .execute()
         }
     }
 
-    fun touchImportedAt(tenantKey: TenantKey, catalogKey: CatalogKey) {
+    fun touchImportedAt(catalog: CatalogId) {
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)")
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+            handle.createUpdate("UPDATE catalogs SET imported_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)")
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .execute()
         }
     }
@@ -60,13 +64,11 @@ class CatalogImportRows(
      * somebody uploaded); the database opens its next version.
      */
     fun insertCatalog(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         name: String,
         description: String?,
         sourceUrl: String?,
         registry: String,
-        namespace: String,
     ) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -75,10 +77,10 @@ class CatalogImportRows(
                 VALUES (:c, :t, :registry, :namespace, :name, :description, :sourceUrl, NOW(), NOW())
                 """,
             )
-                .bind("c", catalogKey)
+                .bindCatalog("c", catalog)
                 .bind("registry", registry)
-                .bind("namespace", namespace)
-                .bind("t", tenantKey)
+                .bind("namespace", catalog.namespace)
+                .bind("t", catalog.tenantKey)
                 .bind("name", name)
                 .bind("description", description)
                 .bind("sourceUrl", sourceUrl)
@@ -93,8 +95,7 @@ class CatalogImportRows(
      * successful import.
      */
     fun updateInstalledState(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         fingerprint: String?,
         resourceFingerprintsJson: String,
@@ -110,11 +111,11 @@ class CatalogImportRows(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("version", version)
                 .bind("fingerprint", fingerprint)
                 .bind("resourceFingerprints", resourceFingerprintsJson)
@@ -127,8 +128,7 @@ class CatalogImportRows(
 
     /** The catalog's name, description and metadata from a restored archive. */
     fun updateMetadata(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         name: String,
         description: String?,
         catalogMetadataJson: String,
@@ -139,11 +139,11 @@ class CatalogImportRows(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("name", name)
                 .bind("description", description)
                 .bind("catalogMetadata", catalogMetadataJson)

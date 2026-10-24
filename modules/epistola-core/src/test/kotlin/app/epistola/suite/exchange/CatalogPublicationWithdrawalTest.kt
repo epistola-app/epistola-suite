@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -49,8 +50,8 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             // A namespace can only be chosen from what the connection grants, so this needs enrolling.
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw queued").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             CancelCatalogPublication(tenant.id, publication(tenant.id, catalogKey).id).execute()
 
@@ -61,7 +62,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             assertThat(cancelled.status.isActive).isFalse()
 
             // The same release can be queued again; the archive is rebuilt from the unchanged working copy.
-            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
+            PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute()
             val requeued = publication(tenant.id, catalogKey)
             assertThat(requeued.status.isActive).isTrue()
             assertThat(requeued.archiveRetained).isTrue()
@@ -77,8 +78,8 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Withdraw submitted").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(publication(tenant.id, catalogKey).status).isEqualTo(CatalogPublicationStatus.SUBMITTED)
 
@@ -102,8 +103,8 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Recreate me", namespace = TestNamespaces.of(tenant.id).namespace).execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
 
@@ -115,7 +116,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             val revived = state(tenant.id, catalogKey)
             assertThat(revived.namespace).isEqualTo("public-services")
             assertThat(revived.namespaceLocked).isTrue()
-            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute() }
+            assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "internal-forms").execute() }
                 .isInstanceOf(CatalogNamespaceFixedException::class.java)
         }
     }
@@ -141,7 +142,7 @@ class CatalogPublicationWithdrawalTest : ExchangeIntegrationTestBase() {
             .bind("tenantKey", tenant.id).bind("catalogKey", catalogKey).execute()
     }
 
-    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())
 
     private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications.single()
 }

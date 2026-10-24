@@ -26,6 +26,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
@@ -157,16 +158,16 @@ class McpWriteToolsHttpIT : IntegrationTestBase() {
     fun `an assistant reads the sides of a conflict and merges content combined from them`() {
         val (tenantKey, key) = seedKey(TenantRole.entries.toSet())
         val catalogKey = CatalogKey.of("letters")
-        val theme = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(tenantKey)))
+        val theme = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenantKey), catalogKey))
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Letters").execute()
             CreateTheme(id = theme, name = "Brand").execute()
-            MarkCatalogReady(tenantKey, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
-            val fixRef = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute().versionId))
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(testCatalog(tenantKey, catalogKey), DraftRef.Id(CreateCatalogDraft(testCatalog(tenantKey, catalogKey), "Fix", "1.0.0").execute().versionId))
             UpdateTheme(theme, name = "Brand, fixed", catalogVersion = fixRef).execute()
-            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.1", catalogVersion = fixRef).execute()
             UpdateTheme(theme, name = "Brand, ours").execute()
         }
         val session = McpSession(key)

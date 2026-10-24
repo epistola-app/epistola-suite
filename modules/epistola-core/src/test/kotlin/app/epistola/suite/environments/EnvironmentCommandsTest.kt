@@ -22,6 +22,7 @@ import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
@@ -79,7 +80,7 @@ class EnvironmentCommandsTest : IntegrationTestBase() {
         assertThat(GetEnvironment(id = envId).query()).isNotNull()
 
         // Once the release is undeployed the delete goes through.
-        val removed = UndeployCatalogRelease(environmentId = envId, catalogKey = templateId.catalogKey, version = version).execute()
+        val removed = UndeployCatalogRelease(environmentId = envId, catalog = templateId.catalogId, version = version).execute()
         assertThat(removed).isTrue()
         assertThat(DeleteEnvironment(id = envId).execute()).isTrue()
     }

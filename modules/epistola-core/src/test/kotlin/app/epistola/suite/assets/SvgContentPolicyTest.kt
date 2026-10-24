@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
@@ -106,13 +107,12 @@ class SvgContentPolicyTest {
     fun `UploadAsset refuses an unsafe SVG as a file validation error`() {
         val error = assertFailsWith<ValidationException> {
             UploadAsset(
-                tenantId = TenantKey.of("acme"),
+                catalog = testCatalog(TenantKey.of("acme"), CatalogKey.of("default")),
                 name = "logo.svg",
                 mediaType = AssetMediaType.SVG,
                 content = refused.getValue("image href http").toByteArray(),
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.of("default"),
             )
         }
         assertEquals("file", error.field)
@@ -122,8 +122,7 @@ class SvgContentPolicyTest {
     fun `ImportAsset refuses an unsafe SVG`() {
         assertFailsWith<ValidationException> {
             ImportAsset(
-                tenantId = TenantId(TenantKey.of("acme")),
-                catalogKey = CatalogKey.of("default"),
+                catalog = testCatalog(TenantId(TenantKey.of("acme")), CatalogKey.of("default")),
                 id = AssetKey.of("logo"),
                 name = "logo.svg",
                 mediaType = AssetMediaType.SVG,

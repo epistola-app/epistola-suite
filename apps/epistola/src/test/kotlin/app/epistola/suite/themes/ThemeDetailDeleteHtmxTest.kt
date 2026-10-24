@@ -13,6 +13,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -34,7 +36,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     private fun deleteFromDetail(tenant: String) = restTemplate.postForEntity(
-        "/tenants/$tenant/catalogs/default/themes/brand/delete",
+        "/tenants/$tenant/catalogs/$tenant/default/themes/brand/delete",
         HttpEntity(
             LinkedMultiValueMap<String, String>().apply { add("from", "detail") },
             HttpHeaders().apply {
@@ -50,7 +52,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
         val theme = ThemeId(ThemeKey.of("brand"), CatalogId.default(TenantId(tenant.id)))
         withMediator {
             CreateTheme(theme, "Brand").execute()
-            if (default) SetTenantDefaultTheme(tenantId = tenant.id, themeId = theme.key, catalogKey = CatalogKey.DEFAULT).execute()
+            if (default) SetTenantDefaultTheme(tenantId = tenant.id, themeId = theme.key, catalog = testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
         }
         return tenant.id.value to theme
     }
@@ -72,7 +74,7 @@ class ThemeDetailDeleteHtmxTest : BaseIntegrationTest() {
 
         val response = deleteFromDetail(tenant)
 
-        assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/$tenant/catalogs/default/themes")
+        assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/$tenant/catalogs/$tenant/default/themes")
         assertThat(withMediator { GetTheme(theme).query() }).isNull()
     }
 }

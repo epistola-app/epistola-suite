@@ -17,6 +17,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,7 +49,7 @@ class CatalogOrganiseSurfaceTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute()
-            repeat(stencils) { CreateStencil(StencilId(StencilKey.of("header-$it"), CatalogId(letters, TenantId(tenant))), "Header $it").execute() }
+            repeat(stencils) { CreateStencil(StencilId(StencilKey.of("header-$it"), testCatalog(TenantId(tenant), letters)), "Header $it").execute() }
         }
         return tenant
     }
@@ -59,7 +60,7 @@ class CatalogOrganiseSurfaceTest : BaseIntegrationTest() {
 
         val response = restTemplate.postForEntity(
             "/tenants/$tenant/catalogs/organise/preview",
-            HttpEntity("""{"relocations":[{"type":"widget","catalog":"letters","key":"header-0","targetCatalog":"shared"}]}""", json()),
+            HttpEntity("""{"relocations":[{"type":"widget","catalog":"$tenant/letters","key":"header-0","targetCatalog":"$tenant/shared"}]}""", json()),
             String::class.java,
         )
 
@@ -73,7 +74,7 @@ class CatalogOrganiseSurfaceTest : BaseIntegrationTest() {
     @Test
     fun `a boosted or history-restore visit to the single move gets the whole page`() {
         val tenant = tenant("Organise boosted")
-        val url = "/tenants/$tenant/catalogs/organise/move?resource=stencil:letters/header-0"
+        val url = "/tenants/$tenant/catalogs/organise/move?resource=stencil:$tenant/letters/header-0"
 
         for (header in listOf("HX-Boosted", "HX-History-Restore-Request")) {
             val response = restTemplate.exchange(
@@ -100,11 +101,11 @@ class CatalogOrganiseSurfaceTest : BaseIntegrationTest() {
         val tenant = tenant("Organise beyond first page", stencils = 55)
 
         val body = objectMapper.readTree(
-            restTemplate.getForEntity("/tenants/$tenant/catalogs/organise/resources?resource=stencil:letters/header-9", String::class.java).body,
+            restTemplate.getForEntity("/tenants/$tenant/catalogs/organise/resources?resource=stencil:$tenant/letters/header-9", String::class.java).body,
         )
 
         val offered = buildList { body.path("resources").forEach { add(it.path("id").stringValue()) } }
-        assertThat(offered).contains("stencil:letters/header-9")
+        assertThat(offered).contains("stencil:$tenant/letters/header-9")
         assertThat(body.path("truncated").booleanValue()).isTrue()
     }
 

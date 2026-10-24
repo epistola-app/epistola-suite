@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.testAddress
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -59,7 +60,7 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
     fun `a resource in a subscribed catalog cannot be moved`() {
         val tenant = tenantWith("Subscribed source")
         // Every tenant has the bundled system catalog installed, subscribed, with a default theme.
-        val systemTheme = ResourceAddress(CatalogResourceType.THEME, "system", "default")
+        val systemTheme = testAddress(tenant, CatalogResourceType.THEME, "system", "default")
         assertThat(identityAt(tenant, systemTheme)).describedAs("the system catalog's default theme").isNotNull()
 
         assertRefused(tenant, listOf(systemTheme.movedTo(shared)), "source-read-only", on = systemTheme)
@@ -68,7 +69,7 @@ class CatalogResourceMoveBlockersTest : RelocationTestSupport() {
     @Test
     fun `a resource in a catalog that does not exist is refused, not guessed at`() {
         val tenant = tenantWith("Missing source catalog")
-        val nowhere = ResourceAddress(CatalogResourceType.STENCIL, "nowhere", "header")
+        val nowhere = testAddress(tenant, CatalogResourceType.STENCIL, "nowhere", "header")
 
         val plan = preview(tenant, nowhere.movedTo(shared))
 

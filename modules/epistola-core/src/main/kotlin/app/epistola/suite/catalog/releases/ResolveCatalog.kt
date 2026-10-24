@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -27,13 +28,15 @@ import org.springframework.stereotype.Component
  * permission, so a document generator can name the catalog it generates from without viewing catalogs.
  */
 data class ResolveCatalog(
-    override val tenantKey: TenantKey,
+    /** The catalog by its address, namespace and key. */
+    val catalog: CatalogId,
     val registry: String?,
-    val namespace: String,
-    val catalogKey: CatalogKey,
 ) : Query<Catalog>,
     RequiresAuthentication,
-    TenantScoped
+    TenantScoped {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 @Component
 class ResolveCatalogHandler(
@@ -42,8 +45,8 @@ class ResolveCatalogHandler(
 ) : QueryHandler<ResolveCatalog, Catalog> {
     override fun handle(query: ResolveCatalog): Catalog = jdbi.withHandle<Catalog, Exception> { handle ->
         val registry = query.registry?.takeUnless { it == ResolveCatalogReleaseHandler.DEFAULT_REGISTRY } ?: identity.defaultRegistry
-        handle.findCatalog(query.tenantKey, query.catalogKey)
-            ?.takeIf { it.registry == registry && it.namespace == query.namespace }
+        handle.findCatalog(query.catalog)
+            ?.takeIf { it.registry == registry }
             ?: throw CatalogNotFoundException(query.catalogKey)
     }
 }

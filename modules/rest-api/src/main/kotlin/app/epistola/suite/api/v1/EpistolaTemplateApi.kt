@@ -137,7 +137,7 @@ class EpistolaTemplateApi(
         val tenantId = TenantId(at.catalog.tenantKey)
         val templates = ListDocumentTemplates(
             tenantId = tenantId,
-            catalogKey = at.catalogKey,
+            catalog = at.catalogId,
             searchTerm = q,
             sort = sortKey,
             descending = descending,
@@ -145,7 +145,7 @@ class EpistolaTemplateApi(
             offset = Pagination.offsetOf(page, size),
             catalogVersion = at.ref,
         ).query()
-        val total = CountDocumentTemplates(tenantId = tenantId, catalogKey = at.catalogKey, searchTerm = q, catalogVersion = at.ref).query()
+        val total = CountDocumentTemplates(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, searchTerm = q, catalogVersion = at.ref).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
@@ -240,8 +240,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<TemplateDataValidationResult> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
         val analysis = AnalyzeTemplateData(
-            tenantKey = catalog.tenantKey,
-            catalogKey = catalog.id,
+            catalog = catalog.catalogId,
             templateId = TemplateKey.of(templateKey),
             data = validateTemplateDataRequest.data,
             variantId = validateTemplateDataRequest.variantKey?.let { VariantKey.of(it) },

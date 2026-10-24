@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -52,6 +53,8 @@ data class EnsureSubscribedCatalogResult(
     val catalogKey: CatalogKey,
     val previousVersion: String?,
     val newVersion: String,
+    /** The catalog, by its address (ADR 0034, section 9). */
+    val catalog: CatalogId,
 )
 
 @Component
@@ -72,16 +75,18 @@ class EnsureSubscribedCatalogHandler(
         val bundledVersion = manifest.release.version
         val bundledFingerprint = manifest.release.fingerprint
 
-        val existing = GetCatalog(command.tenantKey, catalogKey).query()
+        // The manifest names the catalog in full (contract ADR 0003); a bundled one from before names it by its key.
+        val catalog = CatalogId(manifest.catalog.namespace ?: app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(command.tenantKey), catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey))
+        val existing = GetCatalog(catalog).query()
 
         if (existing == null) {
-            val catalog = RegisterCatalog(
+            val registered = RegisterCatalog(
                 tenantKey = command.tenantKey,
                 sourceUrl = command.sourceUrl,
                 authType = command.authType,
                 authCredential = command.authCredential,
             ).execute()
-            val results = InstallFromCatalog(tenantKey = command.tenantKey, catalogKey = catalog.id).execute()
+            val results = InstallFromCatalog(catalog = registered.catalogId).execute()
             val failed = results.filter { it.status == InstallStatus.FAILED }
             if (failed.isNotEmpty()) {
                 log.warn(
@@ -93,7 +98,7 @@ class EnsureSubscribedCatalogHandler(
                 )
             }
             log.info("Catalog '{}' installed for tenant {} at version {}", catalogKey.value, command.tenantKey.value, bundledVersion)
-            return@runAsImport EnsureSubscribedCatalogResult(EnsureCatalogStatus.INSTALLED, catalogKey, null, bundledVersion)
+            return@runAsImport EnsureSubscribedCatalogResult(EnsureCatalogStatus.INSTALLED, catalogKey, null, bundledVersion, catalog)
         }
 
         // Fingerprint is the content-change gate. A manifest without a fingerprint
@@ -102,7 +107,7 @@ class EnsureSubscribedCatalogHandler(
         val contentCurrent = if (bundledFingerprint != null) {
             // The installed release is the bundled one when their content is (ADR 0034), however each was fingerprinted.
             existing.installedFingerprint == bundledFingerprint ||
-                (existing.installedReleaseVersion == bundledVersion && jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, command.tenantKey, catalogKey, bundledVersion, bundledFingerprint) })
+                (existing.installedReleaseVersion == bundledVersion && jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, catalog, bundledVersion, bundledFingerprint) })
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection (no content drift detection) for tenant {}",
@@ -111,26 +116,26 @@ class EnsureSubscribedCatalogHandler(
             )
             existing.installedReleaseVersion == bundledVersion
         }
-        val installedResources = upgradeAnalyzer.installedResources(command.tenantKey, catalogKey)
+        val installedResources = upgradeAnalyzer.installedResources(catalog)
         val allResourcesInstalled = manifest.resources.all { InstalledResource(it.type, it.key) in installedResources }
         val alreadyCurrent = contentCurrent && allResourcesInstalled
         if (alreadyCurrent) {
             // Installed before releases were recorded for subscribed catalogs: record it now.
             if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(command.tenantKey, catalogKey).execute()
+                RecordInstalledRelease(catalog).execute()
             }
             return@runAsImport EnsureSubscribedCatalogResult(
                 EnsureCatalogStatus.ALREADY_CURRENT,
                 catalogKey,
                 existing.installedReleaseVersion,
                 bundledVersion,
+                catalog,
             )
         }
 
         val previousVersion = existing.installedReleaseVersion
         val upgrade = UpgradeCatalog(
-            tenantKey = command.tenantKey,
-            catalogKey = existing.id,
+            catalog = existing.catalogId,
             preserveResourceTypes = command.preserveResourceTypes,
         ).execute()
         if (upgrade.aborted) {
@@ -145,6 +150,6 @@ class EnsureSubscribedCatalogHandler(
             previousVersion,
             bundledVersion,
         )
-        EnsureSubscribedCatalogResult(EnsureCatalogStatus.UPGRADED, catalogKey, previousVersion, bundledVersion)
+        EnsureSubscribedCatalogResult(EnsureCatalogStatus.UPGRADED, catalogKey, previousVersion, bundledVersion, catalog)
     }
 }

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -22,8 +23,7 @@ import org.springframework.stereotype.Component
  * The next version has no name of its own ([RenameCatalogDraft]).
  */
 data class UpdateCatalogDraft(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val draft: DraftRef,
     val name: String? = null,
     /** The draft's new default theme; null keeps it ([clearDefaultTheme] removes it). */
@@ -34,6 +34,8 @@ data class UpdateCatalogDraft(
     val clearDefaultTheme: Boolean = false,
 ) : Command<UpdatedCatalogDraft>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
@@ -51,18 +53,18 @@ class UpdateCatalogDraftHandler(
 ) : CommandHandler<UpdateCatalogDraft, UpdatedCatalogDraft> {
     override fun handle(command: UpdateCatalogDraft): UpdatedCatalogDraft {
         val draft = jdbi.withHandle<CatalogDraft, Exception> { handle ->
-            val draft = drafts.find(handle, command.tenantKey, command.catalogKey, command.draft)
+            val draft = drafts.find(handle, command.catalog, command.draft)
                 ?: throw CatalogReleaseNotFoundException(command.catalogKey, command.draft.toString())
             drafts.requireRevision(handle, command.tenantKey, draft.versionId, command.expectedRevision, "Catalog version '${draft.label}' of '${command.catalogKey.value}'")
             draft
         }
-        val version = CatalogReleaseRef(command.tenantKey, command.catalogKey, draft.ref)
-        command.name?.let { RenameCatalogDraft(command.tenantKey, command.catalogKey, draft.ref, it).execute() }
-        command.defaultTheme?.let { SetCatalogDefaultTheme(command.tenantKey, command.catalogKey, it, catalogVersion = version).execute() }
-        if (command.clearDefaultTheme) SetCatalogDefaultTheme(command.tenantKey, command.catalogKey, theme = null, catalogVersion = version).execute()
-        command.presets?.let { SetCatalogPresets(command.tenantKey, command.catalogKey, it, catalogVersion = version).execute() }
+        val version = CatalogReleaseRef(command.catalog, draft.ref)
+        command.name?.let { RenameCatalogDraft(command.catalog, draft.ref, it).execute() }
+        command.defaultTheme?.let { SetCatalogDefaultTheme(command.catalog, it, catalogVersion = version).execute() }
+        if (command.clearDefaultTheme) SetCatalogDefaultTheme(command.catalog, theme = null, catalogVersion = version).execute()
+        command.presets?.let { SetCatalogPresets(command.catalog, it, catalogVersion = version).execute() }
         return jdbi.withHandle<UpdatedCatalogDraft, Exception> { handle ->
-            UpdatedCatalogDraft(requireNotNull(drafts.find(handle, command.tenantKey, command.catalogKey, draft.ref)).revision)
+            UpdatedCatalogDraft(requireNotNull(drafts.find(handle, command.catalog, draft.ref)).revision)
         }
     }
 }

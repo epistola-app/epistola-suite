@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy

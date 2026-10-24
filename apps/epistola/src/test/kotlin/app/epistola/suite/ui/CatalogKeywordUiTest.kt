@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -39,13 +40,12 @@ class CatalogKeywordUiTest : BasePlaywrightTest() {
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Overflow").execute()
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("onderwerp"), CatalogId(catalogKey, TenantId(tenant.id))),
+                id = AttributeId(AttributeKey.of("onderwerp"), testCatalog(TenantId(tenant.id), catalogKey)),
                 displayName = "Onderwerp",
                 allowedValues = listOf(longValue),
             ).execute()
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Overflow",
                 description = null,
                 attributes = listOf(AttributeAssignment("overflow", "onderwerp", longValue)),

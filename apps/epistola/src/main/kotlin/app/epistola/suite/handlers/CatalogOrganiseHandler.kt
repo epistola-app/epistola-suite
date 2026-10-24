@@ -119,7 +119,8 @@ class CatalogOrganiseHandler {
         // Whether each can be changed here (ADR 0032): only such a catalog is offered as a destination.
         val editability = ListCatalogEditability(tenantKey).query()
         val catalogs = ListCatalogs(tenantKey).query().map {
-            mapOf("key" to it.id.value, "name" to it.name, "editable" to editability.editable(it.id))
+            // By address: two catalogs may share a key (ADR 0034, section 9).
+            mapOf("key" to it.address, "name" to it.name, "editable" to editability.editable(it.catalogId))
         }
         return json(
             mapOf(
@@ -129,7 +130,8 @@ class CatalogOrganiseHandler {
                     mapOf(
                         "id" to it.address.id,
                         "type" to it.address.type.wireName,
-                        "catalogKey" to it.address.catalogKey,
+                        // The catalog by its address, as the catalogs above are keyed (ADR 0034, section 9).
+                        "catalogKey" to it.address.catalogAddress,
                         "key" to it.address.key,
                         "name" to it.name,
                         "catalogName" to it.catalogName,
@@ -192,14 +194,8 @@ class CatalogOrganiseHandler {
     private fun unknownType() = ServerResponse.badRequest().contentType(MediaType.APPLICATION_JSON)
         .body(mapOf("code" to "unknown-type", "message" to "A resource type in the request is not one that can be moved"))
 
-    /** `type:catalog/key`, as [ResourceAddress.id] writes it; null for anything else. */
-    private fun parseAddress(id: String): ResourceAddress? {
-        val type = CatalogResourceType.entries.singleOrNull { id.startsWith(it.wireName + ":") } ?: return null
-        val path = id.removePrefix(type.wireName + ":")
-        val catalog = path.substringBefore('/', "").takeIf { it.isNotEmpty() } ?: return null
-        val key = path.substringAfter('/', "").takeIf { it.isNotEmpty() } ?: return null
-        return ResourceAddress(type, catalog, key)
-    }
+    /** `type:namespace/catalog/key`, as [ResourceAddress.id] writes it; null for anything else. */
+    private fun parseAddress(id: String): ResourceAddress? = ResourceAddress.parse(id)
 
     private companion object {
         /** Resources the browser loads before a search narrows them. */
@@ -226,8 +222,9 @@ private data class RelocationRequest(
     fun toRelocation(): ResourceRelocation? {
         val resourceType = CatalogResourceType.entries.singleOrNull { it.wireName == type } ?: return null
         return ResourceRelocation(
-            source = ResourceAddress(resourceType, catalog, key),
-            target = ResourceAddress(resourceType, targetCatalog, targetKey?.takeIf { it.isNotBlank() } ?: key),
+            // Each catalog by its address, `namespace/key` (ADR 0034, section 9).
+            source = ResourceAddress.at(resourceType, catalog, key),
+            target = ResourceAddress.at(resourceType, targetCatalog, targetKey?.takeIf { it.isNotBlank() } ?: key),
         )
     }
 }

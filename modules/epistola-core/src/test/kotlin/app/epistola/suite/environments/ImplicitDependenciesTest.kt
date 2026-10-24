@@ -23,6 +23,7 @@ import app.epistola.suite.environments.queries.ListImplicitDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -44,14 +45,14 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
         withMediator {
             CreateEnvironment(production, "Production").execute()
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(letters, TenantId(tenant))), "House").execute()
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute()
             declareDependency(tenant, letters, on = shared)
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenant, letters, "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute()
         }
         return tenant to production
     }
@@ -60,7 +61,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `a deploy uses what it is pinned to without deploying it, and the environment says it uses it`() {
         val (tenant, production) = setUp("implicit-deploy")
 
-        withMediator { DeployCatalogRelease(production, letters, "1.0.0", replace = true).execute() }
+        withMediator { DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.0.0", replace = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .`as`("only what was deployed").containsExactly("letters@1.0.0")
@@ -73,7 +74,7 @@ class ImplicitDependenciesTest : IntegrationTestBase() {
     fun `asked to, it deploys them explicitly too`() {
         val (tenant, production) = setUp("explicit-deploy")
 
-        withMediator { DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute() }
+        withMediator { DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.0.0", includeDependencies = true).execute() }
 
         assertThat(withMediator { ListDeployments(tenant).query() }.map { "${it.catalogKey.value}@${it.version}" })
             .containsExactlyInAnyOrder("letters@1.0.0", "shared@1.0.0")

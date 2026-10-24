@@ -34,13 +34,13 @@ object CatalogDependencyCycles {
         // Evaluated for the batch as a whole, not member by member. Moving several resources
         // together is how an author resolves a loop that any single move would be blocked on, so
         // judging them individually would refuse exactly the batches that fix the problem.
-        val destinations = relocations.associate { it.source to it.target.catalogKey }
+        val destinations = relocations.associate { it.source to it.target.catalogAddress }
         val edges = mutableSetOf<Pair<String, String>>()
         for (edge in graph.edges) {
             if (edge.kind in NOT_A_CATALOG_DEPENDENCY) continue
             val target = edge.target ?: continue
-            val from = destinations[edge.source] ?: edge.source.catalogKey
-            val to = destinations[target] ?: target.catalogKey
+            val from = destinations[edge.source] ?: edge.source.catalogAddress
+            val to = destinations[target] ?: target.catalogAddress
             if (from != to) edges += from to to
         }
         return findCycle(edges)

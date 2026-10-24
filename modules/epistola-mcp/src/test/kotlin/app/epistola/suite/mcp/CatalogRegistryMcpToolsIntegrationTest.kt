@@ -24,6 +24,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedRegistries
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -67,11 +68,11 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("mcp-registry")
         val fingerprint = withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "MCP registry").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(a))), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute().fingerprint
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), catalog)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute().fingerprint
         }
-        val namespace = withMediator { GetCatalog(a, catalog).query()!!.namespace }
+        val namespace = withMediator { GetCatalog(testCatalog(a, catalog)).query()!!.namespace }
 
         val published = asMember(a) { tools.publishReleaseToRegistry("mcp-registry", "1.0.0", "local") }
         assertThat(published.status).isEqualTo("published")
@@ -84,7 +85,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
 
         val installed = asMember(b) { tools.installReleaseFromRegistry("local", namespace, "mcp-registry", "1.0.0") }
         assertThat(installed.newlyInstalled).isTrue()
-        assertThat(withMediator { ListCatalogReleaseSummaries(b, catalog).query().single().fingerprint }).isEqualTo(fingerprint)
+        assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(b, catalog)).query().single().fingerprint }).isEqualTo(fingerprint)
     }
 
     @Test
@@ -92,7 +93,7 @@ class CatalogRegistryMcpToolsIntegrationTest : IntegrationTestBase() {
         val a = createTenant("MCP Registry Perm").id
         withMediator {
             CreateCatalog(tenantKey = a, id = CatalogKey.of("mcp-registry-perm"), name = "Perm").execute()
-            MarkCatalogReady(a, CatalogKey.of("mcp-registry-perm")).execute()
+            MarkCatalogReady(testCatalog(a, CatalogKey.of("mcp-registry-perm"))).execute()
         }
 
         assertThatThrownBy { asMember(a, setOf(TenantRole.CONTENT_VIEWER)) { tools.publishReleaseToRegistry("mcp-registry-perm", "1.0.0", "local") } }

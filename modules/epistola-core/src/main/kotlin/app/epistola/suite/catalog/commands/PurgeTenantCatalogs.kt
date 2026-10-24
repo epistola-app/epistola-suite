@@ -41,6 +41,8 @@ data class PurgeTenantCatalogs(
 data class PurgeTenantCatalogsResult(
     val priorDefaultThemeCatalogKey: String?,
     val priorDefaultThemeKey: String?,
+    /** The namespace of [priorDefaultThemeCatalogKey]'s catalog (ADR 0034). */
+    val priorDefaultThemeNamespace: String? = null,
 )
 
 @Component
@@ -52,7 +54,7 @@ class PurgeTenantCatalogsHandler(
             handle
                 .createQuery(
                     """
-                    SELECT thc.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key
+                    SELECT thc.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key, thc.namespace AS default_theme_namespace
                     FROM tenants t
                     LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                         AND ${inCurrentVersion("th")}
@@ -62,7 +64,7 @@ class PurgeTenantCatalogsHandler(
                 )
                 .bind("tenantKey", command.tenantKey)
                 .map { rs, _ ->
-                    PurgeTenantCatalogsResult(rs.getString("default_theme_catalog_key"), rs.getString("default_theme_key"))
+                    PurgeTenantCatalogsResult(rs.getString("default_theme_catalog_key"), rs.getString("default_theme_key"), rs.getString("default_theme_namespace"))
                 }.findOne()
                 .orElse(PurgeTenantCatalogsResult(null, null))
 

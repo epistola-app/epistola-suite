@@ -4,6 +4,8 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -32,11 +34,12 @@ import org.springframework.stereotype.Component
  * verify — the snapshot simply won't pin an entry for it).
  */
 data class GetFontFamilyFingerprint(
-    val tenantId: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: FontKey,
 ) : Query<String?>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
@@ -50,7 +53,7 @@ class GetFontFamilyFingerprintHandler(
 
     override fun handle(query: GetFontFamilyFingerprint): String? {
         val faces = jdbi.withHandle<List<FaceHash>, Exception> { handle ->
-            handle.loadFaceHashes(query.tenantId, query.catalogKey, query.slug)
+            handle.loadFaceHashes(query.catalog, query.slug)
         }
 
         if (faces.isEmpty()) return null
@@ -62,14 +65,14 @@ class GetFontFamilyFingerprintHandler(
         return sha256Hex(canonical.toByteArray(Charsets.UTF_8))
     }
 
-    private fun Handle.loadFaceHashes(tenantKey: TenantKey, catalogKey: CatalogKey, slug: FontKey): List<FaceHash> = createQuery(
+    private fun Handle.loadFaceHashes(catalog: CatalogId, slug: FontKey): List<FaceHash> = createQuery(
         """
         SELECT faces.weight, faces.italic, faces.content_hash
         $FACES_OF_FAMILY_AT_ADDRESS
         """,
     )
-        .bind("tenantKey", tenantKey)
-        .bind("catalogKey", catalogKey)
+        .bind("tenantKey", catalog.tenantKey)
+        .bindCatalog("catalogKey", catalog)
         .bind("slug", slug)
         .map { rs, _ ->
             FaceHash(

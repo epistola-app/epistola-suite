@@ -14,6 +14,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -48,8 +49,8 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability gauges").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             metricsPublisher.publish()
 
@@ -78,8 +79,8 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Observability counters").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // The worker drains every due publication in the installation, so assert the counter
             // moved for this outcome rather than pinning an exact total.
@@ -90,8 +91,8 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
             // A second catalog whose submission never reaches Exchange counts as an error, not a decision.
             val other = CatalogKey.of("observability-counters-error")
             CreateCatalog(tenant.id, other, "Observability counters error").execute()
-            ChangeCatalogNamespace(tenant.id, other, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, other, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, other), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, other), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             exchange.submitResponse = { FakeExchangeServer.Response(500, """{"error":"boom"}""") }
 
             val errorsBefore = counter("epistola.exchange.publication.submissions", "error")
@@ -119,8 +120,8 @@ class ExchangeObservabilityIntegrationTest : ExchangeIntegrationTestBase() {
             listOf("activity-one", "activity-two").forEach { slug ->
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
-                ChangeCatalogNamespace(tenant.id, key, "public-services").execute()
-                ReleaseCatalogDraft(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+                ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
 
             val activity = GetExchangePublicationActivity(tenant.id).query()

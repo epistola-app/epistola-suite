@@ -18,6 +18,7 @@ import app.epistola.suite.exchange.ExchangeTenantConnection
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test

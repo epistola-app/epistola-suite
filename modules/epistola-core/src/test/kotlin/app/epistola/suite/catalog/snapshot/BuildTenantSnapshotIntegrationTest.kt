@@ -49,7 +49,9 @@ class BuildTenantSnapshotIntegrationTest : IntegrationTestBase() {
         assertThat(snapshot.suiteVersion).isEqualTo("dev")
 
         val zipPaths = zipEntryNames(snapshot.bytes)
-        assertThat(zipPaths).contains("snapshot.json", "catalogs/alpha.zip", "catalogs/beta.zip")
+        // Each catalog at its address (snapshot schema 4, ADR 0034).
+        val namespace = app.epistola.suite.testing.TestNamespaces.of(tenant.id).namespace
+        assertThat(zipPaths).contains("snapshot.json", "catalogs/$namespace/alpha.zip", "catalogs/$namespace/beta.zip")
     }
 
     @Test

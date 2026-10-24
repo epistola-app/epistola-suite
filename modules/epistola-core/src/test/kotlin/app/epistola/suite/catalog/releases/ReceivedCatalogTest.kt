@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CatalogHasLocalChangesException
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -32,6 +33,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -52,33 +54,33 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
     @Autowired private lateinit var nextVersionChanges: NextVersionChanges
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     /** The author's catalog with a theme `brand`, released as [version]; its archive. */
     private fun authored(author: TenantKey, catalog: CatalogKey): ByteArray {
         CreateCatalog(tenantKey = author, id = catalog, name = catalog.value).execute()
         CreateTheme(id = theme(author, catalog, "brand"), name = "Brand").execute()
-        MarkCatalogReady(author, catalog).execute()
-        ReleaseCatalogDraft(tenantKey = author, catalogKey = catalog, version = "1.0.0").execute()
-        return ExportCatalogZip(author, catalog, "1.0.0").execute().zipBytes
+        MarkCatalogReady(testCatalog(author, catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0").execute()
+        return ExportCatalogZip(testCatalog(author, catalog), "1.0.0").execute().zipBytes
     }
 
     /** The author's next release, the theme renamed to [name]; its archive. */
     private fun nextRelease(author: TenantKey, catalog: CatalogKey, version: String, name: String): ByteArray {
         UpdateTheme(theme(author, catalog, "brand"), name = name).execute()
-        MarkCatalogReady(author, catalog).execute()
-        ReleaseCatalogDraft(tenantKey = author, catalogKey = catalog, version = version).execute()
-        return ExportCatalogZip(author, catalog, version).execute().zipBytes
+        MarkCatalogReady(testCatalog(author, catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = version).execute()
+        return ExportCatalogZip(testCatalog(author, catalog), version).execute().zipBytes
     }
 
     private fun themeName(tenant: TenantKey, catalog: CatalogKey): String? = jdbi.withHandle<String?, Exception> { h ->
         h.createQuery(
             "SELECT t.name FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'brand'",
-        ).bind("t", tenant).bind("c", catalog).mapTo(String::class.java).findOne().orElse(null)
+        ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).mapTo(String::class.java).findOne().orElse(null)
     }
 
-    private fun next(tenant: TenantKey, catalog: CatalogKey) = ListCatalogReleases(tenant, catalog, CatalogReleaseStatus.DRAFT, withBehind = true).query().single { it.isNext }
+    private fun next(tenant: TenantKey, catalog: CatalogKey) = ListCatalogReleases(testCatalog(tenant, catalog), CatalogReleaseStatus.DRAFT, withBehind = true).query().single { it.isNext }
 
     @Test
     fun `a received catalog has a next version on the release it installed, unchanged, and can be changed and released`() {
@@ -89,16 +91,16 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             ImportCatalogZip(receiver, authored(author, catalog)).execute()
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
-            assertThat(nextVersionChanges.changed(receiver, catalog)).`as`("what was installed is the release").isEmpty()
-            assertThat(GetCatalogEditability(receiver, catalog).query().editable).isTrue()
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).`as`("what was installed is the release").isEmpty()
+            assertThat(GetCatalogEditability(testCatalog(receiver, catalog)).query().editable).isTrue()
 
             UpdateTheme(theme(receiver, catalog, "brand"), name = "Brand, ours").execute()
-            assertThat(nextVersionChanges.changed(receiver, catalog)).containsExactly("theme/brand")
-            MarkCatalogReady(receiver, catalog).execute()
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).containsExactly("theme/brand")
+            MarkCatalogReady(testCatalog(receiver, catalog)).execute()
             // Releasing it here needs its namespace: the two tenants share it, as test and production do.
             TestNamespaces.share(author, receiver).execute()
-            ReleaseCatalogDraft(tenantKey = receiver, catalogKey = catalog, version = "1.0.1").execute()
-            assertThat(ListCatalogReleaseSummaries(receiver, catalog).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
+            ReleaseCatalogDraft(catalog = testCatalog(receiver, catalog), version = "1.0.1").execute()
+            assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
         }
     }
 
@@ -113,7 +115,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.1")
             assertThat(themeName(receiver, catalog)).isEqualTo("Brand 2")
-            assertThat(nextVersionChanges.changed(receiver, catalog)).isEmpty()
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).isEmpty()
         }
     }
 
@@ -128,13 +130,13 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
             ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
 
-            assertThat(ListCatalogReleaseSummaries(receiver, catalog).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
             assertThat(next(receiver, catalog).let { it.base to it.behind.map { b -> b.version } }).isEqualTo("1.0.0" to listOf("1.0.1"))
             assertThat(themeName(receiver, catalog)).`as`("the next version keeps what it had").isEqualTo("Brand")
 
-            MergeReleaseIntoDraft(receiver, catalog, "1.0.1").execute()
+            MergeReleaseIntoDraft(testCatalog(receiver, catalog), "1.0.1").execute()
             assertThat(themeName(receiver, catalog)).isEqualTo("Brand 2")
-            assertThat(PreviewDraftMerge(receiver, catalog, "1.0.1").query().alreadyMerged).isTrue()
+            assertThat(PreviewDraftMerge(testCatalog(receiver, catalog), "1.0.1").query().alreadyMerged).isTrue()
             assertThat(next(receiver, catalog).behind).isEmpty()
         }
     }
@@ -147,13 +149,13 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(receiver, authored(author, catalog)).execute()
             // The only change here: the catalog's default theme.
-            SetCatalogDefaultTheme(receiver, catalog, CatalogDefaultTheme(ThemeKey.of("brand"), catalog)).execute()
-            assertThat(nextVersionChanges.changed(receiver, catalog)).containsExactly("catalog/defaultTheme")
+            SetCatalogDefaultTheme(testCatalog(receiver, catalog), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(receiver, catalog))).execute()
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).containsExactly("catalog/defaultTheme")
 
             ImportCatalogZip(receiver, nextRelease(author, catalog, "1.0.1", "Brand 2")).execute()
 
             assertThat(next(receiver, catalog).let { it.base to it.behind.map { b -> b.version } }).isEqualTo("1.0.0" to listOf("1.0.1"))
-            assertThat(GetCatalogThemeSettings(receiver, catalog).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
+            assertThat(GetCatalogThemeSettings(testCatalog(receiver, catalog)).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("brand"))
         }
     }
 
@@ -166,7 +168,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             ImportCatalogZip(tenant, authored(author, catalog)).execute()
             UpdateTheme(theme(tenant, catalog, "brand"), name = "Brand, ours").execute()
 
-            assertThatThrownBy { UpgradeCatalog(tenant, catalog).execute() }
+            assertThatThrownBy { UpgradeCatalog(testCatalog(tenant, catalog)).execute() }
                 .`as`("refused before its source is asked, so a catalog from an archive shows it too")
                 .isInstanceOf(CatalogHasLocalChangesException::class.java)
                 .hasMessageContaining("theme/brand")
@@ -177,7 +179,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
     fun `a catalog the suite supplies cannot be changed`() {
         val tenant = createTenant("Received System").id
         withMediator {
-            assertThat(GetCatalogEditability(tenant, SYSTEM_CATALOG_KEY).query().reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+            assertThat(GetCatalogEditability(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query().reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
             assertThatThrownBy { CreateTheme(id = theme(tenant, SYSTEM_CATALOG_KEY, "mine"), name = "Mine").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
                 .hasMessageContaining("Epistola supplies this catalog")
@@ -195,10 +197,10 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
             val all = ListCatalogEditability(receiver).query()
             assertThat(all.byCatalog.keys.map { it.key }).contains(catalog, SYSTEM_CATALOG_KEY, CatalogKey.DEFAULT)
-            all.byCatalog.forEach { (address, editability) -> assertThat(editability).`as`(address.toString()).isEqualTo(GetCatalogEditability(receiver, address.key).query()) }
+            all.byCatalog.forEach { (address, editability) -> assertThat(editability).`as`(address.toString()).isEqualTo(GetCatalogEditability(testCatalog(receiver, address.key)).query()) }
             assertThat(all.editableCatalogs.map { it.key }).contains(catalog, CatalogKey.DEFAULT).doesNotContain(SYSTEM_CATALOG_KEY)
-            assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
-            assertThat(all.editable(CatalogKey.of("not-here"))).isFalse()
+            assertThat(all.of(SYSTEM_CATALOG_KEY.value)?.reason).isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+            assertThat(all.of("not-here")?.editable == true).isFalse()
         }
     }
 
@@ -209,16 +211,16 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("received-new")
         withMediator {
             val archive = authored(author, catalog)
-            val published = ListCatalogReleaseSummaries(author, catalog).query().single().fingerprint
+            val published = ListCatalogReleaseSummaries(testCatalog(author, catalog)).query().single().fingerprint
 
             assertThat(ImportCatalogZip(receiver, archive).execute().newlyInstalled).isTrue()
 
-            val received = GetCatalog(receiver, catalog).query()!!
-            assertThat(received.namespace).`as`("named as its archive names it").isEqualTo(GetCatalog(author, catalog).query()!!.namespace)
+            val received = GetCatalog(testCatalog(receiver, catalog)).query()!!
+            assertThat(received.namespace).`as`("named as its archive names it").isEqualTo(GetCatalog(testCatalog(author, catalog)).query()!!.namespace)
             assertThat(received.installedReleaseVersion).isEqualTo("1.0.0")
-            assertThat(ListCatalogReleaseSummaries(receiver, catalog).query().map { it.version to it.fingerprint }).containsExactly("1.0.0" to published)
+            assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version to it.fingerprint }).containsExactly("1.0.0" to published)
             assertThat(next(receiver, catalog).base).isEqualTo("1.0.0")
-            assertThat(GetCatalogEditability(receiver, catalog).query().editable).isTrue()
+            assertThat(GetCatalogEditability(testCatalog(receiver, catalog)).query().editable).isTrue()
             assertThat(GetCatalogOverview(receiver).query().single { it.catalogKey == catalog }.notReady)
                 .`as`("what a release brings is released content, ready as it is")
                 .isZero()
@@ -234,9 +236,9 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
             assertThat(ImportCatalogZip(author, archive).execute().newlyInstalled).isFalse()
 
-            val own = GetCatalog(author, catalog).query()!!
+            val own = GetCatalog(testCatalog(author, catalog)).query()!!
             assertThat(own.releasedVersion to own.installedReleaseVersion).isEqualTo("1.0.0" to null)
-            assertThat(ListCatalogReleaseSummaries(author, catalog).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(author, catalog)).query().map { it.version }).containsExactly("1.0.0")
             assertThat(next(author, catalog).base).isEqualTo("1.0.0")
         }
     }
@@ -248,20 +250,20 @@ class ReceivedCatalogTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("received-work")
         withMediator {
             val archive = authored(author, catalog)
-            val namespace = GetCatalog(author, catalog).query()!!.namespace
+            val namespace = GetCatalog(testCatalog(author, catalog)).query()!!.namespace
             TestNamespaces.share(author, receiver).execute()
             CreateCatalog(tenantKey = receiver, id = catalog, name = "Ours", namespace = namespace).execute()
             CreateTheme(id = theme(receiver, catalog, "ours"), name = "Ours").execute()
 
             ImportCatalogZip(receiver, archive).execute()
 
-            assertThat(ListCatalogReleaseSummaries(receiver, catalog).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, catalog)).query().map { it.version }).containsExactly("1.0.0")
             assertThat(next(receiver, catalog).base).`as`("the next version stays where it was").isNull()
-            assertThat(nextVersionChanges.changed(receiver, catalog)).`as`("everything a next version without a base holds is its own").containsExactly("theme/ours")
+            assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).`as`("everything a next version without a base holds is its own").containsExactly("theme/ours")
             assertThat(
                 jdbi.withHandle<Int, Exception> { h ->
                     h.createQuery("SELECT count(*) FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'ours'")
-                        .bind("t", receiver).bind("c", catalog).mapTo(Int::class.java).one()
+                        .bind("t", receiver).bindCatalog("c", testCatalog(receiver, catalog)).mapTo(Int::class.java).one()
                 },
             ).`as`("its work is not pruned").isEqualTo(1)
         }

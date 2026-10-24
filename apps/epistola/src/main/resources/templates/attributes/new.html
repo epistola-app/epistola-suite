@@ -115,9 +115,9 @@
                 <select id="codeList" name="codeList" class="ep-select">
                     <option value="">&mdash; Select a code list &mdash;</option>
                     <th:block th:each="cl : ${codeLists}">
-                        <option th:value="${cl.catalogKey + '/' + cl.slug}"
+                        <option th:value="${cl.catalogId.address + '/' + cl.slug}"
                                 th:text="${cl.catalogKey + ' / ' + cl.displayName}"
-                                th:selected="${formData?.codeList == cl.catalogKey + '/' + cl.slug}"></option>
+                                th:selected="${formData?.codeList == cl.catalogId.address + '/' + cl.slug}"></option>
                     </th:block>
                 </select>
                 <span class="form-hint">Variant values must match an entry of this code list. Hidden entries are still accepted.</span>

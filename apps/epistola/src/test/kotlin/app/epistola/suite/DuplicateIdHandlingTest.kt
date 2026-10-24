@@ -27,6 +27,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.default
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

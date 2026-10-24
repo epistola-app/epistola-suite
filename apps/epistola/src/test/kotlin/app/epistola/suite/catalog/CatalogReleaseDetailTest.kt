@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -43,24 +44,22 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
                 tenant = tenant("Release Detail")
                 withMediator {
                     val catalogKey = CatalogKey.of("detail-cat")
-                    val catalog = CatalogId(catalogKey, TenantId(tenant.id))
+                    val catalog = testCatalog(TenantId(tenant.id), catalogKey)
                     CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Detail cat").execute()
                     UpdateCatalogMetadata(
-                        tenantKey = tenant.id,
-                        catalogKey = catalogKey,
+                        catalog = testCatalog(tenant.id, catalogKey),
                         name = "Named at release",
                         description = "Described at release",
                         attributes = emptyList<AttributeAssignment>(),
                         keywords = setOf("frozen-keyword"),
                     ).execute()
                     CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand theme").execute()
-                    MarkCatalogReady(tenant.id, catalogKey).execute()
-                    ReleaseCatalogDraft(tenant.id, catalogKey, version = "1.0.0", notes = "the first").execute()
+                    MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+                    ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), version = "1.0.0", notes = "the first").execute()
 
                     // Everything the release recorded, changed afterwards.
                     UpdateCatalogMetadata(
-                        tenantKey = tenant.id,
-                        catalogKey = catalogKey,
+                        catalog = testCatalog(tenant.id, catalogKey),
                         name = "Renamed since",
                         description = "Described differently since",
                         attributes = emptyList<AttributeAssignment>(),
@@ -71,7 +70,7 @@ class CatalogReleaseDetailTest : BaseIntegrationTest() {
         }
 
         val body = restTemplate
-            .getForEntity("/tenants/${tenant.id.value}/catalogs/detail-cat/releases/1.0.0", String::class.java)
+            .getForEntity("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/detail-cat/releases/1.0.0", String::class.java)
             .body!!
 
         assertThat(body).contains("Named at release", "Described at release", "frozen-keyword", "the first")

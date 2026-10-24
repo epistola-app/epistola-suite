@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -28,10 +29,11 @@ import org.springframework.stereotype.Component
  * version string when the manifest carries no `release.fingerprint`.
  */
 data class CheckCatalogUpgrade(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<CatalogUpgradeAvailability>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -78,7 +80,7 @@ class CheckCatalogUpgradeHandler(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun handle(query: CheckCatalogUpgrade): CatalogUpgradeAvailability {
-        val catalog = GetCatalog(query.tenantKey, query.catalogKey).query()
+        val catalog = GetCatalog(query.catalog).query()
             ?: throw IllegalArgumentException("Catalog not found: ${query.catalogKey}")
 
         val sourceUrl = catalog.sourceUrl
@@ -92,7 +94,7 @@ class CheckCatalogUpgradeHandler(
         val available = if (manifestFingerprint != null) {
             // Another release unless the installed one is the release it names, by content (ADR 0034).
             catalog.installedFingerprint != manifestFingerprint &&
-                catalog.installedReleaseVersion?.let { installed -> jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.tenantKey, query.catalogKey, installed, manifestFingerprint) } } != true
+                catalog.installedReleaseVersion?.let { installed -> jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.catalog, installed, manifestFingerprint) } } != true
         } else {
             log.warn(
                 "Catalog '{}' manifest has no release.fingerprint — using version-string change detection for upgrade availability (tenant {})",

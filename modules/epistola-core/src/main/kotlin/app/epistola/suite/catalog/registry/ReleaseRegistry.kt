@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.registry
 
 import app.epistola.catalog.protocol.ReleaseBase
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.springframework.stereotype.Component
@@ -32,7 +33,7 @@ interface ReleaseRegistry {
     fun install(tenantKey: TenantKey, namespace: String, catalogKey: String, version: String, authority: String? = null): ReleaseRegistryInstall
 
     /** Publishes released release [version] of [catalogKey], exactly as it was released. */
-    fun publish(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): ReleaseRegistryPublication
+    fun publish(catalog: CatalogId, version: String): ReleaseRegistryPublication
 }
 
 /** Contributes the release registries of one kind that a tenant has. */

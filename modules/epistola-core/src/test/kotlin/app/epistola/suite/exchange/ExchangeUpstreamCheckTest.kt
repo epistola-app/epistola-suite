@@ -25,6 +25,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -66,7 +67,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
 
         worker.run()
 
-        val state = store.stateFor(tenant, catalogKey)!!
+        val state = store.stateFor(testCatalog(tenant, catalogKey))!!
         assertThat(state.availableVersion).isEqualTo("2.0.0")
         assertThat(state.upgradeAvailable("1.0.0")).isTrue()
         assertThat(state.failure).isNull()
@@ -83,7 +84,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         // latestVersion already excludes releases nobody may install, so when it matches what is
         // installed there is nothing the release list could add.
         assertThat(exchange.catalogLookups).containsExactly("acme/invoices")
-        assertThat(store.stateFor(tenant, catalogKey)!!.upgradeAvailable("1.0.0")).isFalse()
+        assertThat(store.stateFor(testCatalog(tenant, catalogKey))!!.upgradeAvailable("1.0.0")).isFalse()
     }
 
     @Test
@@ -97,7 +98,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         worker.run()
 
         assertThat(exchange.catalogLookups).isEmpty()
-        assertThat(store.stateFor(tenant, catalogKey)!!.availableVersion).isEqualTo("1.0.0")
+        assertThat(store.stateFor(testCatalog(tenant, catalogKey))!!.availableVersion).isEqualTo("1.0.0")
     }
 
     @Test
@@ -108,7 +109,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
 
         worker.run()
 
-        val state = store.stateFor(tenant, catalogKey)!!
+        val state = store.stateFor(testCatalog(tenant, catalogKey))!!
         assertThat(state.failure).isNotNull()
         // The catalog keeps the last answer it did get rather than losing it, so the page can still
         // say what it knew and when, instead of going blank because one check did not land.
@@ -123,7 +124,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
 
         worker.run()
 
-        assertThat(store.stateFor(tenant, catalogKey)!!.failure).isEqualTo(CatalogUpstreamCheckFailure.NOT_FOUND)
+        assertThat(store.stateFor(testCatalog(tenant, catalogKey))!!.failure).isEqualTo(CatalogUpstreamCheckFailure.NOT_FOUND)
     }
 
     @Test
@@ -137,7 +138,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
 
         worker.run()
 
-        val state = store.stateFor(tenant, catalogKey)!!
+        val state = store.stateFor(testCatalog(tenant, catalogKey))!!
         assertThat(state.installedAvailability).isEqualTo(UpstreamAvailability.WITHDRAWN)
         // The way forward is the newest release still offered, even though it is older.
         assertThat(state.availableVersion).isEqualTo("1.0.0")
@@ -148,7 +149,7 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         val tenant = installed("check-button")
         exchange.publish("acme", "invoices", releaseArchive("2.0.0"), version = "2.0.0")
 
-        val state = withMediator { CheckCatalogUpstream(tenant, catalogKey).execute() }
+        val state = withMediator { CheckCatalogUpstream(testCatalog(tenant, catalogKey)).execute() }
 
         // Not due for hours, but asked for explicitly.
         assertThat(state!!.availableVersion).isEqualTo("2.0.0")
@@ -193,12 +194,12 @@ class ExchangeUpstreamCheckTest : IntegrationTestBase() {
         return withMediator {
             CreateCatalog(publisher, catalogKey, "Invoices").execute()
             CreateTheme(
-                id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
+                id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
             ).execute()
-            MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
+            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version).execute()
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(publisher), catalogKey)).zipBytes
         }
     }
 

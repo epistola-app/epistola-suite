@@ -36,7 +36,7 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "acme", "catalogKey" to letters.value)),
             ).execute()
         }
-        val font = address(CatalogResourceType.FONT, letters, "acme")
+        val font = address(tenant, CatalogResourceType.FONT, letters, "acme")
 
         val plan = preview(tenant, font.movedTo(shared))
         assertThat(plan.blockers).isEmpty()
@@ -44,7 +44,7 @@ class RelocationCycleGuardTest : RelocationTestSupport() {
 
         val snapshot = withMediator { BuildTenantSnapshot(tenant).execute() }
         withMediator { RestoreTenantSnapshot(tenant, snapshot.bytes).execute() }
-        assertThat(identityAt(tenant, address(CatalogResourceType.FONT, shared, "acme"))).isNotNull()
+        assertThat(identityAt(tenant, address(tenant, CatalogResourceType.FONT, shared, "acme"))).isNotNull()
         assertThat(identityAt(tenant, font)).isNull()
     }
 }

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -21,6 +22,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -71,7 +74,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     fun `a new tenant has the nine system font families`() {
         val tenant = createTenant("Fonts1")
         withMediator {
-            val fonts = ListFonts(TenantId(tenant.id), SYSTEM_CATALOG_KEY).query()
+            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
             assertThat(fonts.map { it.slug.value }).containsExactlyInAnyOrderElementsOf(expectedSlugs)
         }
@@ -92,8 +95,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             for (slug in expectedSlugs) {
                 for ((weight, italic) in expectedFaces) {
                     val bytes = GetFontVariantContent(
-                        tenantId = tenant.id,
-                        catalogKey = SYSTEM_CATALOG_KEY,
+                        catalog = testCatalog(tenant.id, SYSTEM_CATALOG_KEY),
                         slug = FontKey.of(slug),
                         weight = weight,
                         italic = italic,
@@ -117,7 +119,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             // CreateTenant already ran EnsureSystemFonts once; run it again
             // directly — ImportFont UPSERTs, so the family count must hold.
             app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
-            val fonts = ListFonts(TenantId(tenant.id), SYSTEM_CATALOG_KEY).query()
+            val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
         }
     }
@@ -138,7 +140,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                 """,
             )
                 .bind("tenantKey", tenant.id.value)
-                .bind("catalogKey", SYSTEM_CATALOG_KEY.value)
+                .bindCatalog("catalogKey", testCatalog(tenant.id.value, SYSTEM_CATALOG_KEY.value))
                 .mapTo(String::class.java)
                 .list()
         }
@@ -157,7 +159,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Fonts Hash Idempotent Tenant")
         withMediator {
             val before = expectedSlugs.associateWith { slug ->
-                GetFontFamilyFingerprint(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of(slug)).query()
+                GetFontFamilyFingerprint(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of(slug)).query()
             }
             assertThat(before.values).allSatisfy { assertThat(it).isNotNull() }
 
@@ -166,7 +168,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
 
             val after = expectedSlugs.associateWith { slug ->
-                GetFontFamilyFingerprint(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of(slug)).query()
+                GetFontFamilyFingerprint(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of(slug)).query()
             }
             assertThat(after).isEqualTo(before)
         }
@@ -182,9 +184,8 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             // optional — without one the render falls back to engine defaults (Helvetica), which
             // would not embed Inter.
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
-                tenant.id,
-                CatalogId.default(tenantId).key,
-                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("default"), SYSTEM_CATALOG_KEY),
+                testCatalog(tenant.id, CatalogId.default(tenantId).key),
+                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("default"), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)),
             ).execute()
             val template = template(tenant.id, "Fonts Render Template")
             val compositeTemplateId = TemplateId(template.id, CatalogId.default(tenantId))
@@ -260,8 +261,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             )
             query(
                 PreviewVariant(
-                    tenantId = setup.tenant.id,
-                    catalogKey = CatalogKey.DEFAULT,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = data,

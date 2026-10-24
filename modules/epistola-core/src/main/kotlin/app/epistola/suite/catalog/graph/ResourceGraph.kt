@@ -18,18 +18,42 @@ enum class CatalogResourceType(val wireName: String) {
 
 data class ResourceAddress(
     val type: CatalogResourceType,
-    /** The catalog's key; in the tenant graph `namespace/key` where two catalogs share the key (ADR 0034). */
+    /** The catalog's namespace: with [catalogKey], its address (ADR 0034, section 9). */
+    val namespace: String,
+    /** The catalog's key. */
     val catalogKey: String,
     val key: String,
 ) {
+    /** The catalog's address, `namespace/key`. */
+    val catalogAddress: String get() = "$namespace/$catalogKey"
+
     /**
      * Stable text form, used for sorting, blocker messages, graph ids and the organise deep link.
      *
      * Shaped like [app.epistola.suite.common.ids.EntityIdBase.path]: a colon after the type, then
-     * the address as a path. The tenant is left out because every surface carrying one of these
-     * already names the tenant elsewhere in its URL.
+     * the address as a path, the catalog by its namespace and key. The tenant is left out because
+     * every surface carrying one of these already names the tenant elsewhere in its URL.
      */
-    val id: String get() = "${type.wireName}:$catalogKey/$key"
+    val id: String get() = "${type.wireName}:$namespace/$catalogKey/$key"
+
+    /** The catalog it is in, in [tenantKey]. */
+    fun catalogIn(tenantKey: app.epistola.suite.common.ids.TenantKey): app.epistola.suite.common.ids.CatalogId = app.epistola.suite.common.ids.CatalogId(namespace, app.epistola.suite.common.ids.CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
+
+    companion object {
+        /** The resource [key] of [type] in the catalog at [catalogAddress] (`namespace/key`). */
+        fun at(type: CatalogResourceType, catalogAddress: String, key: String): ResourceAddress {
+            require('/' in catalogAddress) { "A catalog is named by its address, namespace/key: $catalogAddress" }
+            return ResourceAddress(type, catalogAddress.substringBefore('/'), catalogAddress.substringAfter('/'), key)
+        }
+
+        /** The address [id] gives, or null when it is not one. */
+        fun parse(id: String): ResourceAddress? {
+            val type = CatalogResourceType.entries.firstOrNull { id.startsWith("${it.wireName}:") } ?: return null
+            val parts = id.substringAfter(':').split('/')
+            if (parts.size != 3 || parts.any { it.isBlank() }) return null
+            return ResourceAddress(type, parts[0], parts[1], parts[2])
+        }
+    }
 }
 
 data class ResourceNode(
@@ -70,6 +94,7 @@ enum class ReferenceLifecycle {
 
 data class ReferenceSelector(
     val type: CatalogResourceType,
+    /** The alias the reference names its catalog by (the catalog's key, ADR 0034); null for none. */
     val catalogKey: String?,
     val key: String,
 )

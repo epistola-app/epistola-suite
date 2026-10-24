@@ -62,7 +62,12 @@ data class Asset(
     val height: Int?,
     val createdAt: OffsetDateTime,
     val createdBy: UserKey? = null,
+    /** The namespace of its catalog (ADR 0034, section 9). */
+    val namespace: String = "",
 ) {
+    /** Its catalog, by its address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+
     /**
      * Plain-[String] MIME accessor for Thymeleaf/SpringEL. Templates cannot read
      * [mediaType] directly: Kotlin mangles the value-class getter

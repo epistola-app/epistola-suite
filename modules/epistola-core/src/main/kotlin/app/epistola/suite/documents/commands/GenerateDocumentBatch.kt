@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.BatchKey
@@ -49,7 +50,8 @@ import tools.jackson.databind.node.ObjectNode
  * [environmentId] limits the candidates to the releases that environment serves.
  */
 data class BatchGenerationItem(
-    val catalogKey: CatalogKey,
+    /** The template's catalog, by its address (ADR 0034, section 9). */
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -60,6 +62,8 @@ data class BatchGenerationItem(
     val correlationId: String? = null,
     val routingKey: String? = null,
 ) {
+    val catalogKey: CatalogKey get() = catalog.key
+
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"
@@ -114,6 +118,7 @@ data class GenerateDocumentBatch(
 
     init {
         require(items.isNotEmpty()) { "At least one item is required" }
+        require(items.all { it.catalog.tenantKey == tenantId }) { "Every item's catalog is of the tenant" }
         validateUniqueness()
     }
 
@@ -145,16 +150,15 @@ class GenerateDocumentBatchHandler(
         // environment serves or, without one, every release that kept its content. A release cut or
         // deployed while the batch is being accepted does not split it across releases.
         val selections = command.items
-            .map { Triple(it.releaseVersion, it.environmentId, it.catalogKey) }
+            .map { Triple(it.releaseVersion, it.environmentId, it.catalog) }
             .distinct()
             .associateWith { (selector, environment, catalog) ->
-                releaseTargetResolver.select(command.tenantId, catalog, environment, selector)
+                releaseTargetResolver.select(catalog, environment, selector)
             }
         val targets = command.items.map { item ->
             releaseTargetResolver.resolveIn(
-                command.tenantId,
-                item.catalogKey,
-                selections.getValue(Triple(item.releaseVersion, item.environmentId, item.catalogKey)),
+                item.catalog,
+                selections.getValue(Triple(item.releaseVersion, item.environmentId, item.catalog)),
                 item.templateId,
                 item.variantId,
                 item.variantSelectionCriteria,
@@ -183,12 +187,12 @@ class GenerateDocumentBatchHandler(
                     environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :catalogKey,
-                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
-                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
                         :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :draftId, :draftLabel,
                         COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey) AND r.version = :releaseVersion)),
+                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
                         :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 """,
             )
@@ -200,7 +204,7 @@ class GenerateDocumentBatchHandler(
                 batch.bind("id", GenerationRequestKey.generate())
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
-                    .bind("catalogKey", item.catalogKey)
+                    .bindCatalog("catalogKey", item.catalog)
                     .bind("templateId", item.templateId)
                     .bind("variantId", targets[index].variantKey)
                     .bind("environmentId", item.environmentId)
@@ -224,10 +228,10 @@ class GenerateDocumentBatchHandler(
         }.also {
             // How much each deployed version is used, for deciding when to undeploy it.
             command.items.indices
-                .mapNotNull { i -> command.items[i].environmentId?.let { env -> targets[i].releaseVersion?.let { Triple(env, command.items[i].catalogKey, it) } } }
+                .mapNotNull { i -> command.items[i].environmentId?.let { env -> targets[i].releaseVersion?.let { Triple(env, command.items[i].catalog, it) } } }
                 .groupingBy { it }
                 .eachCount()
-                .forEach { (key, count) -> usage.record(command.tenantId, key.first, key.second, key.third, count) }
+                .forEach { (key, count) -> usage.record(key.first, key.second, key.third, count) }
         }
     }
 }

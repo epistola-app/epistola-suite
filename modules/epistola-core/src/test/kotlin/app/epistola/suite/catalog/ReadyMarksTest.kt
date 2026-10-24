@@ -37,6 +37,7 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -60,7 +61,7 @@ class ReadyMarksTest : IntegrationTestBase() {
     private fun catalog(name: String): CatalogId = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, letters, "Letters").execute()
-        CatalogId(letters, TenantId(tenant))
+        testCatalog(TenantId(tenant), letters)
     }
 
     private fun invoice(catalog: CatalogId): VariantId = withMediator {
@@ -69,11 +70,11 @@ class ReadyMarksTest : IntegrationTestBase() {
         VariantId(VariantKey.INITIAL, templateId)
     }
 
-    private fun changes(catalog: CatalogId) = withMediator { GetCatalogResourceChanges(catalog.tenantKey, catalog.key).query() }
+    private fun changes(catalog: CatalogId) = withMediator { GetCatalogResourceChanges(testCatalog(catalog.tenantKey, catalog.key)).query() }
 
     private fun readiness(catalog: CatalogId, type: String, key: String) = changes(catalog).resources.single { it.type == type && it.slug == key }
 
-    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogDraft(catalog.tenantKey, catalog.key, version).execute() }
+    private fun release(catalog: CatalogId, version: String) = withMediator { ReleaseCatalogDraft(testCatalog(catalog.tenantKey, catalog.key), version).execute() }
 
     // ── Whether a mark holds ──
 
@@ -112,7 +113,7 @@ class ReadyMarksTest : IntegrationTestBase() {
         withMediator { CreateTheme(theme, "Brand").execute() }
         assertThat(readiness(catalog, "theme", "brand").ready).isFalse()
 
-        val remaining = withMediator { MarkCatalogReady(catalog.tenantKey, catalog.key).execute() }
+        val remaining = withMediator { MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute() }
 
         assertThat(remaining.notReady).isEmpty()
         withMediator { UpdateTheme(theme, documentStyles = mapOf("color" to "#ff0000")).execute() }
@@ -260,7 +261,7 @@ class ReadyMarksTest : IntegrationTestBase() {
         @Test
         fun `a model saved with the stencil inlined is stored with only the reference and the fills`() {
             val (_, variant) = setUp("fit-collapse")
-            val inlined = app.epistola.suite.stencils.model.StencilInstances.expand(filling("letterhead", "body"), letters.value) { _, _ ->
+            val inlined = app.epistola.suite.stencils.model.StencilInstances.expand(filling("letterhead", "body"), letters.value) { _, _, _ ->
                 app.epistola.suite.stencils.model.StencilInstances.Content(letterhead, null)
             }.document
             assertThat(inlined.texts()).contains("LOGO", "Dear customer")
@@ -275,7 +276,7 @@ class ReadyMarksTest : IntegrationTestBase() {
     fun `nothing in a subscribed catalog can be marked ready`() {
         val tenant: TenantKey = createTenant("ready-subscribed").id
         withMediator { RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute() }
-        val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("hello-world"), CatalogId(CatalogKey.of("epistola-demo"), TenantId(tenant))))
+        val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("hello-world"), testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))))
 
         assertThatThrownBy { withMediator { MarkVariantReady(variant).execute() } }
             .isInstanceOf(CatalogReadOnlyException::class.java)

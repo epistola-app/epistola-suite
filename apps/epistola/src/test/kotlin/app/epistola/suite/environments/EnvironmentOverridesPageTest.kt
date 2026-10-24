@@ -25,6 +25,7 @@ import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -56,18 +57,18 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         fixture { given { tenant = tenant("Overrides $slug") } }
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
-            val brand = ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant.id)))
+            val brand = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), letters))
             CreateTheme(brand, "Brand").execute()
-            MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogDraft(tenant.id, letters, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.0").execute()
             UpdateTheme(brand, name = "Brand, corrected").execute()
-            MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogDraft(tenant.id, letters, version = "1.0.1").execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "1.0.1").execute()
             for ((key, production) in listOf("test" to false, "production" to true)) {
                 val id = env(tenant, key)
                 CreateEnvironment(id, key.replaceFirstChar { it.uppercase() }, production = production).execute()
-                DeployCatalogRelease(id, letters, "1.0.0").execute()
-                DeployCatalogRelease(id, letters, "1.0.1").execute()
+                DeployCatalogRelease(id, testCatalog(id.tenantKey, letters), "1.0.0").execute()
+                DeployCatalogRelease(id, testCatalog(id.tenantKey, letters), "1.0.1").execute()
             }
         }
         return tenant
@@ -75,7 +76,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
 
     private fun env(tenant: Tenant, key: String) = EnvironmentId(EnvironmentKey.of(key), TenantId(tenant.id))
 
-    private fun row(page: String, version: String) = page.substringAfter("data-catalog=\"letters\" data-version=\"$version\"").substringBefore("</tr>")
+    private fun row(page: String, version: String) = page.substringAfter("/letters\" data-version=\"$version\"").substringBefore("</tr>")
 
     @Test
     fun `the environment page marks the latest release, and undeploying the newer one rolls back to the older`() {
@@ -96,7 +97,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         assertThat(page(tenant, "production")).contains("Only published releases are used here.").contains("Not production")
         assertThat(page(tenant, "test")).contains("Mark as production").contains("a draft can be deployed here").doesNotContain("follow work in progress")
 
-        withMediator { DeployCatalogRelease(env(tenant, "test"), letters, GetCatalogDraft(tenant.id, letters).query()!!.versionId).execute() }
+        withMediator { DeployCatalogRelease(env(tenant, "test"), testCatalog(env(tenant, "test").tenantKey, letters), GetCatalogDraft(testCatalog(tenant.id, letters)).query()!!.versionId).execute() }
         val refused = post("/tenants/${tenant.id.value}/environments/test/production", "production" to "true")
 
         assertThat(refused.body).contains("serves work in progress").contains("Next release")
@@ -111,8 +112,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `a draft is tried on an environment from its version menu, and its banner names who follows it`() {
         val tenant = setup("follow")
-        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
-        val at = "/tenants/${tenant.id.value}/catalogs/letters@$work"
+        val work: String = withMediator { CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId }
+        val at = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters@$work"
         assertThat(get("$at/draft").body).contains("data-testid=\"ws-follow\"").contains("Documents there use it as it is changed")
 
         val dialog = getHtmx("$at/follow").body!!
@@ -122,8 +123,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
 
         val followed = postHtmx("$at/follow", "environment" to "test")
 
-        assertThat(followed.headers["HX-Location"].orEmpty().joinToString()).contains("/catalogs/letters@$work/draft")
-        assertThat(withMediator { ListDraftDeployments(tenant.id, EnvironmentKey.of("test")).query() }.single().draftLabel).isEqualTo("Redesign")
+        assertThat(followed.headers["HX-Location"].orEmpty().joinToString()).contains("/catalogs/${tenant.id.value}/letters@$work/draft")
+        assertThat(withMediator { ListDraftDeployments(tenant.id, environmentKey = EnvironmentKey.of("test")).query() }.single().draftLabel).isEqualTo("Redesign")
         assertThat(get("$at/draft").body).contains("Test follows it.")
         assertThat(getHtmx("$at/follow").body!!.substringAfter("data-environment=\"test\"").substringBefore("</tr>")).contains("Stop following")
 
@@ -134,7 +135,7 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
         assertThat(refused.headers.getFirst("HX-Reswap")).isEqualTo("innerHTML")
 
         postHtmx("$at/unfollow", "environment" to "test")
-        assertThat(withMediator { ListDraftDeployments(tenant.id, EnvironmentKey.of("test")).query() }).isEmpty()
+        assertThat(withMediator { ListDraftDeployments(tenant.id, environmentKey = EnvironmentKey.of("test")).query() }).isEmpty()
         assertThat(get("$at/draft").body).doesNotContain("Test follows it.")
     }
 
@@ -143,8 +144,8 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the deployments page lets an environment follow a draft, not production, and stop again`() {
         val tenant = setup("deploy-follow")
-        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
-        val deployments = "/tenants/${tenant.id.value}/catalogs/letters/deployments"
+        val work: String = withMediator { CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId }
+        val deployments = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/deployments"
         fun envRow(page: String, key: String) = page.substringAfter("data-environment=\"$key\"").substringBefore("</tr>")
 
         val before = get(deployments).body!!
@@ -161,14 +162,14 @@ class EnvironmentOverridesPageTest : BaseIntegrationTest() {
     @Test
     fun `the overview shows each environment's version and the draft it follows, on the draft's box too`() {
         val tenant = setup("overview-follow")
-        val work: String = withMediator { CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId }
-        val overview = "/tenants/${tenant.id.value}/catalogs/letters/browse"
+        val work: String = withMediator { CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId }
+        val overview = "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/browse"
         fun box(page: String, marker: String) = page.substringAfter(marker).substringBefore("catalog-box-actions")
 
         val before = get(overview).body!!
         assertThat(box(before, "data-environment=\"test\"")).`as`("the highest it serves").contains(">v1.0.1<")
 
-        post("/tenants/${tenant.id.value}/catalogs/letters/deployments", "environmentId" to "test", "version" to "draft:$work")
+        post("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/deployments", "environmentId" to "test", "version" to "draft:$work")
         val after = get(overview).body!!
         assertThat(after.substringAfter("data-environment=\"test\"")).contains(">Redesign<").contains("Follows this draft")
         assertThat(box(after, "data-draft=\"$work\"")).contains("Used by Test")

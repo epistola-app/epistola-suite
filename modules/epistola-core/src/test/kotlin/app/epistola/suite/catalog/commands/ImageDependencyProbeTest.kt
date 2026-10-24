@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -38,13 +39,12 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, BRAND, "Brand").execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, BRAND),
                 name = "Logo",
                 mediaType = AssetMediaType.PNG,
                 content = PNG,
                 width = 1,
                 height = 1,
-                catalogKey = BRAND,
                 id = AssetKey.of("logo"),
             ).execute()
 
@@ -53,7 +53,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 zipBytes = archiveDependingOnImage(BRAND.value),
             ).execute()
 
-            assertThat(GetCatalog(tenant.id, CatalogKey.of("letters")).query()).isNotNull()
+            assertThat(GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()).isNotNull()
         }
     }
 
@@ -65,13 +65,12 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, BRAND, "Brand").execute()
             // The image exists, but in `brand`; the archive names `house`.
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, BRAND),
                 name = "Logo",
                 mediaType = AssetMediaType.PNG,
                 content = PNG,
                 width = 1,
                 height = 1,
-                catalogKey = BRAND,
                 id = AssetKey.of("logo"),
             ).execute()
 
@@ -85,7 +84,7 @@ class ImageDependencyProbeTest : IntegrationTestBase() {
                 .hasMessageContaining("image 'logo' from catalog 'house'")
 
             // Refused before anything was written.
-            assertThat(GetCatalog(tenant.id, CatalogKey.of("letters")).query()).isNull()
+            assertThat(GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()).isNull()
         }
     }
 

@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -20,12 +21,11 @@ class CatalogPublicationSettingsIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             SetCatalogPublicationSettings(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 policy = CatalogPublicationPolicy.DEFAULT_YES,
             ).execute()
 
-            val catalog = GetCatalog(tenant.id, CatalogKey.DEFAULT).query()
+            val catalog = GetCatalog(testCatalog(tenant.id, CatalogKey.DEFAULT)).query()
             assertThat(catalog?.exchangePublicationPolicy).isEqualTo(CatalogPublicationPolicy.DEFAULT_YES)
         }
     }

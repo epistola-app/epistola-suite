@@ -29,6 +29,8 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -55,13 +57,11 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             ).execute()
 
             InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).execute()
 
             val result = UpgradeCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).execute()
 
             assertThat(result.newVersion).isNotBlank()
@@ -83,21 +83,19 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             ).execute()
 
             InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).execute()
 
             val staleTemplateId = TemplateId(
                 TemplateKey.of("stale-template"),
-                CatalogId(catalogKey, TenantId(tenant.id)),
+                testCatalog(TenantId(tenant.id), catalogKey),
             )
             CatalogImportContext.runAsImport {
                 CreateDocumentTemplate(id = staleTemplateId, name = "Stale").execute()
             }
 
             val result = UpgradeCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).execute()
 
             assertThat(result.removedResources).anyMatch { it.slug == "stale-template" }
@@ -123,8 +121,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             // selective install this replaced (#850). An upgrade reconciles the whole manifest, so
             // it tops up rather than preserving whatever subset happens to be present.
             val result = UpgradeCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).execute()
 
             assertThat(result.installResults.map { it.slug })
@@ -141,20 +138,20 @@ class UpgradeCatalogTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
-            ImportCodeList(tenantId, catalogKey, "stale-list", "Stale List").execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
+            ImportCodeList(testCatalog(tenantId, catalogKey), "stale-list", "Stale List").execute()
             // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "stale-font", "Stale Font", "sans").execute() }
+            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "stale-font", "Stale Font", "sans").execute() }
 
-            val result = UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             assertThat(result.removedResources)
                 .contains(
                     app.epistola.suite.catalog.RemovedResource("codeList", "stale-list"),
                     app.epistola.suite.catalog.RemovedResource("font", "stale-font"),
                 )
-            assertThat(ListCodeLists(tenantId, catalogKey).query().map { it.slug.value }).doesNotContain("stale-list")
-            assertThat(ListFonts(tenantId, catalogKey).query().map { it.slug.value }).doesNotContain("stale-font")
+            assertThat(ListCodeLists(tenantId, testCatalog(tenantId, catalogKey)).query().map { it.slug.value }).doesNotContain("stale-list")
+            assertThat(ListFonts(tenantId, testCatalog(tenantId, catalogKey)).query().map { it.slug.value }).doesNotContain("stale-font")
         }
     }
 
@@ -163,19 +160,19 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         val tenant = createTenant("Upgrade Reference Types Test")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("epistola-demo")
-        val subscribedCatalog = CatalogId(catalogKey, tenantId)
+        val subscribedCatalog = testCatalog(tenantId, catalogKey)
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
-            ImportCodeList(tenantId, catalogKey, "used-list", "Used List").execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
+            ImportCodeList(testCatalog(tenantId, catalogKey), "used-list", "Used List").execute()
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("uses-list"), CatalogId.default(tenantId)),
                 displayName = "Uses List",
                 codeListId = CodeListId(CodeListKey.of("used-list"), subscribedCatalog),
             ).execute()
             // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "used-font", "Used Font", "sans").execute() }
+            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "used-font", "Used Font", "sans").execute() }
             CreateTheme(
                 id = ThemeId(ThemeKey.of("uses-font"), CatalogId.default(tenantId)),
                 name = "Uses Font",
@@ -185,7 +182,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             ).execute()
 
             assertThatThrownBy {
-                UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+                UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
             }
                 .isInstanceOf(CatalogUpgradeConflictException::class.java)
                 .hasMessageContaining("Code list 'used-list'")
@@ -201,21 +198,19 @@ class UpgradeCatalogTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
-            ImportCodeList(tenantId, catalogKey, "obsolete-list", "Obsolete List").execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
+            ImportCodeList(testCatalog(tenantId, catalogKey), "obsolete-list", "Obsolete List").execute()
             ImportAttribute(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "obsolete-attribute",
                 displayName = "Obsolete Attribute",
-                codeListCatalogKey = catalogKey,
+                codeListCatalog = testCatalog(testCatalog(tenantId, catalogKey).tenantKey, catalogKey),
                 codeListSlug = CodeListKey.of("obsolete-list"),
             ).execute()
             // Fonts reach an installed catalog only through a catalog import (#1023).
-            CatalogImportContext.runAsImport { ImportFont(tenantId, catalogKey, "obsolete-font", "Obsolete Font", "sans").execute() }
+            CatalogImportContext.runAsImport { ImportFont(testCatalog(tenantId, catalogKey), "obsolete-font", "Obsolete Font", "sans").execute() }
             ImportTheme(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "obsolete-theme",
                 name = "Obsolete Theme",
                 documentStyles = mapOf(
@@ -223,7 +218,7 @@ class UpgradeCatalogTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            val result = UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             assertThat(result.removedResources.map { it.type to it.slug })
                 .contains(
@@ -240,12 +235,12 @@ class UpgradeCatalogTest : IntegrationTestBase() {
         val tenant = createTenant("Upgrade Conflict Test")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("epistola-demo")
-        val defaultCatalogId = CatalogId(CatalogKey.DEFAULT, tenantId)
+        val defaultCatalogId = testCatalog(tenantId, CatalogKey.DEFAULT)
 
         withMediator {
             // Install demo catalog with all resources (includes "corporate" theme)
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             // Create a template in the default catalog that references the demo catalog's theme
             val templateKey = TestIdHelpers.nextTemplateId()
@@ -254,12 +249,12 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = app.epistola.suite.common.ids.ThemeKey.of("corporate"),
-                themeCatalogKey = catalogKey,
+                themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
             ).execute()
 
             CatalogImportContext.runAsImport {
                 CreateTheme(
-                    id = ThemeId(ThemeKey.of("stale-theme"), CatalogId(catalogKey, tenantId)),
+                    id = ThemeId(ThemeKey.of("stale-theme"), testCatalog(tenantId, catalogKey)),
                     name = "Stale Theme",
                 ).execute()
             }
@@ -268,12 +263,12 @@ class UpgradeCatalogTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = app.epistola.suite.common.ids.ThemeKey.of("stale-theme"),
-                themeCatalogKey = catalogKey,
+                themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
             ).execute()
 
             // Upgrade should be rejected because stale-theme is referenced
             assertThatThrownBy {
-                UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+                UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
             }
                 .isInstanceOf(CatalogUpgradeConflictException::class.java)
                 .hasMessageContaining("stale-theme")
@@ -298,21 +293,21 @@ class UpgradeCatalogTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            val install = InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            val install = InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
             assertThat(install.filter { it.status == InstallStatus.FAILED }).isEmpty()
-            val before = GetCatalog(tenant.id, depKey).query()!!
+            val before = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
 
             // Break the asset binary so its re-install on upgrade FAILS.
             Files.delete(tmp.resolve("binaries/test-logo.png"))
 
-            val result = UpgradeCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            val result = UpgradeCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             assertThat(result.aborted).isTrue()
             assertThat(result.installResults.any { it.status == InstallStatus.FAILED }).isTrue()
             assertThat(result.removedResources).isEmpty()
 
             // Version/fingerprint untouched → next run retries (no silent half-upgrade).
-            val after = GetCatalog(tenant.id, depKey).query()!!
+            val after = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
             assertThat(after.installedReleaseVersion).isEqualTo(before.installedReleaseVersion)
             assertThat(after.installedFingerprint).isEqualTo(before.installedFingerprint)
             // Nothing was installed, so the install stamp must not move either.

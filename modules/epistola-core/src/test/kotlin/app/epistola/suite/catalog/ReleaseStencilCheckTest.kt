@@ -26,6 +26,7 @@ import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -58,7 +59,7 @@ class ReleaseStencilCheckTest : IntegrationTestBase() {
     /** `letters` with a letterhead stencil and an invoice published while it filled `body`. */
     private fun setUp(): Pair<TenantId, StencilId> = withMediator {
         val tenantId = TenantId(createTenant("Release stencil check").id)
-        val catalogId = CatalogId(letters, tenantId)
+        val catalogId = testCatalog(tenantId, letters)
         CreateCatalog(tenantId.key, letters, "Letters").execute()
         val stencil = StencilId(StencilKey.of("letterhead"), catalogId)
         CreateStencil(stencil, "Letterhead", content = letterhead("body")).execute()
@@ -74,7 +75,7 @@ class ReleaseStencilCheckTest : IntegrationTestBase() {
     fun `a catalog whose instances fit its stencils releases`() {
         val (tenantId, _) = setUp()
 
-        val result = withMediator { ReleaseCatalogDraft(tenantId.key, letters, "1.0.0").execute() }
+        val result = withMediator { ReleaseCatalogDraft(testCatalog(tenantId.key, letters), "1.0.0").execute() }
 
         assertThat(result.version).isEqualTo("1.0.0")
     }
@@ -87,7 +88,7 @@ class ReleaseStencilCheckTest : IntegrationTestBase() {
             MarkStencilReady(stencil).execute()
         }
 
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenantId.key, letters, "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenantId.key, letters), "1.0.0").execute() } }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
             .hasMessageContaining("template 'invoice' fills placeholder 'body', which stencil letters/letterhead does not have")
@@ -117,7 +118,7 @@ class ReleaseStencilCheckTest : IntegrationTestBase() {
             .hasMessageContaining("Cannot mark stencil 'frame' ready")
             .hasMessageContaining("fills placeholder 'footer', which stencil letters/letterhead does not have")
         // ...and, not ready, it keeps the catalog from releasing.
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenantId.key, letters, "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenantId.key, letters), "1.0.0").execute() } }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.CATALOG_RESOURCES_NOT_READY)
             .hasMessageContaining("stencil 'frame'")
@@ -146,7 +147,7 @@ class ReleaseStencilCheckTest : IntegrationTestBase() {
         }
 
         // Only the release sees that the frame, still ready as it is, no longer fits.
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenantId.key, letters, "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenantId.key, letters), "1.0.0").execute() } }
             .isInstanceOf(ValidationException::class.java)
             .hasValidationCode(ValidationCode.STENCIL_REFERENCE_INVALID)
             .hasMessageContaining("stencil 'frame' fills placeholder 'body', which stencil letters/letterhead does not have")

@@ -45,6 +45,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -64,7 +65,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
     @Test
     fun `a moved stencil is exported at its new address and installs elsewhere`() = roundTrip(
-        moved = address(CatalogResourceType.STENCIL, letters, "header"),
+        moved = { tenant -> address(tenant, CatalogResourceType.STENCIL, letters, "header") },
         setup = { tenant ->
             val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
             CreateStencil(header, "Header").execute()
@@ -74,21 +75,21 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
     @Test
     fun `a moved theme is exported at its new address and installs elsewhere`() = roundTrip(
-        moved = address(CatalogResourceType.THEME, letters, "brand"),
+        moved = { tenant -> address(tenant, CatalogResourceType.THEME, letters, "brand") },
         setup = { tenant -> CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant, letters)), "Brand").execute() },
         model = { catalog -> usesTheme("brand", catalog.value) },
     )
 
     @Test
     fun `a moved image is exported at its new address and installs elsewhere`() = roundTrip(
-        moved = address(CatalogResourceType.IMAGE, letters, "logo"),
+        moved = { tenant -> address(tenant, CatalogResourceType.IMAGE, letters, "logo") },
         setup = { tenant -> uploadPng(tenant, letters, "logo", renderablePng()) },
         model = { catalog -> singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to catalog.value))) },
     )
 
     @Test
     fun `a moved font is exported at its new address and installs elsewhere`() = roundTrip(
-        moved = address(CatalogResourceType.FONT, letters, "acme"),
+        moved = { tenant -> address(tenant, CatalogResourceType.FONT, letters, "acme") },
         setup = { tenant -> importFont(tenant, letters, "acme") },
         model = { catalog -> singleNodeModel(Node(id = "title", type = "text", styles = mapOf("fontFamily" to mapOf("key" to "acme", "catalogKey" to catalog.value)))) },
     )
@@ -106,7 +107,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             CreateAttributeDefinition(AttributeId(AttributeKey.of("brand"), catalogId(tenant, letters)), "Brand", listOf("acme")).execute()
         }
         withMediator { UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme")).execute() }
-        move(tenant, address(CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
 
         val fresh = installBoth(tenant, "attribute")
 
@@ -131,7 +132,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
                 codeListId = CodeListId(CodeListKey.of("countries"), catalogId(tenant, letters)),
             ).execute()
         }
-        move(tenant, address(CatalogResourceType.CODE_LIST, letters, "countries").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.CODE_LIST, letters, "countries").movedTo(shared))
 
         val fresh = installBoth(tenant, "code list")
 
@@ -143,9 +144,9 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
     fun `a moved template is exported from its new catalog only, and installs there`() {
         val tenant = tenantWith("Export after template move")
         publishTemplate(tenant, letters, textModel())
-        move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
-        assertThat(unzipText(withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
+        assertThat(unzipText(withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), letters)) }.zipBytes)).doesNotContainKey("resources/template/invoice.json")
         val fresh = installBoth(tenant, "template")
 
         assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(fresh, shared))).query() }).isNotNull()
@@ -153,8 +154,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
 
     /** Exports `shared` and `letters` from [tenant] and installs them, in that order, in a fresh tenant. */
     private fun installBoth(tenant: TenantKey, what: String): TenantKey {
-        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
-        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), shared)) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), letters)) }.zipBytes
         val fresh = createTenant("Installs $what move").id
         withMediator {
             ImportCatalogZip(fresh, sharedZip).execute()
@@ -170,8 +171,9 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
      * name the moved resource at `shared` and declare that dependency, and in the fresh tenant its
      * reference must resolve.
      */
-    private fun roundTrip(moved: ResourceAddress, setup: (TenantKey) -> Unit, model: (CatalogKey) -> TemplateDocument) {
-        val tenant = tenantWith("Export after ${moved.type.wireName} move")
+    private fun roundTrip(moved: (TenantKey) -> ResourceAddress, setup: (TenantKey) -> Unit, model: (CatalogKey) -> TemplateDocument) {
+        val tenant = tenantWith("Export after a move")
+        val moved = moved(tenant)
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters)))
         withMediator {
             setup(tenant)
@@ -187,8 +189,8 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             MarkVariantReady(variant).execute()
         }
 
-        val sharedZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(shared, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
-        val lettersZip = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(letters, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes
+        val sharedZip = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), shared)) }.zipBytes
+        val lettersZip = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), letters)) }.zipBytes
         val lettersEntries = unzipText(lettersZip)
         assertThat(lettersEntries.getValue("resources/template/invoice.json"))
             .describedAs("the invoice names the %s where it lives now", moved.type.wireName)
@@ -201,7 +203,7 @@ class RelocationExportRoundTripTest : RelocationTestSupport() {
             ImportCatalogZip(fresh, lettersZip).execute()
         }
         val edge = withMediator { GetTenantResourceGraph(fresh, includeHistory = true).query() }.edges
-            .single { it.source == address(CatalogResourceType.TEMPLATE, letters, "invoice") && it.targetSelector.type == moved.type }
+            .single { it.source == address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice") && it.targetSelector.type == moved.type }
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         assertThat(edge.target).isEqualTo(moved.copy(catalogKey = shared.value))
     }

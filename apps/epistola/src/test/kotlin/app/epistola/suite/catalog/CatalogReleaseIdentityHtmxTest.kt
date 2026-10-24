@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.recordBeforeContentHashes
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -44,9 +45,9 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
     /** Catalog [key] named [name], with one theme `brand`, released as 1.0.0. */
     private fun releasedWithBrand(tenant: TenantKey, key: CatalogKey, name: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = name).execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), "Brand").execute()
-        MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand").execute()
+        MarkCatalogReady(testCatalog(tenant, key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
     }
 
     private fun page(tenant: TenantKey, catalog: CatalogKey, version: String): String = restTemplate
@@ -61,8 +62,8 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant("Release identity same").id
         releasedWithBrand(tenant, letters, "Letters")
         releasedWithBrand(tenant, CatalogKey.of("forms"), "Forms")
-        withMediator { ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.1", notes = "Only the notes are new").execute() }
-        val contentHash = withMediator { GetCatalogReleaseDetail(tenant, letters, "1.0.1").query()!!.contentHash!! }
+        withMediator { ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Only the notes are new").execute() }
+        val contentHash = withMediator { GetCatalogReleaseDetail(testCatalog(tenant, letters), "1.0.1").query()!!.contentHash!! }
 
         val body = page(tenant, letters, "1.0.1")
 
@@ -79,8 +80,8 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
 
         val same = body.part("release-same-as")
         assertThat(same).contains("The same release as")
-        assertThat(same).contains("href=\"/tenants/${tenant.value}/catalogs/letters/releases/1.0.0\"").contains(">v1.0.0</a>")
-        assertThat(same).`as`("another catalog's, by its name").contains("href=\"/tenants/${tenant.value}/catalogs/forms/releases/1.0.0\"").contains(">Forms v1.0.0</a>")
+        assertThat(same).contains("href=\"/tenants/${tenant.value}/catalogs/${tenant.value}/letters/releases/1.0.0\"").contains(">v1.0.0</a>")
+        assertThat(same).`as`("another catalog's, by its name").contains("href=\"/tenants/${tenant.value}/catalogs/${tenant.value}/forms/releases/1.0.0\"").contains(">Forms v1.0.0</a>")
         assertThat(same.indexOf(">v1.0.0</a>")).`as`("the catalog's own first").isLessThan(same.indexOf(">Forms v1.0.0</a>"))
     }
 
@@ -92,7 +93,7 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
     fun `a release recorded before content fingerprints says its content fingerprint is being computed, then shows both`() {
         val tenant = createTenant("Release identity before").id
         releasedWithBrand(tenant, letters, "Letters")
-        val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, tenant, letters, "1.0.0") }
+        val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.0") }
 
         val pending = page(tenant, letters, "1.0.0")
 
@@ -103,7 +104,7 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
         assertThat(pending).doesNotContain("data-testid=\"release-same-as\"")
 
         backfill.run()
-        val contentHash = withMediator { GetCatalogReleaseDetail(tenant, letters, "1.0.0").query()!!.contentHash!! }
+        val contentHash = withMediator { GetCatalogReleaseDetail(testCatalog(tenant, letters), "1.0.0").query()!!.contentHash!! }
         val given = page(tenant, letters, "1.0.0")
 
         assertThat(given.part("release-content-hash-value", "code")).endsWith(">${contentHash.take(12)}")

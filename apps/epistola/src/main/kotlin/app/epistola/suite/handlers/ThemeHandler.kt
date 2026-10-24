@@ -30,6 +30,7 @@ import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.namedCatalogParam
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.redirect
@@ -87,9 +88,9 @@ class ThemeHandler(
         val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
         val segment = request.catalogParam()
-        val catalogFilter = segment?.key
+        val catalogFilter = segment?.catalogIn(tenantId)
         val tenant = GetTenant(id = tenantId.key).query()
-        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, catalogVersion = segment?.ref(tenantId.key)).query()
+        val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, catalogVersion = segment?.ref(tenantId.key)).query()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
@@ -124,8 +125,8 @@ class ThemeHandler(
         "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
         "houseThemeApplied" to request.param("houseThemeApplied").orElse(null)
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = tenantId, catalogKey = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/themes/${t.id.value}", n) }
-        "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListThemes(tenantId = it.tenantId, catalog = it).query() }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/themes/${t.id.value}", n) }
+        "themes" to ListThemes(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -188,7 +189,7 @@ class ThemeHandler(
                 CreateTheme(
                     id = ThemeId(
                         ThemeKey.validateOrNull(form["slug"])!!,
-                        CatalogId(segment.key, tenantId),
+                        segment.catalogIn(tenantId),
                     ),
                     name = form["name"],
                     description = description,
@@ -294,7 +295,7 @@ class ThemeHandler(
         return request.htmx {
             fragment("themes/usage", if (pageParam == null) "dialog" else "usage") {
                 "tenantId" to tenantId.key
-                "catalogId" to themeId.catalogKey.value
+                "catalogId" to themeId.catalogId.address
                 "catalogSegment" to request.catalogSegment().value
                 "draftSegment" to request.catalogSegment().takeIf { it.draft != null }
                 "theme" to theme
@@ -302,7 +303,7 @@ class ThemeHandler(
             }
             onFullPage {
                 redirect(
-                    "/tenants/${tenantId.key}/catalogs/${themeId.catalogKey}/themes/${themeId.key}",
+                    "/tenants/${tenantId.key}/catalogs/${themeId.catalogId.address}/themes/${themeId.key}",
                 )
             }
         }
@@ -397,7 +398,7 @@ class ThemeHandler(
                 "tenantId" to tenantId.key
                 "tenant" to GetTenant(id = tenantId.key).query()
                 "draftSegment" to segment
-                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+                "themes" to ListThemes(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
             }
             onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
@@ -411,37 +412,36 @@ class ThemeHandler(
     fun setDefault(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val themeIdStr = request.params().getFirst("themeId")?.takeIf { it.isNotBlank() }
-        val catalogKeyStr = request.params().getFirst("catalogKey")?.takeIf { it.isNotBlank() }
-
         val themeKey = themeIdStr?.let { ThemeKey.validateOrNull(it) ?: return ServerResponse.badRequest().build() }
-        val catalogKey = catalogKeyStr?.let { CatalogKey.of(it) }
+        // `[namespace/]key` of the theme's catalog (ADR 0034, section 9).
+        val catalog = request.namedCatalogParam("catalogKey")?.let { if (it.namespace == null) return ServerResponse.badRequest().build() else it.catalogIn(tenantId) }
 
         try {
             SetTenantDefaultTheme(
                 tenantId = tenantId.key,
                 themeId = themeKey,
-                catalogKey = catalogKey,
+                catalog = catalog,
             ).execute()
         } catch (e: ThemeNotFoundException) {
             return ServerResponse.notFound().build()
         }
 
         // The rows of the list it was set from: the chosen theme's catalog (`catalog`, the list's segment).
-        val segment = request.catalogParam() ?: catalogKey?.let { CatalogSegment(it) }
+        val segment = request.catalogParam() ?: catalog?.let { CatalogSegment(it.key, namespace = it.namespace) }
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId.key
                 "tenant" to GetTenant(id = tenantId.key).query()
                 "draftSegment" to segment
                 "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
-                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment?.key, catalogVersion = segment?.ref(tenantId.key)).query()
+                "themes" to ListThemes(tenantId = tenantId, catalog = segment?.catalogIn(tenantId), catalogVersion = segment?.ref(tenantId.key)).query()
             }
             onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }
     }
 
     /** The default theme of the catalog version a themes list shows (contract ADR 0007); null for none. */
-    private fun catalogDefaultOf(tenantKey: TenantKey, segment: CatalogSegment?): CatalogDefaultTheme? = segment?.let { GetCatalogThemeSettings(tenantKey, it.key, catalogVersion = it.ref(tenantKey)).query().defaultTheme }
+    private fun catalogDefaultOf(tenantKey: TenantKey, segment: CatalogSegment?): CatalogDefaultTheme? = segment?.let { GetCatalogThemeSettings(it.catalogIn(tenantKey), catalogVersion = it.ref(tenantKey)).query().defaultTheme }
 
     /**
      * Makes a theme the default theme of the catalog version the list shows (contract ADR 0007): the
@@ -451,10 +451,11 @@ class ThemeHandler(
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val themeKey = request.params().getFirst("themeId")?.takeIf { it.isNotBlank() }?.let { ThemeKey.validateOrNull(it) ?: return ServerResponse.badRequest().build() }
-        val themeCatalog = request.params().getFirst("themeCatalogKey")?.takeIf { it.isNotBlank() }?.let { CatalogKey.of(it) } ?: segment.key
+        // `[namespace/]key` of the theme's catalog; without one, this catalog (ADR 0034, section 9).
+        val themeCatalog = request.namedCatalogParam("themeCatalogKey")?.let { if (it.namespace == null) return ServerResponse.badRequest().build() else it.catalogIn(tenantId) }
+            ?: segment.catalogIn(tenantId)
         SetCatalogDefaultTheme(
-            tenantKey = tenantId.key,
-            catalogKey = segment.key,
+            catalog = segment.catalogIn(tenantId.key),
             theme = themeKey?.let { CatalogDefaultTheme(it, themeCatalog) },
             catalogVersion = segment.ref(tenantId.key),
         ).execute()
@@ -464,7 +465,7 @@ class ThemeHandler(
                 "tenant" to GetTenant(id = tenantId.key).query()
                 "draftSegment" to segment
                 "catalogDefault" to catalogDefaultOf(tenantId.key, segment)
-                "themes" to ListThemes(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+                "themes" to ListThemes(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
             }
             onFullPage { redirect(CatalogPages.list(request, tenantId.key, "themes")) }
         }

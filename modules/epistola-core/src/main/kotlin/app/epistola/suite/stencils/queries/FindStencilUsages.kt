@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -48,7 +49,7 @@ class FindStencilUsagesHandler(
         )
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
-            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
+            .bindCatalog(StencilReferences.CATALOG_PARAM, query.stencilId.catalogId)
             .mapTo(String::class.java)
             .list()
     }

@@ -13,6 +13,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,9 +49,9 @@ class TemplateMoveActionHtmxTest : BaseIntegrationTest() {
         ).body!!
 
         assertThat(body).contains("template-move-action")
-        // The dialog is fetched for this template specifically, addressed as type:catalog/key.
+        // The dialog is fetched for this template specifically, addressed as type:namespace/catalog/key.
         // Both separators are legal unencoded in a query value, so the link stays readable.
-        assertThat(body).contains("/catalogs/organise/move?resource=template:default/$templateKey")
+        assertThat(body).contains("/catalogs/organise/move?resource=template:$tenantKey/default/$templateKey")
         // A mount is what opens the swapped-in <dialog>; without it the fetch would land invisibly.
         assertThat(body).contains("data-dialog-mount")
     }

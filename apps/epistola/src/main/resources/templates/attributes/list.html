@@ -69,7 +69,7 @@
                         <td style="font-weight: 500;" th:text="${attr.displayName}" th:title="${attr.displayName}"></td>
                         <td class="cell-wrap">
                             <div th:if="${attr.codeListSlug != null}" class="badge-list">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.codeListCatalogKey) ?: attr.codeListCatalogKey},slug=${attr.codeListSlug})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/code-lists/{slug}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.codeListId?.catalogId) ?: attr.codeListId?.catalogId?.address},slug=${attr.codeListSlug})}"
                                    class="badge badge-default"
                                    th:title="'Bound to code list ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"
                                    th:text="'→ ' + ${attr.codeListCatalogKey} + '/' + ${attr.codeListSlug}"></a>
@@ -87,7 +87,7 @@
                             <span th:unless="${catalogEditing.editable(attr.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(attr.catalogKey)}">Read-only</span>
                             <th:block th:if="${catalogEditing.editable(attr.catalogKey)}">
                                 <button type="button" class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon"
-                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/edit(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogKey) ?: attr.catalogKey},attributeId=${attr.id})}"
+                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/edit(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address},attributeId=${attr.id})}"
                                         hx-target="#edit-attribute-dialog-body"
                                         hx-swap="innerHTML"
                                         data-open-dialog="edit-attribute-dialog"
@@ -98,7 +98,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete attribute"
                                         data-confirm-title="Delete Attribute"
-                                        th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogKey) ?: attr.catalogKey},attributeId=${attr.id})}"
+                                        th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attr.catalogId) ?: attr.catalogId.address},attributeId=${attr.id})}"
                                         data-confirm-target="#attribute-list" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>
@@ -145,7 +145,7 @@
         <!-- data-radio-panes: the constraintKind radios toggle the matching
              [data-constraint-pane] visibility; initial state is applied on the
              htmx:load of this fragment (pages/asset-forms.js). -->
-        <form th:hx-patch="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attribute.catalogKey) ?: attribute.catalogKey},attributeId=${attribute.id})}"
+        <form th:hx-patch="@{/tenants/{tenantId}/catalogs/{catalogId}/attributes/{attributeId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(attribute.catalogId) ?: attribute.catalogId.address},attributeId=${attribute.id})}"
               hx-target="#attribute-rows"
               hx-swap="innerHTML"
               data-radio-panes="constraintKind" data-pane-attr="data-constraint-pane"
@@ -213,9 +213,9 @@
                     <select id="edit-attr-codeList" name="codeList" class="ep-select">
                         <option value="">&mdash; Select a code list &mdash;</option>
                         <th:block th:each="cl : ${codeLists}">
-                            <option th:value="${cl.catalogKey + '/' + cl.slug}"
+                            <option th:value="${cl.catalogId.address + '/' + cl.slug}"
                                     th:text="${cl.catalogKey + ' / ' + cl.displayName}"
-                                    th:selected="${attribute.codeListCatalogKey != null and cl.catalogKey == attribute.codeListCatalogKey and cl.slug == attribute.codeListSlug}"></option>
+                                    th:selected="${attribute.codeListId != null and cl.catalogId == attribute.codeListId.catalogId and cl.slug == attribute.codeListSlug}"></option>
                         </th:block>
                     </select>
                 </div>

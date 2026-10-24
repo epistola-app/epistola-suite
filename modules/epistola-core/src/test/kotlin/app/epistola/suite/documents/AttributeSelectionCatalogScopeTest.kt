@@ -32,8 +32,10 @@ import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.ensureRequiredDataExample
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -65,12 +67,12 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
         val tenantId = TenantId(tenantKey)
         CreateCatalog(tenantKey = tenantKey, id = acme, name = "Acme").execute()
         CreateAttributeDefinition(
-            id = AttributeId(AttributeKey.of("lang"), CatalogId(acme, tenantId)),
+            id = AttributeId(AttributeKey.of("lang"), testCatalog(tenantId, acme)),
             displayName = "Language",
             allowedValues = listOf("dutch", "english"),
         ).execute()
 
-        val acmeLetter = TemplateId(letter, CatalogId(acme, tenantId))
+        val acmeLetter = TemplateId(letter, testCatalog(tenantId, acme))
         CreateDocumentTemplate(id = acmeLetter, name = "Acme letter").execute()
         CreateVariant(VariantId(VariantKey.of("nld"), acmeLetter), "Dutch", null, mapOf("lang" to "dutch")).execute()
         CreateVariant(VariantId(VariantKey.of("eng"), acmeLetter), "English", null, english).execute()
@@ -95,8 +97,7 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
 
     private fun generate(tenantKey: TenantKey) = withMediator {
         GenerateDocument(
-            tenantId = tenantKey,
-            catalogKey = acme,
+            catalog = testCatalog(tenantKey, acme),
             templateId = letter,
             variantSelectionCriteria = englishCriteria,
             data = objectMapper.createObjectNode(),
@@ -123,7 +124,7 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
                 tenantKey,
                 listOf(
                     BatchGenerationItem(
-                        catalogKey = acme,
+                        catalog = testCatalog(tenantKey, acme),
                         templateId = letter,
                         variantSelectionCriteria = englishCriteria,
                         data = objectMapper.createObjectNode(),
@@ -148,7 +149,7 @@ class AttributeSelectionCatalogScopeTest : IntegrationTestBase() {
         val tenantKey = setUp(withDecoyInDefault = true)
 
         val target = withMediator {
-            releaseTargetResolver.resolveLatest(tenantKey, acme, letter, variantKey = null, criteria = englishCriteria)
+            releaseTargetResolver.resolveLatest(testCatalog(tenantKey, acme), letter, variantKey = null, criteria = englishCriteria)
         }
 
         assertThat(target.variantKey).isEqualTo(VariantKey.of("eng"))

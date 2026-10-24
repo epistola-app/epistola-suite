@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -42,13 +43,13 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("hist-cat")
 
         withMediator {
-            val catalog = CatalogId(CatalogKey.of("hist-cat"), TenantId(tenant.id))
+            val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-cat"))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0", notes = "first cut").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0", notes = "first cut").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.10.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.10.0").execute()
         }
 
         val body = versions(versionsPage(tenant.id.value, "hist-cat"))
@@ -57,9 +58,9 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         // sorting the text would get wrong.
         assertThat(body.indexOf(">v1.10.0<")).isLessThan(body.indexOf(">v1.0.0<"))
         assertThat(body).doesNotContain("contents not kept")
-        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/hist-cat/releases/1.10.0\"")
+        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/hist-cat/releases/1.10.0\"")
         assertThat(release(tenant.id.value, "hist-cat", "1.0.0")).contains("first cut")
-        assertThat(release(tenant.id.value, "hist-cat", "1.10.0")).contains("catalogs/hist-cat/export?version=1.10.0")
+        assertThat(release(tenant.id.value, "hist-cat", "1.10.0")).contains("catalogs/${tenant.id.value}/hist-cat/export?version=1.10.0")
     }
 
     @Test
@@ -86,16 +87,16 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("hist-cut")
 
         withMediator {
-            val catalog = CatalogId(CatalogKey.of("hist-cut"), TenantId(tenant.id))
+            val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-cut"))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
             // Release is offered once nothing changed is unready (CatalogReleaseReadiness).
-            MarkCatalogReady(tenant.id, catalog.key).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
         }
 
         val body = browse(tenant.id.value, "hist-cut")
 
         assertThat(body).contains("data-testid=\"catalog-release-open\"")
-        assertThat(body).contains("catalogs/hist-cut/release")
+        assertThat(body).contains("catalogs/${tenant.id.value}/hist-cut/release")
         // The trigger swaps into this mount. Rendering one without the other is the failure that
         // looks like a broken button: HTMX fires, finds nothing to swap into, and does nothing.
         assertThat(body).contains("id=\"release-dialog-container\"")
@@ -117,17 +118,17 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("hist-publish")
 
         withMediator {
-            val catalog = CatalogId(CatalogKey.of("hist-publish"), TenantId(tenant.id))
+            val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-publish"))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0").execute()
         }
 
         val body = release(tenant.id.value, "hist-publish", "1.0.0")
 
         // Nothing is offered without somewhere to send it — this tenant is not connected to
         // Exchange, so the page carries the export action and no publish action.
-        assertThat(body).contains("catalogs/hist-publish/export?version=1.0.0")
+        assertThat(body).contains("/hist-publish/export?version=1.0.0")
         assertThat(body).doesNotContain("data-testid=\"release-exchange-publish\"")
     }
 
@@ -137,19 +138,19 @@ class CatalogReleaseHistoryTest : BaseIntegrationTest() {
         val tenant = tenantWithCatalog("hist-delete")
 
         withMediator {
-            val catalog = CatalogId(CatalogKey.of("hist-delete"), TenantId(tenant.id))
+            val catalog = testCatalog(TenantId(tenant.id), CatalogKey.of("hist-delete"))
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("second"), catalog), name = "Second").execute()
-            MarkCatalogReady(tenant.id, catalog.key).execute()
-            ReleaseCatalogDraft(tenant.id, catalog.key, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalog.key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalog.key), version = "1.1.0").execute()
         }
 
         assertThat(release(tenant.id.value, "hist-delete", "1.1.0")).contains("data-testid=\"release-delete\"")
 
         val response = restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/hist-delete/releases/1.1.0/delete",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/hist-delete/releases/1.1.0/delete",
             HttpEntity<Void>(HttpHeaders()),
             String::class.java,
         )

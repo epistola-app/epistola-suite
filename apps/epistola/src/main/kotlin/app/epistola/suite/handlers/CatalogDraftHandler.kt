@@ -96,7 +96,7 @@ class CatalogDraftHandler(
         if (form.hasErrors()) return refused("name", "A name is at most ${FieldLimits.MAX_NAME_LENGTH} characters.")
         val from = form.formData["from"]?.trim()?.ifBlank { null }
         val created = try {
-            CreateCatalogDraft(tenantId.key, segment.key, form.formData["name"].orEmpty(), from).execute()
+            CreateCatalogDraft(segment.catalogIn(tenantId.key), form.formData["name"].orEmpty(), from).execute()
         } catch (e: CatalogDraftNameInUseException) {
             return refused("name", "Other work is called that already. Choose another name.")
         } catch (e: CatalogReleaseNotFoundException) {
@@ -123,10 +123,10 @@ class CatalogDraftHandler(
         val segment = request.catalogSegment()
         val draft = bar(tenantId, segment).chosen?.draftRef ?: return ServerResponse.notFound().build()
         return try {
-            DeleteCatalogDraft(tenantId.key, segment.key, draft).execute()
+            DeleteCatalogDraft(segment.catalogIn(tenantId.key), draft).execute()
             // From the Releases page, back there; else to the catalog.
             val back = if (request.param("from").orElse("") == "versions") {
-                CatalogPages.releases(tenantId, segment.key)
+                CatalogPages.releases(segment.catalogIn(tenantId))
             } else {
                 CatalogPages.browse(tenantId, segment.at(null))
             }
@@ -173,9 +173,9 @@ class CatalogDraftHandler(
         return try {
             // Trying a draft on an environment is deploying it there (contract ADR 0003).
             if (follow) {
-                DeployCatalogRelease(environmentId, segment.key, draftId).execute()
+                DeployCatalogRelease(environmentId, segment.catalogIn(tenantId), draftId).execute()
             } else {
-                UndeployCatalogRelease(environmentId, segment.key, draftId).execute()
+                UndeployCatalogRelease(environmentId, segment.catalogIn(tenantId), draftId).execute()
             }
             val target = CatalogPages.draft(tenantId, segment)
             request.htmx {
@@ -196,7 +196,7 @@ class CatalogDraftHandler(
     }
 
     private fun ModelBuilder.followModel(tenantId: TenantId, segment: CatalogSegment, bar: CatalogDraftBar) {
-        val drafts = ListDraftDeployments(tenantId.key, catalogKey = segment.key).query().associateBy { it.environmentKey }
+        val drafts = ListDraftDeployments(tenantId.key, catalog = segment.catalogIn(tenantId)).query().associateBy { it.environmentKey }
         "tenantId" to tenantId.key
         "segment" to segment.value
         "draftName" to bar.chosen?.label

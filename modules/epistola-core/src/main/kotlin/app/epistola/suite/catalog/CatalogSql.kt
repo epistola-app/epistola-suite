@@ -4,31 +4,34 @@
 
 package app.epistola.suite.catalog
 
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
+import org.jdbi.v3.core.statement.SqlStatement
 
 /**
- * The opaque `catalog_id` of the catalog a caller named by key.
- *
- * Tables reference a catalog by `catalog_id`; a caller that names it by key resolves the key here,
- * through the database function `epistola_catalog_id` (ADR 0034, phase 4: a catalog is unique by
- * namespace and key). A key is looked up in the namespace the running message names for it
- * ([CatalogNames]); otherwise it must name one catalog of the tenant, and several are refused
- * ([CatalogKeyAmbiguousException]). None is NULL, which matches no row on a read and violates the NOT
- * NULL `catalog_id` on a write -- so neither silently succeeds.
+ * The opaque `catalog_id` of the catalog a caller names by its address, namespace and key (ADR 0034,
+ * section 9), through the database function `epistola_catalog_id`. Bind the address with
+ * [bindCatalog]: [catalogParam] is the key and `<catalogParam>_ns` the namespace. None is NULL, which
+ * matches no row on a read and violates the NOT NULL `catalog_id` on a write -- so neither silently
+ * succeeds.
  *
  * @param tenantParam name of the bound tenant parameter, which differs between call sites.
- * @param catalogParam name of the bound catalog-key parameter.
+ * @param catalogParam name of the bound catalog parameter ([bindCatalog]).
  */
-fun catalogAt(tenantParam: String, catalogParam: String): String = "epistola_catalog_id(:$tenantParam, :$catalogParam)"
+fun catalogAt(tenantParam: String, catalogParam: String): String = "epistola_catalog_id(:$tenantParam, :${catalogParam}_ns, :$catalogParam)"
+
+/** Binds [catalog] for [catalogAt]: its key as [name], its namespace as `<name>_ns`; both null for none (an optional filter). */
+fun <T : SqlStatement<T>> T.bindCatalog(name: String, catalog: CatalogId?): T = bind(name, catalog?.key?.value).bind("${name}_ns", catalog?.namespace)
 
 /**
- * The `catalog_id`s of the catalogs the keys of the bound list [listParam] name, each looked up as
- * [catalogAt] looks one up, for `catalog_id IN ${'$'}{catalogsAt(…)}`: a key two catalogs share means
- * the one the running work names, and is refused when it names none, rather than matching both.
+ * The `catalog_id`s of the catalogs bound as [listParam] ([bindCatalogs]), for
+ * `catalog_id IN ${'$'}{catalogsAt(…)}`.
  */
-fun catalogsAt(tenantParam: String, listParam: String): String = "(SELECT epistola_catalog_id(:$tenantParam, k) FROM unnest(ARRAY[<$listParam>]::text[]) AS k)"
+fun catalogsAt(tenantParam: String, listParam: String): String = "(SELECT epistola_catalog_id(:$tenantParam, a.ns, a.k) FROM unnest(ARRAY[<${listParam}_ns>]::text[], ARRAY[<$listParam>]::text[]) AS a(ns, k))"
+
+/** Binds [catalogs] for [catalogsAt]: their keys as [name], their namespaces as `<name>_ns`, in the same order. */
+fun <T : SqlStatement<T>> T.bindCatalogs(name: String, catalogs: Collection<CatalogId>): T = bindList(name, catalogs.map { it.key.value }).bindList("${name}_ns", catalogs.map { it.namespace })
 
 /**
  * The `version_id` of the version a caller means of the catalog it named by key (the
@@ -59,26 +62,26 @@ fun versionAt(tenantParam: String, catalogParam: String): String = "(SELECT cv.v
  */
 fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = $alias.tenant_key)"
 
-/** The catalog [catalogKey] names in [tenantKey] (see [catalogAt]), or null. */
-fun Handle.findCatalog(tenantKey: TenantKey, catalogKey: CatalogKey): Catalog? = createQuery(
+/** The catalog at [catalog] (see [catalogAt]), or null. */
+fun Handle.findCatalog(catalog: CatalogId): Catalog? = createQuery(
     "SELECT * FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
 )
-    .bind("tenantKey", tenantKey)
-    .bind("catalogKey", catalogKey)
+    .bind("tenantKey", catalog.tenantKey)
+    .bindCatalog("catalogKey", catalog)
     .mapTo<Catalog>()
     .findOne()
     .orElse(null)
 
 /**
  * The revision of the content row of [table] at [key] (its [keyColumn]) in the version a caller means
- * of [catalogKey], or null when there is none: what a guarded write that changed nothing compares
+ * of [catalog], or null when there is none: what a guarded write that changed nothing compares
  * against ([app.epistola.suite.common.Revisions.refuse]).
  */
-fun Handle.contentRevision(table: String, keyColumn: String, tenantKey: TenantKey, catalogKey: CatalogKey, key: Any): Long? = createQuery(
+fun Handle.contentRevision(table: String, keyColumn: String, catalog: CatalogId, key: Any): Long? = createQuery(
     "SELECT revision FROM $table WHERE tenant_key = :t AND $keyColumn = :k AND version_id = ${versionAt("t", "c")}",
 )
-    .bind("t", tenantKey)
-    .bind("c", catalogKey)
+    .bind("t", catalog.tenantKey)
+    .bindCatalog("c", catalog)
     .bind("k", key)
     .mapTo(Long::class.java)
     .findOne()

@@ -13,6 +13,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -26,7 +27,7 @@ class ListRecentCatalogsTest : IntegrationTestBase() {
         withMediator {
             listOf("alpha", "beta", "gamma").forEach { CreateCatalog(tenant, CatalogKey.of(it), it.replaceFirstChar(Char::uppercase)).execute() }
             // Alpha, created first, changes last.
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("alpha"), TenantId(tenant))), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.of("alpha"))), "Brand").execute()
         }
 
         val recent = withMediator { ListRecentCatalogs(tenant, limit = 2).query() }

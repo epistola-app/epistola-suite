@@ -13,6 +13,7 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
@@ -21,6 +22,7 @@ import app.epistola.suite.catalog.revisions.ReleaseDescription
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -53,8 +55,7 @@ import java.time.OffsetDateTime
  * @return the version recorded or already present, or null when there is nothing to record.
  */
 data class RecordInstalledRelease(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /**
      * The release's content as its archive carries it, when the caller has the archive: retained
      * instead of a rebuild from the installed rows, so the release exports with its publisher's
@@ -75,7 +76,10 @@ data class RecordInstalledRelease(
      */
     val received: ReleaseInfo? = null,
 ) : Command<String?>,
-    SystemInternal
+    SystemInternal {
+    val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /** A release's number and its publisher's fingerprint, when the archive carries one. */
 data class RecordedRelease(val version: String, val fingerprint: String?)
@@ -132,14 +136,14 @@ class RecordInstalledReleaseHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: RecordInstalledRelease): String? {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: return null
+        val catalog = GetCatalog(command.catalog).query() ?: return null
         val version = command.release?.version ?: catalog.installedReleaseVersion ?: return null
         check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
                 .bind("t", command.tenantKey)
-                .bind("c", command.catalogKey)
+                .bindCatalog("c", command.catalog)
                 .bind("v", version)
                 .mapTo(Boolean::class.java)
                 .one()
@@ -147,10 +151,10 @@ class RecordInstalledReleaseHandler(
         // The installed version carries the archive's theme settings (contract ADR 0007), so its
         // release, rebuilt or not, renders with its default theme. Before the baseline: they are the
         // release's, not changes of the next version's own.
-        if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(command.tenantKey, command.catalogKey, it.catalog, objectMapper) }
+        if (!exists && command.release == null) command.published?.let { rows.updateThemeSettings(command.catalog, it.catalog, objectMapper) }
         // The installed release is in place in the next version: what it holds now is the baseline
         // its own changes are measured from (ADR 0032).
-        if (command.release == null) nextVersionChanges.recordBaseline(command.tenantKey, command.catalogKey)
+        if (command.release == null) nextVersionChanges.recordBaseline(command.catalog)
         if (exists) return version
         val received = command.received?.takeIf { it.version == version }
         val renderingDefaults = received?.let { receivedReleases.renderingDefaultsVersion(command.catalogKey, it) } ?: RenderingDefaults.CURRENT.version
@@ -159,7 +163,7 @@ class RecordInstalledReleaseHandler(
         // it is computed over: each entry's fingerprint, and a fingerprint or content hash computed here.
         // Computed over the content without them, those named fonts without faces that the release holds.
         val content = jdbi.withHandle<CatalogContent, Exception> { handle ->
-            withBundledFaces(handle, command.tenantKey, command.catalogKey, command.published ?: contentBuilder.build(command.tenantKey, command.catalogKey))
+            withBundledFaces(handle, command.catalog, command.published ?: contentBuilder.build(command.catalog))
         }
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
@@ -179,7 +183,7 @@ class RecordInstalledReleaseHandler(
             val releasedAt = handle.createQuery("SELECT NOW()").mapTo(OffsetDateTime::class.java).one()
             // A received release keeps the id it has everywhere; else it is chosen here rather than by
             // the column's default, so its snapshot says it too.
-            received?.let { receivedReleases.requireIdFree(handle, command.tenantKey, command.catalogKey, it) }
+            received?.let { receivedReleases.requireIdFree(handle, command.catalog, it) }
             val releaseId = received?.releaseId ?: handle.createQuery("SELECT epistola_version_key()").mapTo(String::class.java).one()
             val manifest = content.toManifest(
                 ReleaseInfo(
@@ -205,7 +209,7 @@ class RecordInstalledReleaseHandler(
                 // Received: the installation that cut it, as the release names it; nobody here released it.
                 .bind("releasedByInstallation", ReleaseDescription.releasedByInstallation(received?.metadata))
                 .bind("t", command.tenantKey)
-                .bind("c", command.catalogKey)
+                .bindCatalog("c", command.catalog)
                 .bind("version", version)
                 .bind("fingerprint", fingerprint)
                 .bind("notes", "Installed from ${catalog.sourceUrl ?: "a catalog archive"}")
@@ -218,19 +222,18 @@ class RecordInstalledReleaseHandler(
                 .bind("baseFingerprint", received?.base?.fingerprint)
                 .execute()
             // The releases merged into it where it was cut, as it names them: its line contains them.
-            app.epistola.suite.catalog.releases.ReleaseLineage.recordMerged(handle, command.tenantKey, command.catalogKey, version, ReleaseDescription.merged(received?.metadata))
+            app.epistola.suite.catalog.releases.ReleaseLineage.recordMerged(handle, command.catalog, version, ReleaseDescription.merged(received?.metadata))
 
             // The publisher's pins, as installed: a received release's declarations are its archive's.
             dependencyStore.recordRelease(
                 handle,
-                command.tenantKey,
-                command.catalogKey,
+                command.catalog,
                 version,
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
             val revisionDigests = revisionStore.retain(handle, command.tenantKey, content)
             // A release beside the installed one may hold resources no version of the catalog has.
-            releaseEntryStore.record(handle, command.tenantKey, command.catalogKey, version, content, revisionDigests, resourceFingerprints, registerNew = command.release != null)
+            releaseEntryStore.record(handle, command.catalog, version, content, revisionDigests, resourceFingerprints, registerNew = command.release != null)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
@@ -246,7 +249,7 @@ class RecordInstalledReleaseHandler(
  * reads the face from the retained revision and its bytes from the classpath, checked against that
  * hash (`ReleaseContentAssembler.readBinary`). Without them a release renders the font as Helvetica.
  */
-internal fun withBundledFaces(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent): CatalogContent {
+internal fun withBundledFaces(handle: Handle, catalog: CatalogId, content: CatalogContent): CatalogContent {
     data class BundledFace(val slug: String, val weight: Int, val italic: Boolean, val location: String, val contentHash: String)
     val faces = handle.createQuery(
         """
@@ -258,8 +261,8 @@ internal fun withBundledFaces(handle: Handle, tenantKey: TenantKey, catalogKey: 
         ORDER BY f.slug, v.italic, v.weight
         """,
     )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map { rs, _ -> BundledFace(rs.getString("slug"), rs.getInt("weight"), rs.getBoolean("italic"), rs.getString("classpath_location"), rs.getString("content_hash")) }
         .list()
         .groupBy { it.slug }

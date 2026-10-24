@@ -18,6 +18,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -62,12 +63,12 @@ class ExchangeReleaseRegistryHtmxTest : ExchangeHandlerTestBase() {
         val catalog = CatalogKey.of("ui-exchange-publish")
         withMediator {
             CreateCatalog(tenant, catalog, "UI exchange publish").execute()
-            ChangeCatalogNamespace(tenant, catalog, "public-services").execute()
-            ReleaseCatalogDraft(tenant, catalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant, catalog), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/${catalog.value}/releases/1.0.0", String::class.java).body!!
-        assertThat(page).contains("/catalogs/${catalog.value}/registry-publish")
+        assertThat(page).contains("/catalogs/public-services/${catalog.value}/registry-publish")
         assertThat(get("/tenants/${tenant.value}/catalogs/${catalog.value}/registry-publish?version=1.0.0").body).contains("name=\"registry\" value=\"exchange\"")
 
         val form = LinkedMultiValueMap<String, String>().apply {
@@ -81,7 +82,7 @@ class ExchangeReleaseRegistryHtmxTest : ExchangeHandlerTestBase() {
         )
         assertThat(published.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(published.body).contains("data-testid=\"registry-queued\"")
-        assertThat(withMediator { GetCatalogPublicationState(tenant, catalog).query()!!.publications }).hasSize(1)
+        assertThat(withMediator { GetCatalogPublicationState(testCatalog(tenant, catalog)).query()!!.publications }).hasSize(1)
     }
 
     private fun connected(name: String): TenantKey {

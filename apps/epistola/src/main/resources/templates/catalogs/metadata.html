@@ -5,7 +5,7 @@
     <div class="ep-dialog-header">
         <h3 th:text="${sectionTitle}">Catalog settings</h3>
     </div>
-    <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.id})}"
+    <form th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalog.address})}"
           hx-target="#dialog-mount" hx-swap="innerHTML">
         <input type="hidden" name="section" th:value="${section}" />
         <div class="ep-dialog-body">

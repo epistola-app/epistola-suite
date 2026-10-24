@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -46,13 +47,14 @@ import tools.jackson.databind.ObjectMapper
  * hold a database connection; the export runs in a transaction of its own.
  */
 data class PublishReleaseToRegistry(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
     val registry: String,
 ) : Command<RegistryPublication>,
     RequiresPermission,
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_PUBLISH
 
     init {
@@ -89,8 +91,8 @@ class PublishReleaseToRegistryHandler(
     override fun handle(command: PublishReleaseToRegistry): RegistryPublication {
         val registry = registries.named(command.registry)
         val version = command.version.trim()
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
-        val release = ListCatalogReleaseSummaries(command.tenantKey, command.catalogKey).query().firstOrNull { it.version == version }
+        val catalog = GetCatalog(command.catalog).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        val release = ListCatalogReleaseSummaries(command.catalog).query().firstOrNull { it.version == version }
             ?: throw CatalogReleaseNotFoundException(command.catalogKey, version)
         val repository = registries.repository(registry, catalog.registry, catalog.namespace, catalog.id.value)
         val client = registries.client(registry)
@@ -99,7 +101,7 @@ class PublishReleaseToRegistryHandler(
         client.manifest(repository, version)?.let { existing ->
             // The same release when the registry's names it by its content (ADR 0034), however this one was fingerprinted.
             val same = existing.manifest.fingerprint?.let { label ->
-                label == release.fingerprint || jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, command.tenantKey, command.catalogKey, version, label) }
+                label == release.fingerprint || jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, command.catalog, version, label) }
             } == true
             if (existing.manifest.isCatalogRelease && same) {
                 return result(existing.digest, already = true)
@@ -113,9 +115,9 @@ class PublishReleaseToRegistryHandler(
             )
         }
 
-        val archive = ExportCatalogZip(command.tenantKey, command.catalogKey, version).execute()
+        val archive = ExportCatalogZip(command.catalog, version).execute()
         // Labelled as the archive names it: by its content hash (ADR 0034).
-        val contentHash = jdbi.withHandle<String?, Exception> { identity.contentHash(it, command.tenantKey, command.catalogKey, version) } ?: release.fingerprint
+        val contentHash = jdbi.withHandle<String?, Exception> { identity.contentHash(it, command.catalog, version) } ?: release.fingerprint
         val labels = ReleaseLabels(version, contentHash, catalog.registry, catalog.namespace, catalog.id.value)
         val config = client.pushBlob(repository, OciMediaTypes.CONFIG, ReleaseArtifact.config(mapper, labels))
         val layer = client.pushBlob(repository, OciMediaTypes.ARCHIVE, archive.zipBytes, mapOf(OciAnnotations.IMAGE_TITLE to archive.filename))

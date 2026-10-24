@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.releases
 
-import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.CatalogKey
@@ -18,9 +17,9 @@ import org.springframework.stereotype.Component
 /**
  * The full names (registry, namespace, key; contract ADR 0003) of the tenant's catalogs with
  * [catalogKeys], for a response that names a catalog it refers to by key, such as a generated
- * document. A key the tenant has no catalog by is left out, and so is one two catalogs share (ADR
- * 0034) unless the running work names one of them ([app.epistola.suite.catalog.CatalogNames]): a
- * response that knows the namespace names the catalog by it.
+ * document from before results recorded their catalog's name. A key the tenant has no catalog by is
+ * left out, and so is one two catalogs share (ADR 0034): a response that knows the namespace names the
+ * catalog by it.
  *
  * Any member of the tenant may read them: a catalog's name is how the operations a member may do
  * already address it, so a document generator can be told which catalog a document came from without
@@ -46,9 +45,7 @@ class GetCatalogNamesHandler(
                 .bindList("keys", keys)
                 .map { rs, _ -> CatalogName(rs.getString("registry"), rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) }
                 .list()
-            found.groupBy { it.key }.mapNotNull { (key, names) ->
-                CatalogAddress.lookUp(names.associateBy { CatalogAddress(it.namespace, key) }, key)?.let { key to it }
-            }.toMap()
+            found.groupBy { it.key }.mapNotNull { (key, names) -> names.singleOrNull()?.let { key to it } }.toMap()
         }
     }
 }

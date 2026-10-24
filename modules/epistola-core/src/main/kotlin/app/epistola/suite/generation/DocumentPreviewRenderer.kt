@@ -47,14 +47,12 @@ class DocumentPreviewRenderer(
     /**
      * Render a preview PDF and return the raw bytes.
      *
-     * @param tenantId Tenant key (for asset resolution)
      * @param templateModel The resolved template document to render
      * @param template The document template metadata (for theme, name)
      * @param tenant The tenant (for fallback theme, author name)
      * @param data The data context as JSON
      */
     fun render(
-        tenantId: TenantKey,
         templateModel: TemplateDocument,
         template: DocumentTemplate,
         tenant: Tenant,
@@ -64,8 +62,9 @@ class DocumentPreviewRenderer(
     ): ByteArray {
         val outputStream = ByteArrayOutputStream()
         // The draft's declarations say where other catalogs come from, as its release would render.
-        val dependencies = dependencyViews.of(tenantId, template.catalogKey)
-        val expandedModel = stencilResolvers.expandWithWorkingCopies(tenantId, template.catalogKey, templateModel, dependencies)
+        val catalog = template.catalogId
+        val dependencies = dependencyViews.of(catalog)
+        val expandedModel = stencilResolvers.expandWithWorkingCopies(catalog, templateModel, dependencies)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(data, Map::class.java) as Map<String, Any?>
@@ -73,22 +72,21 @@ class DocumentPreviewRenderer(
             title = template.name,
             author = tenant.name,
         )
-        val assetResolver = draftAssetResolver(tenantId, null, dependencies)
+        val assetResolver = draftAssetResolver(catalog, null, dependencies)
         // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
-        val catalogTheme = GetCatalogThemeSettings(tenantId, template.catalogKey).query().defaultTheme
+        val catalogTheme = GetCatalogThemeSettings(catalog).query().defaultTheme
         // Owning catalog for unqualified font refs: same cascade the theme
         // resolution + asset binding use (template theme catalog → the
         // catalog's default theme's catalog → the template's own catalog).
-        val owningCatalogKey =
-            template.themeCatalogKey ?: catalogTheme?.catalogKey ?: template.catalogKey
-        val fontResolver = fontFamilyResolver(tenantId, owningCatalogKey, dependencies = dependencies)
+        val owning = template.themeCatalogId ?: catalogTheme?.catalog ?: catalog
+        val fontResolver = fontFamilyResolver(owning, dependencies = dependencies)
         val theme = resolvedThemeOverride ?: generationService.resolveTheme(
-            tenantId,
+            catalog,
             expandedModel,
             template.themeKey,
             catalogTheme?.themeKey,
-            templateCatalogKey = template.themeCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
+            templateThemeCatalog = template.themeCatalogId,
+            catalogDefaultThemeCatalog = catalogTheme?.catalog,
             dependencies = dependencies,
         )
 
@@ -96,21 +94,16 @@ class DocumentPreviewRenderer(
             engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
         )
         generationService.renderPdf(
-            tenantId,
             expandedModel,
             dataMap,
             outputStream,
-            template.themeKey,
-            catalogTheme?.themeKey,
+            theme,
             metadataWithEngine,
             pdfaCompliant = template.pdfaEnabled,
             assetResolver = assetResolver,
             fontFamilyResolver = fontResolver,
-            templateCatalogKey = template.themeCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
             culture = culture,
             watermarkText = PREVIEW_WATERMARK,
-            resolvedThemeOverride = theme,
         )
 
         return outputStream.toByteArray()

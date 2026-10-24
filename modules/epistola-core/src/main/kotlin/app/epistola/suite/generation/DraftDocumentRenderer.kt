@@ -12,6 +12,7 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -59,7 +60,7 @@ data class PreparedDraftRender(
     val model: TemplateDocument,
     val templateName: String,
     val pdfaEnabled: Boolean,
-    val owningCatalogKey: CatalogKey,
+    val owning: CatalogId,
     val theme: ResolvedTheme,
     val data: ObjectNode,
     val culture: RenderCulture,
@@ -76,8 +77,7 @@ data class PreparedDraftRender(
  * @throws IllegalArgumentException when [data] does not satisfy the draft's data contract
  */
 data class PrepareDraftRender(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val data: ObjectNode,
@@ -85,6 +85,8 @@ data class PrepareDraftRender(
 ) : CatalogReleaseScoped,
     Query<PreparedDraftRender>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -100,7 +102,7 @@ class PrepareDraftRenderHandler(
 ) : QueryHandler<PrepareDraftRender, PreparedDraftRender> {
 
     override fun handle(query: PrepareDraftRender): PreparedDraftRender {
-        val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantKey)))
+        val templateId = TemplateId(query.templateId, query.catalog)
         val variantId = VariantId(query.variantId, templateId)
         val model = mediator.query(GetVariantContent(variantId))
             ?: throw IllegalStateException("Variant ${query.variantId} not found")
@@ -119,17 +121,17 @@ class PrepareDraftRenderHandler(
             }
         }
 
-        val dependencies = dependencyViews.of(query.tenantKey, query.catalogKey)
-        val expanded = stencilResolvers.expandWithWorkingCopies(query.tenantKey, template.catalogKey, model, dependencies)
+        val dependencies = dependencyViews.of(query.catalog)
+        val expanded = stencilResolvers.expandWithWorkingCopies(query.catalog, model, dependencies)
         // The catalog's own default theme (contract ADR 0007): what a template naming none renders with.
-        val catalogTheme = GetCatalogThemeSettings(query.tenantKey, query.catalogKey).query().defaultTheme
+        val catalogTheme = GetCatalogThemeSettings(query.catalog).query().defaultTheme
         val theme = generationService.resolveTheme(
-            query.tenantKey,
+            query.catalog,
             expanded,
             template.themeKey,
             catalogTheme?.themeKey,
-            templateCatalogKey = template.themeCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
+            templateThemeCatalog = template.themeCatalogId,
+            catalogDefaultThemeCatalog = catalogTheme?.catalog,
             dependencies = dependencies,
         )
         val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
@@ -137,7 +139,7 @@ class PrepareDraftRenderHandler(
                 "SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND id = :template",
             )
                 .bind("t", query.tenantKey)
-                .bind("c", query.catalogKey)
+                .bindCatalog("c", query.catalog)
                 .bind("template", query.templateId)
                 .mapTo(UUID::class.java)
                 .findOne()
@@ -148,7 +150,7 @@ class PrepareDraftRenderHandler(
             templateName = template.name,
             pdfaEnabled = template.pdfaEnabled,
             // Unqualified font references belong to the template's theme catalog, then the catalog default's.
-            owningCatalogKey = template.themeCatalogKey ?: catalogTheme?.catalogKey ?: template.catalogKey,
+            owning = template.themeCatalogId ?: catalogTheme?.catalog ?: query.catalog,
             theme = theme,
             data = data,
             culture = localeResolver.resolveCulture(tenant, variantId),
@@ -176,27 +178,26 @@ class DraftDocumentRenderer(
 
     data class Rendered(val pdf: ByteArray, val templateResourceId: UUID?)
 
-    fun render(tenantKey: TenantKey, catalogKey: CatalogKey, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String): Rendered {
-        val draft = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(draftId))
-        val prepared = mediator.query(PrepareDraftRender(tenantKey, catalogKey, templateKey, variantKey, data, draft))
+    fun render(catalog: CatalogId, templateKey: TemplateKey, variantKey: VariantKey, data: ObjectNode, draftId: String): Rendered {
+        val draft = CatalogReleaseRef(catalog, DraftRef.Id(draftId))
+        val prepared = mediator.query(PrepareDraftRender(catalog, templateKey, variantKey, data, draft))
 
-        val assets = draftAssetResolver(tenantKey, draft, prepared.dependencies)
+        val assets = draftAssetResolver(catalog, draft, prepared.dependencies)
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(prepared.data, Map::class.java) as Map<String, Any?>
         val out = ByteArrayOutputStream()
         generationService.renderPdf(
-            tenantKey,
             prepared.model,
             dataMap,
             out,
+            prepared.theme,
             metadata = PdfMetadata(title = prepared.templateName, author = prepared.tenantName, engineVersion = RenderingDefaults.CURRENT.engineVersionString()),
             pdfaCompliant = prepared.pdfaEnabled,
             assetResolver = assets,
-            fontFamilyResolver = fontFamilyResolver(tenantKey, prepared.owningCatalogKey, catalogVersion = draft, dependencies = prepared.dependencies),
+            fontFamilyResolver = fontFamilyResolver(prepared.owning, catalogVersion = draft, dependencies = prepared.dependencies),
             culture = prepared.culture,
             watermarkText = DocumentPreviewRenderer.PREVIEW_WATERMARK,
-            resolvedThemeOverride = prepared.theme,
         )
         return Rendered(out.toByteArray(), prepared.templateResourceId)
     }

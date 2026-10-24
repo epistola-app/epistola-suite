@@ -34,6 +34,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -57,18 +58,18 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateCatalog(tenant, forms, "Forms").execute()
-        val catalog = CatalogId(shared, TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), shared)
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer").execute()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
         tenant
     }
 
     private fun invoiceOnSharedTheme(tenant: TenantKey, version: CatalogReleaseRef? = null) = withMediator {
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         if (version == null) CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared, catalogVersion = version).execute()
+        UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared), catalogVersion = version).execute()
     }
 
     @Test
@@ -76,7 +77,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         val tenant = setUp("borrow-declared-on-use")
         invoiceOnSharedTheme(tenant)
 
-        val borrowing = withMediator { GetCatalogBorrowing(tenant, letters).query() }
+        val borrowing = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }
 
         val used = borrowing.catalogs.single()
         assertThat(used.catalogKey).isEqualTo("shared")
@@ -93,9 +94,9 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     fun `a used catalog's next version with unpublished changes is published along, numbered from them`() {
         val tenant = setUp("borrow-along")
         invoiceOnSharedTheme(tenant)
-        withMediator { UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), documentStyles = mapOf("color" to "#ff0000")).execute() }
+        withMediator { UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), documentStyles = mapOf("color" to "#ff0000")).execute() }
 
-        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+        val used = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.catalogs.single()
 
         assertThat(used.publishAlong).isTrue()
         assertThat(used.nextNumber).isEqualTo("1.0.1")
@@ -105,14 +106,14 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     @Test
     fun `a catalog used that was never published is published along as its first version`() {
         val tenant = setUp("borrow-never-published")
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("plain"), CatalogId(forms, TenantId(tenant))), "Plain").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("plain"), testCatalog(TenantId(tenant), forms)), "Plain").execute() }
         withMediator {
-            val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+            val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("plain"), themeCatalogKey = forms).execute()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("plain"), themeCatalog = testCatalog(templateId.tenantKey, forms)).execute()
         }
 
-        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+        val used = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.catalogs.single()
 
         assertThat(used.catalogKey).isEqualTo("forms")
         assertThat(used.publishAlong).isTrue()
@@ -124,19 +125,19 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     fun `the view and the declaring follow the draft they name, not the next version`() {
         val tenant = setUp("borrow-draft")
         val work = withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice").execute().withRequiredDataExample()
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenant, letters, "1.0.0").execute()
-            CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute().withRequiredDataExample()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute()
+            CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
         }
-        val draft = CatalogReleaseRef(tenant, letters, DraftRef.Id(work.versionId))
+        val draft = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(work.versionId))
         invoiceOnSharedTheme(tenant, draft)
 
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs).`as`("the next version uses nothing").isEmpty()
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters, draft).query() }.catalogs.map { it.catalogKey to it.declared }).containsExactly("shared" to true)
+        assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.catalogs).`as`("the next version uses nothing").isEmpty()
+        assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant, letters), draft).query() }.catalogs.map { it.catalogKey to it.declared }).containsExactly("shared" to true)
 
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters, draft).query() }.map { it.catalogKey }).containsExactly("shared")
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).`as`("the next version declares nothing").isEmpty()
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters), draft).query() }.map { it.catalogKey }).containsExactly("shared")
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }).`as`("the next version declares nothing").isEmpty()
     }
 
     /** Letters' Invoice uses Shared's Brand, declared and pinned to Shared 1.0.0. */
@@ -149,17 +150,17 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
 
     private fun releaseShared(tenant: TenantKey, version: String, change: () -> Unit) = withMediator {
         change()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, version).execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), version).execute()
     }
 
     @Test
     fun `a newer version that breaks nothing used here is offered, even when it breaks what is not used`() {
         val tenant = tiedToShared("borrow-newer-fits")
         // Removing Footer is breaking for Shared as a whole, but Letters does not use it.
-        releaseShared(tenant, "2.0.0") { DeleteStencil(StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant)))).execute() }
+        releaseShared(tenant, "2.0.0") { DeleteStencil(StencilId(StencilKey.of("footer"), testCatalog(TenantId(tenant), shared))).execute() }
 
-        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+        val used = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.catalogs.single()
 
         assertThat(used.release).isEqualTo("1.0.0")
         assertThat(used.newerBreaks).isEmpty()
@@ -170,11 +171,11 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
     @Test
     fun `a newer version that breaks something used here is not offered, and says what and why`() {
         val tenant = setUp("borrow-newer-breaks")
-        val footer = StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant)))
+        val footer = StencilId(StencilKey.of("footer"), testCatalog(TenantId(tenant), shared))
         withMediator {
             // Shared 1.1.0: Footer gets a placeholder `body`, which Letters' Invoice fills.
             releaseSharedNow(tenant, "1.1.0") { UpdateStencil(footer, content = footerWith("body")).execute() }
-            val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+            val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
             UpdateVariantContent(
                 VariantId(VariantKey.INITIAL, invoice),
@@ -190,7 +191,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
         // Shared 2.0.0 renames the placeholder: an interface change of something Letters uses.
         releaseShared(tenant, "2.0.0") { UpdateStencil(footer, content = footerWith("content")).execute() }
 
-        val used = withMediator { GetCatalogBorrowing(tenant, letters).query() }.catalogs.single()
+        val used = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query() }.catalogs.single()
 
         assertThat(used.release).isEqualTo("1.1.0")
         assertThat(used.newerFits).`as`("stays on 1.1.0").isNull()
@@ -208,7 +209,7 @@ class GetCatalogBorrowingTest : IntegrationTestBase() {
 
     private fun releaseSharedNow(tenant: TenantKey, version: String, change: () -> Unit) {
         change()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, version).execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), version).execute()
     }
 }

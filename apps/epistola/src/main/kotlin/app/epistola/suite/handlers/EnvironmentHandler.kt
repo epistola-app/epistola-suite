@@ -5,9 +5,6 @@
 package app.epistola.suite.environments
 
 import app.epistola.catalog.protocol.TemplateResource
-import app.epistola.suite.catalog.CatalogAddress
-import app.epistola.suite.catalog.CatalogNames
-import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.GetReleasedResource
 import app.epistola.suite.catalog.releases.ListReleasedResources
@@ -41,7 +38,6 @@ import app.epistola.suite.htmx.environmentId
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
-import app.epistola.suite.htmx.named
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.redirect
@@ -217,18 +213,20 @@ class EnvironmentHandler(
 
         val deployable = ListDeployableReleases(tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
-        // Two catalogs can share a key (ADR 0034): each is told apart, and linked, by namespace and key.
-        val shared = catalogs.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys
-        fun segment(key: CatalogKey, namespace: String?): String = if (key in shared && !namespace.isNullOrEmpty()) "$namespace/${key.value}" else key.value
-        fun segment(catalog: CatalogAddress): String = segment(catalog.key, catalog.namespace)
-        val allNames = catalogs.associate { it.address to it.name }
-        fun nameOf(key: CatalogKey, namespace: String?): String = namespace?.let { allNames[CatalogAddress(it, key)] } ?: catalogs.singleOrNull { it.id == key }?.name ?: key.value
+
+        // Each catalog is told apart, and linked, by its address (ADR 0034, section 9). A history
+        // entry from before entries named their namespace is linked by key alone.
+        fun segment(key: CatalogKey, namespace: String?): String = if (!namespace.isNullOrEmpty()) "$namespace/${key.value}" else key.value
+        fun segment(catalog: app.epistola.suite.common.ids.CatalogId): String = catalog.address
+        fun idOf(namespace: String, key: CatalogKey) = app.epistola.suite.common.ids.CatalogId(namespace, key, tenantId)
+        val allNames = catalogs.associate { it.catalogId to it.name }
+        fun nameOf(key: CatalogKey, namespace: String?): String = namespace?.let { allNames[idOf(it, key)] } ?: catalogs.singleOrNull { it.id == key }?.name ?: key.value
         val served = ListDeployments(tenantId.key, environmentKey = environmentId.key).query().filter { !it.isDraft }
-        val servedReleases = served.map { CatalogAddress(it.namespace, it.catalogKey) to it.version }.toSet()
-        val deployableSet = deployable.map { CatalogAddress(it.namespace, it.catalogKey) to it.version }.toSet()
+        val servedReleases = served.map { idOf(it.namespace, it.catalogKey) to it.version }.toSet()
+        val deployableSet = deployable.map { idOf(it.namespace, it.catalogKey) to it.version }.toSet()
 
         val history = ListDeploymentHistory(environmentId).query().map { entry ->
-            val address = entry.namespace?.let { CatalogAddress(it, entry.catalogKey) }
+            val address = entry.namespace?.let { idOf(it, entry.catalogKey) }
             DeploymentHistoryView(
                 catalogKey = segment(entry.catalogKey, entry.namespace),
                 catalogName = nameOf(entry.catalogKey, entry.namespace),
@@ -259,7 +257,7 @@ class EnvironmentHandler(
 
         // What a request naming no version gets here, per catalog: the draft it serves, or the highest release.
         val latest = GetEnvironmentLatest(tenantId.key, environmentId.key).query()
-        val drafts = ListDraftDeployments(tenantId.key, environmentId.key).query()
+        val drafts = ListDraftDeployments(tenantId.key, environmentKey = environmentId.key).query()
 
         return ServerResponse.ok().page("environments/detail") {
             "pageTitle" to "${environment.name} - Environments - Epistola"
@@ -268,7 +266,7 @@ class EnvironmentHandler(
             "error" to error
             "refusal" to refusal
             "deployments" to served.map { deployment ->
-                val address = CatalogAddress(deployment.namespace, deployment.catalogKey)
+                val address = idOf(deployment.namespace, deployment.catalogKey)
                 ServedReleaseView(
                     catalogKey = segment(address),
                     catalogName = allNames[address] ?: deployment.catalogKey.value,
@@ -285,10 +283,10 @@ class EnvironmentHandler(
                     catalogKey = segment(draft.catalogKey, draft.namespace),
                     catalogName = nameOf(draft.catalogKey, draft.namespace),
                     draftLabel = draft.draftLabel,
-                    href = CatalogPages.draft(tenantId, CatalogSegment(draft.catalogKey, draft.draftId, draft.namespace.takeIf { draft.catalogKey in shared })),
+                    href = CatalogPages.draft(tenantId, CatalogSegment(draft.catalogKey, draft.draftId, draft.namespace)),
                 )
             }
-            "releaseGroups" to deployable.groupBy { CatalogAddress(it.namespace, it.catalogKey) }.map { (catalog, releases) ->
+            "releaseGroups" to deployable.groupBy { idOf(it.namespace, it.catalogKey) }.map { (catalog, releases) ->
                 ReleaseGroupView(
                     catalogKey = segment(catalog),
                     catalogName = releases.first().catalogName,
@@ -301,10 +299,8 @@ class EnvironmentHandler(
             // Templates of what is deployed, to try one here as an application would get it.
             "tryTemplates" to served.flatMap { deployment ->
                 val version = requireNotNull(deployment.version)
-                val address = CatalogAddress(deployment.namespace, deployment.catalogKey)
-                CatalogNames.within(deployment.catalogKey, deployment.namespace) {
-                    ListReleasedResources(tenantId.key, deployment.catalogKey, version, "template").query()
-                }
+                val address = idOf(deployment.namespace, deployment.catalogKey)
+                ListReleasedResources(address, version, "template").query()
                     .filterIsInstance<TemplateResource>()
                     .map { template ->
                         TryTemplateView(
@@ -329,15 +325,14 @@ class EnvironmentHandler(
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
         val release = request.param("release").orElse("").trim()
         // `[namespace/]catalog@version`: a catalog whose key another shares is named by namespace too (ADR 0034).
-        val catalog = CatalogSegment.parseOrNull(release.substringBefore('@', missingDelimiterValue = ""))?.named()
+        val catalog = resolve(tenantId, CatalogSegment.parseOrNull(release.substringBefore('@', missingDelimiterValue = "")))
         val version = release.substringAfter('@', missingDelimiterValue = "")
-        val catalogKey = catalog?.key
-        if (catalogKey == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
+        if (catalog == null || version.isEmpty()) return detail(request, error = "Choose a release to deploy.")
         val includeDependencies = request.param("includeDependencies").orElse("") == "true"
         // Beside what the environment serves, unless the deployer chose to stop using the others.
         val replace = request.param("replace").orElse("") == "true"
         return try {
-            DeployCatalogRelease(environmentId, catalogKey, version, includeDependencies, replace = replace).execute()
+            DeployCatalogRelease(environmentId, catalog, version, includeDependencies, replace = replace).execute()
             redirectTo(environmentId)
         } catch (failure: ReleaseNotDeployableException) {
             detail(request, error = failure.message)
@@ -359,9 +354,9 @@ class EnvironmentHandler(
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
-        val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
-        ListDraftDeployments(tenantId.key, environmentId.key, catalogKey).query().singleOrNull()?.let {
-            UndeployCatalogRelease(environmentId, catalogKey, it.draftId).execute()
+        val catalog = pathCatalog(request, tenantId) ?: return ServerResponse.notFound().build()
+        ListDraftDeployments(tenantId.key, catalog, environmentId.key).query().singleOrNull()?.let {
+            UndeployCatalogRelease(environmentId, catalog, it.draftId).execute()
         }
         return redirectTo(environmentId)
     }
@@ -390,10 +385,10 @@ class EnvironmentHandler(
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
-        val catalogKey = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return ServerResponse.notFound().build()
+        val catalog = pathCatalog(request, tenantId) ?: return ServerResponse.notFound().build()
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return detail(request, error = "Choose a release to undeploy.")
-        UndeployCatalogRelease(environmentId, catalogKey, version).execute()
+        UndeployCatalogRelease(environmentId, catalog, version).execute()
         return redirectTo(environmentId)
     }
 
@@ -408,19 +403,19 @@ class EnvironmentHandler(
         val environmentId = request.environmentId(tenantId) ?: return ServerResponse.notFound().build()
         val choice = request.param("template").orElse("")
         // `[namespace/]catalog@version/template` (ADR 0034).
-        val catalogKey = CatalogSegment.parseOrNull(choice.substringBefore('@', missingDelimiterValue = ""))?.named()?.key
+        val catalog = resolve(tenantId, CatalogSegment.parseOrNull(choice.substringBefore('@', missingDelimiterValue = "")))
+        val catalogKey = catalog?.key
         val released = choice.substringAfter('@', missingDelimiterValue = "")
         val version = released.substringBefore('/', missingDelimiterValue = "")
         val templateKey = TemplateKey.validateOrNull(released.substringAfter('/', missingDelimiterValue = ""))
-        if (catalogKey == null || version.isEmpty() || templateKey == null) return detail(request, error = "Choose a template to try.")
+        if (catalog == null || catalogKey == null || version.isEmpty() || templateKey == null) return detail(request, error = "Choose a template to try.")
 
-        val template = GetReleasedResource(tenantId.key, catalogKey, version, "template", templateKey.value).query() as? TemplateResource
+        val template = GetReleasedResource(catalog, version, "template", templateKey.value).query() as? TemplateResource
             ?: return detail(request, error = "Release v$version of ${catalogKey.value} has no template '${templateKey.value}'.")
         val data = template.dataExamples?.firstOrNull()?.data?.let { objectMapper.valueToTree<ObjectNode>(it) } ?: objectMapper.createObjectNode()
         val pdf = try {
             PreviewDocument(
-                tenantId = tenantId.key,
-                catalogKey = catalogKey,
+                catalog = catalog,
                 templateId = templateKey,
                 data = data,
                 releaseVersion = version,
@@ -433,6 +428,19 @@ class EnvironmentHandler(
             .contentType(MediaType.APPLICATION_PDF)
             .header("Content-Disposition", "inline; filename=\"${templateKey.value}-$version.pdf\"")
             .body(pdf)
+    }
+
+    /** The catalog a `[namespace/]key` choice names: by its address, or by key alone the tenant's one catalog with it. */
+    private fun resolve(tenantId: app.epistola.suite.common.ids.TenantId, segment: CatalogSegment?): app.epistola.suite.common.ids.CatalogId? {
+        segment ?: return null
+        return segment.namespace?.let { segment.catalogIn(tenantId) }
+            ?: app.epistola.suite.catalog.queries.FindCatalogsByKey(tenantId.key, segment.key).query().only
+    }
+
+    /** The catalog of a `…/{catalogNamespace}/{catalogId}/undeploy` path, or of `…/{catalogId}/undeploy` while the key names one. */
+    private fun pathCatalog(request: ServerRequest, tenantId: app.epistola.suite.common.ids.TenantId): app.epistola.suite.common.ids.CatalogId? {
+        val key = CatalogKey.validateOrNull(request.pathVariable("catalogId")) ?: return null
+        return resolve(tenantId, CatalogSegment(key, namespace = request.pathVariables()[app.epistola.suite.htmx.CATALOG_NAMESPACE_VARIABLE]))
     }
 
     private fun redirectTo(environmentId: EnvironmentId): ServerResponse = redirect("/tenants/${environmentId.tenantKey.value}/environments/${environmentId.key.value}")

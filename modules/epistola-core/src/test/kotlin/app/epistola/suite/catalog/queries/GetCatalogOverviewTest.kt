@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -35,15 +36,15 @@ class GetCatalogOverviewTest : IntegrationTestBase() {
     @Test
     fun `each catalog says where it stands, its drafts and what they are behind, the latest release, what is not ready and what is served`() {
         val tenant = createTenant("overview").id
-        val catalog = CatalogId(letters, TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), letters)
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand").execute()
             mediator.releaseNext(catalog) // 1.0.0; the next version continues on it
-            CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalog), "Seasonal").execute() // in the next version
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
-            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), letters, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), testCatalog(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)).tenantKey, letters), "1.0.0", includeDependencies = true).execute()
         }
 
         val overview = withMediator { GetCatalogOverview(tenant).query() }

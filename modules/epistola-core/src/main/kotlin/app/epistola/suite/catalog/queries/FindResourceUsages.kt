@@ -5,11 +5,13 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -23,13 +25,14 @@ import org.springframework.stereotype.Component
  * Returns a map of "type:slug" → list of usage descriptions.
  */
 data class FindResourceUsages(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<Map<String, List<ResourceUsage>>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -61,7 +64,7 @@ class FindResourceUsagesHandler(
                 """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .map { rs, _ ->
                 "theme:${rs.getString("resource_slug")}" to ResourceUsage(
                     referencedByName = rs.getString("ref_name"),
@@ -91,7 +94,7 @@ class FindResourceUsagesHandler(
                 """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("catalogKeyStr", query.catalogKey.value)
             .map { rs, _ ->
                 "stencil:${rs.getString("resource_slug")}" to ResourceUsage(
@@ -122,7 +125,7 @@ class FindResourceUsagesHandler(
                 """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .map { rs, _ ->
                 "image:${rs.getString("resource_slug")}" to ResourceUsage(
                     referencedByName = rs.getString("ref_name"),

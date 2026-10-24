@@ -16,8 +16,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -25,6 +23,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -50,38 +49,38 @@ class CatalogBundleTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
 
     private fun template(tenant: TenantKey, catalog: CatalogKey, key: String, themeFrom: CatalogKey, theme: String) {
-        val id = TemplateId(TemplateKey.of(key), CatalogId(catalog, TenantId(tenant)))
+        val id = TemplateId(TemplateKey.of(key), testCatalog(TenantId(tenant), catalog))
         CreateDocumentTemplate(id, key.replaceFirstChar { it.uppercase() }).execute().withRequiredDataExample()
-        UpdateDocumentTemplate(id, themeId = ThemeKey.of(theme), themeCatalogKey = themeFrom).execute()
+        UpdateDocumentTemplate(id, themeId = ThemeKey.of(theme), themeCatalog = testCatalog(id.tenantKey, themeFrom)).execute()
     }
 
     /** base (theme `house`) 1.0.0 ← shared (theme `brand`, a letterhead on `house`) 1.0.0 ← letters (an invoice on `brand`) 1.0.0. */
     private fun chain(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, base, "Base").execute()
-        CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(base, TenantId(tenant))), "House").execute()
-        mediator.releaseNext(CatalogId(base, TenantId(tenant)))
+        CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), base)), "House").execute()
+        mediator.releaseNext(testCatalog(TenantId(tenant), base))
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
         template(tenant, shared, "letterhead", base, "house")
-        mediator.releaseNext(CatalogId(shared, TenantId(tenant)))
+        mediator.releaseNext(testCatalog(TenantId(tenant), shared))
         CreateCatalog(tenant, letters, "Letters").execute()
         template(tenant, letters, "invoice", shared, "brand")
-        mediator.releaseNext(CatalogId(letters, TenantId(tenant)))
+        mediator.releaseNext(testCatalog(TenantId(tenant), letters))
         tenant
     }
 
-    private fun fat(tenant: TenantKey) = withMediator { ExportCatalogZip(tenant, letters, "1.0.0", includeDependencies = true).execute() }
+    private fun fat(tenant: TenantKey) = withMediator { ExportCatalogZip(testCatalog(tenant, letters), "1.0.0", includeDependencies = true).execute() }
 
     @Test
     fun `an export with dependencies carries the releases it pins, transitively, under dependencies, and the same manifest`() {
         val tenant = chain("bundle-export")
 
         val export = fat(tenant)
-        val thin = withMediator { ExportCatalogZip(tenant, letters, "1.0.0").execute() }
+        val thin = withMediator { ExportCatalogZip(testCatalog(tenant, letters), "1.0.0").execute() }
 
         assertThat(export.filename).isEqualTo("letters-1.0.0-with-dependencies.zip")
-        val namespace = withMediator { GetCatalog(tenant, base).query()!! }.let { "${it.registry}/${it.namespace}" }
+        val namespace = withMediator { GetCatalog(testCatalog(tenant, base)).query()!! }.let { "${it.registry}/${it.namespace}" }
         assertThat(names(export.zipBytes).filter { it.startsWith("dependencies/") })
             .containsExactlyInAnyOrder("dependencies/$namespace/base/1.0.0.zip", "dependencies/$namespace/shared/1.0.0.zip")
         assertThat(names(thin.zipBytes).filter { it.startsWith("dependencies/") }).`as`("a thin export carries none").isEmpty()
@@ -99,7 +98,7 @@ class CatalogBundleTest : IntegrationTestBase() {
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
         assertThat(withMediator { ListCatalogs(target).query() }.map { it.id.value to it.installedReleaseVersion })
             .contains(base.value to "1.0.0", shared.value to "1.0.0", letters.value to "1.0.0")
-        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(target)))).query()!! }.themeCatalogKey)
+        assertThat(withMediator { GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(target), letters))).query()!! }.themeCatalogKey)
             .isEqualTo(shared)
 
         val again = withMediator { ImportCatalogZip(target, bundle).execute() }
@@ -112,7 +111,6 @@ class CatalogBundleTest : IntegrationTestBase() {
         val bundle = fat(chain("bundle-beside-source")).zipBytes
         val target = withMediator {
             val target = createTenant("bundle-beside-target").id
-            SaveFeatureToggle(target, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             // Its own Shared, in its own namespace: another catalog than the one the archive carries.
             CreateCatalog(target, shared, "Our shared").execute()
             target
@@ -120,16 +118,15 @@ class CatalogBundleTest : IntegrationTestBase() {
 
         val imported = withMediator { ImportCatalogZip(target, bundle).execute() }
 
-        // ADR 0034, phase 4: within a tenant a catalog is named by namespace and key.
+        // ADR 0034, section 9: within a tenant a catalog is named by namespace and key.
         assertThat(imported.installedDependencies).containsExactly("base v1.0.0", "shared v1.0.0")
         assertThat(withMediator { ListCatalogs(target).query() }.filter { it.id == shared }.map { it.name }).containsExactlyInAnyOrder("Our shared", "Shared")
         val carried = withMediator { ListCatalogs(target).query() }.single { it.id == shared && it.name == "Shared" }
         // The template's theme is the carried Shared's, which its declaration names.
         withMediator {
-            CatalogNames.within(shared, carried.namespace) {
-                assertThat(GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(target)))).query()!!.themeCatalogKey).isEqualTo(shared)
-                assertThat(GetCatalog(target, shared).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
-            }
+            val template = GetDocumentTemplate(TemplateId(TemplateKey.of("invoice"), app.epistola.suite.common.ids.CatalogId(carried.namespace, letters, TenantId(target)))).query()!!
+            assertThat(template.themeCatalogId).isEqualTo(carried.catalogId)
+            assertThat(GetCatalog(carried.catalogId).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
         }
     }
 

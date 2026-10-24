@@ -94,6 +94,15 @@ abstract class IntegrationTestBase {
         jobPoller?.awaitIdle()
     }
 
+    @Autowired
+    private lateinit var catalogLookupJdbi: org.jdbi.v3.core.Jdbi
+
+    /** Lets [testCatalog] find the namespace a fixture tenant's catalog is named in, wherever it is called. */
+    @BeforeEach
+    fun bindCatalogLookup() {
+        TestCatalogLookup.jdbi = catalogLookupJdbi
+    }
+
     /**
      * Idempotently materialise a `users` row for [principal] (via the production
      * `EnsureUser` command) so it satisfies the audit foreign keys

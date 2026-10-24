@@ -77,7 +77,7 @@ class EpistolaDocumentGenerationApi(
     ): ResponseEntity<Resource> {
         val pdfBytes = previewDocumentRequest.toQuery(tenantKey, catalogsOf(tenantKey)) { catalog, version ->
             // A preview of a draft names the draft; a released version is not one (use `version`).
-            val resolved = ResolveCatalogRelease(catalog.tenantKey, catalog.registry, catalog.namespace, catalog.id, version).query()
+            val resolved = ResolveCatalogRelease(catalog.catalogId, catalog.registry, version).query()
             if (!resolved.isDraft) {
                 throw ValidationException(field = "draftVersion", message = "Version $version is released, not a draft; render it with 'version'")
             }

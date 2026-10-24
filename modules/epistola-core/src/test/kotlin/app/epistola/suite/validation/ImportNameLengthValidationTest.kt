@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.FieldLimits.MAX_DISPLAY_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.template.model.ThemeRef
@@ -72,19 +73,19 @@ class ImportNameLengthValidationTest {
 
     /** Commands whose name/title column is VARCHAR(255). label -> builder taking the field value. */
     private val name255Cases: List<Pair<String, (String) -> Any>> = listOf(
-        "ImportTheme.name" to { s -> ImportTheme(tenantId, catalogKey, slug = "mytheme", name = s) },
-        "ImportStencil.name" to { s -> ImportStencil(tenantId, catalogKey, slug = "mystencil", name = s, content = content()) },
-        "ImportAsset.name" to { s -> ImportAsset(tenantId, catalogKey, id = AssetKey.generate(), name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1)) },
-        "UploadAsset.name" to { s -> UploadAsset(tenantId.key, name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1), width = null, height = null, catalogKey = catalogKey) },
-        "ImportTemplates.name" to { s -> ImportTemplates(tenantId, catalogKey, templates = listOf(templateInput(name = s))) },
+        "ImportTheme.name" to { s -> ImportTheme(testCatalog(tenantId, catalogKey), slug = "mytheme", name = s) },
+        "ImportStencil.name" to { s -> ImportStencil(testCatalog(tenantId, catalogKey), slug = "mystencil", name = s, content = content()) },
+        "ImportAsset.name" to { s -> ImportAsset(testCatalog(tenantId, catalogKey), id = AssetKey.generate(), name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1)) },
+        "UploadAsset.name" to { s -> UploadAsset(testCatalog(tenantId.key, catalogKey), name = s, mediaType = AssetMediaType.fromMimeType("image/png"), content = ByteArray(1), width = null, height = null) },
+        "ImportTemplates.name" to { s -> ImportTemplates(testCatalog(tenantId, catalogKey), templates = listOf(templateInput(name = s))) },
         // Resolved variant title (a blank title falls back to the id, so a non-blank over-length title is the failure mode).
-        "ImportTemplates.variant.title" to { s -> ImportTemplates(tenantId, catalogKey, templates = listOf(templateInput(name = "Invoice", variants = listOf(variantInput(title = s))))) },
+        "ImportTemplates.variant.title" to { s -> ImportTemplates(testCatalog(tenantId, catalogKey), templates = listOf(templateInput(name = "Invoice", variants = listOf(variantInput(title = s))))) },
     )
 
     /** Commands whose display_name column is VARCHAR(100). */
     private val displayName100Cases: List<Pair<String, (String) -> Any>> = listOf(
-        "ImportAttribute.displayName" to { s -> ImportAttribute(tenantId, catalogKey, slug = "myattr", displayName = s) },
-        "ImportCodeList.displayName" to { s -> ImportCodeList(tenantId, catalogKey, slug = "mycodelist", displayName = s) },
+        "ImportAttribute.displayName" to { s -> ImportAttribute(testCatalog(tenantId, catalogKey), slug = "myattr", displayName = s) },
+        "ImportCodeList.displayName" to { s -> ImportCodeList(testCatalog(tenantId, catalogKey), slug = "mycodelist", displayName = s) },
     )
 
     @Test

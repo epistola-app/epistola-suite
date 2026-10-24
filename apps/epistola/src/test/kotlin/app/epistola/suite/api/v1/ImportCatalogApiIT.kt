@@ -23,6 +23,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -81,7 +82,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         val (c, _) = seedTenantAndKey()
         val catalog = "imp-${UUID.randomUUID().toString().take(8)}"
         val ours = release(a, catalog, "Brand")
-        val namespace = withMediator { GetCatalog(a, CatalogKey.of(catalog)).query()!!.namespace }
+        val namespace = withMediator { GetCatalog(testCatalog(a, CatalogKey.of(catalog))).query()!!.namespace }
         // Another 1.0.0 of the same catalog, with other content.
         val theirs = release(c, catalog, "Another brand", namespace)
 
@@ -121,7 +122,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(imported.body!!, "$.namespace")).isEqualTo("named-here")
         assertThat(JsonPath.read<String>(imported.body!!, "$.registry")).isEqualTo("exchange.epistola.app")
-        assertThat(withMediator { GetCatalog(b, CatalogKey.of(catalog)).query()!!.namespace }).isEqualTo("named-here")
+        assertThat(withMediator { GetCatalog(testCatalog(b, CatalogKey.of(catalog))).query()!!.namespace }).isEqualTo("named-here")
     }
 
     @Test
@@ -133,7 +134,7 @@ class ImportCatalogApiIT : IntegrationTestBase() {
 
         assertProblem(import(b, keyB, archive, "namespace" to "another-ns"), HttpStatus.BAD_REQUEST, "bad-request")
         assertProblem(import(b, keyB, archive, "registry" to "registry.elsewhere.example"), HttpStatus.BAD_REQUEST, "bad-request")
-        assertThat(withMediator { GetCatalog(b, CatalogKey.of(catalog)).query() }).isNull()
+        assertThat(withMediator { GetCatalog(testCatalog(b, CatalogKey.of(catalog))).query() }).isNull()
 
         val imported = import(b, keyB, archive, "registry" to "~", "namespace" to "v8-own-ns")
         assertThat(imported.statusCode).`as`(imported.body).isEqualTo(HttpStatus.OK)
@@ -155,10 +156,10 @@ class ImportCatalogApiIT : IntegrationTestBase() {
         val key = CatalogKey.of(catalog)
         namespace?.let { TestNamespaces.grant(tenant, it).execute() }
         CreateCatalog(tenantKey = tenant, id = key, name = catalog, namespace = namespace).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), name = theme).execute()
-        MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute()
-        ExportCatalogZip(tenant, key, "1.0.0").execute().zipBytes
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = theme).execute()
+        MarkCatalogReady(testCatalog(tenant, key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute()
+        ExportCatalogZip(testCatalog(tenant, key), "1.0.0").execute().zipBytes
     }
 
     /** [archive] with its `catalog.json` changed by [edit]. */

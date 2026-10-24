@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.SetTenantCatalogPublishingDefault
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -48,8 +49,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
 
             // No namespace has been chosen, so there is nowhere for this release to go.
             val release = ReleaseCatalogDraft(
-                tenant.id,
-                catalogKey,
+                testCatalog(tenant.id, catalogKey),
                 "1.0.0",
                 publication = ReleasePublication.PUBLISH,
             ).execute()
@@ -70,9 +70,9 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Publish current").execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
 
-            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey).execute() }
+            assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE)
                 }
@@ -88,8 +88,8 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Drifted release").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
 
             // Unchanged, so it can still be sent.
             assertThat(state(tenant.id, catalogKey).canPublishCurrentRelease).isTrue()
@@ -97,8 +97,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             // An edit moves the working copy away from the released bytes. The release has its own
             // content, so publishing it is publishing what it was.
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Drifted release",
                 description = "Changed after releasing",
                 attributes = emptyList(),
@@ -109,7 +108,7 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
                 .`as`("the release has its own content to send")
                 .isTrue()
 
-            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
+            PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute()
             assertThat(publications(tenant.id, catalogKey)).hasSize(1)
         }
     }
@@ -122,21 +121,20 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Older release").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Older release",
                 description = "Changed before the second release",
                 attributes = emptyList(),
             ).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0", publication = ReleasePublication.SKIP).execute()
 
             // 1.0.0 is no longer the catalog's current release, and until releases kept their own
             // content it could never have been sent: the archive came from the working copy, which
             // by now is two edits away from it.
-            PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute()
+            PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey), version = "1.0.0").execute()
 
             assertThat(publications(tenant.id, catalogKey))
                 .extracting<String> { it.version }
@@ -153,19 +151,18 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Never publishes").execute()
             SaveFeatureToggle(tenant.id, KnownFeatures.CATALOG_PUBLISHING, true).execute()
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
-            SetCatalogPublicationSettings(tenant.id, catalogKey, CatalogPublicationPolicy.NEVER).execute()
+            SetCatalogPublicationSettings(testCatalog(tenant.id, catalogKey), CatalogPublicationPolicy.NEVER).execute()
 
             // Even an explicit release-time opt-in cannot override a hard policy.
             val release = ReleaseCatalogDraft(
-                tenant.id,
-                catalogKey,
+                testCatalog(tenant.id, catalogKey),
                 "1.0.0",
                 publication = ReleasePublication.PUBLISH,
             ).execute()
 
             assertThat(release.publicationId).isNull()
             assertThat(publications(tenant.id, catalogKey)).isEmpty()
-            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey).execute() }
+            assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_FORBIDDEN_BY_POLICY)
                 }
@@ -183,10 +180,10 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
 
             // Nothing is bound, so even an inheriting catalog with the tenant default on queues nothing.
-            assertThat(ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0").execute().publicationId).isNull()
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0").execute().publicationId).isNull()
 
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = false).execute()
-            assertThat(ReleaseCatalogDraft(tenant.id, catalogKey, "1.1.0").execute().publicationId).isNull()
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0").execute().publicationId).isNull()
             assertThat(publications(tenant.id, catalogKey)).isEmpty()
         }
     }
@@ -200,15 +197,15 @@ class CatalogReleasePublicationIntegrationTest : ExchangeIntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Feature off").execute()
             SetTenantCatalogPublishingDefault(tenant.id, publishByDefault = true).execute()
 
-            assertThat(ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0").execute().publicationId).isNull()
-            assertThatThrownBy { PublishCurrentCatalogRelease(tenant.id, catalogKey).execute() }
+            assertThat(ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0").execute().publicationId).isNull()
+            assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.PUBLICATION_UNAVAILABLE)
                 }
         }
     }
 
-    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+    private fun state(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())
 
     private fun publications(tenantKey: TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications
 

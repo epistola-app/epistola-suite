@@ -30,6 +30,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
@@ -48,7 +49,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
     private val shared = CatalogKey.of("shared")
 
-    private fun id(tenant: TenantKey, catalog: CatalogKey = letters) = CatalogId(catalog, TenantId(tenant))
+    private fun id(tenant: TenantKey, catalog: CatalogKey = letters) = testCatalog(TenantId(tenant), catalog)
 
     /**
      * `letters` with a `brand` theme, released as 1.0.0, its next version, and parallel work "Redesign".
@@ -60,13 +61,13 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), "Brand").execute()
         mediator.releaseNext(id(tenant))
-        CreateCatalogDraft(tenant, letters, "Redesign").execute()
+        CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
         tenant
     }
 
     /** Which resources the next version holds, by type and key. */
-    private fun inNext(tenant: TenantKey, type: String) = withMediator { GetCatalogResourceChanges(tenant, letters).query() }.resources
+    private fun inNext(tenant: TenantKey, type: String) = withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters)).query() }.resources
         .filter { it.type == type }.map { it.slug }
 
     @Test
@@ -74,10 +75,10 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val tenant = twoDrafts("held-default-theme")
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
-            SetTenantDefaultTheme(tenant, ThemeKey.of("seasonal"), letters).execute()
+            SetTenantDefaultTheme(tenant, testCatalog(tenant, letters), ThemeKey.of("seasonal")).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("the tenant's default theme (theme letters/seasonal)")
             }
@@ -90,10 +91,10 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         val tenant = twoDrafts("held-default-theme-shared")
         withMediator {
             UpdateTheme(ThemeId(ThemeKey.of("brand"), id(tenant)), name = "Brand, edited").execute()
-            SetTenantDefaultTheme(tenant, ThemeKey.of("brand"), letters).execute()
+            SetTenantDefaultTheme(tenant, testCatalog(tenant, letters), ThemeKey.of("brand")).execute()
         }
 
-        withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() }
+        withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
 
         assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("brand"), id(tenant))).query()!! }.name).`as`("back to the release").isEqualTo("Brand")
     }
@@ -107,7 +108,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
             CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant, shared)), "Colour", codeListId = colours).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("attribute shared/colour (code list letters/colours)")
             }
@@ -123,7 +124,7 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
             CreateAttributeDefinition(AttributeId(AttributeKey.of("colour"), id(tenant)), "Colour", codeListId = colours).execute()
         }
 
-        withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() }
+        withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
 
         assertThat(inNext(tenant, "codeList")).`as`("the next version started again on the release").doesNotContain("colours")
     }
@@ -135,10 +136,10 @@ class DeleteCatalogReleaseHeldTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), id(tenant)), "Seasonal").execute()
             CreateDocumentTemplate(letter, "Letter").execute()
-            UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalogKey = letters).execute()
+            UpdateDocumentTemplate(letter, themeId = ThemeKey.of("seasonal"), themeCatalog = testCatalog(letter.tenantKey, letters)).execute()
         }
 
-        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() } }
             .isInstanceOfSatisfying(CatalogReleaseHeldException::class.java) { e ->
                 assertThat(e.holders).containsExactly("template shared/letter (theme letters/seasonal)")
             }

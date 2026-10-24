@@ -22,7 +22,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -65,13 +67,12 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = data,
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -87,12 +88,11 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         assertThatThrownBy {
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
                     data = objectMapper.createObjectNode().put("test", "value"),
                     filename = "test.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(CatalogNotReleasedException::class.java)
@@ -112,11 +112,10 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         assertThatThrownBy {
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = TestIdHelpers.nextTemplateId(),
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(TemplateNotInReleaseException::class.java)
@@ -130,12 +129,11 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         assertThatThrownBy {
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = TestIdHelpers.nextTemplateId(),
                     releaseVersion = "9.9.9",
                     data = objectMapper.createObjectNode(),
                     filename = "test.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.isInstanceOf(ReleaseNotFoundException::class.java)
@@ -147,14 +145,13 @@ class GenerateDocumentHandlerTest : IntegrationTestBase() {
         // Contract 2.0: the selector picks among the releases the environment serves.
         assertThatCode {
             GenerateDocument(
-                tenantId = TenantKey.of("dummy-tenant"),
+                catalog = testCatalog(TenantKey.of("dummy-tenant"), CatalogKey.DEFAULT),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 releaseVersion = "1.0.0",
                 environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             )
         }.doesNotThrowAnyException()
     }

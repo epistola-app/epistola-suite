@@ -6,20 +6,18 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.migrations.CatalogSchemaUnknownException
 import app.epistola.suite.catalog.queries.BrowseCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ResourceStatus
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
@@ -61,12 +59,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Ours").execute()
-            SaveFeatureToggle(tenant.id, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
-
-            // ADR 0034, phase 4: the demo catalog is named in Epistola's namespace, so it is another catalog.
+            // ADR 0034, section 9: the demo catalog is named in Epistola's namespace, so it is another catalog.
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
             assertThat(ListCatalogs(tenant.id).query().filter { it.id == key }.map { it.namespace }).containsExactlyInAnyOrder(TestNamespaces.of(tenant.id).namespace, "epistola")
-            val ours = CatalogNames.within(key, TestNamespaces.of(tenant.id).namespace) { GetCatalog(tenant.id, key).query()!! }
+            val ours = GetCatalog(app.epistola.suite.common.ids.CatalogId(TestNamespaces.of(tenant.id).namespace, key, app.epistola.suite.common.ids.TenantId(tenant.id))).query()!!
             assertThat(listOf(ours.name, ours.sourceUrl, ours.installedReleaseVersion)).containsExactly("Ours", null, null)
 
             assertThatThrownBy { RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute() }
@@ -96,8 +92,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
 
             val result = BrowseCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).query()
 
             assertThat(result.resources).hasSize(12)
@@ -114,8 +109,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
 
             val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).execute()
 
             // Every manifest resource. A catalog is the install unit; there is no way to ask for a
@@ -147,11 +141,10 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
             val result = BrowseCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).query()
 
             assertThat(result.resources).allMatch { it.status == ResourceStatus.INSTALLED }
@@ -164,11 +157,11 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
-            DeleteCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            DeleteCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
-            val catalog = GetCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).query()
+            val catalog = GetCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).query()
             assertThat(catalog).isNull()
 
             // Resources are deleted via CASCADE when catalog is removed
@@ -183,12 +176,12 @@ class CatalogIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
-            DeleteCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
+            DeleteCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
             // Re-register and install — resources were deleted by CASCADE, so this is a fresh install
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
-            val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
             assertThat(results).hasSize(12)
             assertThat(results).allMatch { it.status == InstallStatus.INSTALLED }
@@ -203,8 +196,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL).execute()
 
             val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("epistola-demo"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo")),
             ).execute()
 
             // Verify install order: attribute → theme → stencil → template
@@ -240,7 +232,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
 
             assertThatThrownBy {
-                InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("drift-test")).execute()
+                InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("drift-test"))).execute()
             }
                 .isInstanceOf(CatalogSchemaUnknownException::class.java)
                 .hasMessageContaining("every part of a catalog must carry the same wire version")
@@ -317,8 +309,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
 
             val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = CatalogKey.of("rollback-test"),
+                catalog = testCatalog(tenant.id, CatalogKey.of("rollback-test")),
             ).execute()
 
             // The caller still learns which resource failed...
@@ -344,7 +335,7 @@ class CatalogIntegrationTest : IntegrationTestBase() {
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
 
-            assertThatThrownBy { InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("undeclared-test")).execute() }
+            assertThatThrownBy { InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("undeclared-test"))).execute() }
                 .isInstanceOf(CatalogImportValidationException::class.java)
                 .hasMessageContaining("which catalogDependencies does not declare")
             assertThat(ListThemes(TenantId(tenant.id)).query().map { it.id.value }).doesNotContain("undeclared-theme")

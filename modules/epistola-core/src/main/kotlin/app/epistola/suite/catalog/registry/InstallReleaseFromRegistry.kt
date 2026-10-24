@@ -121,8 +121,10 @@ class InstallReleaseFromRegistryHandler(
         val catalogKey = CatalogKey.of(command.catalogKey.trim())
         val version = command.version.trim()
         val source = RegistrySourceUri(registry.name, namespace, catalogKey.value)
+        // The catalog of that name here (ADR 0034, section 9): one of another namespace with the key is another catalog.
+        val catalog = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey))
 
-        val existing = GetCatalog(command.tenantKey, catalogKey).query()
+        val existing = GetCatalog(catalog).query()
         RegistryInstallRules.conflict(existing, source)?.let { throw ValidationException("catalogKey", it, ValidationCode.REGISTRY_CATALOG_KEY_TAKEN) }
 
         val client = registries.client(registry)
@@ -150,7 +152,7 @@ class InstallReleaseFromRegistryHandler(
             return RegistryInstallResult(catalogKey, version, pulled.digest, newlyInstalled = false, aborted = true, imported = imported)
         }
         if ((existing == null || existing.sourceUrl == source.toString()) && imported.newlyInstalled) {
-            upstreamChecks.recordInstalled(command.tenantKey, catalogKey, version, layer.digest.removePrefix("sha256:"))
+            upstreamChecks.recordInstalled(imported.catalog ?: catalog, version, layer.digest.removePrefix("sha256:"))
         }
         return RegistryInstallResult(catalogKey, version, pulled.digest, imported.newlyInstalled, aborted = false, imported = imported)
     }

@@ -25,6 +25,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import app.epistola.suite.users.commands.CreateUser
@@ -238,11 +239,11 @@ class DemoLoginMembershipResolverTest {
         track("seeded@newcorp.io")
 
         asSystem {
-            assertThat(mediator.query(GetCatalog(tenantKey, CatalogKey.of("epistola-demo")))).isNotNull()
+            assertThat(mediator.query(GetCatalog(testCatalog(tenantKey, CatalogKey.of("epistola-demo"))))).isNotNull()
             val environments = mediator.query(ListEnvironments(TenantId(tenantKey)))
             assertThat(environments.map { it.id.value }).containsExactlyInAnyOrder("staging", "production")
             // Environments serve catalog releases, so both serve the installed demo catalog.
-            val deployments = mediator.query(ListDeployments(tenantKey, CatalogKey.of("epistola-demo")))
+            val deployments = mediator.query(ListDeployments(tenantKey, testCatalog(tenantKey, CatalogKey.of("epistola-demo"))))
             assertThat(deployments.map { it.environmentKey.value }).containsExactlyInAnyOrder("staging", "production")
         }
     }

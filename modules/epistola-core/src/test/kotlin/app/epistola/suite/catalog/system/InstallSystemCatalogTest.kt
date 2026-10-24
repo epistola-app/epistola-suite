@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.validateAttributes
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
@@ -45,7 +46,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
         val tenant = createTenant("Sys1")
 
         withMediator {
-            val catalog = GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()
+            val catalog = GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(catalog).isNotNull()
             assertThat(catalog!!.suppliedByEpistola).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo(SYSTEM_CATALOG_URL)
@@ -57,7 +58,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
     fun `system catalog brings the three reserved code lists`() {
         val tenant = createTenant("Sys2")
         val tenantId = TenantId(tenant.id)
-        val systemCatalogId = CatalogId(SYSTEM_CATALOG_KEY, tenantId)
+        val systemCatalogId = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
 
         withMediator {
             for (slug in listOf("bcp-47", "iso-639-1", "iso-3166-1-alpha2")) {
@@ -75,7 +76,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
     fun `system catalog binds reserved attributes to their canonical code lists`() {
         val tenant = createTenant("Sys3")
         val tenantId = TenantId(tenant.id)
-        val systemCatalogId = CatalogId(SYSTEM_CATALOG_KEY, tenantId)
+        val systemCatalogId = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
 
         withMediator {
             val expected = mapOf(
@@ -137,7 +138,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             assertThat(result.installedVersion).isNotBlank()
 
             // After the upgrade the row reflects the bundled version again.
-            val catalog = GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()
+            val catalog = GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(catalog!!.installedReleaseVersion).isEqualTo(result.installedVersion)
         }
     }
@@ -183,7 +184,7 @@ class InstallSystemCatalogTest : IntegrationTestBase() {
             app.epistola.suite.attributes.commands.CreateAttributeDefinition(
                 id = AttributeId(
                     AttributeKey.of("language"),
-                    CatalogId(app.epistola.suite.common.ids.CatalogKey.of("default"), TenantId(tenant.id)),
+                    testCatalog(TenantId(tenant.id), app.epistola.suite.common.ids.CatalogKey.of("default")),
                 ),
                 displayName = "Language (custom)",
                 allowedValues = listOf("dutch", "english"),

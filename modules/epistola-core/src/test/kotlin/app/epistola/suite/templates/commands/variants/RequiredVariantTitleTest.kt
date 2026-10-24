@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -24,7 +25,7 @@ import kotlin.test.assertEquals
  */
 class RequiredVariantTitleTest {
 
-    private val templateId = TemplateId(TemplateKey("invoice"), CatalogId(CatalogKey.DEFAULT, TenantId(TenantKey("testtenant"))))
+    private val templateId = TemplateId(TemplateKey("invoice"), testCatalog(TenantId(TenantKey("testtenant")), CatalogKey.DEFAULT))
     private val variantId = VariantId(VariantKey("english"), templateId)
 
     @Test

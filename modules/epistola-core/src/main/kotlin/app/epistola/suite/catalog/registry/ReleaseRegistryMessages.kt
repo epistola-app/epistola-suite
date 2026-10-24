@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.registry
 
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -105,13 +106,14 @@ class InstallReleaseRegistryReleaseHandler(
  * `SelfManagedTransaction`: the push must not hold a database connection.
  */
 data class PublishReleaseToReleaseRegistry(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
     val registry: String,
 ) : Command<ReleaseRegistryPublication>,
     RequiresPermission,
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_PUBLISH
 
     init {
@@ -126,5 +128,5 @@ class PublishReleaseToReleaseRegistryHandler(
     private val directory: ReleaseRegistryDirectory,
 ) : CommandHandler<PublishReleaseToReleaseRegistry, ReleaseRegistryPublication> {
     override fun handle(command: PublishReleaseToReleaseRegistry): ReleaseRegistryPublication = directory.named(command.tenantKey, command.registry)
-        .publish(command.tenantKey, command.catalogKey, command.version.trim())
+        .publish(command.catalog, command.version.trim())
 }

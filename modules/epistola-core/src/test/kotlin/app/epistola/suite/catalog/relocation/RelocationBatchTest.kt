@@ -47,8 +47,8 @@ class RelocationBatchTest : RelocationTestSupport() {
             CreateDocumentTemplate(template, "Invoice").execute()
             UpdateVariant(variant, "Main", mapOf("letters.brand" to "acme", "letters.tone" to "formal")).execute()
         }
-        val brand = address(CatalogResourceType.ATTRIBUTE, letters, "brand")
-        val tone = address(CatalogResourceType.ATTRIBUTE, letters, "tone")
+        val brand = address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand")
+        val tone = address(tenant, CatalogResourceType.ATTRIBUTE, letters, "tone")
 
         val plan = move(tenant, brand.movedTo(shared), tone.movedTo(shared))
 
@@ -72,8 +72,8 @@ class RelocationBatchTest : RelocationTestSupport() {
         // Retire the current brand attribute to shared, and promote its successor into the name.
         move(
             tenant,
-            address(CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared),
-            address(CatalogResourceType.ATTRIBUTE, letters, "brand-next").renamedTo("brand"),
+            address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared),
+            address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand-next").renamedTo("brand"),
         )
 
         assertThat(attributesOf(template, variant)).containsExactlyInAnyOrderEntriesOf(mapOf("shared.brand" to "old", "letters.brand" to "new"))
@@ -94,7 +94,7 @@ class RelocationBatchTest : RelocationTestSupport() {
             UpdateVariant(variant, "Main", mapOf("brand" to "acme")).execute()
         }
 
-        move(tenant, address(CatalogResourceType.ATTRIBUTE, letters, "brand").renamedTo("label"))
+        move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").renamedTo("label"))
 
         assertThat(attributesOf(template, variant)).containsExactlyEntriesOf(mapOf("letters.label" to "acme"))
         // And the variant is still valid against the registry: saving it again succeeds.
@@ -112,7 +112,7 @@ class RelocationBatchTest : RelocationTestSupport() {
             UpdateVariant(variant, "Main", mapOf("brand" to "acme")).execute()
         }
 
-        val plan = move(tenant, address(CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
+        val plan = move(tenant, address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand").movedTo(shared))
 
         assertThat(plan.mutableRewriteCount).isZero()
         assertThat(attributesOf(template, variant)).containsExactlyEntriesOf(mapOf("brand" to "acme"))
@@ -129,7 +129,7 @@ class RelocationBatchTest : RelocationTestSupport() {
         // first leaves for shared; second takes its name; third takes second's.
         move(tenant, a.movedTo(shared), b.renamedTo("first"), c.renamedTo("second"))
 
-        assertThat(identityAt(tenant, address(CatalogResourceType.STENCIL, shared, "first"))).isEqualTo(identities[a])
+        assertThat(identityAt(tenant, address(tenant, CatalogResourceType.STENCIL, shared, "first"))).isEqualTo(identities[a])
         assertThat(identityAt(tenant, a)).describedAs("letters/first is now the former second").isEqualTo(identities[b])
         assertThat(identityAt(tenant, b)).describedAs("letters/second is now the former third").isEqualTo(identities[c])
         assertThat(identityAt(tenant, c)).describedAs("letters/third is left empty").isNull()
@@ -148,8 +148,8 @@ class RelocationBatchTest : RelocationTestSupport() {
 
         move(
             tenant,
-            address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared),
-            address(CatalogResourceType.STENCIL, letters, "header").movedTo(shared, "masthead"),
+            address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared),
+            address(tenant, CatalogResourceType.STENCIL, letters, "header").movedTo(shared, "masthead"),
         )
 
         val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(template.key, catalogId(tenant, shared)))
@@ -172,8 +172,8 @@ class RelocationBatchTest : RelocationTestSupport() {
 
         val plan = move(
             tenant,
-            address(CatalogResourceType.STENCIL, letters, "header").movedTo(shared),
-            address(CatalogResourceType.STENCIL, letters, "footer").movedTo(archive, "closing"),
+            address(tenant, CatalogResourceType.STENCIL, letters, "header").movedTo(shared),
+            address(tenant, CatalogResourceType.STENCIL, letters, "footer").movedTo(archive, "closing"),
         )
 
         assertThat(plan.mutableRewriteCount).isEqualTo(1)
@@ -217,8 +217,8 @@ class RelocationBatchTest : RelocationTestSupport() {
             CreateDocumentTemplate(invoice, "Invoice").execute()
             UpdateVariantContent(VariantId(VariantKey.INITIAL, invoice), usesTheme("base", shared.value)).execute()
         }
-        val stencil = address(CatalogResourceType.STENCIL, letters, "header")
-        val theme = address(CatalogResourceType.THEME, letters, "brand")
+        val stencil = address(tenant, CatalogResourceType.STENCIL, letters, "header")
+        val theme = address(tenant, CatalogResourceType.THEME, letters, "brand")
 
         assertThat(preview(tenant, stencil.movedTo(shared)).blockers.map { it.code }).containsExactly("catalog-dependency-cycle")
 

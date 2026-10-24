@@ -13,9 +13,11 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.RemovedResource
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -48,13 +50,14 @@ import tools.jackson.databind.ObjectMapper
  * does not delete what the manifest was never responsible for.
  */
 data class UpgradeCatalog(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val preserveResourceTypes: Set<String> = emptySet(),
 ) : Command<UpgradeCatalogResult>,
     RequiresPermission,
     // Re-fetches the remote catalog over HTTP mid-command.
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
@@ -114,13 +117,13 @@ class UpgradeCatalogHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: UpgradeCatalog): UpgradeCatalogResult = CatalogImportContext.runAsImport {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
 
         // An upgrade moves the next version to the new release, which is right only while it has no
         // changes of its own (ADR 0032). With changes, the release is received beside the others and
         // merged instead.
-        val changed = nextVersionChanges.changed(command.tenantKey, command.catalogKey)
+        val changed = nextVersionChanges.changed(command.catalog)
         if (changed.isNotEmpty()) throw CatalogHasLocalChangesException(command.catalogKey, changed)
 
         val sourceUrl = catalog.sourceUrl
@@ -134,10 +137,10 @@ class UpgradeCatalogHandler(
         // 1. Fetch manifest (once — reused for install and stale check)
         val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value)
         val manifestSlugs = manifest.resources.groupBy({ it.type }, { it.key })
-        receivedReleases.requireKeepable(command.tenantKey, command.catalogKey, manifest.release)
+        receivedReleases.requireKeepable(command.catalog, manifest.release)
 
         // 2. Find which resources are currently installed locally
-        val installedSlugs = analyzer.installedByType(command.tenantKey, command.catalogKey)
+        val installedSlugs = analyzer.installedByType(command.catalog)
 
         // 3. Compute what would be removed
         val staleResources = analyzer.computeStale(installedSlugs, manifestSlugs)
@@ -145,7 +148,7 @@ class UpgradeCatalogHandler(
 
         // 4. Validate: fail if any stale resource is still referenced
         if (staleResources.isNotEmpty()) {
-            val conflicts = analyzer.findConflicts(command.tenantKey, command.catalogKey, staleResources)
+            val conflicts = analyzer.findConflicts(command.catalog, staleResources)
             if (conflicts.isNotEmpty()) {
                 throw CatalogUpgradeConflictException(conflicts)
             }
@@ -157,8 +160,7 @@ class UpgradeCatalogHandler(
         val (installResults, published) = if (manifest.resources.isNotEmpty()) {
             InstalledContentHandoff.capturing {
                 InstallFromCatalog(
-                    tenantKey = command.tenantKey,
-                    catalogKey = command.catalogKey,
+                    catalog = command.catalog,
                 ).execute()
             }
         } else {
@@ -190,7 +192,7 @@ class UpgradeCatalogHandler(
         }
 
         // 6. Remove stale resources (already validated) — shared definition.
-        val removed = analyzer.removeStale(command.tenantKey, command.catalogKey, staleResources)
+        val removed = analyzer.removeStale(command.catalog, staleResources)
 
         // 7. Bump version last — only reached when all installs succeeded.
         //    Re-capture the source-side per-resource baseline of the release we
@@ -200,8 +202,7 @@ class UpgradeCatalogHandler(
             fingerprintService.resourceFingerprintsFromSource(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential?.value),
         )
         updateCatalogVersion(
-            command.tenantKey,
-            command.catalogKey,
+            command.catalog,
             manifest.release.version,
             manifest.release.fingerprint,
             resourceFingerprintsJson,
@@ -211,12 +212,12 @@ class UpgradeCatalogHandler(
             manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
         )
         // The upgraded version's theme settings (contract ADR 0007), as its archive declares them.
-        importRows.updateThemeSettings(command.tenantKey, command.catalogKey, manifest.catalog, objectMapper)
+        importRows.updateThemeSettings(command.catalog, manifest.catalog, objectMapper)
 
         // 8. Record the release moved to, as its archive holds it: rebuilt from the rows the install
         //    wrote, it would not hash to the content hash its source names it by.
         if (!InstalledReleaseRecording.isDeferred) {
-            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
+            RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
         }
 
         val newVersion = manifest.release.version
@@ -243,8 +244,7 @@ class UpgradeCatalogHandler(
     }
 
     private fun updateCatalogVersion(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         fingerprint: String?,
         resourceFingerprintsJson: String,
@@ -263,11 +263,11 @@ class UpgradeCatalogHandler(
                     installed_resource_fingerprints = :resourceFingerprints::jsonb,
                     name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     installed_at = NOW(), content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
+                WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("version", version)
                 .bind("fingerprint", fingerprint)
                 .bind("resourceFingerprints", resourceFingerprintsJson)
@@ -275,7 +275,7 @@ class UpgradeCatalogHandler(
                 .bind("description", description)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
-            dependencyStore.replace(handle, tenantKey, catalogKey, dependencies)
+            dependencyStore.replace(handle, catalog, dependencies)
         }
     }
 }

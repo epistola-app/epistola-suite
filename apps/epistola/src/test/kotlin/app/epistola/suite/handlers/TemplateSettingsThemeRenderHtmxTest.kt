@@ -15,6 +15,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -59,7 +61,7 @@ class TemplateSettingsThemeRenderHtmxTest : BaseIntegrationTest() {
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = ThemeKey.of("brand-theme"),
-                    themeCatalogKey = CatalogKey.DEFAULT,
+                    themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
                 ).execute()
 
                 tenant.id.value to tplKey.value

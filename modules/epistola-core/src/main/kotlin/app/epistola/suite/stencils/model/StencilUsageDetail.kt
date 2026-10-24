@@ -23,6 +23,10 @@ data class StencilUsageDetail(
     /** Number of instances of this stencil in this variant's model. */
     val instanceCount: Int,
     val problems: List<String> = emptyList(),
+    /** The namespace of the template's catalog: with [catalogKey], its address (ADR 0034, section 9). */
+    val namespace: String = "",
 ) {
+    /** The template's catalog address, `namespace/key`, as the UI links it. */
+    val catalogAddress: String get() = "$namespace/${catalogKey.value}"
     val fits: Boolean get() = problems.isEmpty()
 }

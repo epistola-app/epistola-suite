@@ -8,6 +8,7 @@ import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.releases.ChangeKind
 import app.epistola.suite.catalog.releases.ChangeKindEvaluator
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.springframework.stereotype.Component
@@ -31,10 +32,10 @@ class UseCompatibility(
      * What version [to] of [catalogKey] breaks, against version [from], of what is [used]. Empty when it
      * fits, and when either version is not here to compare.
      */
-    fun breaks(tenantKey: TenantKey, catalogKey: CatalogKey, from: String, to: String, used: List<BorrowedResource>): List<UseBreak> {
+    fun breaks(catalog: CatalogId, from: String, to: String, used: List<BorrowedResource>): List<UseBreak> {
         if (used.isEmpty() || from == to) return emptyList()
-        val before = releases.assemble(tenantKey, catalogKey, from)?.content ?: return emptyList()
-        val after = releases.assemble(tenantKey, catalogKey, to)?.content ?: return emptyList()
+        val before = releases.assemble(catalog, from)?.content ?: return emptyList()
+        val after = releases.assemble(catalog, to)?.content ?: return emptyList()
         return changes.evaluate(before, after).reasons
             .filter { it.kind == ChangeKind.BREAKING }
             .mapNotNull { reason ->

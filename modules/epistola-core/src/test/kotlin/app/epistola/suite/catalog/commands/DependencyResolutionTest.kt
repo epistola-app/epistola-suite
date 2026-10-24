@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -37,7 +38,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
         withMediator {
             val catalogKey = registerTestCatalog(tenant.id)
 
-            val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             // Every manifest resource, not only the ones some template happens to reference. The
             // fixture's `no-deps` template needs none of the asset, attribute, theme or stencil;
@@ -63,8 +64,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
             val catalogKey = registerTestCatalog(tenant.id)
 
             val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).execute()
 
             assertThat(results).hasSize(6) // asset, attribute, theme, stencil, 2 templates
@@ -80,8 +80,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
             val catalogKey = registerTestCatalog(tenant.id)
 
             val results = InstallFromCatalog(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).execute()
 
             val types = results.map { it.type }
@@ -115,8 +114,7 @@ class DependencyResolutionTest : IntegrationTestBase() {
 
             assertThatThrownBy {
                 InstallFromCatalog(
-                    tenantKey = tenant.id,
-                    catalogKey = catalog.id,
+                    catalog = testCatalog(tenant.id, catalog.id),
                 ).execute()
             }
                 .isInstanceOf(InvalidCatalogException::class.java)

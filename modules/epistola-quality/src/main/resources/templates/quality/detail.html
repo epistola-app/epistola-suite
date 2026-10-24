@@ -10,7 +10,7 @@
     <th:block th:fragment="content">
         <div th:replace="~{epistola-web/page-header :: page-header(
             pageTitle=${finding.ruleId},
-            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalog}/quality(tenantId=${tenantId},catalog=${finding.catalogKey})},
+            backLinkHref=@{/tenants/{tenantId}/catalogs/{catalog}/quality(tenantId=${tenantId},catalog=${finding.catalogAddress})},
             backLinkLabel='Quality',
             actions=~{::quality-detail-actions}
         )}"></div>
@@ -234,13 +234,13 @@
         <a th:if="${finding.variantKey != null}"
            class="ep-btn ep-btn-primary"
            data-testid="quality-open-editor"
-           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${finding.catalogKey},id=${finding.templateKey},variantId=${finding.variantKey})}">
+           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},catalogId=${finding.catalogAddress},id=${finding.templateKey},variantId=${finding.variantKey})}">
             <th:block th:replace="~{epistola-web/icon :: icon(name='pencil', class='ep-icon')}" />
             Open in editor
         </a>
         <a class="ep-btn ep-btn-outline"
            data-testid="quality-open-template"
-           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${finding.catalogKey},id=${finding.templateKey})}">
+           th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${finding.catalogAddress},id=${finding.templateKey})}">
             <th:block th:replace="~{epistola-web/icon :: icon(name='file-text', class='ep-icon')}" />
             View template
         </a>

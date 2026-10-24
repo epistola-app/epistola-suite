@@ -5,6 +5,8 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogEditingProperties
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindCatalogs
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.catalogsAt
 import app.epistola.suite.catalog.graph.CatalogResourceType
@@ -78,15 +80,15 @@ class CatalogResourceMovePlanner(
                     blockers += blocker("invalid-target-key", "'${target.key}' cannot be used: $problem", source)
                 }
             }
-            if (source.catalogKey !in editable) {
-                blockers += blocker("source-read-only", "${source.catalogKey} cannot be changed here", source)
+            if (source.catalogAddress !in editable) {
+                blockers += blocker("source-read-only", "${source.catalogAddress} cannot be changed here", source)
             }
-            if (target.catalogKey !in editable) {
-                blockers += blocker("target-read-only", "${target.catalogKey} cannot be changed here", source)
+            if (target.catalogAddress !in editable) {
+                blockers += blocker("target-read-only", "${target.catalogAddress} cannot be changed here", source)
             }
             // A resource has one identity, with one address, in every version of its catalog; a move
             // takes the current draft's rows only, so it is refused while either catalog has several.
-            listOf(source.catalogKey, target.catalogKey).distinct().filter { (draftCounts[it] ?: 0) > 1 }.forEach { catalog ->
+            listOf(source.catalogAddress, target.catalogAddress).distinct().filter { (draftCounts[it] ?: 0) > 1 }.forEach { catalog ->
                 blockers += blocker("several-drafts", "$catalog has several open drafts; discard or release all but one before moving resources", source)
             }
 
@@ -105,10 +107,10 @@ class CatalogResourceMovePlanner(
             // moved. Whether that matters depends on who consumes the catalog, which only the
             // operator knows, and blocking on it made a catalog permanently unmovable after a single
             // local release nobody ever pulled.
-            if (hasRelease(handle, tenantKey, source.catalogKey)) {
+            if (hasRelease(handle, tenantKey, source.catalogIn(tenantKey))) {
                 warnings += ResourceMoveWarning(
                     "released-source",
-                    "${source.catalogKey} has been released; anyone subscribed to it will not follow this move until they re-import",
+                    "${source.catalogAddress} has been released; anyone subscribed to it will not follow this move until they re-import",
                     source,
                 )
             }
@@ -133,7 +135,9 @@ class CatalogResourceMovePlanner(
 
         val rewrites = mutableListOf<JsonRewrite>()
         val immutableBySource = mutableMapOf<ResourceAddress, Int>()
-        rewriteContent(handle, tenantKey, contentMoves, relocations, rewrites, immutableBySource)
+        // An aliased reference means the catalog its holder's catalog declares under that alias (ADR 0034, section 9).
+        val aliases = graphs.loadAliases(handle, tenantKey)
+        rewriteContent(handle, tenantKey, contentMoves, relocations, rewrites, immutableBySource, aliases)
         rewrites += attributeKeyRewrites(
             handle,
             tenantKey,
@@ -212,13 +216,13 @@ class CatalogResourceMovePlanner(
         tenantKey: TenantKey,
         relocations: List<ResourceRelocation>,
     ): Set<String> {
-        val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
+        val keys = relocations.flatMap { listOf(it.source.catalogIn(tenantKey), it.target.catalogIn(tenantKey)) }.distinct()
         if (keys.isEmpty()) return emptySet()
         return handle.createQuery(
-            "SELECT catalog_key::text, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id IN ${catalogsAt("tenantKey", "keys")}",
+            "SELECT namespace || '/' || catalog_key AS catalog_key, COALESCE(source_url LIKE 'classpath:%', FALSE) AS supplied FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id IN ${catalogsAt("tenantKey", "keys")}",
         )
             .bind("tenantKey", tenantKey)
-            .bindList("keys", keys)
+            .bindCatalogs("keys", keys)
             .map { rs, _ -> rs.getString("catalog_key") to rs.getBoolean("supplied") }
             .list()
             .filter { (_, supplied) -> CatalogEditability.of(supplied, editing.enabled).editable }
@@ -230,18 +234,18 @@ class CatalogResourceMovePlanner(
         tenantKey: TenantKey,
         relocations: List<ResourceRelocation>,
     ): Map<String, Int> {
-        val keys = relocations.flatMap { listOf(it.source.catalogKey, it.target.catalogKey) }.distinct()
+        val keys = relocations.flatMap { listOf(it.source.catalogIn(tenantKey), it.target.catalogIn(tenantKey)) }.distinct()
         if (keys.isEmpty()) return emptyMap()
         return handle.createQuery(
             """
-            SELECT c.catalog_key::text, count(v.version_id) AS drafts
+            SELECT c.namespace || '/' || c.catalog_key AS catalog_key, count(v.version_id) AS drafts
             FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.kind = 'draft'
             WHERE c.tenant_key = :tenantKey AND c.catalog_id IN ${catalogsAt("tenantKey", "keys")}
-            GROUP BY c.catalog_key
+            GROUP BY c.namespace, c.catalog_key
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bindList("keys", keys)
+            .bindCatalogs("keys", keys)
             .map { rs, _ -> rs.getString("catalog_key") to rs.getInt("drafts") }
             .list()
             .toMap()
@@ -256,7 +260,7 @@ class CatalogResourceMovePlanner(
     )
         .bind("tenantKey", tenantKey)
         .bind("resourceType", source.type.wireName)
-        .bind("catalogKey", source.catalogKey)
+        .bindCatalog("catalogKey", source.catalogIn(tenantKey))
         .bind("resourceKey", source.key)
         // Mapped by hand: JDBI's Kotlin plugin claims any Kotlin class for constructor binding
         // before the column-mapper registry is consulted, so mapTo on a value class does not work.
@@ -275,16 +279,16 @@ class CatalogResourceMovePlanner(
     )
         .bind("tenantKey", tenantKey)
         .bind("resourceType", target.type.wireName)
-        .bind("catalogKey", target.catalogKey)
+        .bindCatalog("catalogKey", target.catalogIn(tenantKey))
         .bind("resourceKey", target.key)
         .mapTo(Boolean::class.java)
         .one()
 
-    private fun hasRelease(handle: Handle, tenantKey: TenantKey, catalogKey: String): Boolean = handle.createQuery(
+    private fun hasRelease(handle: Handle, tenantKey: TenantKey, catalog: app.epistola.suite.common.ids.CatalogId): Boolean = handle.createQuery(
         "SELECT EXISTS(SELECT 1 FROM catalog_releases WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")})",
     )
         .bind("tenantKey", tenantKey)
-        .bind("catalogKey", catalogKey)
+        .bindCatalog("catalogKey", catalog)
         .mapTo(Boolean::class.java)
         .one()
 
@@ -308,19 +312,20 @@ class CatalogResourceMovePlanner(
         relocations: List<ResourceRelocation>,
         rewrites: MutableList<JsonRewrite>,
         immutableBySource: MutableMap<ResourceAddress, Int>,
+        aliases: Map<Pair<String, String>, String>,
     ) {
         val movingTemplates = relocations.filter { it.source.type == CatalogResourceType.TEMPLATE }.associateBy { it.source }
         val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
         val movingThemes = relocations.filter { it.source.type == CatalogResourceType.THEME }.associateBy { it.source }
-        rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites)
+        rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites, aliases)
         if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
         // Only a batch that moves a referenced type has to look at every holder in the tenant; one
         // that moves templates alone needs nothing but the templates' own variants.
         val everyHolder = contentMoves.isNotEmpty()
         for (row in loadVariantModels(handle, tenantKey, if (everyHolder) null else movingTemplates.keys)) {
-            val owner = movingTemplates[ResourceAddress(CatalogResourceType.TEMPLATE, row.catalogKey, row.ownerKey)]
-            rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
+            val owner = movingTemplates[ResourceAddress.at(CatalogResourceType.TEMPLATE, row.catalogKey, row.ownerKey)]
+            rewriteRow(row, owner, contentMoves, immutableBySource, aliases)?.let { result ->
                 rewrites += JsonRewrite.VariantModel(
                     row.catalogKey,
                     row.ownerKey,
@@ -332,8 +337,8 @@ class CatalogResourceMovePlanner(
             }
         }
         for (row in loadStencils(handle, tenantKey, if (everyHolder) null else movingStencils.keys)) {
-            val owner = movingStencils[ResourceAddress(CatalogResourceType.STENCIL, row.catalogKey, row.ownerKey)]
-            rewriteRow(row, owner, contentMoves, immutableBySource)?.let { result ->
+            val owner = movingStencils[ResourceAddress.at(CatalogResourceType.STENCIL, row.catalogKey, row.ownerKey)]
+            rewriteRow(row, owner, contentMoves, immutableBySource, aliases)?.let { result ->
                 rewrites += JsonRewrite.StencilContent(
                     row.catalogKey,
                     row.ownerKey,
@@ -359,11 +364,12 @@ class CatalogResourceMovePlanner(
         contentMoves: Map<ResourceAddress, ResourceAddress>,
         movingThemes: Map<ResourceAddress, ResourceRelocation>,
         rewrites: MutableList<JsonRewrite>,
+        aliases: Map<Pair<String, String>, String>,
     ) {
         if (contentMoves.keys.none { it.type == CatalogResourceType.FONT } && movingThemes.isEmpty()) return
         handle.createQuery(
             """
-            SELECT c.catalog_key::text, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
+            SELECT c.namespace || '/' || c.catalog_key AS catalog_key, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
             FROM themes th
             JOIN catalogs c ON c.tenant_key = th.tenant_key AND c.catalog_id = th.catalog_id
             WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
@@ -374,10 +380,10 @@ class CatalogResourceMovePlanner(
             .map { rs, _ ->
                 val catalogKey = rs.getString("catalog_key")
                 val themeKey = rs.getString("theme_key")
-                val owner = movingThemes[ResourceAddress(CatalogResourceType.THEME, catalogKey, themeKey)]
+                val owner = movingThemes[ResourceAddress.at(CatalogResourceType.THEME, catalogKey, themeKey)]
                 fun rewrite(raw: String?): Pair<String?, ResourceAddress?> {
                     if (raw == null) return null to null
-                    var result = applyContentMoves(objectMapper.readTree(raw), catalogKey, contentMoves)
+                    var result = applyContentMoves(objectMapper.readTree(raw), catalogKey, contentMoves, aliases)
                     if (owner != null) result = result.pinningRelative(catalogKey, owner.source)
                     return (if (result.changed) result.json.toString() else null) to result.attributedTo
                 }
@@ -407,8 +413,9 @@ class CatalogResourceMovePlanner(
         owner: ResourceRelocation?,
         contentMoves: Map<ResourceAddress, ResourceAddress>,
         immutableBySource: MutableMap<ResourceAddress, Int>,
+        aliases: Map<Pair<String, String>, String>,
     ): RewriteResult? {
-        var result = applyContentMoves(row.json, row.catalogKey, contentMoves)
+        var result = applyContentMoves(row.json, row.catalogKey, contentMoves, aliases)
         if (row.status != "draft") {
             // Published: references to moved resources keep their bytes, and stop resolving.
             result.attributedTo?.let { immutableBySource.merge(it, 1, Int::plus) }
@@ -418,17 +425,23 @@ class CatalogResourceMovePlanner(
         return result.takeIf { it.changed }
     }
 
-    /** Points every reference to a moving resource at that resource's destination. */
+    /**
+     * Points every reference to a moving resource at that resource's destination. [ownerCatalog] is
+     * the holder's catalog address; an aliased reference means the catalog it declares under the
+     * alias, its own key itself.
+     */
     private fun applyContentMoves(
         root: JsonNode,
         ownerCatalog: String,
         contentMoves: Map<ResourceAddress, ResourceAddress>,
+        aliases: Map<Pair<String, String>, String>,
     ): RewriteResult {
         val copy = root.deepCopy()
         var changed = false
         var attributedTo: ResourceAddress? = null
         for (site in ResourceReferenceSites.scan(copy)) {
-            val referenced = ResourceAddress(site.kind.type, site.catalogKey ?: ownerCatalog, site.key)
+            val catalog = site.catalogKey?.let { alias -> if (alias == ownerCatalog.substringAfter('/')) ownerCatalog else aliases[ownerCatalog to alias] } ?: if (site.catalogKey == null) ownerCatalog else continue
+            val referenced = ResourceAddress.at(site.kind.type, catalog, site.key)
             val target = contentMoves[referenced] ?: continue
             site.setCatalogKey(target.catalogKey)
             site.setKey(target.key)
@@ -485,7 +498,7 @@ class CatalogResourceMovePlanner(
 
         return handle.createQuery(
             """
-            SELECT template_catalog.catalog_key::text, template.id::text AS template_key,
+            SELECT template_catalog.namespace || '/' || template_catalog.catalog_key AS catalog_key, template.id::text AS template_key,
                    variants.id::text variant_key, variants.attributes::text
             FROM template_variants variants
             ${templateJoin("variants")}
@@ -525,13 +538,13 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT template_catalog.catalog_key::text, template.id::text owner_key,
+            SELECT template_catalog.namespace || '/' || template_catalog.catalog_key AS catalog_key, template.id::text owner_key,
                    variant.id::text AS variant_key, 0 AS id, 'draft' AS status, variant.template_model::text json
             FROM template_variants variant
             ${templateJoin("variant")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")} ${ownerFilter(owners, "template.id", "template_catalog.catalog_key")}
+            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")} ${ownerFilter(owners, "template.id", "(template_catalog.namespace || '/' || template_catalog.catalog_key)")}
             ORDER BY template_catalog.catalog_key, template.id, variant.id
             """,
         )
@@ -548,12 +561,12 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT stencil_catalog.catalog_key::text, stencil.id::text owner_key,
+            SELECT stencil_catalog.namespace || '/' || stencil_catalog.catalog_key AS catalog_key, stencil.id::text owner_key,
                    0 AS id, 'draft' AS status, stencil.content::text json
             FROM stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")} ${ownerFilter(owners, "stencil.id", "stencil_catalog.catalog_key")}
+            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")} ${ownerFilter(owners, "stencil.id", "(stencil_catalog.namespace || '/' || stencil_catalog.catalog_key)")}
             ORDER BY stencil_catalog.catalog_key, stencil.id
             """,
         )
@@ -578,20 +591,21 @@ class CatalogResourceMovePlanner(
 
     private fun org.jdbi.v3.core.statement.Query.bindOwners(owners: Set<ResourceAddress>?) = apply {
         owners?.forEachIndexed { index, owner ->
-            bind("ownerCatalog$index", owner.catalogKey)
+            bind("ownerCatalog$index", owner.catalogAddress)
             bind("ownerKey$index", owner.key)
         }
     }
 
     /**
-     * Pins this payload's relative references to [catalogKey] -- the catalog they resolve against
-     * before their owner moves -- attributing the change to [owner].
+     * Pins this payload's relative references to the catalog at [catalogAddress] -- the catalog they
+     * resolve against before their owner moves -- by its key, the alias it is declared under (ADR
+     * 0034), attributing the change to [owner].
      */
-    private fun RewriteResult.pinningRelative(catalogKey: String, owner: ResourceAddress): RewriteResult {
+    private fun RewriteResult.pinningRelative(catalogAddress: String, owner: ResourceAddress): RewriteResult {
         var pinned = changed
         for (site in ResourceReferenceSites.scan(json)) {
             if (!site.kind.relativeWhenUnqualified || site.catalogKey != null) continue
-            site.setCatalogKey(catalogKey)
+            site.setCatalogKey(catalogAddress.substringAfter('/'))
             pinned = true
         }
         return RewriteResult(json, pinned, attributedTo ?: owner)
@@ -628,6 +642,7 @@ class CatalogResourceMovePlanner(
     private fun blocker(code: String, message: String, source: ResourceAddress? = null) = ResourceMoveBlocker(code, message, source)
 
     private data class JsonOwnerRow(
+        /** The holder's catalog address, `namespace/key`. */
         val catalogKey: String,
         val ownerKey: String,
         val variantKey: String?,
@@ -646,6 +661,7 @@ internal data class CatalogResourceMovePlan(
 )
 
 internal sealed interface JsonRewrite {
+    /** The holder's catalog address, `namespace/key` (ADR 0034, section 9). */
     val catalogKey: String
     val ownerKey: String
     val version: Int

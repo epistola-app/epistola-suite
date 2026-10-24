@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -44,7 +45,7 @@ class V7ZipImportTest : IntegrationTestBase() {
             val result = ImportCatalogZip(tenant.id, v7Archive(), confirmMigration = true, registry = identity.defaultRegistry, namespace = "letters-ns").execute()
 
             assertThat(result.results.map { it.status }).containsOnly(InstallStatus.INSTALLED)
-            val catalog = GetCatalog(tenant.id, CatalogKey.of("letters")).query()!!
+            val catalog = GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()!!
             assertThat(catalog.namespace).isEqualTo("letters-ns")
             assertThat(catalog.registry).isEqualTo(identity.defaultRegistry)
         }
@@ -58,7 +59,7 @@ class V7ZipImportTest : IntegrationTestBase() {
         val archive = withMediator {
             TestNamespaces.grant(producer, "v8-named-ns").execute()
             CreateCatalog(producer, catalog, "V8 named", namespace = "v8-named-ns").execute()
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalog, app.epistola.suite.common.ids.TenantId(producer))).zipBytes
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(producer), catalog)).zipBytes
         }
 
         withMediator {
@@ -66,10 +67,10 @@ class V7ZipImportTest : IntegrationTestBase() {
                 .isInstanceOfSatisfying(CatalogNameMismatchException::class.java) { assertThat(it.named).isEqualTo("v8-named-ns") }
             assertThatThrownBy { ImportCatalogZip(consumer, archive, registry = "registry.elsewhere.example").execute() }
                 .isInstanceOf(CatalogNameMismatchException::class.java)
-            assertThat(GetCatalog(consumer, catalog).query()).isNull()
+            assertThat(GetCatalog(testCatalog(consumer, catalog)).query()).isNull()
 
             ImportCatalogZip(consumer, archive, registry = identity.defaultRegistry, namespace = "v8-named-ns").execute()
-            assertThat(GetCatalog(consumer, catalog).query()!!.namespace).isEqualTo("v8-named-ns")
+            assertThat(GetCatalog(testCatalog(consumer, catalog)).query()!!.namespace).isEqualTo("v8-named-ns")
         }
     }
 

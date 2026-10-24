@@ -4,12 +4,14 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -43,7 +45,9 @@ class DeploymentUsage(
     private val logger = LoggerFactory.getLogger(javaClass)
     override val taskType: String = TASK_TYPE
 
-    private data class Key(val tenantKey: TenantKey, val environmentKey: EnvironmentKey, val catalogKey: CatalogKey, val version: String)
+    private data class Key(val environmentKey: EnvironmentKey, val catalog: CatalogId, val version: String) {
+        val tenantKey: TenantKey get() = catalog.tenantKey
+    }
 
     private class Tally {
         val count = AtomicLong()
@@ -52,10 +56,10 @@ class DeploymentUsage(
 
     private val tallies = ConcurrentHashMap<Key, Tally>()
 
-    /** Counts [requests] accepted through [environmentKey] for [version] of [catalogKey]. */
-    fun record(tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String, requests: Int = 1) {
+    /** Counts [requests] accepted through [environmentKey] for [version] of [catalog]. */
+    fun record(environmentKey: EnvironmentKey, catalog: CatalogId, version: String, requests: Int = 1) {
         val now = EpistolaClock.instant()
-        val tally = tallies.computeIfAbsent(Key(tenantKey, environmentKey, catalogKey, version)) { Tally() }
+        val tally = tallies.computeIfAbsent(Key(environmentKey, catalog, version)) { Tally() }
         tally.count.addAndGet(requests.toLong())
         tally.last.accumulateAndGet(now) { a, b -> maxOf(a, b) }
     }
@@ -107,7 +111,7 @@ class DeploymentUsage(
                     .bind("last", tally.last.get().atOffset(ZoneOffset.UTC))
                     .bind("t", key.tenantKey)
                     .bind("e", key.environmentKey)
-                    .bind("c", key.catalogKey)
+                    .bindCatalog("c", key.catalog)
                     .bind("v", key.version)
                     .add()
             }

@@ -19,6 +19,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.catalog.revisions.RetainedRelease
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -48,8 +49,7 @@ import tools.jackson.databind.ObjectMapper
  * declaration is not locked to a release yet, and when a pinned release is not here.
  */
 data class ExportCatalogZip(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** A released version to export as it was released, or null for the catalog's highest release. */
     val version: String? = null,
     /** Bundle the releases of the catalogs it uses (a fat export). */
@@ -62,6 +62,8 @@ data class ExportCatalogZip(
     internal val workingCopy: Boolean = false,
 ) : Command<ExportCatalogZipResult>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -122,17 +124,17 @@ class ExportCatalogZipHandler(
             }
             if (!visiting.add(identity)) return
             pinnedAt[identity] = pinned
-            val key = CatalogKey.of(pin.catalogKey)
+            val key = pin.catalogIn(command.tenantKey)
             val retained = try {
-                retainedRelease(command.tenantKey, key, pinned)
+                retainedRelease(key, pinned)
             } catch (e: CatalogReleaseNotFoundException) {
                 throw CatalogBundleException("${pin.catalogKey} v$pinned is not here, so it cannot be carried.")
             }
-            ListReleaseDependencies(command.tenantKey, key, pinned).query().forEach { add(it, "${pin.catalogKey} v$pinned") }
+            ListReleaseDependencies(key, pinned).query().forEach { add(it, "${pin.catalogKey} v$pinned") }
             ordered[identity] = CarriedRelease(pin.registry, pin.namespace, pin.catalogKey, retained.content, retained.release)
         }
-        ListReleaseDependencies(command.tenantKey, command.catalogKey, version).query().forEach { add(it, command.catalogKey.value) }
-        val root = retainedRelease(command.tenantKey, command.catalogKey, version)
+        ListReleaseDependencies(command.catalog, version).query().forEach { add(it, command.catalogKey.value) }
+        val root = retainedRelease(command.catalog, version)
         return ExportCatalogZipResult(
             zipBytes = archiveBuilder.build(root.content, root.release, ordered.values.toList()),
             filename = "${command.catalogKey.value}-$version-with-dependencies.zip",
@@ -153,7 +155,7 @@ class ExportCatalogZipHandler(
      * fingerprint it advertises would spread that rather than stop it.
      */
     private fun exportRelease(command: ExportCatalogZip, version: String): ExportCatalogZipResult {
-        val retained = retainedRelease(command.tenantKey, command.catalogKey, version)
+        val retained = retainedRelease(command.catalog, version)
         return ExportCatalogZipResult(
             zipBytes = archiveBuilder.build(retained.content, retained.release),
             filename = "${command.catalogKey.value}-$version.zip",
@@ -165,8 +167,8 @@ class ExportCatalogZipHandler(
      * named by its content hash (ADR 0034): a wire-v8 archive's fingerprint is V6, whatever algorithm
      * the release was cut with ([ReleaseIdentity.travelling]).
      */
-    private fun retainedRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease = identity.travelling(tenantKey, catalogKey, version)
-        ?: throw CatalogReleaseNotFoundException(catalogKey, version)
+    private fun retainedRelease(catalog: CatalogId, version: String): RetainedRelease = identity.travelling(catalog, version)
+        ?: throw CatalogReleaseNotFoundException(catalog.key, version)
 
     /**
      * The current version's content, for a tenant snapshot. Wire v8 numbers every archive's release
@@ -175,10 +177,10 @@ class ExportCatalogZipHandler(
      * necessarily that release.
      */
     private fun exportWorkingCopy(command: ExportCatalogZip): ExportCatalogZipResult {
-        val content = contentBuilder.build(command.tenantKey, command.catalogKey)
+        val content = contentBuilder.build(command.catalog)
         fingerprintService.requirePublishable(content)
         val fingerprint = fingerprintService.fingerprint(content)
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
         val version = catalog.highestReleaseVersion ?: UNRELEASED
         // When it was received, for a release received from elsewhere; a release made here is not dated.
@@ -199,7 +201,7 @@ class ExportCatalogZipHandler(
 
     /** The catalog's highest release, released here or received (ADR 0032). */
     private fun highestRelease(command: ExportCatalogZip): String {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        val catalog = GetCatalog(command.catalog).query() ?: throw CatalogNotFoundException(command.catalogKey)
         return catalog.highestReleaseVersion ?: throw CatalogReleaseNotFoundException(command.catalogKey, "release")
     }
 }

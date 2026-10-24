@@ -4,7 +4,8 @@
 
 package app.epistola.suite.stencils
 
-import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.template.model.Node
 
@@ -18,19 +19,26 @@ import app.epistola.template.model.Node
  */
 object StencilReferences {
     const val KEY_PARAM = "stencilRefKey"
+
+    /** The stencil's catalog, bound with [app.epistola.suite.catalog.bindCatalog]. */
     const val CATALOG_PARAM = "stencilRefCatalogKey"
+
+    /** The tenant the statement reads, bound under this name by every caller. */
+    private const val TENANT_PARAM = "tenantId"
 
     /**
      * True when [node] is an instance of [stencil]. [templateCatalog] is the catalog of the template
      * the node sits in — not the stencil's, which [stencil] carries — and answers for a node that
-     * names no `catalogKey` of its own.
+     * names no `catalogKey` of its own; [resolve] gives the catalog an alias names from it (ADR 0034,
+     * section 9).
      */
-    fun refersTo(node: Node, stencil: StencilId, templateCatalog: CatalogKey): Boolean {
+    fun refersTo(node: Node, stencil: StencilId, templateCatalog: CatalogId, resolve: (String) -> CatalogId?): Boolean {
         if (node.type != StencilNodeKeys.NODE_TYPE) return false
         val props = node.props ?: return false
         if (props[StencilNodeKeys.PROP_STENCIL_KEY] as? String != stencil.key.value) return false
-        val refCatalog = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: templateCatalog.value
-        return refCatalog == stencil.catalogKey.value
+        val alias = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() }
+        val refCatalog = if (alias == null || alias == templateCatalog.key.value) templateCatalog else resolve(alias)
+        return refCatalog == stencil.catalogId
     }
 
     /**
@@ -41,7 +49,7 @@ object StencilReferences {
     fun refersTo(nodeAlias: String, templateAlias: String): String = """(
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
         AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
-        AND ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
+        AND ${referencedCatalog(nodeAlias, templateAlias)} = ${catalogAt(TENANT_PARAM, CATALOG_PARAM)}
     )"""
 
     /**
@@ -58,23 +66,33 @@ object StencilReferences {
         $nodeAlias.value ->> 'type' = '${StencilNodeKeys.NODE_TYPE}'
         AND $nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_STENCIL_KEY}' = :$KEY_PARAM
         AND (
-            ${referencedCatalog(nodeAlias, templateAlias)} = :$CATALOG_PARAM
+            ${referencedCatalog(nodeAlias, templateAlias)} = ${catalogAt(TENANT_PARAM, CATALOG_PARAM)}
             OR NOT EXISTS (
                 SELECT 1 FROM stencils referenced
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
                   AND referenced.version_id = (
                       SELECT referenced_version.version_id FROM catalog_current_versions referenced_version
-                      JOIN catalogs referenced_catalog ON referenced_catalog.tenant_key = referenced_version.tenant_key
-                       AND referenced_catalog.catalog_id = referenced_version.catalog_id
-                      WHERE referenced_catalog.tenant_key = referenced.tenant_key
-                        AND referenced_catalog.catalog_key = ${referencedCatalog(nodeAlias, templateAlias)}
+                      WHERE referenced_version.tenant_key = referenced.tenant_key
+                        AND referenced_version.catalog_id = ${referencedCatalog(nodeAlias, templateAlias)}
                   )
                   AND referenced.id = :$KEY_PARAM
             )
         )
     )"""
 
-    private fun referencedCatalog(nodeAlias: String, templateAlias: String) = "COALESCE(NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', ''), ${templateCatalog(templateAlias)})"
+    /**
+     * The `catalog_id` a node's stencil is in: the template's own catalog without an alias (or with
+     * its own key), else the catalog the template's version declares under that alias (ADR 0034,
+     * section 9); NULL for an alias it does not declare.
+     */
+    private fun referencedCatalog(nodeAlias: String, templateAlias: String): String {
+        val alias = "NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', '')"
+        return """
+            (CASE WHEN $alias IS NULL OR $alias = ${templateCatalog(templateAlias)} THEN $templateAlias.catalog_id
+             ELSE (SELECT epistola_catalog_id(ref.tenant_key, ref.namespace, ref.dependency_key) FROM catalog_dependencies ref
+                   WHERE ref.tenant_key = $templateAlias.tenant_key AND ref.version_id = $templateAlias.version_id AND ref.alias = $alias) END)
+        """
+    }
 
     /** The key of the catalog the template aliased [templateAlias] lives in. */
     private fun templateCatalog(templateAlias: String) = "(SELECT template_catalog.catalog_key FROM catalogs template_catalog" +

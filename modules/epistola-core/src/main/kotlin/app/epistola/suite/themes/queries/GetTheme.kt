@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -35,7 +36,7 @@ class GetThemeHandler(
     override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT t.*, c.catalog_key AS catalog_key
+            SELECT t.*, c.catalog_key AS catalog_key, c.namespace AS namespace
             FROM themes t
             JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE t.id = :id
@@ -45,7 +46,7 @@ class GetThemeHandler(
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bind("catalogKey", query.id.catalogKey)
+            .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)

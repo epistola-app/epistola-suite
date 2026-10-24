@@ -7,6 +7,7 @@ package app.epistola.suite.assets
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -35,7 +36,7 @@ class ImagePixelPolicyTest {
 
     private fun realPng(width: Int, height: Int) = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(width, height, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
 
-    private fun upload(content: ByteArray) = UploadAsset(TenantKey("testtenant"), "image.png", AssetMediaType.fromMimeType("image/png"), content, null, null, CatalogKey.DEFAULT)
+    private fun upload(content: ByteArray) = UploadAsset(testCatalog(TenantKey("testtenant"), CatalogKey.DEFAULT), "image.png", AssetMediaType.fromMimeType("image/png"), content, null, null)
 
     @Test
     fun `the size is read from the header without decoding the pixels`() {

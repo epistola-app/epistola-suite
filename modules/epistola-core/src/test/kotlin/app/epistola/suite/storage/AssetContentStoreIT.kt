@@ -16,6 +16,7 @@ import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -181,13 +182,12 @@ class AssetContentStoreIT : IntegrationTestBase() {
     private fun uniqueContent(): ByteArray = java.util.UUID.randomUUID().toString().toByteArray(Charsets.UTF_8)
 
     private fun upload(tenant: TenantKey, cat: CatalogKey, name: String, sensitive: Boolean = false, content: ByteArray) = UploadAsset(
-        tenantId = tenant,
+        catalog = testCatalog(tenant, cat),
         name = name,
         mediaType = AssetMediaType.PNG,
         content = content,
         width = 1,
         height = 1,
-        catalogKey = cat,
         sensitive = sensitive,
     ).execute().id
 

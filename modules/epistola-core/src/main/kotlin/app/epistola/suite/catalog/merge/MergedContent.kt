@@ -19,8 +19,8 @@ import app.epistola.catalog.validation.ValidationSeverity
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
-import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogPreset
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -99,12 +99,12 @@ class MergedContentReader(
 ) {
 
     /** [content], given for the entry [sides] of [plan], as the value the merge writes. */
-    fun read(tenantKey: TenantKey, catalogKey: CatalogKey, plan: MergePlan, sides: MergeEntrySides, content: Map<String, Any?>): MergeValue {
+    fun read(catalog: CatalogId, plan: MergePlan, sides: MergeEntrySides, content: Map<String, Any?>): MergeValue {
         val entry = sides.contentKey
         return when (sides.type) {
-            CatalogSetting.TYPE -> setting(catalogKey, entry, content)
-            CatalogSetting.DEPENDENCY_TYPE -> dependency(tenantKey, entry, content)
-            else -> resource(catalogKey, plan, sides, content)
+            CatalogSetting.TYPE -> setting(catalog.key, entry, content)
+            CatalogSetting.DEPENDENCY_TYPE -> dependency(catalog.tenantKey, entry, content)
+            else -> resource(catalog.key, plan, sides, content)
         }
     }
 
@@ -153,7 +153,7 @@ class MergedContentReader(
                 CatalogSetting.DefaultTheme(
                     ref?.let {
                         val theme = keyed("$field/defaultTheme/key") { ThemeKey.of(it.key) }
-                        CatalogDefaultTheme(theme, it.catalogKey?.let { other -> keyed("$field/defaultTheme/catalogKey") { CatalogKey.of(other) } } ?: catalogKey)
+                        ThemeByAlias(theme, it.catalogKey?.let { other -> keyed("$field/defaultTheme/catalogKey") { CatalogKey.of(other) } } ?: catalogKey)
                     },
                 )
             }

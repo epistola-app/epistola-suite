@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -28,16 +29,15 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("release-cat")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Release Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
 
-            MarkCatalogReady(tenantKey, catalogKey).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
             val result = ReleaseCatalogDraft(
-                tenantKey = tenantKey,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantKey, catalogKey),
                 version = "1.0.0",
                 notes = "first",
             ).execute()
@@ -46,11 +46,11 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
             assertThat(result.previousVersion).isNull()
             assertThat(result.fingerprint).matches("v6:[0-9a-f]{64}")
 
-            val catalog = GetCatalog(tenantKey, catalogKey).query()!!
+            val catalog = GetCatalog(testCatalog(tenantKey, catalogKey)).query()!!
             assertThat(catalog.releasedVersion).isEqualTo("1.0.0")
             assertThat(catalog.releasedFingerprint).isEqualTo(result.fingerprint)
 
-            val status = GetCatalogReleaseStatus(tenantKey, catalogKey).query()
+            val status = GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query()
             assertThat(status.latestVersion).isEqualTo("1.0.0")
             assertThat(status.hasUnreleasedChanges).isFalse()
             assertThat(status.suggestedNext.patch).isEqualTo("1.0.1")
@@ -67,22 +67,22 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Mono Cat").execute()
-            MarkCatalogReady(tenantKey, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "2.0.0").execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0").execute()
 
             assertThatThrownBy {
-                MarkCatalogReady(tenantKey, catalogKey).execute()
-                ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.9.0").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.9.0").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
-                MarkCatalogReady(tenantKey, catalogKey).execute()
-                ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "2.0.0").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "2.0.0").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
 
             assertThatThrownBy {
-                MarkCatalogReady(tenantKey, catalogKey).execute()
-                ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "not-semver").execute()
+                MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "not-semver").execute()
             }.isInstanceOf(CatalogReleaseVersionException::class.java)
         }
     }
@@ -96,7 +96,7 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "First Cat").execute()
 
-            val status = GetCatalogReleaseStatus(tenantKey, catalogKey).query()
+            val status = GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query()
             assertThat(status.latestVersion).isNull()
             assertThat(status.suggestedNext.patch).isEqualTo("0.0.1")
             assertThat(status.suggestedNext.minor).isEqualTo("0.1.0")
@@ -110,19 +110,19 @@ class ReleaseCatalogDraftTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("drift-cat")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Drift Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("base"), catalogId), name = "Base").execute()
-            MarkCatalogReady(tenantKey, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
 
-            assertThat(GetCatalogReleaseStatus(tenantKey, catalogKey).query().hasUnreleasedChanges).isFalse()
+            assertThat(GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query().hasUnreleasedChanges).isFalse()
 
             CreateTheme(id = ThemeId(ThemeKey.of("extra"), catalogId), name = "Extra").execute()
 
-            assertThat(GetCatalogReleaseStatus(tenantKey, catalogKey).query().hasUnreleasedChanges).isTrue()
+            assertThat(GetCatalogReleaseStatus(testCatalog(tenantKey, catalogKey)).query().hasUnreleasedChanges).isTrue()
         }
     }
 }

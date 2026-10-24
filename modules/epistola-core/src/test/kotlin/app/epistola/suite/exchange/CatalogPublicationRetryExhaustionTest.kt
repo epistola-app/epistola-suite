@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
@@ -49,8 +50,8 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
                 exchange.baseUrl,
             ).execute()
             CreateCatalog(tenant.id, catalogKey, "Retry exhaustion").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             worker.run()
 
@@ -64,7 +65,7 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
             assertThat(state(tenant.id, catalogKey).isRetry).isTrue()
 
             val firstKey = failed.idempotencyKey
-            PublishCurrentCatalogRelease(tenant.id, catalogKey).execute()
+            PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey)).execute()
 
             val requeued = state(tenant.id, catalogKey).publications.single()
             assertThat(requeued.id).isEqualTo(failed.id)
@@ -75,7 +76,7 @@ class CatalogPublicationRetryExhaustionTest : IntegrationTestBase() {
         }
     }
 
-    private fun state(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+    private fun state(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())
 
     companion object {
         private val exchange = FakeExchangeServer()

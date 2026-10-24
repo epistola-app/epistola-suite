@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
@@ -35,9 +36,9 @@ class DemoStencilShowcaseIntegrationTest : IntegrationTestBase() {
     private fun previewText(): String {
         val tenant = createTenant("Demo stencil showcase").id
         withMediator { EnsureSubscribedCatalog(tenantKey = tenant, sourceUrl = demoUrl).execute() }
-        val data = withMediator { GetDataContract(TemplateId(showcase, CatalogId(demoCatalog, TenantId(tenant)))).query() }!!
+        val data = withMediator { GetDataContract(TemplateId(showcase, testCatalog(TenantId(tenant), demoCatalog))).query() }!!
             .dataExamples.single { it.name == "Default" }.data
-        val pdf = withMediator { PreviewDocument(tenantId = tenant, catalogKey = demoCatalog, templateId = showcase, data = data).query() }
+        val pdf = withMediator { PreviewDocument(catalog = testCatalog(tenant, demoCatalog), templateId = showcase, data = data).query() }
         return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { doc ->
             (1..doc.numberOfPages).joinToString("\n") { PdfTextExtractor.getTextFromPage(doc.getPage(it)) }
         }.replace(Regex("\\s+"), " ") // lines wrap where the layout puts them

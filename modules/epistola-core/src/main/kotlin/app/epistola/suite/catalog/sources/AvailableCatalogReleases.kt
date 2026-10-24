@@ -19,6 +19,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.MissingDependencyReason
@@ -43,10 +44,11 @@ import java.io.ByteArrayInputStream
  * [CatalogSourceUnavailableException].
  */
 data class ListAvailableCatalogReleases(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<AvailableCatalogReleases>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -80,12 +82,12 @@ class ListAvailableCatalogReleasesHandler(
     private val archives: AvailableReleaseArchives,
 ) : QueryHandler<ListAvailableCatalogReleases, AvailableCatalogReleases> {
     override fun handle(query: ListAvailableCatalogReleases): AvailableCatalogReleases {
-        val catalog = GetCatalog(query.tenantKey, query.catalogKey).query() ?: throw CatalogNotFoundException(query.catalogKey)
+        val catalog = GetCatalog(query.catalog).query() ?: throw CatalogNotFoundException(query.catalogKey)
         val source = sources.sourceOf(catalog)
-        val installed = ListCatalogReleaseSummaries(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
+        val installed = ListCatalogReleaseSummaries(query.catalog).query().map { it.version }.toSet()
         val available = source.offered(catalog).filter { it !in installed }
             .sortedWith(compareBy(nullsLast()) { SemVer.parseOrNull(it) })
-            .map { version -> archives.describe(catalog.tenantKey, catalog.id, version, source.archive(catalog, version), installed) }
+            .map { version -> archives.describe(catalog.catalogId, version, source.archive(catalog, version), installed) }
         return AvailableCatalogReleases(catalog.registry, catalog.namespace, catalog.id, available)
     }
 }
@@ -99,11 +101,12 @@ class ListAvailableCatalogReleasesHandler(
  * refused, as importing it is.
  */
 data class InstallCatalogRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val releaseVersion: String,
 ) : Command<ImportCatalogZipResult>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
@@ -113,7 +116,7 @@ class InstallCatalogReleaseHandler(
     private val archives: AvailableReleaseArchives,
 ) : CommandHandler<InstallCatalogRelease, ImportCatalogZipResult> {
     override fun handle(command: InstallCatalogRelease): ImportCatalogZipResult {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query() ?: throw CatalogNotFoundException(command.catalogKey)
+        val catalog = GetCatalog(command.catalog).query() ?: throw CatalogNotFoundException(command.catalogKey)
         val source = sources.sourceOf(catalog)
         val version = command.releaseVersion.trim()
         if (version !in source.offered(catalog)) throw CatalogReleaseNotFoundException(command.catalogKey, version)
@@ -147,8 +150,8 @@ class AvailableReleaseArchives(
 ) {
 
     /** [bytes], release [version], against the closest of [installed] below it. */
-    fun describe(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, bytes: ByteArray, installed: Set<String>): AvailableRelease {
-        val archive = read(tenantKey, bytes)
+    fun describe(catalog: CatalogId, version: String, bytes: ByteArray, installed: Set<String>): AvailableRelease {
+        val archive = read(catalog.tenantKey, bytes)
         val manifest = archive.manifest
         // Both sides by the function every comparison uses: the archive as it came, the installed
         // release from the content it retained.
@@ -157,8 +160,8 @@ class AvailableReleaseArchives(
         val comparedTo = installed.mapNotNull { v -> SemVer.parseOrNull(v)?.let { v to it } }
             .filter { number != null && it.second < number }
             .maxByOrNull { it.second }?.first
-        val baseline = comparedTo?.let { GetCatalogReleaseDetail(tenantKey, catalogKey, it).query() }?.resources.orEmpty()
-        val before = comparedTo?.let { assembler.assemble(tenantKey, catalogKey, it) }?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
+        val baseline = comparedTo?.let { GetCatalogReleaseDetail(catalog, it).query() }?.resources.orEmpty()
+        val before = comparedTo?.let { assembler.assemble(catalog, it) }?.let { fingerprints.resourceFingerprints(it.content) }.orEmpty()
         val names = manifest.resources.associate { "${it.type}/${it.key}" to it.name }
         val changes = buildList {
             for ((key, fingerprint) in incoming.toSortedMap()) {
@@ -171,7 +174,7 @@ class AvailableReleaseArchives(
             baseline.filter { it.contentKey !in incoming }.sortedBy { it.contentKey }.forEach { add(change(it.contentKey, it.name, ResourceChangeKind.REMOVED)) }
         }
         val dependencies = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of).filter { it.pinned }.map {
-            AvailableReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, present(tenantKey, it))
+            AvailableReleaseDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion!!, present(catalog.tenantKey, it))
         }
         return AvailableRelease(version, comparedTo, changes, dependencies)
     }

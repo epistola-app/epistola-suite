@@ -4,8 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogEditingProperties
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -49,24 +50,28 @@ data class CatalogEditability(val reason: CatalogReadOnlyReason?) {
 
 /**
  * [CatalogEditability] for every catalog of a tenant, from one read, for pages that list resources or
- * catalogs: a list asks this once instead of once per row. By [CatalogAddress], since two catalogs of
- * a tenant can share a key (ADR 0034, phase 4).
+ * catalogs: a list asks this once instead of once per row. By [CatalogId], since two catalogs of a
+ * tenant can share a key (ADR 0034).
  */
-data class CatalogEditabilities(val byCatalog: Map<CatalogAddress, CatalogEditability>) {
+data class CatalogEditabilities(val byCatalog: Map<CatalogId, CatalogEditability>) {
     /** The catalog's editability; null for a catalog the tenant does not have. */
-    fun of(catalog: CatalogAddress): CatalogEditability? = byCatalog[catalog]
-
-    /** By key alone, as [CatalogAddress.lookUp] reads one; null for a catalog the tenant does not have. */
-    fun of(catalogKey: CatalogKey): CatalogEditability? = CatalogAddress.lookUp(byCatalog, catalogKey)
+    fun of(catalog: CatalogId): CatalogEditability? = byCatalog[catalog]
 
     /** Whether the catalog can be changed here; false for one the tenant does not have. */
-    fun editable(catalog: CatalogAddress): Boolean = of(catalog)?.editable == true
-
-    /** Whether the catalog can be changed here; false for one the tenant does not have. */
-    fun editable(catalogKey: CatalogKey): Boolean = of(catalogKey)?.editable == true
+    fun editable(catalog: CatalogId): Boolean = of(catalog)?.editable == true
 
     /** The catalogs that can be changed here. */
-    val editableCatalogs: Set<CatalogAddress> get() = byCatalog.filterValues { it.editable }.keys
+    val editableCatalogs: Set<CatalogId> get() = byCatalog.filterValues { it.editable }.keys
+
+    /**
+     * The editability of the catalog [address] names: `namespace/key` (ADR 0034, section 9), or a key
+     * alone while one catalog has it; null when it names none.
+     */
+    fun of(address: String): CatalogEditability? = if ('/' in address) {
+        byCatalog.entries.firstOrNull { it.key.address == address }?.value
+    } else {
+        byCatalog.entries.singleOrNull { it.key.key.value == address }?.value
+    }
 }
 
 /**
@@ -78,17 +83,21 @@ data class CatalogEditabilities(val byCatalog: Map<CatalogAddress, CatalogEditab
  * System-internal: called from within command handlers that already have authorization.
  */
 data class GetCatalogEditability(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<CatalogEditability>,
-    SystemInternal
+    SystemInternal {
+    val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /** [GetCatalogEditability], as a yes or no. */
 data class IsCatalogEditable(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<Boolean>,
-    SystemInternal
+    SystemInternal {
+    val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /**
  * [GetCatalogEditability] for every catalog of a tenant at once.
@@ -112,11 +121,11 @@ class GetCatalogEditabilityHandler(
                 """
                 SELECT COALESCE(source_url LIKE 'classpath:%', FALSE)
                 FROM catalogs
-                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
                 """,
             )
                 .bind("tenantKey", query.tenantKey)
-                .bind("catalogKey", query.catalogKey)
+                .bindCatalog("catalogKey", query.catalog)
                 .mapTo(Boolean::class.java)
                 .findOne()
                 .orElseThrow { IllegalArgumentException("Catalog not found: ${query.catalogKey}") }
@@ -140,7 +149,7 @@ class ListCatalogEditabilityHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .map { rs, _ -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) to rs.getBoolean("supplied") }
+            .map { rs, _ -> CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), app.epistola.suite.common.ids.TenantId(query.tenantKey)) to rs.getBoolean("supplied") }
             .list()
         CatalogEditabilities(supplied.associate { (key, isSupplied) -> key to CatalogEditability.of(isSupplied, editing.enabled) })
     }
@@ -148,5 +157,5 @@ class ListCatalogEditabilityHandler(
 
 @Component
 class IsCatalogEditableHandler : QueryHandler<IsCatalogEditable, Boolean> {
-    override fun handle(query: IsCatalogEditable): Boolean = GetCatalogEditability(query.tenantKey, query.catalogKey).query().editable
+    override fun handle(query: IsCatalogEditable): Boolean = GetCatalogEditability(query.catalog).query().editable
 }

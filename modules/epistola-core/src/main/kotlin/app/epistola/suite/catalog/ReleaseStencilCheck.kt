@@ -7,6 +7,7 @@ package app.epistola.suite.catalog
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilInstances
@@ -26,19 +27,34 @@ import org.springframework.stereotype.Component
 @Component
 class ReleaseStencilCheck(
     private val assembler: ReleaseContentAssembler,
+    private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) {
     /** @throws ValidationException naming every instance that does not fit, when one does not. */
-    fun requireInstancesFit(tenantKey: TenantKey, catalogKey: CatalogKey, content: CatalogContent) {
+    fun requireInstancesFit(catalog: CatalogId, content: CatalogContent) {
         val own = content.resourceDetails.values.mapNotNull { it.resource as? StencilResource }.associateBy { it.key }
-        // A dependency's key is its key in this tenant too: a declaration names a catalog the tenant has.
-        val pins = content.catalogDependencies.orEmpty().associate { it.catalogKey to it.releaseVersion }
-        val resolver = StencilInstances.Resolver { stencilKey, stencilCatalog ->
-            val stencil = if (stencilCatalog == catalogKey.value) {
-                own[stencilKey]
+        // Each reference by alias from the catalog of the content it is in (ADR 0034, section 9): the
+        // release's own declarations, and for a stencil of another catalog, that release's pins.
+        val declared = content.catalogDependencies.orEmpty().map(app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration::of)
+        val releases = mutableMapOf<String, Pair<CatalogId, String>>()
+        val resolver = StencilInstances.Resolver { stencilKey, alias, from ->
+            val (target, version) = if (from == catalog.address) {
+                if (CatalogReferences.own(catalog, alias)) return@Resolver own[stencilKey]?.let { StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData, catalog.address) }
+                val pin = declared.firstOrNull { it.alias == alias } ?: return@Resolver null
+                pin.catalogIn(catalog.tenantKey) to (pin.releaseVersion ?: return@Resolver null)
             } else {
-                pins[stencilCatalog]?.let { version -> assembler.readResource(tenantKey, CatalogKey.of(stencilCatalog), version, "stencil", stencilKey) as? StencilResource }
+                val (fromCatalog, fromVersion) = releases[from] ?: return@Resolver null
+                if (CatalogReferences.own(fromCatalog, alias)) {
+                    fromCatalog to fromVersion
+                } else {
+                    val pin = jdbi.withHandle<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration?, Exception> { dependencyStore.releasePins(it, fromCatalog, fromVersion).firstOrNull { pin -> pin.alias == alias } }
+                        ?: return@Resolver null
+                    pin.catalogIn(catalog.tenantKey) to (pin.releaseVersion ?: return@Resolver null)
+                }
             }
-            stencil?.let { StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData) }
+            releases.putIfAbsent(target.address, target to version)
+            (assembler.readResource(target, version, "stencil", stencilKey) as? StencilResource)
+                ?.let { StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData, target.address) }
         }
 
         val documents = content.resourceDetails.values.flatMap { detail ->
@@ -52,12 +68,12 @@ class ReleaseStencilCheck(
             }
         }
         val misfits = documents.flatMap { (where, document, dataModel) ->
-            StencilInstances.expand(document, catalogKey.value, resolver, dataModel).findings.filter { it.blocking }.map { where to it }
+            StencilInstances.expand(document, catalog.address, resolver, dataModel).findings.filter { it.blocking }.map { where to it }
         }
         if (misfits.isEmpty()) return
         throw ValidationException(
             field = "resources",
-            message = "Cannot release ${catalogKey.value}: " + misfits.joinToString("; ") { (where, finding) -> "$where ${finding.describe()}" },
+            message = "Cannot release ${catalog.key.value}: " + misfits.joinToString("; ") { (where, finding) -> "$where ${finding.describe()}" },
             code = misfits.map { it.second }.validationCode(),
         )
     }

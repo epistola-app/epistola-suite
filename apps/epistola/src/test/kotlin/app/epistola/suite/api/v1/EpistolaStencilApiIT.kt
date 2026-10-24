@@ -22,6 +22,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.Node

@@ -5,6 +5,7 @@
 package app.epistola.suite.storage.backfill
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.versionAt
@@ -14,6 +15,7 @@ import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -53,7 +55,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
             )
                 .bind("id", assetId.value)
                 .bind("tenant", tenant.id)
-                .bind("cat", cat)
+                .bindCatalog("cat", testCatalog(tenant.id, cat))
                 .bind("size", bytes.size.toLong())
                 .execute()
             handle.createUpdate(
@@ -76,7 +78,7 @@ class ContentBackfillRunnerIT : IntegrationTestBase() {
         // Pointer stamped, blob present in the CAS store, and served through the query.
         assertThat(contentHash(assetId)).isEqualTo(expectedHash)
         assertThat(blobRows("global", expectedHash)).isEqualTo(1)
-        assertThat(withMediator { GetAssetContent(tenant.id, assetId, cat).query() }!!.content).isEqualTo(bytes)
+        assertThat(withMediator { GetAssetContent(tenant.id, assetId, testCatalog(tenant.id, cat)).query() }!!.content).isEqualTo(bytes)
         // A full pass records the completion marker (so later boots skip the runner).
         assertThat(completionMarker()).isNotNull()
 

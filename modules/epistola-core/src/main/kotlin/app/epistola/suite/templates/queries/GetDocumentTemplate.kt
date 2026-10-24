@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -37,7 +38,7 @@ class GetDocumentTemplateHandler(
     override fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, dt.pdfa_enabled, dt.description, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by, dt.revision
+                SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, th_cat.namespace AS theme_catalog_namespace, dt.pdfa_enabled, dt.description, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by, dt.revision
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
                 LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
@@ -48,7 +49,7 @@ class GetDocumentTemplateHandler(
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bind("catalogKey", query.id.catalogKey)
+            .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)

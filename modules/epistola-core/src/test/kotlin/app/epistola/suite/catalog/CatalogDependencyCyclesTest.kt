@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -45,8 +46,8 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
         keys.forEach { key ->
             val catalog = CatalogKey.of(key)
             CreateCatalog(tenant, catalog, key).execute()
-            CreateTheme(ThemeId(ThemeKey.of("theme"), CatalogId(catalog, TenantId(tenant))), "Theme of $key").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(tenant))), "Letter").execute().withRequiredDataExample()
+            CreateTheme(ThemeId(ThemeKey.of("theme"), testCatalog(TenantId(tenant), catalog)), "Theme of $key").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), catalog)), "Letter").execute().withRequiredDataExample()
         }
         tenant
     }
@@ -54,18 +55,18 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
     /** `user`'s letter takes `used`'s theme, which declares `used` on `user`'s draft [at]. */
     private fun useTheme(tenant: TenantKey, user: String, used: String, at: DraftRef = DraftRef.Next) = withMediator {
         UpdateDocumentTemplate(
-            TemplateId(TemplateKey.of("letter"), CatalogId(CatalogKey.of(user), TenantId(tenant))),
+            TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), CatalogKey.of(user))),
             themeId = ThemeKey.of("theme"),
-            themeCatalogKey = CatalogKey.of(used),
-            catalogVersion = CatalogReleaseRef(tenant, CatalogKey.of(user), at),
+            themeCatalog = testCatalog(tenant, CatalogKey.of(used)),
+            catalogVersion = CatalogReleaseRef(testCatalog(tenant, CatalogKey.of(user)), at),
         ).execute()
     }
 
     private fun themeOfLetter(tenant: TenantKey, catalog: String) = withMediator {
-        GetDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(CatalogKey.of(catalog), TenantId(tenant)))).query()?.themeCatalogKey?.value
+        GetDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenant), CatalogKey.of(catalog)))).query()?.themeCatalogKey?.value
     }
 
-    private fun declared(tenant: TenantKey, catalog: String) = withMediator { ListCatalogDependencies(tenant, CatalogKey.of(catalog)).query().map { it.catalogKey } }
+    private fun declared(tenant: TenantKey, catalog: String) = withMediator { ListCatalogDependencies(testCatalog(tenant, CatalogKey.of(catalog))).query().map { it.catalogKey } }
 
     @Test
     fun `using a catalog that already uses this one is refused, and nothing of the write remains`() {
@@ -100,10 +101,10 @@ class CatalogDependencyCyclesTest : IntegrationTestBase() {
     fun `a parallel draft cannot close the loop either`() {
         val tenant = catalogs("Cycle Parallel", "letters", "shared")
         withMediator {
-            MarkCatalogReady(tenant, CatalogKey.of("shared")).execute()
-            ReleaseCatalogDraft(tenant, CatalogKey.of("shared"), "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, CatalogKey.of("shared"))).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, CatalogKey.of("shared")), "1.0.0").execute()
         }
-        val redesign = withMediator { requireNotNull(CreateCatalogDraft(tenant, CatalogKey.of("shared"), "Redesign").execute().versionId) }
+        val redesign = withMediator { requireNotNull(CreateCatalogDraft(testCatalog(tenant, CatalogKey.of("shared")), "Redesign").execute().versionId) }
         // shared's parallel draft starts using letters...
         useTheme(tenant, "shared", "letters", DraftRef.Id(redesign))
 

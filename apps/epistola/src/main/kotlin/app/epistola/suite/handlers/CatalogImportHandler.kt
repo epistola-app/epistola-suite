@@ -110,11 +110,11 @@ class CatalogImportHandler(
 
             if (request.isHtmx) {
                 request.htmx {
-                    dialogRedirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
-                    onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse") }
+                    dialogRedirect("/tenants/${tenantId.key}/catalogs/${result.catalog?.address ?: result.catalogKey}/browse")
+                    onFullPage { redirect("/tenants/${tenantId.key}/catalogs/${result.catalog?.address ?: result.catalogKey}/browse") }
                 }
             } else {
-                redirect("/tenants/${tenantId.key}/catalogs/${result.catalogKey}/browse")
+                redirect("/tenants/${tenantId.key}/catalogs/${result.catalog?.address ?: result.catalogKey}/browse")
             }
         } catch (e: CatalogSchemaException) {
             // The uploaded catalog's wire format is too new, too old, or

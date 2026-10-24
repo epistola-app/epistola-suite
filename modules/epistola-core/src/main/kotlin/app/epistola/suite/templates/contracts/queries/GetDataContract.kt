@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.contracts.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -55,7 +56,7 @@ internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, templa
         """,
     )
     .bind("t", template.tenantKey)
-    .bind("c", template.catalogKey)
+    .bindCatalog("c", template.catalogId)
     .bind("k", template.key)
     .map { rs, _ ->
         DataContract(

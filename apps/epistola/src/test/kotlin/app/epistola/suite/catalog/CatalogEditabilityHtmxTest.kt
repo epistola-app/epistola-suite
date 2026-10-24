@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -45,10 +46,10 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
                 tenant = tenant(name)
                 withMediator {
                     CreateCatalog(tenantKey = author.id, id = received, name = "Received").execute()
-                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(received, TenantId(author.id))), name = "Brand").execute()
-                    MarkCatalogReady(author.id, received).execute()
-                    ReleaseCatalogDraft(tenantKey = author.id, catalogKey = received, version = "1.0.0").execute()
-                    val archive = ExportCatalogZip(author.id, received, "1.0.0").execute().zipBytes
+                    CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author.id), received)), name = "Brand").execute()
+                    MarkCatalogReady(testCatalog(author.id, received)).execute()
+                    ReleaseCatalogDraft(catalog = testCatalog(author.id, received), version = "1.0.0").execute()
+                    val archive = ExportCatalogZip(testCatalog(author.id, received), "1.0.0").execute().zipBytes
                     ImportCatalogZip(tenant.id, archive).execute()
                 }
             }
@@ -71,7 +72,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
         assertThat(themes).`as`("something to create in it").contains("New Theme")
         assertThat(themes).`as`("its rows are not marked read-only").doesNotContain(">Read-only</span>")
         assertThat(themes.substringAfter("data-testid=\"ws-crumb-version\"").substringBefore("</button>")).contains(">Next release<")
-        assertThat(themes).`as`("what is not published yet, and Publish").contains("/catalogs/received-ui/bar-status")
+        assertThat(themes).`as`("what is not published yet, and Publish").contains("/received-ui/bar-status")
         assertThat(themes.substringAfter("data-testid=\"ws-catalog-menu\"").substringBefore("Read-only here"))
             .`as`("in the switcher, among the catalogs that can be changed").contains("You can change").contains("data-catalog=\"received-ui\"")
 
@@ -79,7 +80,7 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
         assertThat(browse).doesNotContain("data-testid=\"catalog-read-only-reason\"").contains("Change in Settings")
 
         val list = get(tenant, "/catalogs")
-        val row = list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/received-ui/browse").substringBefore("</tr>")
+        val row = list.substringAfter("id=\"catalog-list\"").substringAfter("/received-ui/browse").substringBefore("</tr>")
         assertThat(row).contains("data-testid=\"catalog-list-editable\"").contains("Publish a new release")
     }
 
@@ -91,13 +92,13 @@ class CatalogEditabilityHtmxTest : BaseIntegrationTest() {
         val reason = browse.substringAfter("data-testid=\"catalog-read-only-reason\"").substringBefore("</span>")
         assertThat(reason).contains(">Supplied by Epistola").contains("replaces it on every upgrade")
         assertThat(browse).contains("data-testid=\"catalog-shown-release\"")
-        assertThat(browse).doesNotContain("/catalogs/system/bar-status").doesNotContain("Change in Settings")
+        assertThat(browse).doesNotContain("/system/bar-status").doesNotContain("Change in Settings")
 
         val themes = get(tenant, "/catalogs/system/themes")
         assertThat(themes).doesNotContain("New Theme")
 
         val list = get(tenant, "/catalogs")
-        val row = list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/system/browse").substringBefore("</tr>")
+        val row = list.substringAfter("id=\"catalog-list\"").substringAfter("epistola/system/browse").substringBefore("</tr>")
         assertThat(row).contains("data-testid=\"catalog-list-read-only\"").contains(">Supplied by Epistola<").doesNotContain("Publish a new rersion")
         assertThat(list).doesNotContain(">Authored<").doesNotContain(">Subscribed<")
     }

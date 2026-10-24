@@ -11,12 +11,14 @@ import app.epistola.suite.assets.ImagePixelPolicy
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
@@ -46,13 +48,12 @@ import org.springframework.stereotype.Component
  * @property id Optional pre-defined asset ID (generated if null)
  */
 data class UploadAsset(
-    val tenantId: TenantKey,
+    val catalog: CatalogId,
     val name: String,
     val mediaType: AssetMediaType,
     val content: ByteArray,
     val width: Int?,
     val height: Int?,
-    val catalogKey: CatalogKey,
     val id: AssetKey? = null,
     /** When true, the blob is stored in a per-tenant isolated dedup scope (see #738/#751). */
     val sensitive: Boolean = false,
@@ -61,6 +62,8 @@ data class UploadAsset(
 ) : CatalogReleaseScoped,
     Command<Asset>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey get() = tenantId
 
@@ -96,7 +99,7 @@ class UploadAssetHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: UploadAsset): Asset {
-        requireCatalogEditable(command.tenantId, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         require(command.name.isNotBlank()) { "Asset name must not be blank" }
 
         val sizeBytes = command.content.size.toLong()
@@ -134,7 +137,7 @@ class UploadAssetHandler(
             )
                 .bind("id", id.value)
                 .bind("tenantId", command.tenantId)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("name", command.name)
                 .bind("mediaType", command.mediaType.mimeType)
                 .bind("sizeBytes", sizeBytes)
@@ -149,8 +152,9 @@ class UploadAssetHandler(
 
         return Asset(
             id = id,
-            tenantKey = command.tenantId,
-            catalogKey = command.catalogKey,
+            tenantKey = command.catalog.tenantKey,
+            catalogKey = command.catalog.key,
+            namespace = command.catalog.namespace,
             name = command.name,
             mediaType = command.mediaType,
             sizeBytes = sizeBytes,

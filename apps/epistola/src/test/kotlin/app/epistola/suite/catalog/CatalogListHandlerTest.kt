@@ -44,6 +44,7 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
@@ -161,7 +162,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // On to the new catalog, where its next step (New template) is waiting.
-            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${t.id}/catalogs/my-catalog/browse")
+            assertThat(response.headers.getFirst("HX-Location")).isEqualTo("/tenants/${t.id}/catalogs/${t.id}/my-catalog/browse")
             // Persistence verified through the mediator.
             val persisted = withMediator { ListCatalogs(tenantKey = t.id).query() }
             assertThat(persisted.map { it.name }).contains("My Catalog")
@@ -410,7 +411,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/gone-cat/delete",
+                "/tenants/${t.id}/catalogs/${t.id}/gone-cat/delete",
                 HttpMethod.POST,
                 HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
                 String::class.java,
@@ -440,17 +441,17 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 // Clean: released, untouched.
                 val clean = CatalogKey.of("clean-cat")
                 CreateCatalog(tenantKey = t.id, id = clean, name = "Clean Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("ct1"), CatalogId(clean, TenantId(t.id))), name = "C1").execute()
-                MarkCatalogReady(t.id, clean).execute()
-                ReleaseCatalogDraft(t.id, clean, version = "1.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("ct1"), testCatalog(TenantId(t.id), clean)), name = "C1").execute()
+                MarkCatalogReady(testCatalog(t.id, clean)).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, clean), version = "1.0.0").execute()
 
                 // Drifted: released, then edited.
                 val drift = CatalogKey.of("drift-cat")
                 CreateCatalog(tenantKey = t.id, id = drift, name = "Drift Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("dt1"), CatalogId(drift, TenantId(t.id))), name = "D1").execute()
-                MarkCatalogReady(t.id, drift).execute()
-                ReleaseCatalogDraft(t.id, drift, version = "2.0.0").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("dt2"), CatalogId(drift, TenantId(t.id))), name = "D2 (post-release)").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt1"), testCatalog(TenantId(t.id), drift)), name = "D1").execute()
+                MarkCatalogReady(testCatalog(t.id, drift)).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, drift), version = "2.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("dt2"), testCatalog(TenantId(t.id), drift)), name = "D2 (post-release)").execute()
             }
         }
 
@@ -483,8 +484,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         then {
             val body = result<org.springframework.http.ResponseEntity<String>>().body!!
             // Every installation has it, and what it keeps is not the archive it came in.
-            assertThat(body).contains("/tenants/${t.id}/catalogs/default/export-check")
-            assertThat(body).doesNotContain("/tenants/${t.id}/catalogs/system/export-check")
+            assertThat(body).contains("/tenants/${t.id}/catalogs/${t.id}/default/export-check")
+            assertThat(body).doesNotContain("/tenants/${t.id}/catalogs/epistola/system/export-check")
         }
     }
 
@@ -504,7 +505,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/exportable-cat/export-check",
+                "/tenants/${t.id}/catalogs/${t.id}/exportable-cat/export-check",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
                 String::class.java,
@@ -518,7 +519,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             val body = response.body!!
             assertThat(body).contains("id=\"export-confirmation-dialog\"")
             assertThat(body).contains("The working copy is exported as it is now")
-            assertThat(body).contains("action=\"/tenants/${t.id}/catalogs/exportable-cat/export\"")
+            assertThat(body).contains("action=\"/tenants/${t.id}/catalogs/${t.id}/exportable-cat/export\"")
             assertThat(body).contains("hx-boost=\"false\"")
             assertThat(body).contains("Export as ZIP")
             // Nothing released, so nothing to choose between: no version picker at all.
@@ -534,15 +535,15 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             withMediator {
                 val catalogKey = CatalogKey.of("released-cat")
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Released Cat").execute()
-                CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(t.id))), name = "Brand").execute()
-                MarkCatalogReady(t.id, catalogKey).execute()
-                ReleaseCatalogDraft(t.id, catalogKey, version = "1.0.0").execute()
+                CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t.id), catalogKey)), name = "Brand").execute()
+                MarkCatalogReady(testCatalog(t.id, catalogKey)).execute()
+                ReleaseCatalogDraft(testCatalog(t.id, catalogKey), version = "1.0.0").execute()
             }
         }
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/released-cat/export-check",
+                "/tenants/${t.id}/catalogs/${t.id}/released-cat/export-check",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders().apply { add("HX-Request", "true") }),
                 String::class.java,
@@ -555,7 +556,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(body).contains("Release v1.0.0")
 
             val download = restTemplate.exchange(
-                "/tenants/${t.id}/catalogs/released-cat/export?version=1.0.0",
+                "/tenants/${t.id}/catalogs/${t.id}/released-cat/export?version=1.0.0",
                 HttpMethod.GET,
                 HttpEntity<Void>(HttpHeaders()),
                 ByteArray::class.java,
@@ -660,8 +661,8 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             val publisher = tenant("Catalog Import Publisher")
             withMediator {
                 RegisterCatalog(publisher.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
-                zipHolder = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
+                InstallFromCatalog(catalog = testCatalog(publisher.id, CatalogKey.of("epistola-demo"))).execute()
+                zipHolder = ExportCatalogZip(catalog = testCatalog(publisher.id, CatalogKey.of("epistola-demo"))).execute().zipBytes
             }
             // …then import it into a fresh consumer tenant via the UI endpoint.
             consumer = tenant("Catalog Import Consumer")
@@ -697,11 +698,11 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             // dialog disappears with the navigation.
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Redirect"))
-                .isEqualTo("/tenants/${consumer.id}/catalogs/epistola-demo/browse")
+                .isEqualTo("/tenants/${consumer.id}/catalogs/epistola/epistola-demo/browse")
             // A catalog the tenant did not have is created holding the release, and can be changed here.
-            val imported = withMediator { GetCatalog(consumer.id, CatalogKey.of("epistola-demo")).query() }
+            val imported = withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("epistola-demo"))).query() }
             assertThat(imported?.installedReleaseVersion).isNotNull()
-            assertThat(withMediator { GetCatalogEditability(consumer.id, CatalogKey.of("epistola-demo")).query().editable }).isTrue()
+            assertThat(withMediator { GetCatalogEditability(testCatalog(consumer.id, CatalogKey.of("epistola-demo"))).query().editable }).isTrue()
         }
     }
 
@@ -749,7 +750,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         assertThat(response.headers.getFirst("HX-Redirect")).`as`("no browse page of a catalog that is not there").isNull()
         assertThat(response.body).contains("could not be installed").contains("image/mark")
-        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("broken")).query() }).isNull()
+        assertThat(withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("broken"))).query() }).isNull()
     }
 
     @Test
@@ -794,11 +795,11 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
         assertThat(prompt).`as`("proposed: the default registry and this tenant's namespace")
             .contains("name=\"registry\"", "value=\"exchange.epistola.app\"", "name=\"namespace\"", "value=\"${app.epistola.suite.catalog.CatalogIdentityProperties.defaultNamespace(consumer.id)}\"")
             .contains("name=\"confirmMigration\" value=\"true\"")
-        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query() }).`as`("nothing decided silently").isNull()
+        assertThat(withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("old-letters"))).query() }).`as`("nothing decided silently").isNull()
 
         val named = upload("registry" to "exchange.epistola.app", "namespace" to "old-letters-ns", "confirmMigration" to "true")
-        assertThat(named.headers.getFirst("HX-Redirect")).`as`(named.body).contains("/catalogs/old-letters/browse")
-        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("old-letters")).query()!!.namespace }).isEqualTo("old-letters-ns")
+        assertThat(named.headers.getFirst("HX-Redirect")).`as`(named.body).contains("/catalogs/old-letters-ns/old-letters/browse")
+        assertThat(withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("old-letters"))).query()!!.namespace }).isEqualTo("old-letters-ns")
     }
 
     @Test
@@ -838,7 +839,7 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
 
         assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         assertThat(response.body).contains("this release needs a newer Epistola").contains("Upgrade Epistola to receive this release")
-        assertThat(withMediator { GetCatalog(consumer.id, CatalogKey.of("newer")).query() }).isNull()
+        assertThat(withMediator { GetCatalog(testCatalog(consumer.id, CatalogKey.of("newer"))).query() }).isNull()
     }
 
     @Test
@@ -851,13 +852,12 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 val catalogKey = CatalogKey.of("metadata")
                 CreateCatalog(tenantKey = t.id, id = catalogKey, name = "Before").execute()
                 CreateAttributeDefinition(
-                    id = AttributeId(AttributeKey.of("audience"), CatalogId(catalogKey, TenantId(t.id))),
+                    id = AttributeId(AttributeKey.of("audience"), testCatalog(TenantId(t.id), catalogKey)),
                     displayName = "Audience",
                     allowedValues = listOf("municipalities"),
                 ).execute()
                 UpdateCatalogMetadata(
-                    tenantKey = t.id,
-                    catalogKey = catalogKey,
+                    catalog = testCatalog(t.id, catalogKey),
                     name = "Before",
                     description = null,
                     attributes = listOf(AttributeAssignment("metadata", "audience", "municipalities")),
@@ -868,25 +868,23 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
                 // isolation assertions below: the picker must show this image and not the other
                 // catalog's.
                 UploadAsset(
-                    tenantId = t.id,
+                    catalog = testCatalog(t.id, catalogKey),
                     name = "Own catalog image",
                     mediaType = AssetMediaType.SVG,
                     content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
                     width = null,
                     height = null,
-                    catalogKey = catalogKey,
                 ).execute()
 
                 val otherCatalogKey = CatalogKey.of("other-images")
                 CreateCatalog(tenantKey = t.id, id = otherCatalogKey, name = "Other images").execute()
                 otherCatalogImageSlug = UploadAsset(
-                    tenantId = t.id,
+                    catalog = testCatalog(t.id, otherCatalogKey),
                     name = "Other catalog image",
                     mediaType = AssetMediaType.SVG,
                     content = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>".toByteArray(),
                     width = null,
                     height = null,
-                    catalogKey = otherCatalogKey,
                 ).execute().id.value
             }
         }
@@ -1044,9 +1042,9 @@ class CatalogListHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Details go out with a version, so editing them goes back to the next version's page.
             assertThat(response.headers.getFirst("HX-Redirect"))
-                .isEqualTo("/tenants/${t.id}/catalogs/metadata/draft")
+                .isEqualTo("/tenants/${t.id}/catalogs/${t.id}/metadata/draft")
 
-            val catalog = withMediator { GetCatalog(t.id, CatalogKey.of("metadata")).query() }!!
+            val catalog = withMediator { GetCatalog(testCatalog(t.id, CatalogKey.of("metadata"))).query() }!!
             assertThat(catalog.name).isEqualTo("Discoverable catalog")
             assertThat(catalog.catalogMetadata.attributes)
                 .containsExactlyInAnyOrder(

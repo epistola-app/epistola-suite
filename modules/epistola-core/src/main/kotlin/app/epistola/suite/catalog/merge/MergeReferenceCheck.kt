@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -61,16 +62,16 @@ class MergeReferenceCheck(
      *
      * @throws MergeRefusedException naming each reference, why it does not resolve, and what to choose.
      */
-    fun requireResolved(tenantKey: TenantKey, catalogKey: CatalogKey, plan: MergePlan, actions: Map<String, MergeAction>, after: MergeInput? = null) {
-        val lookup = Lookup(tenantKey)
+    fun requireResolved(catalog: CatalogId, plan: MergePlan, actions: Map<String, MergeAction>, after: MergeInput? = null) {
+        val lookup = Lookup(catalog.tenantKey)
         val result = after?.values ?: planned(plan, actions)
-        val before = unresolved(catalogKey, plan.inputs.ours.values, lookup).map { it.source to it.reference }.toSet()
-        val broken = unresolved(catalogKey, result, lookup).filter { (it.source to it.reference) !in before }
+        val before = unresolved(catalog.key, plan.inputs.ours.values, lookup).map { it.source to it.reference }.toSet()
+        val broken = unresolved(catalog.key, result, lookup).filter { (it.source to it.reference) !in before }
         if (broken.isEmpty()) return
         val release = "v${plan.inputs.release}"
         throw MergeRefusedException(
-            catalogKey,
-            "Cannot merge $release into ${plan.inputs.draft.label}: " + broken.joinToString("; ") { sentence(catalogKey, it, release, plan, actions) } + ".",
+            catalog.key,
+            "Cannot merge $release into ${plan.inputs.draft.label}: " + broken.joinToString("; ") { sentence(catalog.key, it, release, plan, actions) } + ".",
         )
     }
 
@@ -107,19 +108,19 @@ class MergeReferenceCheck(
         /** Why [reference] does not resolve through [declaration], or null when it does (or cannot be told yet). */
         fun reasonFor(reference: EntryReference, declaration: CatalogDependencyDeclaration?): Reason? {
             if (declaration == null) return Reason.Undeclared
-            val other = CatalogKey.of(declaration.catalogKey)
+            val other = declaration.catalogIn(tenantKey)
             val wanted = "${reference.type}/${reference.key}"
             val draftKey = declaration.draftId
             val version = declaration.releaseVersion
             return when {
                 draftKey != null -> {
                     val draft = jdbi.withHandle<Pair<java.util.UUID, String>?, Exception> { dependencyStore.draftOf(it, tenantKey, declaration, draftKey) } ?: return null
-                    val keys = held.getOrPut("draft" to draftKey) { targeting.within(draft.first) { contentBuilder.build(tenantKey, other).resourceDetails.keys } }
+                    val keys = held.getOrPut("draft" to draftKey) { targeting.within(draft.first) { contentBuilder.build(other).resourceDetails.keys } }
                     Reason.NotInDraft(draft.second).takeIf { wanted !in keys }
                 }
 
                 version != null -> {
-                    val keys = held.getOrPut("${other.value}@" to version) { assembler.assemble(tenantKey, other, version)?.content?.resourceDetails?.keys.orEmpty() }
+                    val keys = held.getOrPut("${other.address}@" to version) { assembler.assemble(other, version)?.content?.resourceDetails?.keys.orEmpty() }
                     Reason.NotInRelease(version).takeIf { wanted !in keys }
                 }
 

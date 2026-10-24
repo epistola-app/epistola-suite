@@ -39,23 +39,24 @@ class ParallelReleaseLines(
  * to 1.0.0, their merge base (contract ADR 0005).
  */
 fun Mediator.parallelReleaseLines(producer: TenantKey, catalogKey: CatalogKey): ParallelReleaseLines {
-    fun theme(key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalogKey, TenantId(producer)))
+    val catalog = testCatalog(producer, catalogKey)
+    fun theme(key: String) = ThemeId(ThemeKey.of(key), catalog)
     send(CreateCatalog(tenantKey = producer, id = catalogKey, name = "Lines ${catalogKey.value}"))
     send(CreateTheme(theme("brand"), "Brand"))
     send(CreateTheme(theme("letterhead"), "Letterhead"))
-    send(MarkCatalogReady(producer, catalogKey))
-    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.0.0"))
+    send(MarkCatalogReady(catalog))
+    send(ReleaseCatalogDraft(catalog = catalog, version = "1.0.0"))
 
     send(CreateTheme(theme("added"), "Added"))
-    send(MarkCatalogReady(producer, catalogKey))
-    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.1.0"))
+    send(MarkCatalogReady(catalog))
+    send(ReleaseCatalogDraft(catalog = catalog, version = "1.1.0"))
 
-    val fix = send(CreateCatalogDraft(producer, catalogKey, "Fix", "1.0.0"))
-    val fixRef = CatalogReleaseRef(producer, catalogKey, DraftRef.Id(fix.versionId))
+    val fix = send(CreateCatalogDraft(catalog, "Fix", "1.0.0"))
+    val fixRef = CatalogReleaseRef(catalog, DraftRef.Id(fix.versionId))
     send(UpdateTheme(theme("brand"), name = "Brand, fixed", catalogVersion = fixRef))
-    send(MarkCatalogReady(producer, catalogKey, catalogVersion = fixRef))
-    send(ReleaseCatalogDraft(tenantKey = producer, catalogKey = catalogKey, version = "1.0.1", catalogVersion = fixRef))
+    send(MarkCatalogReady(catalog, catalogVersion = fixRef))
+    send(ReleaseCatalogDraft(catalog = catalog, version = "1.0.1", catalogVersion = fixRef))
 
-    fun archive(version: String) = send(ExportCatalogZip(producer, catalogKey, version)).zipBytes
+    fun archive(version: String) = send(ExportCatalogZip(catalog, version)).zipBytes
     return ParallelReleaseLines(catalogKey, archive("1.0.0"), archive("1.1.0"), archive("1.0.1"))
 }

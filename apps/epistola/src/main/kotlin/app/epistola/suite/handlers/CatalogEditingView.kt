@@ -5,8 +5,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogAddress
-import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogEditability
@@ -34,9 +32,9 @@ class CatalogEditingView(private val tenantKey: TenantKey) {
     fun readOnlyLabel(catalogKey: Any?): String? = editability(catalogKey)?.reason?.label
 
     private fun editability(catalog: Any?): CatalogEditability? {
-        if (catalog is Catalog) return all.of(catalog.address)
+        if (catalog is Catalog) return all.of(catalog.catalogId)
+        if (catalog is app.epistola.suite.common.ids.CatalogId) return all.of(catalog)
         val text = catalog?.toString() ?: return null
-        val key = CatalogKey.validateOrNull(text.substringAfter('/')) ?: return null
-        return if ('/' in text) all.of(CatalogAddress(text.substringBefore('/'), key)) else all.of(key)
+        return all.of(text)
     }
 }

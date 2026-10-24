@@ -9,12 +9,14 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogName
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.namespaces.NamespaceGrantStore
 import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.namespaces.NamespaceName
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -41,11 +43,13 @@ import org.springframework.stereotype.Component
  * section 3), unless that authority is `local`.
  */
 data class ChangeCatalogNamespace(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val namespace: String,
 ) : Command<Catalog>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+
     // The namespace is where it publishes: deciding it is part of publishing (CATALOG_PUBLISH).
     override val permission get() = Permission.CATALOG_PUBLISH
 
@@ -69,11 +73,11 @@ class ChangeCatalogNamespaceHandler(
 ) : CommandHandler<ChangeCatalogNamespace, Catalog> {
 
     override fun handle(command: ChangeCatalogNamespace): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
-        val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
+        val catalog = handle.findCatalog(command.catalog)
             ?: throw CatalogNotFoundException(command.catalogKey)
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         if (catalog.namespace == command.namespace) return@inTransaction catalog
-        if (publicationPort.ifAvailable?.isNamespaceFixed(handle, command.tenantKey, command.catalogKey) == true) {
+        if (publicationPort.ifAvailable?.isNamespaceFixed(handle, command.catalog) == true) {
             throw CatalogNamespaceFixedException(catalog.catalogName)
         }
         val target = NamespaceName(catalog.registry, command.namespace)
@@ -86,11 +90,11 @@ class ChangeCatalogNamespaceHandler(
             validate("namespace", grants.holds(handle, command.tenantKey, target), ValidationCode.CATALOG_NAMESPACE_NOT_HELD) { NamespaceMessages.notHeld(target) }
         }
         handle.createUpdate(
-            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)",
+            "UPDATE catalogs SET namespace = :namespace, updated_at = NOW() WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)",
         )
             .bind("namespace", command.namespace)
             .bind("tenantKey", command.tenantKey)
-            .bind("catalogKey", command.catalogKey)
+            .bindCatalog("catalogKey", command.catalog)
             .execute()
         // The tenant's other catalogs name this one in their declarations: they follow it. Their
         // locks stay, because the releases they lock to are the same releases.
@@ -106,7 +110,9 @@ class ChangeCatalogNamespaceHandler(
             .bind("previous", catalog.namespace)
             .bind("catalogKey", command.catalogKey)
             .execute()
-        publicationPort.ifAvailable?.namespaceChanged(handle, command.tenantKey, command.catalogKey, command.namespace)
-        handle.findCatalog(command.tenantKey, command.catalogKey)!!
+        // From here the catalog is at its new address (ADR 0034, section 9).
+        val renamed = command.catalog.copy(namespace = command.namespace)
+        publicationPort.ifAvailable?.namespaceChanged(handle, renamed, command.namespace)
+        handle.findCatalog(renamed)!!
     }
 }

@@ -4,11 +4,14 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.EnvironmentNotFoundException
 import org.jdbi.v3.core.Handle
@@ -27,12 +30,13 @@ class EnvironmentDeploymentRefusedException(message: String) : RuntimeException(
  */
 data class DraftDeployment(
     val environmentKey: EnvironmentKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val draftId: String,
     val draftLabel: String,
-    /** The catalog's namespace, which tells two catalogs sharing a key apart (ADR 0034). */
-    val namespace: String = "",
-)
+) {
+    val catalogKey: CatalogKey get() = catalog.key
+    val namespace: String get() = catalog.namespace
+}
 
 /**
  * The SQL of deployed drafts, which the deploy commands, the draft lifecycle and generation share.
@@ -50,7 +54,7 @@ object DraftDeploymentStore {
         .orElseThrow { EnvironmentNotFoundException(tenantKey, environmentKey) }
 
     /** The internal id and label of the draft of [catalogKey] that [ref] names, or null when there is none. */
-    internal fun draft(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, ref: DraftRef): Pair<UUID, String>? {
+    internal fun draft(handle: Handle, catalog: CatalogId, ref: DraftRef): Pair<UUID, String>? {
         val match = when (ref) {
             DraftRef.Next -> "v.is_next"
             is DraftRef.Id -> "v.version_key = :id"
@@ -61,35 +65,36 @@ object DraftDeploymentStore {
             WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.kind = 'draft' AND $match
             """,
         )
-            .bind("t", tenantKey).bind("c", catalogKey)
+            .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .also { q -> (ref as? DraftRef.Id)?.let { q.bind("id", it.key) } }
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("label") }
             .findOne()
             .orElse(null)
     }
 
-    /** The drafts [environmentKey] (or every environment) serves, of [catalogKey] or every catalog. */
-    fun list(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey?, catalogKey: CatalogKey?): List<DraftDeployment> = rows(
+    /** The drafts [environmentKey] (or every environment) serves, of [catalog] or every catalog. */
+    fun list(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey?, catalog: CatalogId?): List<DraftDeployment> = rows(
         handle,
         tenantKey,
-        "${if (environmentKey != null) "AND d.environment_key = :e" else ""} ${if (catalogKey != null) "AND c.catalog_id = epistola_catalog_id(:t, :c)" else ""}",
+        "${if (environmentKey != null) "AND d.environment_key = :e" else ""} ${if (catalog != null) "AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c)" else ""}",
     ) { q ->
         environmentKey?.let { q.bind("e", it) }
-        catalogKey?.let { q.bind("c", it) }
+        catalog?.let { q.bindCatalog("c", it) }
     }
 
     /**
      * Stops serving the draft [environmentKey] serves of [catalogKey], logged as undeployed; null
      * when it serves none.
      */
-    internal fun undeploy(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey): DraftDeployment? {
-        val served = list(handle, tenantKey, environmentKey, catalogKey).singleOrNull() ?: return null
+    internal fun undeploy(handle: Handle, environmentKey: EnvironmentKey, catalog: CatalogId): DraftDeployment? {
+        val tenantKey = catalog.tenantKey
+        val served = list(handle, tenantKey, environmentKey, catalog).singleOrNull() ?: return null
         handle.createUpdate(
             """
             DELETE FROM environment_catalog_deployments
             WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND draft_id IS NOT NULL
             """,
-        ).bind("t", tenantKey).bind("e", environmentKey).bind("c", catalogKey).execute()
+        ).bind("t", tenantKey).bind("e", environmentKey).bindCatalog("c", catalog).execute()
         log(handle, tenantKey, served, DeploymentAction.UNDEPLOYED, version = null)
         return served
     }
@@ -121,9 +126,8 @@ object DraftDeploymentStore {
 
     private fun log(handle: Handle, tenantKey: TenantKey, deployment: DraftDeployment, action: DeploymentAction, version: String?) = DeploymentLog.record(
         handle,
-        tenantKey,
         deployment.environmentKey,
-        deployment.catalogKey,
+        deployment.catalog,
         action,
         version,
         draftLabel = deployment.draftLabel,
@@ -145,10 +149,9 @@ object DraftDeploymentStore {
         .map { rs, _ ->
             DraftDeployment(
                 environmentKey = EnvironmentKey.of(rs.getString("environment_key")),
-                catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+                catalog = CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), TenantId(tenantKey)),
                 draftId = rs.getString("version_key"),
                 draftLabel = rs.getString("label"),
-                namespace = rs.getString("namespace"),
             )
         }
         .list()

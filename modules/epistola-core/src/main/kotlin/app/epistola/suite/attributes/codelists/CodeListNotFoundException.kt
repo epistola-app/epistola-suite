@@ -12,4 +12,6 @@ class CodeListNotFoundException(
     val tenantId: TenantKey,
     val catalogId: CatalogKey,
     val codeListId: CodeListKey,
-) : RuntimeException("Code list ${codeListId.value} not found in catalog ${catalogId.value} for tenant ${tenantId.value}")
+) : RuntimeException("Code list ${codeListId.value} not found in catalog ${catalogId.value} for tenant ${tenantId.value}") {
+    constructor(catalog: app.epistola.suite.common.ids.CatalogId, codeListId: CodeListKey) : this(catalog.tenantKey, catalog.key, codeListId)
+}

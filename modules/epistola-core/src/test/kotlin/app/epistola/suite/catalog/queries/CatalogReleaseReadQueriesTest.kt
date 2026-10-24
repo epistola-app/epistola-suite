@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.recordBeforeContentHashes
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -50,18 +51,17 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val key = CatalogKey.of("frozen-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Original name").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0", notes = "first").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first").execute()
 
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = key,
+                catalog = testCatalog(tenant.id, key),
                 name = "Renamed since",
                 description = "and described since",
             ).execute()
 
-            val release = GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!!
+            val release = GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!!
 
             assertThat(release.catalog.name).isEqualTo("Original name")
             assertThat(release.notes).isEqualTo("first")
@@ -79,14 +79,14 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = mine, name = "Mine").execute()
             CreateCatalog(tenantKey = tenant.id, id = other, name = "Other").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(other, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, other).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = other, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), other)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, other)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, other), version = "1.0.0").execute()
 
-            assertThat(GetCatalogReleaseDetail(tenant.id, mine, "9.9.9").query())
+            assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, mine), "9.9.9").query())
                 .`as`("a typed version that names nothing")
                 .isNull()
-            assertThat(GetCatalogReleaseDetail(tenant.id, mine, "1.0.0").query())
+            assertThat(GetCatalogReleaseDetail(testCatalog(tenant.id, mine), "1.0.0").query())
                 .`as`("the catalog key is part of the identity, so a sibling's release is not this one's")
                 .isNull()
         }
@@ -103,17 +103,17 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val key = CatalogKey.of("hashed-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Hashed").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
         }
-        val cut = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        val cut = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
         assertThat(cut.contentHash).startsWith("v6:").isEqualTo(cut.fingerprint)
         assertThat(cut.shortContentHash).isEqualTo(cut.contentHash!!.take(12))
         assertThat(cut.recordedBeforeContentHashes).isFalse()
 
-        val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, tenant.id, key, "1.0.0") }
-        val recordedBefore = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant.id, key), "1.0.0") }
+        val recordedBefore = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
         assertThat(recordedBefore.fingerprint).isEqualTo(v5).startsWith("v5:")
         assertThat(recordedBefore.contentHash).`as`("being computed").isNull()
         assertThat(recordedBefore.shortContentHash).isNull()
@@ -121,7 +121,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
 
         backfill.run()
 
-        val given = withMediator { GetCatalogReleaseDetail(tenant.id, key, "1.0.0").query()!! }
+        val given = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
         assertThat(given.contentHash).`as`("given the content hash of what it retained").isEqualTo(cut.contentHash)
         assertThat(given.fingerprint).isEqualTo(v5)
         assertThat(given.recordedBeforeContentHashes).isTrue()
@@ -138,20 +138,20 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
     fun `releases come back newest first, by version and not by text`() {
         val tenant = createTenant("Release List Order")
         val key = CatalogKey.of("order-cat")
-        val catalogId = CatalogId(key, TenantId(tenant.id))
+        val catalogId = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Order cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("one"), catalogId), name = "One").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("two"), catalogId), name = "Two").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.9.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("three"), catalogId), name = "Three").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.10.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.10.0").execute()
 
-            assertThat(ListCatalogReleaseSummaries(tenant.id, key).query().map { it.version })
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, key)).query().map { it.version })
                 .containsExactly("1.10.0", "1.9.0", "1.0.0")
         }
     }
@@ -162,12 +162,12 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val kept = CatalogKey.of("kept-cat")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = kept, name = "Kept").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("alpha"), CatalogId(kept, TenantId(tenant.id))), name = "Alpha").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("beta"), CatalogId(kept, TenantId(tenant.id))), name = "Beta").execute()
-            MarkCatalogReady(tenant.id, kept).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = kept, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("alpha"), testCatalog(TenantId(tenant.id), kept)), name = "Alpha").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("beta"), testCatalog(TenantId(tenant.id), kept)), name = "Beta").execute()
+            MarkCatalogReady(testCatalog(tenant.id, kept)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, kept), version = "1.0.0").execute()
 
-            assertThat(ListCatalogReleaseSummaries(tenant.id, kept).query().single().resourceCount).isEqualTo(2)
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, kept)).query().single().resourceCount).isEqualTo(2)
         }
     }
 
@@ -178,7 +178,7 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Empty cat").execute()
 
-            assertThat(ListCatalogReleaseSummaries(tenant.id, key).query()).isEmpty()
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant.id, key)).query()).isEmpty()
         }
     }
 }

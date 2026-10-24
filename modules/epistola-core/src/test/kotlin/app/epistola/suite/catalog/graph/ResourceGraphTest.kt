@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 class ResourceGraphTest {
-    private val template = ResourceAddress(CatalogResourceType.TEMPLATE, "letters", "welcome")
-    private val theme = ResourceAddress(CatalogResourceType.THEME, "brand", "corporate")
-    private val font = ResourceAddress(CatalogResourceType.FONT, "brand", "body")
-    private val asset = ResourceAddress(CatalogResourceType.IMAGE, "brand", "01900000-0000-7000-8000-000000000001")
+    private val template = ResourceAddress(CatalogResourceType.TEMPLATE, "acme", "letters", "welcome")
+    private val theme = ResourceAddress(CatalogResourceType.THEME, "acme", "brand", "corporate")
+    private val font = ResourceAddress(CatalogResourceType.FONT, "acme", "brand", "body")
+    private val asset = ResourceAddress(CatalogResourceType.IMAGE, "acme", "brand", "01900000-0000-7000-8000-000000000001")
 
     private val graph = TenantResourceGraph(
         nodes = listOf(template, theme, font, asset).map {

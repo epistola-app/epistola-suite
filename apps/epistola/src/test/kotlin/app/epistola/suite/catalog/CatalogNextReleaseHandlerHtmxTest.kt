@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -58,7 +59,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             seedCatalogWithTemplate(tenant, "letters", "letter")
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/draft", String::class.java) }
 
         then {
             val body = result<ResponseEntity<String>>().body!!
@@ -80,7 +81,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             seedCatalogWithTemplate(tenant, "letters", "letter")
         }
 
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters/release") }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release") }
 
         then {
             val body = result<ResponseEntity<String>>().body!!
@@ -100,10 +101,10 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             seedCatalogWithTemplate(tenant, "letters", "letter")
         }
 
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.0")) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release", mapOf("version" to "1.0.0")) }
 
         then {
-            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("letters")).query() }!!.releasedVersion).isEqualTo("1.0.0")
+            assertThat(withMediator { GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }!!.releasedVersion).isEqualTo("1.0.0")
         }
     }
 
@@ -116,7 +117,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             seedCatalogWithTemplate(tenant, "letters", "letter")
         }
 
-        whenever { postHtmx("/tenants/${tenant.id}/catalogs/letters/ready") }
+        whenever { postHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/ready") }
 
         then {
             val response = result<ResponseEntity<String>>()
@@ -141,13 +142,13 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             }
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/draft", String::class.java) }
 
         then {
             val page = result<ResponseEntity<String>>().body!!
-            assertThat(page).contains("has no number until it is published").doesNotContain("/catalogs/letters/renumber")
-            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!).contains("It will be published as <strong>v2.0.0</strong>")
-            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/renumber", String::class.java).statusCode)
+            assertThat(page).contains("has no number until it is published").doesNotContain("/letters/renumber")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release").body!!).contains("It will be published as <strong>v2.0.0</strong>")
+            assertThat(restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/renumber", String::class.java).statusCode)
                 .`as`("renumbering is gone").isEqualTo(HttpStatus.NOT_FOUND)
         }
     }
@@ -165,12 +166,12 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             }
         }
 
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.1")) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release", mapOf("version" to "1.0.1")) }
 
         then {
             val body = result<ResponseEntity<String>>().body!!
             assertThat(body).contains("needs at least 2.0.0").contains("template &#39;letter&#39;: removed")
-            assertThat(withMediator { ListCatalogReleaseSummaries(tenant.id, CatalogKey.of("letters")).query() }.map { it.version }).containsExactly("1.0.0")
+            assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }.map { it.version }).containsExactly("1.0.0")
         }
     }
 
@@ -189,7 +190,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             postForm(
-                "/tenants/${tenant.id}/catalogs/letters/dependencies",
+                "/tenants/${tenant.id}/catalogs/${tenant.id}/letters/dependencies",
                 mapOf("catalog" to dependencyValue, "version" to ""),
             )
         }
@@ -198,8 +199,8 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             // Back on the Dependencies page, which lists it.
-            assertThat(response.headers.getFirst("HX-Location").orEmpty()).contains("/tenants/${tenant.id}/catalogs/letters/dependencies")
-            val declared = withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }.single()
+            assertThat(response.headers.getFirst("HX-Location").orEmpty()).contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/dependencies")
+            val declared = withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }.single()
             assertThat(declared.catalogKey).isEqualTo("shared")
             assertThat(declared.releaseVersion).isEqualTo("1.0.0")
         }
@@ -219,12 +220,12 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val shared = seedCatalogWithTemplate(tenant, "shared", "header")
             withMediator {
                 mediator.publishAndRelease(shared)
-                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
-                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                val target = GetCatalog(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!
+                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             }
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/draft", String::class.java) }
 
         then {
             val table = result<ResponseEntity<String>>().body!!.substringAfter("data-testid=\"catalog-dependencies\"").substringBefore("</table>")
@@ -250,12 +251,12 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             withMediator {
                 mediator.publishAndRelease(letters)
                 mediator.publishAndRelease(shared)
-                val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
-                UpdateCatalogDependencies(tenant.id, CatalogKey.of("letters"), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+                val target = GetCatalog(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!
+                UpdateCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters")), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             }
         }
 
-        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/draft", String::class.java) }
+        whenever { restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/draft", String::class.java) }
 
         then {
             val page = result<ResponseEntity<String>>().body!!
@@ -264,7 +265,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val row = page.substringAfter("data-testid=\"catalog-change-row\" data-resource=\"catalogDependency/shared\"").substringBefore("</tr>")
             assertThat(row).contains(">Added<").contains(">Shared<").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
 
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/release").body!!
             assertThat(dialog).doesNotContain("data-testid=\"publish-nothing\"")
             val change = dialog.substringAfter("data-testid=\"publish-change\"").substringBefore("</li>")
             assertThat(change).contains(">Added<").contains("<strong>Shared</strong>").contains(">(Dependency)<").contains(">— locked to v1.0.0<")
@@ -287,7 +288,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             postForm(
-                "/tenants/${tenant.id}/catalogs/letters/dependencies",
+                "/tenants/${tenant.id}/catalogs/${tenant.id}/letters/dependencies",
                 mapOf("catalog" to dependencyValue, "version" to "2.0.0"),
             )
         }
@@ -296,7 +297,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"").contains("no release 2.0.0 of shared")
-            assertThat(withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }).`as`("nothing declared").isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }).`as`("nothing declared").isEmpty()
         }
     }
 
@@ -312,7 +313,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             postForm(
-                "/tenants/${tenant.id}/catalogs/letters/dependencies",
+                "/tenants/${tenant.id}/catalogs/${tenant.id}/letters/dependencies",
                 mapOf("catalog" to "exchange.epistola.app~nobody/missing", "version" to ""),
             )
         }
@@ -321,7 +322,7 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(422)
             assertThat(response.body).contains("data-testid=\"catalog-dependency-error\"")
-            assertThat(withMediator { ListCatalogDependencies(tenant.id, CatalogKey.of("letters")).query() }).isEmpty()
+            assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant.id, CatalogKey.of("letters"))).query() }).isEmpty()
         }
     }
 
@@ -329,14 +330,14 @@ class CatalogNextReleaseHandlerHtmxTest : BaseIntegrationTest() {
     private fun seedCatalogWithTemplate(tenant: Tenant, catalogKey: String, templateKey: String, name: String = catalogKey): VariantId = withMediator {
         val key = CatalogKey.of(catalogKey)
         CreateCatalog(tenantKey = tenant.id, id = key, name = name).execute()
-        val templateId = TemplateId(TemplateKey.of(templateKey), CatalogId(key, TenantId(tenant.id)))
+        val templateId = TemplateId(TemplateKey.of(templateKey), testCatalog(TenantId(tenant.id), key))
         CreateDocumentTemplate(id = templateId, name = templateKey).execute().withRequiredDataExample()
         VariantId(VariantKey.INITIAL, templateId)
     }
 
     /** The dependency dialog's option value for [catalogKey]: `registry~namespace/key`. */
     private fun catalogValue(tenant: Tenant, catalogKey: String): String = withMediator {
-        val catalog = GetCatalog(tenant.id, CatalogKey.of(catalogKey)).query()!!
+        val catalog = GetCatalog(testCatalog(tenant.id, CatalogKey.of(catalogKey))).query()!!
         "${catalog.registry}~${catalog.namespace}/${catalog.id.value}"
     }
 

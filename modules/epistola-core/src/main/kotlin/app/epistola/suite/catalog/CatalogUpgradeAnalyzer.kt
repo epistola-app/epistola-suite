@@ -48,7 +48,7 @@ class CatalogUpgradeAnalyzer(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Every resource installed under `(tenant, catalog)`, including resource types not subject to stale pruning. */
-    fun installedResources(tenantKey: TenantKey, catalogKey: CatalogKey): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
+    fun installedResources(catalog: CatalogId): Set<InstalledResource> = jdbi.withHandle<Set<InstalledResource>, Exception> { handle ->
         handle.createQuery(
             """
             SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
@@ -60,14 +60,14 @@ class CatalogUpgradeAnalyzer(
             UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> InstalledResource(rs.getString("type"), rs.getString("slug")) }
             .set()
     }
 
     /** Resources handled by the upgrade analyzer, grouped by type. */
-    fun installedByType(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, List<InstalledResource>> = installedResources(tenantKey, catalogKey)
+    fun installedByType(catalog: CatalogId): Map<String, List<InstalledResource>> = installedResources(catalog)
         .filter { it.type in STALE_PRUNED_RESOURCE_TYPES }
         .groupBy { it.type }
 
@@ -89,30 +89,29 @@ class CatalogUpgradeAnalyzer(
      * (a removed resource still referenced from another catalog). Empty = safe.
      */
     fun findConflicts(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         staleResources: List<InstalledResource>,
     ): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         val conflicts = mutableListOf<String>()
         for (resource in staleResources) {
             when (resource.type) {
-                "theme" -> findThemeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "theme" -> findThemeConflicts(handle, catalog, resource.slug, conflicts)
 
-                "stencil" -> findStencilConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "stencil" -> findStencilConflicts(handle, catalog, resource.slug, conflicts)
 
                 // A template removed by an upgrade breaks nothing that renders: environments serve
                 // releases, which keep their content, not the working copy's templates.
-                "attribute" -> findAttributeConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "attribute" -> findAttributeConflicts(handle, catalog, resource.slug, conflicts)
 
-                "codeList" -> findCodeListConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "codeList" -> findCodeListConflicts(handle, catalog, resource.slug, conflicts)
 
-                "font" -> findFontConflicts(handle, tenantKey, catalogKey, resource.slug, conflicts)
+                "font" -> findFontConflicts(handle, catalog, resource.slug, conflicts)
             }
         }
         conflicts
     }
 
-    private fun findThemeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+    private fun findThemeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
             SELECT dt.name, dc.catalog_key AS catalog_key FROM document_templates dt
@@ -121,7 +120,7 @@ class CatalogUpgradeAnalyzer(
             WHERE dt.tenant_key = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug AND dt.catalog_id != ${catalogAt("t", "c")}
               AND ${inCurrentVersion("dt")}
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .map { rs, _ -> "Theme '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
 
@@ -131,13 +130,13 @@ class CatalogUpgradeAnalyzer(
             JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
             WHERE t.id = :t AND th.version_id = ${versionAt("t", "c")} AND th.id = :slug
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .mapTo(String::class.java).findOne().ifPresent {
                 conflicts.add("Theme '$slug' is the tenant default theme")
             }
     }
 
-    private fun findStencilConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
+    private fun findStencilConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
@@ -147,16 +146,16 @@ class CatalogUpgradeAnalyzer(
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
               AND n.value ->> 'type' = 'stencil'
-              AND n.value -> 'props' ->> 'catalogKey' = :cStr
+              AND n.value -> 'props' ->> 'catalog.key' = :cStr
               AND n.value -> 'props' ->> 'stencilKey' = :slug
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("cStr", catalogKey.value).bind("slug", slug)
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("cStr", catalog.key.value).bind("slug", slug)
             .map { rs, _ -> "Stencil '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
             .list().let { conflicts.addAll(it) }
     }
 
-    private fun findAttributeConflicts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, slug: String, conflicts: MutableList<String>) {
-        val attribute = AttributeId(AttributeKey.of(slug), CatalogId(catalogKey, TenantId(tenantKey)))
+    private fun findAttributeConflicts(handle: Handle, catalog: CatalogId, slug: String, conflicts: MutableList<String>) {
+        val attribute = AttributeId(AttributeKey.of(slug), catalog)
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
@@ -166,7 +165,7 @@ class CatalogUpgradeAnalyzer(
             WHERE v.tenant_key = :t AND dt.catalog_id != ${catalogAt("t", "c")} AND ${inCurrentVersion("dt")}
               AND ${AttributeReferences.uses("v")}
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey)
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .bind(AttributeReferences.QUALIFIED_PARAM, AttributeReferences.qualifiedKey(attribute))
             .bind(AttributeReferences.BARE_PARAM, AttributeReferences.bareKey(attribute))
             .map { rs, _ -> "Attribute '$slug' is used by template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")})" }
@@ -175,8 +174,7 @@ class CatalogUpgradeAnalyzer(
 
     private fun findCodeListConflicts(
         handle: Handle,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         slug: String,
         conflicts: MutableList<String>,
     ) {
@@ -191,7 +189,7 @@ class CatalogUpgradeAnalyzer(
               AND vad.code_list_resource_id = (SELECT resource_id FROM code_lists
                                             WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND slug = :slug)
             """,
-        ).bind("t", tenantKey).bind("c", catalogKey).bind("slug", slug)
+        ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .map { rs, _ ->
                 "Code list '$slug' is used by attribute '${rs.getString("display_name")}' (catalog: ${rs.getString("catalog_key")})"
             }
@@ -201,12 +199,11 @@ class CatalogUpgradeAnalyzer(
 
     private fun findFontConflicts(
         handle: Handle,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         slug: String,
         conflicts: MutableList<String>,
     ) {
-        val vars = """{"slug":"$slug","catalogKey":"${catalogKey.value}"}"""
+        val vars = """{"slug":"$slug","catalogKey":"${catalog.key.value}"}"""
 
         handle.createQuery(
             """
@@ -220,13 +217,13 @@ class CatalogUpgradeAnalyzer(
                 OR jsonb_path_exists(COALESCE(th.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
               )
             """,
-        ).bind("t", tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
+        ).bind("t", catalog.tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
             .map { rs, _ ->
                 fontConflictIfExternal(
                     type = "theme",
                     name = rs.getString("name"),
                     referencingCatalog = rs.getString("catalog_key"),
-                    owningCatalog = catalogKey,
+                    owningCatalog = catalog.key,
                     fontSlug = slug,
                 )
             }
@@ -247,13 +244,13 @@ class CatalogUpgradeAnalyzer(
               AND ${inCurrentVersion("dt")}
               AND jsonb_path_exists(ver.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
             """,
-        ).bind("t", tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
+        ).bind("t", catalog.tenantKey).bind("jsonPath", FONT_REFERENCE_JSON_PATH).bind("vars", vars)
             .map { rs, _ ->
                 fontConflictIfExternal(
                     type = "template",
                     name = rs.getString("name"),
                     referencingCatalog = rs.getString("catalog_key"),
-                    owningCatalog = catalogKey,
+                    owningCatalog = catalog.key,
                     fontSlug = slug,
                 )
             }
@@ -282,8 +279,7 @@ class CatalogUpgradeAnalyzer(
      * definition.
      */
     fun removeStale(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         staleResources: List<InstalledResource>,
     ): List<RemovedResource> {
         if (staleResources.isEmpty()) return emptyList()
@@ -306,9 +302,9 @@ class CatalogUpgradeAnalyzer(
             for (resource in ordered) {
                 val target = tableByType[resource.type] ?: continue
                 handle.createUpdate("DELETE FROM ${target.table} WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND ${target.keyColumn} = :id")
-                    .bind("t", tenantKey).bind("c", catalogKey).bind("id", resource.slug).execute()
+                    .bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("id", resource.slug).execute()
                 removed.add(RemovedResource(resource.type, resource.slug))
-                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalogKey)
+                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
             }
         }
         return removed

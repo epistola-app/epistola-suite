@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -135,7 +136,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
             requireNotNull(it.body)
         }
 
-        assertThat(body).contains("/catalogs/${filtered.value}/templates\"").doesNotContain("<select id=\"catalog\"")
+        assertThat(body).contains("/catalogs/${tenant.id.value}/${filtered.value}/templates\"").doesNotContain("<select id=\"catalog\"")
     }
 
     @Test
@@ -158,13 +159,12 @@ class ListAffordancesTest : BaseIntegrationTest() {
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Presentation with image").execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Pixel",
                 mediaType = AssetMediaType.SVG,
                 content = """<svg xmlns="http://www.w3.org/2000/svg"/>""".toByteArray(),
                 width = null,
                 height = null,
-                catalogKey = catalogKey,
             ).execute()
         }
 
@@ -195,8 +195,7 @@ class ListAffordancesTest : BaseIntegrationTest() {
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Keyword order").execute()
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Keyword order",
                 description = null,
                 keywords = setOf("zaken", "1-loket", "Brieven", "aanslag"),

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog
 
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalogEditability
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
@@ -19,8 +20,8 @@ class CatalogReadOnlyException(val catalogKey: CatalogKey, val reason: CatalogRe
  * changes a catalog. Receiving a release (an install, upgrade or import) is not a change people
  * make, and passes.
  */
-fun requireCatalogEditable(tenantKey: TenantKey, catalogKey: CatalogKey) {
+fun requireCatalogEditable(catalog: CatalogId) {
     if (CatalogImportContext.isImporting) return
-    val editability = GetCatalogEditability(tenantKey, catalogKey).query()
-    if (!editability.editable) throw CatalogReadOnlyException(catalogKey, editability.reason)
+    val editability = GetCatalogEditability(catalog).query()
+    if (!editability.editable) throw CatalogReadOnlyException(catalog.key, editability.reason)
 }

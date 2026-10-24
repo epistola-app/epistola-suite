@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -42,7 +43,7 @@ class DeleteStencilHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteStencil, Boolean> {
     override fun handle(command: DeleteStencil): Boolean {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         if (!command.force) {
             val usages = FindStencilUsages(command.id).query()
@@ -59,7 +60,7 @@ class DeleteStencilHandler(
             """,
             )
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("id", command.id.key)
                 .execute()
 

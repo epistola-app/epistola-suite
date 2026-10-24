@@ -19,6 +19,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -33,9 +34,9 @@ class ReleaseBaseTest : IntegrationTestBase() {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun catalogId(tenant: TenantKey) = CatalogId(letters, TenantId(tenant))
+    private fun catalogId(tenant: TenantKey) = testCatalog(TenantId(tenant), letters)
 
-    private fun version(tenant: TenantKey, version: String) = withMediator { GetCatalogRelease(tenant, letters, version).query()!! }
+    private fun version(tenant: TenantKey, version: String) = withMediator { GetCatalogRelease(testCatalog(tenant, letters), version).query()!! }
 
     @Test
     fun `a release records the base of the draft it was, and a catalog's first release has none`() {
@@ -61,7 +62,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalogId(tenant)), "Brand").execute()
             CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
             mediator.releaseNext(catalogId(tenant))
-            CreateCatalogDraft(tenant, letters, "Redesign").execute()
+            CreateCatalogDraft(testCatalog(tenant, letters), "Redesign").execute()
             // The next version changes the invoice and is released, then the theme and is released.
             UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed").execute()
             mediator.releaseNext(catalogId(tenant))
@@ -71,7 +72,7 @@ class ReleaseBaseTest : IntegrationTestBase() {
         }
 
         assertThat(version(tenant, "1.0.2").base).isEqualTo("1.0.1")
-        val work = withMediator { ListCatalogReleases(tenant, letters, withBehind = true).query() }.single { it.name == "Redesign" }
+        val work = withMediator { ListCatalogReleases(testCatalog(tenant, letters), withBehind = true).query() }.single { it.name == "Redesign" }
         val behind = work.behind.associate { it.version to it.changes }
         assertThat(behind.keys).containsExactly("1.0.1", "1.0.2")
         assertThat(behind["1.0.1"]).containsExactly(ReleasedChange("template", "invoice", "modified", "Invoice, fixed"))

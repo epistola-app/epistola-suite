@@ -16,6 +16,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.Browser
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

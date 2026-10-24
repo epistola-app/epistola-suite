@@ -9,6 +9,7 @@ import app.epistola.api.model.ImageDto
 import app.epistola.api.model.ImageListResponse
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.api.v1.shared.Pagination
+import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
@@ -93,8 +94,7 @@ class EpistolaImagesApi(
         // Paged in the database. A tenant's image count is unbounded, so the page a caller asked
         // for should cost the page rather than the whole catalog.
         val result = ListImagePage(
-            tenantKey = at.tenantKey,
-            catalogKey = at.catalogKey,
+            catalog = at.catalogId,
             searchTerm = search,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
@@ -135,13 +135,12 @@ class EpistolaImagesApi(
         }
         val dimensions = if (resolvedMediaType.mimeType != "image/svg+xml") imageDimensions(content) else null
         val image = UploadAsset(
-            tenantId = draft.tenantKey,
+            catalog = draft.catalogId,
             name = name?.takeIf { it.isNotBlank() } ?: file.originalFilename ?: "unnamed",
             mediaType = resolvedMediaType,
             content = content,
             width = dimensions?.first,
             height = dimensions?.second,
-            catalogKey = draft.catalogKey,
             sensitive = sensitive,
             catalogVersion = draft.ref,
         ).execute()
@@ -159,7 +158,7 @@ class EpistolaImagesApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
         val (mediaType, bytes) = if (at.isDraft) {
-            GetAssetContent(tenantId = at.tenantKey, catalogKey = at.catalogKey, assetId = key, catalogVersion = at.ref).query()
+            GetAssetContent(tenantId = at.catalog.tenantKey, catalog = at.catalogId, assetId = key, catalogVersion = at.ref).query()
                 ?.let { it.mediaType to it.content }
         } else {
             at.releasedResource<ImageResource>("image", imageKey)
@@ -190,11 +189,11 @@ class EpistolaImagesApi(
     ): ResponseEntity<Unit> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
-        val image = GetAsset(tenantId = draft.tenantKey, assetId = key, catalogVersion = draft.ref).query()
+        val image = GetAsset(tenantId = draft.catalog.tenantKey, assetId = key, catalogVersion = draft.ref).query()
         if (image?.catalogKey != draft.catalogKey || image.mediaType.category != AssetMediaCategory.IMAGE) {
             throw AssetNotFoundException(draft.tenantKey, key)
         }
-        DeleteAsset(tenantId = draft.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
+        DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
         return ResponseEntity.noContent().build()
     }
 

@@ -26,6 +26,7 @@ import app.epistola.suite.catalog.RESOURCE_INSTALL_ORDER
 import app.epistola.suite.catalog.migrations.CatalogMigrationContext
 import app.epistola.suite.catalog.migrations.CatalogSchemaException
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -55,12 +56,13 @@ import org.springframework.transaction.support.TransactionTemplate
  * See issue #850.
  */
 data class InstallFromCatalog(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Command<List<InstallResult>>,
     RequiresPermission,
     // Downloads catalog content over HTTP mid-command.
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
@@ -87,6 +89,7 @@ class InstallFromCatalogHandler(
     private val sizeLimits: CatalogSizeLimits,
     private val installedCatalogCheck: InstalledCatalogCheck,
     private val receivedReleases: ReceivedReleases,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
     transactionManager: PlatformTransactionManager,
 ) : CommandHandler<InstallFromCatalog, List<InstallResult>> {
 
@@ -116,7 +119,7 @@ class InstallFromCatalogHandler(
     )
 
     override fun handle(command: InstallFromCatalog): List<InstallResult> = CatalogImportContext.runAsImport {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
             ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
 
         val sourceUrl = catalog.sourceUrl
@@ -126,7 +129,7 @@ class InstallFromCatalogHandler(
         val manifest = migratedManifest.manifest
         val catalogCtx = migratedManifest.catalog
         // Kept as it says it is, or refused before anything is fetched or written.
-        receivedReleases.requireKeepable(command.tenantKey, command.catalogKey, manifest.release)
+        receivedReleases.requireKeepable(command.catalog, manifest.release)
 
         // The whole manifest, always. `DependencyResolver` still runs: it cannot add anything to a
         // set that is already complete, but it validates that every same-catalog reference points at
@@ -159,7 +162,7 @@ class InstallFromCatalogHandler(
                     return@map InstallResult(type = item.entry.type, slug = item.entry.key, status = InstallStatus.FAILED, errorMessage = item.fetchError)
                 }
                 try {
-                    val installStatus = installResource(command, item, manifest.release.version)
+                    val installStatus = installResource(command, item, manifest.release.version, manifest.catalogDependencies.orEmpty().map(app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration::of))
                     InstallResult(type = item.entry.type, slug = item.entry.key, status = installStatus)
                 } catch (e: Exception) {
                     logger.error("Failed to install {} '{}' from catalog '{}': {}", item.entry.type, item.entry.key, command.catalogKey, e.message, e)
@@ -171,7 +174,7 @@ class InstallFromCatalogHandler(
             } else if (!InstalledReleaseRecording.isDeferred) {
                 // A caller that defers recording the release completes the content first (the system
                 // catalog seeds its fonts) and checks it then.
-                installedCatalogCheck.requireValid(command.tenantKey, command.catalogKey)
+                installedCatalogCheck.requireValid(command.catalog)
             }
             results
         }
@@ -188,7 +191,7 @@ class InstallFromCatalogHandler(
             catalog.installedReleaseVersion == manifest.release.version &&
             !InstalledReleaseRecording.isDeferred
         ) {
-            RecordInstalledRelease(command.tenantKey, command.catalogKey, published = published, received = manifest.release).execute()
+            RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
         }
         results
     }
@@ -246,14 +249,15 @@ class InstallFromCatalogHandler(
         command: InstallFromCatalog,
         item: StagedResource,
         releaseVersion: String,
+        declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>,
     ): InstallStatus = when (val resource = requireNotNull(item.resource) { "Resource '${item.entry.key}' was not staged" }) {
-        is TemplateResource -> installTemplate(command, resource, releaseVersion)
+        is TemplateResource -> installTemplate(command, resource, releaseVersion, declarations)
 
         is ThemeResource -> installTheme(command, resource)
 
         is StencilResource -> installStencil(command, resource)
 
-        is AttributeResource -> installAttribute(command, resource)
+        is AttributeResource -> installAttribute(command, resource, declarations)
 
         is ImageResource -> installAsset(
             command,
@@ -266,12 +270,11 @@ class InstallFromCatalogHandler(
         is FontResource -> installFont(command, resource, item.binaries)
     }
 
-    private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String): InstallStatus {
-        val input = templateImportInput(resource, command.catalogKey, releaseVersion, protocolMapper)
+    private fun installTemplate(command: InstallFromCatalog, resource: TemplateResource, releaseVersion: String, declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>): InstallStatus {
+        val input = templateImportInput(resource, releaseVersion, protocolMapper) { alias -> references.resolveReceived(command.catalog, alias, declarations) }
 
         val results = ImportTemplates(
-            tenantId = TenantId(command.tenantKey),
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             templates = listOf(input),
         ).execute()
 
@@ -285,8 +288,7 @@ class InstallFromCatalogHandler(
     private fun installTheme(command: InstallFromCatalog, resource: ThemeResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
         return ImportTheme(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = resource.key,
             name = resource.name,
             description = resource.description,
@@ -300,8 +302,7 @@ class InstallFromCatalogHandler(
     private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
         return ImportStencil(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = resource.key,
             name = resource.name,
             description = resource.description,
@@ -312,24 +313,21 @@ class InstallFromCatalogHandler(
         ).execute()
     }
 
-    private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource): InstallStatus {
+    private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource, declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
         // A binding's `catalogKey` defaults to the attribute's own catalog —
         // the typical case is a catalog that authors both the attribute and
         // the list it binds to. Cross-catalog bindings (e.g. an attribute in
         // `default` binding to a list in `system`) carry an explicit
         // catalogKey on the wire.
-        val bindingCatalog = resource.codeListBinding?.let { binding ->
-            binding.catalogKey?.let(CatalogKey::of) ?: command.catalogKey
-        }
+        val bindingCatalog = resource.codeListBinding?.let { binding -> references.resolveReceived(command.catalog, binding.catalogKey, declarations) }
         val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
         return ImportAttribute(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = resource.key,
             displayName = resource.name,
             allowedValues = resource.allowedValues,
-            codeListCatalogKey = bindingCatalog,
+            codeListCatalog = bindingCatalog,
             codeListSlug = bindingSlug,
         ).execute()
     }
@@ -337,8 +335,7 @@ class InstallFromCatalogHandler(
     private fun installCodeList(command: InstallFromCatalog, resource: CodeListResource): InstallStatus {
         val tenantId = TenantId(command.tenantKey)
         return ImportCodeList(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = resource.key,
             displayName = resource.name,
             description = resource.description,
@@ -363,15 +360,13 @@ class InstallFromCatalogHandler(
         // one is materialised here, keyed by its content hash so a re-install reuses the row.
         // System (CLASSPATH) fonts are never exported and so never arrive over the wire.
         return ImportFont(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = resource.key,
             name = resource.name,
             kind = resource.kind,
             variants = resource.variants.map { entry ->
                 val faceKey = materialiseFontFace(
-                    tenantId,
-                    command.catalogKey,
+                    command.catalog,
                     resource.key,
                     entry,
                     requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" },
@@ -394,8 +389,7 @@ class InstallFromCatalogHandler(
         val tenantId = TenantId(command.tenantKey)
 
         return ImportAsset(
-            tenantId = tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             id = app.epistola.suite.common.ids.AssetKey.of(resource.key),
             name = resource.name,
             mediaType = AssetMediaType.fromMimeType(resource.mediaType),

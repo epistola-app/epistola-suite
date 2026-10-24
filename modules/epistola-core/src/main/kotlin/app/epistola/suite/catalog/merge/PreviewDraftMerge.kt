@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.merge
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -25,14 +26,15 @@ import org.springframework.stereotype.Component
  * @throws CatalogReleaseNotFoundException when the catalog has no such draft, or no such release.
  */
 data class PreviewDraftMerge(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val release: String,
     /** The draft to merge into; null for the catalog's next version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<DraftMergePreview>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -77,7 +79,7 @@ class PreviewDraftMergeHandler(
 
     override fun handle(query: PreviewDraftMerge): DraftMergePreview {
         // The draft the query targets: the mediator scopes it, so building the content reads it too.
-        val plan = planner.plan(query.tenantKey, query.catalogKey, query.release, query.catalogVersion?.draft?.toString() ?: "next")
+        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next")
         return plan.toPreview(query.catalogKey)
     }
 }

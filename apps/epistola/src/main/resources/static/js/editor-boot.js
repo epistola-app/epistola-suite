@@ -30,7 +30,8 @@ async function mount(container) {
   const catalogSegment = config.catalogSegment || catalogId;
   // A catalog segment may name its namespace, `acme/letters` (ADR 0034): its parts are encoded apart.
   const catalogPath = (segment) => String(segment).split('/').map(encodeURIComponent).join('/');
-  const inDraft = catalogSegment !== catalogId;
+  // A draft other than the next version is named after `@`, `acme/letters@<draft id>`.
+  const inDraft = String(catalogSegment).includes('@');
   const segmentOf = (catalog) => (catalog === catalogId ? catalogSegment : catalog);
   // Cross-catalog requests (searches, image content) name the draft as `in=` so the server reads
   // this catalog's rows from it and every other catalog's from its current version.
@@ -72,11 +73,15 @@ async function mount(container) {
     },
     imageOptions: {
       defaultCatalogKey: catalogId,
+      // An image is named by the alias its catalog has in this template's catalog (its key, ADR
+      // 0034): asked of this catalog's address, which resolves the alias, so a key two catalogs
+      // share still names the one this catalog uses.
       contentUrlPattern:
         '/tenants/' +
         tenantId +
-        '/catalogs/{catalogId}/images/{imageKey}/content' +
-        (inDraft ? '?' + inParam : ''),
+        '/catalogs/' +
+        catalogPath(catalogSegment) +
+        '/images/{imageKey}/content?alias={catalogId}',
       listCatalogs: async () => {
         const resp = await fetch('/tenants/' + tenantId + '/images/catalogs', {
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },

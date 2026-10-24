@@ -18,6 +18,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -80,8 +81,8 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant revoked").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // The organization withdraws the namespace. Suite is not told and cannot know: the granted
             // list is only ever written when a tenant authorizes.
@@ -115,8 +116,8 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Connection refused").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // Refused while the namespace is still granted: the connection itself is the problem.
             exchange.submitResponse = { FakeExchangeServer.Response(403, """{"error":"forbidden"}""") }
@@ -135,8 +136,8 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Grant withdrawn").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("public-services")
 
             // Exchange withdraws the namespace; the binding stays, because bindings are permanent.
@@ -163,22 +164,22 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Rebind me", namespace = TestNamespaces.of(tenant.id).namespace).execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("public-services")
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isFalse()
 
-            ChangeCatalogNamespace(tenant.id, catalogKey, "internal-forms").execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "internal-forms").execute()
 
             // The catalog's own name changes, and the queued release follows it: nothing was submitted.
-            assertThat(GetCatalog(tenant.id, catalogKey).query()!!.namespace).isEqualTo("internal-forms")
+            assertThat(GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!.namespace).isEqualTo("internal-forms")
             assertThat(state(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
             assertThat(publication(tenant.id, catalogKey).namespace).isEqualTo("internal-forms")
 
             // Once Exchange has accepted it, the coordinates are fixed: publishing elsewhere would be another catalog.
             worker.run()
             assertThat(state(tenant.id, catalogKey).namespaceLocked).isTrue()
-            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute() }
+            assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute() }
                 .isInstanceOf(CatalogNamespaceFixedException::class.java)
         }
     }
@@ -193,7 +194,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
             CreateCatalog(tenant.id, catalogKey, "Rebind ungranted").execute()
             // Held here, by an administrator's grant, but not granted by the Exchange connection.
             TestNamespaces.grant(tenant.id, "not-ours").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "not-ours").execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "not-ours").execute()
 
             val state = state(tenant.id, catalogKey)
             assertThat(state.needsNamespaceChoice).isTrue()
@@ -224,7 +225,7 @@ class ExchangeConnectionLifecycleTest : ExchangeIntegrationTestBase() {
         ).bind("tenantKey", tenant.id).execute()
     }
 
-    private fun state(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query())
+    private fun state(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query())
 
     private fun publication(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey) = state(tenantKey, catalogKey).publications.single()
 

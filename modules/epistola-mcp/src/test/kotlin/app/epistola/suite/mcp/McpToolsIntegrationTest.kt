@@ -36,7 +36,9 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testAddress
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -138,7 +140,7 @@ class McpToolsIntegrationTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
             CreateDocumentTemplate(TemplateId(templateKey, CatalogId.default(tenantId)), "Moved").execute()
-            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
+            val relocation = testAddress(tenant.id, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, templateKey.value).movedTo(CatalogKey.of("shared"))
             val preview = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
             MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute()
         }

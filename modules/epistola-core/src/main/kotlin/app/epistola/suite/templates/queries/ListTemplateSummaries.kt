@@ -4,10 +4,12 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -16,6 +18,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -33,7 +36,12 @@ data class TemplateSummary(
     val ready: Boolean,
     /** The template's plain-text notes for its authors ([app.epistola.suite.templates.DocumentTemplate.description]); null when it has none. */
     val description: String? = null,
-)
+    /** The namespace of the template's catalog: with [catalogKey], its address (ADR 0034, section 9). */
+    val namespace: String = "",
+) {
+    /** The template's catalog's address, `namespace/key`. */
+    val catalogAddress: String get() = "$namespace/${catalogKey.value}"
+}
 
 /**
  * One page of [TemplateSummary] rows plus [total], the count of all rows
@@ -71,8 +79,8 @@ enum class TemplateSort(
 
 data class ListTemplateSummaries(
     val tenantId: TenantId,
+    val catalog: CatalogId? = null,
     val searchTerm: String? = null,
-    val catalogKey: CatalogKey? = null,
     val sort: TemplateSort = TemplateSort.UPDATED,
     val descending: Boolean = true,
     val limit: Int = 50,
@@ -82,6 +90,11 @@ data class ListTemplateSummaries(
 ) : CatalogReleaseScoped,
     Query<TemplateSummaryPage>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantId == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
 }
@@ -97,6 +110,7 @@ class ListTemplateSummariesHandler(
                 SELECT
                     dt.id,
                     c.catalog_key AS catalog_key,
+                    c.namespace AS namespace,
                     dt.name,
                     dt.description,
                     dt.updated_at,
@@ -130,7 +144,7 @@ class ListTemplateSummariesHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
         if (query.catalogKey != null) {
-            jdbiQuery.bind("catalogKey", query.catalogKey)
+            jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }
         if (!query.searchTerm.isNullOrBlank()) {
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -164,6 +178,7 @@ private data class TemplateSummaryRow(
     val ready: Boolean,
     val totalCount: Int,
     val description: String?,
+    val namespace: String,
 ) {
     fun toSummary() = TemplateSummary(
         id = id,
@@ -173,5 +188,6 @@ private data class TemplateSummaryRow(
         variantCount = variantCount,
         ready = ready,
         description = description,
+        namespace = namespace,
     )
 }

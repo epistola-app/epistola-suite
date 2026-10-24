@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot

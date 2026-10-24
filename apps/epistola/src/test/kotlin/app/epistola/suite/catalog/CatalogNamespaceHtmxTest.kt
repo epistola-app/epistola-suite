@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -73,8 +74,8 @@ class CatalogNamespaceHtmxTest : BaseIntegrationTest() {
         postForm("/tenants/${tenant.value}/catalogs/create", mapOf("name" to "Notes", "slug" to "notes", "namespaceChoice" to "local", "localNamespace" to "personnel"))
 
         withMediator {
-            assertThat(GetCatalog(tenant, CatalogKey.of("held")).query()!!.let { it.registry to it.namespace }).isEqualTo(own.authority to own.namespace)
-            assertThat(GetCatalog(tenant, CatalogKey.of("notes")).query()!!.let { it.registry to it.namespace }).isEqualTo("local" to "personnel")
+            assertThat(GetCatalog(testCatalog(tenant, CatalogKey.of("held"))).query()!!.let { it.registry to it.namespace }).isEqualTo(own.authority to own.namespace)
+            assertThat(GetCatalog(testCatalog(tenant, CatalogKey.of("notes"))).query()!!.let { it.registry to it.namespace }).isEqualTo("local" to "personnel")
         }
     }
 
@@ -98,12 +99,12 @@ class CatalogNamespaceHtmxTest : BaseIntegrationTest() {
         val letters = CatalogKey.of("letters")
         withMediator {
             CreateCatalog(author, letters, "Letters").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(author))), "Brand").execute()
-            MarkCatalogReady(author, letters).execute()
-            ReleaseCatalogDraft(tenantKey = author, catalogKey = letters, version = "1.0.0").execute()
-            ImportCatalogZip(receiver, ExportCatalogZip(author, letters, "1.0.0").execute().zipBytes).execute()
-            CreateTheme(ThemeId(ThemeKey.of("ours"), CatalogId(letters, TenantId(receiver))), "Ours").execute()
-            MarkCatalogReady(receiver, letters).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author), letters)), "Brand").execute()
+            MarkCatalogReady(testCatalog(author, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(author, letters), version = "1.0.0").execute()
+            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes).execute()
+            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver), letters)), "Ours").execute()
+            MarkCatalogReady(testCatalog(receiver, letters)).execute()
         }
         val sentence = TestNamespaces.of(author).let { "This tenant does not hold the namespace ${it.namespace} (${it.authority}); an administrator can grant it." }
 

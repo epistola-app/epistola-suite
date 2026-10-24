@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -45,7 +46,7 @@ class MarkTemplateReadyHandler(
                 "SELECT id FROM template_variants WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")} ORDER BY id",
             )
                 .bind("t", template.tenantKey)
-                .bind("c", template.catalogKey)
+                .bindCatalog("c", template.catalogId)
                 .bind("k", template.key)
                 .mapTo(String::class.java)
                 .list()

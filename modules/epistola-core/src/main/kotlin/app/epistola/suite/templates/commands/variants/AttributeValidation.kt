@@ -54,8 +54,7 @@ private fun validateValue(key: String, value: String, definition: VariantAttribu
     val codeListId = definition.codeListId
     if (codeListId != null) {
         val exists = CodeListEntryExists(
-            tenantKey = codeListId.tenantKey,
-            catalogKey = codeListId.catalogKey,
+            catalog = codeListId.catalogId,
             codeListSlug = codeListId.key,
             code = value,
         ).query()

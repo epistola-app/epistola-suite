@@ -4,9 +4,11 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -18,15 +20,16 @@ import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
 import app.epistola.suite.stencils.withAbsentSchemaAsNull
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListStencils(
     val tenantId: TenantId,
+    val catalog: CatalogId? = null,
     val searchTerm: String? = null,
     val tag: String? = null,
-    val catalogKey: CatalogKey? = null,
     val limit: Int = 50,
     val offset: Int = 0,
     /** The catalog version this addresses; null for its catalog's current version. */
@@ -34,6 +37,11 @@ data class ListStencils(
 ) : CatalogReleaseScoped,
     Query<List<Stencil>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantId == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission = Permission.STENCIL_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
 }
@@ -61,7 +69,7 @@ class ListStencilsHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
         if (query.catalogKey != null) {
-            jdbiQuery.bind("catalogKey", query.catalogKey)
+            jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")

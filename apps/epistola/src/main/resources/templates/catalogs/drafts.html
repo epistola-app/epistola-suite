@@ -11,12 +11,12 @@
         <div th:replace="~{epistola-web/dialog :: dialog-shell(
             dialogId='create-draft-dialog',
             title='Start parallel work',
-            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.catalogKey})},
+            closeUrl=@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${bar.segment.address})},
             content=~{::create-form})}"></div>
     </th:block>
 
     <form th:fragment="create-form" id="create-draft-form"
-          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.catalogKey})}"
+          th:hx-post="@{/tenants/{tenantId}/catalogs/{catalogId}/drafts(tenantId=${tenantId},catalogId=${bar.segment.address})}"
           hx-target="#create-draft-form" hx-swap="outerHTML">
         <div th:replace="~{epistola-web/form-error :: form-error(id='create-draft-error')}"></div>
         <div class="ep-dialog-body">

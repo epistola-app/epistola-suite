@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -54,7 +55,7 @@ class CreateVariantHandler(
     private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         val auditUser = currentUserIdOrNull()?.value
 
@@ -62,7 +63,7 @@ class CreateVariantHandler(
         validateAttributes(command.id.tenantId, command.attributes)
         // An attribute of another catalog names it by alias (`system.locale`): that catalog is declared now,
         // as every write that starts using another catalog declares it (contract ADR 0003).
-        usedCatalogs.declareAttributes(command.id.tenantKey, command.id.catalogKey, command.attributes.keys)
+        usedCatalogs.declareAttributes(command.id.catalogId, command.attributes.keys)
 
         return executeOrThrowDuplicate("variant", command.id.key.value) {
             jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
@@ -76,7 +77,7 @@ class CreateVariantHandler(
                 )
                     .bind("templateId", command.id.templateKey)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .mapTo(Int::class.java)
                     .findOne()
                     .isPresent
@@ -94,7 +95,7 @@ class CreateVariantHandler(
                 )
                     .bind("tenantId", command.id.tenantKey)
                     .bind("templateId", command.id.templateKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .mapTo<Long>()
                     .one()
                 val isDefault = existingCount == 0L
@@ -112,7 +113,7 @@ class CreateVariantHandler(
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("templateId", command.id.templateKey)
                     .bind("title", command.title)
                     .bind("description", command.description)

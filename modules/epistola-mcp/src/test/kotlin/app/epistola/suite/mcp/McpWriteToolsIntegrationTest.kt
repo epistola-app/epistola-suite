@@ -28,6 +28,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -510,7 +511,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         }.hasMessageContaining("Face 2")
 
         val fontAssets = runAsApiKey(tenantId) {
-            ListAssets(tenantId = tenantId.key, catalogKey = CatalogKey.DEFAULT).query()
+            ListAssets(tenantId = tenantId.key, catalog = testCatalog(tenantId.key, CatalogKey.DEFAULT)).query()
         }.filter { it.mediaType.category != AssetMediaCategory.IMAGE }
         assertThat(fontAssets).isEmpty()
         assertThat(runAsApiKey(tenantId) { fontTools.listFonts("default") }).isEmpty()
@@ -530,7 +531,7 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
 
     private fun variantId(catalog: String, tenantId: TenantId, template: String, variant: String) = VariantId(
         VariantKey.of(variant),
-        TemplateId(TemplateKey.of(template), CatalogId(CatalogKey.of(catalog), tenantId)),
+        TemplateId(TemplateKey.of(template), testCatalog(tenantId, CatalogKey.of(catalog))),
     )
 
     /** A root holding one text node — the smallest document `update_template_draft` accepts. */

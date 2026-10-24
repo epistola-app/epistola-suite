@@ -26,7 +26,6 @@ import app.epistola.suite.catalog.CatalogImportContext
 import app.epistola.suite.catalog.CatalogImportSchemaAction
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogMigrationConfirmationRequiredException
-import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.CatalogSizeLimits
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.ProtocolMapper
@@ -43,6 +42,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.StencilKey
@@ -215,6 +215,8 @@ data class ImportCatalogZipResult(
     val newlyInstalled: Boolean = true,
     /** The archive's content as its publisher released it, for the release an install records. */
     val published: app.epistola.suite.catalog.CatalogContent? = null,
+    /** The catalog the archive was imported into, by its address (ADR 0034, section 9). */
+    val catalog: CatalogId? = null,
 )
 
 @Component
@@ -234,7 +236,6 @@ class ImportCatalogZipHandler(
     private val receivedReleases: ReceivedReleases,
     private val fingerprints: app.epistola.suite.catalog.CatalogFingerprintService,
     private val releaseIdentity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
-    private val catalogNames: app.epistola.suite.catalog.CatalogNamesApplier,
 ) : CommandHandler<ImportCatalogZip, ImportCatalogZipResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -256,14 +257,16 @@ class ImportCatalogZipHandler(
         val namespace = requireNotNull(manifest.catalog.namespace) { "The archive's catalog names no namespace" }
         command.registry?.let { if (it != registry) throw CatalogNameMismatchException("registry", it, registry) }
         command.namespace?.let { if (it != namespace) throw CatalogNameMismatchException("namespace", it, namespace) }
-        // Its key means the catalog of its namespace here: another namespace's catalog with the same
-        // key is another catalog, beside this one (ADR 0034, phase 4).
-        return CatalogNames.within(declaredNamespaces(manifest)) { catalogNames.named(catalogKey, namespace) { install(command, parsed, catalogKey, registry, namespace) } }
+        // The catalog of its namespace here: another namespace's catalog with the same key is another
+        // catalog, beside this one (ADR 0034, section 9).
+        return install(command, parsed, CatalogId(namespace, catalogKey, TenantId(command.tenantKey)), registry)
     }
 
-    private fun install(command: ImportCatalogZip, parsed: Parsed, catalogKey: CatalogKey, registry: String, namespace: String): ImportCatalogZipResult {
+    private fun install(command: ImportCatalogZip, parsed: Parsed, catalog: CatalogId, registry: String): ImportCatalogZipResult {
         val manifest = parsed.manifest
-        val existing = GetCatalog(command.tenantKey, catalogKey).query()
+        val catalogKey = catalog.key
+        val namespace = catalog.namespace
+        val existing = GetCatalog(catalog).query()
         if (existing != null && (existing.registry != registry || existing.namespace != namespace)) {
             throw CatalogImportConflictException(
                 "This tenant has a catalog '${catalogKey.value}' in ${existing.registry}/${existing.namespace}; the archive names $registry/$namespace/${catalogKey.value}, another catalog.",
@@ -284,6 +287,7 @@ class ImportCatalogZipHandler(
         }
 
         fun result(newly: Boolean) = ImportCatalogZipResult(
+            catalog = catalog,
             catalogKey = catalogKey,
             catalogName = manifest.catalog.name,
             results = manifest.resources.map { InstallResult(it.type, it.key, if (newly) InstallStatus.INSTALLED else InstallStatus.SKIPPED) },
@@ -303,10 +307,10 @@ class ImportCatalogZipHandler(
             }
         }
         val incomingHash by lazy { published?.takeIf(app.epistola.suite.catalog.CatalogCanonicalizer::isContentHash) ?: releaseIdentity.contentHashOf(publishedContent(manifest, bound, parsed.entries)) }
-        val present = existing?.let { ListCatalogReleaseSummaries(command.tenantKey, catalogKey).query().firstOrNull { it.version == version } }
+        val present = existing?.let { ListCatalogReleaseSummaries(catalog).query().firstOrNull { it.version == version } }
         if (present != null) {
             // The same release, by its content, whatever fingerprint either side was recorded with.
-            if (published == null || jdbi.withHandle<Boolean, Exception> { releaseIdentity.isRelease(it, command.tenantKey, catalogKey, version, incomingHash) }) return result(newly = false)
+            if (published == null || jdbi.withHandle<Boolean, Exception> { releaseIdentity.isRelease(it, catalog, version, incomingHash) }) return result(newly = false)
             throw CatalogReleaseTakenException(
                 "This tenant has ${catalogKey.value} $version with other content (fingerprint ${present.fingerprint}, the archive's $published); one number names one release.",
             )
@@ -320,7 +324,7 @@ class ImportCatalogZipHandler(
         if (missing.isNotEmpty() && !command.restoreRelease) throw CatalogImportDependenciesMissingException(catalogKey, version, missing)
         // The release is kept as it says it is (its id, rendering defaults, base), or refused before
         // anything is written.
-        receivedReleases.requireKeepable(command.tenantKey, catalogKey, manifest.release)
+        receivedReleases.requireKeepable(catalog, manifest.release)
 
         val highest = existing?.highestReleaseVersion?.let(SemVer::parseOrNull)
         val incoming = SemVer.parseOrNull(version)
@@ -328,10 +332,9 @@ class ImportCatalogZipHandler(
         // one, or any while the next version has changes of its own (ADR 0032), is recorded from the
         // archive as published; the next version stays, behind it.
         val older = highest != null && incoming != null && incoming < highest
-        if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChanges(command.tenantKey, catalogKey))) {
+        if (existing != null && (command.restoreRelease || older || nextVersionChanges.hasChanges(catalog))) {
             RecordInstalledRelease(
-                command.tenantKey,
-                catalogKey,
+                catalog,
                 published = publishedContent(manifest, bound, parsed.entries),
                 release = RecordedRelease(version, published),
                 received = manifest.release,
@@ -343,7 +346,7 @@ class ImportCatalogZipHandler(
             // Nothing was advanced: a catalog the tenant had stays on the release it had, and one this
             // import created is removed again, so a failed install leaves nothing behind and the retry
             // finds the key free (all or nothing).
-            if (existing == null) DeleteCatalog(command.tenantKey, catalogKey, force = true).execute()
+            if (existing == null) DeleteCatalog(catalog, force = true).execute()
             return imported.copy(releaseVersion = version, newlyInstalled = false, installedDependencies = installedDependencies, presentDependencies = presentDependencies)
         }
         return result(newly = true)
@@ -487,28 +490,18 @@ class ImportCatalogZipHandler(
      */
     private fun importArchive(command: ImportCatalogZip): ImportCatalogZipResult {
         val parsed = parse(command)
-        val namespace = parsed.manifest.catalog.namespace ?: return importArchive(command, parsed)
-        return CatalogNames.within(declaredNamespaces(parsed.manifest)) {
-            catalogNames.named(CatalogKey.of(parsed.manifest.catalog.key), namespace) { importArchive(command, parsed) }
-        }
+        return importArchive(command, parsed)
     }
-
-    /**
-     * The namespaces of the catalogs [manifest] declares, by the key its content names each by (its
-     * alias, which is its key here): what its references mean, whatever other namespace has a catalog
-     * with that key (ADR 0034, phase 4).
-     */
-    private fun declaredNamespaces(manifest: app.epistola.catalog.protocol.CatalogManifest): Map<String, String> = manifest.catalogDependencies.orEmpty()
-        .associate { dependency -> dependency.catalogKey to dependency.namespace }
 
     private fun importArchive(command: ImportCatalogZip, parsed: Parsed): ImportCatalogZipResult = CatalogImportContext.runAsImport {
         val (entries, manifest, catalogCtx) = parsed
         val catalogKey = CatalogKey.of(manifest.catalog.key)
+        val catalog = CatalogId(manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey), catalogKey, TenantId(command.tenantKey))
         val receiving = !command.intoDraft && !command.restore
         // #692: bound the manifest name to catalogs.name VARCHAR(255) before it is written.
         validateCatalogNameLength(manifest.catalog.name)
 
-        val existingCatalog = GetCatalog(command.tenantKey, catalogKey).query()
+        val existingCatalog = GetCatalog(catalog).query()
 
         // Re-pointing a mirror at a different upstream is never what an import means. Both sides
         // null (a plain ZIP over a ZIP-managed catalog) and an incoming null (a restore, which
@@ -554,10 +547,10 @@ class ImportCatalogZipHandler(
         // conflicts; MERGE keeps the version's other resources, so never prunes.)
         val prunesStale = receiving || (existingCatalog != null && command.fillMode == DraftFillMode.REPLACE)
         val staleBefore = if (prunesStale) {
-            val installed = analyzer.installedByType(command.tenantKey, catalogKey)
+            val installed = analyzer.installedByType(catalog)
             val stale = analyzer.computeStale(installed, manifestSlugs)
             if (stale.isNotEmpty()) {
-                val conflicts = analyzer.findConflicts(command.tenantKey, catalogKey, stale)
+                val conflicts = analyzer.findConflicts(catalog, stale)
                 if (conflicts.isNotEmpty()) throw CatalogUpgradeConflictException(conflicts)
             }
             stale
@@ -569,13 +562,11 @@ class ImportCatalogZipHandler(
         // with the source it came from; the database opens its next version.
         if (existingCatalog == null) {
             rows.insertCatalog(
-                command.tenantKey,
-                catalogKey,
+                catalog,
                 manifest.catalog.name,
                 manifest.catalog.description,
                 command.sourceUrl,
                 registry = manifest.catalog.registry ?: identity.defaultRegistry,
-                namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey),
             )
         }
 
@@ -623,11 +614,11 @@ class ImportCatalogZipHandler(
                 bound["${entry.type}/${entry.key}"] = resource
 
                 val status = installer.install(
-                    tenantKey = command.tenantKey,
-                    catalogKey = catalogKey,
+                    catalog = catalog,
                     resource = resource,
                     version = manifest.release.version,
                     binaries = entries::get,
+                    declarations = manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
                 )
                 InstallResult(type = entry.type, slug = entry.key, status = status)
             } catch (e: CatalogSchemaException) {
@@ -660,13 +651,12 @@ class ImportCatalogZipHandler(
                     failed.size,
                     failed.joinToString { "${it.type}/${it.slug}: ${it.errorMessage}" },
                 )
-                return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true)
+                return@runAsImport ImportCatalogZipResult(catalogKey, manifest.catalog.name, results, aborted = true, catalog = catalog)
             }
-            analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
+            analyzer.removeStale(catalog, staleBefore)
             // Moves the next version to the release (the database's trigger on installed_release_version).
             rows.updateInstalledState(
-                command.tenantKey,
-                catalogKey,
+                catalog,
                 manifest.release.version,
                 manifest.release.fingerprint,
                 fingerprints.storeBaseline(sourceResourceFingerprints(manifest, entries)),
@@ -674,17 +664,16 @@ class ImportCatalogZipHandler(
                 manifest.catalog.description,
                 catalogMetadataJson,
             )
-            jdbi.useHandle<Exception> { dependencyStore.replace(it, command.tenantKey, catalogKey, declared) }
-            rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
-            markReady(command.tenantKey, catalogKey, manifest.resources)
+            jdbi.useHandle<Exception> { dependencyStore.replace(it, catalog, declared) }
+            rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
+            markReady(catalog, manifest.resources)
             if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(command.tenantKey, catalogKey, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
+                RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
             }
         } else if (!anyFailed) {
             if (!command.intoDraft) {
                 rows.updateMetadata(
-                    command.tenantKey,
-                    catalogKey,
+                    catalog,
                     manifest.catalog.name,
                     manifest.catalog.description,
                     catalogMetadataJson,
@@ -693,18 +682,18 @@ class ImportCatalogZipHandler(
             // The archive's declarations, locked as it was cut. A restore's MERGE keeps those it does not name.
             jdbi.useHandle<Exception> { handle ->
                 val kept = if (existingCatalog != null && command.fillMode != DraftFillMode.REPLACE) {
-                    dependencyStore.declarations(handle, command.tenantKey, catalogKey).filter { local -> declared.none { it.identity == local.identity } }
+                    dependencyStore.declarations(handle, catalog).filter { local -> declared.none { it.identity == local.identity } }
                 } else {
                     emptyList()
                 }
-                dependencyStore.replace(handle, command.tenantKey, catalogKey, declared + kept)
+                dependencyStore.replace(handle, catalog, declared + kept)
             }
             // A merge into existing work keeps its theme settings; a fresh or replacing import, or one
             // filling a draft (a release copied into it), takes the archive's.
             if (existingCatalog == null || command.fillMode == DraftFillMode.REPLACE || command.intoDraft) {
-                rows.updateThemeSettings(command.tenantKey, catalogKey, manifest.catalog, objectMapper)
+                rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
             }
-            markReady(command.tenantKey, catalogKey, manifest.resources)
+            markReady(catalog, manifest.resources)
         }
 
         if (!receiving && existingCatalog != null && command.fillMode == DraftFillMode.REPLACE) {
@@ -718,7 +707,7 @@ class ImportCatalogZipHandler(
                     results.count { it.status == InstallStatus.FAILED },
                 )
             } else {
-                val removed = analyzer.removeStale(command.tenantKey, catalogKey, staleBefore)
+                val removed = analyzer.removeStale(catalog, staleBefore)
                 logger.info("REPLACE of '{}' — {} local-only resource(s) pruned", catalogKey.value, removed.size)
             }
         }
@@ -729,13 +718,14 @@ class ImportCatalogZipHandler(
         // updated_at: a no-op re-import advances this in lockstep and does NOT
         // register as drift; only a later edit does. With released_at
         // it is the GREATEST(released_at, imported_at) drift baseline.
-        if (!command.intoDraft) rows.touchImportedAt(command.tenantKey, catalogKey)
+        if (!command.intoDraft) rows.touchImportedAt(catalog)
 
         ImportCatalogZipResult(
             catalogKey = catalogKey,
             catalogName = manifest.catalog.name,
             results = results,
             published = publishedContent(manifest, bound, entries),
+            catalog = catalog,
         )
     }
 
@@ -743,11 +733,11 @@ class ImportCatalogZipHandler(
      * Marks [resources] ready in the version the transaction targets: what an archive brings is
      * released content, ready as it is (contract ADR 0002).
      */
-    private fun markReady(tenantKey: TenantKey, catalogKey: CatalogKey, resources: List<app.epistola.catalog.protocol.ResourceEntry>) {
+    private fun markReady(catalog: CatalogId, resources: List<app.epistola.catalog.protocol.ResourceEntry>) {
         jdbi.useHandle<Exception> { handle ->
             for (entry in resources) {
-                readyMarks.resourceId(handle, tenantKey, catalogKey, entry.type, entry.key)
-                    ?.let { readyMarks.mark(handle, tenantKey, it) }
+                readyMarks.resourceId(handle, catalog, entry.type, entry.key)
+                    ?.let { readyMarks.mark(handle, catalog.tenantKey, it) }
             }
         }
     }

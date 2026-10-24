@@ -40,7 +40,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
 
         assertThat(body).contains("nav-group-catalogs", "nav-group-documents", "nav-group-operations", "nav-group-settings")
         // The catalogs come first in their group; the system catalog, part of every tenant, is not among them.
-        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/letters/browse\" class=\"ws-nav-item\" data-catalog=\"letters\"")
+        assertThat(body).contains("href=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/browse\" class=\"ws-nav-item\" data-catalog=\"letters\"")
         assertThat(body).doesNotContain("data-catalog=\"system\" data-testid=\"ws-nav-catalog\"")
         // Parts live in a catalog's own nav, not here.
         assertThat(body).doesNotContain("nav-item-themes").doesNotContain("nav-item-code-lists")
@@ -69,7 +69,7 @@ class NavRenderHtmxTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.QUALITY, enabled = true).execute()
         }
 
-        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/letters/quality", String::class.java).body!!
+        val quality = restTemplate.getForEntity("/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/letters/quality", String::class.java).body!!
         assertThat(quality.substringAfter("data-testid=\"ws-crumb-catalog\"").substringBefore("</button>")).contains(">Letters<")
         assertThat(quality.replace(Regex("\\s+"), " ")).contains("class=\"ws-nav-item active\" data-testid=\"ws-nav-quality\"")
 

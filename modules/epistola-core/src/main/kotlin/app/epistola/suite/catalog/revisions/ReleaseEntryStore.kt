@@ -6,8 +6,10 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.catalog.protocol.ResourceEntry
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.LATEST_RELEASE_ORDER
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -53,18 +55,17 @@ class ReleaseEntryStore {
      */
     fun record(
         handle: Handle,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         content: CatalogContent,
         revisionDigests: Map<String, String>,
         fingerprints: Map<String, String>,
         registerNew: Boolean = false,
     ) {
-        val identities = loadIdentities(handle, tenantKey, catalogKey).toMutableMap()
+        val identities = loadIdentities(handle, catalog).toMutableMap()
         if (registerNew) {
             content.resourceEntries.filter { "${it.type}/${it.key}" !in identities }.forEach { entry ->
-                identities["${entry.type}/${entry.key}"] = register(handle, tenantKey, catalogKey, entry.type, entry.key)
+                identities["${entry.type}/${entry.key}"] = register(handle, catalog, entry.type, entry.key)
             }
         }
 
@@ -75,7 +76,7 @@ class ReleaseEntryStore {
             // invariant, and a release is exactly where it should be noticed rather than recorded
             // as a null nobody can trace later.
             val resourceId = requireNotNull(identities[key]) {
-                "No identity registered for $key in catalog ${catalogKey.value}; cannot record it in a release"
+                "No identity registered for $key in catalog ${catalog.key.value}; cannot record it in a release"
             }
             handle.createUpdate(
                 """
@@ -86,8 +87,8 @@ class ReleaseEntryStore {
                 VALUES (:t, ${catalogAt("t", "c")}, :version, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("version", version)
                 .bind("type", entry.type)
                 .bind("key", entry.key)
@@ -101,7 +102,7 @@ class ReleaseEntryStore {
     }
 
     /** The entries of one release, in the order a manifest lists them. */
-    fun entriesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): List<ReleaseEntry> = handle
+    fun entriesOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseEntry> = handle
         .createQuery(
             """
             SELECT resource_type, resource_key, resource_id, revision_digest, fingerprint, name, description
@@ -110,8 +111,8 @@ class ReleaseEntryStore {
             ORDER BY resource_type, resource_key
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("version", version)
         .map { rs, _ ->
             ReleaseEntry(
@@ -127,7 +128,7 @@ class ReleaseEntryStore {
         .list()
 
     /** The released versions of a catalog, newest first. */
-    fun versions(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<String> = handle
+    fun versions(handle: Handle, catalog: CatalogId): List<String> = handle
         .createQuery(
             """
             SELECT r.version
@@ -136,13 +137,13 @@ class ReleaseEntryStore {
             $LATEST_RELEASE_ORDER
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .mapTo(String::class.java)
         .list()
 
     /** The latest release of [catalogKey], or null when it has none. */
-    fun latestRelease(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): String? = handle
+    fun latestRelease(handle: Handle, catalog: CatalogId): String? = handle
         .createQuery(
             """
             SELECT version FROM catalog_releases
@@ -151,29 +152,29 @@ class ReleaseEntryStore {
             LIMIT 1
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .mapTo(String::class.java)
         .findOne()
         .orElse(null)
 
     /** Every catalog of the tenant that has a release, with its latest release. */
-    fun latestReleases(handle: Handle, tenantKey: TenantKey): Map<CatalogKey, String> = handle
+    fun latestReleases(handle: Handle, tenantKey: TenantKey): Map<CatalogId, String> = handle
         .createQuery(
             """
-            SELECT DISTINCT ON (cat.catalog_key) cat.catalog_key, r.version FROM catalog_releases r
+            SELECT DISTINCT ON (r.catalog_id) cat.namespace, cat.catalog_key, r.version FROM catalog_releases r
             JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t
-            ORDER BY cat.catalog_key, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
+            ORDER BY r.catalog_id, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
         .bind("t", tenantKey)
-        .map { rs, _ -> CatalogKey.of(rs.getString("catalog_key")) to rs.getString("version") }
+        .map { rs, _ -> CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), app.epistola.suite.common.ids.TenantId(tenantKey)) to rs.getString("version") }
         .list()
         .toMap()
 
     /** A new identity at [type]/[key] of [catalogKey], which a release holds and no version does. */
-    private fun register(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, type: String, key: String): UUID = handle
+    private fun register(handle: Handle, catalog: CatalogId, type: String, key: String): UUID = handle
         .createQuery(
             """
             INSERT INTO catalog_resources (tenant_key, resource_id, resource_type, catalog_id, resource_key)
@@ -181,14 +182,14 @@ class ReleaseEntryStore {
             RETURNING resource_id
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("type", type)
         .bind("key", key)
         .mapTo(UUID::class.java)
         .one()
 
-    private fun loadIdentities(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, UUID> = handle
+    private fun loadIdentities(handle: Handle, catalog: CatalogId): Map<String, UUID> = handle
         .createQuery(
             """
             SELECT resource_type, resource_key, resource_id
@@ -196,8 +197,8 @@ class ReleaseEntryStore {
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map { rs, _ ->
             "${rs.getString("resource_type")}/${rs.getString("resource_key")}" to rs.getObject("resource_id", UUID::class.java)
         }

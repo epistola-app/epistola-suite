@@ -29,6 +29,7 @@ import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -66,7 +67,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
         val catalog = releasedLetterWithThreeVariants("cost-levels")
 
         val revisionReads = countStatements("FROM resource_revisions") {
-            assembler.readResource(catalog.tenantKey, catalog.key, "1.0.0", "template", "letter")
+            assembler.readResource(testCatalog(catalog.tenantKey, catalog.key), "1.0.0", "template", "letter")
         }
 
         // The template's own revision, then every variant model it references, together.
@@ -79,10 +80,10 @@ class ReleaseReadCostTest : IntegrationTestBase() {
         val tenant = withMediator { GetTenant(catalog.tenantKey).query()!! }
 
         val templateLookups = countStatements("SELECT revision_digest FROM release_entries") {
-            val target = resolver.resolveLatest(catalog.tenantKey, catalog.key, TemplateKey.of("letter"), VariantKey.of("nld"), criteria = null)
+            val target = resolver.resolveLatest(testCatalog(catalog.tenantKey, catalog.key), TemplateKey.of("letter"), VariantKey.of("nld"), criteria = null)
             source.resolve(tenant, target.release, "letter", target.variantKey.value)
             // A second request against the same release.
-            resolver.resolveLatest(catalog.tenantKey, catalog.key, TemplateKey.of("letter"), VariantKey.of("eng"), criteria = null)
+            resolver.resolveLatest(testCatalog(catalog.tenantKey, catalog.key), TemplateKey.of("letter"), VariantKey.of("eng"), criteria = null)
         }
 
         assertThat(templateLookups).isEqualTo(1)
@@ -115,7 +116,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
     /** `letter` with its default variant plus `nld` and `eng`, all three published, released as 1.0.0. */
     private fun releasedLetterWithThreeVariants(slug: String): CatalogId = withMediator {
         val tenantKey = createTenant(slug).id
-        val catalog = CatalogId(CatalogKey.of(slug), TenantId(tenantKey))
+        val catalog = testCatalog(TenantId(tenantKey), CatalogKey.of(slug))
         CreateCatalog(tenantKey = tenantKey, id = catalog.key, name = slug).execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("lang"), catalog),
@@ -131,8 +132,8 @@ class ReleaseReadCostTest : IntegrationTestBase() {
             UpdateVariantContent(id, TestTemplateBuilder.buildMinimal(name = "Letter ${variant.value}")).execute()
             MarkVariantReady(id).execute()
         }
-        MarkCatalogReady(tenantKey, catalog.key).execute()
-        ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenantKey, catalog.key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalog.key), version = "1.0.0").execute()
         catalog
     }
 }

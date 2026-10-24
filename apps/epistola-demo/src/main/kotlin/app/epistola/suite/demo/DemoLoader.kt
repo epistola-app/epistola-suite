@@ -127,7 +127,7 @@ class DemoLoader(
         val tenantKey = TenantKey.of(DEMO_TENANT_ID)
         transactionTemplate.executeWithoutResult {
             val result = mediator.send(EnsureSubscribedCatalog(tenantKey = tenantKey, sourceUrl = DEMO_CATALOG_URL))
-            mediator.deployDemoCatalog(tenantKey, result.catalogKey, result.newVersion)
+            mediator.deployDemoCatalog(result.catalog, result.newVersion)
             log.info(
                 "Demo catalog {} ({}): {} -> {}",
                 result.catalogKey.value,
@@ -178,7 +178,7 @@ class DemoLoader(
         val tenantKey = TenantKey.of(DEMO_TENANT_ID)
         val templateId = TemplateId(
             TemplateKey.of(SHOWCASE_TEMPLATE_KEY),
-            CatalogId(CatalogKey.of(DEMO_CATALOG_KEY), TenantId(tenantKey)),
+            CatalogId(DEMO_CATALOG_NAMESPACE, CatalogKey.of(DEMO_CATALOG_KEY), TenantId(tenantKey)),
         )
         val variantId = VariantId(VariantKey.of(SHOWCASE_VARIANT_KEY), templateId)
 
@@ -281,6 +281,9 @@ class DemoLoader(
         /** Also seeded into every personal tenant by [DemoLoginMembershipResolver]. */
         const val DEMO_CATALOG_URL = "classpath:epistola/catalogs/demo/catalog.json"
         private const val DEMO_CATALOG_KEY = "epistola-demo"
+
+        /** The namespace the demo catalog's manifest names it in. */
+        private const val DEMO_CATALOG_NAMESPACE = "epistola"
 
         /** The shared demo tenant every demo user also gets read/write on — see [DemoLoginMembershipResolver]. */
         const val DEMO_TENANT_ID = "demo"

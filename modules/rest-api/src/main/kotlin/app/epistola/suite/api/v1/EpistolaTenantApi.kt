@@ -197,7 +197,7 @@ class EpistolaTenantApi(
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
             val readOnly = at.catalog.readOnlyHere()
-            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
+            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query()
                 .map { it.toDto(at.catalog, readOnly) }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
@@ -299,7 +299,7 @@ class EpistolaTenantApi(
 
     private fun ResolvedCatalogRelease.attributeId(key: String) = AttributeId(AttributeKey.of(key), catalogId)
 
-    private fun ResolvedCatalogRelease.attributeNotFound(key: String) = AttributeNotFoundException(catalog.tenantKey, catalogKey, AttributeKey.of(key))
+    private fun ResolvedCatalogRelease.attributeNotFound(key: String) = AttributeNotFoundException(catalogId, AttributeKey.of(key))
 
     /**
      * The code list a binding names: in the attribute's own catalog when it names no alias or the
@@ -308,13 +308,13 @@ class EpistolaTenantApi(
      */
     private fun ResolvedCatalogRelease.codeListAt(alias: String?, key: String): CodeListId {
         if (alias == null || alias == catalogKey.value) return CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
-        val declared = ListCatalogDependencies(tenantKey, catalogKey, catalogVersion = ref).query().firstOrNull { it.alias == alias }
+        val declared = ListCatalogDependencies(catalogId, catalogVersion = ref).query().firstOrNull { it.alias == alias }
             ?: throw ValidationException(
                 "codeListBinding.catalogKey",
                 "'$alias' is not an alias this draft declares a dependency under: declare the catalog the code list is in first (updateCatalogDependencies)",
                 ValidationCode.CATALOG_DEPENDENCY_UNRESOLVED,
             )
-        return CodeListId(key = CodeListKey.of(key), catalogId = app.epistola.suite.common.ids.CatalogId(CatalogKey.of(declared.catalogKey), TenantId(tenantKey)))
+        return CodeListId(key = CodeListKey.of(key), catalogId = declared.catalogIn(tenantKey))
     }
 
     private fun VariantAttributeDefinition.toDto(at: ResolvedCatalogRelease) = toDto(at.catalog)
@@ -417,7 +417,7 @@ class EpistolaTenantApi(
         replace: Boolean,
     ): ResponseEntity<DeploymentDto> {
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        val deployment = DeployCatalogRelease(environmentId(tenantKey, environmentKey), catalog.id, release, includeDependencies, replace = replace).execute()
+        val deployment = DeployCatalogRelease(environmentId(tenantKey, environmentKey), catalog.catalogId, release, includeDependencies, replace = replace).execute()
         return ResponseEntity.ok(deployment.toDto(catalog.catalogName))
     }
 
@@ -432,7 +432,7 @@ class EpistolaTenantApi(
     ): ResponseEntity<Unit> {
         val environment = existingEnvironment(tenantKey, environmentKey)
         val catalog = catalogAt(tenantKey, registry, namespace, catalogKey)
-        if (!UndeployCatalogRelease(environment, catalog.id, release).execute()) {
+        if (!UndeployCatalogRelease(environment, catalog.catalogId, release).execute()) {
             throw NoReleaseDeployedException(environment.tenantKey, environment.key, catalog.id, release)
         }
         return ResponseEntity.noContent().build()

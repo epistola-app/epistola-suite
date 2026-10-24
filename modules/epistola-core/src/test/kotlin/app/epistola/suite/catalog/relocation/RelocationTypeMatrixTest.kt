@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.queries.GetTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.params.ParameterizedTest
@@ -94,10 +95,10 @@ class RelocationTypeMatrixTest : RelocationTestSupport() {
                         .containsExactlyInAnyOrder("nl", "en")
 
                 MovableResource.ASSET ->
-                    assertThat(GetAssetContent(tenant, AssetKey.of(target.key), CatalogKey.of(target.catalogKey)).query()).isNotNull()
+                    assertThat(GetAssetContent(tenant, AssetKey.of(target.key), target.catalogIn(tenant)).query()).isNotNull()
 
                 MovableResource.FONT ->
-                    assertThat(ResolveFontFace(tenant, CatalogKey.of(target.catalogKey), FontKey.of(target.key), 400, italic = false).query()?.content)
+                    assertThat(ResolveFontFace(testCatalog(tenant, CatalogKey.of(target.catalogKey)), FontKey.of(target.key), 400, italic = false).query()?.content)
                         .isEqualTo(ttfBytes())
 
                 MovableResource.THEME ->

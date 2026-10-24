@@ -7,12 +7,14 @@ package app.epistola.suite.catalog.snapshot
 import app.epistola.catalog.protocol.DependencyRef
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -68,29 +70,32 @@ class BuildTenantSnapshotHandler(
             ListCatalogs(command.tenantKey)
                 .query()
                 .filter { it.id != SYSTEM_CATALOG_KEY }
-                .sortedBy { it.id.value }
+                .sortedWith(compareBy({ it.id.value }, { it.namespace }))
 
         val entries = mutableListOf<SnapshotCatalogEntry>()
         val innerZips = LinkedHashMap<String, ByteArray>()
 
         for (catalog in catalogs) {
+            // Each catalog by its address (schema 4): two catalogs with one key are two entries (ADR 0034).
+            val id = catalog.catalogId
             // The stable content fingerprint (excludes release.*/timestamps), same value
             // ExportCatalogZip embeds in catalog.json — read directly so dedup is deterministic.
-            val content = contentBuilder.build(command.tenantKey, catalog.id)
+            val content = contentBuilder.build(id)
             val fingerprint = fingerprintService.fingerprint(content)
-            val export = ExportCatalogZip(command.tenantKey, catalog.id, workingCopy = true).execute()
-            val zipPath = "catalogs/${catalog.id.value}.zip"
+            val export = ExportCatalogZip(id, workingCopy = true).execute()
+            val zipPath = "catalogs/${catalog.namespace}/${catalog.id.value}.zip"
             innerZips[zipPath] = export.zipBytes
-            val releases = releasesOf(command.tenantKey, catalog.id).map { release ->
+            val releases = releasesOf(id).map { release ->
                 // A release keeps its content since 2.0; one from before cannot be exported, and is
                 // carried by what it is only.
-                val archive = runCatching { ExportCatalogZip(command.tenantKey, catalog.id, release.version).execute().zipBytes }.getOrNull()
-                val path = archive?.let { "catalogs/${catalog.id.value}/releases/${release.version}.zip".also { p -> innerZips[p] = it } }
+                val archive = runCatching { ExportCatalogZip(id, release.version).execute().zipBytes }.getOrNull()
+                val path = archive?.let { "catalogs/${catalog.namespace}/${catalog.id.value}/releases/${release.version}.zip".also { p -> innerZips[p] = it } }
                 release.copy(zipPath = path)
             }
             entries.add(
                 SnapshotCatalogEntry(
                     catalogKey = catalog.id.value,
+                    namespace = catalog.namespace,
                     name = catalog.name,
                     type = if (catalog.hasSource) "SUBSCRIBED" else "AUTHORED",
                     catalogFingerprint = fingerprint,
@@ -98,9 +103,10 @@ class BuildTenantSnapshotHandler(
                     zipPath = zipPath,
                     zipSizeBytes = export.zipBytes.size.toLong(),
                     dependsOnCatalogKeys = crossCatalogDependencies(content, catalog.id.value),
+                    dependsOnCatalogs = content.catalogDependencies.orEmpty().map { "${it.namespace}/${it.catalogKey}" }.filter { it != "${catalog.namespace}/${catalog.id.value}" }.distinct(),
                     source = catalog.sourceUrl?.let { SnapshotCatalogSource(it, catalog.sourceAuthType.name) },
                     installed = catalog.installedReleaseVersion?.let { SnapshotInstalledRelease(it, catalog.installedFingerprint) },
-                    nextBase = nextBaseOf(command.tenantKey, catalog.id),
+                    nextBase = nextBaseOf(id),
                     releases = releases,
                 ),
             )
@@ -119,7 +125,7 @@ class BuildTenantSnapshotHandler(
             )
 
         // Read after the catalogs, so it covers exactly what the archive carries.
-        val identities = identityStore.read(command.tenantKey, entries.map { it.catalogKey }.toSet())
+        val identities = identityStore.read(command.tenantKey, catalogs.map { it.catalogId }.toSet())
 
         val bytes = buildArchive(manifest, identities, innerZips)
         return TenantSnapshot(
@@ -154,23 +160,25 @@ class BuildTenantSnapshotHandler(
 
     /**
      * Rolled-up tenant fingerprint: SHA-256 over the per-catalog content fingerprints and their
-     * releases' fingerprints, sorted by catalog key. Cheap (no re-hashing of bytes), order-stable,
+     * releases' fingerprints, sorted by catalog address. Cheap (no re-hashing of bytes), order-stable,
      * and changes iff a catalog's content changes, a release is cut, received or deleted, or a
      * catalog is added/removed.
      */
     private fun rollUpFingerprint(entries: List<SnapshotCatalogEntry>): String {
         val digest = MessageDigest.getInstance("SHA-256")
         entries
-            .sortedBy { it.catalogKey }
+            .sortedWith(compareBy({ it.catalogKey }, { it.namespace }))
             .forEach { entry ->
-                digest.update("${entry.catalogKey}:${entry.catalogFingerprint}\n".toByteArray(Charsets.UTF_8))
-                entry.releases.forEach { digest.update("${entry.catalogKey}@${it.version}:${it.fingerprint}\n".toByteArray(Charsets.UTF_8)) }
+                // A tenant's only catalog with a key keeps the line it always had, so its fingerprint does not change.
+                val name = if (entries.count { it.catalogKey == entry.catalogKey } > 1) entry.address else entry.catalogKey
+                digest.update("$name:${entry.catalogFingerprint}\n".toByteArray(Charsets.UTF_8))
+                entry.releases.forEach { digest.update("$name@${it.version}:${it.fingerprint}\n".toByteArray(Charsets.UTF_8)) }
             }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /** The catalog's releases, lowest number first, as `catalog_releases` records them. */
-    private fun releasesOf(tenantKey: TenantKey, catalogKey: CatalogKey): List<SnapshotRelease> = jdbi.withHandle<List<SnapshotRelease>, Exception> { handle ->
+    private fun releasesOf(catalog: CatalogId): List<SnapshotRelease> = jdbi.withHandle<List<SnapshotRelease>, Exception> { handle ->
         handle.createQuery(
             """
             SELECT version, version_key, fingerprint, base_version, base_fingerprint, released_at, released_by, notes
@@ -179,8 +187,8 @@ class BuildTenantSnapshotHandler(
             ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder(descending = false)}
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ ->
                 SnapshotRelease(
                     version = rs.getString("version"),
@@ -197,12 +205,12 @@ class BuildTenantSnapshotHandler(
     }
 
     /** The release the catalog's next release is on, or null. */
-    private fun nextBaseOf(tenantKey: TenantKey, catalogKey: CatalogKey): String? = jdbi.withHandle<String?, Exception> { handle ->
+    private fun nextBaseOf(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
             "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND is_next",
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .mapTo(String::class.java)
             .findOne()
             .orElse(null)
@@ -235,6 +243,6 @@ class BuildTenantSnapshotHandler(
     }
 
     private companion object {
-        const val SNAPSHOT_SCHEMA_VERSION = 3
+        const val SNAPSHOT_SCHEMA_VERSION = 4
     }
 }

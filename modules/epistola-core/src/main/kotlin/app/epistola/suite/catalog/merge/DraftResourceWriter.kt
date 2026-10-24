@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.graph.TenantResourceGraphBuilder
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.SetCatalogDefaultTheme
 import app.epistola.suite.catalog.releases.SetCatalogPresets
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -48,6 +49,7 @@ class DraftResourceWriter(
     private val analyzer: CatalogUpgradeAnalyzer,
     private val graph: TenantResourceGraphBuilder,
     private val dependencyStore: CatalogDependencyStore,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
 ) {
 
     /**
@@ -58,7 +60,7 @@ class DraftResourceWriter(
      * @throws ValidationException when merged content breaks a rule of this suite, its field naming the
      *   entry (`mergedContent.<type/key>…`).
      */
-    fun apply(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftLabel: String, actions: Map<String, MergeAction>): DraftWrites = CatalogImportContext.runAsImport {
+    fun apply(catalog: CatalogId, release: String, draftLabel: String, actions: Map<String, MergeAction>): DraftWrites = CatalogImportContext.runAsImport {
         val writes = actions.mapNotNull { (key, action) -> (action as? MergeAction.Write)?.let { key to it.value } }
         // Merged content, written as given: not marked ready, and what breaks a rule here is its to fix.
         val merged = actions.filterValues { it is MergeAction.Write && !it.ready }.keys
@@ -69,11 +71,11 @@ class DraftResourceWriter(
         val (droppedDependencies, removals) = removed.partition(CatalogSetting::isSettingKey)
         val (dependencies, otherSettings) = settings.partition { (_, setting) -> setting is CatalogSetting.Dependency }
 
-        resources.forEach { (key, value) -> write(tenantKey, catalogKey, release, key, value, merged = key in merged) }
-        remove(tenantKey, catalogKey, release, draftLabel, removals)
+        resources.forEach { (key, value) -> write(catalog, release, key, value, merged = key in merged) }
+        remove(catalog, release, draftLabel, removals)
         // Declarations before the default theme, which may name a theme of a catalog they declare.
-        writeDependencies(tenantKey, catalogKey, release, dependencies.map { it.second as CatalogSetting.Dependency }, droppedDependencies)
-        otherSettings.forEach { (key, setting) -> writeSetting(tenantKey, catalogKey, release, key, setting, merged = key in merged) }
+        writeDependencies(catalog, release, dependencies.map { it.second as CatalogSetting.Dependency }, droppedDependencies)
+        otherSettings.forEach { (key, setting) -> writeSetting(catalog, release, key, setting, merged = key in merged) }
 
         DraftWrites(written = resources.map { it.first } + settings.map { it.first }, removed = removed)
     }
@@ -83,19 +85,19 @@ class DraftResourceWriter(
      * of the draft's declaration of that catalog, or added after the others) and [dropped]
      * (`catalogDependency/<catalogKey>`) removed, in one replacement, so a cycle is refused once.
      */
-    private fun writeDependencies(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, taken: List<CatalogSetting.Dependency>, dropped: List<String>) {
+    private fun writeDependencies(catalog: CatalogId, release: String, taken: List<CatalogSetting.Dependency>, dropped: List<String>) {
         if (taken.isEmpty() && dropped.isEmpty()) return
         val gone = dropped.map { it.substringAfter('/') }.toSet()
         val byCatalog = taken.associate { it.declaration.catalogKey to it.declaration }
         try {
             jdbi.useHandle<Exception> { handle ->
-                val current = dependencyStore.declarations(handle, tenantKey, catalogKey)
+                val current = dependencyStore.declarations(handle, catalog)
                 val kept = current.filter { it.catalogKey !in gone }.map { byCatalog[it.catalogKey] ?: it }
                 val added = taken.map { it.declaration }.filter { declaration -> current.none { it.catalogKey == declaration.catalogKey } }
-                dependencyStore.replace(handle, tenantKey, catalogKey, kept + added)
+                dependencyStore.replace(handle, catalog, kept + added)
             }
         } catch (e: ValidationException) {
-            throw MergeRefusedException(catalogKey, "Could not take the catalogs $release uses: ${e.message}")
+            throw MergeRefusedException(catalog.key, "Could not take the catalogs $release uses: ${e.message}")
         }
     }
 
@@ -103,23 +105,23 @@ class DraftResourceWriter(
      * Writes one resource as [value] holds it, and marks it ready; [merged] content is left not
      * ready instead, to be reviewed, and a rule of this suite it breaks refuses it as invalid.
      */
-    private fun write(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, value: MergeValue.Resource, merged: Boolean) {
+    private fun write(catalog: CatalogId, release: String, key: String, value: MergeValue.Resource, merged: Boolean) {
         check(key == "${value.resource.type}/${value.resource.key}") { "$key holds ${value.resource.type}/${value.resource.key}" }
         try {
-            installer.install(tenantKey, catalogKey, value.resource, release, value.binaries::get)
+            installer.install(catalog, value.resource, release, value.binaries::get)
         } catch (e: MergeRefusedException) {
             throw e
         } catch (e: ValidationException) {
             if (merged) throw ValidationException(mergedField(key, e.field), "The merged content of $key is not valid: ${e.message}", e.code)
-            throw MergeRefusedException(catalogKey, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
+            throw MergeRefusedException(catalog.key, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
         } catch (e: RuntimeException) {
             if (merged) throw ValidationException(mergedField(key, null), "The merged content of $key could not be written: ${e.message}")
-            throw MergeRefusedException(catalogKey, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
+            throw MergeRefusedException(catalog.key, "Could not take ${value.resource.type} '${value.resource.key}': ${e.message}")
         }
         jdbi.useHandle<Exception> { handle ->
-            val id = readyMarks.resourceId(handle, tenantKey, catalogKey, value.resource.type, value.resource.key) ?: return@useHandle
+            val id = readyMarks.resourceId(handle, catalog, value.resource.type, value.resource.key) ?: return@useHandle
             // The installer marks what it writes ready, as an import's content is released content.
-            if (merged) readyMarks.clear(handle, tenantKey, id) else readyMarks.mark(handle, tenantKey, id)
+            if (merged) readyMarks.clear(handle, catalog.tenantKey, id) else readyMarks.mark(handle, catalog.tenantKey, id)
         }
     }
 
@@ -129,45 +131,54 @@ class DraftResourceWriter(
      * reference points at an identity, so removing the row would leave it pointing at nothing
      * instead of failing.
      */
-    private fun remove(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftLabel: String, keys: List<String>) {
+    private fun remove(catalog: CatalogId, release: String, draftLabel: String, keys: List<String>) {
         if (keys.isEmpty()) return
         val removed = keys.map { it.substringBefore('/') to it.substringAfter('/') }
         val stale = removed.map { (type, key) -> InstalledResource(type, key) }
-        val inUse = analyzer.findConflicts(tenantKey, catalogKey, stale)
-        if (inUse.isNotEmpty()) throw MergeRefusedException(catalogKey, "$release removes what is still used: ${inUse.joinToString("; ")}")
+        val inUse = analyzer.findConflicts(catalog, stale)
+        if (inUse.isNotEmpty()) throw MergeRefusedException(catalog.key, "$release removes what is still used: ${inUse.joinToString("; ")}")
         val gone = removed.toSet()
-        val users = jdbi.withHandle<_, Exception> { graph.buildOn(it, tenantKey, includeHistory = false) }.edges.filter { edge ->
+        val users = jdbi.withHandle<_, Exception> { graph.buildOn(it, catalog.tenantKey, includeHistory = false) }.edges.filter { edge ->
             val target = edge.target ?: return@filter false
-            target.catalogKey == catalogKey.value &&
+            target.catalogAddress == catalog.address &&
                 (target.type.wireName to target.key) in gone &&
-                edge.source.catalogKey == catalogKey.value &&
+                edge.source.catalogAddress == catalog.address &&
                 (edge.source.type.wireName to edge.source.key) !in gone
         }
         if (users.isNotEmpty()) {
-            throw stillUsed(catalogKey, release, draftLabel, users.map { "${it.target!!.type.wireName} '${it.target.key}' (used by ${it.source.type.wireName} '${it.source.key}')" }.distinct())
+            throw stillUsed(catalog.key, release, draftLabel, users.map { "${it.target!!.type.wireName} '${it.target.key}' (used by ${it.source.type.wireName} '${it.source.key}')" }.distinct())
         }
         try {
-            analyzer.removeStale(tenantKey, catalogKey, stale)
+            analyzer.removeStale(catalog, stale)
         } catch (e: JdbiException) {
             // A reference the database itself refuses to leave behind (an attribute's code list).
-            throw stillUsed(catalogKey, release, draftLabel, removed.map { (type, key) -> "$type '$key'" })
+            throw stillUsed(catalog.key, release, draftLabel, removed.map { (type, key) -> "$type '$key'" })
         }
     }
 
     /** Writes one catalog setting as the release has it, or as [merged] content gives it. */
-    private fun writeSetting(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, key: String, setting: CatalogSetting, merged: Boolean) {
+    private fun writeSetting(catalog: CatalogId, release: String, key: String, setting: CatalogSetting, merged: Boolean) {
         try {
             when (setting) {
                 // The merge's declarations stand as merged: a theme whose catalog they lack is refused after.
-                is CatalogSetting.DefaultTheme -> SetCatalogDefaultTheme(tenantKey, catalogKey, setting.theme, declaresCatalog = false).execute()
+                is CatalogSetting.DefaultTheme -> SetCatalogDefaultTheme(
+                    catalog,
+                    setting.theme?.let { theme ->
+                        // The catalog its alias names, by the declarations just merged (ADR 0034, section 9).
+                        val themeCatalog = references.resolve(catalog, theme.catalogKey.value)
+                            ?: throw ValidationException("defaultTheme", "Theme '${theme.catalogKey.value}/${theme.themeKey.value}' is of a catalog this draft does not use")
+                        app.epistola.suite.catalog.releases.CatalogDefaultTheme(theme.themeKey, themeCatalog)
+                    },
+                    declaresCatalog = false,
+                ).execute()
 
-                is CatalogSetting.Presets -> SetCatalogPresets(tenantKey, catalogKey, setting.presets).execute()
+                is CatalogSetting.Presets -> SetCatalogPresets(catalog, setting.presets).execute()
 
                 is CatalogSetting.Dependency -> error("dependencies are written together")
             }
         } catch (e: ValidationException) {
             if (merged) throw ValidationException(mergedField(key, e.field), "The merged content of $key is not valid: ${e.message}", e.code)
-            throw MergeRefusedException(catalogKey, "Could not take ${setting.label.lowercase()} ($key) of $release: ${e.message}")
+            throw MergeRefusedException(catalog.key, "Could not take ${setting.label.lowercase()} ($key) of $release: ${e.message}")
         }
     }
 

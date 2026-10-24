@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogUpstreamCheckProperties
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
 import app.epistola.suite.catalog.CatalogUpstreamProbe
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -39,11 +40,12 @@ import org.springframework.stereotype.Component
  * `SelfManagedTransaction` because the source is called mid-command over the network.
  */
 data class CheckCatalogUpstream(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Command<CatalogUpstreamCheck?>,
     RequiresPermission,
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -55,7 +57,7 @@ class CheckCatalogUpstreamHandler(
 ) : CommandHandler<CheckCatalogUpstream, CatalogUpstreamCheck?> {
 
     override fun handle(command: CheckCatalogUpstream): CatalogUpstreamCheck? {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
         if (catalog.sourceUrl == null) {
             // A catalog imported from a ZIP has no upstream to ask. Not an error — there is simply
@@ -71,20 +73,19 @@ class CheckCatalogUpstreamHandler(
 
         // The row may not exist yet: catalogs subscribed before this feature, and any created by a
         // path that does not record an install, are only tracked once somebody asks.
-        store.ensureTracked(command.tenantKey, command.catalogKey)
+        store.ensureTracked(command.catalog)
         try {
-            store.recordSuccess(command.tenantKey, command.catalogKey, probe.probe(catalog), properties.interval)
+            store.recordSuccess(command.catalog, probe.probe(catalog), properties.interval)
         } catch (e: CatalogUpstreamCheckException) {
-            store.recordFailure(command.tenantKey, command.catalogKey, e.failure, e.detail, properties.interval)
+            store.recordFailure(command.catalog, e.failure, e.detail, properties.interval)
         } catch (e: Exception) {
             store.recordFailure(
-                command.tenantKey,
-                command.catalogKey,
+                command.catalog,
                 CatalogUpstreamCheckFailure.PROTOCOL_ERROR,
                 e.message,
                 properties.interval,
             )
         }
-        return store.stateFor(command.tenantKey, command.catalogKey)
+        return store.stateFor(command.catalog)
     }
 }

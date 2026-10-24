@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -25,7 +26,7 @@ class GetCatalogDependencyGraphTest : IntegrationTestBase() {
     @Test
     fun `every catalog is a node and each declared dependency an edge, tied to its release`() {
         val tenant = createTenant("Dependency Graph").id
-        val shared = CatalogId(CatalogKey.of("shared"), TenantId(tenant))
+        val shared = testCatalog(TenantId(tenant), CatalogKey.of("shared"))
         val letters = CatalogKey.of("letters")
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared.key, name = "Shared").execute()

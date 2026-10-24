@@ -7,6 +7,7 @@ package app.epistola.suite.themes.queries
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -25,19 +26,21 @@ import org.springframework.stereotype.Component
  * editor resolves it in the catalog version it edits. Null when no theme applies.
  */
 data class ResolveTemplateTheme(
-    override val tenantKey: TenantKey,
+    /** The template's catalog: its variant's theme is named by alias from it, and its draft's declarations say where another catalog's theme comes from. */
+    val catalog: CatalogId,
     val templateDefaultThemeId: ThemeKey?,
     val catalogDefaultThemeId: ThemeKey?,
     val templateModel: TemplateDocument,
-    val templateCatalogKey: CatalogKey? = null,
-    val catalogDefaultThemeCatalogKey: CatalogKey? = null,
-    /** The template's catalog, whose draft's declarations say where another catalog's theme comes from. */
-    val catalogKey: CatalogKey? = null,
+    /** The catalog of [templateDefaultThemeId]; null for [catalog]. */
+    val templateThemeCatalog: CatalogId? = null,
+    /** The catalog of [catalogDefaultThemeId]; null for [catalog]. */
+    val catalogDefaultThemeCatalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<Theme?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
     override val permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -47,12 +50,12 @@ class ResolveTemplateThemeHandler(
     private val dependencyViews: DraftDependencyViews,
 ) : QueryHandler<ResolveTemplateTheme, Theme?> {
     override fun handle(query: ResolveTemplateTheme): Theme? = resolver.resolveTheme(
-        tenantId = query.tenantKey,
+        templateCatalog = query.catalog,
         templateDefaultThemeId = query.templateDefaultThemeId,
         catalogDefaultThemeId = query.catalogDefaultThemeId,
         templateModel = query.templateModel,
-        templateCatalogKey = query.templateCatalogKey,
-        catalogDefaultThemeCatalogKey = query.catalogDefaultThemeCatalogKey,
-        dependencies = (query.catalogKey ?: query.catalogVersion?.catalogKey)?.let { dependencyViews.of(query.tenantKey, it) },
+        templateThemeCatalog = query.templateThemeCatalog,
+        catalogDefaultThemeCatalog = query.catalogDefaultThemeCatalog,
+        dependencies = dependencyViews.of(query.catalog),
     )
 }

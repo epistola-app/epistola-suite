@@ -4,6 +4,7 @@
 
 package app.epistola.suite.testing
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
@@ -147,8 +148,8 @@ class FakeDocumentGenerationExecutor(
                     )
                     VALUES (
                         :id, :tenantId, :catalogKey,
-                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
-                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
                         :templateId, :variantId, :versionId, :releaseVersion,
                         :filename, :correlationId, 'application/pdf', :sizeBytes,
                         :createdAt, :createdBy
@@ -157,7 +158,7 @@ class FakeDocumentGenerationExecutor(
                 )
                     .bind("id", documentId)
                     .bind("tenantId", request.tenantKey)
-                    .bind("catalogKey", request.catalogKey)
+                    .bindCatalog("catalogKey", request.catalogId)
                     .bind("templateId", request.templateKey)
                     .bind("variantId", request.variantKey)
                     .bind("versionId", request.versionKey)

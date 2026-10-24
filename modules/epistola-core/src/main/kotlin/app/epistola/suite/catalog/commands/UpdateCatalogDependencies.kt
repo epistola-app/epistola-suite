@@ -14,6 +14,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -46,8 +47,7 @@ data class DeclaredCatalogDependency(
  * work not released yet (contract ADR 0002). A range is not a declaration (contract 2.0).
  */
 data class UpdateCatalogDependencies(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val dependencies: List<DeclaredCatalogDependency>,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
@@ -56,6 +56,9 @@ data class UpdateCatalogDependencies(
 ) : CatalogReleaseScoped,
     Command<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+
     // Which releases of its dependencies the next release is cut with is part of releasing.
     override val permission get() = Permission.TEMPLATE_EDIT
 
@@ -100,10 +103,10 @@ class UpdateCatalogDependenciesHandler(
 ) : CommandHandler<UpdateCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(command: UpdateCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        val catalog = handle.findCatalog(command.tenantKey, command.catalogKey)
+        val catalog = handle.findCatalog(command.catalog)
             ?: throw CatalogNotFoundException(command.catalogKey)
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
-        drafts.draft(handle, command.tenantKey, command.catalogKey)?.let { draft ->
+        requireCatalogEditable(command.catalog)
+        drafts.draft(handle, command.catalog)?.let { draft ->
             drafts.requireRevision(handle, command.tenantKey, draft.versionId, command.expectedRevision, "Catalog version '${draft.label}' of '${command.catalogKey.value}'")
         }
 
@@ -127,7 +130,7 @@ class UpdateCatalogDependenciesHandler(
                 ?: throw ValidationException("$field.releaseVersion", "This tenant has no release $version of ${declared.catalogKey}", ValidationCode.CATALOG_DEPENDENCY_INVALID)
             declared.copy(releaseVersion = release.version, releaseFingerprint = release.fingerprint)
         }
-        store.replace(handle, command.tenantKey, command.catalogKey, declarations)
+        store.replace(handle, command.catalog, declarations)
         declarations
     }
 }

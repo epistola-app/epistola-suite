@@ -7,7 +7,7 @@
 // (fragments/htmx.html), so none of this exists in a non-embedding deployment.
 //
 // Protocol (both directions always carry `source` so messages are recognizable):
-//   host  -> suite: { source: 'epistola-host',  type: 'navigate', resource: {resourceType, tenantId, catalogKey, key} }
+//   host  -> suite: { source: 'epistola-host',  type: 'navigate', resource: {resourceType, tenantId, namespace?, catalogKey, key} }
 //   suite -> host:  { source: 'epistola-suite', type: 'navigated', path, resource: {...} | null }
 //   suite -> host:  { source: 'epistola-suite', type: 'request', verb: 'GET', requestPath, queryKeys, status }
 //   suite -> host:  { source: 'epistola-suite', type: 'resource-changed', resource: {...}, operation: 'create'|'update'|'delete' }
@@ -67,9 +67,12 @@
 
   const RESOURCE_PATH_SEGMENT = { template: 'templates', theme: 'themes', stencil: 'stencils' };
   const RESOURCE_TYPE_BY_SEGMENT = { templates: 'template', themes: 'theme', stencils: 'stencil' };
-  // A resource is its catalog's: /tenants/{t}/catalogs/{catalog}/{type}/{key}/…, and creating one
-  // posts to the catalog's collection, /tenants/{t}/catalogs/{catalog}/{type}.
+  // A resource is its catalog's: /tenants/{t}/catalogs/{namespace}/{catalog}/{type}/{key}/…, and
+  // creating one posts to the catalog's collection, /tenants/{t}/catalogs/{namespace}/{catalog}/{type}
+  // (ADR 0034, section 9). An address by the catalog's key alone is still understood.
   const RESOURCE_URL_PATTERN =
+    /^\/tenants\/([^/]+)\/catalogs\/([^/]+)\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
+  const KEY_ALONE_URL_PATTERN =
     /^\/tenants\/([^/]+)\/catalogs\/([^/]+)\/(templates|themes|stencils)(\/.*)?$/;
 
   // The only way a resource identity becomes a URL: a closed lookup of the
@@ -84,10 +87,14 @@
       !isValidSlug(resource.key)
     )
       return null;
+    // A resource names its catalog's namespace when it has one; without, the catalog's key alone
+    // leads to the tenant's one catalog with that key.
+    if (resource.namespace !== undefined && !isValidSlug(resource.namespace)) return null;
     return (
       '/tenants/' +
       encodeURIComponent(resource.tenantId) +
       '/catalogs/' +
+      (resource.namespace ? encodeURIComponent(resource.namespace) + '/' : '') +
       encodeURIComponent(resource.catalogKey) +
       '/' +
       segment +
@@ -103,12 +110,34 @@
   // [catalogKey, key, 'delete'] for a delete POST).
   function parseResourcePath(path) {
     const match = RESOURCE_URL_PATTERN.exec(path);
-    if (!match) return null;
+    if (match) {
+      return {
+        tenantId: match[1],
+        namespace: match[2],
+        resourceType: RESOURCE_TYPE_BY_SEGMENT[match[4]],
+        rest: [match[3]].concat((match[5] || '').split('/').filter(Boolean)),
+      };
+    }
+    const byKey = KEY_ALONE_URL_PATTERN.exec(path);
+    if (!byKey) return null;
     return {
-      tenantId: match[1],
-      resourceType: RESOURCE_TYPE_BY_SEGMENT[match[3]],
-      rest: [match[2]].concat((match[4] || '').split('/').filter(Boolean)),
+      tenantId: byKey[1],
+      namespace: undefined,
+      resourceType: RESOURCE_TYPE_BY_SEGMENT[byKey[3]],
+      rest: [byKey[2]].concat((byKey[4] || '').split('/').filter(Boolean)),
     };
+  }
+
+  // The resource a parsed path is about: its catalog by key, and by namespace when the path names one.
+  function resourceOf(parsed, key) {
+    const resource = {
+      resourceType: parsed.resourceType,
+      tenantId: parsed.tenantId,
+      catalogKey: parsed.rest[0],
+      key: key,
+    };
+    if (parsed.namespace) resource.namespace = parsed.namespace;
+    return resource;
   }
 
   window.addEventListener('message', function (event) {
@@ -145,12 +174,7 @@
   function currentResourceFromLocation() {
     const parsed = parseResourcePath(location.pathname);
     if (!parsed || parsed.rest.length < 2) return null;
-    return {
-      resourceType: parsed.resourceType,
-      tenantId: parsed.tenantId,
-      catalogKey: parsed.rest[0],
-      key: parsed.rest[1],
-    };
+    return resourceOf(parsed, parsed.rest[1]);
   }
 
   let lastNotifiedPath = null;
@@ -253,28 +277,12 @@
     if (!parsed) return;
 
     if (verb === 'PATCH' && parsed.rest.length >= 2) {
-      notifyResourceChanged(
-        {
-          resourceType: parsed.resourceType,
-          tenantId: parsed.tenantId,
-          catalogKey: parsed.rest[0],
-          key: parsed.rest[1],
-        },
-        'update',
-      );
+      notifyResourceChanged(resourceOf(parsed, parsed.rest[1]), 'update');
       return;
     }
 
     if (verb === 'POST' && parsed.rest.length === 3 && parsed.rest[2] === 'delete') {
-      notifyResourceChanged(
-        {
-          resourceType: parsed.resourceType,
-          tenantId: parsed.tenantId,
-          catalogKey: parsed.rest[0],
-          key: parsed.rest[1],
-        },
-        'delete',
-      );
+      notifyResourceChanged(resourceOf(parsed, parsed.rest[1]), 'delete');
       return;
     }
 
@@ -285,15 +293,7 @@
       if (!createdUrl) return;
       const createdParsed = parseResourcePath(createdUrl.split('?')[0]);
       if (createdParsed && createdParsed.rest.length === 2) {
-        notifyResourceChanged(
-          {
-            resourceType: createdParsed.resourceType,
-            tenantId: createdParsed.tenantId,
-            catalogKey: createdParsed.rest[0],
-            key: createdParsed.rest[1],
-          },
-          'create',
-        );
+        notifyResourceChanged(resourceOf(createdParsed, createdParsed.rest[1]), 'create');
       }
     }
   });
@@ -314,10 +314,17 @@
     const parts = flash.split(':');
     const tenantMatch = /^\/tenants\/([^/]+)\//.exec(location.pathname);
     if (parts.length === 3 && tenantMatch) {
-      notifyResourceChanged(
-        { resourceType: parts[0], tenantId: tenantMatch[1], catalogKey: parts[1], key: parts[2] },
-        'delete',
-      );
+      const deleted = {
+        resourceType: parts[0],
+        tenantId: tenantMatch[1],
+        catalogKey: parts[1],
+        key: parts[2],
+      };
+      // The redirect lands on the catalog's list, whose address names the namespace.
+      const listed = parseResourcePath(location.pathname);
+      if (listed && listed.namespace && listed.rest[0] === parts[1])
+        deleted.namespace = listed.namespace;
+      notifyResourceChanged(deleted, 'delete');
     }
     params.delete('resourceDeleted');
     const nextSearch = params.toString();

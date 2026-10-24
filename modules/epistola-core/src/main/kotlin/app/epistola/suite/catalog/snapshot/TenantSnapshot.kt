@@ -64,6 +64,12 @@ data class SnapshotManifest(
 /** One catalog's entry in the snapshot manifest; its bytes live at [zipPath] in the archive. */
 data class SnapshotCatalogEntry(
     val catalogKey: String,
+    /**
+     * The catalog's namespace (schema 4): within a tenant a catalog is unique by namespace and key
+     * (ADR 0034), so two catalogs with one key are two entries. Null in older snapshots, whose
+     * restore reads it from the catalog's archive.
+     */
+    val namespace: String? = null,
     val name: String,
     /**
      * `SUBSCRIBED` for a catalog with a source, else `AUTHORED`. Catalogs have no type any more
@@ -82,6 +88,12 @@ data class SnapshotCatalogEntry(
      */
     val dependsOnCatalogKeys: List<String> = emptyList(),
     /**
+     * The catalogs it declares it depends on (schema 4), by address (`namespace/key`): what restore
+     * orders by, since a key alone may name two. Empty in older snapshots, which order by
+     * [dependsOnCatalogKeys].
+     */
+    val dependsOnCatalogs: List<String> = emptyList(),
+    /**
      * Where the catalog receives releases from (schema 3): its source and how it authenticates. The
      * credential is not in it: a snapshot carries no secrets, so a source that needs one is given
      * it again after a restore. Null for a catalog without a source, and in older snapshots.
@@ -97,6 +109,12 @@ data class SnapshotCatalogEntry(
      */
     val releases: List<SnapshotRelease> = emptyList(),
 )
+
+/** The catalog [this] names in [tenantKey]; its [SnapshotCatalogEntry.namespace] must be known. */
+fun SnapshotCatalogEntry.catalogIn(tenantKey: app.epistola.suite.common.ids.TenantKey): app.epistola.suite.common.ids.CatalogId = app.epistola.suite.common.ids.CatalogId(requireNotNull(namespace) { "Snapshot catalog $catalogKey names no namespace" }, app.epistola.suite.common.ids.CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
+
+/** `namespace/key`, as [SnapshotCatalogEntry.dependsOnCatalogs] names it. */
+val SnapshotCatalogEntry.address: String get() = "$namespace/$catalogKey"
 
 /** A catalog's source in a snapshot: its URI (`catalogs.source_url`) and auth type, never its credential. */
 data class SnapshotCatalogSource(val url: String, val authType: String = "NONE")

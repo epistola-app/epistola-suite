@@ -26,7 +26,9 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -72,9 +74,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             // First import with schema
             val result1 = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             assertThat(result1[0].status).isEqualTo(ImportStatus.CREATED)
 
@@ -85,9 +86,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Second import with same schema
             val result2 = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             assertThat(result2[0].status).isEqualTo(ImportStatus.UPDATED)
 
@@ -98,9 +98,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Third import with same schema
             val result3 = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             assertThat(result3[0].status).isEqualTo(ImportStatus.UPDATED)
 
@@ -125,9 +124,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             // First import
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel, dataExamples = examples)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
@@ -136,9 +134,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Second import
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel, dataExamples = examples)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val contract2 = GetDataContract(templateId).query()
@@ -146,9 +143,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Third import
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel, dataExamples = examples)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val contract3 = GetDataContract(templateId).query()
@@ -166,9 +162,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             // First import WITH schema
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
@@ -177,9 +172,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Second import WITHOUT schema — creates a new empty contract
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel = null)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             // The contract now has a null dataModel (the import had no schema)
@@ -203,14 +197,14 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                 authType = app.epistola.suite.catalog.AuthType.NONE,
             ).execute()
 
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             // Check schema exists for a template that has one (hello-world)
-            val templateId = TemplateId(TemplateKey.of("hello-world"), CatalogId(catalogKey, tenantId))
+            val templateId = TemplateId(TemplateKey.of("hello-world"), testCatalog(tenantId, catalogKey))
             val contract1 = GetDataContract(templateId).query()
 
             // Upgrade (reinstall)
-            UpgradeCatalog(tenantKey = tenant.id, catalogKey = catalogKey).execute()
+            UpgradeCatalog(catalog = testCatalog(tenant.id, catalogKey)).execute()
 
             val contract2 = GetDataContract(templateId).query()
 
@@ -233,7 +227,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         withMediator {
             // A template without a data contract, as an import of an old one leaves it.
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -247,7 +241,6 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))
@@ -259,9 +252,8 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
 
             // Now deploy again WITH the schema (simulating external system sending full catalog)
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(buildImportInput(slug, dataModel)),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             // Contract should now exist
@@ -278,7 +270,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("export-no-contract")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             // Create a catalog with a template but WITHOUT any contract
@@ -288,7 +280,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             CreateDocumentTemplate(id = templateId, name = "No Contract Template").execute()
 
             // Export the catalog — should succeed even without contract
-            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
+            val exportResult = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), catalogKey))
             assertThat(exportResult.zipBytes).isNotEmpty()
 
             // Re-import the exported ZIP multiple times
@@ -316,7 +308,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("zip-deploy-test")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             // Create an authored catalog with a template that has a contract
@@ -329,7 +321,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             // Create a theme (so export has multiple resource types)
             val themeKey = ThemeKey.of("zip-theme")
             CreateTheme(id = ThemeId(themeKey, catalogId), name = "ZIP Theme").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalogKey = catalogKey).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalog = testCatalog(templateId.tenantKey, catalogKey)).execute()
 
             // Add contract data
             val contractSchema = schema("""{"type":"object","properties":{"invoice_number":{"type":"string"},"total":{"type":"number"}},"required":["invoice_number"]}""")
@@ -346,7 +338,7 @@ class RepeatedCatalogDeploymentTest : IntegrationTestBase() {
             ).execute()
 
             // Export as ZIP
-            val exportResult = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
+            val exportResult = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), catalogKey))
             val zipBytes = exportResult.zipBytes
 
             // Verify contract before re-imports

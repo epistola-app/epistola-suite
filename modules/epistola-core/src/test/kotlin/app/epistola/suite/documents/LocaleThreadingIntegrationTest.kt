@@ -14,6 +14,8 @@ import app.epistola.suite.i18n.TenantLocaleResolver
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -62,8 +64,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
         }.whenever { setup ->
             query(
                 PreviewVariant(
-                    tenantId = setup.tenant.id,
-                    catalogKey = CatalogKey.DEFAULT,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = emptyData(),
@@ -99,8 +100,7 @@ class LocaleThreadingIntegrationTest : IntegrationTestBase() {
         }.whenever { setup ->
             query(
                 PreviewVariant(
-                    tenantId = setup.tenant.id,
-                    catalogKey = CatalogKey.DEFAULT,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     data = emptyData(),

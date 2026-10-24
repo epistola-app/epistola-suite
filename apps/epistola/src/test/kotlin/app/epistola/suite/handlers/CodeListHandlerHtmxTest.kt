@@ -21,6 +21,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -83,7 +84,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Code lists")
             assertThat(response.headers.getFirst("HX-Push-Url"))
-                .isEqualTo("/tenants/${seeded.tenantKey}/catalogs/default/code-lists")
+                .isEqualTo("/tenants/${seeded.tenantKey}/catalogs/${seeded.tenantKey}/default/code-lists")
         }
     }
 
@@ -170,7 +171,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/catalogs/default/code-lists/new",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -206,7 +207,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             form.add("slug", "BAD SLUG") // uppercase + space → fails asCodeListId
             form.add("sourceType", "INLINE")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/code-lists",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -242,7 +243,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             form.add("sourceType", "INLINE")
             form.add("entriesJson", """[{"code":"en","label":"English"}]""")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/code-lists",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -254,7 +255,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
             // Soft boosted navigation to the new code list's own detail page —
             // HX-Location, no OOB refresh, no closeDialog (the page navigates away).
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/code-lists/languages")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists/languages")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
             assertThat(response.headers.getFirst("HX-Trigger")).isNull()
             // Persistence verified through the mediator, not the (absent) body.
@@ -276,7 +277,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/code-lists/new",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists/new",
                 String::class.java,
             )
         }
@@ -301,7 +302,7 @@ class CodeListHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/code-lists",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/code-lists",
                 String::class.java,
             )
         }

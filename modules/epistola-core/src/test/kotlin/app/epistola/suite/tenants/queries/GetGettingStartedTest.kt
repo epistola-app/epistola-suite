@@ -20,7 +20,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -48,19 +50,18 @@ class GetGettingStartedTest : IntegrationTestBase() {
 
         val staging = EnvironmentId(EnvironmentKey.of("staging"), tenantId)
         mediator.send(CreateEnvironment(staging, "Staging"))
-        mediator.send(DeployCatalogRelease(staging, templateId.catalogId.key, version))
+        mediator.send(DeployCatalogRelease(staging, templateId.catalogId, version))
         assertThat(steps().hasDeployed).isTrue()
         assertThat(steps().complete).isFalse()
 
         mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = templateId.key,
                 variantId = variantId.key,
                 environmentId = staging.key,
                 data = ObjectMapper().createObjectNode(),
                 filename = null,
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
         drainGenerationJobs(tenant.id)

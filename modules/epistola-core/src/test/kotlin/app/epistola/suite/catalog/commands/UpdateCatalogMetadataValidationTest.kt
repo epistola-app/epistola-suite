@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.CatalogLicense
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -46,8 +47,7 @@ class UpdateCatalogMetadataValidationTest {
     }
 
     private fun commandWithSpdx(expression: String) = UpdateCatalogMetadata(
-        tenantKey = TenantKey.of("tenant"),
-        catalogKey = CatalogKey.of("catalog"),
+        catalog = testCatalog(TenantKey.of("tenant"), CatalogKey.of("catalog")),
         name = "Catalog",
         description = null,
         license = CatalogLicense(name = "License", spdxExpression = expression),

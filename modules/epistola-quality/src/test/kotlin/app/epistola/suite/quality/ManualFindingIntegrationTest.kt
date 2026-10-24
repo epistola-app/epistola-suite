@@ -21,6 +21,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -48,8 +50,7 @@ class ManualFindingIntegrationTest : IntegrationTestBase() {
 
     private fun readBack(subject: QualitySubject) = withMediator {
         GetFindingsForSubject(
-            tenantKey = subject.tenantKey,
-            catalogKey = subject.catalogKey,
+            catalog = testCatalog(subject.tenantKey, subject.catalogKey),
             templateKey = subject.templateKey,
             variantKey = subject.variantKey!!,
         ).query()

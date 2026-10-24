@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.ui
 
+import app.epistola.suite.catalog.queries.FindCatalogsByKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
@@ -17,6 +18,8 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.catalogParam
+import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
@@ -103,7 +106,7 @@ class QualityHandler(
             "workspaceCatalog" to segment
             "catalogSegment" to segment.value
             "stage" to KnownFeatures.metadata[KnownFeatures.QUALITY]?.stage
-            "templates" to ListDocumentTemplates(tenantId, catalogKey = segment.key, limit = TEMPLATE_FILTER_LIMIT).query()
+            "templates" to ListDocumentTemplates(tenantId, catalog = segment.catalogIn(tenantId), limit = TEMPLATE_FILTER_LIMIT).query()
             "sources" to registry.availableFor(tenantId.key).map { SourceOption(it.sourceId.value, it.displayName) }
             findingsModel(tenantId, page, filters)
         }
@@ -118,7 +121,7 @@ class QualityHandler(
             fragment("quality/list", "findings") {
                 findingsModel(tenantId, page, filters)
             }
-            onFullPage { redirect(listPath(tenantId.key, filters.catalogKey?.value)) }
+            onFullPage { redirect(listPath(tenantId.key, filters.catalog?.address)) }
         }
     }
 
@@ -128,7 +131,7 @@ class QualityHandler(
         val segment = request.pathCatalogSegment() ?: return ServerResponse.notFound().build()
         val findingKey = request.findingKey() ?: return ServerResponse.badRequest().build()
         val finding = GetQualityFinding(tenantId.key, findingKey).query()
-            ?.takeIf { it.catalogKey == segment.key }
+            ?.takeIf { it.catalogAddress == segment.catalogIn(tenantId).address }
             ?: return ServerResponse.notFound().build()
         val tenant = GetTenant(tenantId.key).query()
 
@@ -160,7 +163,7 @@ class QualityHandler(
             return request.htmx {
                 fragment("quality/detail", "ignore-form") {
                     "tenantId" to tenantId.key
-                    "catalogSegment" to finding.catalogKey.value
+                    "catalogSegment" to finding.catalogAddress
                     "finding" to finding
                     "formData" to form.formData
                     "errors" to form.errors
@@ -211,7 +214,7 @@ class QualityHandler(
         return request.htmx {
             fragment("quality/detail", "comments-section") {
                 "tenantId" to tenantId.key
-                "catalogSegment" to finding.catalogKey.value
+                "catalogSegment" to finding.catalogAddress
                 "finding" to finding
                 "comments" to GetFindingComments(tenantId.key, findingKey).query()
             }
@@ -222,16 +225,16 @@ class QualityHandler(
     /** The form for raising a finding by hand against one of the catalog's templates, loaded into the list page's dialog. */
     fun manualForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogKey = request.catalogFilter() ?: return ServerResponse.badRequest().build()
+        val catalog = request.catalogFilter() ?: return ServerResponse.badRequest().build()
 
         return request.htmx {
             // Named, so the trailing variant-options fragment does not ride along into the dialog.
             fragment("quality/manual-form", "content") {
                 "tenantId" to tenantId.key
-                "templates" to ListDocumentTemplates(tenantId, catalogKey = catalogKey, limit = TEMPLATE_FILTER_LIMIT).query()
+                "templates" to ListDocumentTemplates(tenantId, catalog = catalog, limit = TEMPLATE_FILTER_LIMIT).query()
                 "severities" to QualitySeverity.entries
             }
-            onFullPage { redirect(listPath(tenantId.key, catalogKey.value)) }
+            onFullPage { redirect(listPath(tenantId.key, catalog.address)) }
         }
     }
 
@@ -267,8 +270,14 @@ class QualityHandler(
 
     private fun ServerRequest.templateRef(tenantId: TenantId): TemplateId? {
         val (catalog, template) = templateFilter() ?: return null
-        return TemplateId(template, CatalogId(catalog, tenantId))
+        return catalogOf(tenantId, catalog)?.let { TemplateId(template, it) }
     }
+
+    /**
+     * The catalog a picker's `catalogKey` names: the page's (or partial's) catalog when it has that
+     * key, else the tenant's one catalog with it (ADR 0034, section 9).
+     */
+    private fun ServerRequest.catalogOf(tenantId: TenantId, key: CatalogKey): CatalogId? = catalogFilter()?.takeIf { it.key == key } ?: FindCatalogsByKey(tenantId.key, key).query().only
 
     fun createManual(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -290,7 +299,7 @@ class QualityHandler(
         val variantId = runCatching {
             VariantId(
                 VariantKey.of(form["variantKey"]),
-                TemplateId(TemplateKey.of(parts[1]), CatalogId(CatalogKey.of(parts[0]), tenantId)),
+                TemplateId(TemplateKey.of(parts[1]), requireNotNull(request.catalogOf(tenantId, CatalogKey.of(parts[0])))),
             )
         }.getOrNull() ?: return ServerResponse.badRequest().build()
 
@@ -331,7 +340,7 @@ class QualityHandler(
         return request.htmx {
             fragment("quality/detail", "finding-content") {
                 "tenantId" to tenantKey
-                "catalogSegment" to finding.catalogKey.value
+                "catalogSegment" to finding.catalogAddress
                 "finding" to finding
                 "comments" to GetFindingComments(tenantKey, findingKey).query()
                 "sourceName" to sourceName(finding.sourceId)
@@ -343,14 +352,13 @@ class QualityHandler(
     /** A catalog's findings; without a catalog, the catalogs, since findings are listed per catalog. */
     private fun listPath(tenantKey: TenantKey, catalog: String?): String = catalog?.let { "/tenants/${tenantKey.value}/catalogs/$it/quality" } ?: "/tenants/${tenantKey.value}/catalogs"
 
-    private fun detailPath(tenantKey: TenantKey, finding: QualityFinding): String = "/tenants/${tenantKey.value}/catalogs/${finding.catalogKey.value}/quality/${finding.key.value}"
+    private fun detailPath(tenantKey: TenantKey, finding: QualityFinding): String = "/tenants/${tenantKey.value}/catalogs/${finding.catalogAddress}/quality/${finding.key.value}"
 
     /** The catalog a page is in, from its path (`/catalogs/{catalogId}/quality…`). */
-    private fun ServerRequest.pathCatalogSegment(): CatalogSegment? = pathVariables()["catalogId"]?.let { runCatching { CatalogSegment.parse(it) }.getOrNull() }
+    private fun ServerRequest.pathCatalogSegment(): CatalogSegment? = pathVariables()["catalogId"]?.let { runCatching { catalogSegment() }.getOrNull() }
 
     /** The catalog the findings are of: the page's, or for a partial its `catalog` parameter. */
-    private fun ServerRequest.catalogFilter(): CatalogKey? = pathCatalogSegment()?.key
-        ?: queryParam("catalog")?.takeIf { it.isNotBlank() }?.let { runCatching { CatalogSegment.parse(it).key }.getOrNull() }
+    private fun ServerRequest.catalogFilter(): CatalogId? = runCatching { catalogParam()?.catalogIn(tenantId()) }.getOrNull()
 
     /**
      * A source's human name, falling back to its id.
@@ -374,8 +382,7 @@ class QualityHandler(
 
     private fun editorPanel(variantId: VariantId): EditorQualityPanel {
         val subjectFindings = GetFindingsForSubject(
-            tenantKey = variantId.tenantKey,
-            catalogKey = variantId.catalogKey,
+            catalog = variantId.catalogId,
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
         ).query()
@@ -429,10 +436,10 @@ class QualityHandler(
         // it is the selection the picker was holding when the catalog changed underneath it, and
         // the browser sends it with that very request. Dropping it here is what stops the rows
         // being filtered by a template the reader can no longer see in the picker.
-        val template = templateFilter()?.takeIf { catalogParam == null || it.first == catalogParam }
+        val template = templateFilter()?.takeIf { catalogParam == null || it.first == catalogParam.key }
 
         return QualityFilters(
-            catalogKey = template?.first ?: catalogParam,
+            catalog = catalogParam ?: template?.first?.let { FindCatalogsByKey(tenantId().key, it).query().only },
             templateKey = template?.second,
             sourceId = queryParam("source")?.takeIf { it.isNotBlank() }?.let { QualitySourceId(it) },
             severity = queryParam("severity").toEnumOrNull<QualitySeverity>(),
@@ -486,7 +493,7 @@ class QualityHandler(
         "selectedSeverity" to filters.severity
         "selectedStatus" to filters.status
         "selectedSource" to filters.sourceId?.value
-        "selectedCatalog" to filters.catalogKey?.value
+        "selectedCatalog" to filters.catalog?.address
         // Round-trips the same `catalogKey/templateKey` the option carries, so the picker
         // re-selects after a swap.
         "selectedTemplate" to filters.selectedTemplateValue()
@@ -525,7 +532,7 @@ class QualityHandler(
     )
 
     private data class QualityFilters(
-        val catalogKey: CatalogKey?,
+        val catalog: CatalogId?,
         val templateKey: TemplateKey?,
         val sourceId: QualitySourceId?,
         val severity: QualitySeverity?,
@@ -536,11 +543,11 @@ class QualityHandler(
         val page: Int,
     ) {
         /** The `catalogKey/templateKey` value the picker's option carries, so it re-selects. */
-        fun selectedTemplateValue(): String? = templateKey?.let { "${catalogKey?.value}/${it.value}" }
+        fun selectedTemplateValue(): String? = templateKey?.let { "${catalog?.key?.value}/${it.value}" }
 
         fun toQuery(tenantId: TenantId) = ListQualityFindings(
             tenantKey = tenantId.key,
-            catalogKey = catalogKey,
+            catalog = catalog,
             templateKey = templateKey,
             sourceId = sourceId,
             severity = severity,

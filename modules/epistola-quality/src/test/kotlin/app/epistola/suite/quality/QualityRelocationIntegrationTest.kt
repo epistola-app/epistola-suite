@@ -26,6 +26,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -44,7 +46,7 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(sourceCatalog, tenantId))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(tenantId, sourceCatalog))
 
         val subject = withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -74,7 +76,7 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(withMediator { findingsFor(subject) }.findings.single().effectiveStatus)
             .isEqualTo(EffectiveQualityStatus.IGNORED)
 
-        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
@@ -85,7 +87,7 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         val movedSubject = QualitySubject.of(
             VariantId(
                 VariantKey.of(subject.variantKey!!),
-                TemplateId(templateId.key, CatalogId(targetCatalog, tenantId)),
+                TemplateId(templateId.key, testCatalog(tenantId, targetCatalog)),
             ),
         )
         withMediator {
@@ -120,8 +122,8 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(sourceCatalog, tenantId))
-        val invoiceV2 = TemplateId(TemplateKey.of("invoice-v2"), CatalogId(sourceCatalog, tenantId))
+        val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(tenantId, sourceCatalog))
+        val invoiceV2 = TemplateId(TemplateKey.of("invoice-v2"), testCatalog(tenantId, sourceCatalog))
 
         val (subject, neighbour) = withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -146,7 +148,7 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
         val neighbourFinding = withMediator { findingsFor(neighbour) }.findings.single()
         withMediator { IgnoreFinding(neighbour.tenantKey, neighbourFinding.key, "Intentional").execute() }
 
-        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, invoice.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, invoice.key.value)
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
@@ -165,8 +167,7 @@ class QualityRelocationIntegrationTest : IntegrationTestBase() {
     }
 
     private fun findingsFor(subject: QualitySubject) = GetFindingsForSubject(
-        tenantKey = subject.tenantKey,
-        catalogKey = subject.catalogKey,
+        catalog = testCatalog(subject.tenantKey, subject.catalogKey),
         templateKey = subject.templateKey,
         variantKey = subject.variantKey!!,
     ).query()

@@ -100,6 +100,8 @@ data class DocumentGenerationRequest(
     val completedAt: OffsetDateTime?,
     val expiresAt: OffsetDateTime?,
 ) {
+    /** Its catalog, by the name recorded on acceptance (ADR 0034, section 9). */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(requireNotNull(namespace) { "Request $id names no namespace" }, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
     init {
         require(versionKey != null || environmentKey != null || releaseVersion != null || draftId != null) {
             "A request renders a release, an environment's deployment, or (before 2.0) a version"

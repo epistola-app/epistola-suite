@@ -45,6 +45,8 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
@@ -115,26 +117,26 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         val tenant = TenantId(a)
         TestNamespaces.grant(a, partsNamespace, authority = partsRegistry).execute()
         CreateCatalog(tenantKey = a, id = parts, name = "Parts", namespace = partsNamespace, registry = partsRegistry).execute()
-        CreateStencil(StencilId(StencilKey.of("header"), CatalogId(parts, tenant)), "Header").execute()
+        CreateStencil(StencilId(StencilKey.of("header"), testCatalog(tenant, parts)), "Header").execute()
 
         CreateCatalog(tenantKey = a, id = letters, name = "Letters", namespace = TestNamespaces.of(a).namespace).execute()
         declareDependency(a, letters, on = SYSTEM_CATALOG_KEY)
         declareDependency(a, letters, on = parts)
-        val own = CatalogId(letters, tenant)
+        val own = testCatalog(tenant, letters)
         CreateTheme(ThemeId(ThemeKey.of("brand"), own), "Brand", documentStyles = systemFont()).execute()
         CreateAttributeDefinition(
             id = AttributeId(AttributeKey.of("preferred-language"), own),
             displayName = "Preferred language",
-            codeListId = CodeListId(CodeListKey.of("iso-639-1"), CatalogId(SYSTEM_CATALOG_KEY, tenant)),
+            codeListId = CodeListId(CodeListKey.of("iso-639-1"), testCatalog(tenant, SYSTEM_CATALOG_KEY)),
         ).execute()
         val template = TemplateId(TemplateKey.of("letter"), own)
         CreateDocumentTemplate(template, "Letter").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(template, themeId = ThemeKey.of("default"), themeCatalogKey = SYSTEM_CATALOG_KEY).execute()
+        UpdateDocumentTemplate(template, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(template.tenantKey, SYSTEM_CATALOG_KEY)).execute()
         UpdateVariantContent(VariantId(VariantKey.INITIAL, template), model()).execute()
-        SetCatalogDefaultTheme(a, letters, CatalogDefaultTheme(ThemeKey.of("default"), SYSTEM_CATALOG_KEY)).execute()
+        SetCatalogDefaultTheme(testCatalog(a, letters), CatalogDefaultTheme(ThemeKey.of("default"), testCatalog(a, SYSTEM_CATALOG_KEY))).execute()
 
         val lettersZip = mediator.exportReleased(own).zipBytes
-        Released(parts = mediator.exportReleased(CatalogId(parts, tenant)).zipBytes, letters = lettersZip)
+        Released(parts = mediator.exportReleased(testCatalog(tenant, parts)).zipBytes, letters = lettersZip)
     }
 
     private fun entries(bytes: ByteArray): Map<String, ByteArray> = buildMap {
@@ -169,13 +171,13 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
-            val received = contentBuilder.build(b, letters)
+            val received = contentBuilder.build(testCatalog(b, letters))
             assertThat(qualifier(reference(detail(received, key)))).isEqualTo(expected)
             assertThat(fingerprints.resourceFingerprints(received).getValue(key)).isEqualTo(archiveFingerprints(released.letters).getValue(key))
 
-            val draft = CreateCatalogDraft(b, letters, name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogReleaseRef(b, letters, DraftRef.Id(draft.versionId)))
-            val drafted = targeting.within(id) { contentBuilder.build(b, letters) }
+            val draft = CreateCatalogDraft(testCatalog(b, letters), name = "Redesign", from = releaseVersion(released.letters)).execute()
+            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, letters), DraftRef.Id(draft.versionId)))
+            val drafted = targeting.within(id) { contentBuilder.build(testCatalog(b, letters)) }
             assertThat(qualifier(reference(detail(drafted, key)))).isEqualTo(expected)
         }
     }
@@ -255,11 +257,11 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
-            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(b, letters).catalog.defaultTheme)).isEqualTo(sent)
+            assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(testCatalog(b, letters)).catalog.defaultTheme)).isEqualTo(sent)
 
-            val draft = CreateCatalogDraft(b, letters, name = "Redesign", from = releaseVersion(released.letters)).execute()
-            val id = targeting.resolve(CatalogReleaseRef(b, letters, DraftRef.Id(draft.versionId)))
-            assertThat(objectMapper.valueToTree<JsonNode>(targeting.within(id) { contentBuilder.build(b, letters) }.catalog.defaultTheme)).isEqualTo(sent)
+            val draft = CreateCatalogDraft(testCatalog(b, letters), name = "Redesign", from = releaseVersion(released.letters)).execute()
+            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, letters), DraftRef.Id(draft.versionId)))
+            assertThat(objectMapper.valueToTree<JsonNode>(targeting.within(id) { contentBuilder.build(testCatalog(b, letters)) }.catalog.defaultTheme)).isEqualTo(sent)
         }
     }
 
@@ -272,15 +274,15 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
 
-            assertThat(resolvedTargets(b, ResourceAddress(CatalogResourceType.TEMPLATE, letters.value, "letter"))).contains(
-                ResourceAddress(CatalogResourceType.THEME, "system", "default"),
-                ResourceAddress(CatalogResourceType.FONT, "system", "inter"),
-                ResourceAddress(CatalogResourceType.STENCIL, "parts", "header"),
+            assertThat(resolvedTargets(b, testAddress(b, CatalogResourceType.TEMPLATE, letters.value, "letter"))).contains(
+                testAddress(b, CatalogResourceType.THEME, "system", "default"),
+                testAddress(b, CatalogResourceType.FONT, "system", "inter"),
+                testAddress(b, CatalogResourceType.STENCIL, "parts", "header"),
             )
-            assertThat(resolvedTargets(b, ResourceAddress(CatalogResourceType.THEME, letters.value, "brand")))
-                .contains(ResourceAddress(CatalogResourceType.FONT, "system", "inter"))
-            assertThat(resolvedTargets(b, ResourceAddress(CatalogResourceType.ATTRIBUTE, letters.value, "preferred-language")))
-                .containsExactly(ResourceAddress(CatalogResourceType.CODE_LIST, "system", "iso-639-1"))
+            assertThat(resolvedTargets(b, testAddress(b, CatalogResourceType.THEME, letters.value, "brand")))
+                .contains(testAddress(b, CatalogResourceType.FONT, "system", "inter"))
+            assertThat(resolvedTargets(b, testAddress(b, CatalogResourceType.ATTRIBUTE, letters.value, "preferred-language")))
+                .containsExactly(testAddress(b, CatalogResourceType.CODE_LIST, "system", "iso-639-1"))
         }
     }
 
@@ -325,7 +327,7 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
                     assertThat(refused.findings.first { it.code == app.epistola.suite.catalog.dependencies.DependencyAliases.ALIAS_UNSUPPORTED }.message)
                         .contains("$partsRegistry/$partsNamespace/parts as 'shop'")
                 }
-            assertThat(app.epistola.suite.catalog.queries.GetCatalog(b, letters).query()).`as`("nothing was received").isNull()
+            assertThat(app.epistola.suite.catalog.queries.GetCatalog(testCatalog(b, letters)).query()).`as`("nothing was received").isNull()
         }
     }
 
@@ -356,13 +358,13 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
                 .`as`("the retained bytes carry the qualifiers").isGreaterThan(0)
         }
         withMediator {
-            val template = assembler.readResource(a, letters, version, "template", "letter") as app.epistola.catalog.protocol.TemplateResource
+            val template = assembler.readResource(testCatalog(a, letters), version, "template", "letter") as app.epistola.catalog.protocol.TemplateResource
             assertThat(template.templateModel.nodes.getValue("header").props).isEqualTo(mapOf("stencilKey" to "header", "catalogKey" to "parts"))
-            val whole = assembler.assemble(a, letters, version)!!
+            val whole = assembler.assemble(testCatalog(a, letters), version)!!
             assertThat(objectMapper.writeValueAsString(whole.content.resourceDetails.getValue("template/letter"))).doesNotContain(partsRegistry)
 
             val tenant = app.epistola.suite.tenants.queries.GetTenant(a).query()!!
-            val inputs = renderSource.resolve(tenant, app.epistola.suite.generation.release.ReleaseRef(letters, version), "letter", VariantKey.INITIAL.value)
+            val inputs = renderSource.resolve(tenant, app.epistola.suite.generation.release.ReleaseRef(testCatalog(a, letters), version), "letter", VariantKey.INITIAL.value)
             assertThat(inputs.templateModel.nodes.values.map { it.type }).`as`("the stencil of 'parts' it names is expanded").contains("stencil")
         }
     }

@@ -5,7 +5,9 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -26,33 +28,36 @@ import java.time.OffsetDateTime
  * as ([AssessDraftNumber]); that measures each draft's changes, so only pages that show it ask.
  */
 data class ListCatalogReleases(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val status: CatalogReleaseStatus? = null,
     val withBehind: Boolean = false,
 ) : Query<List<CatalogRelease>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 /** One released version of a catalog, by its number or its id, or null when it has none (contract `getCatalogVersion`). */
 data class GetCatalogRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Query<CatalogRelease?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 /** One draft of a catalog, or null when it has no such draft; [withBehind] as [ListCatalogReleases]. */
 data class GetCatalogDraft(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val draft: DraftRef = DraftRef.Next,
     val withBehind: Boolean = false,
 ) : Query<CatalogRelease?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -62,9 +67,9 @@ class ListCatalogReleasesHandler(
     private val versions: CatalogReleaseReader,
 ) : QueryHandler<ListCatalogReleases, List<CatalogRelease>> {
     override fun handle(query: ListCatalogReleases): List<CatalogRelease> {
-        val numbers = if (query.withBehind && query.status != CatalogReleaseStatus.RELEASED) versions.numbers(query.tenantKey, query.catalogKey) else emptyMap()
+        val numbers = if (query.withBehind && query.status != CatalogReleaseStatus.RELEASED) versions.numbers(query.catalog) else emptyMap()
         return jdbi.withHandle<List<CatalogRelease>, Exception> { handle ->
-            versions.all(handle, query.tenantKey, query.catalogKey, numbers).filter { query.status == null || it.status == query.status }
+            versions.all(handle, query.catalog, numbers).filter { query.status == null || it.status == query.status }
         }
     }
 }
@@ -75,7 +80,7 @@ class GetCatalogReleaseHandler(
     private val versions: CatalogReleaseReader,
 ) : QueryHandler<GetCatalogRelease, CatalogRelease?> {
     override fun handle(query: GetCatalogRelease): CatalogRelease? = jdbi.withHandle<CatalogRelease?, Exception> { handle ->
-        versions.all(handle, query.tenantKey, query.catalogKey).firstOrNull { it.status == CatalogReleaseStatus.RELEASED && (it.version == query.version || it.versionId == query.version) }
+        versions.all(handle, query.catalog).firstOrNull { it.status == CatalogReleaseStatus.RELEASED && (it.version == query.version || it.versionId == query.version) }
     }
 }
 
@@ -85,9 +90,9 @@ class GetCatalogDraftHandler(
     private val versions: CatalogReleaseReader,
 ) : QueryHandler<GetCatalogDraft, CatalogRelease?> {
     override fun handle(query: GetCatalogDraft): CatalogRelease? {
-        val numbers = if (query.withBehind) versions.numbers(query.tenantKey, query.catalogKey, query.draft) else emptyMap()
+        val numbers = if (query.withBehind) versions.numbers(query.catalog, query.draft) else emptyMap()
         return jdbi.withHandle<CatalogRelease?, Exception> { handle ->
-            versions.all(handle, query.tenantKey, query.catalogKey, numbers).firstOrNull { version ->
+            versions.all(handle, query.catalog, numbers).firstOrNull { version ->
                 when (val ref = query.draft) {
                     DraftRef.Next -> version.isNext
                     is DraftRef.Id -> version.status == CatalogReleaseStatus.DRAFT && version.versionId == ref.key
@@ -113,8 +118,8 @@ class CatalogReleaseReader(
      * Per draft key, the number it would be released as now ([AssessDraftNumber]): [draft] only, or
      * every open draft. Outside any handle, since measuring a draft builds its content.
      */
-    fun numbers(tenantKey: TenantKey, catalogKey: CatalogKey, draft: DraftRef? = null): Map<String, String> {
-        val open = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, tenantKey, catalogKey) }
+    fun numbers(catalog: CatalogId, draft: DraftRef? = null): Map<String, String> {
+        val open = jdbi.withHandle<List<CatalogDraft>, Exception> { drafts.drafts(it, catalog) }
             .filter { d ->
                 when (draft) {
                     null -> true
@@ -122,15 +127,15 @@ class CatalogReleaseReader(
                     is DraftRef.Id -> d.key == draft.key
                 }
             }
-        return open.mapNotNull { d -> AssessDraftNumber(tenantKey, catalogKey, d.ref).query()?.let { d.key to it.suggested } }.toMap()
+        return open.mapNotNull { d -> AssessDraftNumber(catalog, d.ref).query()?.let { d.key to it.suggested } }.toMap()
     }
 
-    fun all(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, numbers: Map<String, String> = emptyMap()): List<CatalogRelease> {
+    fun all(handle: Handle, catalog: CatalogId, numbers: Map<String, String> = emptyMap()): List<CatalogRelease> {
         val deployments = handle.createQuery(
             "SELECT version, environment_key FROM environment_catalog_deployments WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY environment_key",
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> rs.getString("version") to rs.getString("environment_key") }
             .list()
             .groupBy({ it.first }, { it.second })
@@ -140,8 +145,8 @@ class CatalogReleaseReader(
             FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ ->
                 val version = rs.getString("version")
                 CatalogRelease(
@@ -158,11 +163,11 @@ class CatalogReleaseReader(
             }
             .list()
         val released = releases.mapNotNull { it.version }
-        val lineage = ReleaseLineage.read(handle, tenantKey, catalogKey)
+        val lineage = ReleaseLineage.read(handle, catalog)
         val bases = releases.associate { it.version!! to it.base }
         val releasedAt = releases.associate { it.version!! to it.releasedAt }
         val changes = mutableMapOf<String, List<ReleasedChange>>()
-        val open = drafts.drafts(handle, tenantKey, catalogKey).map { draft ->
+        val open = drafts.drafts(handle, catalog).map { draft ->
             val behind = numbers[draft.key]?.let { number -> lineage.behind(draft.base, draft.merged, number) }.orEmpty()
             CatalogRelease(
                 version = null,
@@ -173,7 +178,7 @@ class CatalogReleaseReader(
                 behind = behind.map { version ->
                     BehindRelease(
                         version = version,
-                        changes = changes.getOrPut(version) { changesOf(handle, tenantKey, catalogKey, version, bases[version], released) },
+                        changes = changes.getOrPut(version) { changesOf(handle, catalog, version, bases[version], released) },
                         // As its line names it: a base named by its fingerprint is the release here that has it.
                         base = lineage.releases[version]?.base?.version,
                         releasedAt = releasedAt[version],
@@ -196,10 +201,10 @@ class CatalogReleaseReader(
      * cut one after another is the same one. Read on [handle], so a page measuring several releases
      * holds one connection, not two.
      */
-    private fun changesOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
+    private fun changesOf(handle: Handle, catalog: CatalogId, version: String, base: String?, releases: List<String>): List<ReleasedChange> {
         // Each release's retained content, fingerprinted now by the function every comparison uses, not
         // the digests `release_entries` stored.
-        fun of(release: String) = assembler.assemble(handle, tenantKey, catalogKey, release)?.content
+        fun of(release: String) = assembler.assemble(handle, catalog, release)?.content
         val ownContent = of(version)
         val belowContent = (base?.takeIf { it in releases } ?: CatalogDrafts.highestBelow(version, releases))?.let(::of)
         val own = ownContent?.let { fingerprints.resourceFingerprints(it) }.orEmpty()

@@ -34,6 +34,12 @@ const val SYSTEM_CATALOG_URL = "classpath:epistola/catalogs/system/catalog.json"
 /** Slug of the system catalog row inserted into every tenant. */
 val SYSTEM_CATALOG_KEY = CatalogKey.of("system")
 
+/** The namespace the bundled system catalog is named in (its manifest's), under Epistola's authority. */
+const val SYSTEM_CATALOG_NAMESPACE = "epistola"
+
+/** The system catalog of [tenantKey], by its address (ADR 0034, section 9). */
+fun systemCatalog(tenantKey: app.epistola.suite.common.ids.TenantKey): app.epistola.suite.common.ids.CatalogId = app.epistola.suite.common.ids.CatalogId(SYSTEM_CATALOG_NAMESPACE, SYSTEM_CATALOG_KEY, app.epistola.suite.common.ids.TenantId(tenantKey))
+
 /**
  * Idempotent installer for the bundled system catalog. Two callers:
  *
@@ -112,8 +118,8 @@ class InstallSystemCatalogHandler(
         // catalog content didn't move, mirroring the asset/code-list payload.
         EnsureSystemFonts(tenantKey = command.tenantKey).execute()
         // Checked now that its content is complete; the install deferred it with the release.
-        installedCatalogCheck.requireValid(command.tenantKey, result.catalogKey)
-        RecordInstalledRelease(command.tenantKey, result.catalogKey).execute()
+        installedCatalogCheck.requireValid(systemCatalog(command.tenantKey))
+        RecordInstalledRelease(systemCatalog(command.tenantKey)).execute()
 
         InstallSystemCatalogResult(
             status = when (result.status) {

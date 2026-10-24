@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -19,13 +20,14 @@ import org.springframework.stereotype.Component
 
 /** The catalogs [catalogKey] declares it depends on, in declaration order, each with its lock. */
 data class ListCatalogDependencies(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -36,6 +38,6 @@ class ListCatalogDependenciesHandler(
 ) : QueryHandler<ListCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(query: ListCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        store.declarations(handle, query.tenantKey, query.catalogKey)
+        store.declarations(handle, query.catalog)
     }
 }

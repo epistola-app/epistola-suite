@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -40,9 +41,9 @@ class CatalogIdentityTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = CatalogKey.of("letters"), name = "Letters").execute()
 
-            val letters = GetCatalog(tenant.id, CatalogKey.of("letters")).query()!!
-            val default = GetCatalog(tenant.id, CatalogKey.DEFAULT).query()!!
-            val system = GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!
+            val letters = GetCatalog(testCatalog(tenant.id, CatalogKey.of("letters"))).query()!!
+            val default = GetCatalog(testCatalog(tenant.id, CatalogKey.DEFAULT)).query()!!
+            val system = GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()!!
 
             assertThat(listOf(letters, default).map { it.registry to it.namespace })
                 .containsOnly("exchange.epistola.app" to tenant.id.value)
@@ -71,11 +72,11 @@ class CatalogIdentityTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Letters").execute()
             TestNamespaces.grant(tenant.id, "gemeente-x").execute()
 
-            val changed = ChangeCatalogNamespace(tenant.id, key, "gemeente-x").execute()
+            val changed = ChangeCatalogNamespace(testCatalog(tenant.id, key), "gemeente-x").execute()
 
             assertThat(changed.namespace).isEqualTo("gemeente-x")
-            assertThat(GetCatalog(tenant.id, key).query()!!.namespace).isEqualTo("gemeente-x")
-            val manifest = objectMapper.readTree(catalogJson(mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(key, app.epistola.suite.common.ids.TenantId(tenant.id))).zipBytes))
+            assertThat(GetCatalog(testCatalog(tenant.id, key)).query()!!.namespace).isEqualTo("gemeente-x")
+            val manifest = objectMapper.readTree(catalogJson(mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), key)).zipBytes))
             assertThat(manifest["catalog"]["namespace"].asString()).isEqualTo("gemeente-x")
             assertThat(manifest["catalog"]["registry"].asString()).isEqualTo("exchange.epistola.app")
         }
@@ -85,9 +86,9 @@ class CatalogIdentityTest : IntegrationTestBase() {
     fun `a namespace that is not a lowercase slug is refused`() {
         val tenant = createTenant("Identity Invalid")
 
-        assertThatThrownBy { ChangeCatalogNamespace(tenant.id, CatalogKey.DEFAULT, "Gemeente X") }
+        assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, CatalogKey.DEFAULT), "Gemeente X") }
             .isInstanceOf(ValidationException::class.java)
-        assertThatThrownBy { ChangeCatalogNamespace(tenant.id, CatalogKey.DEFAULT, "gx") }
+        assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, CatalogKey.DEFAULT), "gx") }
             .isInstanceOf(ValidationException::class.java)
     }
 
@@ -96,8 +97,8 @@ class CatalogIdentityTest : IntegrationTestBase() {
         val tenant = createTenant("Identity Subscribed")
 
         withMediator {
-            assertThat(GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query()!!.suppliedByEpistola).isTrue()
-            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, SYSTEM_CATALOG_KEY, "mine").execute() }
+            assertThat(GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()!!.suppliedByEpistola).isTrue()
+            assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), "mine").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
         }
     }
@@ -120,10 +121,10 @@ class CatalogIdentityTest : IntegrationTestBase() {
                 ).bind("t", tenant.id).bind("c", key).bind("ns", tenant.id.value).execute()
             }
 
-            assertThatThrownBy { ChangeCatalogNamespace(tenant.id, key, "gemeente-x").execute() }
+            assertThatThrownBy { ChangeCatalogNamespace(testCatalog(tenant.id, key), "gemeente-x").execute() }
                 .isInstanceOf(CatalogNamespaceFixedException::class.java)
                 .hasMessageContaining("exchange.epistola.app/${tenant.id.value}/letters")
-            assertThat(GetCatalog(tenant.id, key).query()!!.namespace).isEqualTo(tenant.id.value)
+            assertThat(GetCatalog(testCatalog(tenant.id, key)).query()!!.namespace).isEqualTo(tenant.id.value)
         }
     }
 

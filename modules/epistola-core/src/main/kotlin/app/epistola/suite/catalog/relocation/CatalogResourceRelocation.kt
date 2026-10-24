@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.relocation
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
 import app.epistola.suite.catalog.graph.ResourceAddress
@@ -194,7 +195,7 @@ class MoveCatalogResourcesHandler(
                     """,
                 )
                     .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", rewrite.catalogKey)
+                    .bindCatalog("catalogKey", app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey)))
                     .bind("themeKey", rewrite.ownerKey)
                     .bind("replacementDocumentStyles", rewrite.replacementDocumentStyles)
                     .bind("replacementPresets", rewrite.replacementPresets)
@@ -234,8 +235,8 @@ class MoveCatalogResourcesHandler(
             )
                 .bind("tenantKey", command.tenantKey)
                 .bind("resourceId", resourceId)
-                .bind("sourceCatalogKey", relocation.source.catalogKey)
-                .bind("targetCatalogKey", relocation.target.catalogKey)
+                .bindCatalog("sourceCatalogKey", relocation.source.catalogIn(command.tenantKey))
+                .bindCatalog("targetCatalogKey", relocation.target.catalogIn(command.tenantKey))
                 .bind("targetKey", relocation.target.key)
                 .execute()
             if (moved != 1) throw StaleCatalogResourceMovePlanException()
@@ -253,7 +254,7 @@ class MoveCatalogResourcesHandler(
     }
 
     private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)
-        .bind("catalogKey", rewrite.catalogKey)
+        .bindCatalog("catalogKey", app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
         .bind("replacement", rewrite.replacement)
         .bind("expected", rewrite.expected)
 }

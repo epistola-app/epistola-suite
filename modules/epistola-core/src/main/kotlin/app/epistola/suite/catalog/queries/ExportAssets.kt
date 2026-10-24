@@ -5,14 +5,17 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -26,10 +29,15 @@ internal fun mimeTypeToExtension(mimeType: String): String = when (mimeType) {
 
 data class ExportAssets(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val assetIds: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<ImageResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -61,7 +69,7 @@ class ExportAssetsHandler(
                 if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
             }
             val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-            if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
+            if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
             if (query.assetIds != null) q.bindList("assetIds", query.assetIds)
             q.map { rs, _ ->
                 AssetRow(

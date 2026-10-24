@@ -23,6 +23,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -34,7 +35,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
         val tenant = createTenant("Stencil Usage Found")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("stencil-usage-cat")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(
@@ -72,7 +73,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
         val tenant = createTenant("Stencil Not Used")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("stencil-unused-cat")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(
@@ -97,7 +98,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
         val tenant = createTenant("Stencil No Match")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("stencil-nomatch")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(
@@ -127,7 +128,7 @@ class FindStencilUsagesTest : IntegrationTestBase() {
         val tenant = createTenant("Stencil Multi Use")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("stencil-multi")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(

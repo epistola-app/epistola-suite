@@ -4,9 +4,11 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
@@ -44,11 +46,12 @@ import tools.jackson.databind.node.ObjectNode
 // ── Command ─────────────────────────────────────────────────────────────────
 
 data class ImportTemplates(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val templates: List<ImportTemplateInput>,
 ) : Command<List<ImportTemplateResult>>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -74,7 +77,8 @@ data class ImportTemplateInput(
     val name: String,
     val version: String,
     val themeId: String? = null,
-    val themeCatalogKey: String? = null,
+    /** The catalog of [themeId], by its address (ADR 0034, section 9). */
+    val themeCatalog: app.epistola.suite.common.ids.CatalogId? = null,
     val pdfaEnabled: Boolean = true,
     val dataModel: ObjectNode?,
     val dataExamples: List<DataExample>,
@@ -135,7 +139,7 @@ class ImportTemplatesHandler(
     override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
         try {
             validateTemplateModels(input)
-            importSingleTemplate(command.tenantId, command.catalogKey, input)
+            importSingleTemplate(command.catalog, input)
         } catch (e: Exception) {
             logger.error("Failed to import template '${input.slug}': ${e.message}", e)
             ImportTemplateResult(
@@ -152,7 +156,7 @@ class ImportTemplatesHandler(
         input.variants.mapNotNull { it.templateModel }.forEach(templateDocumentValidator::validateTemplate)
     }
 
-    private fun importSingleTemplate(tenantId: TenantId, catalogKey: CatalogKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+    private fun importSingleTemplate(catalog: CatalogId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
         val templateId = TemplateKey.of(input.slug)
         val auditUser = currentUserIdOrNull()?.value
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
@@ -181,8 +185,8 @@ class ImportTemplatesHandler(
                 """,
         )
             .bind("id", templateId)
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
+            .bind("tenantId", catalog.tenantId.key)
+            .bindCatalog("catalogKey", catalog)
             .mapTo<Boolean>()
             .one()
 
@@ -198,12 +202,12 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
+                .bind("tenantId", catalog.tenantId.key)
+                .bindCatalog("catalogKey", catalog)
                 .bind("name", input.name)
                 .bind("description", input.description)
                 .bind("themeKey", input.themeId)
-                .bind("themeCatalogKey", input.themeCatalogKey)
+                .bindCatalog("themeCatalogKey", input.themeCatalog)
                 .bind("pdfaEnabled", input.pdfaEnabled)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
@@ -218,12 +222,12 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
+                .bind("tenantId", catalog.tenantId.key)
+                .bindCatalog("catalogKey", catalog)
                 .bind("name", input.name)
                 .bind("description", input.description)
                 .bind("themeKey", input.themeId)
-                .bind("themeCatalogKey", input.themeCatalogKey)
+                .bindCatalog("themeCatalogKey", input.themeCatalog)
                 .bind("pdfaEnabled", input.pdfaEnabled)
                 .bind("createdBy", auditUser).bind("updatedBy", auditUser)
                 .execute()
@@ -237,8 +241,8 @@ class ImportTemplatesHandler(
                 WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
                 """,
         )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
+            .bind("tenantId", catalog.tenantId.key)
+            .bindCatalog("catalogKey", catalog)
             .bind("templateId", templateId)
             .bind("dataModel", dataModelJson)
             .bind("dataExamples", dataExamplesJson)
@@ -251,8 +255,8 @@ class ImportTemplatesHandler(
                 WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
                 """,
         )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
+            .bind("tenantId", catalog.tenantId.key)
+            .bindCatalog("catalogKey", catalog)
             .bind("templateId", templateId)
             .execute()
 
@@ -264,7 +268,7 @@ class ImportTemplatesHandler(
 
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
             // The variant's own model, else the template's; import supersedes local edits.
-            val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalogKey)
+            val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalog.key)
 
             handle.createUpdate(
                 """
@@ -280,8 +284,8 @@ class ImportTemplatesHandler(
                 .bind("templateModel", prepared.templateModelJson)
                 .bind("referencedPaths", prepared.referencedPathsJson)
                 .bind("id", variantId)
-                .bind("tenantId", tenantId.key)
-                .bind("catalogKey", catalogKey)
+                .bind("tenantId", catalog.tenantId.key)
+                .bindCatalog("catalogKey", catalog)
                 .bind("templateId", templateId)
                 // Title is required (#631); default a title-less import to the variant slug.
                 .bind("title", variantInput.resolvedTitle())
@@ -301,20 +305,20 @@ class ImportTemplatesHandler(
                   AND id NOT IN (<variantIds>)
                 """,
         )
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
+            .bind("tenantId", catalog.tenantId.key)
+            .bindCatalog("catalogKey", catalog)
             .bind("templateId", templateId)
             .bindList("variantIds", importedVariantIds.toList())
             .execute()
 
         // What a catalog brings is released content: imported, it is ready as it is.
         handle.createQuery("SELECT ${templateAtAddress("tenantId", "catalogKey", "templateId")}")
-            .bind("tenantId", tenantId.key)
-            .bind("catalogKey", catalogKey)
+            .bind("tenantId", catalog.tenantId.key)
+            .bindCatalog("catalogKey", catalog)
             .bind("templateId", templateId)
             .mapTo(java.util.UUID::class.java)
             .one()
-            .let { readyMarks.mark(handle, tenantId.key, it) }
+            .let { readyMarks.mark(handle, catalog.tenantId.key, it) }
 
         ImportTemplateResult(
             slug = input.slug,

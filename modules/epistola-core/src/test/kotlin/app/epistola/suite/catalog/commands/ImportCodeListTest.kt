@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -33,12 +34,11 @@ class ImportCodeListTest : IntegrationTestBase() {
         val tenant = createTenant("ImportCL1")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.DEFAULT
-        val codeListId = CodeListId(CodeListKey.of("colors"), CatalogId(catalogKey, tenantId))
+        val codeListId = CodeListId(CodeListKey.of("colors"), testCatalog(tenantId, catalogKey))
 
         withMediator {
             val status = ImportCodeList(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "colors",
                 displayName = "Colors",
                 description = "Brand palette",
@@ -67,12 +67,11 @@ class ImportCodeListTest : IntegrationTestBase() {
         val tenant = createTenant("ImportCL2")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.DEFAULT
-        val codeListId = CodeListId(CodeListKey.of("seasons"), CatalogId(catalogKey, tenantId))
+        val codeListId = CodeListId(CodeListKey.of("seasons"), testCatalog(tenantId, catalogKey))
 
         withMediator {
             ImportCodeList(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "seasons",
                 displayName = "Seasons (v1)",
                 entries = listOf(
@@ -82,8 +81,7 @@ class ImportCodeListTest : IntegrationTestBase() {
             ).execute()
 
             val secondStatus = ImportCodeList(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "seasons",
                 displayName = "Seasons (v2)",
                 entries = listOf(
@@ -107,12 +105,11 @@ class ImportCodeListTest : IntegrationTestBase() {
         val tenant = createTenant("ImportCL3")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.DEFAULT
-        val codeListId = CodeListId(CodeListKey.of("statuses"), CatalogId(catalogKey, tenantId))
+        val codeListId = CodeListId(CodeListKey.of("statuses"), testCatalog(tenantId, catalogKey))
 
         withMediator {
             ImportCodeList(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "statuses",
                 displayName = "Statuses",
                 entries = listOf(
@@ -133,12 +130,11 @@ class ImportCodeListTest : IntegrationTestBase() {
         val tenant = createTenant("ImportCL4")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.DEFAULT
-        val codeListId = CodeListId(CodeListKey.of("countries"), CatalogId(catalogKey, tenantId))
+        val codeListId = CodeListId(CodeListKey.of("countries"), testCatalog(tenantId, catalogKey))
 
         withMediator {
             ImportCodeList(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "countries",
                 displayName = "Countries",
                 entries = listOf(CodeListEntry("nl", "Netherlands")),
@@ -146,8 +142,7 @@ class ImportCodeListTest : IntegrationTestBase() {
 
             assertThatThrownBy {
                 ImportCodeList(
-                    tenantId = tenantId,
-                    catalogKey = catalogKey,
+                    catalog = testCatalog(tenantId, catalogKey),
                     slug = "countries",
                     displayName = "Countries",
                     entries = listOf(CodeListEntry("x".repeat(65), "Too long")),

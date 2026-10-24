@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.htmx.catalogNamed
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -49,8 +50,9 @@ class CatalogThemeSettingsHandler {
         val segment = request.catalogSegment()
         val form = request.params()
         val error = try {
+            // "[namespace/]catalog/theme" (ADR 0034, section 9).
             val theme = form.getFirst("defaultTheme")?.takeIf { it.contains('/') }?.let {
-                CatalogDefaultTheme(ThemeKey.of(it.substringAfter('/')), CatalogKey.of(it.substringBefore('/')))
+                CatalogDefaultTheme(ThemeKey.of(it.substringAfterLast('/')), requireNotNull(catalogNamed(tenantId, it.substringBeforeLast('/'))) { "No catalog ${it.substringBeforeLast('/')}" })
             }
             val keys = form["presetKey"].orEmpty()
             val names = form["presetName"].orEmpty()
@@ -59,8 +61,8 @@ class CatalogThemeSettingsHandler {
             val presets = keys.indices
                 .filter { keys[it].isNotBlank() && keys[it] !in removed }
                 .map { CatalogPreset(keys[it].trim(), names.getOrNull(it)?.trim().orEmpty().ifBlank { keys[it].trim() }, descriptions.getOrNull(it)?.trim()?.ifBlank { null }) }
-            SetCatalogDefaultTheme(tenantId.key, segment.key, theme, catalogVersion = segment.ref(tenantId.key)).execute()
-            SetCatalogPresets(tenantId.key, segment.key, presets, catalogVersion = segment.ref(tenantId.key)).execute()
+            SetCatalogDefaultTheme(segment.catalogIn(tenantId.key), theme, catalogVersion = segment.ref(tenantId.key)).execute()
+            SetCatalogPresets(segment.catalogIn(tenantId.key), presets, catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message
@@ -71,13 +73,13 @@ class CatalogThemeSettingsHandler {
     private fun section(request: ServerRequest, saved: Boolean, error: String?): ServerResponse {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
-        val catalog = GetCatalog(tenantId.key, segment.key).query() ?: return ServerResponse.notFound().build()
-        val settings = GetCatalogThemeSettings(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val catalog = GetCatalog(segment.catalogIn(tenantId.key)).query() ?: return ServerResponse.notFound().build()
+        val settings = GetCatalogThemeSettings(segment.catalogIn(tenantId.key), catalogVersion = segment.ref(tenantId.key)).query()
         return request.htmx {
             fragment("catalogs/theme-settings", "section") {
                 "tenantId" to tenantId.key
                 "segmentValue" to segment.value
-                "editable" to IsCatalogEditable(tenantId.key, catalog.id).query()
+                "editable" to IsCatalogEditable(catalog.catalogId).query()
                 "settings" to settings
                 "defaultThemeValue" to settings.defaultTheme?.let { "${it.catalogKey.value}/${it.themeKey.value}" }
                 "themeOptions" to themeOptions(tenantId.key, segment)
@@ -89,11 +91,11 @@ class CatalogThemeSettingsHandler {
     }
 
     private fun themeOptions(tenantKey: app.epistola.suite.common.ids.TenantKey, segment: CatalogSegment): List<ThemeOption> {
-        val own = ListThemes(TenantId(tenantKey), catalogKey = segment.key, catalogVersion = segment.ref(tenantKey)).query()
-        val others = ListCatalogDependencies(tenantKey, segment.key, segment.ref(tenantKey)).query()
-            .map { CatalogKey.of(it.catalogKey) }
+        val own = ListThemes(TenantId(tenantKey), catalog = segment.catalogIn(tenantKey), catalogVersion = segment.ref(tenantKey)).query()
+        val others = ListCatalogDependencies(segment.catalogIn(tenantKey), segment.ref(tenantKey)).query()
+            .map { it.catalogIn(tenantKey) }
             .distinct()
-            .flatMap { ListThemes(TenantId(tenantKey), catalogKey = it).query() }
-        return (own + others).map { ThemeOption("${it.catalogKey.value}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
+            .flatMap { ListThemes(TenantId(tenantKey), catalog = it).query() }
+        return (own + others).map { ThemeOption("${it.catalogId.address}/${it.id.value}", "${it.name} (${it.catalogKey.value})") }
     }
 }

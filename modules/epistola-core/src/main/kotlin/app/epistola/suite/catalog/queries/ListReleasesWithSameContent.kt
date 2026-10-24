@@ -4,7 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -27,11 +29,12 @@ import java.util.UUID
  * without one yet is not listed. Null when the catalog has no such release.
  */
 data class ListReleasesWithSameContent(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Query<ReleasesWithSameContent?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -54,7 +57,12 @@ data class SameContentRelease(
     val catalogName: String,
     val version: String,
     val sameCatalog: Boolean,
-)
+    /** Its catalog's namespace: with [catalogKey], the address its pages are at (ADR 0034, section 9). */
+    val namespace: String = "",
+) {
+    /** `namespace/key`, as its pages are addressed. */
+    val address: String get() = "$namespace/$catalogKey"
+}
 
 @Component
 class ListReleasesWithSameContentHandler(
@@ -66,7 +74,7 @@ class ListReleasesWithSameContentHandler(
             "SELECT catalog_id, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .bind("v", query.version)
             .map { rs, _ -> rs.getObject("catalog_id", UUID::class.java) to rs.getString("content_hash") }
             .findOne()
@@ -77,7 +85,7 @@ class ListReleasesWithSameContentHandler(
 
         val releases = handle.createQuery(
             """
-            SELECT c.catalog_key, c.name, r.version, (r.catalog_id = :own) AS same_catalog
+            SELECT c.catalog_key, c.namespace, c.name, r.version, (r.catalog_id = :own) AS same_catalog
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t AND r.content_hash = :h AND NOT (r.catalog_id = :own AND r.version = :v)
@@ -88,7 +96,7 @@ class ListReleasesWithSameContentHandler(
             .bind("h", contentHash)
             .bind("own", catalogId)
             .bind("v", query.version)
-            .map { rs, _ -> SameContentRelease(rs.getString("catalog_key"), rs.getString("name"), rs.getString("version"), rs.getBoolean("same_catalog")) }
+            .map { rs, _ -> SameContentRelease(rs.getString("catalog_key"), rs.getString("name"), rs.getString("version"), rs.getBoolean("same_catalog"), rs.getString("namespace")) }
             .list()
         ReleasesWithSameContent(contentHash, releases)
     }

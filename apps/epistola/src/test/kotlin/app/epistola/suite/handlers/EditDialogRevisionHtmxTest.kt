@@ -23,6 +23,7 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

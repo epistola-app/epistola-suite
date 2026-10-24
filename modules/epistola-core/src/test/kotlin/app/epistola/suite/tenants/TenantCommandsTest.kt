@@ -13,6 +13,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.ThemeNotFoundException
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -88,7 +90,7 @@ class TenantCommandsTest : IntegrationTestBase() {
             SetTenantDefaultTheme(
                 tenantId = tenant.id,
                 themeId = ThemeKey.of("default"),
-                catalogKey = SYSTEM_CATALOG_KEY,
+                catalog = testCatalog(tenant.id, SYSTEM_CATALOG_KEY),
             ).execute()
         }
 
@@ -116,7 +118,7 @@ class TenantCommandsTest : IntegrationTestBase() {
                 SetTenantDefaultTheme(
                     tenantId = tenant!!.id,
                     themeId = ThemeKey.of("nonexistent"),
-                    catalogKey = SYSTEM_CATALOG_KEY,
+                    catalog = testCatalog(tenant.id, SYSTEM_CATALOG_KEY),
                 ).execute()
             }.isInstanceOf(ThemeNotFoundException::class.java)
         }
@@ -138,7 +140,7 @@ class TenantCommandsTest : IntegrationTestBase() {
             SetTenantDefaultTheme(
                 tenantId = tenant.id,
                 themeId = theme.id,
-                catalogKey = catalogId.key,
+                catalog = testCatalog(tenant.id, catalogId.key),
             ).execute()
             // Clearing the default unblocks DeleteTheme — the only remaining
             // guard is ThemeInUseException for the active tenant default.

@@ -23,6 +23,8 @@ import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -47,7 +49,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
         fun import(pdfaEnabled: Boolean) = withMediator {
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -62,7 +64,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
         }
 
@@ -95,7 +96,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -109,7 +110,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -130,7 +130,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -144,7 +144,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val variants = ListVariants(templateId = TemplateId(TemplateKey.of(slug), CatalogId.default(tenantId))).query()
@@ -161,7 +160,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -176,7 +175,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results[0].status).isNotEqualTo(ImportStatus.FAILED)
@@ -202,7 +200,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
             // First import: two variants
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -217,14 +215,13 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(ListVariants(templateId = templateId).query()).hasSize(2)
 
             // Second import: only one variant — orphan "english" should be removed
             ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -238,7 +235,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             val remaining = ListVariants(templateId = templateId).query()
@@ -255,7 +251,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -269,7 +265,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -286,7 +281,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -301,7 +296,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -318,7 +312,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -330,7 +324,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         variants = emptyList(),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results).hasSize(1)
@@ -347,7 +340,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
         withMediator {
             val slug = TestIdHelpers.nextTemplateId().value
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -361,7 +354,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
@@ -387,7 +379,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
         withMediator {
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -401,7 +393,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
         }
@@ -441,7 +432,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
 
             // Full template import over the shell (the catalog-ZIP MERGE path).
             val results = ImportTemplates(
-                tenantId = tenantId,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = slug,
@@ -455,7 +446,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.UPDATED)

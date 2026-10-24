@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.publishAndRelease
 import org.assertj.core.api.Assertions.assertThat
@@ -53,7 +54,7 @@ class EnvironmentTryDocumentHtmxTest : BaseIntegrationTest() {
             CreateEnvironment(staging, "Staging").execute()
             templateId.key.value to mediator.deployLatestRelease(staging, templateId.catalogId)
         }
-        val choice = "default@$version/$templateKey"
+        val choice = "${CatalogId.default(TenantId(tenantKey)).address}@$version/$templateKey"
 
         val page = restTemplate.getForEntity("/tenants/${tenantKey.value}/environments/staging", String::class.java)
         assertThat(page.statusCode).isEqualTo(HttpStatus.OK)

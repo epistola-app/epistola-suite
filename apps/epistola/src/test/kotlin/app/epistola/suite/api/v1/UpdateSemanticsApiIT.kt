@@ -28,6 +28,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -74,7 +75,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
     @Test
     fun `clearDefaultTheme removes the draft's default theme, and beside a defaultTheme is refused`() {
         val (tenant, key) = seedTenantAndKey()
-        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.DEFAULT, TenantId(tenant))), name = "Brand").execute() }
+        withMediator { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand").execute() }
         val draft = withMediator { CatalogApiPaths.version(tenant, CatalogKey.DEFAULT.value, "next") }
 
         val set = call(HttpMethod.PATCH, draft, key, """{"defaultTheme": {"key": "brand"}}""")
@@ -97,7 +98,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
     @Test
     fun `an empty description removes a stencil's and a theme's, and null keeps it`() {
         val (tenant, key) = seedTenantAndKey()
-        val catalog = CatalogId(CatalogKey.DEFAULT, TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), CatalogKey.DEFAULT)
         withMediator {
             CreateStencil(id = StencilId(StencilKey.of("header"), catalog), name = "Header", description = "The letterhead").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand", description = "House style").execute()
@@ -118,7 +119,7 @@ class UpdateSemanticsApiIT : IntegrationTestBase() {
     @Test
     fun `clearCodeListBinding moves a bound attribute to inline values, and beside a binding is refused`() {
         val (tenant, key) = seedTenantAndKey()
-        val catalog = CatalogId(CatalogKey.DEFAULT, TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), CatalogKey.DEFAULT)
         withMediator {
             val colors = CodeListId(CodeListKey.of("colors"), catalog)
             CreateCodeList(colors, "Colors", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()

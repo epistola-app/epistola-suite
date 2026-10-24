@@ -13,6 +13,7 @@ import app.epistola.generation.pdf.RenderMode
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -71,35 +72,19 @@ class GenerationService(
      * @param catalogDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
-        tenantId: TenantKey,
         templateModel: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
-        templateDefaultThemeId: ThemeKey? = null,
-        catalogDefaultThemeId: ThemeKey? = null,
+        resolvedTheme: ResolvedTheme,
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         fontFamilyResolver: FontFamilyResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
-        templateCatalogKey: CatalogKey? = null,
-        catalogDefaultThemeCatalogKey: CatalogKey? = null,
         culture: RenderCulture = RenderCulture.DEFAULT,
         watermarkText: String? = null,
-        resolvedThemeOverride: ResolvedTheme? = null,
     ) {
         templateDocumentValidator.validateTemplateGraphForRendering(templateModel)
-
-        // Live editor previews can provide the exact theme snapshot used by
-        // the canvas; all other callers resolve the authoritative cascade.
-        val resolvedTheme = resolvedThemeOverride ?: resolveTheme(
-            tenantId,
-            templateModel,
-            templateDefaultThemeId,
-            catalogDefaultThemeId,
-            templateCatalogKey,
-            catalogDefaultThemeCatalogKey,
-        )
 
         pdfRenderer.render(
             document = templateModel,
@@ -124,20 +109,20 @@ class GenerationService(
      * calling message targets, so a caller can resolve it in a short read and render later.
      */
     fun resolveTheme(
-        tenantId: TenantKey,
+        templateCatalog: CatalogId,
         templateModel: TemplateDocument,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
-        templateCatalogKey: CatalogKey?,
-        catalogDefaultThemeCatalogKey: CatalogKey?,
+        templateThemeCatalog: CatalogId?,
+        catalogDefaultThemeCatalog: CatalogId?,
         dependencies: DraftDependencyView? = null,
     ): ResolvedTheme = themeStyleResolver.resolveStyles(
-        tenantId,
+        templateCatalog,
         templateDefaultThemeId,
         catalogDefaultThemeId,
         templateModel,
-        templateCatalogKey = templateCatalogKey,
-        catalogDefaultThemeCatalogKey = catalogDefaultThemeCatalogKey,
+        templateThemeCatalog = templateThemeCatalog,
+        catalogDefaultThemeCatalog = catalogDefaultThemeCatalog,
         dependencies = dependencies,
     ).let { resolvedStyles ->
         ResolvedTheme(
@@ -265,8 +250,7 @@ class GenerationService(
      * @return Validation result with any errors found
      */
     fun validatePreviewData(
-        tenantId: TenantKey,
-        catalogKey: app.epistola.suite.common.ids.CatalogKey,
+        catalog: CatalogId,
         templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
@@ -274,7 +258,7 @@ class GenerationService(
         val dataModel: ObjectNode? = app.epistola.suite.templates.contracts.queries.GetDataContract(
             templateId = app.epistola.suite.common.ids.TemplateId(
                 templateId,
-                app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantId)),
+                catalog,
             ),
         ).query()?.dataModel
 

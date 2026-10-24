@@ -14,7 +14,7 @@ import app.epistola.suite.mcp.dto.VariantContentInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.execute
@@ -62,7 +62,7 @@ class VariantContentMcpTools(
     ): VariantContentInfo {
         val variant = VariantId(
             VariantKey.of(variantId),
-            TemplateId(TemplateKey.of(templateId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId())),
+            TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId)),
         )
         val document = objectMapper.parseArgument("content", content, TemplateDocument::class.java)
         val stored = UpdateVariantContent(

@@ -21,7 +21,9 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -52,8 +54,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
     private fun generateRequest(setup: TemplateSetup, filename: String) = withAuthentication {
         mediator.send(
             GenerateDocument(
-                tenantId = setup.tenant.id,
-                catalogKey = setup.template.catalogKey,
+                catalog = testCatalog(setup.tenant.id, setup.template.catalogKey),
                 templateId = setup.template.id,
                 variantId = setup.variant.id,
                 environmentId = null,
@@ -175,7 +176,7 @@ class GenerationHistoryQueriesTest : IntegrationTestBase() {
         val inBilling = withAuthentication {
             mediator.send(CreateCatalog(tenantKey = inDefault.tenant.id, id = billing, name = "Billing"))
             // Same template slug as the default-catalog template, in another catalog.
-            val templateId = TemplateId(inDefault.template.id, CatalogId(billing, TenantId(inDefault.tenant.id)))
+            val templateId = TemplateId(inDefault.template.id, testCatalog(TenantId(inDefault.tenant.id), billing))
             val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Invoice"))
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!

@@ -21,6 +21,7 @@ import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.quality.sources.AccessibilityQualitySource
 import app.epistola.suite.quality.sources.ExampleQualitySource
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -45,7 +46,7 @@ class DemoShowcaseQualityIntegrationTest : IntegrationTestBase() {
                 VariantKey.of("default"),
                 TemplateId(
                     TemplateKey.of("quality-showcase"),
-                    CatalogId(CatalogKey.of("epistola-demo"), TenantId(tenant.id)),
+                    testCatalog(TenantId(tenant.id), CatalogKey.of("epistola-demo")),
                 ),
             )
         }

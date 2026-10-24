@@ -40,26 +40,38 @@ data class TenantId(override val key: TenantKey) : EntityId<TenantKey, String, N
 }
 
 /**
- * Identifies a catalog within a tenant. Part of the address chain:
- * TenantId → CatalogId → the resource's own id (TemplateId, ThemeId, StencilId, ...).
+ * A catalog of a tenant, by its full address within the tenant: its [namespace] and [key] (ADR 0034,
+ * section 9). Every address names one catalog, since a catalog is unique by namespace and key in its
+ * tenant. Part of the address chain: TenantId → CatalogId → the resource's own id (TemplateId,
+ * ThemeId, StencilId, ...).
  *
  * This chain is a resource's *address*, which moves. Its immutable identity is a separate value,
- * [app.epistola.suite.common.ids.ResourceIdentity].
+ * [app.epistola.suite.common.ids.ResourceIdentity]; tables store a catalog's `catalog_id`.
  */
 data class CatalogId(
+    val namespace: String,
     override val key: CatalogKey,
     val tenantId: TenantId,
 ) : EntityId<CatalogKey, String, TenantId>(key, tenantId) {
     override val type = "catalog"
     val tenantKey get() = tenantId.key
 
+    init {
+        require(namespace.isNotBlank()) { "A catalog is named by its namespace and key: ${key.value} has no namespace" }
+    }
+
+    /** Its segment of a resource's path names it in full, `namespace/key`, as two catalogs may share a key. */
+    override fun segment(): String = "$namespace/${key.value}"
+
+    /** `namespace/key`, as a catalog's pages and tools address it. */
+    val address: String get() = "$namespace/${key.value}"
+
     companion object {
-        /**
-         * The [CatalogId] of the default catalog every tenant is provisioned with
-         * ([CatalogKey.DEFAULT]). For tests only: the default catalog can be deleted,
-         * so production code names the catalog it has in hand and never calls this.
-         */
-        fun default(tenantId: TenantId) = CatalogId(CatalogKey.DEFAULT, tenantId)
+        /** The catalog [address] (`namespace/key`, as [CatalogId.address] writes it) names in [tenantId]. */
+        fun of(address: String, tenantId: TenantId): CatalogId {
+            require('/' in address) { "A catalog address is namespace/key: $address" }
+            return CatalogId(address.substringBefore('/'), CatalogKey.of(address.substringAfter('/')), tenantId)
+        }
     }
 }
 

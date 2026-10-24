@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.SoftAssertions
 import org.jdbi.v3.core.Jdbi
@@ -66,7 +67,7 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
             ).bind("f", "74c0b2d145c4a970830b5ccbeb092b20abe7c8e9559f1d6b368147bac4bc09ba").bind("t", tenant).bind("c", SYSTEM_CATALOG_KEY).execute()
         }
 
-        withMediator { RecordInstalledRelease(tenant, SYSTEM_CATALOG_KEY).execute() }
+        withMediator { RecordInstalledRelease(testCatalog(tenant, SYSTEM_CATALOG_KEY)).execute() }
 
         val (fingerprint, contentHash) = recorded(tenant, "1.3.0")
         val retained = retained(tenant, "1.3.0")
@@ -78,15 +79,15 @@ class InstalledReleaseRecordTest : IntegrationTestBase() {
     private fun assertEntriesAreOfWhatIsKept(tenant: TenantKey, version: String, retained: CatalogContent) {
         val kept = fingerprints.perResourceFingerprints(retained)
         val softly = SoftAssertions()
-        for (entry in jdbi.withHandle<List<ReleaseEntry>, Exception> { entries.entriesOf(it, tenant, SYSTEM_CATALOG_KEY, version) }) {
+        for (entry in jdbi.withHandle<List<ReleaseEntry>, Exception> { entries.entriesOf(it, testCatalog(tenant, SYSTEM_CATALOG_KEY), version) }) {
             softly.assertThat(entry.fingerprint).`as`("${entry.contentKey} is recorded with the fingerprint of what it keeps").isEqualTo(kept[entry.contentKey])
         }
         softly.assertAll()
     }
 
-    private fun retained(tenant: TenantKey, version: String): CatalogContent = requireNotNull(assembler.assemble(tenant, SYSTEM_CATALOG_KEY, version)).content
+    private fun retained(tenant: TenantKey, version: String): CatalogContent = requireNotNull(assembler.assemble(testCatalog(tenant, SYSTEM_CATALOG_KEY), version)).content
 
-    private fun versions(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { entries.versions(it, tenant, SYSTEM_CATALOG_KEY) }
+    private fun versions(tenant: TenantKey): List<String> = jdbi.withHandle<List<String>, Exception> { entries.versions(it, testCatalog(tenant, SYSTEM_CATALOG_KEY)) }
 
     private fun recorded(tenant: TenantKey, version: String): Pair<String, String> = jdbi.withHandle<Pair<String, String>, Exception> { handle ->
         handle.createQuery(

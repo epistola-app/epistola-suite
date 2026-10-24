@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogReleaseStatus
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -131,10 +132,11 @@ data class CatalogPublicationState(
 }
 
 data class GetCatalogPublicationState(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<CatalogPublicationState?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission = Permission.CATALOG_VIEW
 }
 
@@ -149,15 +151,15 @@ class GetCatalogPublicationStateHandler(
 ) : QueryHandler<GetCatalogPublicationState, CatalogPublicationState?> {
 
     override fun handle(query: GetCatalogPublicationState): CatalogPublicationState? {
-        val catalog = GetCatalog(query.tenantKey, query.catalogKey).query() ?: return null
+        val catalog = GetCatalog(query.catalog).query() ?: return null
         val tenant = GetTenant(query.tenantKey).query() ?: return null
         val policy = catalog.exchangePublicationPolicy
         val available = availability.isAvailable(query.tenantKey)
         val canPublish = SecurityContext.current().hasPermission(query.tenantKey, Permission.CATALOG_PUBLISH)
         // History stays visible while the feature is paused: an administrator turning it off
         // still needs to see what is queued and what already went out.
-        val publications = store.list(query.tenantKey, query.catalogKey)
-        val releaseStatus = GetCatalogReleaseStatus(query.tenantKey, query.catalogKey).query()
+        val publications = store.list(query.catalog)
+        val releaseStatus = GetCatalogReleaseStatus(query.catalog).query()
         val current = publications.firstOrNull { it.version == releaseStatus.latestVersion }
         val isRetry = current?.status == CatalogPublicationStatus.FAILED && current.archiveRetained
 
@@ -166,7 +168,7 @@ class GetCatalogPublicationStateHandler(
         val binding = jdbi.withHandle<Binding, Exception> { handle ->
             Binding(
                 namespace = catalog.namespace,
-                locked = namespaceBinder.isLocked(handle, query.tenantKey, query.catalogKey),
+                locked = namespaceBinder.isLocked(handle, query.catalog),
                 granted = namespaceBinder.grantedNamespaces(handle, query.tenantKey).sorted(),
                 tenantDefault = namespaceBinder.tenantDefault(handle, query.tenantKey),
             )

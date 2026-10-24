@@ -34,6 +34,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -163,7 +164,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val released = withMediator { mediator.parallelReleaseLines(a, lines) }
         recordedBeforeV6(a, lines, "1.0.0", v5Of(released.v100))
 
-        val exported = withMediator { ExportCatalogZip(a, lines, "1.0.0").execute().zipBytes }
+        val exported = withMediator { ExportCatalogZip(testCatalog(a, lines), "1.0.0").execute().zipBytes }
 
         assertThat(fingerprintIn(exported)).isEqualTo(fingerprintIn(released.v100)).startsWith("v6:")
         withMediator { assertThat(ImportCatalogZip(tenantKey = c, zipBytes = exported).execute().newlyInstalled).isTrue() }
@@ -186,9 +187,9 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val preview = withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = renumbered).execute()
             // Changes of its own, so 1.1.0 is recorded beside and the next release is behind it.
-            CreateTheme(ThemeId(ThemeKey.of("local"), CatalogId(lines, TenantId(b))), "Local").execute()
+            CreateTheme(ThemeId(ThemeKey.of("local"), testCatalog(TenantId(b), lines)), "Local").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.v110).execute()
-            PreviewDraftMerge(b, lines, "1.1.0").query()
+            PreviewDraftMerge(testCatalog(b, lines), "1.1.0").query()
         }
 
         assertThat(preview.missingBase).isNull()
@@ -206,17 +207,17 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         val (sharedZip, version) = withMediator {
             CreateCatalog(tenantKey = a, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(a))), "Brand").execute()
-            MarkCatalogReady(a, shared).execute()
-            ReleaseCatalogDraft(a, shared, "1.0.0").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), shared)), "Brand").execute()
+            MarkCatalogReady(testCatalog(a, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(a, shared), "1.0.0").execute()
 
             CreateCatalog(tenantKey = a, id = letters, name = "Letters").execute()
             declareDependency(a, letters, on = shared)
-            val template = TemplateId(TemplateKey.of("letter"), CatalogId(letters, TenantId(a)))
+            val template = TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), letters))
             CreateDocumentTemplate(template, "Letter").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
-            MarkCatalogReady(a, letters).execute()
-            ExportCatalogZip(a, shared, "1.0.0").execute().zipBytes to ReleaseCatalogDraft(a, letters, "1.0.0").execute().version
+            UpdateDocumentTemplate(template, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(template.tenantKey, shared)).execute()
+            MarkCatalogReady(testCatalog(a, letters)).execute()
+            ExportCatalogZip(testCatalog(a, shared), "1.0.0").execute().zipBytes to ReleaseCatalogDraft(testCatalog(a, letters), "1.0.0").execute().version
         }
         val v5 = v5Of(sharedZip)
         // letters 1.0.0 pinned shared 1.0.0 as a release cut before V6 would have: by its V5.
@@ -230,16 +231,16 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         }
 
         withMediator {
-            val pin = ListReleaseDependencies(a, letters, version).query().single()
+            val pin = ListReleaseDependencies(testCatalog(a, letters), version).query().single()
             assertThat(pin.releaseFingerprint).isEqualTo(v5)
             assertThat(jdbi.withHandle<Boolean, Exception> { store.pinHolds(it, a, pin) }).`as`("a V5 pin on the release recorded as V6").isTrue()
-            val inputs = renderSource.resolve(GetTenant(a).query()!!, ReleaseRef(letters, version), "letter", VariantKey.INITIAL.value)
+            val inputs = renderSource.resolve(GetTenant(a).query()!!, ReleaseRef(testCatalog(a, letters), version), "letter", VariantKey.INITIAL.value)
             assertThat(inputs.resolvedTheme).`as`("renders with the theme of the release it pinned").isNotNull()
         }
 
         // And the other way round: the release recorded as V5, the pin as V6.
         recordedBeforeV6(a, shared, "1.0.0", v5)
-        val v6Pin = withMediator { ListReleaseDependencies(a, letters, version).query() }.single().copy(releaseFingerprint = fingerprintIn(sharedZip))
+        val v6Pin = withMediator { ListReleaseDependencies(testCatalog(a, letters), version).query() }.single().copy(releaseFingerprint = fingerprintIn(sharedZip))
         assertThat(jdbi.withHandle<Boolean, Exception> { store.pinHolds(it, a, v6Pin) }).`as`("a V6 pin on the release recorded as V5").isTrue()
     }
 
@@ -280,7 +281,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         backfill.run()
 
         assertThat(recorded(a, lines, "1.1.0").second).`as`("no content hash for what is no longer the release").isNull()
-        assertThatThrownBy { withMediator { ExportCatalogZip(a, lines, "1.1.0").execute() } }
+        assertThatThrownBy { withMediator { ExportCatalogZip(testCatalog(a, lines), "1.1.0").execute() } }
             .`as`("nor is it handed on")
             .hasMessageContaining("has been altered")
     }

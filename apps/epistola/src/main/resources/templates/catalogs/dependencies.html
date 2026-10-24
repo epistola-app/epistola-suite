@@ -38,7 +38,7 @@
                     <thead><tr><th>Catalog</th><th>Uses</th></tr></thead>
                     <tbody>
                         <tr th:each="d : ${dependents}" th:attr="data-catalog=${d.catalogKey}">
-                            <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${d.catalogKey})}" th:text="${d.name}">Letters</a></td>
+                            <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${d.address})}" th:text="${d.name}">Letters</a></td>
                             <td>
                                 <span th:if="${d.lockedTo != null}" th:text="'v' + ${d.lockedTo}">v1.0.0</span>
                                 <span th:if="${d.lockedTo == null}" class="text-muted">nothing published yet</span>

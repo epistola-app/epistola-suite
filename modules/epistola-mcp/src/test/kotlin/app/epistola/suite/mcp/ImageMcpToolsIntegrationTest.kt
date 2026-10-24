@@ -17,6 +17,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -50,22 +51,20 @@ class ImageMcpToolsIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val image = withMediator {
             val uploaded = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 name = "letterhead-logo.png",
                 mediaType = AssetMediaType.PNG,
                 content = byteArrayOf(1, 2, 3),
                 width = 320,
                 height = 80,
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 name = "letterhead-font.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = byteArrayOf(4, 5, 6),
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             uploaded
         }

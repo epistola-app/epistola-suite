@@ -23,6 +23,8 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRefInherit
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -77,8 +79,7 @@ class RunQualityChecksIntegrationTest : IntegrationTestBase() {
 
     private fun findingsFor(variantId: VariantId) = withMediator {
         GetFindingsForSubject(
-            tenantKey = variantId.tenantKey,
-            catalogKey = variantId.catalogKey,
+            catalog = testCatalog(variantId.tenantKey, variantId.catalogKey),
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
         ).query()

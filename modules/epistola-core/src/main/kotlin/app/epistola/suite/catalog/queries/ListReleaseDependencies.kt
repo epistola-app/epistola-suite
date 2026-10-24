@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -20,11 +21,12 @@ import org.springframework.stereotype.Component
  * release of the dependency it renders with. Empty for a release that declared none.
  */
 data class ListReleaseDependencies(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Query<List<CatalogDependencyDeclaration>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -35,6 +37,6 @@ class ListReleaseDependenciesHandler(
 ) : QueryHandler<ListReleaseDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(query: ListReleaseDependencies): List<CatalogDependencyDeclaration> = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        store.releasePins(handle, query.tenantKey, query.catalogKey, query.version)
+        store.releasePins(handle, query.catalog, query.version)
     }
 }

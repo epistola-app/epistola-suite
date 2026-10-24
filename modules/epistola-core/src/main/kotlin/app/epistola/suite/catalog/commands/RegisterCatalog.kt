@@ -17,6 +17,8 @@ import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.outbound.CatalogSourceProperties
 import app.epistola.suite.catalog.outbound.OutboundUrlGuard
 import app.epistola.suite.catalog.outbound.OutboundUrlRejectedException
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.crypto.Secret
 import app.epistola.suite.mediator.Command
@@ -64,7 +66,6 @@ class RegisterCatalogHandler(
     private val properties: CatalogSourceProperties,
     private val identity: CatalogIdentityProperties,
     private val dependencyStore: CatalogDependencyStore,
-    private val catalogNames: app.epistola.suite.catalog.CatalogNamesApplier,
 ) : CommandHandler<RegisterCatalog, Catalog> {
 
     override fun handle(command: RegisterCatalog): Catalog {
@@ -102,14 +103,14 @@ class RegisterCatalogHandler(
         // Its key means the catalog of its own namespace here, beside one of another (ADR 0034, phase 4).
         val namespace = manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey)
         return executeOrThrowDuplicate("catalog", catalogKey.value) {
-            catalogNames.named(catalogKey, namespace) { register(command, manifest, catalogKey, resourceFingerprintsJson, catalogMetadataJson) }
+            register(command, manifest, CatalogId(namespace, catalogKey, TenantId(command.tenantKey)), resourceFingerprintsJson, catalogMetadataJson)
         }
     }
 
     private fun register(
         command: RegisterCatalog,
         manifest: app.epistola.catalog.protocol.CatalogManifest,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         resourceFingerprintsJson: String,
         catalogMetadataJson: String,
     ): Catalog = jdbi.inTransaction<Catalog, Exception> { handle ->
@@ -120,11 +121,11 @@ class RegisterCatalogHandler(
                 VALUES (:id, :tenantKey, :registry, :namespace, :name, :description, :sourceUrl, :authType, :authCredential, :releaseVersion, :fingerprint, :resourceFingerprints::jsonb, NOW(), :catalogMetadata::jsonb, NOW(), NOW())
                 """,
         )
-            .bind("id", catalogKey)
+            .bind("id", catalog.key)
             .bind("tenantKey", command.tenantKey)
             // A catalog from a manifest is named by its publisher (contract ADR 0003).
             .bind("registry", manifest.catalog.registry ?: identity.defaultRegistry)
-            .bind("namespace", manifest.catalog.namespace ?: CatalogIdentityProperties.defaultNamespace(command.tenantKey))
+            .bind("namespace", catalog.namespace)
             .bind("name", manifest.catalog.name)
             .bind("description", manifest.catalog.description)
             .bind("sourceUrl", command.sourceUrl)
@@ -136,8 +137,8 @@ class RegisterCatalogHandler(
             .bind("catalogMetadata", catalogMetadataJson)
             .execute()
         // What the publisher's release declares and was cut with: the mirror renders with it.
-        dependencyStore.replace(handle, command.tenantKey, catalogKey, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
+        dependencyStore.replace(handle, catalog, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
 
-        handle.findCatalog(command.tenantKey, catalogKey)!!
+        handle.findCatalog(catalog)!!
     }
 }

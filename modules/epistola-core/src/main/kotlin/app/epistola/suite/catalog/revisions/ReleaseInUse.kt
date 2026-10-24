@@ -4,7 +4,9 @@
 
 package app.epistola.suite.catalog.revisions
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -36,7 +38,7 @@ class ReleaseInUseException(
  */
 object ReleaseInUse {
 
-    fun requireUnused(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String) {
+    fun requireUnused(handle: Handle, catalog: CatalogId, version: String) {
         val environments = handle.createQuery(
             """
             SELECT environment_key FROM environment_catalog_deployments
@@ -44,8 +46,8 @@ object ReleaseInUse {
             ORDER BY environment_key
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("v", version)
             .mapTo(String::class.java)
             .list()
@@ -56,25 +58,25 @@ object ReleaseInUse {
             JOIN catalogs pinning ON pinning.tenant_key = d.tenant_key AND pinning.catalog_id = d.catalog_id
             JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry
                                 AND target.namespace = d.namespace AND target.catalog_key = d.dependency_key
-            WHERE d.tenant_key = :t AND target.catalog_id = epistola_catalog_id(:t, :c) AND d.release_version = :v
+            WHERE d.tenant_key = :t AND target.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND d.release_version = :v
             ORDER BY 1
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("v", version)
             .mapTo(String::class.java)
             .list()
-        if (environments.isNotEmpty() || pinnedBy.isNotEmpty()) throw ReleaseInUseException(catalogKey, version, environments, pinnedBy)
+        if (environments.isNotEmpty() || pinnedBy.isNotEmpty()) throw ReleaseInUseException(catalog.key, version, environments, pinnedBy)
     }
 
     /** As [requireUnused], for every release of a catalog that is about to be deleted. */
-    fun requireCatalogUnused(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey) {
+    fun requireCatalogUnused(handle: Handle, catalog: CatalogId) {
         handle.createQuery("SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .mapTo(String::class.java)
             .list()
-            .forEach { requireUnused(handle, tenantKey, catalogKey, it) }
+            .forEach { requireUnused(handle, catalog, it) }
     }
 }

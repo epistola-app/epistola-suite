@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.templateAtAddress
@@ -43,7 +44,7 @@ internal fun requireDistinctAttributeSet(
         """,
     )
         .bind("tenantId", variantId.tenantKey)
-        .bind("catalogKey", variantId.catalogKey)
+        .bindCatalog("catalogKey", variantId.catalogId)
         .bind("templateId", variantId.templateKey)
         .bind("variantId", variantId.key)
         .bind("attributes", attributesJson)

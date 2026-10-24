@@ -19,6 +19,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -58,14 +60,13 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             }
             execute(
                 GenerateDocument(
-                    tenantId = setup.tenant.id,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     environmentId = null,
                     data = data,
                     filename = "x.pdf",
                     routingKey = "order-9999",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -110,14 +111,13 @@ class EmitOnExecutorIT : IntegrationTestBase() {
             }
             execute(
                 GenerateDocument(
-                    tenantId = setup.tenant.id,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     environmentId = null,
                     data = data,
                     filename = "y.pdf",
                     routingKey = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

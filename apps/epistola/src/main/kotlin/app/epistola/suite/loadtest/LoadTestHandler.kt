@@ -74,10 +74,10 @@ class LoadTestHandler(
         val tenantId = TenantId(tenantKey)
 
         // Check if this is a template selection (HTMX cascade update)
-        // Template select value is "catalogKey/templateKey"
+        // Template select value is "namespace/catalogKey/templateKey" (ADR 0034, section 9)
         val templateIdStr = request.param("templateId").orElse("")
-        val slashIdx = templateIdStr.indexOf('/')
-        val catalogKey = if (slashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(templateIdStr.substring(0, slashIdx)) else null
+        val slashIdx = templateIdStr.lastIndexOf('/')
+        val catalog = if (slashIdx > 0) app.epistola.suite.htmx.catalogNamed(tenantId, templateIdStr.substring(0, slashIdx)) else null
         val templateKeyStr = if (slashIdx > 0) templateIdStr.substring(slashIdx + 1) else templateIdStr
         val templateKey = TemplateKey.validateOrNull(templateKeyStr)
 
@@ -96,7 +96,7 @@ class LoadTestHandler(
             }
         }
 
-        val templateId = TemplateId(templateKey, CatalogId(catalogKey ?: return ServerResponse.badRequest().build(), tenantId))
+        val templateId = TemplateId(templateKey, catalog ?: return ServerResponse.badRequest().build())
 
         // Template selected - prepare cascade data
         val variants = ListVariants(templateId = templateId).query()
@@ -189,10 +189,11 @@ class LoadTestHandler(
             }
         }
 
-        // Parse composite templateId (catalogKey/templateKey)
+        // Parse composite templateId (namespace/catalogKey/templateKey)
         val rawTemplateId = form.formData["templateId"] ?: ""
-        val templateSlashIdx = rawTemplateId.indexOf('/')
-        val templateCatalogKey = if (templateSlashIdx > 0) app.epistola.suite.common.ids.CatalogKey.of(rawTemplateId.substring(0, templateSlashIdx)) else return ServerResponse.badRequest().build()
+        val templateSlashIdx = rawTemplateId.lastIndexOf('/')
+        val templateCatalog = (if (templateSlashIdx > 0) app.epistola.suite.htmx.catalogNamed(TenantId(tenantKey), rawTemplateId.substring(0, templateSlashIdx)) else null)
+            ?: return ServerResponse.badRequest().build()
         val templateKeyStr = rawTemplateId.substring(templateSlashIdx + 1)
         val templateKey = TemplateKey.validateOrNull(templateKeyStr) ?: return ServerResponse.badRequest().build()
         val variantKey = form.getVariantId("variantId")!!
@@ -210,8 +211,7 @@ class LoadTestHandler(
 
         try {
             val run = StartLoadTest(
-                tenantId = tenantKey,
-                catalogKey = templateCatalogKey,
+                catalog = templateCatalog,
                 templateId = templateKey,
                 variantId = variantKey,
                 environmentId = environmentId,
@@ -261,7 +261,7 @@ class LoadTestHandler(
             ?: return ServerResponse.notFound().build()
 
         // Fetch template name for display
-        val templateId = TemplateId(run.templateKey, CatalogId(run.catalogKey, tenantId))
+        val templateId = TemplateId(run.templateKey, run.catalogId)
         val template = GetDocumentTemplate(id = templateId).query()
 
         return ServerResponse.ok().page("loadtest/detail") {

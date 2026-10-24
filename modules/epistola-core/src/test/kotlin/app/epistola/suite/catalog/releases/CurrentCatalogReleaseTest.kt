@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
@@ -14,6 +15,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -57,7 +59,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
 
     private fun versionAtOf(tenantKey: TenantKey, catalogKey: CatalogKey): UUID? = jdbi.withHandle<UUID?, Exception> { handle ->
         handle.createQuery("SELECT ${versionAt("t", "c")}")
-            .bind("t", tenantKey).bind("c", catalogKey)
+            .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey))
             .mapTo(UUID::class.java).findOne().orElse(null)
     }
 
@@ -77,7 +79,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
         val tenantKey = createTenant("Current parallel").id
         withMediator { CreateCatalog(tenantKey, letters, "Letters").execute() }
         val (next, _) = versionRow(tenantKey, letters)
-        withMediator { CreateCatalogDraft(tenantKey, letters, "Redesign").execute() }
+        withMediator { CreateCatalogDraft(testCatalog(tenantKey, letters), "Redesign").execute() }
 
         assertThat(currentInView(tenantKey, letters)).isEqualTo(next)
         assertThat(versionAtOf(tenantKey, letters)).isEqualTo(next)
@@ -88,7 +90,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
         val tenantKey = createTenant("Current subscribed").id
         withMediator {
             RegisterCatalog(tenantKey = tenantKey, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenantKey, catalogKey = installed).execute()
+            InstallFromCatalog(catalog = testCatalog(tenantKey, installed)).execute()
         }
         val (nextRow, base) = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
             handle.createQuery(
@@ -102,7 +104,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
 
         assertThat(currentInView(tenantKey, installed)).isEqualTo(nextRow)
         assertThat(versionAtOf(tenantKey, installed)).isEqualTo(nextRow)
-        assertThat(base).isEqualTo(withMediator { app.epistola.suite.catalog.queries.GetCatalog(tenantKey, installed).query()!!.installedReleaseVersion })
+        assertThat(base).isEqualTo(withMediator { app.epistola.suite.catalog.queries.GetCatalog(testCatalog(tenantKey, installed)).query()!!.installedReleaseVersion })
     }
 
     @Test

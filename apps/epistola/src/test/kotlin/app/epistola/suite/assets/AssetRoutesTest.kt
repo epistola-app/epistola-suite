@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -87,13 +88,12 @@ class AssetRoutesTest : BaseIntegrationTest() {
             testTenant = tenant("Readable Image Tenant")
             withMediator {
                 UploadAsset(
-                    tenantId = testTenant.id,
+                    catalog = testCatalog(testTenant.id, CatalogKey.DEFAULT),
                     name = "Municipality mark",
                     mediaType = AssetMediaType.SVG,
                     content = SVG,
                     width = null,
                     height = null,
-                    catalogKey = CatalogKey.DEFAULT,
                     id = AssetKey.of("municipality-mark"),
                 ).execute()
             }
@@ -153,7 +153,7 @@ class AssetRoutesTest : BaseIntegrationTest() {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             assertThat(response.body).contains("SVG not accepted")
-            val stored = withMediator { ListAssets(tenantId = testTenant.id, catalogKey = CatalogKey.DEFAULT).query() }
+            val stored = withMediator { ListAssets(tenantId = testTenant.id, catalog = testCatalog(testTenant.id, CatalogKey.DEFAULT)).query() }
             assertThat(stored).isEmpty()
         }
     }

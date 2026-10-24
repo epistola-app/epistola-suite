@@ -19,6 +19,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -37,18 +39,18 @@ class RelocationAuditIT : IntegrationTestBase() {
     @Test
     fun `a move records each resource's old and new address`() {
         val tenant = createTenant("Relocation audit")
-        val header = ResourceAddress(CatalogResourceType.STENCIL, "letters", "header")
+        val header = testAddress(tenant.id, CatalogResourceType.STENCIL, "letters", "header")
         val relocation = header.movedTo(CatalogKey.of("shared"), "masthead")
         withMediator {
             CreateCatalog(tenant.id, CatalogKey.of("letters"), "Letters").execute()
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), CatalogId(CatalogKey.of("letters"), TenantId(tenant.id))), "Header").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), CatalogKey.of("letters"))), "Header").execute()
             val plan = PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query()
             MoveCatalogResources(tenant.id, listOf(relocation), plan.planFingerprint).execute()
         }
 
         assertThat(latestDetails(tenant.id.value, "MoveCatalogResources"))
-            .contains("stencil:letters/header", "stencil:shared/masthead")
+            .contains(header.id, relocation.target.id)
     }
 
     private fun latestDetails(tenantKey: String, action: String): String? = jdbi.withHandle<String?, Exception> { handle ->

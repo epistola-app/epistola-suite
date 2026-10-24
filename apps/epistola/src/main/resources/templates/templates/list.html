@@ -75,7 +75,7 @@
                     <tbody>
                         <tr th:each="template : ${templates}" data-testid="template-row" th:data-template-slug="${template.id}">
                             <td th:title="${template.name}">
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress},id=${template.id})}"
                                    th:text="${template.name}" style="font-weight: 500;"></a>
                                 <!-- The template's notes for its authors, one line, cut with an ellipsis; the full text on hover. -->
                                 <div th:if="${template.description != null}" class="text-muted text-xs"
@@ -87,7 +87,7 @@
                             <td th:text="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}" th:data-local-time="${template.updatedAt}" th:title="${#temporals.format(template.updatedAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
                                 <span th:unless="${catalogEditing.editable(template.catalogKey)}" class="badge badge-muted" th:title="${catalogEditing.readOnlyLabel(template.catalogKey)}">Read-only</span>
-                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogKey) ?: template.catalogKey},id=${template.id})}"
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{id}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(template.catalogAddress) ?: template.catalogAddress},id=${template.id})}"
                                    class="ep-btn ep-btn-ghost ep-btn-sm ep-btn-icon" title="View template">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
                                 </a>

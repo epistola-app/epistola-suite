@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.upgrade
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.ContentSource
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RecordInstalledRelease
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
@@ -20,6 +21,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -95,7 +97,10 @@ class CatalogUpgradeRunner(
     override fun handle(task: ClusterScheduledTask) = run()
 
     /** [continuesAfter]: the catalog's highest 1.x release, which the migration recorded before removing it. */
-    private data class Queued(val tenantKey: TenantKey, val catalogKey: CatalogKey, val subscribed: Boolean, val continuesAfter: String?)
+    private data class Queued(val catalogId: CatalogId, val subscribed: Boolean, val continuesAfter: String?) {
+        val tenantKey: TenantKey get() = catalogId.tenantKey
+        val catalogKey: CatalogKey get() = catalogId.key
+    }
 
     /** Upgrades every queued catalog it can; a no-op once the queue is empty. */
     fun run() {
@@ -133,36 +138,35 @@ class CatalogUpgradeRunner(
     private fun upgrade(catalog: Queued) = SecurityContext.runWithPrincipal(SystemUser.principalForTenant(catalog.tenantKey)) {
         if (catalog.subscribed) {
             // Its declarations and content are the publisher's: only the release is missing.
-            RecordInstalledRelease(catalog.tenantKey, catalog.catalogKey).execute()
+            RecordInstalledRelease(catalog.catalogId).execute()
                 ?.let { logger.info("Catalog {}/{} recorded its installed release {}", catalog.tenantKey.value, catalog.catalogKey.value, it) }
             return@runWithPrincipal
         }
-        val declared = declarer.declareMissing(catalog.tenantKey, catalog.catalogKey)
+        val declared = declarer.declareMissing(catalog.catalogId)
         if (declared.isNotEmpty()) {
             logger.info("Catalog {}/{} now declares {}", catalog.tenantKey.value, catalog.catalogKey.value, declared.joinToString())
         }
         // A catalog it depends on may have been released since it was declared, earlier in this run.
-        declarer.pinUnpinned(catalog.tenantKey, catalog.catalogKey)
+        declarer.pinUnpinned(catalog.catalogId)
         if (!hasRelease(catalog) &&
-            contentBuilder.build(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
+            contentBuilder.build(catalog.catalogId, ContentSource.PUBLISHED_BEFORE_2_0).resourceEntries.isNotEmpty()
         ) {
             // What it released using a catalog the tenant lacks cannot be declared: say which, not what releasing then trips over.
-            val unknown = declarer.unknownCatalogs(catalog.tenantKey, catalog.catalogKey, ContentSource.PUBLISHED_BEFORE_2_0)
+            val unknown = declarer.unknownCatalogs(catalog.catalogId, ContentSource.PUBLISHED_BEFORE_2_0)
             check(unknown.isEmpty()) {
                 "its content uses ${if (unknown.size == 1) "catalog" else "catalogs"} ${unknown.joinToString { "'$it'" }}, which this tenant does not have: " +
                     "install ${if (unknown.size == 1) "it" else "them"}, or change what uses ${if (unknown.size == 1) "it" else "them"}, and it is upgraded on the next run"
             }
-            requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.tenantKey, catalog.catalogKey) }) {
+            requireNotNull(jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog.catalogId) }) {
                 "catalog ${catalog.catalogKey.value} has no next release to publish"
             }
             // What was published before 2.0 becomes the next patch after its latest release, 1.x ones
             // included, or the first version.
-            val released = ListCatalogReleaseSummaries(catalog.tenantKey, catalog.catalogKey).query().map { it.version }
+            val released = ListCatalogReleaseSummaries(catalog.catalogId).query().map { it.version }
             val version = CatalogDrafts.latest(released + listOfNotNull(catalog.continuesAfter))
                 ?.let { SemVer.parse(it).bumpPatch().toString() } ?: CatalogDrafts.FIRST
             ReleaseCatalogDraft(
-                tenantKey = catalog.tenantKey,
-                catalogKey = catalog.catalogKey,
+                catalog = catalog.catalogId,
                 version = version,
                 notes = "What was published before the upgrade to 2.0.",
                 publication = ReleasePublication.SUPPRESS,
@@ -175,20 +179,20 @@ class CatalogUpgradeRunner(
     private fun queued(): List<Queued> = jdbi.withHandle<List<Queued>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT q.tenant_key, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed, q.continues_after
+            SELECT q.tenant_key, c.namespace, c.catalog_key, c.type = 'SUBSCRIBED' AS subscribed, q.continues_after
             FROM catalog_upgrade_queue q
             JOIN catalogs c ON c.tenant_key = q.tenant_key AND c.catalog_id = q.catalog_id
             ORDER BY q.tenant_key, c.catalog_key
             """,
         )
-            .map { rs, _ -> Queued(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2)), rs.getBoolean(3), rs.getString(4)) }
+            .map { rs, _ -> Queued(CatalogId(rs.getString(2), CatalogKey.of(rs.getString(3)), app.epistola.suite.common.ids.TenantId(TenantKey.of(rs.getString(1)))), rs.getBoolean(4), rs.getString(5)) }
             .list()
     }
 
     private fun hasRelease(catalog: Queued): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")})")
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.catalogKey)
+            .bindCatalog("c", catalog.catalogId)
             .mapTo(Boolean::class.java)
             .one()
     }
@@ -204,11 +208,11 @@ class CatalogUpgradeRunner(
             """,
         )
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.catalogKey)
+            .bindCatalog("c", catalog.catalogId)
             .execute()
         handle.createUpdate("DELETE FROM catalog_upgrade_queue WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.catalogKey)
+            .bindCatalog("c", catalog.catalogId)
             .execute()
     }
 
@@ -216,7 +220,7 @@ class CatalogUpgradeRunner(
         handle.createUpdate("UPDATE catalog_upgrade_queue SET last_error = :e WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("e", error)
             .bind("t", catalog.tenantKey)
-            .bind("c", catalog.catalogKey)
+            .bindCatalog("c", catalog.catalogId)
             .execute()
     }
 

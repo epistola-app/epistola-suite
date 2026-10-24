@@ -5,11 +5,16 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -23,9 +28,11 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,17 +62,15 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
         withMediator {
             TestNamespaces.grant(tenant, "acme").execute()
             TestNamespaces.grant(tenant, "bureau").execute()
-            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
             CreateEnvironment(production, "Production").execute()
             for ((namespace, title) in listOf("acme" to "Acme", "bureau" to "Bureau")) {
                 CreateCatalog(tenant, letters, "$title letters", namespace = namespace).execute()
-                CatalogNames.within(letters, namespace) {
-                    val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))))
-                    CreateDocumentTemplate(variant.templateId, "$title invoice").execute()
-                    val version = mediator.publishAndRelease(variant)
-                    DeployCatalogRelease(production, letters, version).execute()
-                }
+                val catalog = CatalogId(namespace, letters, TenantId(tenant))
+                val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
+                CreateDocumentTemplate(variant.templateId, "$title invoice").execute()
+                val version = mediator.publishAndRelease(variant)
+                DeployCatalogRelease(production, catalog, version).execute()
             }
         }
         return tenant
@@ -126,4 +131,61 @@ class TwoLettersPagesHtmxTest : BaseIntegrationTest() {
         val served = withMediator { ListDeployments(tenant, environmentKey = EnvironmentKey.of("production")).query() }
         assertThat(served.map { it.namespace }).containsExactly("acme")
     }
+
+    @Test
+    fun `a catalog whose key is also the name of a list is reached at its address`() {
+        val tenant = createTenant("Key named templates").id
+        withMediator {
+            TestNamespaces.grant(tenant, "acme").execute()
+            CreateCatalog(tenant, CatalogKey.of("templates"), "Templates catalog", namespace = "acme").execute()
+        }
+
+        val browse = get("/tenants/${tenant.value}/catalogs/acme/templates/browse")
+        assertThat(browse.statusCode.value()).isEqualTo(200)
+        assertThat(browse.body.orEmpty()).contains("Templates catalog").contains("/tenants/${tenant.value}/catalogs/acme/templates/settings")
+    }
+
+    @Test
+    fun `an image is served from the catalog the template is in, by the alias it names it under`() {
+        val tenant = twoLetters("Two letters images")
+        withMediator {
+            for (namespace in listOf("acme", "bureau")) {
+                UploadAsset(
+                    catalog = CatalogId(namespace, letters, TenantId(tenant)),
+                    name = "Logo",
+                    mediaType = AssetMediaType.SVG,
+                    content = svg(namespace),
+                    width = null,
+                    height = null,
+                    id = AssetKey.of("logo"),
+                ).execute()
+            }
+        }
+
+        for (namespace in listOf("acme", "bureau")) {
+            // As the editor asks: from the template's catalog, by the alias the content names (ADR 0034, section 9).
+            val image = restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/$namespace/letters/images/logo/content?alias=letters", ByteArray::class.java)
+            assertThat(image.statusCode.value()).`as`(namespace).isEqualTo(200)
+            assertThat(String(image.body!!)).`as`(namespace).contains(namespace)
+        }
+        // The editor is told its template's catalog by address, which its image URLs are built from.
+        val editor = get("/tenants/${tenant.value}/catalogs/bureau/letters/templates/invoice/variants/${VariantKey.INITIAL.value}/editor").body.orEmpty()
+        assertThat(editor).contains("\"catalogSegment\": \"bureau/letters\"")
+    }
+
+    @Test
+    fun `a deep link into organising names the resource by its catalog's address`() {
+        val tenant = twoLetters("Two letters organise")
+        withMediator {
+            SaveFeatureToggle(tenant, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
+            CreateStencil(StencilId(StencilKey.of("header"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau header").execute()
+        }
+
+        val page = get("/tenants/${tenant.value}/catalogs/organise?resource=stencil:bureau/letters/header")
+        assertThat(page.body.orEmpty()).contains("data-preselected=\"stencil:bureau/letters/header\"")
+        val offered = get("/tenants/${tenant.value}/catalogs/organise/resources?resource=stencil:bureau/letters/header").body.orEmpty()
+        assertThat(offered).contains("stencil:bureau/letters/header").doesNotContain("stencil:acme/letters/header")
+    }
+
+    private fun svg(text: String) = """<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><title>$text</title></svg>""".toByteArray()
 }

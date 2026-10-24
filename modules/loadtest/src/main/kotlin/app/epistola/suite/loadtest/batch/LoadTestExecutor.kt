@@ -55,7 +55,7 @@ class LoadTestExecutor(
         tenantId = run.tenantKey,
         items = (1..run.targetCount).map { sequenceNumber ->
             BatchGenerationItem(
-                catalogKey = run.catalogKey,
+                catalog = run.catalogId,
                 templateId = run.templateKey,
                 variantId = run.variantKey,
                 environmentId = run.environmentKey,

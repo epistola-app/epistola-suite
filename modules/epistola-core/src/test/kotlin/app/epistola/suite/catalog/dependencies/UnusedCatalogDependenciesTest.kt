@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -46,49 +47,49 @@ class UnusedCatalogDependenciesTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("base"), CatalogId(shared, TenantId(tenant))), name = "Base").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant), shared)), name = "Base").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             declareDependency(tenant, letters, shared, "1.0.0")
         }
         return tenant
     }
 
-    private fun unused(tenant: TenantKey) = withMediator { GetCatalogBorrowing(tenant, letters).query().unused.map { it.alias } }
+    private fun unused(tenant: TenantKey) = withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query().unused.map { it.alias } }
 
     @Test
     fun `a declaration nothing uses is listed as unused, and removing it leaves the others`() {
         val tenant = declaredUnused("unused-removed")
         assertThat(unused(tenant)).containsExactly("shared")
 
-        val result = withMediator { RemoveUnusedCatalogDependencies(tenant, letters, listOf("shared")).execute() }
+        val result = withMediator { RemoveUnusedCatalogDependencies(testCatalog(tenant, letters), listOf("shared")).execute() }
 
         assertThat(result.removed).containsExactly("shared")
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query().catalogs.filter { it.declared } }).isEmpty()
+        assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query().catalogs.filter { it.declared } }).isEmpty()
     }
 
     @Test
     fun `a catalog whose theme is the default theme is used, and its declaration is not removed`() {
         val tenant = declaredUnused("unused-default-theme")
-        withMediator { SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("base"), shared)).execute() }
+        withMediator { SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("base"), testCatalog(tenant, shared))).execute() }
 
         assertThat(unused(tenant)).isEmpty()
-        assertThatThrownBy { withMediator { RemoveUnusedCatalogDependencies(tenant, letters, listOf("shared")).execute() } }
+        assertThatThrownBy { withMediator { RemoveUnusedCatalogDependencies(testCatalog(tenant, letters), listOf("shared")).execute() } }
             .isInstanceOf(ValidationException::class.java).hasMessageContaining("shared is used")
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query().catalogs.single { it.alias == "shared" }.declared }).isTrue()
+        assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query().catalogs.single { it.alias == "shared" }.declared }).isTrue()
     }
 
     @Test
     fun `a catalog whose attribute a variant carries is used`() {
         val tenant = declaredUnused("unused-attribute")
         withMediator {
-            val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+            val template = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(template, "Invoice").execute()
             CreateVariant(VariantId(VariantKey.of("dutch"), template), "Dutch", null, attributes = mapOf("system.locale" to "nl-NL")).execute()
         }
 
         assertThat(unused(tenant)).doesNotContain("system")
-        assertThat(withMediator { GetCatalogBorrowing(tenant, letters).query().catalogs.single { it.catalogKey == "system" }.used }).isTrue()
+        assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant, letters)).query().catalogs.single { it.catalogKey == "system" }.used }).isTrue()
     }
 }

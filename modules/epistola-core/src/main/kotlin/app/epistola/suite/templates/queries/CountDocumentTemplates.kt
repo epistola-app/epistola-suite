@@ -4,10 +4,12 @@
 
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -15,6 +17,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -25,13 +28,18 @@ import org.springframework.stereotype.Component
  */
 data class CountDocumentTemplates(
     val tenantId: TenantId,
+    val catalog: CatalogId? = null,
     val searchTerm: String? = null,
-    val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<Long>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantId == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey: TenantKey get() = tenantId.key
 }
@@ -53,7 +61,7 @@ class CountDocumentTemplatesHandler(
         }
         val jdbiQuery = handle.createQuery(sql).bind("tenantId", query.tenantId.key)
         if (query.catalogKey != null) {
-            jdbiQuery.bind("catalogKey", query.catalogKey)
+            jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")

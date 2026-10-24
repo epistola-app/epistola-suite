@@ -83,7 +83,7 @@ internal class ReleaseRegistryEndpoints(private val identity: CatalogIdentityPro
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val version = at.version.version?.takeUnless { at.isDraft }
             ?: throw ReleaseRegistryConflictException("'$release' is a draft of ${at.catalogKey.value}; only a released release is published. Release it first.")
-        val published = PublishReleaseToReleaseRegistry(at.catalog.tenantKey, at.catalogKey, version, to).execute()
+        val published = PublishReleaseToReleaseRegistry(at.catalog.catalogId, version, to).execute()
         return ReleasePublicationDto(
             status = when (published.status) {
                 ReleaseRegistryPublication.Status.PUBLISHED -> ReleasePublicationStatus.PUBLISHED

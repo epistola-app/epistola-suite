@@ -4,8 +4,10 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.releaseNumberOrder
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -26,13 +28,14 @@ import java.time.OffsetDateTime
  * [limit] null returns every match; [offset] skips that many.
  */
 data class ListReleasesByContentHash(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val contentHash: String,
     val limit: Int? = null,
     val offset: Int = 0,
 ) : Query<CatalogReleasePage>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -62,7 +65,7 @@ class ListReleasesByContentHashHandler(
             """,
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .bind("h", query.contentHash)
             .bind("offset", query.offset.coerceAtLeast(0))
             .also { statement -> query.limit?.let { statement.bind("limit", it.coerceAtLeast(0)) } }

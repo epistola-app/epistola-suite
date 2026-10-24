@@ -24,6 +24,8 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -159,13 +161,12 @@ class JobPollerShutdownIntegrationTest : IntegrationTestBase() {
         released(compositeVariantId, TestTemplateBuilder.buildMinimal(name = "Shutdown Drain Template"))
         val request = execute(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = ObjectMapper().createObjectNode(),
                 filename = filename,
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
         return tenant.id to request.id

@@ -32,6 +32,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -85,20 +86,20 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
         val other = CatalogKey.of("registry-other")
         withMediator {
             CreateCatalog(tenant, granted, "Granted", namespace = TestNamespaces.of(tenant).namespace).execute()
-            ChangeCatalogNamespace(tenant, granted, "public-services").execute()
-            ReleaseCatalogDraft(tenant, granted, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant, granted), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant, granted), "1.0.0", publication = ReleasePublication.SKIP).execute()
 
-            val first = PublishReleaseToReleaseRegistry(tenant, granted, "1.0.0", "exchange").execute()
+            val first = PublishReleaseToReleaseRegistry(testCatalog(tenant, granted), "1.0.0", "exchange").execute()
             assertThat(first.status).isEqualTo(ReleaseRegistryPublication.Status.QUEUED)
             assertThat(first.kind).isEqualTo(ReleaseRegistryKind.EXCHANGE)
-            assertThat(PublishReleaseToReleaseRegistry(tenant, granted, "1.0.0", "exchange").execute().status).isEqualTo(ReleaseRegistryPublication.Status.QUEUED)
-            assertThat(GetCatalogPublicationState(tenant, granted).query()!!.publications).hasSize(1)
+            assertThat(PublishReleaseToReleaseRegistry(testCatalog(tenant, granted), "1.0.0", "exchange").execute().status).isEqualTo(ReleaseRegistryPublication.Status.QUEUED)
+            assertThat(GetCatalogPublicationState(testCatalog(tenant, granted)).query()!!.publications).hasSize(1)
 
             // Held here, by an administrator's grant, but not granted by the Exchange connection.
             TestNamespaces.grant(tenant, "not-granted").execute()
             CreateCatalog(tenant, other, "Other", namespace = "not-granted").execute()
-            ReleaseCatalogDraft(tenant, other, "1.0.0", publication = ReleasePublication.SKIP).execute()
-            assertThatThrownBy { PublishReleaseToReleaseRegistry(tenant, other, "1.0.0", "exchange").execute() }
+            ReleaseCatalogDraft(testCatalog(tenant, other), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            assertThatThrownBy { PublishReleaseToReleaseRegistry(testCatalog(tenant, other), "1.0.0", "exchange").execute() }
                 .isInstanceOf(NamespaceNotGrantedException::class.java)
         }
     }
@@ -121,10 +122,10 @@ class ExchangeReleaseRegistryTest : ExchangeIntegrationTestBase() {
         return withMediator {
             TestNamespaces.grant(publisher, "acme").execute()
             CreateCatalog(publisher, catalogKey, "Letters", namespace = "acme").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))), name = "Theme $version").execute()
-            MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            mediator.exportReleased(CatalogId(catalogKey, TenantId(publisher))).zipBytes
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)), name = "Theme $version").execute()
+            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version).execute()
+            mediator.exportReleased(testCatalog(TenantId(publisher), catalogKey)).zipBytes
         }
     }
 }

@@ -115,7 +115,7 @@
                         <tbody>
                             <tr th:each="u : ${usage}" data-testid="stencil-usage-row">
                                 <td>
-                                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(u.catalogKey) ?: u.catalogKey},templateId=${u.templateId})}"
+                                    <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{templateId}(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(u.catalogAddress) ?: u.catalogAddress},templateId=${u.templateId})}"
                                        th:text="${u.templateName}" style="font-weight: 500;"></a>
                                 </td>
                                 <td><span class="badge badge-default" th:text="${u.catalogKey}"></span></td>

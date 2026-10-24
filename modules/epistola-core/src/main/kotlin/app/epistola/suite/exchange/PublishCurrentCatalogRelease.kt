@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogArchiveBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogPublicationPolicy
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.catalogName
 import app.epistola.suite.catalog.namespaces.LocalAuthority
@@ -16,6 +17,7 @@ import app.epistola.suite.catalog.namespaces.NamespaceMessages
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -39,8 +41,7 @@ import java.util.UUID
  * same answer. One the Exchange rejected is refused: that number cannot be published again.
  */
 data class PublishCurrentCatalogRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /**
      * Which release to send, or null for the one the catalog is currently on.
      *
@@ -57,6 +58,8 @@ data class PublishCurrentCatalogRelease(
     val version: String? = null,
 ) : Command<ExchangePublicationOutcome>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission = Permission.CATALOG_PUBLISH
 }
 
@@ -101,7 +104,7 @@ class PublishCurrentCatalogReleaseHandler(
         validate("publication", availability.isAvailable(command.tenantKey), ValidationCode.PUBLICATION_UNAVAILABLE) {
             "Exchange publishing is not enabled for this deployment and tenant."
         }
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
         validate("catalogKey", catalog != null, ValidationCode.PUBLICATION_UNAVAILABLE) { "Catalog not found." }
         validate(
             "publicationPolicy",
@@ -119,7 +122,7 @@ class PublishCurrentCatalogReleaseHandler(
         validate(
             "namespace",
             jdbi.withHandle<Boolean, Exception> { handle ->
-                namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey) in namespaceBinder.grantedNamespaces(handle, command.tenantKey)
+                namespaceBinder.namespaceOf(handle, command.catalog) in namespaceBinder.grantedNamespaces(handle, command.tenantKey)
             },
             ValidationCode.EXCHANGE_NAMESPACE_UNAVAILABLE,
         ) { "This catalog's namespace is not one the Exchange connection grants. Choose a granted one in its settings." }
@@ -132,7 +135,7 @@ class PublishCurrentCatalogReleaseHandler(
                 SELECT id, status FROM catalog_release_publications
                 WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version
                 """,
-            ).bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey)
+            ).bind("tenantKey", command.tenantKey).bindCatalog("catalogKey", command.catalog)
                 .bind("version", release.version)
                 .map { rs, _ -> rs.getObject("id", UUID::class.java) to CatalogPublicationStatus.valueOf(rs.getString("status")) }
                 .findOne().orElse(null)
@@ -146,16 +149,15 @@ class PublishCurrentCatalogReleaseHandler(
         val archive = if (previousStatus == CatalogPublicationStatus.FAILED) null else buildReleaseArchive(command, release)
 
         return jdbi.inTransaction<ExchangePublicationOutcome, Exception> { handle ->
-            val namespace = requireNotNull(namespaceBinder.namespaceOf(handle, command.tenantKey, command.catalogKey))
-            val existing = store.findByVersion(handle, command.tenantKey, command.catalogKey, release.version)
+            val namespace = requireNotNull(namespaceBinder.namespaceOf(handle, command.catalog))
+            val existing = store.findByVersion(handle, command.catalog, release.version)
             when {
                 existing == null -> ExchangePublicationOutcome(UUIDv7.generate(), release.version, ExchangePublicationOutcome.Status.QUEUED).also { outcome ->
                     val id = outcome.publicationId
                     store.insert(
                         handle = handle,
                         id = id,
-                        tenantKey = command.tenantKey,
-                        catalogKey = command.catalogKey,
+                        catalog = command.catalog,
                         version = release.version,
                         fingerprint = release.fingerprint,
                         namespace = namespace,
@@ -204,7 +206,7 @@ class PublishCurrentCatalogReleaseHandler(
      */
     private fun buildReleaseArchive(command: PublishCurrentCatalogRelease, release: Release): ByteArray {
         // Checked against what identifies it, and named by its content hash (ADR 0034).
-        val content = requireNotNull(identity.travelling(command.tenantKey, command.catalogKey, release.version)) {
+        val content = requireNotNull(identity.travelling(command.catalog, release.version)) {
             "Release ${release.version} of catalog '${command.catalogKey.value}' is gone"
         }
         return archiveBuilder.build(content.content, content.release)
@@ -234,11 +236,11 @@ class PublishCurrentCatalogReleaseHandler(
             SELECT r.version, r.fingerprint, r.released_at
             FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
+            WHERE r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }
-            .bind("tenantKey", command.tenantKey).bind("catalogKey", command.catalogKey).map { rs, _ ->
+            .bind("tenantKey", command.tenantKey).bindCatalog("catalogKey", command.catalog).map { rs, _ ->
                 Release(
                     rs.getString("version"),
                     rs.getString("fingerprint"),

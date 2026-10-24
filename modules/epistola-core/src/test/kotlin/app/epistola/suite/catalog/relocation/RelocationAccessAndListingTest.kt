@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.TenantRole
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -84,8 +85,8 @@ class RelocationAccessAndListingTest : RelocationTestSupport() {
         val tenant = tenantWith("Listing released")
         create(tenant, MovableResource.STENCIL, letters, "header")
         create(tenant, MovableResource.STENCIL, shared, "footer")
-        withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP).execute() }
 
         val listed = withMediator { ListRelocatableResources(tenant).query() }.associateBy { it.address.key }
 

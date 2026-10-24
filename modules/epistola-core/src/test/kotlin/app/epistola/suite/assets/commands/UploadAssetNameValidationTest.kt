@@ -7,6 +7,7 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -30,13 +31,12 @@ class UploadAssetNameValidationTest {
     private val mediaType = AssetMediaType.fromMimeType("image/png")
 
     private fun upload(name: String) = UploadAsset(
-        tenantId = tenantKey,
+        catalog = testCatalog(tenantKey, catalogKey),
         name = name,
         mediaType = mediaType,
         content = ByteArray(1),
         width = null,
         height = null,
-        catalogKey = catalogKey,
     )
 
     @Test

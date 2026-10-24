@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -23,7 +24,7 @@ class DemoCatalogExportIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Demo export").id
         withMediator { EnsureSubscribedCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/demo/catalog.json").execute() }
 
-        val export = withMediator { ExportCatalogZip(tenantKey = tenant, catalogKey = CatalogKey.of("epistola-demo")).execute() }
+        val export = withMediator { ExportCatalogZip(catalog = testCatalog(tenant, CatalogKey.of("epistola-demo"))).execute() }
 
         assertThat(export.zipBytes).isNotEmpty()
     }

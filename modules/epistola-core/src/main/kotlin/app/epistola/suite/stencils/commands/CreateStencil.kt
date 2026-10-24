@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
@@ -93,15 +94,15 @@ class CreateStencilHandler(
     override fun handle(command: CreateStencil): Stencil {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        command.content?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        command.content?.let { usedCatalogs.declare(command.id.catalogId, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
         return saved
     }
 
     private fun save(command: CreateStencil): Stencil {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         if (command.content != null) {
             templateDocumentValidator.validateStencil(command.content, command.id.key.value, command.id.catalogKey.value)
-            PresetUse.requireAvailable(command.id.tenantKey, command.id.catalogKey, command.content)
+            PresetUse.requireAvailable(command.id.catalogId, command.content)
         }
         val parameterSchema = command.parameterSchema?.takeUnless(::declaresNoParameters)
         parameterSchemaValidator.validate(parameterSchema)
@@ -126,7 +127,7 @@ class CreateStencilHandler(
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("name", command.name)
                     .bind("description", command.description)
                     .bind("tags", tagsJson)
@@ -138,7 +139,7 @@ class CreateStencilHandler(
                 val stencil = handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .mapTo<Stencil>()
                     .map(Stencil::withAbsentSchemaAsNull)
                     .one()

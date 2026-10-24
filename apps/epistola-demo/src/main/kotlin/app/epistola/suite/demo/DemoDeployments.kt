@@ -23,10 +23,11 @@ internal val DEMO_ENVIRONMENTS = listOf("staging", "production")
  * the environments too: it is served beside the releases deployed before, and generation renders the
  * highest. The releases of other catalogs it renders with are deployed along.
  */
-internal fun Mediator.deployDemoCatalog(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) {
+internal fun Mediator.deployDemoCatalog(catalog: app.epistola.suite.common.ids.CatalogId, version: String) {
+    val tenantKey = catalog.tenantKey
     for (environment in DEMO_ENVIRONMENTS) {
         try {
-            send(DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), TenantId(tenantKey)), catalogKey, version, includeDependencies = true))
+            send(DeployCatalogRelease(EnvironmentId(EnvironmentKey.of(environment), TenantId(tenantKey)), catalog, version, includeDependencies = true))
         } catch (_: EnvironmentNotFoundException) {
             // A tenant whose environments were removed by hand keeps it that way.
         }

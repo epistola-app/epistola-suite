@@ -55,7 +55,7 @@
                                         class="ep-btn ep-btn-ghost ep-btn-destructive ep-btn-sm ep-btn-icon"
                                         title="Delete font"
                                         data-confirm-title="Delete Font"
-                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/fonts/{slug}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(font.catalogKey) ?: font.catalogKey},slug=${font.slug})}"
+                                        th:attr="data-confirm-message='Delete font &quot;' + ${font.name} + '&quot;? This removes the family and its uploaded faces. This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/catalogs/{catalogId}/fonts/{slug}/delete(tenantId=${tenantId},catalogId=${draftSegment?.linkFor(font.catalogId) ?: font.catalogId.address},slug=${font.slug})}"
                                         data-confirm-target="#font-grid-items" data-confirm-swap="outerHTML">
                                     <th:block th:replace="~{epistola-web/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                 </button>

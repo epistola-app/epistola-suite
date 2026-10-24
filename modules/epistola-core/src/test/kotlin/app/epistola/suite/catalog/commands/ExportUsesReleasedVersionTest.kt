@@ -15,6 +15,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -47,26 +48,26 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("exp-cat")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Exp Cat").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th").execute()
 
             // 1. Never released: there is nothing to export (contract 2.0 exports releases only).
-            assertThatThrownBy { ExportCatalogZip(tenantKey, catalogKey).execute() }
+            assertThatThrownBy { ExportCatalogZip(testCatalog(tenantKey, catalogKey)).execute() }
                 .isInstanceOf(CatalogReleaseNotFoundException::class.java)
 
             // 2. Released: that release, with its fingerprint.
-            MarkCatalogReady(tenantKey, catalogKey).execute()
-            val released = ReleaseCatalogDraft(tenantKey, catalogKey, "1.0.0").execute()
-            val clean = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            val released = ReleaseCatalogDraft(testCatalog(tenantKey, catalogKey), "1.0.0").execute()
+            val clean = exportedManifest(ExportCatalogZip(testCatalog(tenantKey, catalogKey)).execute().zipBytes)
             assertThat(clean.release.version).isEqualTo("1.0.0")
             assertThat(clean.release.fingerprint).isEqualTo(released.fingerprint).matches("v6:[0-9a-f]{64}")
 
             // 3. Edited since: still the release, not the edits.
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "Th2").execute()
-            val after = exportedManifest(ExportCatalogZip(tenantKey, catalogKey).execute().zipBytes)
+            val after = exportedManifest(ExportCatalogZip(testCatalog(tenantKey, catalogKey)).execute().zipBytes)
             assertThat(after.release.version).isEqualTo("1.0.0")
             assertThat(after.release.fingerprint).isEqualTo(released.fingerprint)
             assertThat(after.resources.map { it.key }).doesNotContain("th2")
@@ -77,7 +78,7 @@ class ExportUsesReleasedVersionTest : IntegrationTestBase() {
     fun `the system catalog is not exported, and says why`() {
         val tenantKey = createTenant("Export System Test").id
 
-        assertThatThrownBy { withMediator { ExportCatalogZip(tenantKey, SYSTEM_CATALOG_KEY).execute() } }
+        assertThatThrownBy { withMediator { ExportCatalogZip(testCatalog(tenantKey, SYSTEM_CATALOG_KEY)).execute() } }
             .isInstanceOf(SystemCatalogNotExportableException::class.java)
             .hasMessageContaining("every installation has it")
     }

@@ -28,6 +28,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -49,14 +50,14 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
         withMediator {
             declareDependency(tenant, letters, shared, "1.0.0")
 
-            val changes = GetCatalogResourceChanges(tenant, letters).query()
+            val changes = GetCatalogResourceChanges(testCatalog(tenant, letters)).query()
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.settings).containsExactly(
                 CatalogSettingChange("catalogDependency/shared", CatalogResourceState.NEW, "Shared", lock = DependencyLock("1.0.0")),
             )
             assertThat(changes.notReady).`as`("a catalog setting needs no ready mark").isEmpty()
-            assertThat(AssessDraftNumber(tenant, letters).query()!!.suggested).isEqualTo("1.1.0")
+            assertThat(AssessDraftNumber(testCatalog(tenant, letters)).query()!!.suggested).isEqualTo("1.1.0")
         }
     }
 
@@ -64,9 +65,9 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `a dependency removed is a change`() {
         val tenant = released("settings-dep-removed", dependsOnShared = true)
         withMediator {
-            UpdateCatalogDependencies(tenant, letters, emptyList()).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), emptyList()).execute()
 
-            val changes = GetCatalogResourceChanges(tenant, letters).query()
+            val changes = GetCatalogResourceChanges(testCatalog(tenant, letters)).query()
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.settings).containsExactly(
@@ -81,7 +82,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
         withMediator {
             declareDependency(tenant, letters, shared, "1.1.0")
 
-            val changes = GetCatalogResourceChanges(tenant, letters).query()
+            val changes = GetCatalogResourceChanges(testCatalog(tenant, letters)).query()
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.settings).containsExactly(
@@ -89,7 +90,7 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
             )
 
             declareDependency(tenant, letters, shared, "1.0.0")
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().hasUnreleasedChanges).`as`("locked back to the release's").isFalse()
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().hasUnreleasedChanges).`as`("locked back to the release's").isFalse()
         }
     }
 
@@ -102,22 +103,22 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `a dependency naming the other catalog's draft is compared as the release that draft is based on`() {
         val tenant = released("settings-named-draft", dependsOnShared = true)
         withMediator {
-            val sharedDraft = GetCatalogDraft(tenant, shared).query()!!
+            val sharedDraft = GetCatalogDraft(testCatalog(tenant, shared)).query()!!
             assertThat(sharedDraft.base).isEqualTo("1.1.0")
             nameDraft(tenant, sharedDraft.versionId)
 
-            val moved = GetCatalogResourceChanges(tenant, letters).query().settings.single()
+            val moved = GetCatalogResourceChanges(testCatalog(tenant, letters)).query().settings.single()
             assertThat(moved.state).isEqualTo(CatalogResourceState.MODIFIED)
             assertThat(moved.lock?.releaseVersion).isNull()
             assertThat(moved.lock?.draftName).isNotNull()
             assertThat(moved.baseLock).isEqualTo(DependencyLock("1.0.0"))
 
             declareDependency(tenant, letters, shared, "1.1.0")
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.1").execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1").execute()
             nameDraft(tenant, sharedDraft.versionId)
 
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().hasUnreleasedChanges)
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().hasUnreleasedChanges)
                 .`as`("the draft named is based on the release pinned").isFalse()
         }
     }
@@ -126,13 +127,13 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `another default theme is a change, numbered as a minor`() {
         val tenant = released("settings-default-theme")
         withMediator {
-            SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("brand"), letters)).execute()
+            SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("brand"), testCatalog(tenant, letters))).execute()
 
-            val changes = GetCatalogResourceChanges(tenant, letters).query()
+            val changes = GetCatalogResourceChanges(testCatalog(tenant, letters)).query()
 
             assertThat(changes.hasUnreleasedChanges).isTrue()
             assertThat(changes.settings.map { it.entry to it.name }).containsExactly("catalog/defaultTheme" to "Default theme")
-            assertThat(AssessDraftNumber(tenant, letters).query()!!.needs).isEqualTo(ChangeKind.ADDITIVE)
+            assertThat(AssessDraftNumber(testCatalog(tenant, letters)).query()!!.needs).isEqualTo(ChangeKind.ADDITIVE)
         }
     }
 
@@ -140,17 +141,17 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `a preset added is a change that needs a minor, one removed a major`() {
         val tenant = released("settings-presets")
         withMediator {
-            SetCatalogPresets(tenant, letters, listOf(CatalogPreset("formal", "Formal"))).execute()
+            SetCatalogPresets(testCatalog(tenant, letters), listOf(CatalogPreset("formal", "Formal"))).execute()
 
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().settings)
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().settings)
                 .containsExactly(CatalogSettingChange("catalog/presets", CatalogResourceState.NEW, "Presets"))
-            assertThat(AssessDraftNumber(tenant, letters).query()!!.needs).isEqualTo(ChangeKind.ADDITIVE)
+            assertThat(AssessDraftNumber(testCatalog(tenant, letters)).query()!!.needs).isEqualTo(ChangeKind.ADDITIVE)
 
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.1.0").execute()
-            SetCatalogPresets(tenant, letters, emptyList()).execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0").execute()
+            SetCatalogPresets(testCatalog(tenant, letters), emptyList()).execute()
 
-            assertThat(AssessDraftNumber(tenant, letters).query()!!.needs).isEqualTo(ChangeKind.BREAKING)
+            assertThat(AssessDraftNumber(testCatalog(tenant, letters)).query()!!.needs).isEqualTo(ChangeKind.BREAKING)
         }
     }
 
@@ -158,9 +159,9 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `another license is a change`() {
         val tenant = released("settings-license")
         withMediator {
-            UpdateCatalogMetadata(tenant, letters, name = "Letters", description = null, license = CatalogLicense("Apache License 2.0", "Apache-2.0")).execute()
+            UpdateCatalogMetadata(testCatalog(tenant, letters), name = "Letters", description = null, license = CatalogLicense("Apache License 2.0", "Apache-2.0")).execute()
 
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().settings)
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().settings)
                 .containsExactly(CatalogSettingChange("catalog/license", CatalogResourceState.NEW, "License"))
         }
     }
@@ -169,9 +170,9 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `the catalog's presentation is not a change of the release`() {
         val tenant = released("settings-presentation")
         withMediator {
-            UpdateCatalogMetadata(tenant, letters, name = "Letters, renamed", description = "Described now", keywords = setOf("letters")).execute()
+            UpdateCatalogMetadata(testCatalog(tenant, letters), name = "Letters, renamed", description = "Described now", keywords = setOf("letters")).execute()
 
-            val changes = GetCatalogResourceChanges(tenant, letters).query()
+            val changes = GetCatalogResourceChanges(testCatalog(tenant, letters)).query()
 
             assertThat(changes.hasUnreleasedChanges).isFalse()
             assertThat(changes.settings).isEmpty()
@@ -183,14 +184,14 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
         val tenant = released("settings-publish")
         withMediator {
             declareDependency(tenant, letters, shared, "1.0.0")
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().hasUnreleasedChanges).isTrue()
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().hasUnreleasedChanges).isTrue()
 
-            val release = ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters).execute()
+            val release = ReleaseCatalogDraft(catalog = testCatalog(tenant, letters)).execute()
 
             assertThat(release.version).isEqualTo("1.1.0")
             assertThat(release.unchangedContent).isFalse()
             assertThat(contentHash(tenant, letters, "1.1.0")).isNotEqualTo(contentHash(tenant, letters, "1.0.0"))
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().hasUnreleasedChanges).isFalse()
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().hasUnreleasedChanges).isFalse()
         }
     }
 
@@ -198,13 +199,13 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
     fun `a dependency's draft whose only change is its default theme is published along, not pinned at its base`() {
         val tenant = released("settings-along")
         withMediator {
-            val sharedDraft = GetCatalogDraft(tenant, shared).query()!!
-            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(registryOf(tenant, shared), namespaceOf(tenant, shared), shared.value, versionId = sharedDraft.versionId))).execute()
-            SetCatalogDefaultTheme(tenant, shared, CatalogDefaultTheme(ThemeKey.of("base"), shared)).execute()
+            val sharedDraft = GetCatalogDraft(testCatalog(tenant, shared)).query()!!
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(registryOf(tenant, shared), namespaceOf(tenant, shared), shared.value, versionId = sharedDraft.versionId))).execute()
+            SetCatalogDefaultTheme(testCatalog(tenant, shared), CatalogDefaultTheme(ThemeKey.of("base"), testCatalog(tenant, shared))).execute()
 
-            val release = ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, releaseDependencies = true).execute()
+            val release = ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), releaseDependencies = true).execute()
 
-            val pinned = ListReleaseDependencies(tenant, letters, release.version).query().single()
+            val pinned = ListReleaseDependencies(testCatalog(tenant, letters), release.version).query().single()
             assertThat(pinned.releaseVersion).`as`("shared's default theme was released with it").isEqualTo("1.2.0")
         }
     }
@@ -217,36 +218,35 @@ class CatalogSettingChangesTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            val sharedId = CatalogId(shared, TenantId(tenant))
+            val sharedId = testCatalog(TenantId(tenant), shared)
             CreateTheme(id = ThemeId(ThemeKey.of("base"), sharedId), name = "Base").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0").execute()
             UpdateTheme(id = ThemeId(ThemeKey.of("base"), sharedId), name = "Base, again").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.1.0").execute()
 
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant))), name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand").execute()
             if (dependsOnShared) declareDependency(tenant, letters, shared, "1.0.0")
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.0").execute()
-            assertThat(GetCatalogResourceChanges(tenant, letters).query().hasUnreleasedChanges).`as`("released as it is").isFalse()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            assertThat(GetCatalogResourceChanges(testCatalog(tenant, letters)).query().hasUnreleasedChanges).`as`("released as it is").isFalse()
         }
         return tenant
     }
 
     /** Letters declares Shared by naming its draft [versionId], not a release. */
     private fun nameDraft(tenant: TenantKey, versionId: String) = UpdateCatalogDependencies(
-        tenant,
-        letters,
+        testCatalog(tenant, letters),
         listOf(DeclaredCatalogDependency(registryOf(tenant, shared), namespaceOf(tenant, shared), shared.value, versionId = versionId)),
     ).execute()
 
     private fun contentHash(tenant: TenantKey, catalog: CatalogKey, version: String): String = withMediator {
-        requireNotNull(GetCatalogReleaseDetail(tenant, catalog, version).query()?.contentHash)
+        requireNotNull(GetCatalogReleaseDetail(testCatalog(tenant, catalog), version).query()?.contentHash)
     }
 
-    private fun registryOf(tenant: TenantKey, catalog: CatalogKey) = withMediator { GetCatalog(tenant, catalog).query()!!.registry }
+    private fun registryOf(tenant: TenantKey, catalog: CatalogKey) = withMediator { GetCatalog(testCatalog(tenant, catalog)).query()!!.registry }
 
-    private fun namespaceOf(tenant: TenantKey, catalog: CatalogKey) = withMediator { GetCatalog(tenant, catalog).query()!!.namespace }
+    private fun namespaceOf(tenant: TenantKey, catalog: CatalogKey) = withMediator { GetCatalog(testCatalog(tenant, catalog)).query()!!.namespace }
 }

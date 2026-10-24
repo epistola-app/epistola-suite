@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
@@ -16,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -41,7 +43,7 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest None").execute()
 
-            val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
+            val r = GetLatestCatalogRelease(testCatalog(tenant.id, catalogKey)).query()
             assertThat(r.latestVersion).isNull()
             assertThat(r.latestFingerprint).isNull()
             assertThat(r.suggestedNext.patch).isEqualTo("0.0.1")
@@ -55,18 +57,18 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         val tenant = createTenant("Latest Hist")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("latest-hist")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Hist").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.0.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            val v110 = ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            val v110 = ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.1.0").execute()
 
-            val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
+            val r = GetLatestCatalogRelease(testCatalog(tenant.id, catalogKey)).query()
             assertThat(r.latestVersion).isEqualTo("1.1.0")
             assertThat(r.latestFingerprint).isEqualTo(v110.fingerprint)
             assertThat(r.suggestedNext.patch).isEqualTo("1.1.1")
@@ -84,18 +86,18 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
         val tenant = createTenant("Latest Minor")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("latest-minor")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Latest Minor").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalogId), name = "T1").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.9.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.9.0").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalogId), name = "T2").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = catalogKey, version = "1.10.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, catalogKey), version = "1.10.0").execute()
 
-            val r = GetLatestCatalogRelease(tenant.id, catalogKey).query()
+            val r = GetLatestCatalogRelease(testCatalog(tenant.id, catalogKey)).query()
 
             assertThat(r.latestVersion).isEqualTo("1.10.0")
             assertThat(r.suggestedNext.patch).isEqualTo("1.10.1")
@@ -116,7 +118,7 @@ class GetLatestCatalogReleaseTest : IntegrationTestBase() {
                 """,
         )
             .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bindCatalog("c", testCatalog(tenantKey, catalogKey))
             .bind("v", version)
             .map { rs, _ ->
                 Triple(

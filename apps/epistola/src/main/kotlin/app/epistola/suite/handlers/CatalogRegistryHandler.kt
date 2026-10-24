@@ -20,6 +20,7 @@ import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.queries.ResolveFeatureToggles
+import app.epistola.suite.htmx.catalog
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.tenantId
@@ -103,14 +104,15 @@ class CatalogRegistryHandler {
     fun publishDialog(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_PUBLISH)
-        val catalogKey = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogKey = catalog.key
         return fragmentOrPage(
             request,
             "catalogs/registry",
             "publish-dialog",
             mapOf(
                 "tenantId" to tenantKey,
-                "catalogId" to catalogKey.value,
+                "catalogId" to catalog.address,
                 "version" to request.param("version").orElse(""),
                 "registries" to ListReleaseRegistries(tenantKey).query(),
             ),
@@ -120,19 +122,20 @@ class CatalogRegistryHandler {
     fun publish(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_PUBLISH)
-        val catalogKey = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogKey = catalog.key
         val version = request.param("version").orElse("").trim()
         val registry = request.param("registry").orElse("")
         return try {
-            val published = PublishReleaseToReleaseRegistry(tenantKey, catalogKey, version, registry).execute()
+            val published = PublishReleaseToReleaseRegistry(catalog, version, registry).execute()
             request.htmx {
                 dialogReveal("catalogs/registry", "publish-done", "#registry-publish-form") { "publication" to published }
-                onFullPage { redirect("/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version") }
+                onFullPage { redirect("/tenants/${tenantKey.value}/catalogs/${catalog.address}/releases/$version") }
             }
         } catch (e: Exception) {
             request.htmx {
                 dialogFormError("registry-publish-error", refusal(e, "The release could not be published"))
-                onFullPage { redirect("/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version") }
+                onFullPage { redirect("/tenants/${tenantKey.value}/catalogs/${catalog.address}/releases/$version") }
             }
         }
     }

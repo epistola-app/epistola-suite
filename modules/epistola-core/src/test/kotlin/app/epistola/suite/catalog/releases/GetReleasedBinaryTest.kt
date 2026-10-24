@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.awt.image.BufferedImage
@@ -39,11 +40,11 @@ class GetReleasedBinaryTest : IntegrationTestBase() {
         val bytes = png(0x112233)
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            UploadAsset(tenant, "Logo", AssetMediaType.PNG, bytes, 1, 1, letters, id = AssetKey.of("logo")).execute()
-            mediator.releaseNext(CatalogId(letters, TenantId(tenant)))
+            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, bytes, 1, 1, id = AssetKey.of("logo")).execute()
+            mediator.releaseNext(testCatalog(TenantId(tenant), letters))
         }
 
-        val image = withMediator { GetReleasedResource(tenant, letters, "1.0.0", "image", "logo").query() } as ImageResource
+        val image = withMediator { GetReleasedResource(testCatalog(tenant, letters), "1.0.0", "image", "logo").query() } as ImageResource
         assertThat(withMediator { GetReleasedBinary(tenant, image.contentHash).query() }).isEqualTo(bytes)
     }
 
@@ -52,10 +53,10 @@ class GetReleasedBinaryTest : IntegrationTestBase() {
         val tenant = withMediator { createTenant("released-binary-none").id }
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            UploadAsset(tenant, "Logo", AssetMediaType.PNG, png(0x445566), 1, 1, letters, id = AssetKey.of("logo")).execute()
+            UploadAsset(testCatalog(tenant, letters), "Logo", AssetMediaType.PNG, png(0x445566), 1, 1, id = AssetKey.of("logo")).execute()
         }
         // The working copy names the same hash a release would.
-        val hash = withMediator { ExportAssets(tenant, catalogKey = letters).query() }.single().contentHash
+        val hash = withMediator { ExportAssets(tenant, catalog = testCatalog(tenant, letters)).query() }.single().contentHash
 
         assertThat(withMediator { GetReleasedBinary(tenant, hash).query() }).isNull()
         assertThat(withMediator { GetReleasedBinary(tenant, "0".repeat(64)).query() }).isNull()

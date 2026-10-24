@@ -55,8 +55,7 @@ class SetTenantDefaultLocaleHandler(
     override fun handle(command: SetTenantDefaultLocale): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         if (command.locale != null) {
             val exists = CodeListEntryExists(
-                tenantKey = command.tenantId,
-                catalogKey = SYSTEM_CATALOG_KEY,
+                catalog = app.epistola.suite.catalog.system.systemCatalog(command.tenantId),
                 codeListSlug = CodeListKey.of("bcp-47"),
                 code = command.locale,
             ).query()

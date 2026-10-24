@@ -6,7 +6,6 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.queries.ListCatalogDependencies
 import app.epistola.suite.catalog.queries.ListCatalogs
-import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.query
 
 /**
@@ -23,14 +22,14 @@ object FromOtherCatalogs {
      */
     fun <T> of(
         bar: CatalogDraftBar?,
-        list: (CatalogKey) -> List<T>,
-        row: (T, CatalogKey, String) -> FromOtherCatalog,
+        list: (app.epistola.suite.common.ids.CatalogId) -> List<T>,
+        row: (T, app.epistola.suite.common.ids.CatalogId, String) -> FromOtherCatalog,
     ): List<FromOtherCatalog> {
         bar ?: return emptyList()
         val local = ListCatalogs(bar.tenantKey).query()
-        return ListCatalogDependencies(bar.tenantKey, bar.catalogKey, bar.ref).query()
-            .mapNotNull { dependency -> local.firstOrNull { it.id.value == dependency.catalogKey && it.namespace == dependency.namespace } }
-            .flatMap { catalog -> list(catalog.id).map { row(it, catalog.id, catalog.name) } }
+        return ListCatalogDependencies(bar.catalog, bar.ref).query()
+            .mapNotNull { dependency -> local.firstOrNull { it.catalogId == dependency.catalogIn(bar.tenantKey) } }
+            .flatMap { catalog -> list(catalog.catalogId).map { row(it, catalog.catalogId, catalog.name) } }
             .sortedWith(compareBy({ it.catalogName.lowercase() }, { it.name.lowercase() }))
     }
 }

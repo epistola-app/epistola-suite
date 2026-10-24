@@ -52,7 +52,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog},address=${sharedKeys != null and sharedKeys.contains('' + row.catalog.id)} ? ${row.catalog.namespace + '/' + row.catalog.id} : ${'' + row.catalog.id}">
+                <tr th:each="row : ${catalogs}" th:with="catalog=${row.catalog},address=${row.catalog.address}">
                     <td style="font-weight: 500;" th:title="${catalog.name}">
                         <a th:href="@{|/tenants/${tenantId}/catalogs/${address}/browse|}"
                            th:text="${catalog.name}"></a>

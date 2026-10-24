@@ -19,8 +19,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListDraftDeployments
 import app.epistola.suite.environments.queries.ListEnvironments
-import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.htmx.CatalogSegment
+import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.query
@@ -104,6 +104,9 @@ data class CatalogDraftBar(
     /** The version messages on this page name; null for the next version. */
     val ref: CatalogReleaseRef? get() = segment.ref(tenantKey)
 
+    /** The catalog, by its address (ADR 0034, section 9). */
+    val catalog: app.epistola.suite.common.ids.CatalogId get() = segment.catalogIn(tenantKey)
+
     /** The segment links on this page carry, as it appears in a URL. */
     val segmentValue: String get() = segment.value
 
@@ -170,11 +173,11 @@ data class CatalogDraftBar(
                 base = release.base,
                 publishedAt = release.releasedAt,
                 liveIn = release.deployedTo,
-                href = CatalogPages.release(tenantKey, catalogKey, version),
+                href = CatalogPages.release(catalog, version),
                 // The releases of a catalog Epistola supplies come back with every upgrade: nothing to delete.
                 offerRemove = !suppliedByEpistola && mayDeleteReleases,
                 removeWithheld = !suppliedByEpistola && !mayDeleteReleases,
-                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version/delete",
+                removeAction = "/tenants/${tenantKey.value}/catalogs/${catalog.address}/releases/$version/delete",
             )
         }
 
@@ -208,7 +211,7 @@ data class CatalogDraftBar(
 
     /** The chosen draft measured for what it is behind. Measured when a page shows it: it compares the draft with its base. */
     private val measured: CatalogRelease? by lazy {
-        chosen?.draftRef?.let { ref -> GetCatalogDraft(tenantKey, catalogKey, ref, withBehind = true).query() }
+        chosen?.draftRef?.let { ref -> GetCatalogDraft(catalog, ref, withBehind = true).query() }
     }
 
     /**
@@ -224,8 +227,7 @@ data class CatalogDraftBar(
     val missing: CatalogBehindView by lazy {
         val draft = chosen ?: return@lazy CatalogBehindView.NONE
         CatalogBehindView.of(
-            tenantKey = tenantKey,
-            catalogKey = catalogKey,
+            catalog = catalog,
             draftLabel = draft.label,
             isNext = draft.isNext,
             behind = behind,
@@ -276,10 +278,10 @@ data class CatalogDraftBar(
          * as a message naming it would be.
          */
         fun of(tenantKey: TenantKey, segment: CatalogSegment, pageAt: (CatalogSegment) -> String): CatalogDraftBar {
-            val catalog = GetCatalog(tenantKey, segment.key).query()
-            val versions = ListCatalogReleases(tenantKey, segment.key).query()
+            val catalog = GetCatalog(segment.catalogIn(tenantKey)).query()
+            val versions = ListCatalogReleases(segment.catalogIn(tenantKey)).query()
             // Whether it can be changed here decides it, not where its releases come from (ADR 0032).
-            val editability = if (catalog != null) GetCatalogEditability(tenantKey, segment.key).query() else CatalogEditability(null)
+            val editability = if (catalog != null) GetCatalogEditability(segment.catalogIn(tenantKey)).query() else CatalogEditability(null)
             val editable = catalog != null && editability.editable
             val releases = versions.filter { it.status == CatalogReleaseStatus.RELEASED }
             // A read-only catalog offers no drafts; its pages show the release its next version is on.
@@ -296,7 +298,7 @@ data class CatalogDraftBar(
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
             val followedBy = chosen?.versionId?.takeIf { editable && chosen.status == CatalogReleaseStatus.DRAFT }?.let { draftId ->
-                val following = ListDraftDeployments(tenantKey, catalogKey = segment.key).query().filter { it.draftId == draftId }.map { it.environmentKey }
+                val following = ListDraftDeployments(tenantKey, catalog = segment.catalogIn(tenantKey)).query().filter { it.draftId == draftId }.map { it.environmentKey }
                 if (following.isEmpty()) {
                     emptyList()
                 } else {
@@ -330,9 +332,11 @@ data class CatalogDraftBar(
          * `/tenants/{tenantId}/catalogs/{catalogId}/…`; the query string is kept.
          */
         fun inPath(path: String, segment: CatalogSegment, query: String? = null): (CatalogSegment) -> String = { target ->
-            // By key: the link is named again where it is built (CatalogAddresses).
-            val parts = CatalogAddresses.byKey(path).split('/').toMutableList()
-            if (parts.size > CATALOG_PART && parts[CATALOG_PART] == segment.copy(namespace = null).value) parts[CATALOG_PART] = target.copy(namespace = null).value
+            // `{namespace}/{key}[@draft]` at the catalog's address, or `{key}[@draft]` by key alone.
+            val parts = path.split('/').toMutableList()
+            val bare = segment.copy(namespace = null).value
+            val at = if (parts.size > CATALOG_PART + 1 && parts[CATALOG_PART] == segment.namespace && parts[CATALOG_PART + 1] == bare) CATALOG_PART + 1 else CATALOG_PART
+            if (parts.size > at && parts[at] == bare) parts[at] = target.copy(namespace = null).value
             parts.joinToString("/") + (query?.takeIf { it.isNotBlank() }?.let { "?$it" } ?: "")
         }
 
@@ -349,7 +353,7 @@ object CatalogPages {
      * tenant: without a catalog, the catalog list.
      */
     fun list(request: org.springframework.web.servlet.function.ServerRequest, tenantKey: TenantKey, type: String): String {
-        val catalog = request.param("catalog").orElse(null)?.takeIf { it.isNotBlank() } ?: request.pathVariables()["catalogId"]
+        val catalog = request.param("catalog").orElse(null)?.takeIf { it.isNotBlank() } ?: request.pathVariables()["catalogId"]?.let { request.catalogSegment().value }
         return catalog?.let { "/tenants/${tenantKey.value}/catalogs/$it/$type" } ?: "/tenants/${tenantKey.value}/catalogs"
     }
 
@@ -360,10 +364,10 @@ object CatalogPages {
     fun draft(tenantId: TenantId, segment: CatalogSegment): String = "/tenants/${tenantId.key}/catalogs/${segment.value}/draft"
 
     /** The catalog's Releases page: every release and draft, each to its own page. */
-    fun releases(tenantId: TenantId, catalogKey: CatalogKey): String = "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/releases"
+    fun releases(catalog: app.epistola.suite.common.ids.CatalogId): String = "/tenants/${catalog.tenantKey.value}/catalogs/${catalog.address}/releases"
 
     /** A published release's own page. */
-    fun release(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String = "/tenants/${tenantKey.value}/catalogs/${catalogKey.value}/releases/$version"
+    fun release(catalog: app.epistola.suite.common.ids.CatalogId, version: String): String = "/tenants/${catalog.tenantKey.value}/catalogs/${catalog.address}/releases/$version"
 }
 
 /**
@@ -374,6 +378,6 @@ internal fun fragmentOrPage(request: org.springframework.web.servlet.function.Se
     fragment(view, fragment) { putAll(model) }
     onFullPage {
         val tenantId = request.tenantId()
-        redirect(request.pathVariables()["catalogId"]?.let { CatalogPages.browse(tenantId, CatalogSegment.parse(it).at(null)) } ?: "/tenants/${tenantId.key.value}/catalogs")
+        redirect(request.pathVariables()["catalogId"]?.let { CatalogPages.browse(tenantId, request.catalogSegment().at(null)) } ?: "/tenants/${tenantId.key.value}/catalogs")
     }
 }

@@ -8,6 +8,7 @@ import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
 import app.epistola.suite.attributes.codelists.commands.insertEntries
 import app.epistola.suite.attributes.codelists.commands.validateCodeListEntries
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -38,14 +39,15 @@ import org.springframework.stereotype.Component
  * upgrade) replaces the entry set atomically.
  */
 data class ImportCodeList(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: String,
     val displayName: String,
     val description: String? = null,
     val entries: List<CodeListEntry> = emptyList(),
 ) : Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -81,7 +83,7 @@ class ImportCodeListHandler(
             )
                 .bind("slug", codeListSlug)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("displayName", command.displayName)
                 .bind("description", command.description)
                 .mapTo(Boolean::class.java)
@@ -97,11 +99,11 @@ class ImportCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("slug", codeListSlug)
                 .execute()
 
-            insertEntries(handle, CodeListId(codeListSlug, CatalogId(command.catalogKey, command.tenantId)), command.entries)
+            insertEntries(handle, CodeListId(codeListSlug, command.catalog), command.entries)
 
             if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
         }

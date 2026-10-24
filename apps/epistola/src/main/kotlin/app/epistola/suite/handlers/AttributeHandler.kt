@@ -29,6 +29,7 @@ import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.attributeId
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogNamed
 import app.epistola.suite.htmx.catalogParam
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.catalogVersion
@@ -125,7 +126,7 @@ class AttributeHandler {
                     // is reached only with a valid slug and catalog.
                     id = AttributeId(
                         AttributeKey.validateOrNull(form["slug"])!!,
-                        CatalogId(catalogSegment.key, tenantId),
+                        catalogSegment.catalogIn(tenantId),
                     ),
                     displayName = form["displayName"],
                     allowedValues = allowedValues,
@@ -259,7 +260,7 @@ class AttributeHandler {
         }
 
         // Back to the list as it was shown: the draft's attributes when it was filtered to one.
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = draftSegment?.key, catalogVersion = version).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalog = draftSegment?.catalogIn(tenantId), catalogVersion = version).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
                 "tenantId" to tenantId.key
@@ -287,7 +288,7 @@ class AttributeHandler {
         // state (the empty-state lives in `attribute-list`, outside the rows
         // tbody). Direct targeted swap into #attribute-list (outerHTML), not an
         // OOB swap, so `oob` stays unset and hx-swap-oob renders null.
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = draftSegment?.key, catalogVersion = version).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalog = draftSegment?.catalogIn(tenantId), catalogVersion = version).query()
         return request.htmx {
             fragment("attributes/list", "attribute-list") {
                 "tenantId" to tenantId.key
@@ -309,10 +310,10 @@ class AttributeHandler {
         val segment = request.catalogSegment()
         val tenant = GetTenant(tenantId.key).query()
         val catalogs = ListCatalogs(tenantId.key).query()
-        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val attributes = ListAttributeDefinitions(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
         val bar = segment.let { draftBarFor(tenantId, it) }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = tenantId, catalogKey = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/attributes", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListAttributeDefinitions(tenantId = it.tenantId, catalog = it).query() }) { a, c, n -> FromOtherCatalog(a.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/attributes", n) }
         "pageTitle" to "Attributes - Epistola"
         "tenant" to tenant
         "tenantId" to tenantId.key
@@ -354,9 +355,10 @@ class AttributeHandler {
     }
 
     private fun parseCodeListSelection(selection: String?, tenantId: TenantId): CodeListId? {
-        val (catalogPart, slugPart) = selection?.split('/', limit = 2)?.takeIf { it.size == 2 } ?: return null
-        val catalogKey = CatalogKey.validateOrNull(catalogPart) ?: return null
-        val slug = CodeListKey.validateOrNull(slugPart) ?: return null
-        return CodeListId(slug, CatalogId(catalogKey, tenantId))
+        // "[namespace/]catalogKey/slug" (ADR 0034, section 9).
+        val catalogPart = selection?.substringBeforeLast('/', "")?.takeIf { it.isNotBlank() } ?: return null
+        val slug = CodeListKey.validateOrNull(selection.substringAfterLast('/')) ?: return null
+        val catalog = catalogNamed(tenantId, catalogPart) ?: return null
+        return CodeListId(slug, catalog)
     }
 }

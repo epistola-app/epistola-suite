@@ -15,6 +15,8 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.TemplateDocument
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -103,8 +105,7 @@ class ExampleRenderingIntegrationTest : IntegrationTestBase() {
             try {
                 val pdfBytes = withMediator {
                     PreviewVariant(
-                        tenantId = tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                         templateId = templateId.key,
                         variantId = variantId,
                         data = data,

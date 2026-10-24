@@ -28,7 +28,9 @@ import app.epistola.suite.handlers.FromOtherCatalogs
 import app.epistola.suite.handlers.WorkspaceBuilder
 import app.epistola.suite.htmx.CatalogSegment
 import app.epistola.suite.htmx.ModelBuilder
+import app.epistola.suite.htmx.catalog
 import app.epistola.suite.htmx.catalogId
+import app.epistola.suite.htmx.catalogNamed
 import app.epistola.suite.htmx.catalogParam
 import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.catalogVersion
@@ -40,6 +42,7 @@ import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
+import app.epistola.suite.htmx.resolvedIn
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
@@ -170,7 +173,7 @@ class DocumentTemplateHandler(
         val model = templateListModel(request, tenantId, segment)
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId.key, s) { "/tenants/${tenantId.key}/catalogs/${it.value}/templates" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = tenantId, catalogKey = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.value}/templates/${t.id.value}", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { ListTemplateSummaries(tenantId = it.tenantId, catalog = it, limit = 200).query().items }) { t, c, n -> FromOtherCatalog(t.name, "/tenants/${tenantId.key}/catalogs/${c.address}/templates/${t.id.value}", n) }
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
             "catalogs" to catalogs
@@ -183,7 +186,7 @@ class DocumentTemplateHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         // The list's live search names its catalog as a parameter.
-        val model = templateListModel(request, tenantId, request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it) })
+        val model = templateListModel(request, tenantId, request.queryParam("catalog")?.ifBlank { null }?.let { CatalogSegment.parse(it).resolvedIn(tenantId.key) })
         return request.htmx {
             fragment("templates/list", "table") {
                 putAll(model)
@@ -204,7 +207,7 @@ class DocumentTemplateHandler(
         catalogSegment: CatalogSegment?,
     ): Map<String, Any?> {
         val searchTerm = request.queryParam("q")?.ifBlank { null }
-        val catalogFilter = catalogSegment?.key
+        val catalogFilter = catalogSegment?.catalogIn(tenantId)
 
         val sort = TemplateSort.fromParam(request.queryParam("sort"))
         val descending = when (request.queryParam("dir")) {
@@ -216,7 +219,7 @@ class DocumentTemplateHandler(
         fun fetchPage(page: Int) = ListTemplateSummaries(
             tenantId = tenantId,
             searchTerm = searchTerm,
-            catalogKey = catalogFilter,
+            catalog = catalogFilter,
             sort = sort,
             descending = descending,
             limit = PAGE_SIZE,
@@ -350,7 +353,7 @@ class DocumentTemplateHandler(
                 CreateDocumentTemplate(
                     id = TemplateId(
                         TemplateKey.validateOrNull(form["slug"])!!,
-                        CatalogId(segment.key, tenantId),
+                        segment.catalogIn(tenantId),
                     ),
                     name = form["name"],
                     catalogVersion = segment.ref(tenantId.key),
@@ -406,7 +409,8 @@ class DocumentTemplateHandler(
 
     fun editor(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val segment = request.catalogSegment()
         // Resolved first: a route naming a draft the catalog does not have is refused here.
         val draftBar = CatalogDraftBar.of(tenantId.key, segment, CatalogDraftBar.inPath(request.path(), segment))
@@ -430,15 +434,14 @@ class DocumentTemplateHandler(
         val resolvedLocale = localeResolver.resolve(tenant, context.variantAttributes)
         val featureToggles = ResolveFeatureToggles(tenantId.key).query()
         // The catalog's own default theme (contract ADR 0007), as the render uses it.
-        val catalogTheme = GetCatalogThemeSettings(tenantId.key, segment.key, catalogVersion = version).query().defaultTheme
+        val catalogTheme = GetCatalogThemeSettings(segment.catalogIn(tenantId.key), catalogVersion = version).query().defaultTheme
         val editorTheme = ResolveTemplateTheme(
-            tenantKey = tenantId.key,
+            catalog = segment.catalogIn(tenantId.key),
             templateDefaultThemeId = context.templateThemeKey,
             catalogDefaultThemeId = catalogTheme?.themeKey,
             templateModel = context.templateModel,
-            templateCatalogKey = context.templateThemeCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
-            catalogKey = segment.key,
+            templateThemeCatalog = context.templateThemeCatalog,
+            catalogDefaultThemeCatalog = catalogTheme?.catalog,
             catalogVersion = version,
         ).query()?.let {
             EditorThemeConfig(
@@ -460,7 +463,7 @@ class DocumentTemplateHandler(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId.key,
-                "catalogId" to catalogId.value,
+                "catalogId" to catalogId,
                 // The catalog segment the editor's own requests carry, so they stay on the draft.
                 "catalogSegment" to segment.value,
                 // The editor keeps the context bar, slimmed to one line (docs/workspace-shell.md).
@@ -473,7 +476,7 @@ class DocumentTemplateHandler(
                 "variantRevision" to context.variantRevision,
                 "editorTheme" to editorTheme,
                 // The presets this catalog's content may use (contract ADR 0007); the editor offers these.
-                "availablePresets" to GetAvailablePresets(tenantId.key, segment.key, catalogVersion = version).query()
+                "availablePresets" to GetAvailablePresets(segment.catalogIn(tenantId.key), catalogVersion = version).query()
                     .map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) },
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
@@ -533,7 +536,8 @@ class DocumentTemplateHandler(
      */
     fun updatePdfa(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -549,10 +553,10 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail/settings", "output-settings") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId.value
+                "catalogId" to catalogId
                 "catalogSegment" to request.catalogSegment().value
                 "template" to template
-                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
+                "editable" to IsCatalogEditable(catalog).query()
             }
             onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
@@ -572,7 +576,8 @@ class DocumentTemplateHandler(
         // the command's own TEMPLATE_EDIT check does not cover every request
         // reaching this endpoint. Enforce it here instead.
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -589,10 +594,10 @@ class DocumentTemplateHandler(
 
         val model: app.epistola.suite.htmx.ModelBuilder.() -> Unit = {
             "tenantId" to tenantId.key
-            "catalogId" to catalogId.value
+            "catalogId" to catalogId
             "catalogSegment" to request.catalogSegment().value
             "template" to template
-            "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
+            "editable" to IsCatalogEditable(catalog).query()
         }
         return request.htmx {
             fragment("templates/detail/settings", "name-input", model)
@@ -610,7 +615,8 @@ class DocumentTemplateHandler(
      */
     fun updateDescription(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -623,10 +629,10 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail/settings", "description-input") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId.value
+                "catalogId" to catalogId
                 "catalogSegment" to request.catalogSegment().value
                 "template" to template
-                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
+                "editable" to IsCatalogEditable(catalog).query()
             }
             onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
@@ -642,26 +648,26 @@ class DocumentTemplateHandler(
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
         val selected = request.params().getFirst("themeId").orEmpty()
-        val themeCatalogKey: app.epistola.suite.common.ids.CatalogKey?
+        val themeCatalog: app.epistola.suite.common.ids.CatalogId?
         val themeKey: ThemeKey?
         if (selected.isBlank()) {
-            themeCatalogKey = null
+            themeCatalog = null
             themeKey = null
         } else {
-            // The select only emits "catalogKey/themeKey"; anything else is a
-            // tampered request and gets a 400 rather than a silent no-op.
-            val catalogPart = selected.substringBefore('/', "")
-            val themePart = selected.substringAfter('/', "")
+            // The select emits "[namespace/]catalogKey/themeKey" (ADR 0034, section 9); anything else
+            // is a tampered request and gets a 400 rather than a silent no-op.
+            val catalogPart = selected.substringBeforeLast('/', "")
+            val themePart = selected.substringAfterLast('/', "")
             if (catalogPart.isBlank() || themePart.isBlank()) {
                 return ServerResponse.badRequest().build()
             }
-            themeCatalogKey = runCatching { app.epistola.suite.common.ids.CatalogKey.of(catalogPart) }
-                .getOrElse { return ServerResponse.badRequest().build() }
+            themeCatalog = catalogNamed(tenantId, catalogPart) ?: return ServerResponse.badRequest().build()
             themeKey = runCatching { ThemeKey.of(themePart) }
                 .getOrElse { return ServerResponse.badRequest().build() }
         }
@@ -669,7 +675,7 @@ class DocumentTemplateHandler(
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = themeKey,
-                themeCatalogKey = themeCatalogKey,
+                themeCatalog = themeCatalog,
                 clearThemeId = selected.isBlank(),
                 catalogVersion = request.catalogVersion(),
             ).execute() ?: return ServerResponse.notFound().build()
@@ -686,12 +692,12 @@ class DocumentTemplateHandler(
         return request.htmx {
             fragment("templates/detail/settings", "theme-section") {
                 "tenantId" to tenantId.key
-                "catalogId" to catalogId.value
+                "catalogId" to catalogId
                 "catalogSegment" to request.catalogSegment().value
                 "template" to updated
                 "themes" to themes
                 "themeCatalogs" to themeCatalogs
-                "editable" to IsCatalogEditable(tenantId.key, catalogId).query()
+                "editable" to IsCatalogEditable(catalog).query()
             }
             onFullPage {
                 redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates/${templateId.key}")
@@ -823,7 +829,8 @@ class DocumentTemplateHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
+        val catalogId = catalog.address
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
@@ -834,6 +841,6 @@ class DocumentTemplateHandler(
         // followed redirect, so the resource-changed signal rides a one-shot
         // flash query param instead, consumed once by embed-bridge.js
         // (docs/embedding.md).
-        return redirect("/tenants/${tenantId.key}/catalogs/${catalogId.value}/templates?resourceDeleted=template:${catalogId.value}:${templateId.key.value}")
+        return redirect("/tenants/${tenantId.key}/catalogs/$catalogId/templates?resourceDeleted=template:${catalog.key.value}:${templateId.key.value}")
     }
 }

@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -30,14 +31,15 @@ import org.springframework.stereotype.Component
  * refused, so a stale question never removes what a later edit started using.
  */
 data class RemoveUnusedCatalogDependencies(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val aliases: List<String>,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Command<RemovedCatalogDependencies>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
@@ -51,15 +53,15 @@ class RemoveUnusedCatalogDependenciesHandler(
 ) : CommandHandler<RemoveUnusedCatalogDependencies, RemovedCatalogDependencies> {
 
     override fun handle(command: RemoveUnusedCatalogDependencies): RemovedCatalogDependencies {
-        val unused = GetCatalogBorrowing(command.tenantKey, command.catalogKey, command.catalogVersion).query().unused.map { it.alias }.toSet()
+        val unused = GetCatalogBorrowing(command.catalog, command.catalogVersion).query().unused.map { it.alias }.toSet()
         command.aliases.firstOrNull { it !in unused }?.let { alias ->
             throw ValidationException("aliases", "$alias is used by this version, or not declared, so its declaration stays.", ValidationCode.CATALOG_DEPENDENCY_INVALID)
         }
         return jdbi.inTransaction<RemovedCatalogDependencies, Exception> { handle ->
-            handle.findCatalog(command.tenantKey, command.catalogKey) ?: throw CatalogNotFoundException(command.catalogKey)
-            requireCatalogEditable(command.tenantKey, command.catalogKey)
-            val declarations = store.declarations(handle, command.tenantKey, command.catalogKey)
-            store.replace(handle, command.tenantKey, command.catalogKey, declarations.filterNot { it.alias in command.aliases })
+            handle.findCatalog(command.catalog) ?: throw CatalogNotFoundException(command.catalogKey)
+            requireCatalogEditable(command.catalog)
+            val declarations = store.declarations(handle, command.catalog)
+            store.replace(handle, command.catalog, declarations.filterNot { it.alias in command.aliases })
             RemovedCatalogDependencies(command.aliases.distinct())
         }
     }

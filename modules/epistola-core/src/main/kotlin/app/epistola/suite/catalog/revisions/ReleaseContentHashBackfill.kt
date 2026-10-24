@@ -9,6 +9,7 @@ import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskHandler
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskSchedule
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -60,9 +61,9 @@ class ReleaseContentHashBackfill(
         val pending = pending()
         if (pending.isEmpty()) return 0
         var hashed = 0
-        for ((tenantKey, catalogKey, version) in pending) {
-            val hash = runCatching { jdbi.inTransaction<String?, Exception> { identity.contentHash(it, tenantKey, catalogKey, version) } }
-                .onFailure { logger.warn("Content hash of release {}@{} of tenant {} not computed, will retry: {}", catalogKey.value, version, tenantKey.value, it.message) }
+        for ((catalog, version) in pending) {
+            val hash = runCatching { jdbi.inTransaction<String?, Exception> { identity.contentHash(it, catalog, version) } }
+                .onFailure { logger.warn("Content hash of release {}@{} of tenant {} not computed, will retry: {}", catalog.address, version, catalog.tenantKey.value, it.message) }
                 .getOrNull()
             if (hash != null) hashed++
         }
@@ -79,16 +80,17 @@ class ReleaseContentHashBackfill(
         return hashed
     }
 
-    private fun pending(): List<Triple<TenantKey, CatalogKey, String>> = jdbi.withHandle<List<Triple<TenantKey, CatalogKey, String>>, Exception> { handle ->
+    /** Each release without a hash, by its catalog's address (ADR 0034): two catalogs with one key are two. */
+    private fun pending(): List<Pair<CatalogId, String>> = jdbi.withHandle<List<Pair<CatalogId, String>>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.tenant_key, c.catalog_key, r.version FROM catalog_releases r
+            SELECT r.tenant_key, c.catalog_key, r.version, c.namespace FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
             WHERE r.content_hash IS NULL
-            ORDER BY r.tenant_key, c.catalog_key, r.version
+            ORDER BY r.tenant_key, c.catalog_key, c.namespace, r.version
             """,
         )
-            .map { rs, _ -> Triple(TenantKey.of(rs.getString(1)), CatalogKey.of(rs.getString(2)), rs.getString(3)) }
+            .map { rs, _ -> CatalogId(rs.getString(4), CatalogKey.of(rs.getString(2)), app.epistola.suite.common.ids.TenantId(TenantKey.of(rs.getString(1)))) to rs.getString(3) }
             .list()
     }
 

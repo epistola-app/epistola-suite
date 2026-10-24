@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TemplateId
@@ -18,6 +19,8 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -80,7 +83,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                 .bind("subjectUrn", subject.urn)
                 .bind("subjectType", subject.type.name)
                 .bind("ignoreScopeUrn", subject.ignoreScopeUrn)
-                .bind("catalogKey", subject.catalogKey)
+                .bindCatalog("catalogKey", testCatalog(subject.tenantKey, subject.catalogKey))
                 .bind("templateKey", subject.templateKey)
                 .bind("variantKey", subject.variantKey)
                 .execute()

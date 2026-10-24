@@ -5,6 +5,7 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -18,6 +19,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
@@ -50,8 +52,8 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Outage").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
 
             // Exchange goes away entirely — not an error response, no response at all.
             exchange.close()
@@ -85,13 +87,13 @@ class ExchangeUnavailableTest : IntegrationTestBase() {
         ).execute()
     }
 
-    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query()).publications.single()
+    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query()).publications.single()
 
     /** The deferral is measured by the database clock, which the test clock cannot move. */
     private fun forceDue(tenantKey: TenantKey, catalogKey: CatalogKey) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             "UPDATE catalog_release_publications SET next_attempt_at = NOW() WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
-        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).execute()
+        ).bind("tenantKey", tenantKey).bindCatalog("catalogKey", testCatalog(tenantKey, catalogKey)).execute()
     }
 
     @Autowired

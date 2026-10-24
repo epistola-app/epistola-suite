@@ -39,6 +39,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.junit.jupiter.api.Test
@@ -68,7 +69,7 @@ class NameLengthValidationTest {
 
     private val tenantKey = TenantKey("testtenant")
     private val tenantId = TenantId(tenantKey)
-    private val catalogId = CatalogId(CatalogKey.DEFAULT, tenantId)
+    private val catalogId = testCatalog(tenantId, CatalogKey.DEFAULT)
     private val templateId = TemplateId(TemplateKey("invoice"), catalogId)
     private val variantId = VariantId(VariantKey("english"), templateId)
     private val stencilId = StencilId(StencilKey("mystencil"), catalogId)
@@ -89,7 +90,7 @@ class NameLengthValidationTest {
         "CreateCatalog.name" to { s -> CreateCatalog(tenantKey, CatalogKey("mycatalog"), s) },
         "CreateVariant.title" to { s -> CreateVariant(variantId, title = s, description = null) },
         "UpdateVariant.title" to { s -> UpdateVariant(variantId, title = s, attributes = emptyMap()) },
-        "ImportFont.name" to { s -> ImportFont(tenantId, CatalogKey.DEFAULT, slug = "myfont", name = s, kind = "sans") },
+        "ImportFont.name" to { s -> ImportFont(testCatalog(tenantId, CatalogKey.DEFAULT), slug = "myfont", name = s, kind = "sans") },
         "CreateApiKey.name" to { s -> CreateApiKey(tenantKey, s) },
         // URL-sourced so only the displayName length can fail (INLINE would also require entries).
         "CreateCodeList.displayName" to { s ->

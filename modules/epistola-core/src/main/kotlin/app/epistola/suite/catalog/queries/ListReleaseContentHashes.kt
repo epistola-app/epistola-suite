@@ -4,9 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
-import app.epistola.suite.catalog.CatalogAddress
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -30,21 +30,16 @@ data class ListReleaseContentHashes(
 }
 
 /** Content hashes by catalog (namespace and key: two can share a key, ADR 0034) and release number. */
-data class ReleaseContentHashes(val byRelease: Map<Pair<CatalogAddress, String>, String>) {
+data class ReleaseContentHashes(val byRelease: Map<Pair<CatalogId, String>, String>, val tenantKey: TenantKey) {
     /** The content hash of release [version] of [catalog], or null when it has none (or there is no such release). */
-    fun of(catalog: CatalogAddress, version: String?): String? = version?.let { byRelease[catalog to it] }
-
-    /** By key alone, as [CatalogAddress.lookUp] reads one. */
-    fun of(catalogKey: CatalogKey, version: String?): String? = version?.let { v ->
-        CatalogAddress.lookUp(byRelease.filterKeys { it.second == v }.mapKeys { it.key.first }, catalogKey)
-    }
+    fun of(catalog: CatalogId, version: String?): String? = version?.let { byRelease[catalog to it] }
 
     /**
      * The content hash of the release [dependency] pins: its pin when that is a content hash, else the
      * release's here. Null for a declaration that pins none, or a release without one yet.
      */
     fun pinnedBy(dependency: CatalogDependencyDeclaration): String? = dependency.releaseFingerprint?.takeIf(CatalogCanonicalizer::isContentHash)
-        ?: of(CatalogAddress(dependency.namespace, CatalogKey.of(dependency.catalogKey)), dependency.releaseVersion)
+        ?: of(dependency.catalogIn(tenantKey), dependency.releaseVersion)
 }
 
 @Component
@@ -61,9 +56,10 @@ class ListReleaseContentHashesHandler(
                 """,
             )
                 .bind("t", query.tenantKey)
-                .map { rs, _ -> (CatalogAddress(rs.getString(1), CatalogKey.of(rs.getString(2))) to rs.getString(3)) to rs.getString(4) }
+                .map { rs, _ -> (CatalogId(rs.getString(1), CatalogKey.of(rs.getString(2)), app.epistola.suite.common.ids.TenantId(query.tenantKey)) to rs.getString(3)) to rs.getString(4) }
                 .list()
                 .toMap(),
+            query.tenantKey,
         )
     }
 }

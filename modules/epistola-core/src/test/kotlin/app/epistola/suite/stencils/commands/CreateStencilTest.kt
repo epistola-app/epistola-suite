@@ -12,6 +12,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

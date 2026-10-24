@@ -79,7 +79,7 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         val segment = request.catalogSegment()
         val release = request.param("release").orElse("").trim()
         if (release.isEmpty()) return ServerResponse.badRequest().build()
-        val preview = PreviewDraftMerge(tenantId.key, segment.key, release, segment.ref(tenantId.key)).query()
+        val preview = PreviewDraftMerge(segment.catalogIn(tenantId.key), release, segment.ref(tenantId.key)).query()
         return request.htmx {
             fragment("catalogs/merge", "merge-dialog") {
                 mergeModel(tenantId, segment, preview, choices = emptyMap(), error = null)
@@ -100,7 +100,7 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         val entry = request.param("entry").orElse("").trim()
         if (release.isEmpty() || entry.isEmpty()) return ServerResponse.badRequest().build()
         val sides = try {
-            GetDraftMergeSides(tenantId.key, segment.key, release, entry, segment.ref(tenantId.key)).query()
+            GetDraftMergeSides(segment.catalogIn(tenantId.key), release, entry, segment.ref(tenantId.key)).query()
         } catch (e: MergeEntryNotFoundException) {
             return ServerResponse.notFound().build()
         } catch (e: MergeBaseMissingException) {
@@ -136,7 +136,7 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         val token = request.param("token").orElse("").trim().ifEmpty { null }
 
         fun reRender(message: String): ServerResponse {
-            val preview = PreviewDraftMerge(tenantId.key, segment.key, release, segment.ref(tenantId.key)).query()
+            val preview = PreviewDraftMerge(segment.catalogIn(tenantId.key), release, segment.ref(tenantId.key)).query()
             return request.htmx {
                 dialogFieldErrors(
                     template = "catalogs/merge",
@@ -151,7 +151,7 @@ class CatalogMergeHandler(private val objectMapper: ObjectMapper) {
         }
 
         try {
-            MergeReleaseIntoDraft(tenantId.key, segment.key, release, choices, segment.ref(tenantId.key), expectedToken = token).execute()
+            MergeReleaseIntoDraft(segment.catalogIn(tenantId.key), release, choices, segment.ref(tenantId.key), expectedToken = token).execute()
         } catch (e: MergePreviewOutdatedException) {
             return reRender("Something changed in this draft or in v$release since you opened this. Check the merge below again, then merge.")
         } catch (e: MergeConflictsUnresolvedException) {

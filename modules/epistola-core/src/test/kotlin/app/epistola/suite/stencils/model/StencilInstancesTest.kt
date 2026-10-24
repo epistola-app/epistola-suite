@@ -66,8 +66,8 @@ class StencilInstancesTest {
         build("logo", "body")
     }
 
-    private fun resolver(vararg stencils: Pair<Pair<String, String>, StencilInstances.Content>) = StencilInstances.Resolver { key, catalog ->
-        stencils.toMap()[key to catalog]
+    private fun resolver(vararg stencils: Pair<Pair<String, String>, StencilInstances.Content>) = StencilInstances.Resolver { key, catalog, from ->
+        stencils.toMap()[key to (catalog ?: from)]?.copy(catalog = catalog ?: from)
     }
 
     private fun content(document: TemplateDocument, schema: Map<String, Any?>? = null) = StencilInstances.Content(document, schema)

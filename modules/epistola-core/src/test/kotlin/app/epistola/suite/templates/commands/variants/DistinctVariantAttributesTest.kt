@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

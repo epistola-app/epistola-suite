@@ -6,10 +6,12 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
@@ -40,8 +42,7 @@ data class ImagePage(
  * it means something as a face of a family, which the fonts API describes.
  */
 data class ListImagePage(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val searchTerm: String? = null,
     val limit: Int,
     val offset: Int,
@@ -50,6 +51,8 @@ data class ListImagePage(
 ) : CatalogReleaseScoped,
     Query<ImagePage>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -61,7 +64,7 @@ class ListImagePageHandler(
     override fun handle(query: ListImagePage): ImagePage = jdbi.withHandle<ImagePage, Exception> { handle ->
         val rows = handle.createQuery(
             """
-            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.name, a.media_type,
+            SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, a.name, a.media_type,
                    a.size_bytes, a.width, a.height, a.created_at, a.created_by,
                    COUNT(*) OVER()::bigint AS total_count
             FROM assets a
@@ -75,7 +78,7 @@ class ListImagePageHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("searchTerm", query.searchTerm?.let { "%$it%" })
             .bind("limit", query.limit)
             .bind("offset", query.offset)
@@ -84,6 +87,7 @@ class ListImagePageHandler(
                     id = AssetKey.of(rs.getString("id")),
                     tenantKey = TenantKey.of(rs.getString("tenant_key")),
                     catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+                    namespace = rs.getString("namespace"),
                     name = rs.getString("name"),
                     mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     sizeBytes = rs.getLong("size_bytes"),

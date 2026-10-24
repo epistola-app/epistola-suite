@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -35,7 +36,7 @@ class DeleteVariantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteVariant, Boolean> {
     override fun handle(command: DeleteVariant): Boolean {
-        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        requireCatalogEditable(command.variantId.catalogId)
 
         return jdbi.inTransaction<Boolean, Exception> { handle ->
             // Check if this variant is the default — block deletion if so
@@ -46,7 +47,7 @@ class DeleteVariantHandler(
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
+                .bindCatalog("catalogKey", command.variantId.catalogId)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .mapTo<Boolean>()
@@ -64,7 +65,7 @@ class DeleteVariantHandler(
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
+                .bindCatalog("catalogKey", command.variantId.catalogId)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .execute()

@@ -7,9 +7,11 @@ package app.epistola.suite.themes
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.catalog.ProtocolMapper
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -51,65 +53,26 @@ data class ResolvedStyles(
 class ThemeStyleResolver(
     private val jdbi: Jdbi,
     private val protocolMapper: ProtocolMapper,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
 ) {
     /**
-     * Resolves document-level styles by merging theme styles with template styles.
-     * Uses the variant-level theme from TemplateDocument's themeRef if set, otherwise no theme.
-     *
-     * @param tenantId The tenant ID for theme lookup
-     * @param templateModel The template document containing themeRef and template-level styles
-     * @return Resolved styles combining theme and template settings
-     */
-    fun resolveStyles(tenantId: TenantKey, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, catalogDefaultThemeId = null, templateModel = templateModel)
-
-    /**
-     * Resolves document-level styles with support for template-level and tenant-level default themes.
-     * Variant-level theme (in TemplateDocument's themeRef) overrides template-level default theme,
-     * which overrides tenant-level default theme.
-     *
-     * @param tenantId The tenant ID for theme lookup
-     * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
-     * @param templateModel The template document containing optional themeRef override and styles
-     * @return Resolved styles combining theme and template settings
+     * Resolves document-level styles with the theme cascade (contract ADR 0007): the variant's own
+     * theme (the template model's `themeRef`), then the template's default theme, then the catalog's.
+     * Each theme is of a catalog: the template's default theme of [templateThemeCatalog], the
+     * catalog's of [catalogDefaultThemeCatalog], both [templateCatalog] when null; the variant's names
+     * its catalog by alias, resolved from [templateCatalog] (ADR 0034, section 9). Template styles
+     * override the theme's.
      */
     fun resolveStyles(
-        tenantId: TenantKey,
-        templateDefaultThemeId: ThemeKey?,
-        templateModel: TemplateDocument,
-    ): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId, catalogDefaultThemeId = null, templateModel)
-
-    /**
-     * Resolves document-level styles with full theme cascade support.
-     *
-     * Theme cascade order:
-     * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
-     * 2. Template-level default theme (templateDefaultThemeId) - fallback
-     * 3. Tenant default theme (catalogDefaultThemeId) - ultimate fallback
-     *
-     * @param tenantId The tenant ID for theme lookup
-     * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
-     * @param catalogDefaultThemeId The default theme from Tenant (may be null)
-     * @param templateModel The template document containing optional themeRef override and styles
-     * @return Resolved styles combining theme and template settings
-     */
-    fun resolveStyles(
-        tenantId: TenantKey,
+        templateCatalog: CatalogId,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
-        templateCatalogKey: CatalogKey? = null,
-        catalogDefaultThemeCatalogKey: CatalogKey? = null,
+        templateThemeCatalog: CatalogId? = null,
+        catalogDefaultThemeCatalog: CatalogId? = null,
         dependencies: DraftDependencyView? = null,
     ): ResolvedStyles {
-        val theme = resolveTheme(
-            tenantId = tenantId,
-            templateDefaultThemeId = templateDefaultThemeId,
-            catalogDefaultThemeId = catalogDefaultThemeId,
-            templateModel = templateModel,
-            templateCatalogKey = templateCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogDefaultThemeCatalogKey,
-            dependencies = dependencies,
-        )
+        val theme = resolveTheme(templateCatalog, templateDefaultThemeId, catalogDefaultThemeId, templateModel, templateThemeCatalog, catalogDefaultThemeCatalog, dependencies)
         val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
 
         return if (theme != null) {
@@ -138,51 +101,48 @@ class ThemeStyleResolver(
      * the release it pins, or the draft it names.
      */
     fun resolveTheme(
-        tenantId: TenantKey,
+        templateCatalog: CatalogId,
         templateDefaultThemeId: ThemeKey?,
         catalogDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
-        templateCatalogKey: CatalogKey? = null,
-        catalogDefaultThemeCatalogKey: CatalogKey? = null,
+        templateThemeCatalog: CatalogId? = null,
+        catalogDefaultThemeCatalog: CatalogId? = null,
         dependencies: DraftDependencyView? = null,
     ): Theme? {
-        // Theme cascade: variant-level > template-level > tenant-level
-        // The catalog key must follow the theme key through the cascade
-        val (effectiveThemeId, effectiveCatalogKey) = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ThemeKey.of(ref.themeKey) to (ref.catalogKey?.let { CatalogKey.of(it) } ?: templateCatalogKey)
-            else -> null to null
-        }.let { (themeId, catalogKey) ->
-            if (themeId != null) {
-                themeId to catalogKey
-            } else if (templateDefaultThemeId != null) {
-                templateDefaultThemeId to templateCatalogKey
-            } else if (catalogDefaultThemeId != null) {
-                catalogDefaultThemeId to catalogDefaultThemeCatalogKey
-            } else {
-                null to null
+        val ref = templateModel.themeRef
+        val (themeId, catalog) = when {
+            ref is ThemeRefOverride -> {
+                // The variant's theme, by alias from the template's catalog.
+                val catalog = dependencies?.resolve(templateCatalog, ref.catalogKey) ?: references.resolve(templateCatalog, ref.catalogKey) ?: return null
+                ThemeKey.of(ref.themeKey) to catalog
             }
-        }
 
-        return effectiveThemeId?.let { getTheme(tenantId, effectiveCatalogKey, it, dependencies) }
+            templateDefaultThemeId != null -> templateDefaultThemeId to (templateThemeCatalog ?: templateCatalog)
+
+            catalogDefaultThemeId != null -> catalogDefaultThemeId to (catalogDefaultThemeCatalog ?: templateCatalog)
+
+            else -> return null
+        }
+        return getTheme(catalog, themeId, dependencies)
     }
 
     /**
      * Gets a theme by ID for a tenant, optionally scoped to a catalog.
      */
-    private fun getTheme(tenantId: TenantKey, catalogKey: CatalogKey?, themeId: ThemeKey, dependencies: DraftDependencyView?): Theme? {
-        if (catalogKey != null) dependencies?.releaseOf(catalogKey)?.let { release -> return releasedTheme(tenantId, release, themeId, dependencies) }
-        val draft = catalogKey?.let { dependencies?.draftOf(it) }
-        return jdbi.withHandle<Theme?, Exception> { handle -> getTheme(handle, tenantId, catalogKey, themeId, draft?.versionId) }
+    private fun getTheme(catalog: CatalogId, themeId: ThemeKey, dependencies: DraftDependencyView?): Theme? {
+        dependencies?.releaseOf(catalog)?.let { release -> return releasedTheme(release, themeId, dependencies) }
+        val draft = dependencies?.draftOf(catalog)
+        return jdbi.withHandle<Theme?, Exception> { handle -> getTheme(handle, catalog, themeId, draft?.versionId) }
     }
 
     /** [themeId] as the release [release] holds it, in the shape of a stored theme. */
-    private fun releasedTheme(tenantId: TenantKey, release: DraftDependencyView.Source.Release, themeId: ThemeKey, dependencies: DraftDependencyView): Theme? {
-        val theme = dependencies.released(release.catalogKey, "theme", themeId.value) as? ThemeResource ?: return null
+    private fun releasedTheme(release: DraftDependencyView.Source.Release, themeId: ThemeKey, dependencies: DraftDependencyView): Theme? {
+        val theme = dependencies.released(release.catalog, "theme", themeId.value) as? ThemeResource ?: return null
         val at = EpistolaClock.offsetDateTime()
         return Theme(
             id = themeId,
-            tenantKey = tenantId,
-            catalogKey = release.catalogKey,
+            tenantKey = release.catalog.tenantKey,
+            catalogKey = release.catalog.key,
             name = theme.name,
             description = theme.description,
             documentStyles = protocolMapper.mapToDocumentStyles(theme.documentStyles),
@@ -194,31 +154,24 @@ class ThemeStyleResolver(
         )
     }
 
-    private fun getTheme(handle: Handle, tenantId: TenantKey, catalogKey: CatalogKey?, themeId: ThemeKey, versionId: UUID?): Theme? {
+    private fun getTheme(handle: Handle, catalog: CatalogId, themeId: ThemeKey, versionId: UUID?): Theme? {
         val query = when {
             versionId != null -> handle.createQuery(
                 """
                 SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                WHERE t.id = :id AND t.tenant_key = :tenantId AND t.version_id = :versionId
+                WHERE t.id = :id AND t.tenant_key = :tenantKey AND t.version_id = :versionId
                 """,
             ).bind("versionId", versionId)
-
-            catalogKey != null -> handle.createQuery(
-                """
-                SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                WHERE t.id = :id AND t.tenant_key = :tenantId AND ${inCurrentVersion("t")} AND t.version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
-            ).bind("catalogKey", catalogKey)
 
             else -> handle.createQuery(
                 """
                 SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                WHERE t.id = :id AND t.tenant_key = :tenantId AND ${inCurrentVersion("t")}
+                WHERE t.id = :id AND t.tenant_key = :tenantKey AND t.version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
-            )
+            ).bindCatalog("catalogKey", catalog)
         }
             .bind("id", themeId)
-            .bind("tenantId", tenantId)
+            .bind("tenantKey", catalog.tenantKey)
         return query.mapTo<Theme>()
             .findOne()
             .orElse(null)

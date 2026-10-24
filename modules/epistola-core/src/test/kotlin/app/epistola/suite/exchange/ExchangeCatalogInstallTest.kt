@@ -7,6 +7,7 @@ package app.epistola.suite.exchange
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogUpstreamCheckStore
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -31,6 +32,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -73,7 +75,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             assertThat(result.aborted).isFalse()
             assertThat(result.release.version).isEqualTo("1.0.0")
 
-            val installed = GetCatalog(consumer, CatalogKey.of("invoices")).query()!!
+            val installed = GetCatalog(testCatalog(consumer, CatalogKey.of("invoices"))).query()!!
             assertThat(installed.hasSource).isTrue()
             assertThat(installed.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(installed.installedAt).isNotNull()
@@ -114,7 +116,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             InstallExchangeCatalog(consumer, "acme", "invoices").execute()
         }
 
-        val recorded = upstreamChecks.stateFor(consumer, CatalogKey.of("invoices"))!!
+        val recorded = upstreamChecks.stateFor(testCatalog(consumer, CatalogKey.of("invoices")))!!
         assertThat(recorded.availableVersion).isEqualTo("1.0.0")
         assertThat(recorded.installedArchiveSha256).isNotNull()
         assertThat(recorded.failure).isNull()
@@ -130,10 +132,10 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             InstallExchangeCatalog(consumer, "acme", "invoices").execute()
             exchange.publish("acme", "invoices", releaseArchive("invoices", "2.0.0"), version = "2.0.0")
 
-            val upgraded = UpgradeExchangeCatalog(consumer, CatalogKey.of("invoices")).execute()
+            val upgraded = UpgradeExchangeCatalog(testCatalog(consumer, CatalogKey.of("invoices"))).execute()
 
             assertThat(upgraded.release.version).isEqualTo("2.0.0")
-            assertThat(GetCatalog(consumer, CatalogKey.of("invoices")).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
+            assertThat(GetCatalog(testCatalog(consumer, CatalogKey.of("invoices"))).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
         }
     }
 
@@ -144,23 +146,23 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         val invoices = CatalogKey.of("invoices")
         withMediator { InstallExchangeCatalog(consumer, "acme", "invoices").execute() }
         exchange.publish("acme", "invoices", releaseArchive("invoices", "2.0.0"), version = "2.0.0")
-        withMediator { InstallCatalogRelease(consumer, invoices, "2.0.0").execute() }
+        withMediator { InstallCatalogRelease(testCatalog(consumer, invoices), "2.0.0").execute() }
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.1"), version = "1.0.1")
 
-        val available = withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }
+        val available = withMediator { ListAvailableCatalogReleases(testCatalog(consumer, invoices)).query() }
 
         assertThat(available.available.map { it.releaseVersion to it.comparedTo }).`as`("the fix, against the release below it")
             .containsExactly("1.0.1" to "1.0.0")
         assertThat(available.available.single().changes.map { it.type to it.change }).containsExactly("theme" to ResourceChangeKind.MODIFIED)
 
-        val installed = withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }
+        val installed = withMediator { InstallCatalogRelease(testCatalog(consumer, invoices), "1.0.1").execute() }
 
         assertThat(installed.newlyInstalled).isTrue()
-        assertThat(withMediator { ListCatalogReleaseSummaries(consumer, invoices).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
-        assertThat(withMediator { GetCatalog(consumer, invoices).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
-        assertThat(withMediator { InstallCatalogRelease(consumer, invoices, "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
-        assertThat(withMediator { ListAvailableCatalogReleases(consumer, invoices).query() }.available).isEmpty()
-        assertThatThrownBy { withMediator { InstallCatalogRelease(consumer, invoices, "9.9.9").execute() } }
+        assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(consumer, invoices)).query() }.map { it.version }).containsExactlyInAnyOrder("1.0.0", "1.0.1", "2.0.0")
+        assertThat(withMediator { GetCatalog(testCatalog(consumer, invoices)).query()!! }.installedReleaseVersion).`as`("what it mirrors stays the highest").isEqualTo("2.0.0")
+        assertThat(withMediator { InstallCatalogRelease(testCatalog(consumer, invoices), "1.0.1").execute() }.newlyInstalled).`as`("again, nothing changes").isFalse()
+        assertThat(withMediator { ListAvailableCatalogReleases(testCatalog(consumer, invoices)).query() }.available).isEmpty()
+        assertThatThrownBy { withMediator { InstallCatalogRelease(testCatalog(consumer, invoices), "9.9.9").execute() } }
             .isInstanceOf(app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException::class.java)
     }
 
@@ -173,24 +175,22 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
      * silently overwrites the first, and the tenant ends up with one catalog claiming to be two.
      */
     @Test
-    fun `a second catalog with the same key from another namespace is refused, not merged`() {
+    fun `a second catalog with the same key from another namespace is installed beside it, not merged`() {
         val consumer = connectedTenant("install-collision")
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
         exchange.publish("globex", "invoices", releaseArchive("invoices", "9.0.0", namespace = "globex"), version = "9.0.0")
 
         withMediator {
             InstallExchangeCatalog(consumer, "acme", "invoices").execute()
+            // Within a tenant a catalog is named by namespace and key (ADR 0034, section 9).
+            InstallExchangeCatalog(consumer, "globex", "invoices").execute()
 
-            assertThatThrownBy {
-                InstallExchangeCatalog(consumer, "globex", "invoices").execute()
-            }.isInstanceOf(ValidationException::class.java)
-                .satisfies({ assertThat((it as ValidationException).code).isEqualTo(ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN) })
-                .hasMessageContaining("acme/invoices")
-
-            // The first install is untouched, which is the point.
-            val installed = GetCatalog(consumer, CatalogKey.of("invoices")).query()!!
-            assertThat(installed.sourceUrl).isEqualTo("exchange:acme/invoices")
-            assertThat(installed.installedReleaseVersion).isEqualTo("1.0.0")
+            val acme = GetCatalog(CatalogId("acme", CatalogKey.of("invoices"), TenantId(consumer))).query()!!
+            assertThat(acme.sourceUrl).isEqualTo("exchange:acme/invoices")
+            assertThat(acme.installedReleaseVersion).isEqualTo("1.0.0")
+            val globex = GetCatalog(CatalogId("globex", CatalogKey.of("invoices"), TenantId(consumer))).query()!!
+            assertThat(globex.sourceUrl).isEqualTo("exchange:globex/invoices")
+            assertThat(globex.installedReleaseVersion).isEqualTo("9.0.0")
         }
     }
 
@@ -200,7 +200,9 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
 
         withMediator {
-            CreateCatalog(consumer, CatalogKey.of("invoices"), "My own invoices").execute()
+            // Its own invoices at the address the Exchange names it by: acme/invoices.
+            runCatching { TestNamespaces.grant(consumer, "acme").execute() }
+            CreateCatalog(consumer, CatalogKey.of("invoices"), "My own invoices", namespace = "acme").execute()
 
             assertThatThrownBy {
                 InstallExchangeCatalog(consumer, "acme", "invoices").execute()
@@ -242,7 +244,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
 
             assertThat(result.aborted).isFalse()
-            val image = ListAssets(consumer, catalogKey = CatalogKey.of("broken")).query().single()
+            val image = ListAssets(consumer, catalog = testCatalog(consumer, CatalogKey.of("broken"))).query().single()
             assertThat(image.id.value).isEqualTo("municipality-mark")
             assertThat(image.mediaType.mimeType).isEqualTo("image/svg+xml")
         }
@@ -265,7 +267,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
 
             assertThat(result.aborted).isTrue()
             assertThat(result.rolledBack).isTrue()
-            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()).isNull()
+            assertThat(GetCatalog(testCatalog(consumer, CatalogKey.of("broken"))).query()).isNull()
         }
 
         // Relocation mints a resource identity from a database trigger on every resource insert,
@@ -294,7 +296,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val retry = InstallExchangeCatalog(consumer, "acme", "broken").execute()
 
             assertThat(retry.aborted).isFalse()
-            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()!!.installedReleaseVersion).isEqualTo("1.1.0")
+            assertThat(GetCatalog(testCatalog(consumer, CatalogKey.of("broken"))).query()!!.installedReleaseVersion).isEqualTo("1.1.0")
         }
     }
 
@@ -311,7 +313,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             }.isInstanceOf(ValidationException::class.java)
                 .satisfies({ assertThat((it as ValidationException).code).isEqualTo(ValidationCode.EXCHANGE_ARCHIVE_REJECTED) })
 
-            assertThat(GetCatalog(consumer, CatalogKey.of("invoices")).query()).isNull()
+            assertThat(GetCatalog(testCatalog(consumer, CatalogKey.of("invoices"))).query()).isNull()
         }
     }
 
@@ -376,12 +378,12 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             TestNamespaces.grant(publisher, namespace).execute()
             CreateCatalog(publisher, catalogKey, "Invoices", namespace = namespace).execute()
             CreateTheme(
-                id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
+                id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
             ).execute()
-            MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = publisher, catalogKey = catalogKey, version = version).execute()
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(publisher))).zipBytes
+            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher, catalogKey), version = version).execute()
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(publisher), catalogKey)).zipBytes
         }
     }
 
@@ -389,7 +391,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     private fun resourceIdentities(tenant: TenantKey, catalogKey: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
             "SELECT resource_id::text FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
-        ).bind("t", tenant).bind("c", catalogKey).mapTo(String::class.java).list()
+        ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalogKey)).mapTo(String::class.java).list()
     }
 
     /**
@@ -401,7 +403,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
     private fun registeredResourceIdentities(tenant: TenantKey, catalogKey: String): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
             "SELECT COUNT(*) FROM catalog_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
-        ).bind("t", tenant).bind("c", catalogKey).mapTo(Int::class.java).one()
+        ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalogKey)).mapTo(Int::class.java).one()
     }
 
     /**
@@ -426,7 +428,7 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val result = InstallExchangeCatalog(consumer, "acme", "broken").execute()
 
             assertThat(result.aborted).isTrue()
-            assertThat(GetCatalog(consumer, CatalogKey.of("broken")).query()).isNull()
+            assertThat(GetCatalog(testCatalog(consumer, CatalogKey.of("broken"))).query()).isNull()
         }
     }
 
@@ -440,8 +442,8 @@ class ExchangeCatalogInstallTest : ExchangeIntegrationTestBase() {
             val result = ImportCatalogZip(tenantKey = tenant, zipBytes = readableImageSlugArchive(svg = UNSAFE_SVG)).execute()
             assertThat(result.aborted).isTrue()
             assertThat(result.results.single().errorMessage).contains("SVG not accepted")
-            assertThat(ListAssets(tenant, catalogKey = CatalogKey.of("broken")).query()).isEmpty()
-            assertThat(GetCatalog(tenant, CatalogKey.of("broken")).query()).isNull()
+            assertThat(ListAssets(tenant, catalog = testCatalog(tenant, CatalogKey.of("broken"))).query()).isEmpty()
+            assertThat(GetCatalog(testCatalog(tenant, CatalogKey.of("broken"))).query()).isNull()
         }
     }
 

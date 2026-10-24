@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -33,7 +34,7 @@ class DeleteDocumentTemplateHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteDocumentTemplate, Boolean> {
     override fun handle(command: DeleteDocumentTemplate): Boolean {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         return jdbi.withHandle<Boolean, Exception> { handle ->
             val rowsAffected = handle.createUpdate(
@@ -44,7 +45,7 @@ class DeleteDocumentTemplateHandler(
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .execute()
             rowsAffected > 0
         }

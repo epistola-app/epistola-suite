@@ -18,6 +18,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.Dialog
 import com.microsoft.playwright.Response
 import org.assertj.core.api.Assertions.assertThat

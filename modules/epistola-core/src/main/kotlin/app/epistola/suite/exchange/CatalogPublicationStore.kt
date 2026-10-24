@@ -5,7 +5,9 @@
 package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -52,6 +54,9 @@ data class CatalogReleasePublication(
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
 ) {
+    /** The catalog by the name it is published under, [namespace] and its key. */
+    val publishedAs: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+
     /**
      * Still unfinished long after it should have been decided.
      *
@@ -86,8 +91,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     fun insert(
         handle: Handle,
         id: UUID,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         fingerprint: String,
         namespace: String,
@@ -100,7 +104,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
                 (id, tenant_key, catalog_id, version, fingerprint, namespace, status, idempotency_key)
             VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, :version, :fingerprint, :namespace, :status, :idempotencyKey)
             """,
-        ).bind("id", id).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
+        ).bind("id", id).bind("tenantKey", catalog.tenantKey).bindCatalog("catalogKey", catalog).bind("version", version)
             .bind("fingerprint", fingerprint).bind("namespace", namespace)
             .bind("status", CatalogPublicationStatus.READY).bind("idempotencyKey", idempotencyKey).execute()
         storeArchive(handle, id, archive)
@@ -166,15 +170,15 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     fun find(handle: Handle, id: UUID): CatalogReleasePublication? = handle.createQuery("$SELECT_METADATA WHERE id = :id FOR UPDATE")
         .bind("id", id).map(::map).findOne().orElse(null)
 
-    fun findByVersion(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogReleasePublication? = handle.createQuery(
+    fun findByVersion(handle: Handle, catalog: CatalogId, version: String): CatalogReleasePublication? = handle.createQuery(
         "${SELECT_METADATA} WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND version = :version FOR UPDATE",
-    ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).bind("version", version)
+    ).bind("tenantKey", catalog.tenantKey).bindCatalog("catalogKey", catalog).bind("version", version)
         .map(::map).findOne().orElse(null)
 
-    fun list(tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
+    fun list(catalog: CatalogId): List<CatalogReleasePublication> = jdbi.withHandle<List<CatalogReleasePublication>, Exception> { handle ->
         handle.createQuery(
             "$SELECT_METADATA WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} ORDER BY created_at DESC",
-        ).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey).map(::map).list()
+        ).bind("tenantKey", catalog.tenantKey).bindCatalog("catalogKey", catalog).map(::map).list()
     }
 
     /**
@@ -301,7 +305,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
     }
 
     /** Re-points every publication that has not reached Exchange at a newly bound namespace. */
-    fun repointUnsubmitted(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, namespace: String) {
+    fun repointUnsubmitted(handle: Handle, catalog: CatalogId, namespace: String) {
         handle.createUpdate(
             """
             UPDATE catalog_release_publications
@@ -309,7 +313,7 @@ class CatalogPublicationStore(private val jdbi: Jdbi) {
             WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
               AND remote_publication_id IS NULL AND status = ANY(:active)
             """,
-        ).bind("namespace", namespace).bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+        ).bind("namespace", namespace).bind("tenantKey", catalog.tenantKey).bindCatalog("catalogKey", catalog)
             .bind("active", activeNames()).execute()
     }
 

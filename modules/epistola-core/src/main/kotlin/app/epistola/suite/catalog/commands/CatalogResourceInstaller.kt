@@ -14,6 +14,7 @@ import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.catalog.ProtocolMapper
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -34,28 +35,33 @@ import org.springframework.stereotype.Component
 @Component
 class CatalogResourceInstaller(
     private val protocolMapper: ProtocolMapper,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
 ) {
 
+    /**
+     * [declarations] are the dependencies [resource] arrives with, which name what its aliases mean
+     * (ADR 0034, section 9); null when it arrives with none of its own (a merge writes into a draft
+     * that declares them).
+     */
     fun install(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         resource: CatalogResource,
         version: String,
         binaries: (String) -> ByteArray?,
-    ): InstallStatus = installAs(TenantId(tenantKey), catalogKey, resource, version, binaries)
+        declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>? = null,
+    ): InstallStatus = installAs(catalog, resource, version, binaries) { alias -> references.resolveReceived(catalog, alias, declarations) }
 
     private fun installAs(
-        tenantId: TenantId,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         resource: CatalogResource,
         version: String,
         binaries: (String) -> ByteArray?,
+        resolve: (String?) -> CatalogId?,
     ): InstallStatus = when (resource) {
         is TemplateResource -> {
-            val input = templateImportInput(resource, catalogKey, version, protocolMapper)
+            val input = templateImportInput(resource, version, protocolMapper, resolve)
             val results = ImportTemplates(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = catalog,
                 templates = listOf(input),
             ).execute()
             val result = results.first()
@@ -66,8 +72,7 @@ class CatalogResourceInstaller(
         }
 
         is ThemeResource -> ImportTheme(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
+            catalog = catalog,
             slug = resource.key,
             name = resource.name,
             description = resource.description,
@@ -78,8 +83,7 @@ class CatalogResourceInstaller(
         ).execute()
 
         is StencilResource -> ImportStencil(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
+            catalog = catalog,
             slug = resource.key,
             name = resource.name,
             description = resource.description,
@@ -90,24 +94,20 @@ class CatalogResourceInstaller(
         ).execute()
 
         is AttributeResource -> {
-            val bindingCatalog = resource.codeListBinding?.let {
-                it.catalogKey?.let(CatalogKey::of) ?: catalogKey
-            }
+            val bindingCatalog = resource.codeListBinding?.let { resolve(it.catalogKey) }
             val bindingSlug = resource.codeListBinding?.key?.let(CodeListKey::of)
             ImportAttribute(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = catalog,
                 slug = resource.key,
                 displayName = resource.name,
                 allowedValues = resource.allowedValues,
-                codeListCatalogKey = bindingCatalog,
+                codeListCatalog = bindingCatalog,
                 codeListSlug = bindingSlug,
             ).execute()
         }
 
         is app.epistola.catalog.protocol.CodeListResource -> ImportCodeList(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
+            catalog = catalog,
             slug = resource.key,
             displayName = resource.name,
             description = resource.description,
@@ -122,8 +122,7 @@ class CatalogResourceInstaller(
         ).execute()
 
         is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
+            catalog = catalog,
             slug = resource.key,
             name = resource.name,
             kind = resource.kind,
@@ -133,7 +132,7 @@ class CatalogResourceInstaller(
             variants = resource.variants.map { entry ->
                 val faceBytes = binaries(entry.contentPath())
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
-                val faceKey = materialiseFontFace(tenantId, catalogKey, resource.key, entry, faceBytes)
+                val faceKey = materialiseFontFace(catalog, resource.key, entry, faceBytes)
                 app.epistola.suite.fonts.commands.ImportFontVariant(
                     weight = entry.weight,
                     italic = entry.italic,
@@ -155,8 +154,7 @@ class CatalogResourceInstaller(
             // a plain string, and the asset operations that forced the UUID are gone.
             val assetId = AssetKey.of(resource.key)
             ImportAsset(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = catalog,
                 id = assetId,
                 name = resource.name,
                 mediaType = mediaType,
@@ -175,15 +173,16 @@ class CatalogResourceInstaller(
  */
 internal fun templateImportInput(
     resource: TemplateResource,
-    catalogKey: CatalogKey,
     version: String,
     protocolMapper: ProtocolMapper,
+    /** The catalog an alias of [resource] means, its own without one. */
+    resolve: (String?) -> CatalogId?,
 ): ImportTemplateInput = ImportTemplateInput(
     slug = resource.key,
     name = resource.name,
     version = version,
     themeId = resource.themeKey,
-    themeCatalogKey = if (resource.themeKey != null) resource.themeCatalogKey ?: catalogKey.value else null,
+    themeCatalog = if (resource.themeKey != null) resolve(resource.themeCatalogKey) else null,
     pdfaEnabled = resource.pdfaEnabled,
     dataModel = protocolMapper.toObjectNode(resource.dataModel),
     dataExamples = resource.dataExamples?.map {

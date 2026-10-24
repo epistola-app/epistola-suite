@@ -7,11 +7,13 @@ package app.epistola.suite.assets.queries
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.assetContentScope
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -20,6 +22,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.AssetContentStore
 import app.epistola.suite.storage.backfill.LegacyBlobFallback
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -39,12 +42,18 @@ import org.springframework.stereotype.Component
 data class GetAssetContent(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-    val catalogKey: CatalogKey? = null,
+    /** The asset's catalog, by its address (ADR 0034, section 9); null for whichever has it. */
+    val catalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<AssetContent?>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.TEMPLATE_VIEW
     override val tenantKey get() = tenantId
 }
@@ -60,7 +69,7 @@ class GetAssetContentHandler(
     override fun handle(query: GetAssetContent): AssetContent? {
         // 1. Get metadata (including the content-addressable pointer) from DB
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
-            handle.loadAssetMeta(query.tenantId, query.assetId, query.catalogKey)
+            handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog)
         } ?: return null
 
         // 2. Read content: from the content-addressable store by (scope, hash), or —
@@ -91,19 +100,19 @@ private data class AssetMeta(
     val sensitive: Boolean,
 )
 
-private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalogKey: CatalogKey?): AssetMeta? = createQuery(
+private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog: app.epistola.suite.common.ids.CatalogId?): AssetMeta? = createQuery(
     """
     SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.media_type, a.content_hash, a.sensitive
     FROM assets a
     JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
     WHERE a.id = :assetId
       AND a.tenant_key = :tenantId
-      ${if (catalogKey != null) "AND a.version_id = ${versionAt("tenantId", "catalogKey")}" else "AND ${inCurrentVersion("a")}"}
+      ${if (catalog != null) "AND a.version_id = ${versionAt("tenantId", "catalogKey")}" else "AND ${inCurrentVersion("a")}"}
     """,
 )
     .bind("assetId", assetId.value)
     .bind("tenantId", tenantId)
-    .apply { catalogKey?.let { bind("catalogKey", it.value) } }
+    .apply { catalog?.let { bindCatalog("catalogKey", it) } }
     .map { rs, _ ->
         AssetMeta(
             id = AssetKey(rs.getString("id")),

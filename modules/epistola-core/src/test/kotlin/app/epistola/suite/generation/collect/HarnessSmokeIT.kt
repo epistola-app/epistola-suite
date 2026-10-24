@@ -16,6 +16,8 @@ import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SimulatedConsumerFactory
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
@@ -64,14 +66,13 @@ class HarnessSmokeIT : IntegrationTestBase() {
             // Submit a generation request — JobPoller is disabled so it just sits there.
             execute(
                 GenerateDocument(
-                    tenantId = setup.tenant.id,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("x", 1),
                     filename = "doc.pdf",
                     routingKey = "smoke-key",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -108,13 +109,12 @@ class HarnessSmokeIT : IntegrationTestBase() {
         }.whenever { setup ->
             execute(
                 GenerateDocument(
-                    tenantId = setup.tenant.id,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->
@@ -144,13 +144,12 @@ class HarnessSmokeIT : IntegrationTestBase() {
         }.whenever { setup ->
             execute(
                 GenerateDocument(
-                    tenantId = setup.tenant.id,
+                    catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                     templateId = setup.template.id,
                     variantId = setup.variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = "f.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { setup, request ->

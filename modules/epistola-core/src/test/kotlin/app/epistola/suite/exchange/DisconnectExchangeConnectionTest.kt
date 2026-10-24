@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -121,8 +122,8 @@ class DisconnectExchangeConnectionTest : ExchangeIntegrationTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Disconnect queue").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(publication(tenant.id, catalogKey).status.isActive).isTrue()
 
             DisconnectExchangeConnection(tenant.id, forgetLocally = true).execute()
@@ -222,7 +223,7 @@ class DisconnectExchangeConnectionTest : ExchangeIntegrationTestBase() {
         ).execute()
     }
 
-    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(tenantKey, catalogKey).query()).publications.single()
+    private fun publication(tenantKey: TenantKey, catalogKey: CatalogKey) = requireNotNull(GetCatalogPublicationState(testCatalog(tenantKey, catalogKey)).query()).publications.single()
 
     companion object {
         private const val CALLBACK = "https://suite.example/oauth/exchange/callback"

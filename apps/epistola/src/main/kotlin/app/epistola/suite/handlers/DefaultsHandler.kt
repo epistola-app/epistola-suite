@@ -99,7 +99,7 @@ class DefaultsHandler(
     private fun listBcp47Entries(tenantKey: TenantKey) = ListCodeListEntries(
         codeListId = CodeListId(
             key = CodeListKey.of("bcp-47"),
-            catalogId = CatalogId(key = SYSTEM_CATALOG_KEY, tenantId = TenantId(tenantKey)),
+            catalogId = app.epistola.suite.catalog.system.systemCatalog(tenantKey),
         ),
     ).query()
 }

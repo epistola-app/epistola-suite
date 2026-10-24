@@ -37,13 +37,14 @@ import org.springframework.stereotype.Component
  * @return the changes that remain, with their readiness.
  */
 data class MarkCatalogReady(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Command<CatalogResourceChanges>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
@@ -53,20 +54,20 @@ class MarkCatalogReadyHandler(
     private val readyMarks: ReadyMarks,
 ) : CommandHandler<MarkCatalogReady, CatalogResourceChanges> {
     override fun handle(command: MarkCatalogReady): CatalogResourceChanges {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
-        val catalogId = CatalogId(command.catalogKey, TenantId(command.tenantKey))
-        for (change in GetCatalogResourceChanges(command.tenantKey, command.catalogKey).query().notReady) {
+        requireCatalogEditable(command.catalog)
+        val catalogId = command.catalog
+        for (change in GetCatalogResourceChanges(command.catalog).query().notReady) {
             when (change.type) {
                 "template" -> MarkTemplateReady(TemplateId(TemplateKey.of(change.slug), catalogId)).execute()
 
                 "stencil" -> MarkStencilReady(StencilId(StencilKey.of(change.slug), catalogId)).execute()
 
                 else -> jdbi.useTransaction<Exception> { handle ->
-                    readyMarks.resourceId(handle, command.tenantKey, command.catalogKey, change.type, change.slug)
+                    readyMarks.resourceId(handle, command.catalog, change.type, change.slug)
                         ?.let { readyMarks.mark(handle, command.tenantKey, it) }
                 }
             }
         }
-        return GetCatalogResourceChanges(command.tenantKey, command.catalogKey).query()
+        return GetCatalogResourceChanges(command.catalog).query()
     }
 }

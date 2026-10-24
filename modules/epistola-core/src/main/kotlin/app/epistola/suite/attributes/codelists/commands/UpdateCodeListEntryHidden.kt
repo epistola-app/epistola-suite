@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -46,14 +47,14 @@ class UpdateCodeListEntryHiddenHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateCodeListEntryHidden, Boolean> {
     override fun handle(command: UpdateCodeListEntryHidden): Boolean {
-        requireCatalogEditable(command.codeListId.tenantKey, command.codeListId.catalogKey)
+        requireCatalogEditable(command.codeListId.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             // An entry is part of its code list: the caller names the list's revision, and a change to
             // an entry is a change to the list, so its revision moves on.
             Revisions.refuse(
                 "Code list '${command.codeListId.key.value}'",
                 command.expectedRevision,
-                handle.contentRevision("code_lists", "slug", command.codeListId.tenantKey, command.codeListId.catalogKey, command.codeListId.key),
+                handle.contentRevision("code_lists", "slug", command.codeListId.catalogId, command.codeListId.key),
             )
             fun entries(set: String, where: String = "") = handle.createUpdate(
                 """
@@ -66,7 +67,7 @@ class UpdateCodeListEntryHiddenHandler(
                 """,
             )
                 .bind("tenantKey", command.codeListId.tenantKey)
-                .bind("catalogKey", command.codeListId.catalogKey)
+                .bindCatalog("catalogKey", command.codeListId.catalogId)
                 .bind("slug", command.codeListId.key)
                 .bind("code", command.code)
                 .bind("hidden", command.hidden)
@@ -76,7 +77,7 @@ class UpdateCodeListEntryHiddenHandler(
                 // bump_content_revision keeps a raise by one the update makes itself.
                 handle.createUpdate("UPDATE code_lists SET revision = revision + 1 WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug")
                     .bind("tenantKey", command.codeListId.tenantKey)
-                    .bind("catalogKey", command.codeListId.catalogKey)
+                    .bindCatalog("catalogKey", command.codeListId.catalogId)
                     .bind("slug", command.codeListId.key)
                     .execute()
                 true

@@ -54,7 +54,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.exchange(
-                "/tenants/${testTenant.id}/catalogs/default/templates/new",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/new",
                 HttpMethod.GET,
                 HttpEntity<Void>(htmxHeaders()),
                 String::class.java,
@@ -70,7 +70,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("""id="create-template-form"""")
             // The catalog <select> populated from authored catalogs.
             // Opened in a catalog, it creates there: no catalog to choose.
-            assertThat(response.body).contains("/catalogs/default/templates\"").doesNotContain("<select id=\"catalog\"")
+            assertThat(response.body).contains("/catalogs/${testTenant.id}/default/templates\"").doesNotContain("<select id=\"catalog\"")
             assertThat(response.body).contains("""name="name"""")
             assertThat(response.body).contains("""name="slug"""")
             // It is a fragment, not the whole page (no app shell).
@@ -90,7 +90,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             form.add("name", "Valid Name")
             form.add("slug", "INVALID SLUG") // uppercase + space → fails the pattern
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/templates",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -114,7 +114,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body).contains("value=\"INVALID SLUG\"")
             // authoredCatalogs prefill survived → the <select> is still populated.
             // Opened in a catalog, it creates there: no catalog to choose.
-            assertThat(response.body).contains("/catalogs/default/templates\"").doesNotContain("<select id=\"catalog\"")
+            assertThat(response.body).contains("/catalogs/${testTenant.id}/default/templates\"").doesNotContain("<select id=\"catalog\"")
         }
     }
 
@@ -130,7 +130,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             form.add("name", "Monthly Invoice")
             form.add("slug", "monthly-invoice")
             restTemplate.postForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/templates",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates",
                 HttpEntity(form, htmxFormHeaders()),
                 String::class.java,
             )
@@ -143,7 +143,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
             // asserted via the header, not a body. No HX-Redirect (full reload).
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.headers.getFirst("HX-Location"))
-                .isEqualTo("/tenants/${testTenant.id}/catalogs/default/templates/monthly-invoice")
+                .isEqualTo("/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates/monthly-invoice")
             assertThat(response.headers.getFirst("HX-Redirect")).isNull()
         }
     }
@@ -156,7 +156,7 @@ class TemplateHandlerHtmxTest : BaseIntegrationTest() {
 
         whenever {
             restTemplate.getForEntity(
-                "/tenants/${testTenant.id}/catalogs/default/templates",
+                "/tenants/${testTenant.id}/catalogs/${testTenant.id}/default/templates",
                 String::class.java,
             )
         }

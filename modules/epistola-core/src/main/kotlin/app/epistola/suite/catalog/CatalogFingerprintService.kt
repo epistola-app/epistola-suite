@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.stereotype.Component
@@ -42,14 +43,13 @@ class CatalogFingerprintService(
         .maximumSize(MAX_CACHED_CLASSPATH_CATALOGS)
         .build<String, Map<String, String>>()
 
-    fun fingerprint(tenantKey: TenantKey, catalogKey: CatalogKey): String = canonicalizer.fingerprint(contentBuilder.build(tenantKey, catalogKey))
+    fun fingerprint(catalog: CatalogId): String = canonicalizer.fingerprint(contentBuilder.build(catalog))
 
     fun evaluate(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         expected: String?,
     ): CatalogFingerprintEvaluation {
-        val content = contentBuilder.build(tenantKey, catalogKey)
+        val content = contentBuilder.build(catalog)
         return CatalogFingerprintEvaluation(
             current = canonicalizer.fingerprint(content),
             matchesExpected = expected != null && canonicalizer.matchesFingerprint(content, expected),

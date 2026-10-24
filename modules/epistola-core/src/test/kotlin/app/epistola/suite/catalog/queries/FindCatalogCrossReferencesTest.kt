@@ -28,6 +28,7 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -43,7 +44,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
         withMediator {
             // Create catalog A with a theme
             val catalogKeyA = CatalogKey.of("catalog-a")
-            val catalogIdA = CatalogId(catalogKeyA, tenantId)
+            val catalogIdA = testCatalog(tenantId, catalogKeyA)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyA,
@@ -58,7 +59,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
 
             // Create catalog B with a template that references the theme from catalog A
             val catalogKeyB = CatalogKey.of("catalog-b")
-            val catalogIdB = CatalogId(catalogKeyB, tenantId)
+            val catalogIdB = testCatalog(tenantId, catalogKeyB)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyB,
@@ -73,13 +74,12 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = themeKey,
-                themeCatalogKey = catalogKeyA,
+                themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
             ).execute()
 
             // Query cross-references for catalog A
             val references = FindCatalogCrossReferences(
-                tenantKey = tenant.id,
-                catalogKey = catalogKeyA,
+                catalog = testCatalog(tenant.id, catalogKeyA),
             ).query()
 
             assertThat(references).hasSize(1)
@@ -97,7 +97,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
         withMediator {
             // Create catalog A with a stencil
             val catalogKeyA = CatalogKey.of("stencil-cat-a")
-            val catalogIdA = CatalogId(catalogKeyA, tenantId)
+            val catalogIdA = testCatalog(tenantId, catalogKeyA)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyA,
@@ -112,7 +112,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
 
             // Create catalog B with a template that uses the stencil from catalog A
             val catalogKeyB = CatalogKey.of("stencil-cat-b")
-            val catalogIdB = CatalogId(catalogKeyB, tenantId)
+            val catalogIdB = testCatalog(tenantId, catalogKeyB)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyB,
@@ -131,8 +131,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
 
             // Query cross-references for catalog A
             val references = FindCatalogCrossReferences(
-                tenantKey = tenant.id,
-                catalogKey = catalogKeyA,
+                catalog = testCatalog(tenant.id, catalogKeyA),
             ).query()
 
             assertThat(references).isNotEmpty()
@@ -148,7 +147,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
         withMediator {
             // Create catalog A with an asset
             val catalogKeyA = CatalogKey.of("asset-cat-a")
-            val catalogIdA = CatalogId(catalogKeyA, tenantId)
+            val catalogIdA = testCatalog(tenantId, catalogKeyA)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyA,
@@ -156,18 +155,17 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             ).execute()
 
             val asset = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, catalogKeyA),
                 name = "shared-logo.png",
                 mediaType = AssetMediaType.PNG,
                 content = createMinimalPng(),
                 width = 1,
                 height = 1,
-                catalogKey = catalogKeyA,
             ).execute()
 
             // Create catalog B with a template that uses the asset from catalog A
             val catalogKeyB = CatalogKey.of("asset-cat-b")
-            val catalogIdB = CatalogId(catalogKeyB, tenantId)
+            val catalogIdB = testCatalog(tenantId, catalogKeyB)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKeyB,
@@ -186,8 +184,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
 
             // Query cross-references for catalog A
             val references = FindCatalogCrossReferences(
-                tenantKey = tenant.id,
-                catalogKey = catalogKeyA,
+                catalog = testCatalog(tenant.id, catalogKeyA),
             ).query()
 
             assertThat(references).isNotEmpty()
@@ -203,7 +200,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
         withMediator {
             // Create a single catalog with a theme and a template referencing it
             val catalogKey = CatalogKey.of("self-contained")
-            val catalogId = CatalogId(catalogKey, tenantId)
+            val catalogId = testCatalog(tenantId, catalogKey)
             CreateCatalog(
                 tenantKey = tenant.id,
                 id = catalogKey,
@@ -224,13 +221,12 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = themeKey,
-                themeCatalogKey = catalogKey,
+                themeCatalog = testCatalog(templateId.tenantKey, catalogKey),
             ).execute()
 
             // Query cross-references — should be empty since it's the same catalog
             val references = FindCatalogCrossReferences(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).query()
 
             assertThat(references).isEmpty()
@@ -251,8 +247,7 @@ class FindCatalogCrossReferencesTest : IntegrationTestBase() {
             ).execute()
 
             val references = FindCatalogCrossReferences(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
             ).query()
 
             assertThat(references).isEmpty()

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -63,7 +64,7 @@ class CreateDocumentTemplateHandler(
     private val templateDocumentPreparation: TemplateDocumentPreparation,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         val auditUser = currentUserIdOrNull()?.value
 
@@ -74,12 +75,12 @@ class CreateDocumentTemplateHandler(
                     """
                 INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, description, pdfa_enabled, created_at, updated_at, created_by, updated_by)
                 VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, name, description, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
+                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, CAST(:catalogKey_ns AS TEXT) AS namespace, name, description, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("name", command.name)
                     .bind("description", command.description?.takeIf { it.isNotBlank() })
                     .bind("createdBy", auditUser)
@@ -106,7 +107,7 @@ class CreateDocumentTemplateHandler(
                 )
                     .bind("id", variantId)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("templateId", template.id)
                     .bind("title", DEFAULT_VARIANT_TITLE)
                     .bind("templateModel", prepared.templateModelJson)

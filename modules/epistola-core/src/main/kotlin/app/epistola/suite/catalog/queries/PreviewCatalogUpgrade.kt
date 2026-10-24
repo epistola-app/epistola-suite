@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.CatalogNotUpgradeableException
 import app.epistola.suite.catalog.CatalogUpgradeAnalyzer
 import app.epistola.suite.catalog.InstalledResource
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -48,10 +49,11 @@ import org.springframework.stereotype.Component
  * [PreviewInstall].
  */
 data class PreviewCatalogUpgrade(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<UpgradeDiff>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -94,7 +96,7 @@ class PreviewCatalogUpgradeHandler(
 ) : QueryHandler<PreviewCatalogUpgrade, UpgradeDiff> {
 
     override fun handle(query: PreviewCatalogUpgrade): UpgradeDiff {
-        val catalog = GetCatalog(query.tenantKey, query.catalogKey).query()
+        val catalog = GetCatalog(query.catalog).query()
             ?: throw CatalogNotFoundException(query.catalogKey)
 
         val sourceUrl = catalog.sourceUrl
@@ -143,8 +145,7 @@ class PreviewCatalogUpgradeHandler(
         // Same conflict logic UpgradeCatalog throws on, on the same set it would
         // delete — so a blocking conflict is visible before Apply, not after.
         val conflicts = analyzer.findConflicts(
-            query.tenantKey,
-            query.catalogKey,
+            query.catalog,
             removed.map { InstalledResource(it.type, it.slug) },
         )
 
@@ -178,9 +179,9 @@ class PreviewCatalogUpgradeHandler(
             (offered.fingerprint == null || offered.fingerprint == catalog.installedFingerprint || isInstalled(query, offered.version, offered.fingerprint!!))
         if (sourceServesInstalled) return incoming
         val version = catalog.installedReleaseVersion ?: return null
-        return assembler.assemble(query.tenantKey, query.catalogKey, version)?.content?.let(fingerprintService::resourceFingerprints)
+        return assembler.assemble(query.catalog, version)?.content?.let(fingerprintService::resourceFingerprints)
     }
 
     /** Whether release [version] the tenant has is the one [fingerprint] names, by content (ADR 0034). */
-    private fun isInstalled(query: PreviewCatalogUpgrade, version: String, fingerprint: String): Boolean = jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.tenantKey, query.catalogKey, version, fingerprint) }
+    private fun isInstalled(query: PreviewCatalogUpgrade, version: String, fingerprint: String): Boolean = jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, query.catalog, version, fingerprint) }
 }

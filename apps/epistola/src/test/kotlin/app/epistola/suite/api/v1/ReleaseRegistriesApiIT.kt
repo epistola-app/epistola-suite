@@ -24,6 +24,7 @@ import app.epistola.suite.testing.SharedRegistries
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
@@ -117,7 +118,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<String>(installed.body!!, "$.catalogKey")).isEqualTo(catalog)
         assertThat(JsonPath.read<String>(installed.body!!, "$.namespace")).isEqualTo(namespace)
         assertThat(JsonPath.read<Boolean>(installed.body!!, "$.newlyInstalled")).isTrue()
-        assertThat(withMediator { ListCatalogReleaseSummaries(b, CatalogKey.of(catalog)).query().single().fingerprint }).isEqualTo(fingerprint)
+        assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(b, CatalogKey.of(catalog))).query().single().fingerprint }).isEqualTo(fingerprint)
 
         val repeated = call(HttpMethod.POST, "$releases/1.0.0/install", keyB)
         assertThat(JsonPath.read<Boolean>(repeated.body!!, "$.newlyInstalled")).isFalse()
@@ -131,9 +132,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         val key = CatalogKey.of(catalog)
         withMediator {
             CreateCatalog(tenantKey = a, id = key, name = catalog, registry = "local", namespace = "personnel").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(a))), name = "Brand").execute()
-            MarkCatalogReady(a, key).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(a, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.0.0").execute()
         }
 
         val published = call(HttpMethod.POST, "/api/tenants/${a.value}/catalogs/local/personnel/$catalog/releases/1.0.0/publish", keyA, """{"to": "local"}""")
@@ -150,7 +151,7 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
         assertThat(installed.statusCode).`as`(installed.body).isEqualTo(HttpStatus.OK)
         assertThat(JsonPath.read<String>(installed.body!!, "$.registry")).isEqualTo("local")
         assertThat(JsonPath.read<String>(installed.body!!, "$.namespace")).isEqualTo("personnel")
-        assertThat(withMediator { GetCatalog(b, key).query()!!.registry }).isEqualTo("local")
+        assertThat(withMediator { GetCatalog(testCatalog(b, key)).query()!!.registry }).isEqualTo("local")
     }
 
     @Test
@@ -179,9 +180,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
             // Two installations of one organisation share the namespace.
             TestNamespaces.grant(c, namespace).execute()
             CreateCatalog(tenantKey = c, id = key, name = catalog, namespace = namespace).execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(c))), name = "Another brand").execute()
-            MarkCatalogReady(c, key).execute()
-            ReleaseCatalogDraft(tenantKey = c, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(c), key)), name = "Another brand").execute()
+            MarkCatalogReady(testCatalog(c, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(c, key), version = "1.0.0").execute()
         }
         val theirs = withMediator { "${CatalogApiPaths.version(c, catalog, "1.0.0")}/publish" }
         assertThat(call(HttpMethod.POST, theirs, keyC, """{"to": "local"}""").statusCode).isEqualTo(HttpStatus.OK)
@@ -197,9 +198,9 @@ class ReleaseRegistriesApiIT : IntegrationTestBase() {
     private fun releaseFirst(tenant: TenantKey, catalog: String): String = withMediator {
         val key = CatalogKey.of(catalog)
         CreateCatalog(tenantKey = tenant, id = key, name = catalog).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), name = "Brand").execute()
-        MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = "1.0.0").execute().fingerprint
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), name = "Brand").execute()
+        MarkCatalogReady(testCatalog(tenant, key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = "1.0.0").execute().fingerprint
     }
 
     private fun call(method: HttpMethod, url: String, apiKey: String, body: String? = null): ResponseEntity<String> = restTemplate.exchange(url, method, HttpEntity(body, headers(apiKey)), String::class.java)

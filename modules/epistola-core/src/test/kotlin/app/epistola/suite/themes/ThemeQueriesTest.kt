@@ -28,6 +28,8 @@ import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.BlockStylePresets
@@ -64,21 +66,21 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val inheritedModel = createDefaultTemplateModel(VariantKey.INITIAL)
         assertThat(
             themeStyleResolver.resolveTheme(
-                tenantId = tenant.id,
+                templateCatalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateDefaultThemeId = null,
                 catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
-                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                catalogDefaultThemeCatalog = testCatalog(tenant.id, tenantTheme.catalogKey),
             )?.name,
         ).isEqualTo("Tenant")
         assertThat(
             themeStyleResolver.resolveTheme(
-                tenantId = tenant.id,
+                templateCatalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateDefaultThemeId = templateTheme.key,
                 catalogDefaultThemeId = tenantTheme.key,
                 templateModel = inheritedModel,
-                templateCatalogKey = templateTheme.catalogKey,
-                catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
+                templateThemeCatalog = testCatalog(tenant.id, templateTheme.catalogKey),
+                catalogDefaultThemeCatalog = testCatalog(tenant.id, tenantTheme.catalogKey),
             )?.name,
         ).isEqualTo("Template")
 
@@ -87,20 +89,20 @@ class ThemeQueriesTest : IntegrationTestBase() {
             documentStylesOverride = mapOf("color" to "#abcdef"),
         )
         val rawTheme = themeStyleResolver.resolveTheme(
-            tenantId = tenant.id,
+            templateCatalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
             templateDefaultThemeId = templateTheme.key,
             catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
-            templateCatalogKey = templateTheme.catalogKey,
-            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            templateThemeCatalog = testCatalog(tenant.id, templateTheme.catalogKey),
+            catalogDefaultThemeCatalog = testCatalog(tenant.id, tenantTheme.catalogKey),
         )
         val mergedStyles = themeStyleResolver.resolveStyles(
-            tenantId = tenant.id,
+            templateCatalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
             templateDefaultThemeId = templateTheme.key,
             catalogDefaultThemeId = tenantTheme.key,
             templateModel = overriddenModel,
-            templateCatalogKey = templateTheme.catalogKey,
-            catalogDefaultThemeCatalogKey = tenantTheme.catalogKey,
+            templateThemeCatalog = testCatalog(tenant.id, templateTheme.catalogKey),
+            catalogDefaultThemeCatalog = testCatalog(tenant.id, tenantTheme.catalogKey),
         )
 
         assertThat(rawTheme?.name).isEqualTo("Variant")
@@ -153,8 +155,8 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val secondCatalog = CatalogKey.of("second")
         CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
         CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
-        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
-        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        val firstTheme = ThemeId(ThemeKey.of("shared"), testCatalog(tenantId, firstCatalog))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), testCatalog(tenantId, secondCatalog))
         CreateTheme(id = firstTheme, name = "First Theme").execute()
         CreateTheme(id = secondTheme, name = "Second Theme").execute()
 
@@ -170,8 +172,8 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val secondCatalog = CatalogKey.of("second")
         CreateCatalog(tenantKey = tenant.id, id = firstCatalog, name = "First").execute()
         CreateCatalog(tenantKey = tenant.id, id = secondCatalog, name = "Second").execute()
-        val firstTheme = ThemeId(ThemeKey.of("shared"), CatalogId(firstCatalog, tenantId))
-        val secondTheme = ThemeId(ThemeKey.of("shared"), CatalogId(secondCatalog, tenantId))
+        val firstTheme = ThemeId(ThemeKey.of("shared"), testCatalog(tenantId, firstCatalog))
+        val secondTheme = ThemeId(ThemeKey.of("shared"), testCatalog(tenantId, secondCatalog))
         CreateTheme(id = firstTheme, name = "First Theme").execute()
         CreateTheme(id = secondTheme, name = "Second Theme").execute()
 
@@ -272,7 +274,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val catalogId = CatalogId.default(tenantId)
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand Theme").execute()
 
-        val defaultCatalogThemes = ListThemes(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query()
+        val defaultCatalogThemes = ListThemes(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query()
 
         // Only the authored theme lives in the default catalog; the system catalog's themes are excluded.
         assertThat(defaultCatalogThemes).extracting<String> { it.name }.containsExactly("Brand Theme")
@@ -290,9 +292,8 @@ class ThemeQueriesTest : IntegrationTestBase() {
         CreateTheme(id = otherTheme, name = "Other").execute()
         // A template that names no theme uses its catalog's default theme (contract ADR 0007).
         app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
-            tenant.id,
-            catalogId.key,
-            app.epistola.suite.catalog.releases.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogKey),
+            testCatalog(tenant.id, catalogId.key),
+            app.epistola.suite.catalog.releases.CatalogDefaultTheme(targetTheme.key, targetTheme.catalogId),
         ).execute()
 
         val catalogDefaultTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
@@ -303,7 +304,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         UpdateDocumentTemplate(
             id = templateDefaultId,
             themeId = targetTheme.key,
-            themeCatalogKey = targetTheme.catalogKey,
+            themeCatalog = testCatalog(templateDefaultId.tenantKey, targetTheme.catalogKey),
         ).execute()
 
         val overrideTemplateId = TemplateId(TestIdHelpers.nextTemplateId(), catalogId)
@@ -311,7 +312,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         UpdateDocumentTemplate(
             id = overrideTemplateId,
             themeId = otherTheme.key,
-            themeCatalogKey = otherTheme.catalogKey,
+            themeCatalog = testCatalog(overrideTemplateId.tenantKey, otherTheme.catalogKey),
         ).execute()
         UpdateVariantContent(
             VariantId(VariantKey.INITIAL, overrideTemplateId),
@@ -342,7 +343,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
         val marketingKey = CatalogKey.of("marketing")
         CreateCatalog(tenantKey = tenant.id, id = marketingKey, name = "Marketing").execute()
         val defaultTheme = ThemeId(ThemeKey.of("brand"), CatalogId.default(tenantId))
-        val marketingTheme = ThemeId(ThemeKey.of("brand"), CatalogId(marketingKey, tenantId))
+        val marketingTheme = ThemeId(ThemeKey.of("brand"), testCatalog(tenantId, marketingKey))
         CreateTheme(id = defaultTheme, name = "Default Brand").execute()
         CreateTheme(id = marketingTheme, name = "Marketing Brand").execute()
 
@@ -352,7 +353,7 @@ class ThemeQueriesTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = marketingTheme.key,
-                themeCatalogKey = marketingTheme.catalogKey,
+                themeCatalog = testCatalog(templateId.tenantKey, marketingTheme.catalogKey),
             ).execute()
         }
 

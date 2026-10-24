@@ -22,6 +22,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -40,18 +41,18 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
         val tenant = createTenant("Run Only").id
         val catalog = CatalogKey.of("run-only")
         withMediator {
-            assertThat(GetCatalogEditability(tenant, CatalogKey.DEFAULT).query().reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
+            assertThat(GetCatalogEditability(testCatalog(tenant, CatalogKey.DEFAULT)).query().reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
             ListCatalogEditability(tenant).query().let { all ->
                 assertThat(all.editableCatalogs).isEmpty()
-                assertThat(all.of(CatalogKey.DEFAULT)?.reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
-                assertThat(all.of(SYSTEM_CATALOG_KEY)?.reason).`as`("supplied wins: it is not changed even where editing is on").isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
+                assertThat(all.of(testCatalog(tenant, CatalogKey.DEFAULT))?.reason).isEqualTo(CatalogReadOnlyReason.EDITING_DISABLED)
+                assertThat(all.of(testCatalog(tenant, SYSTEM_CATALOG_KEY))?.reason).`as`("supplied wins: it is not changed even where editing is on").isEqualTo(CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA)
             }
-            assertThatThrownBy { CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.DEFAULT, TenantId(tenant))), name = "Brand").execute() }
+            assertThatThrownBy { CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), CatalogKey.DEFAULT)), name = "Brand").execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
                 .hasMessageContaining("only receives and runs releases")
-            assertThatThrownBy { ReleaseCatalogDraft(tenantKey = tenant, catalogKey = CatalogKey.DEFAULT).execute() }
+            assertThatThrownBy { ReleaseCatalogDraft(catalog = testCatalog(tenant, CatalogKey.DEFAULT)).execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
-            assertThatThrownBy { CreateCatalogDraft(tenant, CatalogKey.DEFAULT, "Work", null).execute() }
+            assertThatThrownBy { CreateCatalogDraft(testCatalog(tenant, CatalogKey.DEFAULT), "Work", null).execute() }
                 .isInstanceOf(CatalogReadOnlyException::class.java)
             // Creating a catalog is managing the installation's catalogs, not changing one.
             CreateCatalog(tenantKey = tenant, id = catalog, name = "Run only").execute()
@@ -67,10 +68,10 @@ class RunOnlyInstallationTest : IntegrationTestBase() {
                 val received = ImportCatalogZip(tenantKey = tenant, zipBytes = emptyRelease(catalog.value, version)).execute()
                 assertThat(received.aborted).`as`("receiving $version").isFalse()
             }
-            assertThat(GetLatestCatalogRelease(tenant, catalog).query().latestVersion).isEqualTo("1.1.0")
+            assertThat(GetLatestCatalogRelease(testCatalog(tenant, catalog)).query().latestVersion).isEqualTo("1.1.0")
 
-            assertThat(DeleteCatalogRelease(tenant, catalog, "1.1.0").execute()).isTrue()
-            assertThat(GetLatestCatalogRelease(tenant, catalog).query().latestVersion).isEqualTo("1.0.0")
+            assertThat(DeleteCatalogRelease(testCatalog(tenant, catalog), "1.1.0").execute()).isTrue()
+            assertThat(GetLatestCatalogRelease(testCatalog(tenant, catalog)).query().latestVersion).isEqualTo("1.0.0")
         }
     }
 

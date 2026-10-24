@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -23,10 +24,11 @@ import org.springframework.stereotype.Component
  * use [GetLatestCatalogRelease] directly and avoid the working-copy build.
  */
 data class GetCatalogReleaseStatus(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<CatalogReleaseState>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -44,8 +46,8 @@ class GetCatalogReleaseStatusHandler(
 ) : QueryHandler<GetCatalogReleaseStatus, CatalogReleaseState> {
 
     override fun handle(query: GetCatalogReleaseStatus): CatalogReleaseState {
-        val release = GetLatestCatalogRelease(query.tenantKey, query.catalogKey).query()
-        val fingerprint = fingerprintService.evaluate(query.tenantKey, query.catalogKey, release.latestFingerprint)
+        val release = GetLatestCatalogRelease(query.catalog).query()
+        val fingerprint = fingerprintService.evaluate(query.catalog, release.latestFingerprint)
 
         return CatalogReleaseState(
             latestVersion = release.latestVersion,

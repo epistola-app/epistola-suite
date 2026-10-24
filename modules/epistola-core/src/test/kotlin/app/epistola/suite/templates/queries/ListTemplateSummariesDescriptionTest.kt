@@ -12,6 +12,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -26,7 +28,7 @@ class ListTemplateSummariesDescriptionTest : IntegrationTestBase() {
         val summaries = withMediator {
             CreateDocumentTemplate(TemplateId(TemplateKey.of("described"), catalog), "Described", description = "For residents").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("plain"), catalog), "Plain").execute()
-            ListTemplateSummaries(tenant, catalogKey = catalog.key).query().items
+            ListTemplateSummaries(tenant, catalog = testCatalog(tenant, catalog.key)).query().items
         }
 
         assertThat(summaries.associate { it.id.value to it.description })

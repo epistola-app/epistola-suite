@@ -7,9 +7,11 @@ package app.epistola.suite.catalog.queries
 import app.epistola.catalog.protocol.CatalogInfo
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.suite.catalog.CatalogCanonicalizer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.installation.InstallationService
@@ -32,11 +34,12 @@ import java.util.UUID
  * are version-dependent, and the working copy has been showing them as though they were not.
  */
 data class GetCatalogReleaseDetail(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Query<CatalogReleaseDetail?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -104,7 +107,7 @@ class GetCatalogReleaseDetailHandler(
             """,
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .bind("version", query.version)
             .map { rs, _ ->
                 CatalogReleaseDetail(
@@ -124,7 +127,7 @@ class GetCatalogReleaseDetailHandler(
             ?: return@withHandle null
 
         row.copy(
-            resources = releaseEntryStore.entriesOf(handle, query.tenantKey, query.catalogKey, query.version),
+            resources = releaseEntryStore.entriesOf(handle, query.catalog, query.version),
             releasedHere = row.releasedByInstallation != null && row.releasedByInstallation == installation.get().id,
         )
     }
