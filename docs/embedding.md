@@ -77,11 +77,16 @@ window.parent` before acting on it.
   "resource": {
     "resourceType": "template",
     "tenantId": "acme",
+    "namespace": "acme", // optional
     "catalogKey": "default",
     "key": "invoice",
   },
 }
 ```
+
+A catalog is named by its namespace and key (ADR 0034, section 9): `namespace` leads to
+`/tenants/{t}/catalogs/{namespace}/{catalogKey}/…`; without it the key alone leads to the tenant's one
+catalog with that key. Every resource the suite reports carries the `namespace` its address names.
 
 The host supplies a **typed resource identity only, never a URL** — this is
 deliberate: allowing the host to hand over a raw URL would let it dictate an
@@ -102,10 +107,11 @@ An unrecognized `resourceType` or a malformed identifier is silently ignored.
 {
   "source": "epistola-suite",
   "type": "navigated",
-  "path": "/tenants/acme/catalogs/default/templates/invoice",
+  "path": "/tenants/acme/catalogs/acme/default/templates/invoice",
   "resource": {
     "resourceType": "template",
     "tenantId": "acme",
+    "namespace": "acme",
     "catalogKey": "default",
     "key": "invoice",
   }, // or null
@@ -187,11 +193,11 @@ to end (`DocumentTemplateRoutes`/`ThemeRoutes`/`StencilRoutes`), so a generic
 `htmx:afterRequest` listener classifies every create/update/delete from the
 request (and, for create, the response) alone:
 
-1. **`PATCH /tenants/{t}/catalogs/{catalogKey}/{type}/{key}(/…)?`** → `update`. Identity
+1. **`PATCH /tenants/{t}/catalogs/{namespace}/{catalogKey}/{type}/{key}(/…)?`** → `update`. Identity
    comes straight from the request path.
-2. **`POST /tenants/{t}/catalogs/{catalogKey}/{type}/{key}/delete`** → `delete`.
+2. **`POST /tenants/{t}/catalogs/{namespace}/{catalogKey}/{type}/{key}/delete`** → `delete`.
    Identity from the request path.
-3. **`POST /tenants/{t}/catalogs/{catalogKey}/{type}`** (the catalog's collection) → `create`.
+3. **`POST /tenants/{t}/catalogs/{namespace}/{catalogKey}/{type}`** (the catalog's collection) → `create`.
    Identity comes from the response's `HX-Location`/`HX-Redirect` header — the
    same header `dialogLocation`/`dialogRedirect` (`HtmxDsl.kt`) already set for
    unrelated, pre-existing navigation reasons, read via

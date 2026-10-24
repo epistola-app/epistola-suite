@@ -21,6 +21,40 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0034 section 9, step 1: catalog identity (23 October; branch `refactor/catalog-identity`, not pushed)
+
+A catalog is `CatalogId(namespace, key, tenant)` everywhere; SQL takes the address
+(`epistola_catalog_id(tenant, namespace, key)`, `V20261023112019`); the ambient `CatalogNames` scope,
+the key-only lookup, the `shared-catalog-keys` toggle and the `epistola_catalog_key_unshared` trigger
+are gone. Content keeps `{alias, key}` with alias = key; `CatalogReferences.resolve(from, alias)` is
+the one resolver. Each item of phase 4's "still keyed by catalog key" list:
+
+| Item                                                                                                                                                                                | Where                                                                               | Coverage                                                                                        |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Tenant snapshots: schema 4, `catalogs/{ns}/{key}.zip`, resource identities and restore order by address; schema ≤3 restores                                                         | `BuildTenantSnapshot.kt`, `RestoreTenantSnapshot.kt`, `TenantResourceIdentities.kt` | ✅ `TwoLettersStoredReferencesTest` (snapshot), snapshot suites                                 |
+| Upstream check worker claims and records by `catalog_id`                                                                                                                            | `CatalogUpstreamCheckStore.kt`                                                      | ✅ `TwoLettersStoredReferencesTest` (upstream)                                                  |
+| 2.0 upgrade runner by `CatalogId`                                                                                                                                                   | `CatalogUpgradeRunner.kt`                                                           | ✅ `CatalogUpgradeTest` (+1, two letters)                                                       |
+| Content-hash backfill by `CatalogId`                                                                                                                                                | `ReleaseContentHashBackfill.kt`                                                     | ✅ `TwoLettersStoredReferencesTest` (backfill)                                                  |
+| Render pins and borrowing by alias through the referencing catalog                                                                                                                  | `ReleaseRenderSource.kt`, `GetCatalogBorrowing.kt`, `DraftDependencyView.kt`        | ✅ `TwoLettersStoredReferencesTest` (render, borrowing)                                         |
+| Exchange bindings keyed by the name published (namespace + key)                                                                                                                     | `V20261023112019`, `ExchangeNamespaceBinder.kt`                                     | ✅ `TwoLettersStoredReferencesTest` (bindings)                                                  |
+| Stencil usage page by dependency rows; theme usage page by `catalog_id` (it compared theme catalog keys)                                                                            | `StencilReferences.kt`, `GetStencilUsagePage.kt`, `GetThemeUsagePage.kt`            | ✅ `TwoLettersStoredReferencesTest` (stencil, theme usage)                                      |
+| Quality findings: URNs name the catalog address; migration rewrites recorded URNs                                                                                                   | `QualityModel.kt`, `V20261023122629` (quality)                                      | ✅ `QualityTwoLettersIntegrationTest`                                                           |
+| MCP tenant-wide lists: editability by `CatalogId`; `catalogId` = `namespace/key` or a key one catalog has                                                                           | `McpTenantContext.kt` (`mcpCatalog`), tools                                         | ✅ `McpCatalogToolsIntegrationTest` (+1, +1 rewritten)                                          |
+| Editor image URL: `…/catalogs/{ns}/{key}/images/{image}/content?alias=…` from the template's catalog                                                                                | `editor-boot.js`, `AssetHandler.kt` (`ResolveCatalogAlias`)                         | ✅ `TwoLettersPagesHtmxTest` (images)                                                           |
+| Organise deep links and plans by address (`type:ns/key/resource`); `ResourceAddress.at` refuses a key alone                                                                         | `CatalogOrganiseHandler.kt`, `CatalogOrganise.ts`, `ResourceGraph.kt`               | ✅ `TwoLettersPagesHtmxTest` (organise), `CatalogOrganiseRoutesTest`, `CatalogOrganise.test.ts` |
+| A key that is also a list name: the address router first asks whether the tenant has that catalog                                                                                   | `CatalogScopedRoutes.kt`                                                            | ✅ `TwoLettersPagesHtmxTest` (key `templates`)                                                  |
+| Every page links each catalog by its address (lists, graph, home, nav, dialogs, redirects); key alone redirects (GET) or is served (actions) while one catalog has it, else 400/404 | templates, handlers, `Workspace.kt`, `CatalogGraphView.kt`                          | ✅ `TwoLettersPagesHtmxTest`, `CatalogAddressHtmxTest`, app integration suite                   |
+| Test lookup of a fixture catalog's namespace bound per test thread (it was one static, read across Spring contexts running concurrently)                                            | `TestCatalogs.kt`                                                                   | ✅ app integration suite (two Exchange tests failed with it shared)                             |
+
+**Decisions within the design:** `CatalogId.segment()` (paths, URNs) includes the namespace; generation
+requests, documents and the deployment log keep the name they recorded; an alias a draft does not
+declare is read live from the tenant's one catalog with that key; MCP `defaultTheme` stays `key/theme`.
+
+**Noticed, left alone:** MCP and REST list outputs still name a resource's catalog by key
+(`TemplateSummaryInfo.catalogId`), which two catalogs with one key share; `ExchangeCatalogInstaller`
+checks a collision at the Exchange address while the import lands at the manifest's namespace (the
+same in practice); `ValidationCode.CATALOG_KEY_AMBIGUOUS` is no longer raised by the database.
+
 ### Contract `feature/v2` `0fe54cc` followed (22 October; branch `refactor/catalog-releases`)
 
 `local` accepted as an authority, container repositories `<prefix>/<authority>/<namespace>/<key>`

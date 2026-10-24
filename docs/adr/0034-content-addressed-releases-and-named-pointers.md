@@ -1,6 +1,6 @@
 # ADR 0034: Releases are content-addressed; names point at them
 
-- **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 in part)
+- **Status:** Accepted (end state frozen 2026-10-23, §9; implemented in phases, 1 to 3 done, 4 done but for aliases other than the key)
 - **Date:** 2026-10-22
 - **Deciders:** Epistola team
 - **Tags:** catalog, releases, identity, namespaces, registries, exchange
@@ -142,8 +142,8 @@ then bindings are trusted as the installation receives them, and the hash still 
 
 ### 9. In the suite: one address per catalog, stored by id
 
-Decided 2026-10-23, to be built after 2.0 together with ADR 0033's storage (#1125). Until then two
-catalogs with one key are the alpha feature `shared-catalog-keys`.
+Decided 2026-10-23. Built for 2.0 (23 October 2026, branch `refactor/catalog-identity`) but for aliases
+other than the key, which wait for ADR 0033's storage (#1125).
 
 - **Stored references point at `catalog_id`**, the catalog's UUID, never at a name: foreign keys,
   pins, deployments, jobs, findings, exchange bindings, snapshots. A rename (promotion from `local`, a
@@ -261,15 +261,15 @@ catalogs with one key are the alpha feature `shared-catalog-keys`.
    - Releasing needs the namespace; a received catalog in another namespace is changed here and
      released once the namespace is granted (patch numbers stay phase 5). Receiving needs no grant.
      The REST API has no create operation, so it is unchanged.
-4. **Namespace + key** as the unique name in a tenant; key-only lookups removed in steps. _Done in
-   part_ (22 October 2026; `docs/catalog-versioning.md`, "Two catalogs with one key"): the database
-   holds a catalog unique by namespace and key; every lookup by key goes through
-   `epistola_catalog_id`, which takes the namespace the work names (`CatalogNames`) and refuses an
-   ambiguous key instead of picking one; UI addresses and MCP `catalogId`s name the namespace. Done
-   for 2.0 (23 October 2026): the UI routes a catalog by namespace and key (no rewriting of responses),
-   and reads across a tenant's catalogs (editability, overview, graphs, environments, lists) key them by
-   namespace and key. Out of 2.0 (#1125): aliases other than the key, so references still resolve by
-   key; the reads still keyed by key are listed in `progress.md`.
+4. **Namespace + key** as the unique name in a tenant. _Done_ (22 and 23 October 2026;
+   `docs/catalog-versioning.md`, "Two catalogs with one key"): the database holds a catalog unique by
+   namespace and key, and in the code a catalog is its address, `CatalogId(namespace, key, tenant)`
+   (§9); `epistola_catalog_id` takes namespace and key, and the ambient names scope, the key-only
+   lookup and the `shared-catalog-keys` switch are gone, so two catalogs with one key work everywhere.
+   Stored references keep `catalog_id`; content refers by alias through one resolver
+   (`CatalogReferences`); UI addresses name the namespace, and an address by key alone redirects while
+   the key names one catalog; MCP takes `namespace/key` or a key one catalog has. Out of 2.0 (#1125):
+   aliases other than the key.
 5. **The patch rule** in releasing.
 6. **Sources per tenant**, changeable; **mirroring**; container paths with the authority.
 7. **Signatures** over bindings; the Exchange's domain verification.

@@ -2,7 +2,7 @@
 
 Epistola exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so AI assistants (Claude Desktop, Cursor, MCP Inspector, etc.) can talk to a tenant's templates, themes, stencils, and data contracts directly. The intended workflows are **AI-assisted template design** — the assistant discovers existing templates, inspects their structure, and renders previews to verify what they produce — and **document conversion**: the assistant turns an existing document, such as a Word template, into an Epistola template with its stencils, theme, images and fonts.
 
-> **Two catalogs with one key** (ADR 0034, phase 4): every `catalogId` argument also takes `namespace/key`, each catalog's `address` in `list_catalogs`; a key that names several catalogs is refused, naming them.
+> **Two catalogs with one key** (ADR 0034, section 9): every `catalogId` argument takes `namespace/key`, each catalog's `address` in `list_catalogs`, or the key alone while one catalog has it; a key that names several catalogs is refused, naming them.
 
 ## Status
 

@@ -140,51 +140,48 @@ ADR 0034, phase 3. A catalog is named `authority/namespace/key`; the authority i
 
 ## Two catalogs with one key: namespace and key
 
-ADR 0034, phase 4. Within a tenant a catalog is unique by namespace and key
-(`uq_catalogs_namespace_key`, `V20261022200433`), so `acme/letters` and `bureau/letters` live side by
-side.
+ADR 0034, section 9. Within a tenant a catalog is unique by namespace and key
+(`uq_catalogs_namespace_key`), its **address** (`acme/letters`), so `acme/letters` and `bureau/letters`
+live side by side, with no switch to turn on.
 
-For 2.0 that is an alpha feature per tenant, `shared-catalog-keys` (off by default): without it the
-trigger `epistola_catalog_key_unshared` (`V20261023090000`) refuses a second catalog with a key the
-tenant already uses, however it is made (created, imported, registered, installed, restored), since
-some reads across a tenant still tell catalogs apart by key alone (`progress.md`, #1125). The
-trigger reads the tenant's override only, so the feature has no global default.
-
-- **Lookups by key** go through the database function `epistola_catalog_id(tenant, key)`
-  (`CatalogSql.catalogAt`, `versionAt`, `findCatalog` and every direct lookup). It looks the key up in
-  the namespace the running work names for it, else takes the one catalog of the tenant with that key,
-  and refuses a key that names several (SQLSTATE `EP409`), which the mediator, the UI and REST report
-  as `CATALOG_KEY_AMBIGUOUS`: "The catalog key letters names several catalogs of this tenant
-  (acme/letters, bureau/letters): name its namespace."
-- **Naming the namespace**: work says which catalog a key means with `CatalogNames.within(key,
-  namespace)`; `SpringMediator` (and a JDBI transaction a self-managed command opens) writes the names
-  into the transaction's `epistola.catalog_names` setting. Creating, registering and importing a
-  catalog name it for the rest of their work, an import also the catalogs its archive declares (by
-  their key, which is their alias here).
+- **In the code a catalog is `CatalogId(namespace, key, tenant)`**, its full address; a resource's id
+  chains from it (`TemplateId(key, catalogId)`), and so does its path and URN
+  (`tenant/acme/letters/invoice`). Every address names one catalog. An address is built from the
+  catalog's name wherever the code reads one: a URL segment, a row, a dependency row.
+- **SQL takes the address or the id**: `epistola_catalog_id(tenant, namespace, key)`
+  (`V20261023112019`), bound with `bindCatalog` (`CatalogSql.catalogAt`, `versionAt`, `findCatalog`).
+  There is no lookup by key alone and no ambient names scope.
+- **Stored references point at `catalog_id`**, never at a name: pins, deployments, release rows,
+  upstream checks, publication rows, resource identities. A rename (a new namespace) changes the
+  catalog's row only. History that outlives a catalog (generated documents, generation requests, the
+  deployment log) keeps the name it had, registry, namespace and key; the Exchange's bindings
+  (`catalog_exchange_bindings`) are keyed by the name published, namespace and key, for the same
+  reason.
+- **Content refers by alias**, `{alias, resource key}`, the alias being the catalog's key (#1125 lifts
+  that); content never holds a namespace. **One resolver**, `CatalogReferences.resolve(from, alias)`,
+  turns a reference into an address: `from` itself without an alias or with its own key, else the
+  catalog `from`'s dependency row for that alias names. Theme resolution, stencil expansion (with
+  `from` the stencil's catalog), attribute code lists, fonts, images, usages, the resource graph,
+  merges and rendering go through it; a release resolves through its own pins
+  (`resolveInRelease`), an archive being received through the declarations it arrives with. A
+  reference a draft does not declare is read live, from the tenant's one catalog with that key, as
+  before declarations existed.
 - **Receiving** a catalog whose key the tenant has in another namespace installs it beside that one;
-  the same namespace and key is still the same catalog.
-- **Reading across a tenant's catalogs** keys them by namespace and key (`CatalogAddress`):
-  editability, upstream checks, release content hashes, the tenant overview, the dependency and
-  resource graphs, an environment's served, latest and implicit releases, the house theme. Each
-  catalog is read in its own namespace (`CatalogNamesApplier.named`, or `CatalogNames.on` for a walk on
-  one handle), so two `letters` are two entries and no read across the tenant is refused for their key.
-  A lookup by a list of keys resolves each as one lookup does (`catalogsAt`).
-- **Web UI**: every per-catalog route (`CatalogScopedRoutes`) is served at
-  `/tenants/{tenant}/catalogs/{key}/…` and at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`, by key
-  first; the address by key alone keeps working while the key names one catalog. `CatalogSegment`
-  carries the namespace. A request reached by namespace and key names its catalog for the whole request,
-  rendering included (a `CatalogNames` frame per request, bound by `MediatorFilter`), and every link,
-  redirect and HTMX header it builds to that catalog by key alone is built namespaced
-  (`CatalogAddresses`, the Thymeleaf link builder). Pages listing several catalogs link a catalog
-  whose key another shares by namespace and key. A shared key that is also the name of a resource list
-  (`templates`, `themes`, …) is reached by key first, so its namespaced address does not work.
-- **MCP**: a tool's `catalogId` is a key or `namespace/key` (`mcpCatalogKey`, per request through
-  `McpCatalogNamesFilter`); `list_catalogs` gives each catalog's `address`, and `apply_house_theme`
-  names catalogs by it.
-- **Not in 2.0**: an alias other than the catalog's key (#1125). References name another catalog by its
-  key, so one unit of work cannot use two catalogs with the same key, and
-  `CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` stays. Some reads across a tenant still key by catalog key
-  alone, listed in `progress.md` (tenant snapshots among them).
+  the same namespace and key is the same catalog. A snapshot (schema 4) files each catalog under
+  `catalogs/{namespace}/{key}.zip` and orders a restore by address.
+- **Web UI**: a catalog's pages are at `/tenants/{tenant}/catalogs/{namespace}/{key}/…`
+  (`CatalogScopedRoutes`), and every link names a catalog by its address. A path is an address when
+  the tenant has a catalog of that namespace and key, so a key that is also the name of a resource
+  list (`templates`) is never taken for one. An address by key alone redirects to the catalog's
+  address (an action is served there) while the key names one catalog; with several it is refused,
+  naming them. A form value naming another catalog is `namespace/key` (`catalogNamed`), a key alone
+  while one catalog has it. The editor asks for an image by its alias from the template's catalog
+  (`…/images/{key}/content?alias=…`).
+- **MCP**: a tool's `catalogId` is `namespace/key`, or the key alone while one catalog has it; with
+  several it is refused, naming them (`mcpCatalog`). `list_catalogs` gives each catalog's `address`.
+- **REST** paths name the namespace already (`…/catalogs/{registry}/{namespace}/{key}/…`).
+- **Not in 2.0**: an alias other than the catalog's key (#1125), so one catalog cannot use two
+  catalogs with the same key, and `CATALOG_DEPENDENCY_ALIAS_UNSUPPORTED` stays.
 
 ## Catalog versions and drafts
 
