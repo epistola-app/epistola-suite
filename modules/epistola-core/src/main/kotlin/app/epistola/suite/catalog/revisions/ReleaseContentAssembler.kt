@@ -139,6 +139,26 @@ class ReleaseContentAssembler(
     }
 
     /**
+     * Every resource of [resourceType] that release [version] holds, in key order, read from that
+     * type's rows and contents only: no manifest, no other type's content and no binaries (ADR 0033:
+     * a release read loads only what it shows). Empty when the catalog has no such release.
+     */
+    fun readResources(
+        catalog: CatalogId,
+        version: String,
+        resourceType: String,
+    ): List<CatalogResource> = jdbi.withHandle<List<CatalogResource>, Exception> { handle ->
+        val rows = releaseResourceStore.entriesOf(handle, catalog, version, resourceType)
+        val payloads = loadPayloads(handle, catalog.tenantKey, rows.map { it.contentHash })
+        rows.map { row ->
+            val payload = requireNotNull(payloads[row.contentHash]) {
+                "Release $version of ${catalog.key.value} names content ${row.contentHash}, which is not stored"
+            }
+            detailOf(handle, catalog.tenantKey, payload).resource
+        }
+    }
+
+    /**
      * The bytes a release holds under [contentHash], or null when no retained revision of this tenant
      * holds them.
      *

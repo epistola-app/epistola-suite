@@ -102,18 +102,20 @@ class ReleaseResourceStore {
     }
 
     /** The entries of one release, in the order a manifest lists them. */
-    fun entriesOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseResource> = handle
+    fun entriesOf(handle: Handle, catalog: CatalogId, version: String, resourceType: String? = null): List<ReleaseResource> = handle
         .createQuery(
             """
             SELECT resource_type, resource_key, resource_id, content_hash, fingerprint, name, description
             FROM release_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
+              AND (CAST(:type AS TEXT) IS NULL OR resource_type = :type)
             ORDER BY resource_type, resource_key
             """,
         )
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
         .bind("version", version)
+        .bind("type", resourceType)
         .map { rs, _ ->
             ReleaseResource(
                 resourceType = rs.getString("resource_type"),

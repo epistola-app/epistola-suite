@@ -7,7 +7,7 @@ package app.epistola.suite.environments
 import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.releases.GetReleasedResource
-import app.epistola.suite.catalog.releases.ListReleasedResources
+import app.epistola.suite.catalog.releases.ListReleaseResources
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateKey
@@ -300,8 +300,8 @@ class EnvironmentHandler(
             "tryTemplates" to served.flatMap { deployment ->
                 val version = requireNotNull(deployment.version)
                 val address = idOf(deployment.namespace, deployment.catalogKey)
-                ListReleasedResources(address, version, "template").query()
-                    .filterIsInstance<TemplateResource>()
+                // The list reads the release's rows only, no content (ADR 0033).
+                ListReleaseResources(address, version, "template").query()
                     .map { template ->
                         TryTemplateView(
                             value = "${segment(address)}@$version/${template.key}",
