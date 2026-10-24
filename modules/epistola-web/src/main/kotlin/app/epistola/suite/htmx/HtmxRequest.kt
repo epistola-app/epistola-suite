@@ -118,9 +118,11 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * A catalog in a UI route, optionally one of its drafts: `acme/letters` for its next version, or
- * `acme/letters@<version id>` for another draft of it (contract ADR 0002). A draft has no number
- * until it is released, so its id (contract `CatalogVersionId`) names it.
+ * A catalog in a UI route, optionally one of its versions: `acme/letters` for its next version,
+ * `acme/letters@<version id>` for another draft of it (contract ADR 0002), or `acme/letters@1.2.0`
+ * for a release, read-only (ADR 0033). A draft has no number until it is released, so its id
+ * (contract `CatalogVersionId`) names it, and an id never has a dot, so it is never a number.
+ * [draft] holds what follows the `@`, either.
  *
  * The draft travels in the catalog's own path segment (or `catalog` parameter) rather than in the
  * session, so a link to a draft is shareable, and every link, HTMX request and editor call built from
@@ -135,8 +137,14 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val na
     /** The segment as it appears in a URL: `[namespace/]key[@draft]`. */
     val value: String get() = (namespace?.let { "$it/" } ?: "") + (draft?.let { "${key.value}@$it" } ?: key.value)
 
-    /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
-    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(catalogIn(tenantKey), DraftRef.Id(it)) }
+    /**
+     * The version this names, for a message's `catalogVersion`: a draft by its id, or a release by
+     * its number (ADR 0033, read-only); null for the catalog's current version.
+     */
+    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(catalogIn(tenantKey), requireNotNull(DraftRef.parse(it)) { "Not a version: $it" }) }
+
+    /** Whether this names a released version (`acme/letters@1.2.0`), which is read-only (ADR 0033). */
+    val released: Boolean get() = draft?.let { DraftRef.parse(it) is DraftRef.Released } ?: false
 
     /** The catalog this names in [tenantKey], by its address; its [namespace] must be known. */
     fun catalogIn(tenantKey: TenantKey): CatalogId = CatalogId(requireNotNull(namespace) { "The catalog ${key.value} is addressed without its namespace" }, key, TenantId(tenantKey))
@@ -168,10 +176,10 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val na
 
     companion object {
         /**
-         * Parses `[namespace/]key[@<version id>]`. Throws [IllegalArgumentException] for an invalid key
-         * or namespace, and [CatalogReleaseNotFoundException] for a draft part that is not a version
-         * id: a link naming a release number (`letters@1.0.1`) is a draft that is not there, not a bad
-         * request.
+         * Parses `[namespace/]key[@<version>]`, the version a draft's id or a release's number
+         * (`acme/letters@1.2.0`, ADR 0033). Throws [IllegalArgumentException] for an invalid key or
+         * namespace, and [CatalogReleaseNotFoundException] for a version part that is neither: a link
+         * naming no version there is a version that is not there, not a bad request.
          */
         fun parse(raw: String): CatalogSegment {
             val slash = raw.indexOf('/')
@@ -184,7 +192,7 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val na
             if (at < 0) return CatalogSegment(CatalogKey.of(raw))
             val key = CatalogKey.of(raw.substring(0, at))
             val draft = raw.substring(at + 1).trim()
-            if (!DraftRef.isKey(draft) || draft == DraftRef.NEXT) throw CatalogReleaseNotFoundException(key, draft)
+            if (draft == DraftRef.NEXT || DraftRef.parse(draft) == null) throw CatalogReleaseNotFoundException(key, draft)
             return CatalogSegment(key, draft)
         }
 

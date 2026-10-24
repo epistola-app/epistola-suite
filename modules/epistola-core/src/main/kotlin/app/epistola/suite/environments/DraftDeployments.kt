@@ -58,6 +58,7 @@ object DraftDeploymentStore {
         val match = when (ref) {
             DraftRef.Next -> "v.is_next"
             is DraftRef.Id -> "v.version_key = :id"
+            is DraftRef.Released -> return null
         }
         return handle.createQuery(
             """

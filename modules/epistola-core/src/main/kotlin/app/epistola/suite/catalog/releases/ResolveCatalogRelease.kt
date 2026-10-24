@@ -75,7 +75,7 @@ class ResolveCatalogReleaseHandler(
         val version = when (val ref = DraftRef.parse(query.version)) {
             DraftRef.Next -> all.firstOrNull { it.isNext }
             is DraftRef.Id -> all.firstOrNull { it.versionId == ref.key }
-            null -> all.firstOrNull { it.status == CatalogReleaseStatus.RELEASED && it.version == query.version }
+            is DraftRef.Released, null -> all.firstOrNull { it.status == CatalogReleaseStatus.RELEASED && it.version == query.version }
         } ?: throw CatalogReleaseNotFoundException(query.catalogKey, query.version)
         ResolvedCatalogRelease(catalog, version)
     }

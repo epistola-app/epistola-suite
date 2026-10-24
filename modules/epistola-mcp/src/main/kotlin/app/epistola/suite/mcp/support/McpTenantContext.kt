@@ -81,7 +81,7 @@ internal fun catalogVersionRef(catalogId: String?, catalogVersion: String?): Cat
     val version = catalogVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     val catalog = catalogId?.takeIf { it.isNotBlank() }
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is a draft or release of one catalog; give `catalogId` too")
-    val draft = DraftRef.parse(version)
+    val draft = DraftRef.parseDraft(version)
         ?: throw ValidationException("catalogVersion", "`catalogVersion` is `next` or a `draftId` from `list_catalog_releases`; a draft has no number until it is released")
     return CatalogReleaseRef(mcpCatalog(catalog), draft)
 }

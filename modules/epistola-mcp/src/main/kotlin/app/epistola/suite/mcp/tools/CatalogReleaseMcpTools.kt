@@ -325,7 +325,7 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
 
     private fun draftScope(catalog: app.epistola.suite.common.ids.CatalogId, draft: String?): CatalogReleaseRef? = draft?.takeIf { it.isNotBlank() }?.let { CatalogReleaseRef(catalog, draftRefOf(it)) }
 
-    private fun draftRefOf(raw: String): DraftRef = DraftRef.parse(raw.trim())
+    private fun draftRefOf(raw: String): DraftRef = DraftRef.parseDraft(raw.trim())
         ?: throw ValidationException("draft", "`draft` is `next` or a draft's `versionId` from `list_catalog_releases`")
 
     private fun status(raw: String?): CatalogReleaseStatus? {

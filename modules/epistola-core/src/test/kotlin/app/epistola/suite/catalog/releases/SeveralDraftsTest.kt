@@ -126,6 +126,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
                     "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
             ).bind("t", tenant).bind("c", letters).mapTo(UUID::class.java).one()
         }
+
+        is DraftRef.Released -> error("A release is not a draft: $draft")
     }
 
     /** Every resource part's content digest a version holds: equal maps are equal content. */

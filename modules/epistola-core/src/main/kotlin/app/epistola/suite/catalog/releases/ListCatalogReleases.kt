@@ -96,6 +96,7 @@ class GetCatalogDraftHandler(
                 when (val ref = query.draft) {
                     DraftRef.Next -> version.isNext
                     is DraftRef.Id -> version.status == CatalogReleaseStatus.DRAFT && version.versionId == ref.key
+                    is DraftRef.Released -> version.status == CatalogReleaseStatus.RELEASED && version.version == ref.version
                 }
             }
         }
@@ -125,6 +126,7 @@ class CatalogReleaseReader(
                     null -> true
                     DraftRef.Next -> d.isNext
                     is DraftRef.Id -> d.key == draft.key
+                    is DraftRef.Released -> false
                 }
             }
         return open.mapNotNull { d -> AssessDraftNumber(catalog, d.ref).query()?.let { d.key to it.suggested } }.toMap()

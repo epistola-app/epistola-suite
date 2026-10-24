@@ -14,7 +14,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import java.util.UUID
 
-/** A catalog in a UI route, optionally one of its drafts: `letters` or `letters@2.0.0`. */
+/** A catalog in a UI route, optionally one of its versions: `letters`, `letters@<draft id>` or `letters@2.0.0`. */
 class CatalogSegmentTest {
 
     private val tenant = TenantKey.of("acme")
@@ -41,8 +41,19 @@ class CatalogSegmentTest {
     }
 
     @Test
-    fun `a version number, anything else that is not a draft id, or a bad key, is refused`() {
-        assertThatThrownBy { CatalogSegment.parse("letters@2.0.0") }.`as`("a draft has no number: not there, as an old link").isInstanceOf(CatalogReleaseNotFoundException::class.java)
+    fun `key at a release number names that release, read-only, and is written back as it was`() {
+        val segment = CatalogSegment.parse("acme/letters@1.2.0")
+
+        assertThat(segment.released).isTrue()
+        assertThat(segment.ref(tenant)?.draft).isEqualTo(DraftRef.Released("1.2.0"))
+        assertThat(segment.value).isEqualTo("acme/letters@1.2.0")
+        assertThat(CatalogSegment.parse("acme/letters@1.2.1-acme.2").ref(tenant)?.draft).`as`("a patch number").isEqualTo(DraftRef.Released("1.2.1-acme.2"))
+        assertThat(CatalogSegment.parse("acme/letters@$work").released).isFalse()
+    }
+
+    @Test
+    fun `anything that is neither a draft id nor a release number, or a bad key, is refused`() {
+        assertThatThrownBy { CatalogSegment.parse("letters@2.0") }.`as`("not a release number").isInstanceOf(CatalogReleaseNotFoundException::class.java)
         assertThatThrownBy { CatalogSegment.parse("letters@Not_An_Id") }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
         assertThatThrownBy { CatalogSegment.parse("letters@abc") }.`as`("a version id has at least four characters").isInstanceOf(CatalogReleaseNotFoundException::class.java)
         assertThatThrownBy { CatalogSegment.parse("letters@next") }.`as`("the next version is the plain key").isInstanceOf(CatalogReleaseNotFoundException::class.java)

@@ -127,7 +127,7 @@ class CreateCatalogDraftHandler(
             if (open.any { it.name.equals(name, ignoreCase = true) }) throw CatalogDraftNameInUseException(catalogKey, name)
             val all = versions.all(handle, catalog)
             val from = command.from?.trim()
-            val source = from?.let { DraftRef.parse(it) }?.let { ref -> open.firstOrNull { it.ref == ref || (ref is DraftRef.Id && it.key == ref.key) } }
+            val source = from?.let { DraftRef.parseDraft(it) }?.let { ref -> open.firstOrNull { it.ref == ref || (ref is DraftRef.Id && it.key == ref.key) } }
             val release = if (source != null) {
                 null
             } else if (from != null) {
