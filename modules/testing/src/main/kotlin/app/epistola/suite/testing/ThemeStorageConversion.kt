@@ -66,7 +66,7 @@ object ThemeStorageConversion {
 
                 val read = ThemeContent.theme(
                     objectMapper,
-                    objectMapper.readTree(objectMapper.writeValueAsString(converted)),
+                    app.epistola.suite.catalog.revisions.StoredContent.resourceOf(objectMapper.readTree(objectMapper.writeValueAsString(converted))),
                     theme.tenantKey,
                     theme.catalogKey,
                     theme.namespace,

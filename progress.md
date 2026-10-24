@@ -21,6 +21,17 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033: one content shape for every type (24 October; branch `feat/storage-code-lists`, on #1134, not pushed)
+
+| Change                                                                                                                                                                                                                                               | Where                                                                                                  | Coverage                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Themes are stored as `{ "resource": <ThemeResource> }` too (save, draft start, release cut and received); `current_themes` reads through `resource`; the theme code migration (unreleased) edited in place to write the envelope, checksum re-pinned | `ThemeStore`, `StoredContent.ENVELOPED_TYPES`, `V20261024110723`, `V20261024114440`, `V20261024114500` | ✅ `ThemeStorageTest`, `ThemeStorageConversion`, `DataPreservationMigrationIT` |
+| `StoredContent.resourceOf` refuses a content without a `resource` object; the release assembler unwraps by the row's type; `current_code_lists` no longer falls back to a bare content                                                               | `StoredContent`, `ReleaseContentAssembler`, `V20261024174200`                                          | ✅ `StoredContentShapeTest` (2)                                                |
+
+**Noticed, left alone:** a `release/2.0` development database with releases cut before these commits
+holds bare theme and code list contents, which `resourceOf` now refuses; 2.0 is unreleased, so no
+installation has them, and no migration rewraps them.
+
 ### ADR 0033 storage, step 2: code lists (24 October; branch `feat/storage-code-lists`, stacked on #1133, not pushed)
 
 | Change                                                                                                                                                                                                                                                                                                                                                   | Where                                                                                                                               | Coverage                                                                                                                 |

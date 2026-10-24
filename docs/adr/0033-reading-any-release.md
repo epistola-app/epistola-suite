@@ -211,19 +211,20 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   stores it in `resource_contents` when that hash is new, records its references once, and points
   the draft's row at it under the row's `revision`. Editing one variant writes that variant's model
   and the template's small document, not every variant.
-- **A content is the released form, plus what only this suite keeps beside it.** A type without
-  suite-only settings stores its released form as is (a theme). A type with them stores
-  `{ "resource": <released form>, <setting>: … }`, draft and release alike, by hash, so an identical
-  one is stored once across releases (a code list: `{ "resource": <CodeListResource>, "source":
-  { type, url, auth, credential } }`, `source` left out for an INLINE list). Export and the contract
-  fingerprint use `resource` only, so the contract does not change and nothing suite-only leaves; an
-  imported catalog has no settings. A secret is never content: `source.credential` names a row of
-  `resource_credentials` by id (encrypted at rest; key rotation re-encrypts it in place and changes no
-  hash; a new credential is a new row; the collector removes one no content names). State that is
+- **Every content has one shape: `{ "resource": <released form>, <setting>: … }`.** `resource` is
+  what a release holds; beside it go the settings only this suite keeps, and a type with none yet (a
+  theme) stores `{ "resource": … }` alone, so a setting can be added later without changing the
+  shape. Draft and release store the same envelope, by hash, so an identical one is stored once
+  across releases. A code list: `{ "resource": <CodeListResource>, "source": { type, url, auth,
+  credential } }`, `source` left out for an INLINE list. Export and the contract fingerprint use
+  `resource` only, so the contract does not change and nothing suite-only leaves; an imported catalog
+  has no settings. A secret is never content: `source.credential` names a row of
+  `resource_credentials` by id (encrypted at rest; key rotation re-encrypts it in place and changes
+  no hash; a new credential is a new row; the collector removes one no content names). State that is
   not content and not versioned stays beside the draft's row (a code list's last refresh,
   `code_list_refreshes`); a refresh that fetches the same entries writes only that. Every reader takes
-  the released form through one function (`StoredContent.resourceOf`), so moving a type to the
-  envelope changes its writer only.
+  the released form through one function (`StoredContent.resourceOf`), which refuses any other shape;
+  `StoredContentShapeTest` holds that every stored content of a converted type is in the envelope.
 - **Starting a draft** copies rows, not content. **Releasing** freezes the draft's rows under the
   released row. **What changed, behind, fast-forward and merge** compare hashes per resource.
 - **Lists and searches** read the summary columns, never the JSON. **Usages and the graph** join

@@ -41,7 +41,7 @@ still in the table, defaulted and unused, and goes in a later major release.
 - <a id="one-storage-for-drafts-and-releases"></a>**One storage for drafts and releases** (ADR 0033,
   a type at a time; themes first). A theme of a draft is a `release_resources` row keyed by the
   draft (`version_id`) where a release's row is keyed by its number (`version`), naming its content
-  in `resource_contents`: the theme's wire form, the same row a release of it shares. Writes go
+  in `resource_contents`: `{ "resource": <the theme's wire form> }`, the shape every type's content has (ADR 0033), the same row a release of it shares. Writes go
   through `ThemeStore` and `DraftResources`; the database keeps identity, revision, `updated_at`
   and the catalog's `content_updated_at` on those rows as it does for a content table. Every read
   goes through one place: the SQL function `catalog_version_resources(type)`, the rows of the version a caller

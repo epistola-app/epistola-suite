@@ -86,7 +86,7 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[entry.contentHash]) {
                 "Release $version of ${catalog.key.value} names revision ${entry.contentHash}, which is not stored"
             }
-            entry.contentKey to detailOf(handle, catalog.tenantKey, payload)
+            entry.contentKey to detailOf(handle, catalog.tenantKey, entry.resourceType, payload)
         }
 
         return RetainedRelease(
@@ -135,7 +135,7 @@ class ReleaseContentAssembler(
         val payload = requireNotNull(loadPayloads(handle, catalog.tenantKey, listOf(digest))[digest]) {
             "Release $version of ${catalog.key.value} names revision $digest, which is not stored"
         }
-        detailOf(handle, catalog.tenantKey, payload).resource
+        detailOf(handle, catalog.tenantKey, resourceType, payload).resource
     }
 
     /**
@@ -154,7 +154,7 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[row.contentHash]) {
                 "Release $version of ${catalog.key.value} names content ${row.contentHash}, which is not stored"
             }
-            detailOf(handle, catalog.tenantKey, payload).resource
+            detailOf(handle, catalog.tenantKey, row.resourceType, payload).resource
         }
     }
 
@@ -218,9 +218,9 @@ class ReleaseContentAssembler(
      * contract declares the type discrimination on that property, so going through the envelope is
      * what makes `type` select the right class instead of duplicating the mapping here.
      */
-    private fun detailOf(handle: Handle, tenantKey: TenantKey, payload: JsonNode): ResourceDetail {
+    private fun detailOf(handle: Handle, tenantKey: TenantKey, type: String, payload: JsonNode): ResourceDetail {
         // The released form: a content may keep the suite's own settings beside it (ADR 0033).
-        val resolved = resolveRefs(handle, tenantKey, StoredContent.resourceOf(payload))
+        val resolved = resolveRefs(handle, tenantKey, StoredContent.releasedForm(type, payload))
         // Typed references drop the qualifiers when bound; those in free-form JSON (a stencil's
         // props, a fontFamily in styles) are dropped here.
         ResourceReferenceSites.dropNameQualifiers(resolved)

@@ -97,7 +97,7 @@ class ResourceContentStore(
         val node = objectMapper.valueToTree<JsonNode>(resource)
         // A type whose suite keeps settings beside its released form is stored in the envelope, as
         // its draft stores it, so a draft and the release cut from it share one content.
-        if (resource.type in ENVELOPED_TYPES) {
+        if (resource.type in StoredContent.ENVELOPED_TYPES) {
             return objectMapper.createObjectNode().also { envelope ->
                 envelope.set("resource", node)
                 settings?.properties()?.forEach { (name, value) -> envelope.set(name, value) }
@@ -316,10 +316,5 @@ class ResourceContentStore(
         }
 
         else -> node
-    }
-
-    companion object {
-        /** The resource types stored as `{ "resource": <released form>, ... }` (StoredContent). */
-        val ENVELOPED_TYPES: Set<String> = setOf("codeList")
     }
 }

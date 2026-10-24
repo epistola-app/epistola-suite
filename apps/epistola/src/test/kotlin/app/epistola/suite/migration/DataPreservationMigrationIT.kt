@@ -276,11 +276,11 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT document_styles::text FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
                 .isEqualTo(one("SELECT '$THEME_STYLES'::jsonb::text"))
             assertThat(one("SELECT payload::text FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
-                .describedAs("the 1.x theme, as its wire form")
+                .describedAs("the 1.x theme, its wire form as the content's resource")
                 .isEqualTo(
                     one(
-                        """SELECT '{"key": "brand", "name": "Brand Theme", "type": "theme", "description": null, "spacingUnit": null,
-                        "pageSettings": null, "documentStyles": $THEME_STYLES, "blockStylePresets": null}'::jsonb::text""",
+                        """SELECT '{"resource": {"key": "brand", "name": "Brand Theme", "type": "theme", "description": null, "spacingUnit": null,
+                        "pageSettings": null, "documentStyles": $THEME_STYLES, "blockStylePresets": null}}'::jsonb::text""",
                     ),
                 )
             assertThat(one("SELECT revision || '/' || (created_by IS NULL) || '/' || (created_at <= updated_at) FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))

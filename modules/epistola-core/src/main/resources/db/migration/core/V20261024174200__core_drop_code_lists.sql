@@ -91,9 +91,8 @@ SELECT i.tenant_key, i.resource_id, '',
        i.version_id
 FROM assets i;
 
--- 4. The code lists of a draft or a release, from their rows alone. `resource` is the released form;
---    a release kept before 2.0's storage holds it bare, so it is read either way. Columns derived
---    from the content are for the statements that filter or order on them.
+-- 4. The code lists of a draft or a release, from their rows alone. `resource` is the released form.
+--    Columns derived from the content are for the statements that filter or order on them.
 CREATE VIEW current_code_lists AS
 SELECT u.*,
        -- Its name and description from its row: reading them from the content would read the whole
@@ -106,7 +105,7 @@ SELECT u.*,
        COALESCE(u.payload -> 'source' ->> 'auth', 'NONE') AS auth_type,
        CAST(u.payload -> 'source' ->> 'credential' AS UUID) AS credential_id
 FROM (
-    SELECT p.*, CASE WHEN p.payload ? 'resource' THEN p.payload -> 'resource' ELSE p.payload END AS resource
+    SELECT p.*, p.payload -> 'resource' AS resource
     FROM (
         -- The content by its key, row by row, rather than a join (ThemePlanStabilityTest).
         SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, r.resource_key AS id, CAST(r.name AS TEXT) AS name,
