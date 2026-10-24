@@ -92,7 +92,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
     private fun themeName(tenant: TenantKey, catalog: CatalogKey, key: String): String? = jdbi.withHandle<String?, Exception> { h ->
         // The next version's row of the theme: what the catalog's current version holds.
         h.createQuery(
-            "SELECT t.name FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id " +
+            "SELECT t.name FROM current_themes t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = :k",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("k", key)

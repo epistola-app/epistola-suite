@@ -21,6 +21,44 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 1: themes (24 October; branch `feat/storage-themes`, not pushed)
+
+| Change                                                                                                                                                                                                                                                                                    | Where                                                                | Coverage                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One read place: view `catalog_version_resources` (the targeted draft's rows, or the targeted release's: settings `epistola.release_catalog`/`release_version`) and per type `current_themes`; one mapper `ThemeContent`; `VersionReads.at` for reading another version than the message's | `V20261024110723`, `VersionReads.kt`, `ThemeRows.kt`                 | ✅ `ThemeReadParityTest` (fails before: release not found), `DemoThemeReadParityTest`                                                                         |
+| `GetTheme`/`ListThemes` read a release (`ReleaseReadable`, `DraftRef.Released`); every theme reader switched (usages, graph, editor context, templates, export, upgrade analyzer, relocation, purge, stats)                                                                               | theme queries, `SpringMediator`, 20 readers                          | ✅ core, app, MCP, REST suites                                                                                                                                |
+| REST theme reads lose the release branch; MCP `get_theme`/`list_themes` take a release number; `…@1.2.0/themes/{theme}` opens read-only                                                                                                                                                   | `EpistolaThemeApi`, `ThemeMcpTools`, `CatalogDraftBar`               | ✅ `ReleasedThemePageHtmxTest`, `CatalogReleaseMcpToolsIntegrationTest`                                                                                       |
+| Draft rows: `release_resources.version_id`, identity/revision/updated_at/touch triggers on draft rows, `copy_catalog_version_content` copies them, digests from `content_hash`, index `(tenant, catalog, type)` for drafts                                                                | `V20261024110723`, `V20261024114500`, `DraftResources`, `ThemeStore` | ✅ `ThemeStorageTest` (5), `DeletionDriftTest`, `SeveralDraftsTest`                                                                                           |
+| Code migration `V20261024114440` converts every theme row (JDBC + JSON tree, pinned `getChecksum`); ready marks move to the content hash; `themes` dropped; `ANALYZE` after the conversion                                                                                                | `db/migration/core`, `V20261024114500`                               | ✅ `ThemeStorageConversion` both ways over system, demo and an every-field theme (fails when the conversion diverges: checked), `DataPreservationMigrationIT` |
+| Guards: `CodeMigrationGuardTest` (imports, pinned checksum), `DroppedContentTableSqlTest` (no SQL on `themes`)                                                                                                                                                                            | `modules/guards`                                                     | ✅                                                                                                                                                            |
+
+**Measured** (`ThemeStoragePerfTest`, `:modules:epistola-core:perfTest`; Apple M1 Pro, Testcontainers
+Postgres 18 on tmpfs; 3 tenants × 40 catalogs × 25 themes with the bundled themes' styles, each
+catalog released once: 3,000 themes, 6,000 rows after; cold = first call, cached = median / p95 of
+200 after 20 warm-up; ms):
+
+| Operation                      | before cold | before median / p95 | after cold | after median / p95 |
+| ------------------------------ | ----------- | ------------------- | ---------- | ------------------ |
+| list a catalog's themes (25)   | 3.67        | 1.71 / 2.14         | 3.23       | 1.01 / 1.86        |
+| list a tenant's themes (1,000) | 14.82       | 11.22 / 12.32       | 22.11      | 12.88 / 13.89      |
+| read one theme                 | 3.62        | 0.76 / 0.86         | 6.28       | 0.53 / 0.62        |
+| save a theme                   | 13.61       | 3.25 / 3.61         | 27.53      | 5.32 / 6.70        |
+| start a draft (40 runs)        | 301.74      | 207.64 / 234.26     | 336.86     | 148.37 / 172.94    |
+
+Without the draft catalog index a catalog's list took 6.2 ms (median); it scanned every draft row
+of the tenant. A save costs two more statements (content and references) and a re-read through the
+view. **Seeding** shows a planner sensitivity: creating a theme averaged 24 ms (before 3.6) and
+releasing a catalog 1.4 s (before 133 ms) while `release_resources` grew from empty, until
+autoanalyze ran (releases dropped from 6–10 s to 0.23 s at once); in that window the same statement
+took 1.4 s through the mediator's connection and 2.6 ms freshly planned, so cached plans made on the
+empty table are the likely cause. The conversion migration ends with `ANALYZE`; a fresh
+installation still has the window.
+
+**Noticed, left alone:** `CatalogDraftCommands.holders` reads `release_resources` directly (all
+drafts and releases), not through the one read place, since it is cross-version bookkeeping. The
+three theme foreign keys point at `catalog_resources`, not `themes`, so none had to go.
+`ImportTheme`'s "exists" check is not catalog-scoped (as before).
+
 ### ADR 0033 storage, step 0: groundwork (24 October; branch `feat/storage-groundwork`, not pushed)
 
 | Change                                                                                                                                                                                                                                                                                                        | Where                                                                                              | Coverage                                                               |

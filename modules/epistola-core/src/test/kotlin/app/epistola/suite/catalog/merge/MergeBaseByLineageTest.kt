@@ -54,7 +54,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
     /** The names of the next release's themes, by key. */
     private fun themes(tenant: TenantKey, catalog: CatalogKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { h ->
         h.createQuery(
-            "SELECT t.id, t.name FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id " +
+            "SELECT t.id, t.name FROM current_themes t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog))

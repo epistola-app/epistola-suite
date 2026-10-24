@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper
  * Before:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO themes (document_styles) VALUES (:styles::jsonb)"
+ *     "INSERT INTO stencils (content) VALUES (:styles::jsonb)"
  * )
  *     .bind("styles", objectMapper.writeValueAsString(documentStyles))
  *     .execute()
@@ -26,7 +26,7 @@ import tools.jackson.databind.ObjectMapper
  * After:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO themes (document_styles) VALUES (:styles::jsonb)"
+ *     "INSERT INTO stencils (content) VALUES (:styles::jsonb)"
  * )
  *     .bindJsonb("styles", documentStyles, objectMapper)
  *     .execute()

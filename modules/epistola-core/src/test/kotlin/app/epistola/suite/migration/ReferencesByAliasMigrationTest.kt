@@ -90,7 +90,8 @@ class ReferencesByAliasMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the themes table's last schema: what follows moves themes to JSON storage.
+        flyway(BEFORE_THEME_STORAGE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(connection.rows("SELECT dependency_key, alias FROM catalog_dependencies ORDER BY position"))

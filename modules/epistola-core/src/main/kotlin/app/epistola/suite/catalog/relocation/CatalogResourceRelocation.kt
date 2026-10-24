@@ -20,6 +20,8 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.themes.ThemeReads
+import app.epistola.suite.themes.fields
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.transaction.TransactionIsolationLevel
 import org.springframework.stereotype.Component
@@ -143,6 +145,8 @@ class MoveCatalogResourcesHandler(
     private val jdbi: Jdbi,
     private val planner: CatalogResourceMovePlanner,
     private val declarer: MissingDependencyDeclarer,
+    private val themes: app.epistola.suite.themes.ThemeStore,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
         handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:tenantKey, 0))")
@@ -184,24 +188,7 @@ class MoveCatalogResourcesHandler(
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
-                is JsonRewrite.ThemeStyles -> handle.createUpdate(
-                    """
-                    UPDATE themes
-                    SET document_styles = :replacementDocumentStyles::jsonb,
-                        block_style_presets = :replacementPresets::jsonb
-                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :themeKey
-                      AND document_styles = :expectedDocumentStyles::jsonb
-                      AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
-                    """,
-                )
-                    .bind("tenantKey", command.tenantKey)
-                    .bindCatalog("catalogKey", app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey)))
-                    .bind("themeKey", rewrite.ownerKey)
-                    .bind("replacementDocumentStyles", rewrite.replacementDocumentStyles)
-                    .bind("replacementPresets", rewrite.replacementPresets)
-                    .bind("expectedDocumentStyles", rewrite.expectedDocumentStyles)
-                    .bind("expectedPresets", rewrite.expectedPresets)
-                    .execute()
+                is JsonRewrite.ThemeStyles -> rewriteThemeStyles(handle, command.tenantKey, rewrite)
 
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
@@ -223,6 +210,14 @@ class MoveCatalogResourcesHandler(
             val resourceId = requireNotNull(relocation.resourceId)
             // The table and key column come from MovableResource, never from caller input.
             val movable = requireNotNull(MovableResource.of(relocation.source.type))
+            if (movable == MovableResource.THEME) {
+                // A theme is a draft row naming its content (ADR 0033); its content names its key.
+                val source = relocation.source.catalogIn(command.tenantKey)
+                if (!themes.move(handle, source, relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
             val moved = handle.createUpdate(
                 """
                 UPDATE ${movable.table}
@@ -251,6 +246,35 @@ class MoveCatalogResourcesHandler(
         declarer.declareMissingInTenant(command.tenantKey)
 
         plan.preview
+    }
+
+    /** The theme's styles replaced, when they are still what the plan saw; 1 when they were, else 0. */
+    private fun rewriteThemeStyles(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.ThemeStyles): Int {
+        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+        val unchanged = handle.createQuery(
+            """
+            SELECT count(*) FROM current_themes
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :themeKey
+              AND document_styles = :expectedDocumentStyles::jsonb
+              AND block_style_presets IS NOT DISTINCT FROM :expectedPresets::jsonb
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .bindCatalog("catalogKey", catalog)
+            .bind("themeKey", rewrite.ownerKey)
+            .bind("expectedDocumentStyles", rewrite.expectedDocumentStyles)
+            .bind("expectedPresets", rewrite.expectedPresets)
+            .mapTo(Long::class.java)
+            .one() > 0
+        if (!unchanged) return 0
+        val key = app.epistola.suite.common.ids.ThemeKey.of(rewrite.ownerKey)
+        val theme = ThemeReads.get(handle, objectMapper, catalog, key) ?: return 0
+        val fields = theme.fields().copy(
+            documentStyles = objectMapper.readValue(rewrite.replacementDocumentStyles, app.epistola.suite.templates.model.DocumentStyles::class.java),
+            blockStylePresets = rewrite.replacementPresets?.let { objectMapper.readValue(it, app.epistola.suite.themes.BlockStylePresets::class.java) },
+        )
+        // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
+        return if (themes.save(handle, app.epistola.suite.common.ids.ThemeId(key, catalog), fields, theme.updatedBy?.value) != null) 1 else 0
     }
 
     private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)

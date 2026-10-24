@@ -70,12 +70,13 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th1"), catalog), name = "T1").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
 
-            assertThat(revisionCount(catalog.tenantKey)).isZero()
+            // The draft stores its themes as JSON already (ADR 0033), the same content a release keeps.
+            assertThat(revisionCount(catalog.tenantKey)).isEqualTo(2)
             MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
-        assertThat(revisionKinds(catalog.tenantKey)).containsExactly("theme", "theme")
+        assertThat(revisionKinds(catalog.tenantKey)).`as`("releasing them stores nothing new").containsExactly("theme", "theme")
     }
 
     @Test

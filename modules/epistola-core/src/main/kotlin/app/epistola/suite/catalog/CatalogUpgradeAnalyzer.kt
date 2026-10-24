@@ -290,7 +290,6 @@ class CatalogUpgradeAnalyzer(
             "template" to ResourceTable("document_templates", "id"),
             "stencil" to ResourceTable("stencils", "id"),
             "attribute" to ResourceTable("variant_attribute_definitions", "id"),
-            "theme" to ResourceTable("themes", "id"),
             "image" to ResourceTable("assets", "id"),
             "codeList" to ResourceTable("code_lists", "slug"),
             "font" to ResourceTable("fonts", "slug"),
@@ -300,6 +299,13 @@ class CatalogUpgradeAnalyzer(
         val removed = mutableListOf<RemovedResource>()
         jdbi.useHandle<Exception> { handle ->
             for (resource in ordered) {
+                if (resource.type == "theme") {
+                    // A theme is a draft row naming its content (ADR 0033).
+                    app.epistola.suite.catalog.revisions.DraftResources.delete(handle, catalog, resource.type, resource.slug)
+                    removed.add(RemovedResource(resource.type, resource.slug))
+                    logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
+                    continue
+                }
                 val target = tableByType[resource.type] ?: continue
                 handle.createUpdate("DELETE FROM ${target.table} WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND ${target.keyColumn} = :id")
                     .bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("id", resource.slug).execute()

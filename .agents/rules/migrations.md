@@ -21,6 +21,9 @@ forward, data-preserving migration. This is not negotiable for any feature matur
 - **Removing a module keeps its migrations**: move each file byte for byte to the same
   `db/migration/<dir>/` path in another module. Flyway cannot tell, and `checkMigrationVersions`
   accepts exactly that move.
+- **A code migration** (Kotlin, `src/main/kotlin/db/migration/<module>/`) uses JDBC, a JSON tree
+  and frozen code only, and pins its checksum (`getChecksum` = `CHECKSUM`): `CodeMigrationGuardTest`
+  (ADR 0035, [`docs/migrations.md`](../../docs/migrations.md#code-migrations)).
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 

@@ -14,17 +14,28 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.ThemeStorageConversion
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.Theme
 import app.epistola.suite.themes.queries.ListThemes
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Every theme of the demo catalog reads the same from its next version and from the release it was
- * installed as (ADR 0033, step 1): one read interface and one mapper, whatever the version.
+ * installed as (ADR 0033, step 1): one read interface and one mapper, whatever the version; and
+ * `V20261024114440` converts each, from its 1.x columns, exactly as the suite stores it.
  */
 class DemoThemeReadParityTest : IntegrationTestBase() {
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
     private val demoUrl = "classpath:epistola/catalogs/demo/catalog.json"
 
     private fun Theme.content() = listOf(id, catalogKey, name, description, documentStyles, pageSettings, blockStylePresets, spacingUnit)
@@ -41,5 +52,7 @@ class DemoThemeReadParityTest : IntegrationTestBase() {
 
         assertThat(drafted).isNotEmpty()
         assertThat(released.map { it.content() }).isEqualTo(drafted.map { it.content() })
+        // And the migration that moved themes to JSON storage converts each as the suite stores it.
+        ThemeStorageConversion.verify(jdbi, objectMapper, catalog, drafted)
     }
 }

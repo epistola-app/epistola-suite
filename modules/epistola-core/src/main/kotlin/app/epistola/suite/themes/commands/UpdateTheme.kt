@@ -4,13 +4,11 @@
 
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -23,11 +21,14 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.themes.ThemeFields
+import app.epistola.suite.themes.ThemeReads
+import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.themes.crossCatalogRefs
+import app.epistola.suite.themes.fields
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
@@ -83,6 +84,7 @@ class UpdateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val themes: ThemeStore,
 ) : CommandHandler<UpdateTheme, Theme?> {
     override fun handle(command: UpdateTheme): Theme? {
         val saved = save(command)
@@ -93,109 +95,43 @@ class UpdateThemeHandler(
 
     private fun save(command: UpdateTheme): Theme? {
         requireCatalogEditable(command.id.catalogId)
-
-        val updates = mutableListOf<String>()
-        val bindings = mutableMapOf<String, Any?>()
-
-        if (command.name != null) {
-            updates.add("name = :name")
-            bindings["name"] = command.name
-        }
-
-        // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
-        if (command.clearDescription || command.description?.isBlank() == true) {
-            updates.add("description = NULL")
-        } else if (command.description != null) {
-            updates.add("description = :description")
-            bindings["description"] = command.description
-        }
-
-        if (command.documentStyles != null) {
-            updates.add("document_styles = :documentStyles::jsonb")
-            bindings["documentStyles"] = objectMapper.writeValueAsString(command.documentStyles)
-        }
-
-        if (command.clearPageSettings) {
-            updates.add("page_settings = NULL")
-        } else if (command.pageSettings != null) {
-            updates.add("page_settings = :pageSettings::jsonb")
-            bindings["pageSettings"] = objectMapper.writeValueAsString(command.pageSettings)
-        }
-
-        if (command.clearBlockStylePresets) {
-            updates.add("block_style_presets = NULL")
-        } else if (command.blockStylePresets != null) {
-            updates.add("block_style_presets = :blockStylePresets::jsonb")
-            bindings["blockStylePresets"] = objectMapper.writeValueAsString(command.blockStylePresets)
-        } else if (command.mergeBlockStylePresets != null || command.removeBlockStylePresets.isNotEmpty()) {
-            // jsonb `||` replaces top-level keys (whole presets); `-` drops the named ones.
-            updates.add(
-                "block_style_presets = (COALESCE(block_style_presets, '{}'::jsonb) || :mergePresets::jsonb) - :removePresets::text[]",
-            )
-            bindings["mergePresets"] = objectMapper.writeValueAsString(command.mergeBlockStylePresets ?: BlockStylePresets.EMPTY)
-            bindings["removePresets"] = command.removeBlockStylePresets.toTypedArray()
-        }
-
-        if (command.clearSpacingUnit) {
-            updates.add("spacing_unit = NULL")
-        } else if (command.spacingUnit != null) {
-            updates.add("spacing_unit = :spacingUnit")
-            bindings["spacingUnit"] = command.spacingUnit
-        }
-
-        if (updates.isEmpty()) {
-            // No updates to apply, return existing theme
-            return getExisting(command.id)?.also { Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, it.revision) }
-        }
-
-        updates.add("updated_at = NOW()")
-        updates.add("updated_by = :updatedBy")
-        bindings["updatedBy"] = currentUserIdOrNull()?.value
-
-        val sql = """
-            UPDATE themes
-            SET ${updates.joinToString(", ")}
-            WHERE id = :id
-              AND tenant_key = :tenantId
-              AND version_id = ${versionAt("tenantId", "catalogKey")}
-              AND ${Revisions.MATCHES}
-            RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS namespace
-        """
-
+        val catalog = command.id.catalogId
         return jdbi.withHandle<Theme?, Exception> { handle ->
-            val query = handle.createQuery(sql)
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-
-            bindings.forEach { (key, value) -> query.bind(key, value) }
-            query.bind("expectedRevision", command.expectedRevision)
-
-            query.mapTo<Theme>()
-                .findOne()
-                .orElse(null)
-                ?: null.also {
-                    Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("themes", "id", command.id.catalogId, command.id.key))
-                }
+            // Locked, so the change is applied to what is there, and two writers do not race.
+            val revision = DraftResources.lockRevision(handle, catalog, ThemeStore.THEME, command.id.key.value) ?: return@withHandle null
+            Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, revision)
+            val current = checkNotNull(ThemeReads.get(handle, objectMapper, catalog, command.id.key)) { "Theme ${command.id.key.value} is locked, so it is there" }
+            if (!command.changesSomething()) return@withHandle current
+            themes.save(handle, command.id, command.applyTo(current.fields()), currentUserIdOrNull()?.value)
         }
     }
 
-    private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT t.*, cat.catalog_key AS catalog_key, cat.namespace AS namespace
-            FROM themes t
-            JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
-            WHERE t.id = :id
-              AND t.tenant_key = :tenantId
-              AND t.version_id = ${versionAt("tenantId", "catalogKey")}
-            """,
-        )
-            .bind("id", id.key)
-            .bind("tenantId", id.tenantKey)
-            .bindCatalog("catalogKey", id.catalogId)
-            .mapTo<Theme>()
-            .findOne()
-            .orElse(null)
-    }
+    private fun UpdateTheme.changesSomething(): Boolean = name != null || clearDescription || description != null || documentStyles != null ||
+        clearPageSettings || pageSettings != null || clearBlockStylePresets || blockStylePresets != null ||
+        mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty() || clearSpacingUnit || spacingUnit != null
+
+    /** [current] with this update's changes: only the fields it names, as a partial update. */
+    private fun UpdateTheme.applyTo(current: ThemeFields): ThemeFields = current.copy(
+        name = name ?: current.name,
+        // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+        description = when {
+            clearDescription || description?.isBlank() == true -> null
+            description != null -> description
+            else -> current.description
+        },
+        documentStyles = documentStyles ?: current.documentStyles,
+        pageSettings = if (clearPageSettings) null else pageSettings ?: current.pageSettings,
+        blockStylePresets = when {
+            clearBlockStylePresets -> null
+
+            blockStylePresets != null -> blockStylePresets
+
+            // Per preset: a merged one replaces the preset of its name whole; a removed one goes.
+            mergeBlockStylePresets != null || removeBlockStylePresets.isNotEmpty() ->
+                BlockStylePresets(current.blockStylePresets.orEmpty() + mergeBlockStylePresets.orEmpty() - removeBlockStylePresets)
+
+            else -> current.blockStylePresets
+        },
+        spacingUnit = if (clearSpacingUnit) null else spacingUnit ?: current.spacingUnit,
+    )
 }

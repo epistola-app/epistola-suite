@@ -5,9 +5,11 @@
 package app.epistola.suite.themes.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
@@ -16,6 +18,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.themes.ThemeInUseException
+import app.epistola.suite.themes.ThemeStore
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -54,10 +57,10 @@ class DeleteThemeHandler(
             val isDefaultTheme = handle.createQuery(
                 """
                 SELECT COUNT(*) FROM tenants t
-                JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
+                JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                 WHERE t.id = :tenantId
                   AND th.id = :themeId
-                  AND th.version_id = ${versionAt("tenantId", "catalogKey")}
+                  AND th.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
@@ -76,8 +79,8 @@ class DeleteThemeHandler(
             val users = handle.createQuery(
                 """
                 WITH theme AS (
-                    SELECT resource_id FROM themes
-                    WHERE tenant_key = :tenantId AND id = :themeId AND version_id = ${versionAt("tenantId", "catalogKey")}
+                    SELECT resource_id FROM current_themes
+                    WHERE tenant_key = :tenantId AND id = :themeId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
                 )
                 SELECT 'the catalog''s default theme' FROM catalog_versions v, theme
                 WHERE v.tenant_key = :tenantId AND v.version_id = ${versionAt("tenantId", "catalogKey")} AND v.default_theme_resource_id = theme.resource_id
@@ -102,16 +105,7 @@ class DeleteThemeHandler(
                 throw ThemeInUseException(command.id.key, "this version still uses it: " + users.take(5).joinToString() + if (users.size > 5) ", and ${users.size - 5} more" else "")
             }
 
-            val deleted = handle.createUpdate(
-                """
-                DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .execute()
-            deleted > 0
+            DraftResources.delete(handle, command.id.catalogId, ThemeStore.THEME, command.id.key.value)
         }
     }
 }
