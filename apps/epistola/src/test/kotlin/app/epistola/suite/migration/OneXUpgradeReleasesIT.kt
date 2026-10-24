@@ -19,6 +19,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.testing.TestRuntimeLifecycle
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.SoftAssertions
 import org.flywaydb.core.Flyway
@@ -94,7 +95,9 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
 
     @Autowired private lateinit var objectMapper: ObjectMapper
 
-    private data class Recorded(val catalogKey: CatalogKey, val version: String, val fingerprint: String, val contentHash: String?)
+    private data class Recorded(val catalogKey: CatalogKey, val version: String, val fingerprint: String, val contentHash: String?, val namespace: String) {
+        val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(TENANT))
+    }
 
     @Test
     fun `every release of an upgraded 1x tenant holds what its record says it holds`() {
@@ -113,7 +116,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         val softly = SoftAssertions()
         for (release in releases) {
             val name = "${release.catalogKey.value}@${release.version}"
-            val retained = requireNotNull(assembler.assemble(TENANT, release.catalogKey, release.version)) { "$name retained nothing" }.content
+            val retained = requireNotNull(assembler.assemble(release.catalogId, release.version)) { "$name retained nothing" }.content
 
             val faces = retained.resourceDetails.values.mapNotNull { it.resource as? FontResource }
                 .associate { font -> font.key to font.variants.map { Face(it.weight, it.italic, it.contentHash) }.toSet() }
@@ -125,7 +128,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
             }
 
             val reproduced = fingerprints.perResourceFingerprints(retained)
-            for (entry in jdbi.withHandle<List<app.epistola.suite.catalog.revisions.ReleaseEntry>, Exception> { entries.entriesOf(it, TENANT, release.catalogKey, release.version) }) {
+            for (entry in jdbi.withHandle<List<app.epistola.suite.catalog.revisions.ReleaseEntry>, Exception> { entries.entriesOf(it, testCatalog(TENANT, release.catalogKey), release.version) }) {
                 softly.assertThat(entry.fingerprint)
                     .`as`("$name records ${entry.contentKey} with the fingerprint of the revision it points at")
                     .isEqualTo(reproduced[entry.contentKey])
@@ -154,11 +157,11 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
     private fun releases(): List<Recorded> = jdbi.withHandle<List<Recorded>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT c.catalog_key, r.version, r.fingerprint, r.content_hash FROM catalog_releases r
+            SELECT c.catalog_key, r.version, r.fingerprint, r.content_hash, c.namespace FROM catalog_releases r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
             WHERE r.tenant_key = :t ORDER BY c.catalog_key, r.version
             """,
-        ).bind("t", TENANT).map { rs, _ -> Recorded(CatalogKey.of(rs.getString(1)), rs.getString(2), rs.getString(3), rs.getString(4)) }.list()
+        ).bind("t", TENANT).map { rs, _ -> Recorded(CatalogKey.of(rs.getString(1)), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5)) }.list()
     }
 
     private fun queued(): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->

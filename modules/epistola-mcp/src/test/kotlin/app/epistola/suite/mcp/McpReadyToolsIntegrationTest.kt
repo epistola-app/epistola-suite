@@ -22,6 +22,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.TemplateDocument
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -128,9 +129,9 @@ class McpReadyToolsIntegrationTest : IntegrationTestBase() {
         seedTemplateOnStencil(tenantId, fill = "body")
         val system = runAsApiKey(tenantId) {
             readyTools.markCatalogReady("default")
-            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("default"), "1.0.0").execute()
-            val system = GetCatalog(tenantId.key, CatalogKey.of("system")).query()!!
-            UpdateCatalogDependencies(tenantId.key, CatalogKey.of("default"), listOf(DeclaredCatalogDependency(system.registry, system.namespace, "system", system.installedReleaseVersion))).execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("default")), "1.0.0").execute()
+            val system = GetCatalog(testCatalog(tenantId.key, CatalogKey.of("system"))).query()!!
+            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.of("default")), listOf(DeclaredCatalogDependency(system.registry, system.namespace, "system", system.installedReleaseVersion))).execute()
             system
         }
 

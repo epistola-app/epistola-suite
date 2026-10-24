@@ -39,6 +39,10 @@ data class VariantAttributeDefinition(
     @Json val allowedValues: List<String> = emptyList(),
     val codeListCatalogKey: CatalogKey? = null,
     val codeListSlug: CodeListKey? = null,
+    /** The namespace of the attribute's own catalog (ADR 0034, section 9). */
+    val namespace: String = "",
+    /** The namespace of the bound code list's catalog. */
+    val codeListCatalogNamespace: String? = null,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
     /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
@@ -54,6 +58,10 @@ data class VariantAttributeDefinition(
         get() {
             val catalog = codeListCatalogKey ?: return null
             val slug = codeListSlug ?: return null
-            return CodeListId(slug, CatalogId(catalog, TenantId(tenantKey)))
+            val namespace = codeListCatalogNamespace ?: return null
+            return CodeListId(slug, CatalogId(namespace, catalog, TenantId(tenantKey)))
         }
+
+    /** The attribute's catalog, by its address. */
+    val catalogId: CatalogId get() = CatalogId(namespace, catalogKey, TenantId(tenantKey))
 }

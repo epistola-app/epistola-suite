@@ -32,7 +32,9 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestPrincipalUsers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Tag
@@ -139,13 +141,12 @@ class JobPollerIntegrationTest {
         // Generate document (will stay PENDING until JobPoller picks it up)
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "async-test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

@@ -18,6 +18,7 @@ import app.epistola.suite.fonts.queries.GetFontFamilyFingerprint
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,13 +41,12 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
         .contentAsByteArray
 
     private fun upload(tenant: TenantId, name: String, resource: String): AssetKey = UploadAsset(
-        tenantId = tenant.key,
+        catalog = testCatalog(tenant.key, CatalogKey.DEFAULT),
         name = name,
         mediaType = AssetMediaType.TTF,
         content = bytesOf(resource),
         width = null,
         height = null,
-        catalogKey = CatalogKey.DEFAULT,
     ).execute().id
 
     @Test
@@ -57,8 +57,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
             val regular = upload(tenantId, "fp-reg.ttf", "epistola/fonts/inter/inter-Regular.ttf")
 
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "fp-font",
                 name = "FP Font",
                 kind = FontKind.SANS.wire,
@@ -66,15 +65,15 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
             ).execute()
 
             val slug = FontKey.of("fp-font")
-            val first = GetFontFamilyFingerprint(tenant.id, CatalogKey.DEFAULT, slug).query()
-            val second = GetFontFamilyFingerprint(tenant.id, CatalogKey.DEFAULT, slug).query()
+            val first = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
+            val second = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 
             assertThat(first).isNotNull()
             assertThat(second).isEqualTo(first)
 
             // A family with no rows at all has nothing to pin → null.
             assertThat(
-                GetFontFamilyFingerprint(tenant.id, CatalogKey.DEFAULT, FontKey.of("no-such-font")).query(),
+                GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), FontKey.of("no-such-font")).query(),
             ).isNull()
         }
     }
@@ -88,27 +87,25 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
 
             val regular = upload(tenantId, "fp-mut-1.ttf", "epistola/fonts/inter/inter-Regular.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = slug.value,
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
-            val before = GetFontFamilyFingerprint(tenant.id, CatalogKey.DEFAULT, slug).query()
+            val before = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 
             // Re-import the SAME face key (400, false) but a DIFFERENT binary —
             // ImportFont delete-and-reinserts variants, re-hashing the bytes.
             val replacement = upload(tenantId, "fp-mut-2.ttf", "epistola/fonts/inter/inter-Bold.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = slug.value,
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = replacement)),
             ).execute()
-            val after = GetFontFamilyFingerprint(tenant.id, CatalogKey.DEFAULT, slug).query()
+            val after = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 
             assertThat(before).isNotNull()
             assertThat(after).isNotNull()

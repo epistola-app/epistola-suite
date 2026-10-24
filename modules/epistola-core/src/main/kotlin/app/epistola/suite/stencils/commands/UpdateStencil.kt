@@ -5,6 +5,7 @@
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
@@ -98,14 +99,14 @@ class UpdateStencilHandler(
     override fun handle(command: UpdateStencil): Stencil? {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        if (saved != null) command.content?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
+        if (saved != null) command.content?.let { usedCatalogs.declare(command.id.catalogId, DependencyScanner.crossCatalogRefs(it, command.id.catalogKey.value)) }
         return saved
     }
 
     private fun save(command: UpdateStencil): Stencil? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         command.content?.let { templateDocumentValidator.validateStencil(it, command.id.key.value, command.id.catalogKey.value) }
-        command.content?.let { PresetUse.requireAvailable(command.id.tenantKey, command.id.catalogKey, it) }
+        command.content?.let { PresetUse.requireAvailable(command.id.catalogId, it) }
         val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
         if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
         return jdbi.inTransaction<Stencil?, Exception> { handle ->
@@ -157,7 +158,7 @@ class UpdateStencilHandler(
                     "SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id",
                 )
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("id", command.id.key)
                     .mapTo<Stencil>()
                     .map(Stencil::withAbsentSchemaAsNull)
@@ -178,18 +179,18 @@ class UpdateStencilHandler(
                 """,
             )
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("id", command.id.key)
                 .bind("expectedRevision", command.expectedRevision)
             bindings.forEach { (key, value) -> update.bind(key, value) }
             if (update.execute() == 0) {
-                Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("stencils", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("stencils", "id", command.id.catalogId, command.id.key))
                 return@inTransaction null
             }
 
             handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("id", command.id.key)
                 .mapTo<Stencil>()
                 .map(Stencil::withAbsentSchemaAsNull)

@@ -26,7 +26,7 @@ class RelocationDeletionTest : RelocationTestSupport() {
     fun `a moved font used at its new address cannot be deleted`() {
         val tenant = tenantWith("Delete moved font in use")
         importFont(tenant, letters, "acme")
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
         publishTemplate(tenant, letters, singleNodeModel(Node(id = "title", type = "text", styles = fontStyle("acme", shared.value))))
 
         assertThatThrownBy { withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared))).execute() } }
@@ -37,7 +37,7 @@ class RelocationDeletionTest : RelocationTestSupport() {
     fun `a moved font nothing uses any more can still be deleted`() {
         val tenant = tenantWith("Delete moved font unused")
         importFont(tenant, letters, "acme")
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
         assertThat(withMediator { DeleteFont(FontId(FontKey.of("acme"), catalogId(tenant, shared))).execute() }).isTrue()
     }

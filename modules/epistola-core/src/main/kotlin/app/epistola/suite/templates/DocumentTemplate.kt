@@ -37,7 +37,17 @@ data class DocumentTemplate(
      * `TemplateResource.description`); null when it has none.
      */
     val description: String? = null,
-)
+    /** The namespace of its catalog (ADR 0034, section 9). */
+    val namespace: String = "",
+    /** The namespace of [themeCatalogKey]'s catalog. */
+    val themeCatalogNamespace: String? = null,
+) {
+    /** Its catalog's address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+
+    /** The catalog of its theme, when it names one. */
+    val themeCatalogId: app.epistola.suite.common.ids.CatalogId? get() = themeCatalogKey?.let { app.epistola.suite.common.ids.CatalogId(requireNotNull(themeCatalogNamespace), it, app.epistola.suite.common.ids.TenantId(tenantKey)) }
+}
 
 /**
  * Template with variant summaries for API responses.

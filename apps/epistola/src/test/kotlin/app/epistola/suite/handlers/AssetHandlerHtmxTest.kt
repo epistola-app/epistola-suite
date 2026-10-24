@@ -10,6 +10,7 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,7 +49,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/$tenantKey/default/images", String::class.java)
         }
 
         then {
@@ -96,29 +97,27 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             tenantKey = withMediator {
                 val tenant: Tenant = createTenant("Images Excludes Fonts")
                 UploadAsset(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     name = "logo.png",
                     mediaType = AssetMediaType.PNG,
                     content = byteArrayOf(0x01, 0x02, 0x03, 0x04),
                     width = 1,
                     height = 1,
-                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
                 UploadAsset(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     name = "brand-font.ttf",
                     mediaType = AssetMediaType.TTF,
                     content = byteArrayOf(0x05, 0x06, 0x07, 0x08),
                     width = null,
                     height = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
                 tenant.id.value
             }
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/$tenantKey/default/images", String::class.java)
         }
 
         then {
@@ -140,7 +139,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
         }
 
         whenever {
-            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/default/images", String::class.java)
+            restTemplate.getForEntity("/tenants/$tenantKey/catalogs/$tenantKey/default/images", String::class.java)
         }
 
         then {
@@ -149,7 +148,7 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             // The active catalog filter rides along on both the search and the delete
             // request so an HTMX refresh stays consistent with the dropdown.
             assertThat(response.body).contains("/images/search?")
-            assertThat(response.body).contains("catalog=default")
+            assertThat(response.body).contains("catalog=$tenantKey/default")
         }
     }
 
@@ -203,20 +202,19 @@ class AssetHandlerHtmxTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("\"key\"")
-            assertThat(response.body).contains("\"default\"")
+            assertThat(response.body).contains("\"$tenantKey/default\"")
         }
     }
 
     private fun seedTenantWithPngAsset(name: String, assetName: String): String = withMediator {
         val tenant: Tenant = createTenant(name)
         UploadAsset(
-            tenantId = tenant.id,
+            catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
             name = assetName,
             mediaType = AssetMediaType.PNG,
             content = byteArrayOf(0x01, 0x02, 0x03, 0x04),
             width = 1,
             height = 1,
-            catalogKey = CatalogKey.DEFAULT,
         ).execute()
         tenant.id.value
     }

@@ -20,6 +20,7 @@ import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -45,10 +46,9 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
     private fun font(name: String) = resourceLoader.getResource("classpath:fonts/$name").contentAsByteArray
 
     private fun houseSans(tenant: TenantKey, file: String, version: CatalogReleaseRef?) = withMediator {
-        val asset = UploadAsset(tenant, "$file", AssetMediaType.TTF, font(file), null, null, catalogKey = letters, catalogVersion = version).execute().id
+        val asset = UploadAsset(testCatalog(tenant, letters), "$file", AssetMediaType.TTF, font(file), null, null, catalogVersion = version).execute().id
         ImportFont(
-            tenantId = TenantId(tenant),
-            catalogKey = letters,
+            catalog = testCatalog(TenantId(tenant), letters),
             slug = "house-sans",
             name = "House Sans",
             kind = FontKind.SANS.wire,
@@ -60,7 +60,7 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
     /** The bytes a render of [draft] embeds for House Sans 400. */
     private fun renderedIn(tenant: TenantKey, draft: UUID): ByteArray? = withMediator {
         transactions.execute {
-            targeting.within(draft) { fontFamilyResolver(tenant, letters).resolve(null, "house-sans", 400, false)?.bytes }
+            targeting.within(draft) { fontFamilyResolver(testCatalog(tenant, letters), dependencies = app.epistola.suite.catalog.dependencies.DraftDependencyView.live(testCatalog(tenant, letters))).resolve(null, "house-sans", 400, false)?.bytes }
         }
     }
 
@@ -69,10 +69,10 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
         val tenant = createTenant("Font per version").id
         withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
         houseSans(tenant, "LiberationSans-Bold.ttf", version = null)
-        val workKey = withMediator { CreateCatalogDraft(tenant, letters, name = "New house font").execute().versionId }
-        houseSans(tenant, "LiberationSans-Regular.ttf", CatalogReleaseRef(tenant, letters, DraftRef.Id(workKey)))
-        val work = withMediator { targeting.resolve(CatalogReleaseRef(tenant, letters, DraftRef.Id(workKey))) }
-        val next = withMediator { targeting.resolve(CatalogReleaseRef(tenant, letters, DraftRef.Next)) }
+        val workKey = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), name = "New house font").execute().versionId }
+        houseSans(tenant, "LiberationSans-Regular.ttf", CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(workKey)))
+        val work = withMediator { targeting.resolve(CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(workKey))) }
+        val next = withMediator { targeting.resolve(CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Next)) }
 
         assertThat(renderedIn(tenant, next)).isEqualTo(font("LiberationSans-Bold.ttf"))
         assertThat(renderedIn(tenant, work)).`as`("right after the next version's render").isEqualTo(font("LiberationSans-Regular.ttf"))

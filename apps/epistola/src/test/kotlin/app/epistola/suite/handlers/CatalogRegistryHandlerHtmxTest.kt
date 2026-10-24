@@ -22,6 +22,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.SharedRegistries
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -63,10 +64,10 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         val tenant = createTenant(name).id
         val catalog = CatalogKey.of(key)
         CreateCatalog(tenantKey = tenant, id = catalog, name = name).execute()
-        CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))), name = "Brand").execute()
-        MarkCatalogReady(tenant, catalog).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = "1.0.0").execute()
-        tenant to GetCatalog(tenant, catalog).query()!!.namespace
+        CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), name = "Brand").execute()
+        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = "1.0.0").execute()
+        tenant to GetCatalog(testCatalog(tenant, catalog)).query()!!.namespace
     }
 
     @Test
@@ -88,7 +89,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
     @Test
     fun `versions are listed and one is installed into the tenant`() {
         val (a, namespace) = released("Registry UI source", "ui-registry")
-        withMediator { PublishReleaseToRegistry(a, CatalogKey.of("ui-registry"), "1.0.0", "local").execute() }
+        withMediator { PublishReleaseToRegistry(testCatalog(a, CatalogKey.of("ui-registry")), "1.0.0", "local").execute() }
         val b = createTenant("Registry UI target").id
 
         val listed = get("/tenants/${b.value}/catalogs/registry/releases?registry=local&namespace=$namespace&catalogKey=ui-registry")
@@ -99,7 +100,7 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(installed.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(installed.headers.getFirst("HX-Trigger")).contains("closeDialog")
         assertThat(installed.body).contains("ui-registry")
-        assertThat(withMediator { ListCatalogReleaseSummaries(b, CatalogKey.of("ui-registry")).query().map { it.version } }).containsExactly("1.0.0")
+        assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(b, CatalogKey.of("ui-registry"))).query().map { it.version } }).containsExactly("1.0.0")
 
         val again = get("/tenants/${b.value}/catalogs/registry/releases?registry=local&namespace=$namespace&catalogKey=ui-registry")
         assertThat(again.body).contains("registry-all-present").doesNotContain("id=\"registry-install-form\"")
@@ -111,20 +112,20 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
         val key = CatalogKey.of("ui-update")
         val b = createTenant("Registry UI update target").id
         withMediator {
-            PublishReleaseToRegistry(a, key, "1.0.0", "local").execute()
+            PublishReleaseToRegistry(testCatalog(a, key), "1.0.0", "local").execute()
             InstallReleaseFromRegistry(b, "local", namespace, "ui-update", "1.0.0").execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(a))), name = "Brand 1.1").execute()
-            MarkCatalogReady(a, key).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = key, version = "1.1.0").execute()
-            PublishReleaseToRegistry(a, key, "1.1.0", "local").execute()
-            CheckCatalogUpstream(b, key).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(a), key)), name = "Brand 1.1").execute()
+            MarkCatalogReady(testCatalog(a, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, key), version = "1.1.0").execute()
+            PublishReleaseToRegistry(testCatalog(a, key), "1.1.0", "local").execute()
+            CheckCatalogUpstream(testCatalog(b, key)).execute()
         }
 
         val list = restTemplate.getForEntity("/tenants/${b.value}/catalogs", String::class.java).body!!
         val review = Regex("""<button[^>]*data-testid="catalog-upgrade-review"[^>]*>""").find(list)?.value
         assertThat(review).`as`("the update button").isNotNull()
         assertThat(review).contains("/catalogs/registry?registry=local&amp;namespace=$namespace&amp;catalogKey=ui-update", "hx-target=\"#dialog-mount\"")
-        assertThat(list).`as`("no manifest check for a registry catalog").doesNotContain("/catalogs/ui-update/upgrade-check")
+        assertThat(list).`as`("no manifest check for a registry catalog").doesNotContain("/ui-update/upgrade-check")
     }
 
     @Test
@@ -143,17 +144,17 @@ class CatalogRegistryHandlerHtmxTest : BaseIntegrationTest() {
     fun `a release page offers publishing, and publishing says where it went, once or again`() {
         val (a, namespace) = released("Registry UI publish", "ui-publish")
 
-        val page = restTemplate.getForEntity("/tenants/${a.value}/catalogs/ui-publish/releases/1.0.0", String::class.java)
+        val page = restTemplate.getForEntity("/tenants/${a.value}/catalogs/${a.value}/ui-publish/releases/1.0.0", String::class.java)
         assertThat(page.body).contains("data-testid=\"release-registry-publish\"")
 
-        val dialog = get("/tenants/${a.value}/catalogs/ui-publish/registry-publish?version=1.0.0")
+        val dialog = get("/tenants/${a.value}/catalogs/${a.value}/ui-publish/registry-publish?version=1.0.0")
         assertThat(dialog.body).contains("id=\"registry-publish-dialog\"", "Publish v1.0.0", "badge-alpha")
 
-        val first = post("/tenants/${a.value}/catalogs/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
+        val first = post("/tenants/${a.value}/catalogs/${a.value}/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
         assertThat(first.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(first.body).contains("Published.", "/$namespace/ui-publish:1.0.0")
 
-        val second = post("/tenants/${a.value}/catalogs/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
+        val second = post("/tenants/${a.value}/catalogs/${a.value}/ui-publish/registry-publish", "version" to "1.0.0", "registry" to "local")
         assertThat(second.body).contains("had this release already")
     }
 }
@@ -168,14 +169,14 @@ class CatalogRegistryAbsentHandlerHtmxTest : BaseIntegrationTest() {
         val tenant = withMediator {
             val t = createTenant("Registry UI absent").id
             CreateCatalog(tenantKey = t, id = CatalogKey.of("no-registry"), name = "No registry").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("no-registry"), TenantId(t))), name = "Brand").execute()
-            MarkCatalogReady(t, CatalogKey.of("no-registry")).execute()
-            ReleaseCatalogDraft(tenantKey = t, catalogKey = CatalogKey.of("no-registry"), version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(t), CatalogKey.of("no-registry"))), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(t, CatalogKey.of("no-registry"))).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(t, CatalogKey.of("no-registry")), version = "1.0.0").execute()
             t
         }
 
         assertThat(restTemplate.getForEntity("/tenants/${tenant.value}/catalogs", String::class.java).body).doesNotContain("catalog-registry-open")
-        assertThat(restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/no-registry/releases/1.0.0", String::class.java).body)
+        assertThat(restTemplate.getForEntity("/tenants/${tenant.value}/catalogs/${tenant.value}/no-registry/releases/1.0.0", String::class.java).body)
             .doesNotContain("release-registry-publish")
     }
 }

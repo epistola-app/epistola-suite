@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.AttributeReferences
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -46,7 +47,7 @@ class DeleteAttributeDefinitionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteAttributeDefinition, Boolean> {
     override fun handle(command: DeleteAttributeDefinition): Boolean {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             // Any variant, in any catalog, that still names this attribute (qualified or bare)
             val variantCount = handle.createQuery(
@@ -76,7 +77,7 @@ class DeleteAttributeDefinitionHandler(
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .execute()
             rowsAffected > 0
         }

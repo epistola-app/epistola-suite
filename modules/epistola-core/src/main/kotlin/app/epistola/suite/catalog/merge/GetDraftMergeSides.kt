@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.merge
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -27,8 +28,7 @@ import org.springframework.stereotype.Component
  * @throws MergeBaseMissingException when this installation does not have the merge base.
  */
 data class GetDraftMergeSides(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val release: String,
     val entry: String,
     /** The draft to merge into; null for the catalog's next version. */
@@ -36,6 +36,8 @@ data class GetDraftMergeSides(
 ) : CatalogReleaseScoped,
     Query<DraftMergeSides>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -64,7 +66,7 @@ class GetDraftMergeSidesHandler(
 ) : QueryHandler<GetDraftMergeSides, DraftMergeSides> {
 
     override fun handle(query: GetDraftMergeSides): DraftMergeSides {
-        val plan = planner.plan(query.tenantKey, query.catalogKey, query.release, query.catalogVersion?.draft?.toString() ?: "next")
+        val plan = planner.plan(query.catalog, query.release, query.catalogVersion?.draft?.toString() ?: "next")
         plan.inputs.missingBase?.let { throw MergeBaseMissingException(query.catalogKey, query.release, it.version, it.fingerprint) }
         val index = plan.resources.indexOfFirst { it.contentKey == query.entry && it.outcome in LISTED }
         if (index < 0) throw MergeEntryNotFoundException(query.catalogKey, query.release, query.entry)

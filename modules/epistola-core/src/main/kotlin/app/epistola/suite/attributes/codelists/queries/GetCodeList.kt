@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.model.CodeList
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -35,7 +36,7 @@ class GetCodeListHandler(
     override fun handle(query: GetCodeList): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, cl.display_name, cl.description,
+            SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, cl.display_name, cl.description,
                    cl.source_type, cl.source_url, cl.auth_type, cl.credential,
                    cl.last_refreshed_at, cl.last_refresh_error,
                    cl.created_at, cl.updated_at, cl.revision
@@ -45,7 +46,7 @@ class GetCodeListHandler(
             """,
         )
             .bind("tenantKey", query.id.tenantKey)
-            .bind("catalogKey", query.id.catalogKey)
+            .bindCatalog("catalogKey", query.id.catalogId)
             .bind("slug", query.id.key)
             .mapTo<CodeList>()
             .findOne()

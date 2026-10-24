@@ -6,6 +6,7 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inCurrentVersion
@@ -81,12 +82,12 @@ class CreateAttributeDefinitionHandler(
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.codeListId?.catalogId?.key)
+        usedCatalogs.declare(command.id.catalogId, command.codeListId?.catalogId)
         return saved
     }
 
     private fun save(command: CreateAttributeDefinition): VariantAttributeDefinition {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
                 val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
@@ -103,11 +104,19 @@ class CreateAttributeDefinitionHandler(
                           (SELECT cat.catalog_key FROM catalogs cat
                             WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
                               AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
+                          (SELECT cat.namespace FROM catalogs cat
+                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS namespace,
                           (SELECT cl_cat.catalog_key FROM code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
                               AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
                               AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
+                          (SELECT cl_cat.namespace FROM code_lists cl
+                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_namespace,
                           (SELECT slug FROM code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
                               AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
@@ -115,11 +124,11 @@ class CreateAttributeDefinitionHandler(
                 """,
                 )
                     .bind("id", command.id.key)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("tenantId", command.id.tenantKey)
                     .bind("displayName", command.displayName)
                     .bind("allowedValues", allowedValuesJson)
-                    .bind("codeListCatalogKey", command.codeListId?.catalogKey)
+                    .bindCatalog("codeListCatalogKey", command.codeListId?.catalogId)
                     .bind("codeListSlug", command.codeListId?.key)
                     .mapTo<VariantAttributeDefinition>()
                     .one()

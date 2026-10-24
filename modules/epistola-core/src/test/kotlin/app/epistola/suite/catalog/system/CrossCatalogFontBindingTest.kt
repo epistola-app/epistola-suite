@@ -29,6 +29,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -78,14 +79,14 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xfont Source").execute()
             declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateTheme(
-                id = ThemeId(ThemeKey.of("branded"), CatalogId(source, TenantId(tenant.id))),
+                id = ThemeId(ThemeKey.of("branded"), testCatalog(TenantId(tenant.id), source)),
                 name = "Branded",
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "inter", "catalogKey" to SYSTEM_CATALOG_KEY.value),
                 ),
             ).execute()
 
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
 
         // The cross-catalog font binding is declared on the manifest as a
@@ -112,8 +113,7 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
             // The referenced system font resolves to real embeddable bytes on
             // the target tenant.
             val bytes = ResolveFontFace(
-                tenantId = target.id,
-                catalogKey = SYSTEM_CATALOG_KEY,
+                catalog = testCatalog(target.id, SYSTEM_CATALOG_KEY),
                 slug = FontKey.of("inter"),
                 weight = 400,
                 italic = false,
@@ -134,17 +134,15 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
 
             // Upload + register an AUTHORED font living in THIS catalog.
             val regular = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, authored),
                 name = "acme-sans-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = ttfBytes(),
                 width = null,
                 height = null,
-                catalogKey = authored,
             ).execute().id
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = authored,
+                catalog = testCatalog(tenantId, authored),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
@@ -153,14 +151,14 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
 
             // A theme in the SAME catalog referencing that own font.
             CreateTheme(
-                id = ThemeId(ThemeKey.of("own-theme"), CatalogId(authored, tenantId)),
+                id = ThemeId(ThemeKey.of("own-theme"), testCatalog(tenantId, authored)),
                 name = "Own Theme",
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "acme-sans", "catalogKey" to authored.value),
                 ),
             ).execute()
 
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(authored, app.epistola.suite.common.ids.TenantId(tenant.id)))
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), authored))
         }
 
         val manifest = manifestOf(zip.zipBytes)

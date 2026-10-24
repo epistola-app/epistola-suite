@@ -47,6 +47,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -76,28 +77,26 @@ class CatalogWireExportTest : IntegrationTestBase() {
         val tenantKey = tenant.id
         val tenantId = TenantId(tenantKey)
         val catalogKey = CatalogKey.of("town-hall")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenantKey, catalogKey, "Town Hall", "Every resource type, for wire inspection").execute()
 
             // Image, named the way a person would.
             UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, catalogKey),
                 name = "Municipality mark",
                 mediaType = AssetMediaType.PNG,
                 content = PNG,
                 width = 1,
                 height = 1,
-                catalogKey = catalogKey,
             ).execute()
 
             // Font faces: two weights, each its own binary in the assets table.
-            val regular = UploadAsset(tenantKey, "Inter Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null, catalogKey = catalogKey).execute().id
-            val bold = UploadAsset(tenantKey, "Inter Bold", AssetMediaType.fromMimeType("font/ttf"), TTF_BOLD, width = null, height = null, catalogKey = catalogKey).execute().id
+            val regular = UploadAsset(testCatalog(tenantKey, catalogKey), "Inter Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null).execute().id
+            val bold = UploadAsset(testCatalog(tenantKey, catalogKey), "Inter Bold", AssetMediaType.fromMimeType("font/ttf"), TTF_BOLD, width = null, height = null).execute().id
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenantId, catalogKey),
                 slug = "inter",
                 name = "Inter",
                 kind = FontKind.SANS.wire,
@@ -132,7 +131,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
 
             val templateId = TemplateId(TemplateKey.of("decision-letter"), catalogId)
             CreateDocumentTemplate(id = templateId, name = "Decision Letter").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalogKey = catalogKey).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("house-style"), themeCatalog = testCatalog(templateId.tenantKey, catalogKey)).execute()
             UpdateDataContract(
                 templateId = templateId,
                 dataModel = JsonMapper().readValue(
@@ -143,7 +142,7 @@ class CatalogWireExportTest : IntegrationTestBase() {
             ).execute()
             MarkVariantReady(VariantId(VariantKey.INITIAL, templateId)).execute()
 
-            val zip = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
+            val zip = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenantKey), catalogKey))
             val entries = ZipInputStream(ByteArrayInputStream(zip.zipBytes)).use { z ->
                 generateSequence { z.nextEntry }.map { it.name }.toList()
             }

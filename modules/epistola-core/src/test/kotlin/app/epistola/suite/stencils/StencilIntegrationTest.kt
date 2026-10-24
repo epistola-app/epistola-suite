@@ -24,6 +24,8 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.pdf.PdfDocument
@@ -69,8 +71,7 @@ class StencilIntegrationTest : IntegrationTestBase() {
 
     private fun previewText(variantId: VariantId): String {
         val pdf = PreviewVariant(
-            tenantId = variantId.tenantKey,
-            catalogKey = variantId.templateId.catalogId.key,
+            catalog = testCatalog(variantId.tenantKey, variantId.templateId.catalogId.key),
             templateId = variantId.templateId.key,
             variantId = variantId.key,
             data = ObjectMapper().createObjectNode(),

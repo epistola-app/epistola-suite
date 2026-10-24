@@ -58,7 +58,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         assertThat(page.locator("dialog[open]#create-theme-dialog")).isVisible()
         // Opening the dialog pushes the shareable /…/new URL via hx-push-url, carrying the catalog
         // the list shows, so the theme is made there.
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/default/themes/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/[^/]+/default/themes/new$"))
     }
 
     @Test
@@ -82,7 +82,7 @@ class ThemeDialogUiTest : BasePlaywrightTest() {
         // Success emits HX-Location: HTMX performs a boosted body-swap to the new
         // theme's detail page — a SOFT navigation, not a full reload. The address
         // bar lands on the created theme…
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/default/themes/corporate$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/[^/]+/catalogs/[^/]+/default/themes/corporate$"))
         // …the dialog is gone with the swapped-out body…
         assertThat(page.locator("#create-theme-dialog")).hasCount(0)
         // …and the theme editor booted on htmx:load after the swap (proving the

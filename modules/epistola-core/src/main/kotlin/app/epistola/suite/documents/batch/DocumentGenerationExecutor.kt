@@ -9,6 +9,7 @@ import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AssetKey
@@ -254,7 +255,7 @@ class DocumentGenerationExecutor(
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
         val inputs = releaseRenderSource.resolve(
             tenant,
-            ReleaseRef(request.catalogKey, releaseVersion),
+            ReleaseRef(request.catalogId, releaseVersion),
             request.templateKey.value,
             request.variantKey.value,
             environment = request.environmentKey,
@@ -314,7 +315,7 @@ class DocumentGenerationExecutor(
      * against the draft's contract. A draft discarded since the request was accepted fails it.
      */
     private fun generateFromDraft(request: DocumentGenerationRequest, draftId: String): Triple<Document, ByteArray, String> {
-        val rendered = draftRenderer.render(request.tenantKey, request.catalogKey, request.templateKey, request.variantKey, request.data, draftId)
+        val rendered = draftRenderer.render(request.catalogId, request.templateKey, request.variantKey, request.data, draftId)
         val pdfBytes = rendered.pdf
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (pdfBytes.size > maxSizeBytes) {
@@ -398,8 +399,9 @@ class DocumentGenerationExecutor(
                 )
                 VALUES (
                     :id, :tenantId, :catalogKey,
-                    (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
-                    (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                    -- The catalog's name as its request recorded it on acceptance.
+                    (SELECT registry FROM document_generation_requests WHERE id = :requestId),
+                    (SELECT namespace FROM document_generation_requests WHERE id = :requestId),
                     :templateId, :variantId, :versionId, :releaseVersion, :draftId, :draftLabel,
                     (SELECT catalog_version_id FROM document_generation_requests WHERE id = :requestId),
                     :templateResourceId, :filename, :correlationId, :contentType, :sizeBytes,

@@ -20,6 +20,8 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -113,7 +115,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = ThemeKey.of("brand-theme"),
-                    themeCatalogKey = CatalogKey.DEFAULT,
+                    themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
                 ).execute()
                 t to tplKey.value
             }
@@ -204,7 +206,7 @@ class TemplateSettingsPatchHtmxTest : BaseIntegrationTest() {
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = currentTheme,
-                    themeCatalogKey = CatalogKey.DEFAULT,
+                    themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
                 ).execute()
                 t to tplKey.value
             }

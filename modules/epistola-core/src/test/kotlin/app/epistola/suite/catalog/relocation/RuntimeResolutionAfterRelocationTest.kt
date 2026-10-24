@@ -31,6 +31,8 @@ import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -67,19 +69,18 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, shared, "Shared").execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, letters),
                 name = "logo.png",
                 mediaType = AssetMediaType.PNG,
                 content = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),
                 width = 1,
                 height = 1,
-                catalogKey = letters,
             ).execute().id
         }
-        val address = ResourceAddress(CatalogResourceType.IMAGE, letters.value, assetKey.value)
+        val address = testAddress(tenant.id, CatalogResourceType.IMAGE, letters.value, assetKey.value)
 
         // Content written while the asset lived in `letters` qualifies the reference with it.
-        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, letters).query() }).isNotNull()
+        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, testCatalog(tenant.id, letters)).query() }).isNotNull()
 
         val relocation = address.movedTo(shared)
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query() }
@@ -88,10 +89,10 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         // The published reference still names `letters`, where nothing is left: the document
         // renders with a hole where the image was.
-        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, letters).query() })
+        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, testCatalog(tenant.id, letters)).query() })
             .describedAs("a qualified reference to the asset's old catalog")
             .isNull()
-        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, shared).query() }).isNotNull()
+        assertThat(withMediator { GetAssetContent(tenant.id, assetKey, testCatalog(tenant.id, shared)).query() }).isNotNull()
     }
 
     @Test
@@ -103,19 +104,19 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
-            CreateTheme(ThemeId(themeKey, CatalogId(letters, tenantId)), "Brand").execute()
+            CreateTheme(ThemeId(themeKey, testCatalog(tenantId, letters)), "Brand").execute()
         }
-        val address = ResourceAddress(CatalogResourceType.THEME, letters.value, themeKey.value)
+        val address = testAddress(tenant.id, CatalogResourceType.THEME, letters.value, themeKey.value)
 
         val renamed = address.renamedTo("house-style")
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
         assertThat(preview.blockers).isEmpty()
         withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
 
-        assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
+        assertThat(themeStyleResolver.resolveTheme(testCatalog(tenant.id, CatalogKey.DEFAULT), themeKey, null, emptyTemplate(), templateThemeCatalog = testCatalog(tenant.id, letters)))
             .describedAs("a themeRef naming the theme's old key")
             .isNull()
-        assertThat(themeStyleResolver.resolveTheme(tenant.id, ThemeKey.of("house-style"), null, emptyTemplate(), templateCatalogKey = letters))
+        assertThat(themeStyleResolver.resolveTheme(testCatalog(tenant.id, CatalogKey.DEFAULT), ThemeKey.of("house-style"), null, emptyTemplate(), templateThemeCatalog = testCatalog(tenant.id, letters)))
             .isNotNull()
     }
 
@@ -126,18 +127,17 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         val assetKey = withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, letters),
                 name = "logo.png",
                 mediaType = AssetMediaType.PNG,
                 content = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),
                 width = 1,
                 height = 1,
-                catalogKey = letters,
             ).execute().id
         }
 
         // An unqualified image reference carries no catalog, so it resolves by this key alone.
-        val renamed = ResourceAddress(CatalogResourceType.IMAGE, letters.value, assetKey.value)
+        val renamed = testAddress(tenant.id, CatalogResourceType.IMAGE, letters.value, assetKey.value)
             .renamedTo(UUID.randomUUID().toString())
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
 
@@ -155,35 +155,33 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             val face = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, letters),
                 name = "acme-sans-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = ttfBytes(),
                 width = null,
                 height = null,
-                catalogKey = letters,
             ).execute().id
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = letters,
+                catalog = testCatalog(tenantId, letters),
                 slug = slug.value,
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
             ).execute()
         }
-        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content }
+        val before = withMediator { ResolveFontFace(testCatalog(tenant.id, letters), slug, 400, italic = false).query()?.content }
         assertThat(before).isNotNull()
 
-        val renamed = ResourceAddress(CatalogResourceType.FONT, letters.value, slug.value).renamedTo("acme-grotesk")
+        val renamed = testAddress(tenant.id, CatalogResourceType.FONT, letters.value, slug.value).renamedTo("acme-grotesk")
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(renamed)).query() }
         assertThat(preview.blockers).isEmpty()
         withMediator { MoveCatalogResources(tenant.id, listOf(renamed), preview.planFingerprint).execute() }
 
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content })
+        assertThat(withMediator { ResolveFontFace(testCatalog(tenant.id, letters), slug, 400, italic = false).query()?.content })
             .describedAs("a face referenced by the family's old slug")
             .isNull()
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("acme-grotesk"), 400, italic = false).query()?.content })
+        assertThat(withMediator { ResolveFontFace(testCatalog(tenant.id, letters), FontKey.of("acme-grotesk"), 400, italic = false).query()?.content })
             .isEqualTo(before)
     }
 
@@ -194,16 +192,16 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
         val themeKey = ThemeKey.of("brand")
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, tenantId))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(tenantId, letters))
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, shared, "Shared").execute()
-            CreateTheme(ThemeId(themeKey, CatalogId(letters, tenantId)), "Brand").execute()
+            CreateTheme(ThemeId(themeKey, testCatalog(tenantId, letters)), "Brand").execute()
             CreateDocumentTemplate(templateId, "Invoice").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalogKey = letters).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = themeKey, themeCatalog = testCatalog(templateId.tenantKey, letters)).execute()
         }
-        val address = ResourceAddress(CatalogResourceType.THEME, letters.value, themeKey.value)
+        val address = testAddress(tenant.id, CatalogResourceType.THEME, letters.value, themeKey.value)
 
         val relocation = address.movedTo(shared)
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(relocation)).query() }
@@ -217,7 +215,7 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         // Content that still names the old catalog finds nothing there, so the template falls back
         // to the tenant default rather than failing.
-        assertThat(themeStyleResolver.resolveTheme(tenant.id, themeKey, null, emptyTemplate(), templateCatalogKey = letters))
+        assertThat(themeStyleResolver.resolveTheme(testCatalog(tenant.id, CatalogKey.DEFAULT), themeKey, null, emptyTemplate(), templateThemeCatalog = testCatalog(tenant.id, letters)))
             .describedAs("a themeRef naming the theme's old catalog")
             .isNull()
     }
@@ -241,26 +239,24 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, shared, "Shared").execute()
             val face = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, letters),
                 name = "acme-sans-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = ttfBytes(),
                 width = null,
                 height = null,
-                catalogKey = letters,
             ).execute().id
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = letters,
+                catalog = testCatalog(tenantId, letters),
                 slug = slug.value,
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
             ).execute()
         }
-        val address = ResourceAddress(CatalogResourceType.FONT, letters.value, slug.value)
+        val address = testAddress(tenant.id, CatalogResourceType.FONT, letters.value, slug.value)
 
-        val before = withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content }
+        val before = withMediator { ResolveFontFace(testCatalog(tenant.id, letters), slug, 400, italic = false).query()?.content }
         assertThat(before).isNotNull()
 
         val relocation = address.movedTo(shared)
@@ -270,12 +266,12 @@ class RuntimeResolutionAfterRelocationTest : IntegrationTestBase() {
 
         // A miss here is not an error the caller sees: FontCache falls back to the built-in font,
         // so the document renders in the wrong typeface rather than failing.
-        assertThat(withMediator { ResolveFontFace(tenant.id, letters, slug, 400, italic = false).query()?.content })
+        assertThat(withMediator { ResolveFontFace(testCatalog(tenant.id, letters), slug, 400, italic = false).query()?.content })
             .describedAs("a face referenced by the family's old catalog")
             .isNull()
 
         // The faces followed the family, and the backing asset stayed where it was: since
         // V20260905090100 a face names both by identity, so neither move disturbs the other.
-        assertThat(withMediator { ResolveFontFace(tenant.id, shared, slug, 400, italic = false).query()?.content }).isEqualTo(before)
+        assertThat(withMediator { ResolveFontFace(testCatalog(tenant.id, shared), slug, 400, italic = false).query()?.content }).isEqualTo(before)
     }
 }

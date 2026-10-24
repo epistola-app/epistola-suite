@@ -16,6 +16,7 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
@@ -49,8 +50,8 @@ class ExchangeNamespaceMoveUiTest : BasePlaywrightTest() {
             ).execute()
             // The tenant holds several namespaces through its Exchange connection, so a catalog names one.
             CreateCatalog(tenant.id, catalogKey, "Invoices", namespace = "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Exchange *accepting* a release is what makes the namespace consequential to change:
             // a submission it takes and then rejects has published nothing.
             worker.run()

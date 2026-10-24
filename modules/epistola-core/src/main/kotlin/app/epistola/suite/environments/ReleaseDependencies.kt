@@ -4,12 +4,13 @@
 
 package app.epistola.suite.environments
 
-import app.epistola.suite.catalog.CatalogAddress
-import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
@@ -43,7 +44,7 @@ data class MissingReleaseDependency(
     val reason: MissingDependencyReason,
 ) {
     /** The tenant's catalog, for a dependency the tenant has (every reason but [MissingDependencyReason.NOT_INSTALLED]). */
-    val tenantCatalogKey: CatalogKey get() = CatalogKey.of(catalogKey)
+    fun tenantCatalog(tenantKey: TenantKey): CatalogId = CatalogId(namespace, CatalogKey.of(catalogKey), TenantId(tenantKey))
 
     override fun toString(): String = "$registry/$namespace/$catalogKey@$releaseVersion"
 }
@@ -95,43 +96,42 @@ class ReleaseDependencies(
 ) {
 
     /**
-     * The releases [version] of [catalogKey] renders with that [environmentKey] does not serve,
-     * direct and transitive, each with why, in the order they were found. Each catalog is read in
-     * its namespace, since two catalogs of a tenant can share a key (ADR 0034).
+     * The releases [version] of [catalog] renders with that [environmentKey] does not serve, direct
+     * and transitive, each with why, in the order they were found.
      */
-    fun missing(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String): List<MissingReleaseDependency> {
-        val start = addressOf(handle, tenantKey, catalogKey) ?: return emptyList()
+    fun missing(handle: Handle, environmentKey: EnvironmentKey, catalog: CatalogId, version: String): List<MissingReleaseDependency> {
+        val tenantKey = catalog.tenantKey
         val found = mutableListOf<MissingReleaseDependency>()
         val visited = mutableSetOf<Pair<String, String>>()
-        val queue = ArrayDeque(listOf(start to version))
+        val queue = ArrayDeque(listOf(catalog to version))
         while (queue.isNotEmpty()) {
             val (fromCatalog, fromVersion) = queue.removeFirst()
-            for (pin in pinsOf(handle, tenantKey, fromCatalog, fromVersion)) {
+            for (pin in dependencyStore.releasePins(handle, fromCatalog, fromVersion)) {
                 val pinnedVersion = pin.releaseVersion ?: continue
-                val catalog = dependencyStore.catalogNamed(handle, tenantKey, pin)?.let { CatalogAddress(pin.namespace, it) }
-                if (catalog == start) continue
+                val pinned = dependencyStore.catalogNamed(handle, tenantKey, pin)
+                if (pinned == catalog) continue
                 if (!visited.add("${pin.registry}/${pin.namespace}/${pin.catalogKey}" to pinnedVersion)) continue
 
                 // The pinned release, by its content (ADR 0034): a pin taken as V5 holds for the same release received as V6.
-                val release = catalog?.let { at(handle, it) { release(handle, tenantKey, it.key, pinnedVersion) } }
+                val release = pinned?.let { release(handle, it, pinnedVersion) }
                     ?.takeIf { pin.releaseFingerprint == null || dependencyStore.pinHolds(handle, tenantKey, pin) }
                 val reason = when {
-                    catalog == null || release == null -> MissingDependencyReason.NOT_INSTALLED
-                    at(handle, catalog) { serves(handle, tenantKey, environmentKey, catalog.key, pinnedVersion) } -> null
+                    pinned == null || release == null -> MissingDependencyReason.NOT_INSTALLED
+                    serves(handle, environmentKey, pinned, pinnedVersion) -> null
                     else -> MissingDependencyReason.NOT_DEPLOYED
                 }
                 if (reason != null) {
                     found += MissingReleaseDependency(pin.registry, pin.namespace, pin.catalogKey, pinnedVersion, reason)
                 }
                 // A release the tenant has renders with its own pins, whether or not it is served yet.
-                if (catalog != null && release != null) queue.addLast(catalog to pinnedVersion)
+                if (pinned != null && release != null) queue.addLast(pinned to pinnedVersion)
             }
         }
         return found
     }
 
     /** Every release [environmentKey] serves, as catalog and version. */
-    fun served(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey): List<Pair<CatalogAddress, String>> = handle
+    fun served(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey): List<Pair<CatalogId, String>> = handle
         .createQuery(
             """
             SELECT cat.namespace, cat.catalog_key, d.version FROM environment_catalog_deployments d
@@ -141,63 +141,49 @@ class ReleaseDependencies(
         )
         .bind("t", tenantKey)
         .bind("e", environmentKey)
-        .map { rs, _ -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) to rs.getString("version") }
+        .map { rs, _ -> CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), TenantId(tenantKey)) to rs.getString("version") }
         .list()
 
     /**
      * The releases of other catalogs that [releases] render with, direct and transitive, as catalog
      * and version: what an environment serving [releases] has to keep serving.
      */
-    fun needed(handle: Handle, tenantKey: TenantKey, releases: List<Pair<CatalogAddress, String>>): Set<Pair<CatalogAddress, String>> {
-        val needed = mutableSetOf<Pair<CatalogAddress, String>>()
+    fun needed(handle: Handle, releases: List<Pair<CatalogId, String>>): Set<Pair<CatalogId, String>> {
+        val needed = mutableSetOf<Pair<CatalogId, String>>()
         val queue = ArrayDeque(releases)
         while (queue.isNotEmpty()) {
             val (fromCatalog, fromVersion) = queue.removeFirst()
-            for (pin in pinsOf(handle, tenantKey, fromCatalog, fromVersion)) {
+            for (pin in dependencyStore.releasePins(handle, fromCatalog, fromVersion)) {
                 val pinnedVersion = pin.releaseVersion ?: continue
-                val catalog = dependencyStore.catalogNamed(handle, tenantKey, pin)?.let { CatalogAddress(pin.namespace, it) } ?: continue
-                if (catalog == fromCatalog) continue
-                if (needed.add(catalog to pinnedVersion)) queue.addLast(catalog to pinnedVersion)
+                val pinned = dependencyStore.catalogNamed(handle, fromCatalog.tenantKey, pin) ?: continue
+                if (pinned == fromCatalog) continue
+                if (needed.add(pinned to pinnedVersion)) queue.addLast(pinned to pinnedVersion)
             }
         }
         return needed
     }
 
-    private fun pinsOf(handle: Handle, tenantKey: TenantKey, catalog: CatalogAddress, version: String) = at(handle, catalog) { dependencyStore.releasePins(handle, tenantKey, catalog.key, version) }
-
-    private fun <R> at(handle: Handle, catalog: CatalogAddress, block: () -> R): R = CatalogNames.on(handle, catalog.key, catalog.namespace, block)
-
-    /** The catalog [catalogKey] names for the running work, as the database resolves it; null when the tenant has none. */
-    private fun addressOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogAddress? = handle
-        .createQuery("SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
-        .mapTo(String::class.java)
-        .findOne()
-        .map { CatalogAddress(it, catalogKey) }
-        .orElse(null)
-
     private data class Release(val fingerprint: String)
 
-    private fun release(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Release? = handle
+    private fun release(handle: Handle, catalog: CatalogId, version: String): Release? = handle
         .createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("v", version)
         .map { rs, _ -> Release(rs.getString("fingerprint")) }
         .findOne()
         .orElse(null)
 
-    private fun serves(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String): Boolean = handle
+    private fun serves(handle: Handle, environmentKey: EnvironmentKey, catalog: CatalogId, version: String): Boolean = handle
         .createQuery(
             """
             SELECT EXISTS (SELECT 1 FROM environment_catalog_deployments
                            WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v)
             """,
         )
-        .bind("t", tenantKey)
+        .bind("t", catalog.tenantKey)
         .bind("e", environmentKey)
-        .bind("c", catalogKey)
+        .bindCatalog("c", catalog)
         .bind("v", version)
         .mapTo(Boolean::class.java)
         .one()

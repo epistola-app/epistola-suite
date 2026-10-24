@@ -4,6 +4,7 @@
 
 package app.epistola.suite.quality.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
@@ -157,7 +158,7 @@ class SubmitQualityFindingsHandler(
             """,
         )
             .bind("tenantKey", subject.tenantKey)
-            .bind("catalogKey", subject.catalogKey)
+            .bindCatalog("catalogKey", subject.catalogId)
             .bind("templateKey", subject.templateKey)
             .bind("variantKey", variantKey)
             .mapTo(String::class.java)
@@ -212,7 +213,7 @@ class SubmitQualityFindingsHandler(
             .bind("subjectUrn", command.subject.urn)
             .bind("subjectType", command.subject.type.name)
             .bind("ignoreScopeUrn", command.subject.ignoreScopeUrn)
-            .bind("catalogKey", command.subject.catalogKey)
+            .bindCatalog("catalogKey", command.subject.catalogId)
             .bind("templateKey", command.subject.templateKey)
             .bind("variantKey", command.subject.variantKey)
             .bind("versionKey", command.subject.versionKey)

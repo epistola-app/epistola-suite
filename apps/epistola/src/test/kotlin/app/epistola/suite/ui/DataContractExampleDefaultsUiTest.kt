@@ -14,6 +14,7 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper

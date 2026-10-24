@@ -8,6 +8,8 @@ import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -38,7 +40,7 @@ class ResolveCatalogTest : IntegrationTestBase() {
         }
 
         for (registry in listOf("~", null, identity.defaultRegistry)) {
-            val catalog = withMediator { ResolveCatalog(tenant, registry, "acme-letters", letters).query() }
+            val catalog = withMediator { ResolveCatalog(CatalogId("acme-letters", letters, TenantId(tenant)), registry).query() }
             assertThat(catalog.id).isEqualTo(letters)
             assertThat(catalog.registry).isEqualTo(identity.defaultRegistry)
         }
@@ -52,11 +54,11 @@ class ResolveCatalogTest : IntegrationTestBase() {
             CreateCatalog(tenant, letters, "Letters", namespace = "acme-letters").execute()
         }
 
-        assertThatThrownBy { withMediator { ResolveCatalog(tenant, "~", "elsewhere", letters).query() } }
+        assertThatThrownBy { withMediator { ResolveCatalog(CatalogId("elsewhere", letters, TenantId(tenant)), "~").query() } }
             .isInstanceOf(CatalogNotFoundException::class.java)
-        assertThatThrownBy { withMediator { ResolveCatalog(tenant, "other.example.com", "acme-letters", letters).query() } }
+        assertThatThrownBy { withMediator { ResolveCatalog(CatalogId("acme-letters", letters, TenantId(tenant)), "other.example.com").query() } }
             .isInstanceOf(CatalogNotFoundException::class.java)
-        assertThatThrownBy { withMediator { ResolveCatalog(tenant, "~", "acme-letters", CatalogKey.of("missing")).query() } }
+        assertThatThrownBy { withMediator { ResolveCatalog(CatalogId("acme-letters", CatalogKey.of("missing"), TenantId(tenant)), "~").query() } }
             .isInstanceOf(CatalogNotFoundException::class.java)
     }
 
@@ -79,8 +81,8 @@ class ResolveCatalogTest : IntegrationTestBase() {
             currentTenantId = tenant,
         )
 
-        assertThat(runAs(generator) { ResolveCatalog(tenant, "~", "acme-letters", letters).query() }.id).isEqualTo(letters)
-        assertThatThrownBy { runAs(generator) { ResolveCatalog(other, "~", "acme-letters", letters).query() } }
+        assertThat(runAs(generator) { ResolveCatalog(CatalogId("acme-letters", letters, TenantId(tenant)), "~").query() }.id).isEqualTo(letters)
+        assertThatThrownBy { runAs(generator) { ResolveCatalog(CatalogId("acme-letters", letters, TenantId(other)), "~").query() } }
             .isInstanceOf(TenantAccessDeniedException::class.java)
     }
 }

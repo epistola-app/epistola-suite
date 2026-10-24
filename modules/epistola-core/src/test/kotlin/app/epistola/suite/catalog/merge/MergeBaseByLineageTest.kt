@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.merge
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -21,6 +22,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -47,7 +49,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
 
     @Autowired private lateinit var objectMapper: ObjectMapper
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     /** The names of the next release's themes, by key. */
     private fun themes(tenant: TenantKey, catalog: CatalogKey): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { h ->
@@ -55,7 +57,7 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
             "SELECT t.id, t.name FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")}",
         )
-            .bind("t", tenant).bind("c", catalog)
+            .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog))
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }
             .list().toMap()
     }
@@ -67,18 +69,18 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
         val catalog = CatalogKey.of("lineage")
         withMediator {
             val lines = mediator.parallelReleaseLines(a, catalog)
-            val v100 = ListCatalogReleaseSummaries(a, catalog).query().single { it.version == "1.0.0" }
+            val v100 = ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single { it.version == "1.0.0" }
 
             // B received 1.1.0 only, then the fix 1.0.1, made from 1.0.0 on the other line.
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v110).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v101).execute()
 
-            val missing = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            val missing = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(missing.missingBase).isEqualTo(MergeBaseRef("1.0.0", v100.fingerprint))
             assertThat(missing.base).isNull()
             assertThat(missing.resources).isEmpty()
             assertThat(missing.noCommonRelease).isFalse()
-            assertThatThrownBy { MergeReleaseIntoDraft(b, catalog, "1.0.1").execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute() }
                 .isInstanceOfSatisfying(MergeBaseMissingException::class.java) {
                     assertThat(it.version).isEqualTo("1.0.0")
                     assertThat(it.fingerprint).isEqualTo(v100.fingerprint)
@@ -87,13 +89,13 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
 
             // Once B has 1.0.0, beside the others, the merge compares against it.
             ImportCatalogZip(tenantKey = b, zipBytes = lines.v100).execute()
-            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.missingBase).isNull()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.filter { it.outcome != MergeOutcome.UNCHANGED }.associate { it.contentKey to it.outcome })
                 .containsExactlyInAnyOrderEntriesOf(mapOf("theme/brand" to MergeOutcome.THEIRS, "theme/added" to MergeOutcome.OURS))
 
-            val merged = MergeReleaseIntoDraft(b, catalog, "1.0.1", expectedToken = preview.token).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1", expectedToken = preview.token).execute()
             assertThat(merged.taken).containsExactly("theme/brand")
         }
         // 1.0.1's change taken, 1.1.0's addition kept.
@@ -108,19 +110,19 @@ class MergeBaseByLineageTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "No Lineage").execute()
             listOf("thx", "thy", "thz").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "thx"), name = "A's x").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
             // An archive from before releases named their base.
-            val v110 = withoutBase(ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes)
+            val v110 = withoutBase(ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes)
 
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
             UpdateTheme(theme(b, catalog, "thy"), name = "B's y").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = v110).execute()
 
-            val preview = PreviewDraftMerge(b, catalog, "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.1.0").query()
             assertThat(preview.base).isNull()
             assertThat(preview.missingBase).isNull()
             assertThat(preview.noCommonRelease).isTrue()

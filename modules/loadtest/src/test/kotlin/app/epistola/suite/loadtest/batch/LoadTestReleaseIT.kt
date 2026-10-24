@@ -25,8 +25,10 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -66,7 +68,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
         withMediator {
             CreateEnvironment(production, "Production").execute()
-            DeployCatalogRelease(production, variant.catalogKey, "1.0.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, variant.catalogKey), "1.0.0").execute()
         }
 
         val run = start(tenant, variant, environment = production.key)
@@ -107,8 +109,7 @@ class LoadTestReleaseIT : IntegrationTestBase() {
 
     private fun start(tenant: TenantKey, variant: VariantId, environment: EnvironmentKey?): LoadTestRun = withMediator {
         StartLoadTest(
-            tenantId = tenant,
-            catalogKey = variant.catalogKey,
+            catalog = testCatalog(tenant, variant.catalogKey),
             templateId = variant.templateId.key,
             variantId = variant.key,
             environmentId = environment,

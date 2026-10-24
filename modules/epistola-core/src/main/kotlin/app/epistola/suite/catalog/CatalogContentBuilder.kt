@@ -34,6 +34,7 @@ import app.epistola.suite.catalog.queries.ExportStencils
 import app.epistola.suite.catalog.queries.ExportThemes
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DataExamples
@@ -105,18 +106,18 @@ class CatalogContentBuilder(
     private val dependencyStore: CatalogDependencyStore,
 ) {
 
-    fun build(tenantKey: TenantKey, catalogKey: CatalogKey, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
-        val catalog = GetCatalog(tenantKey, catalogKey).query()
-            ?: throw IllegalArgumentException("Catalog not found: $catalogKey")
+    fun build(catalog: CatalogId, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
+        val found = GetCatalog(catalog).query()
+            ?: throw IllegalArgumentException("Catalog not found: ${catalog.address}")
 
-        val outbound = Outbound(catalogKey.value)
-        val templates = loadTemplates(tenantKey, catalogKey, source, outbound)
-        val themes = ExportThemes(tenantKey, catalogKey = catalogKey).query().map { theme ->
+        val outbound = Outbound(catalog.key.value)
+        val templates = loadTemplates(catalog, source, outbound)
+        val themes = ExportThemes(catalog.tenantKey, catalog = catalog).query().map { theme ->
             // A theme's own-catalog font references have always travelled as stored.
             objectMapper.treeToValue(outbound.withoutNameQualifiers(objectMapper.valueToTree(theme)), ThemeResource::class.java)
         }
-        val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(tenantKey, catalogKey) else null
-        val stencils = ExportStencils(tenantKey, catalogKey = catalogKey).query().mapNotNull { exported ->
+        val published = if (source == ContentSource.PUBLISHED_BEFORE_2_0) publishedStencils(catalog) else null
+        val stencils = ExportStencils(catalog.tenantKey, catalog = catalog).query().mapNotNull { exported ->
             val stencil = if (published == null) {
                 exported
             } else {
@@ -127,10 +128,10 @@ class CatalogContentBuilder(
                 content = outbound.content(objectMapper.valueToTree(stencil.content)).let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
             )
         }
-        val attributes = ExportAttributes(tenantKey, catalogKey = catalogKey).query()
-        val codeLists = ExportCodeLists(tenantKey, catalogKey = catalogKey).query()
-        val fonts = ExportFonts(tenantKey, catalogKey = catalogKey).query()
-        val assets = ExportAssets(tenantKey, catalogKey = catalogKey).query()
+        val attributes = ExportAttributes(catalog.tenantKey, catalog = catalog).query()
+        val codeLists = ExportCodeLists(catalog.tenantKey, catalog = catalog).query()
+        val fonts = ExportFonts(catalog.tenantKey, catalog = catalog).query()
+        val assets = ExportAssets(catalog.tenantKey, catalog = catalog).query()
 
         val resourceEntries = mutableListOf<ResourceEntry>()
         val resourceDetails = LinkedHashMap<String, ResourceDetail>()
@@ -161,7 +162,7 @@ class CatalogContentBuilder(
         for (detail in resourceDetails.values) {
             when (val resource = detail.resource) {
                 is ImageResource -> {
-                    val content = GetAssetContent(tenantId = tenantKey, assetId = AssetKey.of(resource.key)).query()
+                    val content = GetAssetContent(tenantId = catalog.tenantKey, assetId = AssetKey.of(resource.key), catalog = catalog).query()
                         ?: continue
                     assetContents[resource.contentPath()] = content.content
                 }
@@ -172,10 +173,10 @@ class CatalogContentBuilder(
                     // its content up by. Resolve by hash: a face uploaded here has the key its
                     // upload generated, one installed from a catalog has a key derived from the
                     // hash, and only the hash names the same bytes in both.
-                    val keys = ResolveAssetKeysByContentHash(tenantKey, resource.variants.map { it.contentHash }).query()
+                    val keys = ResolveAssetKeysByContentHash(catalog.tenantKey, resource.variants.map { it.contentHash }).query()
                     for (face in resource.variants) {
                         val key = keys[face.contentHash] ?: continue
-                        val content = GetAssetContent(tenantId = tenantKey, assetId = key).query() ?: continue
+                        val content = GetAssetContent(tenantId = catalog.tenantKey, assetId = key).query() ?: continue
                         assetContents[face.contentPath()] = content.content
                     }
                 }
@@ -185,29 +186,28 @@ class CatalogContentBuilder(
         }
 
         return CatalogContent(
-            catalog = catalog.catalogMetadata.toCatalogInfo(
-                slug = catalogKey.value,
-                name = catalog.name,
-                description = catalog.description,
+            catalog = found.catalogMetadata.toCatalogInfo(
+                slug = catalog.key.value,
+                name = found.name,
+                description = found.description,
                 // The catalog's presentation is catalog-wide, its images belong to a version: only
                 // those this version holds are named (any catalog can hold several versions, ADR 0032).
                 availableAssetSlugs = assets.mapTo(mutableSetOf()) { it.key },
-                namespace = catalog.namespace,
-                registry = catalog.registry,
-            ).withThemeSettings(tenantKey, catalogKey),
+                namespace = found.namespace,
+                registry = found.registry,
+            ).withThemeSettings(catalog),
             resourceEntries = resourceEntries,
             resourceDetails = resourceDetails,
-            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalogKey.value),
+            dependencies = findCrossCatalogDependencies(templates, stencils, attributes, themes, resourceEntries, catalog.key.value),
             catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
-                dependencyStore.declarations(handle, tenantKey, catalogKey).map { it.toWire() }
+                dependencyStore.declarations(handle, catalog).map { it.toWire() }
             }.ifEmpty { null },
             assetContents = assetContents,
         )
     }
 
     private fun loadTemplates(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         source: ContentSource,
         outbound: Outbound,
     ): List<TemplateResource> {
@@ -236,8 +236,8 @@ class CatalogContentBuilder(
                 WHERE dt.tenant_key = :tenantKey AND dt.version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
             )
-                .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
+                .bind("tenantKey", catalog.tenantKey)
+                .bindCatalog("catalogKey", catalog)
                 .map { rs, _ ->
                     TemplateRow(
                         id = rs.getString("id"),
@@ -265,8 +265,8 @@ class CatalogContentBuilder(
                       AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
                     """,
                 )
-                    .bind("tenantKey", tenantKey)
-                    .bind("catalogKey", catalogKey)
+                    .bind("tenantKey", catalog.tenantKey)
+                    .bindCatalog("catalogKey", catalog)
                     .bind("templateKey", template.id)
                     .map { rs, _ ->
                         VariantRow(
@@ -334,7 +334,7 @@ class CatalogContentBuilder(
     }
 
     /** Each stencil's latest published version before 2.0: its content and parameter schema, by stencil key. */
-    private fun publishedStencils(tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, Pair<TemplateDocument, Map<String, Any?>?>> = jdbi.withHandle<Map<String, Pair<TemplateDocument, Map<String, Any?>?>>, Exception> { handle ->
+    private fun publishedStencils(catalog: CatalogId): Map<String, Pair<TemplateDocument, Map<String, Any?>?>> = jdbi.withHandle<Map<String, Pair<TemplateDocument, Map<String, Any?>?>>, Exception> { handle ->
         handle.createQuery(
             """
             SELECT s.id, (p.payload -> 'content')::text AS content,
@@ -344,8 +344,8 @@ class CatalogContentBuilder(
             WHERE s.tenant_key = :t AND s.version_id = ${versionAt("t", "c")}
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ ->
                 rs.getString("id") to (
                     objectMapper.readValue(rs.getString("content"), TemplateDocument::class.java) to
@@ -435,11 +435,11 @@ private const val PUBLISHED_VARIANT_JOIN =
  * [CatalogContentBuilder.Outbound]), and the presets it declares. Absent ones leave the details, and
  * so the fingerprint, as they were.
  */
-private fun CatalogInfo.withThemeSettings(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogInfo {
-    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(tenantKey, catalogKey).query()
+private fun CatalogInfo.withThemeSettings(catalog: CatalogId): CatalogInfo {
+    val settings = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(catalog).query()
     if (settings.defaultTheme == null && settings.presets.isEmpty()) return this
     val theme = settings.defaultTheme?.let { theme ->
-        if (theme.catalogKey == catalogKey) {
+        if (theme.catalogKey == catalog.key) {
             app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value)
         } else {
             app.epistola.catalog.protocol.CatalogThemeRef(key = theme.themeKey.value, catalogKey = theme.catalogKey.value)

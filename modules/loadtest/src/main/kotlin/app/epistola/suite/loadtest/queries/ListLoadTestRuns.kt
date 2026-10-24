@@ -44,7 +44,7 @@ class ListLoadTestRunsHandler(
     override fun handle(query: ListLoadTestRuns): List<LoadTestRun> = jdbi.withHandle<List<LoadTestRun>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.id, r.batch_id, r.tenant_key, cat.catalog_key AS catalog_key, template.id AS template_key,
+            SELECT r.id, r.batch_id, r.tenant_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, template.id AS template_key,
                    r.variant_key, r.version_key, r.environment_key,
                    r.target_count, r.concurrency_level, r.test_data, r.status, r.claimed_by, r.claimed_at,
                    r.completed_count, r.failed_count, r.total_duration_ms, r.avg_response_time_ms,

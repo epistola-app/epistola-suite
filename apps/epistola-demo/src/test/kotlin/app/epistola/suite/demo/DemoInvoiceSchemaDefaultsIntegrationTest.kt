@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -37,7 +38,7 @@ class DemoInvoiceSchemaDefaultsIntegrationTest : IntegrationTestBase() {
         withMediator { EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute() }
 
         val contract = withMediator {
-            GetDataContract(TemplateId(invoice, CatalogId(demoCatalog, TenantId(tenant.id)))).query()
+            GetDataContract(TemplateId(invoice, testCatalog(TenantId(tenant.id), demoCatalog))).query()
         }!!
         val properties = contract.dataModel!!.get("properties")
         assertThat(properties.get("taxRate").get("default").asDouble()).isEqualTo(0.21)
@@ -55,8 +56,7 @@ class DemoInvoiceSchemaDefaultsIntegrationTest : IntegrationTestBase() {
     }
 
     private fun preview(tenantKey: TenantKey, data: tools.jackson.databind.node.ObjectNode) = PreviewDocument(
-        tenantId = tenantKey,
-        catalogKey = demoCatalog,
+        catalog = testCatalog(tenantKey, demoCatalog),
         templateId = invoice,
         data = data,
     ).query()

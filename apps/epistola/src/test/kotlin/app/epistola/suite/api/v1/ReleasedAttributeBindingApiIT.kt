@@ -29,6 +29,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -79,7 +80,7 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
     @Test
     fun `a released attribute's binding names the alias the release declares, and its own code list none`() {
         val (tenantKey, apiKey) = released()
-        val declared = withMediator { ListReleaseDependencies(tenantKey, letters, "1.0.0").query() }
+        val declared = withMediator { ListReleaseDependencies(testCatalog(tenantKey, letters), "1.0.0").query() }
         assertThat(declared.map { it.alias }).`as`("the release declares the code list's catalog").containsExactly(SYSTEM_CATALOG_KEY.value)
         val release = withMediator { CatalogApiPaths.version(tenantKey, letters.value, "1.0.0") }
 
@@ -106,18 +107,18 @@ class ReleasedAttributeBindingApiIT : IntegrationTestBase() {
         TestNamespaces.createTenant(tenantKey, "Released binding").execute()
         CreateCatalog(tenantKey, letters, "Letters").execute()
         CreateAttributeDefinition(
-            id = AttributeId(AttributeKey.of("preferred-language"), CatalogId(letters, TenantId(tenantKey))),
+            id = AttributeId(AttributeKey.of("preferred-language"), testCatalog(TenantId(tenantKey), letters)),
             displayName = "Preferred language",
-            codeListId = CodeListId(CodeListKey.of("iso-639-1"), CatalogId(SYSTEM_CATALOG_KEY, TenantId(tenantKey))),
+            codeListId = CodeListId(CodeListKey.of("iso-639-1"), testCatalog(TenantId(tenantKey), SYSTEM_CATALOG_KEY)),
         ).execute()
-        CreateCodeList(CodeListId(CodeListKey.of("tones"), CatalogId(letters, TenantId(tenantKey))), "Tones", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("formal", "Formal"))).execute()
+        CreateCodeList(CodeListId(CodeListKey.of("tones"), testCatalog(TenantId(tenantKey), letters)), "Tones", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("formal", "Formal"))).execute()
         CreateAttributeDefinition(
-            id = AttributeId(AttributeKey.of("tone"), CatalogId(letters, TenantId(tenantKey))),
+            id = AttributeId(AttributeKey.of("tone"), testCatalog(TenantId(tenantKey), letters)),
             displayName = "Tone",
-            codeListId = CodeListId(CodeListKey.of("tones"), CatalogId(letters, TenantId(tenantKey))),
+            codeListId = CodeListId(CodeListKey.of("tones"), testCatalog(TenantId(tenantKey), letters)),
         ).execute()
-        MarkCatalogReady(tenantKey, letters).execute()
-        ReleaseCatalogDraft(tenantKey, letters, "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenantKey, letters)).execute()
+        ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0").execute()
         tenantKey to CreateApiKey(tenantId = tenantKey, name = "rab-it").execute().plaintextKey
     }
 

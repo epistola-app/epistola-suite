@@ -5,7 +5,9 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -52,10 +54,12 @@ sealed interface DraftRef {
 
 /** One draft of a catalog, as a message names it. */
 data class CatalogReleaseRef(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val draft: DraftRef,
-)
+) {
+    val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /**
  * A command or query that can address one version of a catalog (contract ADR 0002: every resource
@@ -111,7 +115,7 @@ class CatalogReleaseTargeting(
             """,
         )
             .bind("t", ref.tenantKey)
-            .bind("c", ref.catalogKey)
+            .bindCatalog("c", ref.catalog)
             .also { query -> (ref.draft as? DraftRef.Id)?.let { query.bind("id", it.key) } }
             .mapTo(UUID::class.java)
             .findOne()
@@ -153,9 +157,9 @@ class CatalogReleaseTargeting(
     }
 
     private fun catalogExists(handle: Handle, ref: CatalogReleaseRef): Boolean = handle
-        .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c))")
+        .createQuery("SELECT EXISTS (SELECT 1 FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c))")
         .bind("t", ref.tenantKey)
-        .bind("c", ref.catalogKey)
+        .bindCatalog("c", ref.catalog)
         .mapTo(Boolean::class.java)
         .one()
 

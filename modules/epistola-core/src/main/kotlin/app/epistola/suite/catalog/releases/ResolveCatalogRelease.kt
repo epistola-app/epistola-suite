@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
 import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -46,14 +47,16 @@ data class ResolvedCatalogRelease(
  * its own permission for, so an author's key need not also hold `CATALOG_VIEW` to write.
  */
 data class ResolveCatalogRelease(
-    override val tenantKey: TenantKey,
+    /** The catalog by its address, namespace and key. */
+    val catalog: CatalogId,
     val registry: String?,
-    val namespace: String,
-    val catalogKey: CatalogKey,
     val version: String,
 ) : Query<ResolvedCatalogRelease>,
     RequiresAuthentication,
-    TenantScoped
+    TenantScoped {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 @Component
 class ResolveCatalogReleaseHandler(
@@ -63,12 +66,12 @@ class ResolveCatalogReleaseHandler(
 ) : QueryHandler<ResolveCatalogRelease, ResolvedCatalogRelease> {
     override fun handle(query: ResolveCatalogRelease): ResolvedCatalogRelease = jdbi.withHandle<ResolvedCatalogRelease, Exception> { handle ->
         val registry = query.registry?.takeUnless { it == DEFAULT_REGISTRY } ?: identity.defaultRegistry
-        val catalog = handle.findCatalog(query.tenantKey, query.catalogKey)
-            ?.takeIf { it.registry == registry && it.namespace == query.namespace }
+        val catalog = handle.findCatalog(query.catalog)
+            ?.takeIf { it.registry == registry }
             ?: throw CatalogNotFoundException(query.catalogKey)
         // A version is named by its id, a draft and its release alike; a release also by its number
         // (contract ADR 0002). `next`, the next version, is a convention of this suite.
-        val all = versions.all(handle, query.tenantKey, query.catalogKey)
+        val all = versions.all(handle, query.catalog)
         val version = when (val ref = DraftRef.parse(query.version)) {
             DraftRef.Next -> all.firstOrNull { it.isNext }
             is DraftRef.Id -> all.firstOrNull { it.versionId == ref.key }
@@ -88,24 +91,26 @@ class ResolveCatalogReleaseHandler(
  * hold one of that type and key. A release that did not keep its content holds nothing.
  */
 data class GetReleasedResource(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
     val type: String,
     val key: String,
 ) : Query<CatalogResource?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 /** Every resource of [type] a released version holds, in key order. */
 data class ListReleasedResources(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
     val type: String,
 ) : Query<List<CatalogResource>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -113,7 +118,7 @@ data class ListReleasedResources(
 class GetReleasedResourceHandler(
     private val assembler: ReleaseContentAssembler,
 ) : QueryHandler<GetReleasedResource, CatalogResource?> {
-    override fun handle(query: GetReleasedResource): CatalogResource? = assembler.readResource(query.tenantKey, query.catalogKey, query.version, query.type, query.key)
+    override fun handle(query: GetReleasedResource): CatalogResource? = assembler.readResource(query.catalog, query.version, query.type, query.key)
 }
 
 @Component
@@ -121,7 +126,7 @@ class ListReleasedResourcesHandler(
     private val assembler: ReleaseContentAssembler,
 ) : QueryHandler<ListReleasedResources, List<CatalogResource>> {
     override fun handle(query: ListReleasedResources): List<CatalogResource> {
-        val content = assembler.assemble(query.tenantKey, query.catalogKey, query.version)?.content ?: return emptyList()
+        val content = assembler.assemble(query.catalog, query.version)?.content ?: return emptyList()
         return content.resourceDetails.filterKeys { it.startsWith("${query.type}/") }.toSortedMap().values.map { it.resource }
     }
 }

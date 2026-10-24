@@ -13,10 +13,12 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogMetadata
 import app.epistola.suite.catalog.CatalogNotFoundException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -35,8 +37,7 @@ import tools.jackson.databind.ObjectMapper
 import java.net.URI
 
 data class UpdateCatalogMetadata(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val name: String,
     val description: String?,
     val attributes: List<AttributeAssignment> = emptyList(),
@@ -45,6 +46,8 @@ data class UpdateCatalogMetadata(
     val license: CatalogLicense? = null,
 ) : Command<Catalog>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 
     val catalogMetadata = CatalogMetadata(attributes, keywords, presentation, license)
@@ -209,9 +212,9 @@ class UpdateCatalogMetadataHandler(
 ) : CommandHandler<UpdateCatalogMetadata, Catalog> {
 
     override fun handle(command: UpdateCatalogMetadata): Catalog {
-        val existing = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val existing = GetCatalog(command.catalog).query()
             ?: throw CatalogNotFoundException(command.catalogKey)
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        requireCatalogEditable(command.catalog)
 
         validateAttributes(
             TenantId(command.tenantKey),
@@ -233,17 +236,17 @@ class UpdateCatalogMetadataHandler(
                 UPDATE catalogs
                 SET name = :name, description = :description, catalog_metadata = :catalogMetadata::jsonb,
                     content_updated_at = NOW(), updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("catalogMetadata", catalogMetadataJson)
                 .execute()
 
-            handle.findCatalog(command.tenantKey, command.catalogKey)!!
+            handle.findCatalog(command.catalog)!!
         }
     }
 
@@ -252,7 +255,7 @@ class UpdateCatalogMetadataHandler(
         val referenced = listOfNotNull(presentation.iconImageKey) + presentation.imageKeys
         if (referenced.isEmpty()) return
 
-        val available = ListAssets(command.tenantKey, catalogKey = command.catalogKey).query()
+        val available = ListAssets(command.tenantKey, catalog = command.catalog).query()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
             .mapTo(mutableSetOf()) { it.id.value }
         validate("presentation", referenced.all(available::contains)) {

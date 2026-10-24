@@ -20,6 +20,7 @@ import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Test

@@ -4,7 +4,9 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -58,16 +60,16 @@ object DeploymentRows {
     """
 
     /** The deployment of release [version], or of draft [draftId], in [environmentKey]; null when it serves neither. */
-    fun find(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey, catalogKey: CatalogKey, version: String? = null, draftId: UUID? = null): CatalogDeployment? = handle.createQuery(
+    fun find(handle: Handle, environmentKey: EnvironmentKey, catalog: CatalogId, version: String? = null, draftId: UUID? = null): CatalogDeployment? = handle.createQuery(
         """
         $FROM
-        WHERE d.tenant_key = :t AND d.environment_key = :e AND cat.catalog_id = epistola_catalog_id(:t, :c)
+        WHERE d.tenant_key = :t AND d.environment_key = :e AND cat.catalog_id = epistola_catalog_id(:t, :c_ns, :c)
           AND ${if (version != null) "d.version = :v" else "d.draft_id = :d"}
         """,
     )
-        .bind("t", tenantKey)
+        .bind("t", catalog.tenantKey)
         .bind("e", environmentKey)
-        .bind("c", catalogKey)
+        .bindCatalog("c", catalog)
         .also { q -> if (version != null) q.bind("v", version) else q.bind("d", draftId) }
         .mapTo<CatalogDeployment>()
         .findOne()

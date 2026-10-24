@@ -21,6 +21,7 @@ import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -77,17 +78,15 @@ class FontMcpToolsIntegrationTest : IntegrationTestBase() {
 
         withMediator {
             val asset = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 name = "acme-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray,
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,

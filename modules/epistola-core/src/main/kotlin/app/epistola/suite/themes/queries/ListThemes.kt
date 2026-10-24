@@ -4,10 +4,12 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
@@ -15,19 +17,25 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListThemes(
     val tenantId: TenantId,
+    val catalog: CatalogId? = null,
     val searchTerm: String? = null,
-    val catalogKey: CatalogKey? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<List<Theme>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantId == tenantId) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.THEME_VIEW
     override val tenantKey get() = tenantId.key
 }
@@ -38,7 +46,7 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT t.*, c.catalog_key AS catalog_key FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId AND ${inCurrentVersion("t")}")
+            append("SELECT t.*, c.catalog_key AS catalog_key, c.namespace AS namespace FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId AND ${inCurrentVersion("t")}")
             if (query.catalogKey != null) {
                 append(" AND t.version_id = ${versionAt("tenantId", "catalogKey")}")
             }
@@ -51,7 +59,7 @@ class ListThemesHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId.key)
         if (query.catalogKey != null) {
-            jdbiQuery.bind("catalogKey", query.catalogKey)
+            jdbiQuery.bindCatalog("catalogKey", query.catalog)
         }
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")

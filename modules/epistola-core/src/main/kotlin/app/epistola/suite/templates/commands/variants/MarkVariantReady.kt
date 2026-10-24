@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -52,7 +53,7 @@ class MarkVariantReadyHandler(
 ) : CommandHandler<MarkVariantReady, Unit> {
     override fun handle(command: MarkVariantReady) {
         val variant = command.variantId
-        requireCatalogEditable(variant.tenantKey, variant.catalogKey)
+        requireCatalogEditable(variant.catalogId)
         jdbi.useTransaction<Exception> { handle ->
             val row = handle.createQuery(
                 """
@@ -64,7 +65,7 @@ class MarkVariantReadyHandler(
                 """,
             )
                 .bind("t", variant.tenantKey)
-                .bind("c", variant.catalogKey)
+                .bindCatalog("c", variant.catalogId)
                 .bind("k", variant.templateKey)
                 .bind("v", variant.key)
                 .map { rs, _ -> Triple(rs.getObject("template_resource_id", UUID::class.java), rs.getString("template_model"), rs.getString("data_model")) }
@@ -73,7 +74,7 @@ class MarkVariantReadyHandler(
             val model = objectMapper.readValue(row.second, TemplateDocument::class.java)
             validator.validateTemplatePublishable(model)
             val dataModel = row.third?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
-            stencilFit.requireInstancesFit(variant.tenantKey, variant.catalogKey.value, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)
+            stencilFit.requireInstancesFit(variant.catalogId, model, "Cannot mark variant '${variant.key.value}' ready", dataModel)
             readyMarks.mark(handle, variant.tenantKey, row.first, variant.key.value)
         }
     }

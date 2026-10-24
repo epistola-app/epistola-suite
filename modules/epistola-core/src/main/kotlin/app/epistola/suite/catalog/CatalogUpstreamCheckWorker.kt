@@ -65,8 +65,7 @@ class CatalogUpstreamCheckWorker(
             // A source nothing can read is not a failure that will resolve itself, but it is also
             // not worth retrying quickly. Recorded so it shows on the catalog rather than vanishing.
             store.recordFailure(
-                catalog.tenantKey,
-                catalog.id,
+                catalog.catalogId,
                 CatalogUpstreamCheckFailure.PROTOCOL_ERROR,
                 "No probe can read '${catalog.sourceUrl}'",
                 properties.interval,
@@ -74,16 +73,15 @@ class CatalogUpstreamCheckWorker(
             return
         }
         try {
-            store.recordSuccess(catalog.tenantKey, catalog.id, probe.probe(catalog), properties.interval)
+            store.recordSuccess(catalog.catalogId, probe.probe(catalog), properties.interval)
         } catch (e: CatalogUpstreamCheckException) {
-            store.recordFailure(catalog.tenantKey, catalog.id, e.failure, e.detail, properties.interval)
+            store.recordFailure(catalog.catalogId, e.failure, e.detail, properties.interval)
         } catch (e: Exception) {
             // A probe that throws something it did not translate is a bug in that probe, not a
             // reason to stop checking every other catalog.
             log.warn("Upstream check for {}/{} failed unexpectedly", catalog.tenantKey.value, catalog.id.value, e)
             store.recordFailure(
-                catalog.tenantKey,
-                catalog.id,
+                catalog.catalogId,
                 CatalogUpstreamCheckFailure.PROTOCOL_ERROR,
                 e.message,
                 properties.interval,

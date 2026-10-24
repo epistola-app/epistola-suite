@@ -4,9 +4,11 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -26,8 +28,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class ImportTheme(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -37,6 +38,8 @@ data class ImportTheme(
     val spacingUnit: Float? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.THEME_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -81,7 +84,7 @@ class ImportThemeHandler(
             )
                 .bind("id", themeKey)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("documentStyles", documentStylesJson)

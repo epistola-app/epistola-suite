@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.contracts.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -69,7 +70,7 @@ class UpdateDataContractHandler(
 ) : CommandHandler<UpdateDataContract, UpdateDataContractResult> {
     override fun handle(command: UpdateDataContract): UpdateDataContractResult {
         val template = command.templateId
-        requireCatalogEditable(template.tenantKey, template.catalogKey)
+        requireCatalogEditable(template.catalogId)
         return jdbi.inTransaction<UpdateDataContractResult, Exception> { handle ->
             val current = readDataContract(handle, objectMapper, template, forUpdate = true)
                 ?: throw TemplateNotFoundException(template.tenantKey, template.key)
@@ -103,7 +104,7 @@ class UpdateDataContractHandler(
                 """,
             )
                 .bind("t", template.tenantKey)
-                .bind("c", template.catalogKey)
+                .bindCatalog("c", template.catalogId)
                 .bind("k", template.key)
                 .bind("dataModel", dataModel?.let(objectMapper::writeValueAsString))
                 .bind("dataExamples", objectMapper.writeValueAsString(examples))

@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.springframework.stereotype.Component
@@ -23,8 +24,8 @@ class InstalledCatalogCheck(
     private val contentBuilder: CatalogContentBuilder,
     private val fingerprintService: CatalogFingerprintService,
 ) {
-    fun requireValid(tenantKey: TenantKey, catalogKey: CatalogKey) {
-        val report = fingerprintService.publishability(contentBuilder.build(tenantKey, catalogKey))
+    fun requireValid(catalog: CatalogId) {
+        val report = fingerprintService.publishability(contentBuilder.build(catalog))
         if (!report.valid) {
             throw CatalogImportValidationException(
                 report.findings.map { CatalogImportValidationFinding(it.code, it.severity, it.path, it.message) },

@@ -4,9 +4,11 @@
 
 package app.epistola.suite.catalog.ready
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.security.currentUserIdOrNull
@@ -26,7 +28,7 @@ import java.util.UUID
 class ReadyMarks {
 
     /** Whether each resource of [catalogKey] is ready, keyed `"type/key"` as catalog content is. */
-    fun readiness(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Map<String, Boolean> = handle
+    fun readiness(handle: Handle, catalog: CatalogId): Map<String, Boolean> = handle
         .createQuery(
             """
             SELECT r.resource_type || '/' || r.resource_key AS address,
@@ -40,8 +42,8 @@ class ReadyMarks {
             GROUP BY 1
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map { rs, _ -> rs.getString("address") to rs.getBoolean("ready") }
         .list()
         .toMap()
@@ -57,7 +59,7 @@ class ReadyMarks {
      * release's side marks it ready, which ends it too. Catalog settings carry no ready marks and are
      * not listed.
      */
-    fun mergedAwaitingReview(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> = handle
+    fun mergedAwaitingReview(handle: Handle, catalog: CatalogId): Set<String> = handle
         .createQuery(
             """
             SELECT merged.address
@@ -79,8 +81,8 @@ class ReadyMarks {
             ), FALSE)
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("merged", app.epistola.suite.catalog.merge.MergeResolution.Content.WIRE)
         .mapTo(String::class.java)
         .set()
@@ -143,15 +145,15 @@ class ReadyMarks {
     }
 
     /** The identity of the resource of [type] at [key] in [catalogKey], or null when there is none. */
-    fun resourceId(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, type: String, key: String): UUID? = handle
+    fun resourceId(handle: Handle, catalog: CatalogId, type: String, key: String): UUID? = handle
         .createQuery(
             """
             SELECT resource_id FROM catalog_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND resource_type = :type AND resource_key = :key
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("type", type)
         .bind("key", key)
         .mapTo(UUID::class.java)

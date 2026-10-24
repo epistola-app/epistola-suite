@@ -32,6 +32,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -49,13 +50,13 @@ class PromotionTest : IntegrationTestBase() {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun catalogId(tenant: TenantKey) = CatalogId(letters, TenantId(tenant))
+    private fun catalogId(tenant: TenantKey) = testCatalog(TenantId(tenant), letters)
 
     private fun brand(tenant: TenantKey) = ThemeId(ThemeKey.of("brand"), catalogId(tenant))
 
     private fun invoice(tenant: TenantKey) = TemplateId(TemplateKey.of("invoice"), catalogId(tenant))
 
-    private fun at(tenant: TenantKey, work: String) = CatalogReleaseRef(tenant, letters, DraftRef.Id(work))
+    private fun at(tenant: TenantKey, work: String) = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(work))
 
     /** `letters` (Brand, Invoice on it) released as 1.0.0, with a draft "Redesign 2027" from it; its id. */
     private fun withWork(name: String, from: String? = null): Pair<TenantKey, String> = withMediator {
@@ -63,17 +64,17 @@ class PromotionTest : IntegrationTestBase() {
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateTheme(brand(tenant), "Brand").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = letters).execute()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters)).execute()
         mediator.releaseNext(catalogId(tenant))
-        tenant to CreateCatalogDraft(tenant, letters, "Redesign 2027", from).execute().versionId
+        tenant to CreateCatalogDraft(testCatalog(tenant, letters), "Redesign 2027", from).execute().versionId
     }
 
     private fun releaseWork(tenant: TenantKey, work: String, version: String? = null, acknowledged: Set<String> = emptySet()) = withMediator {
-        MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, work)).execute()
-        ReleaseCatalogDraft(tenant, letters, version, acknowledgedBehind = acknowledged, catalogVersion = at(tenant, work)).execute()
+        MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = at(tenant, work)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, letters), version, acknowledgedBehind = acknowledged, catalogVersion = at(tenant, work)).execute()
     }
 
-    private fun drafts(tenant: TenantKey) = withMediator { ListCatalogReleases(tenant, letters, CatalogReleaseStatus.DRAFT).query() }
+    private fun drafts(tenant: TenantKey) = withMediator { ListCatalogReleases(testCatalog(tenant, letters), CatalogReleaseStatus.DRAFT).query() }
 
     @Test
     fun `any draft is released, the release keeps its id, and the next version is left as it was`() {
@@ -86,7 +87,7 @@ class PromotionTest : IntegrationTestBase() {
         assertThat(released.version).`as`("a fix against its base").isEqualTo("1.0.1")
         assertThat(released.versionId).isEqualTo(work)
         assertThat(drafts(tenant).map { it.label to it.versionId }).`as`("the draft became the release").containsExactly("Next release" to next.versionId)
-        val byId = withMediator { GetCatalogRelease(tenant, letters, work).query()!! }
+        val byId = withMediator { GetCatalogRelease(testCatalog(tenant, letters), work).query()!! }
         assertThat(byId.version to byId.status).isEqualTo("1.0.1" to CatalogReleaseStatus.RELEASED)
         assertThat(withMediator { GetTheme(brand(tenant)).query()!! }.name).`as`("the next version is untouched").isEqualTo("Brand")
     }
@@ -96,15 +97,15 @@ class PromotionTest : IntegrationTestBase() {
         val (tenant, _) = withWork("older-line")
         withMediator {
             UpdateTheme(brand(tenant), name = "Brand 2").execute()
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenant, letters, "2.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters), "2.0.0").execute()
         }
-        val fix = withMediator { CreateCatalogDraft(tenant, letters, "Fixes 1.0", from = "1.0.0").execute().versionId }
+        val fix = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "Fixes 1.0", from = "1.0.0").execute().versionId }
         withMediator { UpdateDocumentTemplate(invoice(tenant), name = "Invoice, fixed", catalogVersion = at(tenant, fix)).execute() }
 
-        assertThat(withMediator { GetCatalogDraft(tenant, letters, DraftRef.Id(fix), withBehind = true).query()!! }.behind).isEmpty()
+        assertThat(withMediator { GetCatalogDraft(testCatalog(tenant, letters), DraftRef.Id(fix), withBehind = true).query()!! }.behind).isEmpty()
         assertThat(releaseWork(tenant, fix).version).`as`("1.0.1 while 2.0.0 exists").isEqualTo("1.0.1")
-        assertThat(withMediator { GetCatalog(tenant, letters).query()!! }.releasedVersion).`as`("the highest stays the catalog's").isEqualTo("2.0.0")
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.releasedVersion).`as`("the highest stays the catalog's").isEqualTo("2.0.0")
     }
 
     @Test
@@ -123,8 +124,8 @@ class PromotionTest : IntegrationTestBase() {
     }
 
     private fun releaseForEverydayWork(tenant: TenantKey, work: String, keepPreviousAs: String? = null) = withMediator {
-        MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, work)).execute()
-        ReleaseCatalogDraft(tenant, letters, catalogVersion = at(tenant, work), continueEverydayWork = ContinueEverydayWork(keepPreviousAs)).execute()
+        MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = at(tenant, work)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = at(tenant, work), continueEverydayWork = ContinueEverydayWork(keepPreviousAs)).execute()
     }
 
     @Test
@@ -161,6 +162,6 @@ class PromotionTest : IntegrationTestBase() {
         val drafts = drafts(tenant)
         assertThat(drafts.map { it.label to it.isNext }).containsExactlyInAnyOrder("Next release" to true, "Small fixes" to false)
         val kept = drafts.single { !it.isNext }
-        assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = CatalogReleaseRef(tenant, letters, kept.draftRef!!)).query()!! }.name).isEqualTo("Brand, small fix")
+        assertThat(withMediator { GetTheme(brand(tenant), catalogVersion = CatalogReleaseRef(testCatalog(tenant, letters), kept.draftRef!!)).query()!! }.name).isEqualTo("Brand, small fix")
     }
 }

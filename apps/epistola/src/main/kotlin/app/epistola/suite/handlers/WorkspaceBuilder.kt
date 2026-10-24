@@ -5,8 +5,6 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.Catalog
-import app.epistola.suite.catalog.CatalogNames
-import app.epistola.suite.catalog.address
 import app.epistola.suite.catalog.queries.CatalogEditabilities
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
@@ -51,13 +49,9 @@ class WorkspaceBuilder {
         // One read of which catalogs can be changed here, for both lists.
         val editability by lazy { ListCatalogEditability(tenantKey).query() }
         val all by lazy { ListCatalogs(tenantKey).query() }
-        // Keys more than one catalog has (ADR 0034): those link, and are told current, by namespace and key.
-        val shared by lazy { all.groupingBy { it.id }.eachCount().filterValues { it > 1 }.keys }
-        fun link(catalog: Catalog): CatalogLink {
-            val isShared = catalog.id in shared
-            val current = catalog.id == bar?.catalogKey && (!isShared || CatalogNames.current()[catalog.id.value] == catalog.namespace)
-            return catalogLink(tenantKey, catalog, editability, current = current, shared = isShared)
-        }
+
+        // Each catalog by its address (ADR 0034, section 9).
+        fun link(catalog: Catalog): CatalogLink = catalogLink(tenantKey, catalog, editability, current = bar != null && catalog.address == bar.segment.address)
         val recent = if (auth.has(Permission.CATALOG_VIEW)) {
             ListRecentCatalogs(tenantKey).query().map(::link)
         } else {
@@ -84,14 +78,11 @@ class WorkspaceBuilder {
     }
 
     companion object {
-        /**
-         * A catalog for the switcher and the tenant nav, saying whether it can be changed here. One
-         * whose key another catalog [shared] is linked by namespace and key (ADR 0034).
-         */
-        fun catalogLink(tenantKey: TenantKey, catalog: Catalog, editability: CatalogEditabilities, current: Boolean, shared: Boolean = false): CatalogLink {
-            val reason = editability.of(catalog.address)?.reason
-            val segment = CatalogSegment(catalog.id, namespace = catalog.namespace.takeIf { shared })
-            return CatalogLink(catalog.id.value, catalog.name, editability.editable(catalog.address), CatalogPages.browse(TenantId(tenantKey), segment), current, reason?.label)
+        /** A catalog for the switcher and the tenant nav, by its address, saying whether it can be changed here. */
+        fun catalogLink(tenantKey: TenantKey, catalog: Catalog, editability: CatalogEditabilities, current: Boolean): CatalogLink {
+            val reason = editability.of(catalog.catalogId)?.reason
+            val segment = CatalogSegment(catalog.id, namespace = catalog.namespace)
+            return CatalogLink(catalog.id.value, catalog.name, editability.editable(catalog.catalogId), CatalogPages.browse(TenantId(tenantKey), segment), current, reason?.label)
         }
 
         private const val LAST_CATALOG = "epistola.workspace.lastCatalog"
@@ -132,7 +123,7 @@ class WorkspaceBuilder {
                 sections = CatalogNav.sections(bar, path, may, qualityAvailable),
                 versions = versions,
                 statusHref = if (bar.editable && publishedVersion == null) "$tenant/catalogs/${bar.segmentValue}/bar-status" else null,
-                versionsHref = "$tenant/catalogs/${bar.catalogKey.value}/releases",
+                versionsHref = "$tenant/catalogs/${bar.segment.address}/releases",
             )
         }
 

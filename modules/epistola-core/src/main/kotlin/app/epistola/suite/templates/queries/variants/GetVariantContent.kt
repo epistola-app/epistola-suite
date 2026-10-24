@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -47,7 +48,7 @@ class GetVariantContentHandler(
             """,
         )
             .bind("t", query.variantId.tenantKey)
-            .bind("c", query.variantId.catalogKey)
+            .bindCatalog("c", query.variantId.catalogId)
             .bind("k", query.variantId.templateKey)
             .bind("v", query.variantId.key)
             .mapTo(String::class.java)
@@ -88,7 +89,7 @@ class GetVariantContentAtRevisionHandler(
             """,
         )
             .bind("t", query.variantId.tenantKey)
-            .bind("c", query.variantId.catalogKey)
+            .bindCatalog("c", query.variantId.catalogId)
             .bind("k", query.variantId.templateKey)
             .bind("v", query.variantId.key)
             .map { rs, _ -> VariantContentAtRevision(objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java), rs.getLong("revision")) }

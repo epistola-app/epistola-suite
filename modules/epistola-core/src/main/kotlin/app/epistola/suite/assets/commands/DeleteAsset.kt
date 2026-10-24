@@ -51,10 +51,10 @@ class DeleteAssetHandler(
 
     override fun handle(command: DeleteAsset): Boolean {
         // Check catalog editability before proceeding
-        val catalogKey = jdbi.withHandle<CatalogKey, Exception> { handle ->
+        val catalog = jdbi.withHandle<app.epistola.suite.common.ids.CatalogId, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT c.catalog_key FROM assets a
+                SELECT c.catalog_key, c.namespace FROM assets a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
                 WHERE a.tenant_key = :tenantId AND a.id = :assetId
                   AND ${inCurrentVersion("a")}
@@ -62,11 +62,11 @@ class DeleteAssetHandler(
             )
                 .bind("tenantId", command.tenantId)
                 .bind("assetId", command.assetId)
-                .map { rs, _ -> CatalogKey(rs.getString("catalog_key")) }
+                .map { rs, _ -> app.epistola.suite.common.ids.CatalogId(rs.getString("namespace"), CatalogKey(rs.getString("catalog_key")), app.epistola.suite.common.ids.TenantId(command.tenantId)) }
                 .findOne()
                 .orElse(null)
         } ?: return false
-        requireCatalogEditable(command.tenantId, catalogKey)
+        requireCatalogEditable(catalog)
 
         if (!command.force) {
             val usages = FindAssetUsages(command.tenantId, command.assetId).query()

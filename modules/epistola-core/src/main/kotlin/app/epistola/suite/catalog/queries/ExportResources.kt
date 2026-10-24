@@ -12,9 +12,11 @@ import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.catalog.protocol.StencilResource
 import app.epistola.catalog.protocol.ThemeResource
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogsAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -25,6 +27,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -33,10 +36,15 @@ import tools.jackson.databind.ObjectMapper
 
 data class ExportThemes(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val slugs: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<ThemeResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -53,7 +61,7 @@ class ExportThemesHandler(
             if (query.slugs != null) append(" AND id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-        if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
+        if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
         if (query.slugs != null) q.bindList("slugs", query.slugs)
         q.map { rs, _ ->
             ThemeResource(
@@ -74,10 +82,15 @@ class ExportThemesHandler(
 
 data class ExportAttributes(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val slugs: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<AttributeResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -105,7 +118,7 @@ class ExportAttributesHandler(
             if (query.slugs != null) append(" AND a.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-        if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
+        if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
         if (query.slugs != null) q.bindList("slugs", query.slugs)
         q.map { rs, _ ->
             val allowedValues: List<String> = rs.getString("allowed_values")?.let {
@@ -141,10 +154,15 @@ class ExportAttributesHandler(
 
 data class ExportCodeLists(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val slugs: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<CodeListResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -160,7 +178,7 @@ class ExportCodeListsHandler(
         val codeListSql = buildString {
             append(
                 """
-                SELECT c.catalog_key, l.slug, l.display_name, l.description
+                SELECT c.catalog_id::text AS catalog_ref, l.slug, l.display_name, l.description
                 FROM code_lists l
                 JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id
                 WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
@@ -171,10 +189,11 @@ class ExportCodeListsHandler(
             append(" ORDER BY c.catalog_key, l.slug")
         }
         val codeLists = handle.createQuery(codeListSql).bind("tenantKey", query.tenantKey).apply {
-            if (query.catalogKey != null) bind("catalogKey", query.catalogKey)
+            if (query.catalogKey != null) bindCatalog("catalogKey", query.catalog)
             if (query.slugs != null) bindList("slugs", query.slugs)
         }.map { rs, _ ->
-            Triple(rs.getString("catalog_key"), rs.getString("slug"), rs.getString("display_name") to rs.getString("description"))
+            // Each list by its catalog's id: two catalogs may share a key (ADR 0034, section 9).
+            Triple(rs.getString("catalog_ref"), rs.getString("slug"), rs.getString("display_name") to rs.getString("description"))
         }.list()
 
         if (codeLists.isEmpty()) return@withHandle emptyList()
@@ -187,7 +206,7 @@ class ExportCodeListsHandler(
         val wantedKeys = codeLists.map { (cat, slug, _) -> cat to slug }.toSet()
         val entriesByList = handle.createQuery(
             """
-            SELECT list_catalog.catalog_key, lists.slug AS code_list_slug, entries.code, entries.label,
+            SELECT list_catalog.catalog_id::text AS catalog_ref, lists.slug AS code_list_slug, entries.code, entries.label,
                    entries.sort_order, entries.hidden
             FROM code_list_entries entries
             JOIN code_lists lists
@@ -197,16 +216,16 @@ class ExportCodeListsHandler(
               ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
             WHERE entries.tenant_key = :tenantKey
               AND ${inCurrentVersion("lists")}
-              AND list_catalog.catalog_id IN ${catalogsAt("tenantKey", "catalogs")}
+              AND list_catalog.catalog_id::text IN (<catalogs>)
               AND lists.slug IN (<slugs>)
-            ORDER BY list_catalog.catalog_key, lists.slug, entries.sort_order, entries.code
+            ORDER BY list_catalog.catalog_id, lists.slug, entries.sort_order, entries.code
             """,
         )
             .bind("tenantKey", query.tenantKey)
             .bindList("catalogs", codeLists.map { it.first }.distinct())
             .bindList("slugs", codeLists.map { it.second }.distinct())
             .map { rs, _ ->
-                (rs.getString("catalog_key") to rs.getString("code_list_slug")) to CodeListEntryEntry(
+                (rs.getString("catalog_ref") to rs.getString("code_list_slug")) to CodeListEntryEntry(
                     code = rs.getString("code"),
                     label = rs.getString("label"),
                     sortOrder = rs.getInt("sort_order"),
@@ -232,10 +251,15 @@ class ExportCodeListsHandler(
 
 data class ExportStencils(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val slugs: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<StencilResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.STENCIL_VIEW
 }
 
@@ -259,7 +283,7 @@ class ExportStencilsHandler(
             if (query.slugs != null) append(" AND s.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-        if (query.catalogKey != null) q.bind("catalogKey", query.catalogKey)
+        if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
         if (query.slugs != null) q.bindList("slugs", query.slugs)
         q.map { rs, _ ->
             val tags: List<String> = rs.getString("tags")?.let {
@@ -287,10 +311,15 @@ class ExportStencilsHandler(
 
 data class ExportFonts(
     override val tenantKey: TenantKey,
+    val catalog: CatalogId? = null,
     val slugs: List<String>? = null,
-    val catalogKey: CatalogKey? = null,
 ) : Query<List<FontResource>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -305,7 +334,7 @@ class ExportFontsHandler(
         val fontSql = buildString {
             append(
                 """
-                SELECT c.catalog_key, f.slug, f.name, f.kind
+                SELECT c.catalog_id::text AS catalog_ref, c.catalog_key, f.slug, f.name, f.kind
                 FROM fonts f
                 JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
                 WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
@@ -317,10 +346,10 @@ class ExportFontsHandler(
         }
         data class FontRow(val catalogKey: String, val slug: String, val name: String, val kind: String)
         val fonts = handle.createQuery(fontSql).bind("tenantKey", query.tenantKey).apply {
-            if (query.catalogKey != null) bind("catalogKey", query.catalogKey)
+            if (query.catalogKey != null) bindCatalog("catalogKey", query.catalog)
             if (query.slugs != null) bindList("slugs", query.slugs)
         }.map { rs, _ ->
-            FontRow(rs.getString("catalog_key"), rs.getString("slug"), rs.getString("name"), rs.getString("kind"))
+            FontRow(rs.getString("catalog_ref"), rs.getString("slug"), rs.getString("name"), rs.getString("kind"))
         }.list()
 
         if (fonts.isEmpty()) return@withHandle emptyList()
@@ -332,7 +361,7 @@ class ExportFontsHandler(
         val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
         val variantsByFont = handle.createQuery(
             """
-            SELECT family_catalog.catalog_key, family.slug AS font_slug,
+            SELECT family_catalog.catalog_id::text AS catalog_ref, family.slug AS font_slug,
                    faces.weight, faces.italic, binary_asset.id AS asset_key,
                    binary_asset.media_type, faces.content_hash
             FROM font_variants faces
@@ -348,16 +377,16 @@ class ExportFontsHandler(
             WHERE faces.tenant_key = :tenantKey
               AND ${inCurrentVersion("family")}
               AND faces.source = 'ASSET'
-              AND family_catalog.catalog_id IN ${catalogsAt("tenantKey", "catalogs")}
+              AND family_catalog.catalog_id::text IN (<catalogs>)
               AND family.slug IN (<slugs>)
-            ORDER BY family_catalog.catalog_key, family.slug, faces.italic, faces.weight
+            ORDER BY family_catalog.catalog_id, family.slug, faces.italic, faces.weight
             """,
         )
             .bind("tenantKey", query.tenantKey)
             .bindList("catalogs", fonts.map { it.catalogKey }.distinct())
             .bindList("slugs", fonts.map { it.slug }.distinct())
             .map { rs, _ ->
-                (rs.getString("catalog_key") to rs.getString("font_slug")) to FontVariantEntry(
+                (rs.getString("catalog_ref") to rs.getString("font_slug")) to FontVariantEntry(
                     weight = rs.getInt("weight"),
                     italic = rs.getBoolean("italic"),
                     mediaType = rs.getString("media_type"),

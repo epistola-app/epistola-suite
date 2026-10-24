@@ -81,8 +81,18 @@ async function click(element: CatalogOrganise, text: RegExp): Promise<void> {
 const executablePlan = (source: ReturnType<typeof resource>) => ({
   relocations: [
     {
-      source: { type: source.type, catalogKey: source.catalogKey, key: source.key },
-      target: { type: source.type, catalogKey: 'shared', key: source.key },
+      source: {
+        type: source.type,
+        catalogKey: source.catalogKey,
+        catalogAddress: `acme/${source.catalogKey}`,
+        key: source.key,
+      },
+      target: {
+        type: source.type,
+        catalogKey: 'shared',
+        catalogAddress: 'acme/shared',
+        key: source.key,
+      },
       mutableRewriteCount: 0,
       immutableReferenceCount: 0,
     },
@@ -213,7 +223,7 @@ describe('ep-catalog-organise', () => {
     const assign = vi.fn();
     vi.stubGlobal('location', {
       ...window.location,
-      pathname: '/tenants/acme/catalogs/letters/templates/invoice/settings',
+      pathname: '/tenants/acme/catalogs/acme/letters/templates/invoice/settings',
       assign,
     });
     const dialog = document.createElement('dialog');
@@ -231,24 +241,36 @@ describe('ep-catalog-organise', () => {
     await click(element, /^\s*Move 1 resource/);
 
     // No alias is left behind, so reloading the old address would be a 404.
-    expect(assign).toHaveBeenCalledWith('/tenants/acme/catalogs/shared/templates/invoice/settings');
+    expect(assign).toHaveBeenCalledWith(
+      '/tenants/acme/catalogs/acme/shared/templates/invoice/settings',
+    );
   });
 });
 
 describe('pathAfterMove', () => {
   const plan = {
-    source: { type: 'template', catalogKey: 'letters', key: 'invoice' },
-    target: { type: 'template', catalogKey: 'shared', key: 'bill' },
+    source: {
+      type: 'template',
+      catalogKey: 'letters',
+      catalogAddress: 'acme/letters',
+      key: 'invoice',
+    },
+    target: { type: 'template', catalogKey: 'shared', catalogAddress: 'acme/shared', key: 'bill' },
   };
 
-  it('replaces the catalog and key segments, keeping the rest of the path', () => {
-    expect(pathAfterMove('/tenants/acme/catalogs/letters/templates/invoice/settings', plan)).toBe(
-      '/tenants/acme/catalogs/shared/templates/bill/settings',
-    );
+  it('replaces the catalog address and key segments, keeping the rest of the path', () => {
+    expect(
+      pathAfterMove('/tenants/acme/catalogs/acme/letters/templates/invoice/settings', plan),
+    ).toBe('/tenants/acme/catalogs/acme/shared/templates/bill/settings');
+  });
+
+  it('matches only the catalog of the same namespace', () => {
+    const path = '/tenants/acme/catalogs/bureau/letters/templates/invoice/settings';
+    expect(pathAfterMove(path, plan)).toBe(path);
   });
 
   it('matches whole segments only', () => {
-    const path = '/tenants/acme/catalogs/letters/templates/invoice-2/settings';
+    const path = '/tenants/acme/catalogs/acme/letters/templates/invoice-2/settings';
     expect(pathAfterMove(path, plan)).toBe(path);
   });
 });

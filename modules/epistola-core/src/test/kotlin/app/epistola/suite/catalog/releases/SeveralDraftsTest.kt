@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.InstallFromCatalog
@@ -47,6 +48,8 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -81,13 +84,13 @@ class SeveralDraftsTest : IntegrationTestBase() {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun catalogId(tenant: TenantKey) = CatalogId(letters, TenantId(tenant))
+    private fun catalogId(tenant: TenantKey) = testCatalog(TenantId(tenant), letters)
 
     private fun brand(tenant: TenantKey) = ThemeId(ThemeKey.of("brand"), catalogId(tenant))
 
     private fun invoice(tenant: TenantKey) = TemplateId(TemplateKey.of("invoice"), catalogId(tenant))
 
-    private fun at(tenant: TenantKey, draft: DraftRef) = CatalogReleaseRef(tenant, letters, draft)
+    private fun at(tenant: TenantKey, draft: DraftRef) = CatalogReleaseRef(testCatalog(tenant, letters), draft)
 
     private fun next(tenant: TenantKey) = at(tenant, DraftRef.Next)
 
@@ -97,19 +100,19 @@ class SeveralDraftsTest : IntegrationTestBase() {
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateTheme(brand(tenant), "Brand").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = letters).execute()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, letters)).execute()
         mediator.releaseNext(catalogId(tenant))
         tenant
     }
 
     /** Starts a draft called [name], by default a copy of the next version; the ref that names it. */
     private fun work(tenant: TenantKey, name: String, from: String? = DraftRef.NEXT): DraftRef = withMediator {
-        DraftRef.Id(CreateCatalogDraft(tenant, letters, name, from).execute().versionId)
+        DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), name, from).execute().versionId)
     }
 
     private fun themeName(tenant: TenantKey, draft: DraftRef?) = withMediator { GetTheme(brand(tenant), catalogVersion = draft?.let { at(tenant, it) }).query()?.name }
 
-    private fun versions(tenant: TenantKey) = withMediator { ListCatalogReleases(tenant, letters).query() }.map { it.label to it.status }
+    private fun versions(tenant: TenantKey) = withMediator { ListCatalogReleases(testCatalog(tenant, letters)).query() }.map { it.label to it.status }
 
     private fun versionId(tenant: TenantKey, draft: DraftRef): UUID = when (draft) {
         is DraftRef.Id -> jdbi.withHandle<UUID, Exception> { handle ->
@@ -188,8 +191,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
             MarkTemplateReady(invoice(tenant)).execute()
         }
 
-        val next = withMediator { GetCatalogDraft(tenant, letters).query()!! }
-        val created = withMediator { CreateCatalogDraft(tenant, letters, "Redesign", from = DraftRef.NEXT).execute() }
+        val next = withMediator { GetCatalogDraft(testCatalog(tenant, letters)).query()!! }
+        val created = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "Redesign", from = DraftRef.NEXT).execute() }
         val redesign = DraftRef.Id(created.versionId)
 
         assertThat(created.isNext).isFalse()
@@ -206,7 +209,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val tenant = released("drafts-default-from")
         withMediator { UpdateTheme(brand(tenant), name = "Brand, edited").execute() }
 
-        val created = withMediator { CreateCatalogDraft(tenant, letters, "Fixes").execute() }
+        val created = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "Fixes").execute() }
 
         assertThat(created.base).isEqualTo("1.0.0")
         assertThat(created.createdFrom).isNull()
@@ -219,14 +222,14 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val releasedDigests = digests(tenant, DraftRef.Next)
         withMediator { UpdateTheme(brand(tenant), name = "Brand, edited later").execute() }
 
-        val fromRelease = withMediator { CreateCatalogDraft(tenant, letters, "From one", from = "1.0.0").execute() }
+        val fromRelease = withMediator { CreateCatalogDraft(testCatalog(tenant, letters), "From one", from = "1.0.0").execute() }
         val ref = DraftRef.Id(fromRelease.versionId)
 
         assertThat(fromRelease.base).isEqualTo("1.0.0")
         assertThat(fromRelease.createdFrom).isNull()
         assertThat(themeName(tenant, ref)).isEqualTo("Brand")
         // Against its base, a copy of the base has changed nothing.
-        val changes = withMediator { GetCatalogResourceChanges(tenant, letters, catalogVersion = at(tenant, ref)).query() }
+        val changes = withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = at(tenant, ref)).query() }
         assertThat(changes.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
         // The same resources, under the same identities. (Stored rows may differ from the release in
         // what its canonical form leaves out, such as a data example's generated id, so the canonical
@@ -251,9 +254,9 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val subscribed = CatalogKey.of("epistola-demo")
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = subscribed).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, subscribed)).execute()
         }
-        assertThatThrownBy { withMediator { CreateCatalogDraft(tenant, subscribed, "Mine").execute() } }.isInstanceOf(CatalogReadOnlyException::class.java)
+        assertThatThrownBy { withMediator { CreateCatalogDraft(testCatalog(tenant, subscribed), "Mine").execute() } }.isInstanceOf(CatalogReadOnlyException::class.java)
     }
 
     @Test
@@ -262,11 +265,11 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val redesign = work(tenant, "Redesign") as DraftRef.Id
         work(tenant, "Other")
 
-        val renamed = withMediator { RenameCatalogDraft(tenant, letters, redesign, "Redesign 2027").execute() }
+        val renamed = withMediator { RenameCatalogDraft(testCatalog(tenant, letters), redesign, "Redesign 2027").execute() }
 
         assertThat(renamed.name).isEqualTo("Redesign 2027")
-        assertThatThrownBy { withMediator { RenameCatalogDraft(tenant, letters, redesign, "other").execute() } }.isInstanceOf(CatalogDraftNameInUseException::class.java)
-        assertThatThrownBy { withMediator { RenameCatalogDraft(tenant, letters, DraftRef.Next, "Mine").execute() } }.isInstanceOf(CatalogDraftIsNextException::class.java)
+        assertThatThrownBy { withMediator { RenameCatalogDraft(testCatalog(tenant, letters), redesign, "other").execute() } }.isInstanceOf(CatalogDraftNameInUseException::class.java)
+        assertThatThrownBy { withMediator { RenameCatalogDraft(testCatalog(tenant, letters), DraftRef.Next, "Mine").execute() } }.isInstanceOf(CatalogDraftIsNextException::class.java)
     }
 
     @Test
@@ -284,11 +287,11 @@ class SeveralDraftsTest : IntegrationTestBase() {
         assertThat(themeName(tenant, DraftRef.Next)).isEqualTo("Brand")
         assertThat(identityExists(tenant, "theme", "brand")).isTrue()
 
-        withMediator { DeleteCatalogDraft(tenant, letters, redesign).execute() }
+        withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), redesign).execute() }
         assertThat(versions(tenant).map { it.first }).containsExactly(CatalogDraft.NEXT_LABEL, "v1.0.0")
         assertThat(rowsIn(tenant, DraftRef.Next)).isEqualTo(kept)
         assertThat(identityExists(tenant, "template", "invoice")).isTrue()
-        assertThatThrownBy { withMediator { DeleteCatalogDraft(tenant, letters, redesign).execute() } }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
+        assertThatThrownBy { withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), redesign).execute() } }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
 
         // With no draft left holding it, the identity stays while a release does (1.0.0 holds 'brand')...
         withMediator {
@@ -314,14 +317,14 @@ class SeveralDraftsTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant)), "Seasonal").execute()
         }
 
-        withMediator { DeleteCatalogDraft(tenant, letters, DraftRef.Next).execute() }
+        withMediator { DeleteCatalogDraft(testCatalog(tenant, letters), DraftRef.Next).execute() }
 
-        val reopened = withMediator { GetCatalogDraft(tenant, letters).query()!! }
+        val reopened = withMediator { GetCatalogDraft(testCatalog(tenant, letters)).query()!! }
         assertThat(reopened.versionId).`as`("a fresh draft").isNotEqualTo(before)
         assertThat(reopened.base).isEqualTo("1.0.0")
         assertThat(themeName(tenant, null)).isEqualTo("Brand")
         assertThat(withMediator { GetTheme(ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))).query() }).isNull()
-        assertThat(withMediator { GetCatalogResourceChanges(tenant, letters).query() }.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
+        assertThat(withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters)).query() }.resources.map { it.state }).containsOnly(CatalogResourceState.RELEASED)
     }
 
     @Test
@@ -331,37 +334,37 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val nextBefore = versionId(tenant, DraftRef.Next)
         withMediator {
             UpdateTheme(brand(tenant), name = "Brand, fixed").execute()
-            MarkCatalogReady(tenant, letters).execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
         }
 
-        val result = withMediator { ReleaseCatalogDraft(tenant, letters).execute() }
+        val result = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters)).execute() }
 
         assertThat(result.version).`as`("a fix: the next patch").isEqualTo("1.0.1")
         assertThat(result.draftsBehind).containsExactly("Redesign")
         assertThat(versionId(tenant, DraftRef.Next)).`as`("the same draft continues").isEqualTo(nextBefore)
-        assertThat(withMediator { GetCatalogDraft(tenant, letters).query()!! }.base).isEqualTo("1.0.1")
+        assertThat(withMediator { GetCatalogDraft(testCatalog(tenant, letters)).query()!! }.base).isEqualTo("1.0.1")
         assertThat(versions(tenant)).containsExactly(
             CatalogDraft.NEXT_LABEL to CatalogReleaseStatus.DRAFT,
             "Redesign" to CatalogReleaseStatus.DRAFT,
             "v1.0.1" to CatalogReleaseStatus.RELEASED,
             "v1.0.0" to CatalogReleaseStatus.RELEASED,
         )
-        assertThat(withMediator { GetReleasedResource(tenant, letters, "1.0.1", "theme", "brand").query() }?.name).isEqualTo("Brand, fixed")
+        assertThat(withMediator { GetReleasedResource(testCatalog(tenant, letters), "1.0.1", "theme", "brand").query() }?.name).isEqualTo("Brand, fixed")
         assertThat(themeName(tenant, DraftRef.Next)).isEqualTo("Brand, fixed")
         assertThat(themeName(tenant, redesign)).isEqualTo("Brand")
-        assertThat(withMediator { GetCatalog(tenant, letters).query()!! }.releasedVersion).isEqualTo("1.0.1")
+        assertThat(withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }.releasedVersion).isEqualTo("1.0.1")
 
-        val work = withMediator { GetCatalogDraft(tenant, letters, redesign, withBehind = true).query()!! }
+        val work = withMediator { GetCatalogDraft(testCatalog(tenant, letters), redesign, withBehind = true).query()!! }
         assertThat(work.behind.map { it.version }).`as`("its number is 1.0.2 now 1.0.1 is taken").containsExactly("1.0.1")
         assertThat(work.behind.single().changes).containsExactly(ReleasedChange("theme", "brand", "modified", "Brand, fixed"))
-        assertThat(withMediator { GetCatalogDraft(tenant, letters, withBehind = true).query()!! }.behind).`as`("the next version continues on it").isEmpty()
+        assertThat(withMediator { GetCatalogDraft(testCatalog(tenant, letters), withBehind = true).query()!! }.behind).`as`("the next version continues on it").isEmpty()
 
-        withMediator { MarkCatalogReady(tenant, letters, catalogVersion = at(tenant, redesign)).execute() }
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenant, letters, catalogVersion = at(tenant, redesign)).execute() } }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = at(tenant, redesign)).execute() }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), catalogVersion = at(tenant, redesign)).execute() } }
             .`as`("any draft is released, once what it is behind is acknowledged")
             .isInstanceOf(CatalogReleaseBehindException::class.java)
             .hasMessageContaining("1.0.1")
-        val redesigned = withMediator { ReleaseCatalogDraft(tenant, letters, acknowledgedBehind = setOf("1.0.1"), catalogVersion = at(tenant, redesign)).execute() }
+        val redesigned = withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), acknowledgedBehind = setOf("1.0.1"), catalogVersion = at(tenant, redesign)).execute() }
         assertThat(redesigned.version).`as`("the next free fix after its base").isEqualTo("1.0.2")
     }
 
@@ -371,8 +374,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val seasonal = ThemeId(ThemeKey.of("seasonal"), catalogId(tenant))
         withMediator {
             CreateTheme(seasonal, "Seasonal").execute()
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenant, letters).execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, letters)).execute()
             DeleteTheme(seasonal).execute()
         }
         fun released(): UUID = jdbi.withHandle<UUID, Exception> { handle ->
@@ -397,8 +400,8 @@ class SeveralDraftsTest : IntegrationTestBase() {
         lateinit var redesign: DraftRef
         withMediator {
             CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(CatalogKey.of("shared"), TenantId(tenant))), "House").execute()
-            mediator.releaseNext(CatalogId(CatalogKey.of("shared"), TenantId(tenant)))
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), CatalogKey.of("shared"))), "House").execute()
+            mediator.releaseNext(testCatalog(TenantId(tenant), CatalogKey.of("shared")))
         }
         redesign = work(tenant, "Redesign")
         withMediator {
@@ -409,22 +412,22 @@ class SeveralDraftsTest : IntegrationTestBase() {
 
         assertThat(withMediator { GetVariantSummaries(invoice(tenant), catalogVersion = at(tenant, redesign)).query() }.map { it.ready }).containsOnly(true)
         assertThat(withMediator { GetVariantSummaries(invoice(tenant), catalogVersion = next(tenant)).query() }.map { it.ready }).containsOnly(false)
-        assertThat(withMediator { GetCatalogResourceChanges(tenant, letters, catalogVersion = next(tenant)).query() }.notReady.map { it.slug }).containsExactly("invoice")
-        assertThat(withMediator { GetCatalogResourceChanges(tenant, letters, catalogVersion = at(tenant, redesign)).query() }.notReady).isEmpty()
+        assertThat(withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = next(tenant)).query() }.notReady.map { it.slug }).containsExactly("invoice")
+        assertThat(withMediator { GetCatalogResourceChanges(testCatalog(tenant, letters), catalogVersion = at(tenant, redesign)).query() }.notReady).isEmpty()
 
-        val shared = withMediator { GetCatalog(tenant, CatalogKey.of("shared")).query()!! }
+        val shared = withMediator { GetCatalog(testCatalog(tenant, CatalogKey.of("shared"))).query()!! }
         withMediator {
-            UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "1.0.0")), catalogVersion = at(tenant, redesign)).execute()
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(shared.registry, shared.namespace, "shared", "1.0.0")), catalogVersion = at(tenant, redesign)).execute()
         }
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters, catalogVersion = at(tenant, redesign)).query() }.map { it.catalogKey }).containsExactly("shared")
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters, catalogVersion = next(tenant)).query() }).isEmpty()
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters), catalogVersion = at(tenant, redesign)).query() }.map { it.catalogKey }).containsExactly("shared")
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters), catalogVersion = next(tenant)).query() }).isEmpty()
     }
 
     @Test
     fun `a resource cannot be relocated while its catalog has parallel work`() {
         val tenant = released("drafts-relocate")
         withMediator { CreateCatalog(tenant, CatalogKey.of("shared"), "Shared").execute() }
-        val move = listOf(ResourceAddress(CatalogResourceType.THEME, letters.value, "brand").movedTo(CatalogKey.of("shared")))
+        val move = listOf(testAddress(tenant, CatalogResourceType.THEME, letters.value, "brand").movedTo(CatalogKey.of("shared")))
         assertThat(withMediator { PreviewCatalogResourceMove(tenant, move).query() }.blockers.map { it.code }).doesNotContain("several-drafts")
 
         work(tenant, "Redesign")
@@ -438,7 +441,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val redesign = work(tenant, "Redesign")
         val nextId = versionId(tenant, DraftRef.Next)
         val work = versionId(tenant, redesign)
-        fun current(): UUID = jdbi.withHandle<UUID, Exception> { it.createQuery("SELECT ${versionAt("t", "c")}").bind("t", tenant).bind("c", letters).mapTo(UUID::class.java).one() }
+        fun current(): UUID = jdbi.withHandle<UUID, Exception> { it.createQuery("SELECT ${versionAt("t", "c")}").bind("t", tenant).bindCatalog("c", testCatalog(tenant, letters)).mapTo(UUID::class.java).one() }
 
         val seen = TransactionTemplate(transactionManager).execute {
             listOf(current()) + targeting.within(work) { listOf(current()) + targeting.within(nextId) { listOf(current()) } + listOf(current()) } + listOf(current())

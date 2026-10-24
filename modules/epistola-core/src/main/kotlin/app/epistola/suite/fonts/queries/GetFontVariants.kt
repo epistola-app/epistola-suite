@@ -4,6 +4,7 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.FontId
@@ -46,7 +47,7 @@ class GetFontVariantsHandler(
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)
-            .bind("catalogKey", query.fontId.catalogKey)
+            .bindCatalog("catalogKey", query.fontId.catalogId)
             .bind("slug", query.fontId.key)
             .mapTo<FontVariantRow>()
             .list()

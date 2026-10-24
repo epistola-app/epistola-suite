@@ -47,7 +47,7 @@ class UpdateEnvironmentHandler(
         return jdbi.inTransaction<Environment?, Exception> { handle ->
             if (command.production == true) {
                 // Production serves only releases: a draft it serves has to go first.
-                val drafts = DraftDeploymentStore.list(handle, command.id.tenantKey, command.id.key, catalogKey = null)
+                val drafts = DraftDeploymentStore.list(handle, command.id.tenantKey, command.id.key, catalog = null)
                 if (drafts.isNotEmpty()) {
                     throw EnvironmentDeploymentRefusedException(
                         "'${command.id.key.value}' serves work in progress (${drafts.joinToString { "${it.catalogKey.value}: ${it.draftLabel}" }}): " +

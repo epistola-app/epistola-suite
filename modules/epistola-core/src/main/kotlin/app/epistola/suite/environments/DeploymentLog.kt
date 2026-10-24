@@ -4,7 +4,9 @@
 
 package app.epistola.suite.environments
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -57,9 +59,8 @@ data class DeploymentLogEntry(
 internal object DeploymentLog {
     fun record(
         handle: Handle,
-        tenantKey: TenantKey,
         environmentKey: EnvironmentKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         action: DeploymentAction,
         version: String?,
         /** The version a deploy replaced, so the history reads "made v1.1.0 live, replacing v1.0.0". */
@@ -77,17 +78,17 @@ internal object DeploymentLog {
                 (tenant_key, environment_key, catalog_key, registry, namespace, action, version, previous_version, draft_label, version_key, changed_at, changed_by)
             VALUES (
                 :t, :e, :c,
-                (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)),
-                (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)),
+                (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)),
+                (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)),
                 :action, :v, :previous, :draft,
                 COALESCE(CAST(:key AS VARCHAR), (SELECT r.version_key FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v)),
                 clock_timestamp(), :by
             )
             """,
         )
-            .bind("t", tenantKey)
+            .bind("t", catalog.tenantKey)
             .bind("e", environmentKey)
-            .bind("c", catalogKey)
+            .bindCatalog("c", catalog)
             .bind("action", action.name)
             .bind("v", version)
             .bind("previous", previousVersion)

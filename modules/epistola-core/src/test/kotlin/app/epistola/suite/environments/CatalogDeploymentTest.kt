@@ -40,6 +40,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -56,17 +57,17 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     fun `deploying adds a release beside the others, and undeploying removes only that one`() {
         val (tenant, letters, production) = releasedTwice("dep-replace")
 
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
         assertThat(served(tenant, letters.key)).containsExactly(production.key to "1.0.0")
 
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.1").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.1").execute() }
         assertThat(served(tenant, letters.key)).`as`("several releases per environment and catalog, highest first")
             .containsExactly(production.key to "1.0.1", production.key to "1.0.0")
 
-        assertThat(withMediator { UndeployCatalogRelease(production, letters.key, "1.0.1").execute() }).isTrue()
+        assertThat(withMediator { UndeployCatalogRelease(production, letters, "1.0.1").execute() }).isTrue()
         assertThat(served(tenant, letters.key)).containsExactly(production.key to "1.0.0")
-        assertThat(withMediator { UndeployCatalogRelease(production, letters.key, "1.0.1").execute() }).`as`("no longer served").isFalse()
-        assertThat(withMediator { UndeployCatalogRelease(production, letters.key, "1.0.0").execute() }).isTrue()
+        assertThat(withMediator { UndeployCatalogRelease(production, letters, "1.0.1").execute() }).`as`("no longer served").isFalse()
+        assertThat(withMediator { UndeployCatalogRelease(production, letters, "1.0.0").execute() }).isTrue()
         assertThat(served(tenant, letters.key)).isEmpty()
     }
 
@@ -74,12 +75,12 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     fun `undeploying the highest served release moves generation back to the next`() {
         val (tenant, letters, production) = releasedTwice("dep-fallback")
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
         }
         assertThat(generatedRelease(tenant, letters, production)).isEqualTo("1.0.1")
 
-        withMediator { UndeployCatalogRelease(production, letters.key, "1.0.1").execute() }
+        withMediator { UndeployCatalogRelease(production, letters, "1.0.1").execute() }
 
         assertThat(generatedRelease(tenant, letters, production)).isEqualTo("1.0.0")
     }
@@ -88,7 +89,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     fun `a release that does not exist cannot be deployed`() {
         val (_, letters, production) = releasedTwice("dep-retained")
 
-        assertThatThrownBy { withMediator { DeployCatalogRelease(production, letters.key, "9.9.9").execute() } }
+        assertThatThrownBy { withMediator { DeployCatalogRelease(production, letters, "9.9.9").execute() } }
             .isInstanceOf(ReleaseNotDeployableException::class.java)
             .hasMessageContaining("no such release")
     }
@@ -98,23 +99,23 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         val (tenant, letters, _) = releasedTwice("dep-noenv")
 
         assertThatThrownBy {
-            withMediator { DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("nowhere"), TenantId(tenant)), letters.key, "1.0.0").execute() }
+            withMediator { DeployCatalogRelease(EnvironmentId(EnvironmentKey.of("nowhere"), TenantId(tenant)), letters, "1.0.0").execute() }
         }.isInstanceOf(EnvironmentNotFoundException::class.java)
     }
 
     @Test
     fun `a deployed release cannot be deleted, and neither can its catalog`() {
         val (_, letters, production) = releasedTwice("dep-inuse")
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
-        assertThatThrownBy { withMediator { DeleteCatalogRelease(letters.tenantKey, letters.key, "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogRelease(testCatalog(letters.tenantKey, letters.key), "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("deployed to 'production'")
-        assertThatThrownBy { withMediator { DeleteCatalog(letters.tenantKey, letters.key, force = true).execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key), force = true).execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
 
         // The release nobody serves is free to go.
-        assertThat(withMediator { DeleteCatalogRelease(letters.tenantKey, letters.key, "1.0.1").execute() }).isTrue()
+        assertThat(withMediator { DeleteCatalogRelease(testCatalog(letters.tenantKey, letters.key), "1.0.1").execute() }).isTrue()
     }
 
     @Test
@@ -128,22 +129,22 @@ class CatalogDeploymentTest : IntegrationTestBase() {
             declareDependency(tenant, letters.key, on = shared.key)
             val templateId = TemplateId(TemplateKey.of("invoice"), letters)
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared.key).execute()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared.key)).execute()
             UpdateVariantContent(VariantId(VariantKey.INITIAL, templateId), TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
             mediator.publishAndRelease(VariantId(VariantKey.INITIAL, templateId))
         }
 
         // letters@1.0.0 renders with shared@1.0.0, which no environment deploys.
-        assertThatThrownBy { withMediator { DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute() } }
+        assertThatThrownBy { withMediator { DeleteCatalogRelease(testCatalog(tenant, shared.key), "1.0.0").execute() } }
             .isInstanceOf(ReleaseInUseException::class.java)
             .hasMessageContaining("pinned by letters@1.0.0")
 
         // Once letters@1.0.0 is gone, nothing renders from shared@1.0.0 either.
         withMediator {
-            DeleteCatalogRelease(tenant, letters.key, "1.0.0").execute()
-            DeleteCatalogRelease(tenant, shared.key, "1.0.0").execute()
+            DeleteCatalogRelease(testCatalog(tenant, letters.key), "1.0.0").execute()
+            DeleteCatalogRelease(testCatalog(tenant, shared.key), "1.0.0").execute()
         }
-        assertThat(withMediator { ListCatalogReleaseSummaries(tenant, shared.key).query() }.map { it.version }).doesNotContain("1.0.0")
+        assertThat(withMediator { ListCatalogReleaseSummaries(testCatalog(tenant, shared.key)).query() }.map { it.version }).doesNotContain("1.0.0")
     }
 
     @Test
@@ -151,17 +152,17 @@ class CatalogDeploymentTest : IntegrationTestBase() {
         val (_, letters, production) = releasedTwice("dep-history")
 
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
             // Deploying what the environment already serves changes nothing, so it logs nothing.
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            UndeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            UndeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
         }
 
         val history = withMediator { ListDeploymentHistory(production).query() }
-        val catalog = withMediator { GetCatalog(production.tenantKey, letters.key).query()!! }
+        val catalog = withMediator { GetCatalog(testCatalog(production.tenantKey, letters.key)).query()!! }
         assertThat(history).allSatisfy {
             assertThat(it.registry).isEqualTo(catalog.registry)
             assertThat(it.namespace).isEqualTo(catalog.namespace)
@@ -180,9 +181,9 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     fun `the history is limited in the database, keeping the newest`() {
         val (_, letters, production) = releasedTwice("dep-history-limit")
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
-            UndeployCatalogRelease(production, letters.key, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
+            UndeployCatalogRelease(production, letters, "1.0.0").execute()
         }
 
         val newest = withMediator { ListDeploymentHistory(production, limit = 2).query() }
@@ -196,9 +197,9 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     @Test
     fun `undeploying a release the environment does not serve logs nothing`() {
         val (_, letters, production) = releasedTwice("dep-history-noop")
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
-        assertThat(withMediator { UndeployCatalogRelease(production, letters.key, "1.0.1").execute() }).isFalse()
+        assertThat(withMediator { UndeployCatalogRelease(production, letters, "1.0.1").execute() }).isFalse()
 
         assertThat(withMediator { ListDeploymentHistory(production).query() }.map { it.action }).containsExactly(DeploymentAction.DEPLOYED)
     }
@@ -207,7 +208,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     fun `undeploying from an environment that serves nothing logs nothing`() {
         val (_, letters, production) = releasedTwice("dep-history-none")
 
-        withMediator { UndeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { UndeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThat(withMediator { ListDeploymentHistory(production).query() }).isEmpty()
     }
@@ -240,8 +241,7 @@ class CatalogDeploymentTest : IntegrationTestBase() {
 
     private fun generatedRelease(tenant: TenantKey, letters: CatalogId, production: EnvironmentId): String? = withMediator {
         GenerateDocument(
-            tenantId = tenant,
-            catalogKey = letters.key,
+            catalog = testCatalog(tenant, letters.key),
             templateId = TemplateKey.of("invoice"),
             environmentId = production.key,
             data = tools.jackson.databind.node.JsonNodeFactory.instance.objectNode(),
@@ -250,12 +250,12 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     private fun served(tenant: TenantKey, catalog: CatalogKey): List<Pair<EnvironmentKey, String>> = withMediator {
-        ListDeployments(tenant, catalog).query().mapNotNull { d -> d.version?.let { d.environmentKey to it } }
+        ListDeployments(tenant, testCatalog(tenant, catalog)).query().mapNotNull { d -> d.version?.let { d.environmentKey to it } }
     }
 
     private fun catalogIn(tenant: TenantKey, slug: String): CatalogId {
         val key = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant, id = key, name = slug).execute() }
-        return CatalogId(key, TenantId(tenant))
+        return testCatalog(TenantId(tenant), key)
     }
 }

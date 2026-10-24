@@ -34,7 +34,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -132,7 +134,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("JS Import")
         withMediator {
             val results = ImportTemplates(
-                tenantId = TenantId(tenant.id),
+                catalog = testCatalog(TenantId(tenant.id), CatalogKey.DEFAULT),
                 templates = listOf(
                     ImportTemplateInput(
                         slug = TestIdHelpers.nextTemplateId().value,
@@ -146,7 +148,6 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
                         ),
                     ),
                 ),
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
 
             assertThat(results.single().status).isEqualTo(ImportStatus.FAILED)
@@ -162,12 +163,12 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
 
         val exported = withMediator {
             CreateCatalog(tenantKey = source.id, id = catalogKey, name = "JS Zip").execute()
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(catalogKey, TenantId(source.id)))
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(source.id), catalogKey))
             CreateDocumentTemplate(id = templateId, name = "JS Zip Template").execute().withRequiredDataExample()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariantContent(variantId = variantId, templateModel = documentWithCondition("jsonata")).execute()
             MarkVariantReady(variantId).execute()
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(catalogKey, app.epistola.suite.common.ids.TenantId(source.id))).zipBytes
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(source.id), catalogKey)).zipBytes
         }
 
         // A hand-edited archive: the publisher switched the expression to JavaScript.
@@ -185,7 +186,7 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         val result = withMediator { ImportCatalogZip(tenantKey = target.id, zipBytes = rezip(entries)).execute() }
         assertThat(result.aborted).isTrue()
         assertThat(result.results.mapNotNull { it.errorMessage }).anyMatch { it.contains("JavaScript expressions are no longer supported") }
-        assertThat(withMediator { GetCatalog(target.id, catalogKey).query() }).isNull()
+        assertThat(withMediator { GetCatalog(testCatalog(target.id, catalogKey)).query() }).isNull()
     }
 
     @Test

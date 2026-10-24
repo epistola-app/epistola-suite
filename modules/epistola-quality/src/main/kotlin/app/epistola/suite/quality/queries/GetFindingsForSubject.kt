@@ -4,7 +4,9 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -54,12 +56,13 @@ data class SubjectFindings(
  * the caller filters. Ignored ones carry their reason.
  */
 data class GetFindingsForSubject(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val templateKey: TemplateKey,
     val variantKey: String,
 ) : Query<SubjectFindings>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -80,7 +83,7 @@ class GetFindingsForSubjectHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("templateKey", query.templateKey)
             .bind("variantKey", query.variantKey)
             .mapTo(String::class.java)
@@ -120,7 +123,7 @@ class GetFindingsForSubjectHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("templateKey", query.templateKey)
             .bind("variantKey", query.variantKey)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
@@ -146,6 +149,7 @@ internal fun mapFinding(
     subjectType = QualitySubjectType.valueOf(rs.getString("subject_type")),
     ignoreScopeUrn = rs.getString("ignore_scope_urn"),
     catalogKey = CatalogKey.of(rs.getString("catalog_key")),
+    catalogNamespace = rs.getString("catalog_namespace"),
     templateKey = TemplateKey.of(rs.getString("template_key")),
     variantKey = rs.getString("variant_key"),
     versionKey = rs.getObject("version_key")?.let { (it as Number).toInt() },

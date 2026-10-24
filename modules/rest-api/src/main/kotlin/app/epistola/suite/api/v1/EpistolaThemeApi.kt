@@ -59,7 +59,7 @@ class EpistolaThemeApi : ThemesApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
-            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto() }
+            ListThemes(tenantId = TenantId(at.catalog.tenantKey), searchTerm = q, catalog = at.catalogId, catalogVersion = at.ref).query().map { it.toDto() }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             at.releasedResources<ThemeResource>("theme")

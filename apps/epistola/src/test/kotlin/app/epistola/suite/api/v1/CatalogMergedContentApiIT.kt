@@ -30,6 +30,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import com.jayway.jsonpath.JsonPath
@@ -85,19 +86,19 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
     private fun seeded(slug: String): Seeded {
         val (tenantKey, apiKey) = seedTenantAndKey()
         val catalogKey = CatalogKey.of(slug)
-        val theme = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, TenantId(tenantKey)))
+        val theme = ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenantKey), catalogKey))
         withMediator {
             CreateCatalog(tenantKey = tenantKey, id = catalogKey, name = "Merged $slug").execute()
             app.epistola.suite.themes.commands.CreateTheme(id = theme, name = "Th").execute()
-            MarkCatalogReady(tenantKey, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.0.0").execute()
-            val fixRef = CatalogReleaseRef(tenantKey, catalogKey, DraftRef.Id(CreateCatalogDraft(tenantKey, catalogKey, "Fix", "1.0.0").execute().versionId))
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(testCatalog(tenantKey, catalogKey), DraftRef.Id(CreateCatalogDraft(testCatalog(tenantKey, catalogKey), "Fix", "1.0.0").execute().versionId))
             UpdateTheme(theme, name = "Theirs", catalogVersion = fixRef).execute()
-            val letter = TemplateId(TemplateKey.of("letter"), CatalogId(catalogKey, TenantId(tenantKey)))
+            val letter = TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(tenantKey), catalogKey))
             CreateDocumentTemplate(id = letter, name = "Letter", catalogVersion = fixRef).execute()
-            UpdateDocumentTemplate(id = letter, themeId = ThemeKey.of("tha"), themeCatalogKey = catalogKey, catalogVersion = fixRef).execute()
-            MarkCatalogReady(tenantKey, catalogKey, catalogVersion = fixRef).execute()
-            ReleaseCatalogDraft(tenantKey = tenantKey, catalogKey = catalogKey, version = "1.1.0", catalogVersion = fixRef).execute()
+            UpdateDocumentTemplate(id = letter, themeId = ThemeKey.of("tha"), themeCatalog = testCatalog(letter.tenantKey, catalogKey), catalogVersion = fixRef).execute()
+            MarkCatalogReady(testCatalog(tenantKey, catalogKey), catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenantKey, catalogKey), version = "1.1.0", catalogVersion = fixRef).execute()
             UpdateTheme(theme, name = "Ours").execute()
         }
         return Seeded(tenantKey, apiKey, catalogKey, withMediator { CatalogApiPaths.version(tenantKey, slug, "next") })
@@ -192,7 +193,7 @@ class CatalogMergedContentApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<List<String>>(merged.body!!, "$.merged")).containsExactly("theme/tha")
         assertThat(JsonPath.read<List<String>>(merged.body!!, "$.taken")).containsExactly("template/letter")
         assertThat(JsonPath.read<List<String>>(merged.body!!, "$.kept")).isEmpty()
-        val theme = withMediator { GetTheme(ThemeId(ThemeKey.of("tha"), CatalogId(seeded.catalogKey, TenantId(seeded.tenantKey)))).query() }
+        val theme = withMediator { GetTheme(ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(seeded.tenantKey), seeded.catalogKey))).query() }
         assertThat(theme?.name).isEqualTo("Ours and theirs")
     }
 

@@ -25,6 +25,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -44,7 +45,7 @@ class AttributeInUseTest : IntegrationTestBase() {
     private val acme = CatalogKey.of("acme")
     private val brand = AttributeKey.of("brand")
 
-    private fun brandIn(tenantKey: TenantKey) = AttributeId(brand, CatalogId(acme, TenantId(tenantKey)))
+    private fun brandIn(tenantKey: TenantKey) = AttributeId(brand, testCatalog(TenantId(tenantKey), acme))
 
     /** Catalog `acme` defining `brand` (acme, globex), and nothing using it yet. */
     private fun setUp(): TenantKey = withMediator {
@@ -56,7 +57,7 @@ class AttributeInUseTest : IntegrationTestBase() {
 
     /** A template in [catalog] with one variant carrying [attributes]. */
     private fun variantIn(tenantKey: TenantKey, catalog: CatalogKey, attributes: Map<String, String>) = withMediator {
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(catalog, TenantId(tenantKey)))
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenantKey), catalog))
         CreateDocumentTemplate(id = templateId, name = "Uses brand").execute()
         CreateVariant(VariantId(TestIdHelpers.nextVariantId(), templateId), "Branded", null, attributes).execute()
     }
@@ -122,7 +123,7 @@ class AttributeInUseTest : IntegrationTestBase() {
         val tenantKey = setUp()
         variantIn(tenantKey, CatalogKey.DEFAULT, mapOf("acme.brand" to "acme"))
 
-        val conflicts = upgradeAnalyzer.findConflicts(tenantKey, acme, listOf(InstalledResource("attribute", "brand")))
+        val conflicts = upgradeAnalyzer.findConflicts(testCatalog(tenantKey, acme), listOf(InstalledResource("attribute", "brand")))
 
         assertThat(conflicts).anyMatch { it.contains("brand") && it.contains("Uses brand") }
     }

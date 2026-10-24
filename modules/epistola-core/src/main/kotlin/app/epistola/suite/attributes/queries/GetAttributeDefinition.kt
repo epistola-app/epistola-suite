@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.queries
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -36,9 +37,9 @@ class GetAttributeDefinitionHandler(
     override fun handle(query: GetAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key,
+                SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace,
                        a.display_name, a.allowed_values,
-                       cl_cat.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug,
+                       cl_cat.catalog_key AS code_list_catalog_key, cl_cat.namespace AS code_list_catalog_namespace, cl.slug AS code_list_slug,
                        a.created_at, a.updated_at, a.revision
                 FROM variant_attribute_definitions a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
@@ -49,7 +50,7 @@ class GetAttributeDefinitionHandler(
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bind("catalogKey", query.id.catalogKey)
+            .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<VariantAttributeDefinition>()
             .findOne()
             .orElse(null)

@@ -35,6 +35,8 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
@@ -51,18 +53,18 @@ class CatalogDeletionTest : IntegrationTestBase() {
         fun `the default catalog is deleted like any other once nothing uses it`() {
             val tenant = createTenant("Delete Default")
 
-            withMediator { DeleteCatalog(tenant.id, CatalogKey.of("default")).execute() }
+            withMediator { DeleteCatalog(testCatalog(tenant.id, CatalogKey.of("default"))).execute() }
 
-            assertThat(withMediator { GetCatalog(tenant.id, CatalogKey.of("default")).query() }).isNull()
+            assertThat(withMediator { GetCatalog(testCatalog(tenant.id, CatalogKey.of("default"))).query() }).isNull()
         }
 
         @Test
         fun `the system catalog cannot be deleted, not even forced`() {
             val tenant = createTenant("Delete System")
 
-            assertThatThrownBy { withMediator { DeleteCatalog(tenant.id, SYSTEM_CATALOG_KEY, force = true).execute() } }
+            assertThatThrownBy { withMediator { DeleteCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), force = true).execute() } }
                 .hasMessageContaining("The system catalog cannot be deleted")
-            assertThat(withMediator { GetCatalog(tenant.id, SYSTEM_CATALOG_KEY).query() }).isNotNull
+            assertThat(withMediator { GetCatalog(testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query() }).isNotNull
         }
 
         @Test
@@ -73,7 +75,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             withMediator {
                 // Create catalog A with a theme
                 val catalogKeyA = CatalogKey.of("del-cat-a")
-                val catalogIdA = CatalogId(catalogKeyA, tenantId)
+                val catalogIdA = testCatalog(tenantId, catalogKeyA)
                 CreateCatalog(
                     tenantKey = tenant.id,
                     id = catalogKeyA,
@@ -88,7 +90,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
                 // Create catalog B with a template referencing catalog A's theme
                 val catalogKeyB = CatalogKey.of("del-cat-b")
-                val catalogIdB = CatalogId(catalogKeyB, tenantId)
+                val catalogIdB = testCatalog(tenantId, catalogKeyB)
                 CreateCatalog(
                     tenantKey = tenant.id,
                     id = catalogKeyB,
@@ -101,14 +103,13 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeKey,
-                    themeCatalogKey = catalogKeyA,
+                    themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
                 ).execute()
 
                 // Attempt unregister without force — should throw
                 assertThatThrownBy {
                     DeleteCatalog(
-                        tenantKey = tenant.id,
-                        catalogKey = catalogKeyA,
+                        catalog = testCatalog(tenant.id, catalogKeyA),
                         force = false,
                     ).execute()
                 }.isInstanceOf(CatalogInUseException::class.java)
@@ -124,7 +125,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             withMediator {
                 // Create catalog A with a theme
                 val catalogKeyA = CatalogKey.of("force-cat-a")
-                val catalogIdA = CatalogId(catalogKeyA, tenantId)
+                val catalogIdA = testCatalog(tenantId, catalogKeyA)
                 CreateCatalog(
                     tenantKey = tenant.id,
                     id = catalogKeyA,
@@ -139,7 +140,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
 
                 // Create catalog B with a template referencing catalog A's theme
                 val catalogKeyB = CatalogKey.of("force-cat-b")
-                val catalogIdB = CatalogId(catalogKeyB, tenantId)
+                val catalogIdB = testCatalog(tenantId, catalogKeyB)
                 CreateCatalog(
                     tenantKey = tenant.id,
                     id = catalogKeyB,
@@ -152,13 +153,12 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 UpdateDocumentTemplate(
                     id = templateId,
                     themeId = themeKey,
-                    themeCatalogKey = catalogKeyA,
+                    themeCatalog = testCatalog(templateId.tenantKey, catalogKeyA),
                 ).execute()
 
                 // Force unregister — should succeed
                 val deleted = DeleteCatalog(
-                    tenantKey = tenant.id,
-                    catalogKey = catalogKeyA,
+                    catalog = testCatalog(tenant.id, catalogKeyA),
                     force = true,
                 ).execute()
 
@@ -175,7 +175,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             val tenant = createTenant("Del Stencil Block")
             val tenantId = TenantId(tenant.id)
             val catalogKey = CatalogKey.of("stencil-del-cat")
-            val catalogId = CatalogId(catalogKey, tenantId)
+            val catalogId = testCatalog(tenantId, catalogKey)
 
             withMediator {
                 CreateCatalog(
@@ -213,7 +213,7 @@ class CatalogDeletionTest : IntegrationTestBase() {
             val tenant = createTenant("Del Stencil Force")
             val tenantId = TenantId(tenant.id)
             val catalogKey = CatalogKey.of("stencil-force-cat")
-            val catalogId = CatalogId(catalogKey, tenantId)
+            val catalogId = testCatalog(tenantId, catalogKey)
 
             withMediator {
                 CreateCatalog(
@@ -256,13 +256,12 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val tenantId = TenantId(tenant.id)
 
                 val asset = UploadAsset(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     name = "used-logo.png",
                     mediaType = AssetMediaType.PNG,
                     content = createMinimalPng(),
                     width = 1,
                     height = 1,
-                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
 
                 // Create a template that uses the asset
@@ -291,13 +290,12 @@ class CatalogDeletionTest : IntegrationTestBase() {
                 val tenantId = TenantId(tenant.id)
 
                 val asset = UploadAsset(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     name = "force-logo.png",
                     mediaType = AssetMediaType.PNG,
                     content = createMinimalPng(),
                     width = 1,
                     height = 1,
-                    catalogKey = CatalogKey.DEFAULT,
                 ).execute()
 
                 // Create a template that uses the asset

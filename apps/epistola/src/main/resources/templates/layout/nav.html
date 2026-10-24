@@ -79,7 +79,7 @@
                             <th:block th:if="${scope.bar.offerCreateDraft}">
                                 <div class="ws-menu-sep"></div>
                                 <button type="button" class="app-nav-dropdown-item ws-menu-item" role="menuitem" data-testid="ws-start-parallel"
-                                        th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${scope.bar.tenantKey},c=${scope.bar.catalogKey})}"
+                                        th:hx-get="@{/tenants/{t}/catalogs/{c}/drafts/new(t=${scope.bar.tenantKey},c=${scope.bar.segment.address})}"
                                         hx-target="#ws-dialog-mount" hx-swap="innerHTML">
                                     <span class="ws-menu-text">
                                         <span>Start parallel work…</span>

@@ -23,6 +23,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import com.microsoft.playwright.Response
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
@@ -40,15 +41,15 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
     @Test
     fun `the editor opened in parallel work saves the variant into that work`() {
         val tenantKey = TenantKey.of("test-editor-draft-${System.nanoTime()}")
-        val template = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenantKey)))
+        val template = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenantKey), letters))
         val variant = VariantId(VariantKey.INITIAL, template)
         val work = withMediator {
             TestNamespaces.createTenant(tenantKey, "Editor Draft Tenant").execute()
             CreateCatalog(tenantKey = tenantKey, id = letters, name = "Letters").execute()
             CreateDocumentTemplate(template, "Invoice").execute().withRequiredDataExample()
-            MarkCatalogReady(tenantKey, letters).execute()
-            ReleaseCatalogDraft(tenantKey, letters, "1.0.0").execute()
-            requireNotNull(CreateCatalogDraft(tenantKey, letters, "Redesign").execute().versionId)
+            MarkCatalogReady(testCatalog(tenantKey, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenantKey, letters), "1.0.0").execute()
+            requireNotNull(CreateCatalogDraft(testCatalog(tenantKey, letters), "Redesign").execute().versionId)
         }
 
         gotoAndReady("/tenants/$tenantKey/catalogs/letters@$work/templates/invoice/variants/${variant.key}/editor")
@@ -63,9 +64,9 @@ class EditorDraftSaveUiTest : BasePlaywrightTest() {
         ) { page.getByTestId("palette-item-container").click() }
 
         Assertions.assertThat(saved.status()).isEqualTo(200)
-        Assertions.assertThat(saved.url()).contains("/catalogs/letters%40$work/templates/invoice/")
+        Assertions.assertThat(saved.url()).contains("/letters%40$work/templates/invoice/")
         fun containers(draft: DraftRef) = withMediator {
-            GetVariantContent(variant, catalogVersion = CatalogReleaseRef(tenantKey, letters, draft)).query()!!
+            GetVariantContent(variant, catalogVersion = CatalogReleaseRef(testCatalog(tenantKey, letters), draft)).query()!!
         }.nodes.values.count { it.type == "container" }
         Assertions.assertThat(containers(DraftRef.Id(work))).isEqualTo(1)
         Assertions.assertThat(containers(DraftRef.Next)).isZero()

@@ -29,6 +29,7 @@ import app.epistola.suite.storage.DocumentContentStore
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.deployLatestRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -71,7 +72,7 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
         publishTemplate(tenant, letters, textModel())
         withMediator { CreateEnvironment(staging, "Staging").execute() }
 
-        move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
         // Generation renders a release, so the template's new catalog is released after the move,
         // and staging serves that release.
         withMediator {
@@ -95,14 +96,13 @@ class GenerationAfterRelocationTest : RelocationTestSupport() {
         withMediator { mediator.releaseNext(catalogId(tenant, letters)) }
         val queued = withMediator { request(tenant, letters, environment = null) }
 
-        move(tenant, address(CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.TEMPLATE, letters, "invoice").movedTo(shared))
 
         assertGenerates(tenant, queued)
     }
 
     private fun request(tenant: TenantKey, catalog: CatalogKey, environment: EnvironmentKey?) = GenerateDocument(
-        tenantId = tenant,
-        catalogKey = catalog,
+        catalog = testCatalog(tenant, catalog),
         templateId = TemplateKey.of("invoice"),
         variantId = VariantKey.INITIAL,
         environmentId = environment,

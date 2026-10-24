@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.releases.JoinedRelease
 import app.epistola.suite.catalog.releases.ReleasedChange
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -19,7 +20,7 @@ class CatalogBehindViewTest {
 
     private val released = setOf("1.0.0", "1.0.1", "1.1.0", "1.1.1", "1.2.0", "1.2.1")
 
-    private fun view(behind: List<BehindRelease>, line: BehindLine? = null, isNext: Boolean = true) = CatalogBehindView.of(TenantKey.of("acme"), CatalogKey.of("letters"), if (isNext) "Next release" else "Redesign", isNext, behind, line, released)
+    private fun view(behind: List<BehindRelease>, line: BehindLine? = null, isNext: Boolean = true) = CatalogBehindView.of(testCatalog(TenantKey.of("acme"), CatalogKey.of("letters")), if (isNext) "Next release" else "Redesign", isNext, behind, line, released)
 
     private fun changed(vararg names: String) = names.map { ReleasedChange("template", it.lowercase(), "modified", it) }
 
@@ -49,7 +50,7 @@ class CatalogBehindViewTest {
         assertThat(view.several).isTrue()
         assertThat(view.title).isEqualTo("2 releases are not in the next release yet")
         assertThat(view(demoBehind, demo, isNext = false).title).isEqualTo("2 releases are not in this draft yet")
-        assertThat(view.rows.map { it.href }).containsExactly("/tenants/acme/catalogs/letters/releases/1.0.1", "/tenants/acme/catalogs/letters/releases/1.1.1")
+        assertThat(view.rows.map { it.href }).containsExactly("/tenants/acme/catalogs/acme/letters/releases/1.0.1", "/tenants/acme/catalogs/acme/letters/releases/1.1.1")
         assertThat(view.rows.map { it.madeOn }).containsExactly("made on v1.0.0", "made on v1.1.0")
     }
 

@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.queries
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.findCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.config.findByTenantAndId
 import app.epistola.suite.mediator.Query
@@ -17,10 +18,11 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 data class GetCatalog(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<Catalog?>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -30,6 +32,6 @@ class GetCatalogHandler(
 ) : QueryHandler<GetCatalog, Catalog?> {
 
     override fun handle(query: GetCatalog): Catalog? = jdbi.withHandle<Catalog?, Exception> { handle ->
-        handle.findCatalog(query.tenantKey, query.catalogKey)
+        handle.findCatalog(query.catalog)
     }
 }

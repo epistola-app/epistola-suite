@@ -13,6 +13,7 @@ import app.epistola.suite.exchange.GetExchangeCatalogDetail
 import app.epistola.suite.exchange.InstallExchangeCatalog
 import app.epistola.suite.exchange.SearchExchangeCatalogs
 import app.epistola.suite.exchange.UpgradeExchangeCatalog
+import app.epistola.suite.htmx.catalog
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.tenantId
@@ -99,7 +100,7 @@ class ExchangeCatalogHandler {
                 // *else* counts: re-opening this dialog for a catalog already installed from these
                 // same coordinates is a re-install or an upgrade, not a collision.
                 "localCatalogId" to catalogKey,
-                "existing" to GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query()
+                "existing" to GetCatalog(app.epistola.suite.common.ids.CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))).query()
                     ?.takeIf { it.sourceUrl != ExchangeSourceUri.of(namespace, catalogKey) },
                 "canInstall" to canInstall(tenantKey),
             ),
@@ -161,8 +162,8 @@ class ExchangeCatalogHandler {
     fun upgradeDialog(request: ServerRequest): ServerResponse {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_VIEW)
-        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
-        val catalog = GetCatalog(tenantKey, catalogKey).query()
+        val catalogId = request.catalog(tenantKey)
+        val catalog = GetCatalog(catalogId).query()
         val coordinates = ExchangeSourceUri.parse(catalog?.sourceUrl)
             ?: return installError(request, "This catalog was not installed from Epistola Exchange.")
         val detail = GetExchangeCatalogDetail(tenantKey, coordinates.namespace, coordinates.catalogKey).query()
@@ -174,7 +175,7 @@ class ExchangeCatalogHandler {
             "upgrade-dialog",
             mapOf(
                 "tenantId" to tenantKey,
-                "catalogId" to catalogKey.value,
+                "catalogId" to catalogId.address,
                 "catalog" to catalog,
                 // The catalog's highest release, received or released here, as the catalog list shows it.
                 "highestRelease" to catalog?.highestReleaseVersion,
@@ -187,11 +188,12 @@ class ExchangeCatalogHandler {
     fun upgrade(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         requireInstallPermissions(tenantId.key)
-        val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
+        val catalog = request.catalog(tenantId)
+        val catalogKey = catalog.key
         val version = request.param("version").orElse(null)?.ifBlank { null }
 
         return try {
-            val result = UpgradeExchangeCatalog(tenantId.key, catalogKey, version).execute()
+            val result = UpgradeExchangeCatalog(catalog, version).execute()
             if (result.aborted) {
                 val failed = result.imported.results.filter { it.status == InstallStatus.FAILED }
                 val names = failed.take(FAILED_RESOURCES_SHOWN).joinToString(", ") { "${it.type}/${it.slug}" }

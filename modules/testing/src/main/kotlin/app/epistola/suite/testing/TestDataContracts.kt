@@ -31,7 +31,7 @@ fun DocumentTemplate.withRequiredDataExample(): DocumentTemplate = apply {
     ensureRequiredDataExample(
         TemplateId(
             id,
-            CatalogId(catalogKey, TenantId(tenantKey)),
+            catalogId,
         ),
     )
 }

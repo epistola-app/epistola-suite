@@ -20,6 +20,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument

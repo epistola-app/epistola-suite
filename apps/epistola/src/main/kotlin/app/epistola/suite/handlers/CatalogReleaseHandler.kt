@@ -51,7 +51,7 @@ class CatalogReleaseHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val error = try {
-            MarkCatalogReady(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
+            MarkCatalogReady(segment.catalogIn(tenantId.key), catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message
@@ -65,7 +65,7 @@ class CatalogReleaseHandler {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.TEMPLATE_EDIT)
         val segment = request.catalogSegment()
-        val rows = ListCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        val rows = ListCatalogDependencies(segment.catalogIn(tenantId.key), catalogVersion = segment.ref(tenantId.key)).query()
             .map { DependencyRowView("${it.registry}~${it.namespace}/${it.catalogKey}", it.releaseVersion.orEmpty()) }
         return request.htmx {
             fragment("catalogs/next-release", "dependencies-dialog") {
@@ -109,7 +109,7 @@ class CatalogReleaseHandler {
         }
 
         try {
-            UpdateCatalogDependencies(tenantId.key, segment.key, dependencies, catalogVersion = segment.ref(tenantId.key)).execute()
+            UpdateCatalogDependencies(segment.catalogIn(tenantId.key), dependencies, catalogVersion = segment.ref(tenantId.key)).execute()
         } catch (e: ValidationException) {
             // `dependencies[i]…` names the i-th declaration; show it on the row it came from.
             val declarationIndex = Regex("""^dependencies\[(\d+)]""").find(e.field)?.groupValues?.get(1)?.toIntOrNull()
@@ -137,7 +137,7 @@ class CatalogReleaseHandler {
         val tenantId = request.tenantId()
         val segment = request.catalogSegment()
         val error = try {
-            UpgradeCatalogDependencies(tenantId.key, segment.key, catalogVersion = segment.ref(tenantId.key)).execute()
+            UpgradeCatalogDependencies(segment.catalogIn(tenantId.key), catalogVersion = segment.ref(tenantId.key)).execute()
             null
         } catch (e: ValidationException) {
             e.message
@@ -156,7 +156,7 @@ class CatalogReleaseHandler {
         val segment = request.catalogSegment()
         val aliases = request.params()["alias"].orEmpty().map { it.trim() }.filter { it.isNotEmpty() }
         try {
-            RemoveUnusedCatalogDependencies(tenantId.key, segment.key, aliases, catalogVersion = segment.ref(tenantId.key)).execute()
+            RemoveUnusedCatalogDependencies(segment.catalogIn(tenantId.key), aliases, catalogVersion = segment.ref(tenantId.key)).execute()
         } catch (e: ValidationException) {
             return nextRelease(request, tenantId, segment, e.message)
         }
@@ -174,11 +174,11 @@ class CatalogReleaseHandler {
         val key = rest.substringAfter('/', "").ifEmpty { return null }
         row.version.takeIf { it.isNotEmpty() }?.let { return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = it) }
         // No release named: its highest, or its next version while it has none (contract ADR 0002).
-        val target = runCatching { CatalogKey.of(key) }.getOrNull()?.let { GetCatalog(tenantId.key, it).query() } ?: return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = "")
+        val target = runCatching { CatalogKey.of(key) }.getOrNull()?.let { GetCatalog(app.epistola.suite.common.ids.CatalogId(namespace, it, tenantId)).query() } ?: return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = "")
         // Released here or received, whichever is higher (ADR 0032).
         val highest = target.highestReleaseVersion
         if (highest != null) return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = highest)
-        val next = GetCatalogDraft(tenantId.key, target.id).query()
+        val next = GetCatalogDraft(target.catalogId).query()
         return DeclaredCatalogDependency(registry, namespace, key, releaseVersion = if (next == null) "" else null, versionId = next?.versionId)
     }
 

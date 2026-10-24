@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -101,7 +102,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
             val tenantId = TenantId(testTenant.id)
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
             val acme = fonts.single { it.slug.value == "acme-sans" }
             assertThat(acme.name).isEqualTo("Acme Sans")
             assertThat(acme.kind.wire).isEqualTo("sans")
@@ -209,7 +210,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
             val tenantId = TenantId(testTenant.id)
             val fonts = withMediator {
-                ListFonts(tenantId = tenantId, catalogKey = CatalogKey.of("system")).query()
+                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.of("system"))).query()
             }
             assertThat(fonts.map { it.slug.value }).doesNotContain("rogue-sans")
         }
@@ -303,7 +304,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
             val tenantId = TenantId(testTenant.id)
             // No font family created …
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
             assertThat(fonts).isEmpty()
             // … and — the fix — the first (valid) face's asset was NOT persisted.
             val assetNames = withMediator { ListAssets(tenantId = testTenant.id).query() }.map { it.name }
@@ -340,11 +341,11 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
 
         then {
             val tenantId = TenantId(testTenant.id)
-            val fonts = withMediator { ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query() }
+            val fonts = withMediator { ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query() }
             assertThat(fonts.map { it.slug.value }).doesNotContain("temp-sans")
             // FontId is unused-import-safe: assert it stays gone via query.
             val gone = withMediator {
-                ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query()
+                ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query()
                     .none { it.slug == FontKey.of("temp-sans") }
             }
             assertThat(gone).isTrue()

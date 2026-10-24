@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.commands
 import app.epistola.catalog.protocol.FontVariantEntry
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
@@ -34,16 +35,14 @@ internal fun faceMediaType(contentUrl: String): String = when (contentUrl.substr
  * the same catalog reuses the row instead of leaving a new one behind on every upgrade.
  */
 internal fun materialiseFontFace(
-    tenantId: TenantId,
-    catalogKey: CatalogKey,
+    catalog: CatalogId,
     fontSlug: String,
     face: FontVariantEntry,
     bytes: ByteArray,
 ): AssetKey {
     val key = AssetKey.of(face.contentHash.take(FACE_ASSET_KEY_LENGTH))
     ImportAsset(
-        tenantId = tenantId,
-        catalogKey = catalogKey,
+        catalog = catalog,
         id = key,
         name = "$fontSlug ${face.weight}${if (face.italic) " italic" else ""}",
         mediaType = AssetMediaType.fromMimeType(face.mediaType),

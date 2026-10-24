@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
@@ -24,7 +25,9 @@ import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.deployLatestRelease
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -75,8 +78,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             val defaultVariantId = app.epistola.suite.common.ids.VariantKey.INITIAL
             val pdfBytes = withMediator {
                 PreviewVariant(
-                    tenantId = tenant.id,
-                    catalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+                    catalog = testCatalog(tenant.id, app.epistola.suite.common.ids.CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = defaultVariantId,
                     data = emptyData(),
@@ -105,8 +107,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 query(
                     PreviewVariant(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -141,8 +142,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 query(
                     PreviewVariant(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -171,8 +171,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val liveModel = TestTemplateBuilder.buildMinimal(name = "Live Preview Model")
                 query(
                     PreviewVariant(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -206,8 +205,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewVariant(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -244,7 +242,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                         """,
                     )
                         .bind("tenantKey", setup.tenant.id)
-                        .bind("catalogKey", CatalogKey.DEFAULT)
+                        .bindCatalog("catalogKey", testCatalog(setup.tenant.id, CatalogKey.DEFAULT))
                         .bind("templateKey", setup.template.id)
                         .bind("variantKey", setup.variant.id)
                         .execute()
@@ -254,8 +252,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewVariant(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -275,8 +272,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     mediator.query(
                         PreviewVariant(
-                            tenantId = tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                             templateId = app.epistola.suite.common.ids.TemplateKey.of("nonexistent"),
                             variantId = app.epistola.suite.common.ids.VariantKey.of("nonexistent"),
                             data = emptyData(),
@@ -321,8 +317,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewVariant(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -370,8 +365,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 // but its schema default fills the gap before validation runs.
                 val pdf = query(
                     PreviewVariant(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -430,8 +424,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewVariant(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = multiParagraphDoc,
@@ -537,8 +530,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 )
                 query(
                     PreviewVariant(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = data,
@@ -573,8 +565,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
             }.whenever { setup ->
                 query(
                     PreviewDocument(
-                        tenantId = setup.tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                         templateId = setup.template.id,
                         variantId = setup.variant.id,
                         data = emptyData(),
@@ -604,8 +595,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewDocument(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             releaseVersion = "9.9.9",
@@ -639,8 +629,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val error = assertThrows<NoReleaseDeployedException> {
                     query(
                         PreviewDocument(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             environmentId = production,
@@ -692,8 +681,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     query(
                         PreviewVariant(
-                            tenantId = setup.tenant.id,
-                            catalogKey = CatalogKey.DEFAULT,
+                            catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                             templateId = setup.template.id,
                             variantId = setup.variant.id,
                             data = emptyData(),
@@ -738,8 +726,7 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                     val error = assertThrows<TemplateDataInvalidException> {
                         query(
                             PreviewDocument(
-                                tenantId = setup.tenant.id,
-                                catalogKey = CatalogKey.DEFAULT,
+                                catalog = testCatalog(setup.tenant.id, CatalogKey.DEFAULT),
                                 templateId = setup.template.id,
                                 variantId = setup.variant.id,
                                 environmentId = environmentKey,

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -49,7 +50,7 @@ class ListVariantsHandler(
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
-            .bind("catalogKey", query.templateId.catalogKey)
+            .bindCatalog("catalogKey", query.templateId.catalogId)
             .mapTo<TemplateVariant>()
             .list()
     }

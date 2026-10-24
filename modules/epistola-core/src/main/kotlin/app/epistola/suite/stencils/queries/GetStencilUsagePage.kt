@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -54,7 +55,7 @@ data class GetStencilUsagePage(
 
 private val USAGE_CTE = """
     WITH usage AS (
-        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, dt.name AS template_name,
+        SELECT dt.id AS template_key, c.catalog_key AS catalog_key, c.namespace AS namespace, dt.name AS template_name,
                COALESCE(c.source_url LIKE 'classpath:%', FALSE) AS supplied,
                tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
@@ -66,7 +67,7 @@ private val USAGE_CTE = """
         WHERE tv.tenant_key = :tenantId
           AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
-        GROUP BY dt.id, c.catalog_key, c.source_url, dt.name, tv.id, tv.template_model::text, dt.data_model::text
+        GROUP BY dt.id, c.catalog_key, c.namespace, c.source_url, dt.name, tv.id, tv.template_model::text, dt.data_model::text
     )
 """
 
@@ -75,17 +76,19 @@ class GetStencilUsagePageHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val stencilResolvers: StencilResolvers,
+    private val dependencyViews: app.epistola.suite.catalog.dependencies.DraftDependencyViews,
 ) : QueryHandler<GetStencilUsagePage, StencilUsagePage> {
     override fun handle(query: GetStencilUsagePage): StencilUsagePage = jdbi.withHandle<StencilUsagePage, Exception> { handle ->
         val total = handle.createQuery("$USAGE_CTE SELECT COUNT(*) FROM usage")
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
-            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
+            .bindCatalog(StencilReferences.CATALOG_PARAM, query.stencilId.catalogId)
             .mapTo(Int::class.java)
             .one()
         val totalPages = if (total == 0) 1 else (total + query.pageSize - 1) / query.pageSize
         val current = query.page.coerceIn(1, totalPages)
-        val resolver = stencilResolvers.workingCopies(query.stencilId.tenantKey)
+        // Each template's instances resolve from its own catalog's declarations (ADR 0034, section 9).
+        val resolvers = mutableMapOf<app.epistola.suite.common.ids.CatalogId, StencilInstances.Resolver>()
 
         val items = handle.createQuery(
             """
@@ -93,25 +96,28 @@ class GetStencilUsagePageHandler(
             SELECT * FROM usage
             -- Uses in catalogs that can be changed here first: a catalog Epistola supplies cannot
             -- (ADR 0032), and the installation's switch holds for every catalog alike.
-            ORDER BY supplied, catalog_key, template_name, variant_key
+            ORDER BY supplied, catalog_key, namespace, template_name, variant_key
             LIMIT :limit OFFSET :offset
             """,
         )
             .bind("tenantId", query.stencilId.tenantKey)
             .bind(StencilReferences.KEY_PARAM, query.stencilId.key.value)
-            .bind(StencilReferences.CATALOG_PARAM, query.stencilId.catalogKey.value)
+            .bindCatalog(StencilReferences.CATALOG_PARAM, query.stencilId.catalogId)
             .bind("limit", query.pageSize)
             .bind("offset", (current - 1) * query.pageSize)
             .map { rs, _ ->
                 val catalogKey = rs.getString("catalog_key")
+                val templateCatalog = app.epistola.suite.common.ids.CatalogId(rs.getString("namespace"), CatalogKey.of(catalogKey), query.stencilId.catalogId.tenantId)
+                val resolver = resolvers.getOrPut(templateCatalog) { stencilResolvers.workingCopies(dependencyViews.of(templateCatalog)) }
                 val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)
                 val dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
-                val problems = StencilInstances.expand(document, catalogKey, resolver, dataModel).findings
-                    .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey == query.stencilId.catalogKey.value && it.blocking }
+                val problems = StencilInstances.expand(document, templateCatalog.address, resolver, dataModel).findings
+                    .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey in setOf(query.stencilId.catalogKey.value, query.stencilId.catalogId.address) && it.blocking }
                     .map { it.describe() }
                 StencilUsageDetail(
                     templateId = TemplateKey.of(rs.getString("template_key")),
                     catalogKey = CatalogKey.of(catalogKey),
+                    namespace = rs.getString("namespace"),
                     templateName = rs.getString("template_name"),
                     variantId = VariantKey.of(rs.getString("variant_key")),
                     instanceCount = rs.getInt("instance_count"),

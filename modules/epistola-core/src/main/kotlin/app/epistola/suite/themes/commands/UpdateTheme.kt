@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -86,12 +87,12 @@ class UpdateThemeHandler(
     override fun handle(command: UpdateTheme): Theme? {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        saved?.let { usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, it.crossCatalogRefs(objectMapper)) }
+        saved?.let { usedCatalogs.declare(command.id.catalogId, it.crossCatalogRefs(objectMapper)) }
         return saved
     }
 
     private fun save(command: UpdateTheme): Theme? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         val updates = mutableListOf<String>()
         val bindings = mutableMapOf<String, Any?>()
@@ -158,14 +159,14 @@ class UpdateThemeHandler(
               AND tenant_key = :tenantId
               AND version_id = ${versionAt("tenantId", "catalogKey")}
               AND ${Revisions.MATCHES}
-            RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
+            RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS namespace
         """
 
         return jdbi.withHandle<Theme?, Exception> { handle ->
             val query = handle.createQuery(sql)
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
             query.bind("expectedRevision", command.expectedRevision)
@@ -174,7 +175,7 @@ class UpdateThemeHandler(
                 .findOne()
                 .orElse(null)
                 ?: null.also {
-                    Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("themes", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                    Revisions.refuse("Theme '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("themes", "id", command.id.catalogId, command.id.key))
                 }
         }
     }
@@ -182,7 +183,7 @@ class UpdateThemeHandler(
     private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT t.*, cat.catalog_key AS catalog_key
+            SELECT t.*, cat.catalog_key AS catalog_key, cat.namespace AS namespace
             FROM themes t
             JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
             WHERE t.id = :id
@@ -192,7 +193,7 @@ class UpdateThemeHandler(
         )
             .bind("id", id.key)
             .bind("tenantId", id.tenantKey)
-            .bind("catalogKey", id.catalogKey)
+            .bindCatalog("catalogKey", id.catalogId)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)

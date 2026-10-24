@@ -64,7 +64,7 @@ class EpistolaFontApi : FontsApi {
             val slice = Pagination.pageOfRelease(at.releasedResources<FontResource>("font"), page, size)
             return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toReleasedDto(at) }, page = slice.page))
         }
-        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
+        val fonts = ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query()
         val slice = Pagination.paginate(fonts, page, size)
         return ResponseEntity.ok(FontListResponse(items = slice.items.map { it.toDto(at) }, page = slice.page))
     }
@@ -80,7 +80,7 @@ class EpistolaFontApi : FontsApi {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = FontKey.of(fontKey)
         val font = if (at.isDraft) {
-            ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query()
+            ListFonts(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query()
                 .firstOrNull { it.slug == key }
                 ?.toDto(at)
         } else {

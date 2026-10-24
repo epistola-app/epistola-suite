@@ -39,6 +39,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -55,7 +56,7 @@ class MergeContentKindsTest : IntegrationTestBase() {
 
     @Autowired private lateinit var contentBuilder: CatalogContentBuilder
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     /** A and the catalog, with B's 2.0.0 received beside A's releases; [inB] is what B changes, [inA] what A does. */
     private fun received(name: String, inB: (TenantKey, CatalogKey) -> Unit, inA: (TenantKey, CatalogKey) -> Unit = { _, _ -> }): Pair<TenantKey, CatalogKey> {
@@ -65,16 +66,16 @@ class MergeContentKindsTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
             listOf("tha", "thb").forEach { CreateTheme(id = theme(a, catalog, it), name = "base $it").execute() }
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             // The two installations of one organisation hold the catalog's namespace both.
             TestNamespaces.share(a, b).execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
 
             inB(b, catalog)
-            MarkCatalogReady(b, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
-            val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
+            MarkCatalogReady(testCatalog(b, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0").execute()
+            val v2 = ExportCatalogZip(testCatalog(b, catalog), "2.0.0").execute().zipBytes
 
             // A change of A's own, so 2.0.0 is received beside its releases rather than moved to.
             UpdateTheme(theme(a, catalog, "tha"), name = "A's a").execute()
@@ -87,28 +88,28 @@ class MergeContentKindsTest : IntegrationTestBase() {
     @Test
     fun `an image, a font with its faces, a code list and its attribute are taken with their content`() {
         val (a, catalog) = received("Merge Kinds", inB = { b, catalog ->
-            val id = CatalogId(catalog, TenantId(b))
-            UploadAsset(b, "Mark", AssetMediaType.PNG, PNG, 1, 1, catalog).execute()
-            val face = UploadAsset(b, "Sans Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null, catalogKey = catalog).execute().id
-            ImportFont(TenantId(b), catalog, "house-sans", "House Sans", FontKind.SANS.wire, listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face))).execute()
+            val id = testCatalog(TenantId(b), catalog)
+            UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1).execute()
+            val face = UploadAsset(testCatalog(b, catalog), "Sans Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null).execute().id
+            ImportFont(testCatalog(TenantId(b), catalog), "house-sans", "House Sans", FontKind.SANS.wire, listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face))).execute()
             CreateCodeList(CodeListId(CodeListKey.of("regions"), id), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), id), "Region", codeListId = CodeListId(CodeListKey.of("regions"), id)).execute()
         })
         withMediator {
-            val preview = PreviewDraftMerge(a, catalog, "2.0.0").query()
+            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
             val added = preview.taken.map { it.contentKey }
             assertThat(added).contains("font/house-sans", "codeList/regions", "attribute/region")
             assertThat(added.filter { it.startsWith("image/") }).`as`("the image, and the font's face").hasSizeGreaterThanOrEqualTo(1)
 
-            val merged = MergeReleaseIntoDraft(a, catalog, "2.0.0", expectedToken = preview.token).execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", expectedToken = preview.token).execute()
 
             assertThat(merged.taken).containsExactlyInAnyOrderElementsOf(added)
-            val content = contentBuilder.build(a, catalog)
+            val content = contentBuilder.build(testCatalog(a, catalog))
             assertThat(content.resourceDetails.keys).containsAll(added)
             assertThat(content.assetContents.values).`as`("the bytes came along").anyMatch { it.contentEquals(PNG) }.anyMatch { it.contentEquals(TTF) }
             assertThat((content.resourceDetails.getValue("codeList/regions").resource as CodeListResource).entries.map { it.code }).containsExactly("eu")
             assertThat((content.resourceDetails.getValue("attribute/region").resource as AttributeResource).codeListBinding?.key).isEqualTo("regions")
-            assertThat(PreviewDraftMerge(a, catalog, "2.0.0").query().resources.filter { it.contentKey in added }.map { it.outcome })
+            assertThat(PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query().resources.filter { it.contentKey in added }.map { it.outcome })
                 .`as`("each holds exactly what the release has")
                 .containsOnly(MergeOutcome.UNCHANGED)
         }
@@ -117,18 +118,18 @@ class MergeContentKindsTest : IntegrationTestBase() {
     @Test
     fun `a default theme only the release changed is taken`() {
         val (a, catalog) = received("Merge Default Theme", inB = { b, catalog ->
-            SetCatalogDefaultTheme(b, catalog, CatalogDefaultTheme(ThemeKey.of("thb"), catalog)).execute()
+            SetCatalogDefaultTheme(testCatalog(b, catalog), CatalogDefaultTheme(ThemeKey.of("thb"), testCatalog(b, catalog))).execute()
         })
         withMediator {
-            val preview = PreviewDraftMerge(a, catalog, "2.0.0").query()
+            val preview = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query()
             assertThat(preview.resources.first { it.contentKey == "catalog/defaultTheme" }.let { it.outcome to it.name })
                 .isEqualTo(MergeOutcome.THEIRS to "Default theme")
 
-            val merged = MergeReleaseIntoDraft(a, catalog, "2.0.0").execute()
+            val merged = MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0").execute()
 
             assertThat(merged.taken).contains("catalog/defaultTheme")
-            assertThat(GetCatalogThemeSettings(a, catalog).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("thb"), catalog))
-            assertThat(contentBuilder.build(a, catalog).resourceDetails.getValue("theme/tha").resource.name).`as`("ours, untouched").isEqualTo("A's a")
+            assertThat(GetCatalogThemeSettings(testCatalog(a, catalog)).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("thb"), testCatalog(a, catalog)))
+            assertThat(contentBuilder.build(testCatalog(a, catalog)).resourceDetails.getValue("theme/tha").resource.name).`as`("ours, untouched").isEqualTo("A's a")
         }
     }
 
@@ -136,16 +137,16 @@ class MergeContentKindsTest : IntegrationTestBase() {
     fun `a default theme both changed is a conflict, resolved like a resource`() {
         val (a, catalog) = received(
             "Merge Theme Conflict",
-            inB = { b, catalog -> SetCatalogDefaultTheme(b, catalog, CatalogDefaultTheme(ThemeKey.of("thb"), catalog)).execute() },
-            inA = { a, catalog -> SetCatalogDefaultTheme(a, catalog, CatalogDefaultTheme(ThemeKey.of("tha"), catalog)).execute() },
+            inB = { b, catalog -> SetCatalogDefaultTheme(testCatalog(b, catalog), CatalogDefaultTheme(ThemeKey.of("thb"), testCatalog(b, catalog))).execute() },
+            inA = { a, catalog -> SetCatalogDefaultTheme(testCatalog(a, catalog), CatalogDefaultTheme(ThemeKey.of("tha"), testCatalog(a, catalog))).execute() },
         )
         withMediator {
-            val conflict = PreviewDraftMerge(a, catalog, "2.0.0").query().conflicts.single()
+            val conflict = PreviewDraftMerge(testCatalog(a, catalog), "2.0.0").query().conflicts.single()
             assertThat(conflict.contentKey to (conflict.ours to conflict.theirs)).isEqualTo("catalog/defaultTheme" to (MergeChange.MODIFIED to MergeChange.MODIFIED))
 
-            MergeReleaseIntoDraft(a, catalog, "2.0.0", resolutions = mapOf("catalog/defaultTheme" to MergeResolution.Ours)).execute()
+            MergeReleaseIntoDraft(testCatalog(a, catalog), "2.0.0", resolutions = mapOf("catalog/defaultTheme" to MergeResolution.Ours)).execute()
 
-            assertThat(GetCatalogThemeSettings(a, catalog).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("tha"))
+            assertThat(GetCatalogThemeSettings(testCatalog(a, catalog)).query().defaultTheme?.themeKey).isEqualTo(ThemeKey.of("tha"))
         }
     }
 

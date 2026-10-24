@@ -9,6 +9,7 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -32,6 +33,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -69,7 +71,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
     private val metadata = mapOf("com.example.layout" to mapOf("grid" to "a4-two-column", "columns" to 2))
 
-    private fun theme(tenant: TenantKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     private fun entries(bytes: ByteArray): LinkedHashMap<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
@@ -133,11 +135,11 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     private fun publish(a: TenantKey): ByteArray = withMediator {
         CreateCatalog(tenantKey = a, id = catalog, name = "Wire Members").execute()
         CreateTheme(id = theme(a, "brand"), name = "Brand").execute()
-        CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(a))), "Letter", description = "For letters to residents").execute()
+        CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter", description = "For letters to residents").execute()
             .withRequiredDataExample()
-        MarkCatalogReady(a, catalog).execute()
-        ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
-        ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
+        MarkCatalogReady(testCatalog(a, catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+        ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
     }
 
     @Test
@@ -148,7 +150,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
-            val built = contentBuilder.build(b, catalog)
+            val built = contentBuilder.build(testCatalog(b, catalog))
             val template = letter(built)
 
             assertThat(template.description).isEqualTo("For letters to residents")
@@ -168,9 +170,9 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
-            val draft = CreateCatalogDraft(b, catalog, name = "Redesign", from = "1.0.0").execute()
-            val id = targeting.resolve(CatalogReleaseRef(b, catalog, DraftRef.Id(draft.versionId)))
-            val built = targeting.within(id) { contentBuilder.build(b, catalog) }
+            val draft = CreateCatalogDraft(testCatalog(b, catalog), name = "Redesign", from = "1.0.0").execute()
+            val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, catalog), DraftRef.Id(draft.versionId)))
+            val built = targeting.within(id) { contentBuilder.build(testCatalog(b, catalog)) }
 
             assertThat(letter(built).description).isEqualTo("For letters to residents")
             assertThat(letter(built).variants.single().metadata).isEqualTo(metadata)
@@ -183,18 +185,18 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         val a = createTenant("Wire Merge A").id
         val b = createTenant("Wire Merge B").id
         val v100 = publish(a)
-        val fingerprint = withMediator { ListCatalogReleaseSummaries(a, catalog).query().single().fingerprint }
+        val fingerprint = withMediator { ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single().fingerprint }
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
             UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withVariantMetadata(metadata).put("description", "Described again") }).execute()
 
-            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
-            assertThat(MergeReleaseIntoDraft(b, catalog, "1.0.1").execute().taken).containsExactly("template/letter")
+            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute().taken).containsExactly("template/letter")
 
-            val template = letter(contentBuilder.build(b, catalog))
+            val template = letter(contentBuilder.build(testCatalog(b, catalog)))
             assertThat(template.variants.single().metadata).isEqualTo(metadata)
             assertThat(template.description).isEqualTo("Described again")
         }
@@ -213,13 +215,13 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         // change of its own. No command produces that state, so it is put in place directly.
         jdbi.useHandle<Exception> { h ->
             h.createUpdate("UPDATE catalog_versions SET base_fingerprints = NULL WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND is_next")
-                .bind("t", b).bind("c", catalog).execute()
+                .bind("t", b).bindCatalog("c", testCatalog(b, catalog)).execute()
         }
         withMediator {
             UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.put("description", "Described again") }).execute()
 
-            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
         }
     }

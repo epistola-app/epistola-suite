@@ -6,7 +6,6 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.security.Permission
 
 /**
@@ -135,15 +134,17 @@ object CatalogNav {
     fun sections(bar: CatalogDraftBar, path: String, may: (Permission) -> Boolean, qualityAvailable: Boolean = false): List<List<NavLink>> {
         val tenant = "/tenants/${bar.tenantKey.value}"
         val segment = bar.segmentValue
-        val key = bar.catalogKey.value
-        val active = activeKey(path, key)
+
+        // The catalog's address without a draft (ADR 0034, section 9), for what is the same in every version.
+        val address = bar.segment.at(null).value
+        val active = activeKey(path, address)
         fun link(key: String, label: String, href: String, icon: String) = NavLink(key, label, href, icon, active == key)
 
         val overview = if (bar.onParallelWork) bar.draftPageHref else CatalogPages.browse(TenantId(bar.tenantKey), bar.segment)
         val first = buildList {
             add(link("overview", "Overview", overview, "house"))
             // Quality findings are about this catalog's templates (alpha, behind its feature).
-            if (qualityAvailable && may(Permission.TEMPLATE_VIEW)) add(link("quality", "Quality", "$tenant/catalogs/$key/quality", "scan"))
+            if (qualityAvailable && may(Permission.TEMPLATE_VIEW)) add(link("quality", "Quality", "$tenant/catalogs/$address/quality", "scan"))
         }
         // What the catalog holds, templates first: what documents are made from, then what they are built from.
         val parts = buildList {
@@ -151,8 +152,8 @@ object CatalogNav {
             addAll(PARTS.filter { may(it.permission) }.map { link(it.key, it.label, "$tenant/catalogs/$segment/${it.area}", it.icon) })
         }
         val catalog = listOf(
-            link("versions", "Releases", "$tenant/catalogs/$key/releases", "history"),
-            link("deployments", "Deployments", "$tenant/catalogs/$key/deployments", "radio"),
+            link("versions", "Releases", "$tenant/catalogs/$address/releases", "history"),
+            link("deployments", "Deployments", "$tenant/catalogs/$address/deployments", "radio"),
             link("dependencies", "Dependencies", "$tenant/catalogs/$segment/dependencies", "link"),
             link("settings", "Settings", "$tenant/catalogs/$segment/settings", "settings"),
         )
@@ -169,7 +170,7 @@ object CatalogNav {
      * for anything else.
      */
     fun sectionOf(path: String): SectionInVersion? {
-        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
+        val parts = catalogPathParts(path.substringBefore('?')).drop(1)
         if (parts.size < 6 || parts[0] != "tenants" || parts[2] != "catalogs") return null
         val (tenant, segment, area) = Triple(parts[1], parts[3], parts[4])
         val label = when (area) {
@@ -181,9 +182,9 @@ object CatalogNav {
         return SectionInVersion(label, "/tenants/$tenant/catalogs/$segment/$area", overview)
     }
 
-    /** Which catalog nav item [path] belongs to; null when none does. */
-    fun activeKey(path: String, catalogKey: String): String? {
-        val parts = CatalogAddresses.byKey(path.substringBefore('?')).trim('/').split('/')
+    /** Which nav item of the catalog at [catalogAddress] (`namespace/key`) [path] belongs to; null when none does. */
+    fun activeKey(path: String, catalogAddress: String): String? {
+        val parts = catalogPathParts(path.substringBefore('?')).drop(1)
         // "tenants", tenant, "catalogs", catalog, page: every page of a catalog is under it.
         if (parts.getOrNull(2) != "catalogs") return null
         val page = parts.getOrNull(4)
@@ -206,6 +207,6 @@ object CatalogNav {
             in PARTS.map { it.area } -> PARTS.first { it.area == page }.key
 
             else -> null
-        }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogKey }
+        }.takeIf { parts.getOrNull(3)?.substringBefore('@') == catalogAddress }
     }
 }

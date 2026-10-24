@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -58,8 +59,8 @@ class CatalogPublicationClaimConcurrencyTest : ExchangeIntegrationTestBase() {
             repeat(PUBLICATIONS) { index ->
                 val key = CatalogKey.of("race-$index")
                 CreateCatalog(tenant.id, key, key.value).execute()
-                ChangeCatalogNamespace(tenant.id, key, "public-services").execute()
-                ReleaseCatalogDraft(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+                ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
             queued += publicationIds()
         }
@@ -116,8 +117,8 @@ class CatalogPublicationClaimConcurrencyTest : ExchangeIntegrationTestBase() {
         withMediator<Unit> {
             enroll(tenant)
             CreateCatalog(tenant.id, key, key.value).execute()
-            ChangeCatalogNamespace(tenant.id, key, "public-services").execute()
-            ReleaseCatalogDraft(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
         }
 
         val claimed = withMediator { store.claimDue(10) }

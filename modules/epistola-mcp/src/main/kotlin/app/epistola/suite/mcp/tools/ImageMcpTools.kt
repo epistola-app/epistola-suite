@@ -17,7 +17,7 @@ import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.execute
@@ -59,13 +59,13 @@ class ImageMcpTools(
             ListAssets(
                 tenantId = mcpTenantKey(),
                 searchTerm = search?.takeIf { it.isNotBlank() },
-                catalogKey = catalogFilter(catalogId),
+                catalog = catalogFilter(catalogId),
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ),
         )
             .asSequence()
             .filter { it.mediaType.category == AssetMediaCategory.IMAGE }
-            .map { ImageInfo.from(it, editability.editable(it.catalogKey)) }
+            .map { ImageInfo.from(it, editability.editable(it.catalogId)) }
             .toList()
     }
 
@@ -87,12 +87,12 @@ class ImageMcpTools(
         return mediator.query(
             ListAssets(
                 tenantId = mcpTenantKey(),
-                catalogKey = mcpCatalogKey(catalogId),
+                catalog = mcpCatalog(catalogId),
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ),
         )
             .firstOrNull { it.id == key && it.mediaType.category == AssetMediaCategory.IMAGE }
-            ?.let { ImageInfo.from(it, catalogEditability().editable(it.catalogKey)) }
+            ?.let { ImageInfo.from(it, catalogEditability().editable(it.catalogId)) }
     }
 
     @McpTool(
@@ -138,13 +138,12 @@ class ImageMcpTools(
         val dimensions = if (resolved.mimeType != "image/svg+xml") imageDimensions(decoded.bytes) else null
         return ImageInfo.from(
             UploadAsset(
-                tenantId = mcpTenantKey(),
+                catalog = mcpCatalog(catalogId),
                 name = name,
                 mediaType = resolved,
                 content = decoded.bytes,
                 width = dimensions?.first,
                 height = dimensions?.second,
-                catalogKey = mcpCatalogKey(catalogId),
                 id = imageId?.takeIf { it.isNotBlank() }?.let { AssetKey.of(it) },
                 catalogVersion = catalogVersionRef(catalogId, catalogVersion),
             ).execute(),

@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -63,8 +64,8 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
         withMediator {
             // A installs 1.0.0 from its source.
             RegisterCatalog(tenantKey = a, sourceUrl = v1, authType = AuthType.NONE).execute()
-            assertThat(InstallFromCatalog(tenantKey = a, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
-            val v1Fingerprint = ListCatalogReleaseSummaries(a, depKey).query().single { it.version == "1.0.0" }.fingerprint
+            assertThat(InstallFromCatalog(catalog = testCatalog(a, depKey)).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
+            val v1Fingerprint = ListCatalogReleaseSummaries(testCatalog(a, depKey)).query().single { it.version == "1.0.0" }.fingerprint
             // B installs 1.1.0, which changed the theme and says it was made from 1.0.0, from another.
             val v2 = fixture(tmp.resolve("v2"), "1.1.0") { dir ->
                 val theme = dir.resolve("resources/themes/test-theme.json")
@@ -73,14 +74,14 @@ class MergeReceivedFromSourceTest : IntegrationTestBase() {
                 manifest.writeText(manifest.readText().replace("\"version\": \"1.1.0\"", "\"version\": \"1.1.0\", \"base\": {\"version\": \"1.0.0\", \"fingerprint\": \"$v1Fingerprint\"}"))
             }
             RegisterCatalog(tenantKey = b, sourceUrl = v2, authType = AuthType.NONE).execute()
-            assertThat(InstallFromCatalog(tenantKey = b, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
-            val archive = ExportCatalogZip(b, depKey, "1.1.0").execute().zipBytes
+            assertThat(InstallFromCatalog(catalog = testCatalog(b, depKey)).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
+            val archive = ExportCatalogZip(testCatalog(b, depKey), "1.1.0").execute().zipBytes
 
             // A changes a template, so 1.1.0 is received beside its releases, to be merged.
-            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), CatalogId(depKey, TenantId(a))), name = "A's no-deps").execute()
+            UpdateDocumentTemplate(id = TemplateId(TemplateKey.of("no-deps"), testCatalog(TenantId(a), depKey)), name = "A's no-deps").execute()
             ImportCatalogZip(tenantKey = a, zipBytes = archive).execute()
 
-            val preview = PreviewDraftMerge(a, depKey, "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(a, depKey), "1.1.0").query()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.filter { it.outcome != MergeOutcome.UNCHANGED }.associate { it.contentKey to it.outcome })
                 .containsExactlyInAnyOrderEntriesOf(

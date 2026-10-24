@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

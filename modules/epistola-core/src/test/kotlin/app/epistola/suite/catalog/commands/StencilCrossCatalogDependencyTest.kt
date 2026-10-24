@@ -25,6 +25,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
@@ -54,7 +55,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         val tenant = createTenant("Stencil deps")
         val tenantId = TenantId(tenant.id)
         val source = CatalogKey.of("letters")
-        val header = StencilId(StencilKey.of("header"), CatalogId(source, tenantId))
+        val header = StencilId(StencilKey.of("header"), testCatalog(tenantId, source))
 
         val zip = withMediator {
             CreateCatalog(tenant.id, source, "Letters").execute()
@@ -62,7 +63,7 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
             CreateStencil(header, "Header").execute()
             UpdateStencil(header, content = bindsSystemFont()).execute()
 
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
 
         val dependencies = manifestOf(zip.zipBytes).dependencies.orEmpty()
@@ -74,14 +75,14 @@ class StencilCrossCatalogDependencyTest : IntegrationTestBase() {
         val tenant = createTenant("Rehome")
         val tenantId = TenantId(tenant.id)
         val source = CatalogKey.of("rehome-source")
-        val header = StencilId(StencilKey.of("header"), CatalogId(source, tenantId))
+        val header = StencilId(StencilKey.of("header"), testCatalog(tenantId, source))
 
         val zip = withMediator {
             CreateCatalog(tenant.id, source, "Source").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(source, tenantId)), "Brand").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(tenantId, source)), "Brand").execute()
             CreateStencil(header, "Header").execute()
             UpdateStencil(header, content = usesOwnCatalogTheme()).execute()
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
 
         // Storage is absolute so relocation is safe; the wire form must stay relative, otherwise

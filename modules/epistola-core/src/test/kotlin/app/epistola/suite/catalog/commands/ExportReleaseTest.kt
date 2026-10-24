@@ -16,6 +16,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -43,8 +44,8 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         val released = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "As released").execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         withMediator {
@@ -52,9 +53,9 @@ class ExportReleaseTest : IntegrationTestBase() {
         }
 
         val release = withMediator {
-            ExportCatalogZip(catalog.tenantKey, catalog.key, version = "1.0.0").execute()
+            ExportCatalogZip(testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
-        val highest = withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key).execute() }
+        val highest = withMediator { ExportCatalogZip(testCatalog(catalog.tenantKey, catalog.key)).execute() }
 
         assertThat(release.filename).isEqualTo("exp-release-1.0.0.zip")
         val manifest = entryOf(release.zipBytes, "catalog.json")
@@ -74,12 +75,12 @@ class ExportReleaseTest : IntegrationTestBase() {
 
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         assertThatThrownBy {
-            withMediator { ExportCatalogZip(catalog.tenantKey, catalog.key, version = "9.9.9").execute() }
+            withMediator { ExportCatalogZip(testCatalog(catalog.tenantKey, catalog.key), version = "9.9.9").execute() }
         }.isInstanceOf(CatalogReleaseNotFoundException::class.java)
     }
 
@@ -88,14 +89,14 @@ class ExportReleaseTest : IntegrationTestBase() {
         val publisher = authoredCatalog("exp-subscribed")
         val archive = withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), publisher), name = "Brand").execute()
-            MarkCatalogReady(publisher.tenantKey, publisher.key).execute()
-            ReleaseCatalogDraft(tenantKey = publisher.tenantKey, catalogKey = publisher.key, version = "1.2.0").execute()
-            ExportCatalogZip(publisher.tenantKey, publisher.key).execute()
+            MarkCatalogReady(testCatalog(publisher.tenantKey, publisher.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(publisher.tenantKey, publisher.key), version = "1.2.0").execute()
+            ExportCatalogZip(testCatalog(publisher.tenantKey, publisher.key)).execute()
         }
         val subscriber = createTenant("exp-subscriber").id
         withMediator { ImportCatalogZip(subscriber, archive.zipBytes).execute() }
 
-        val export = withMediator { ExportCatalogZip(subscriber, publisher.key).execute() }
+        val export = withMediator { ExportCatalogZip(testCatalog(subscriber, publisher.key)).execute() }
 
         assertThat(export.filename).isEqualTo("exp-subscribed-1.2.0.zip")
         assertThat(entryOf(export.zipBytes, "catalog.json")).contains("\"version\":\"1.2.0\"", archiveFingerprint(archive.zipBytes))
@@ -107,7 +108,7 @@ class ExportReleaseTest : IntegrationTestBase() {
         val tenant = createTenant(slug)
         val catalogKey = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = slug).execute() }
-        return CatalogId(catalogKey, TenantId(tenant.id))
+        return testCatalog(TenantId(tenant.id), catalogKey)
     }
 
     private fun entryOf(zip: ByteArray, path: String): String {

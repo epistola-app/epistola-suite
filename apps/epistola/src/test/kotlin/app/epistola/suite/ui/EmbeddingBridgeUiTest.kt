@@ -308,6 +308,6 @@ class EmbeddingBridgeUiTest : BasePlaywrightTest() {
         page.htmxSettle()
 
         assertThat(page.locator("#page-title-text")).containsText("Navigate Target")
-        assertThat(page).hasURL(Pattern.compile(".*/catalogs/default/templates/navigate-target$"))
+        assertThat(page).hasURL(Pattern.compile(".*/catalogs/([^/]+/)?default/templates/navigate-target$"))
     }
 }

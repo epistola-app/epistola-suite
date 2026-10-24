@@ -19,7 +19,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
 import app.epistola.suite.mcp.support.catalogVersionRef
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -72,7 +72,7 @@ class TemplateMcpTools(
     ): List<TemplateSummaryInfo> = mediator.query(
         ListTemplateSummaries(
             tenantId = mcpTenantId(),
-            catalogKey = catalogFilter(catalogId),
+            catalog = catalogFilter(catalogId),
             searchTerm = search,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
         ),
@@ -194,7 +194,7 @@ class TemplateMcpTools(
             template = UpdateDocumentTemplate(
                 id = id,
                 themeId = ThemeKey.of(themeId),
-                themeCatalogKey = mcpCatalogKey(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
+                themeCatalog = mcpCatalog(themeCatalogId?.takeIf { it.isNotBlank() } ?: catalogId),
                 catalogVersion = version,
             ).execute() ?: error("Template '$templateId' disappeared while applying its theme")
         }
@@ -247,7 +247,7 @@ class TemplateMcpTools(
             id = templateId(catalogId, templateId),
             name = name?.takeIf { it.isNotBlank() },
             themeId = theme?.let { ThemeKey.of(it) },
-            themeCatalogKey = theme?.let { mcpCatalogKey(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
+            themeCatalog = theme?.let { mcpCatalog(themeCatalogId?.takeIf { c -> c.isNotBlank() } ?: catalogId) },
             clearThemeId = clearTheme == true,
             pdfaEnabled = pdfaEnabled,
             catalogVersion = catalogVersionRef(catalogId, catalogVersion),
@@ -338,7 +338,7 @@ class TemplateMcpTools(
         }
 
     private fun templateId(catalogId: String, templateId: String): TemplateId {
-        val catalog = CatalogId(mcpCatalogKey(catalogId), mcpTenantId())
+        val catalog = mcpCatalog(catalogId)
         return TemplateId(TemplateKey.of(templateId), catalog)
     }
 

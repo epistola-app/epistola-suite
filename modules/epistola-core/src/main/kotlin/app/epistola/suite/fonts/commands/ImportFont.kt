@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -48,8 +49,7 @@ data class ImportFontVariant(
  * command (e.g. a catalog upgrade) replaces the variant set atomically.
  */
 data class ImportFont(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: String,
     val name: String,
     val kind: String,
@@ -59,6 +59,8 @@ data class ImportFont(
 ) : CatalogReleaseScoped,
     Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -77,22 +79,21 @@ class ImportFontHandler(
     override fun handle(command: ImportFont): InstallStatus {
         // Catalog install and upgrade write fonts into catalogs that cannot be changed inside
         // CatalogImportContext, which the guard lets through; a user upload must not.
-        requireCatalogEditable(command.tenantId.key, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         return import(command)
     }
 
     private fun import(command: ImportFont): InstallStatus = jdbi.inTransaction<InstallStatus, Exception> { handle ->
         fontCatalogWriter.writeFont(
             handle = handle,
-            tenantId = command.tenantId,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             slug = command.slug,
             name = command.name,
             kind = command.kind,
             variants = command.variants,
             assetBytes = { variant ->
                 variant.assetKey?.let { assetKey ->
-                    GetAssetContent(command.tenantKey, assetKey).query()?.content
+                    GetAssetContent(command.tenantKey, assetId = assetKey).query()?.content
                 }
             },
         )

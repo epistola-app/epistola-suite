@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.default
 import app.epistola.suite.validation.ValidationException
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

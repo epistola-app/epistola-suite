@@ -32,12 +32,12 @@ class CatalogSegmentTest {
 
     @Test
     fun `key at a draft id names that draft`() {
-        val segment = CatalogSegment.parse("letters@$work")
+        val segment = CatalogSegment.parse("acme/letters@$work")
 
         assertThat(segment.key).isEqualTo(CatalogKey.of("letters"))
-        assertThat(segment.ref(tenant)).isEqualTo(CatalogReleaseRef(tenant, CatalogKey.of("letters"), DraftRef.Id(work)))
-        assertThat(segment.value).isEqualTo("letters@$work")
-        assertThat(segment.at(null).value).isEqualTo("letters")
+        assertThat(segment.ref(tenant)).isEqualTo(CatalogReleaseRef(app.epistola.suite.common.ids.CatalogId("acme", CatalogKey.of("letters"), app.epistola.suite.common.ids.TenantId(tenant)), DraftRef.Id(work)))
+        assertThat(segment.value).isEqualTo("acme/letters@$work")
+        assertThat(segment.at(null).value).isEqualTo("acme/letters")
     }
 
     @Test

@@ -6,8 +6,10 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseDescription
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -44,9 +46,9 @@ class ReceivedReleases(private val jdbi: Jdbi) {
      * release (or a draft) of the catalog here ([CatalogImportConflictException]), or it renders with
      * rendering defaults this installation lacks ([ReleaseRenderingDefaultsTooNewException]).
      */
-    fun requireKeepable(tenantKey: TenantKey, catalogKey: CatalogKey, release: ReleaseInfo) {
-        renderingDefaultsVersion(catalogKey, release)
-        jdbi.useHandle<Exception> { requireIdFree(it, tenantKey, catalogKey, release) }
+    fun requireKeepable(catalog: CatalogId, release: ReleaseInfo) {
+        renderingDefaultsVersion(catalog.key, release)
+        jdbi.useHandle<Exception> { requireIdFree(it, catalog, release) }
     }
 
     /**
@@ -69,7 +71,7 @@ class ReceivedReleases(private val jdbi: Jdbi) {
      * one id names one release, everywhere (contract `CatalogReleaseIds`). The same release, by
      * number, keeps its id.
      */
-    fun requireIdFree(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, release: ReleaseInfo) {
+    fun requireIdFree(handle: Handle, catalog: CatalogId, release: ReleaseInfo) {
         val id = release.releaseId ?: return
         val holder = handle.createQuery(
             """
@@ -81,15 +83,15 @@ class ReceivedReleases(private val jdbi: Jdbi) {
             LIMIT 1
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("id", id)
             .bind("v", release.version)
             .mapTo(String::class.java)
             .findOne()
             .orElse(null) ?: return
         throw CatalogReleaseTakenException(
-            "${catalogKey.value} ${release.version} has the release id '$id', which $holder of this catalog has here; one id names one release.",
+            "${catalog.key.value} ${release.version} has the release id '$id', which $holder of this catalog has here; one id names one release.",
         )
     }
 

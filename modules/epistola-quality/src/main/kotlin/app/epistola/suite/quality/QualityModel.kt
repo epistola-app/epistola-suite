@@ -110,7 +110,12 @@ data class QualitySubject(
     val templateKey: TemplateKey,
     val variantKey: String? = null,
     val versionKey: Int? = null,
+    /** The namespace of [catalogKey]'s catalog: with it, the catalog's address (ADR 0034, section 9). */
+    val namespace: String = "",
 ) {
+    /** The template's catalog, by its address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+
     companion object {
         fun of(templateId: TemplateId) = QualitySubject(
             type = QualitySubjectType.TEMPLATE,
@@ -118,6 +123,7 @@ data class QualitySubject(
             ignoreScopeUrn = templateId.toUrn(),
             tenantKey = templateId.tenantKey,
             catalogKey = templateId.catalogKey,
+            namespace = templateId.catalogId.namespace,
             templateKey = templateId.key,
         )
 
@@ -127,6 +133,7 @@ data class QualitySubject(
             ignoreScopeUrn = variantId.templateId.toUrn(),
             tenantKey = variantId.tenantKey,
             catalogKey = variantId.catalogKey,
+            namespace = variantId.catalogId.namespace,
             templateKey = variantId.templateKey,
             variantKey = variantId.key.value,
         )
@@ -137,6 +144,7 @@ data class QualitySubject(
             ignoreScopeUrn = versionId.variantId.templateId.toUrn(),
             tenantKey = versionId.tenantKey,
             catalogKey = versionId.catalogKey,
+            namespace = versionId.catalogId.namespace,
             templateKey = versionId.templateKey,
             variantKey = versionId.variantKey.value,
             versionKey = versionId.key.value,
@@ -148,6 +156,7 @@ data class QualitySubject(
             ignoreScopeUrn = contractVersionId.templateId.toUrn(),
             tenantKey = contractVersionId.tenantKey,
             catalogKey = contractVersionId.catalogKey,
+            namespace = contractVersionId.catalogId.namespace,
             templateKey = contractVersionId.templateKey,
             versionKey = contractVersionId.key.value,
         )
@@ -241,6 +250,8 @@ data class QualityFinding(
     val subjectType: QualitySubjectType,
     val ignoreScopeUrn: String,
     val catalogKey: CatalogKey,
+    /** The namespace of [catalogKey]'s catalog: with it, the address of the template's catalog (ADR 0034, section 9). */
+    val catalogNamespace: String = "",
     val templateKey: TemplateKey,
     val variantKey: String?,
     val versionKey: Int?,
@@ -274,6 +285,9 @@ data class QualityFinding(
     val lastSeenAt: Instant,
     val resolvedAt: Instant?,
 ) {
+    /** The template's catalog address, `namespace/key`, as the UI links it. */
+    val catalogAddress: String get() = "$catalogNamespace/${catalogKey.value}"
+
     /** The node an author should be taken to first, if any. */
     val primaryNodeId: String? get() = nodeIds.firstOrNull()
 

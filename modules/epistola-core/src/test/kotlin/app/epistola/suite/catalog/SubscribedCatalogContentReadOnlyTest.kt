@@ -23,6 +23,7 @@ import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -42,15 +43,15 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
     private fun installFixture(): TenantKey = withMediator {
         val tenantKey = createTenant("Subscribed read-only").id
         RegisterCatalog(tenantKey = tenantKey, sourceUrl = FIXTURE_CATALOG_URL, authType = AuthType.NONE).execute()
-        InstallFromCatalog(tenantKey = tenantKey, catalogKey = installed).execute()
+        InstallFromCatalog(catalog = testCatalog(tenantKey, installed)).execute()
         tenantKey
     }
 
-    private fun simpleLetter(tenantKey: TenantKey) = TemplateId(TemplateKey.of("simple-letter"), CatalogId(installed, TenantId(tenantKey)))
+    private fun simpleLetter(tenantKey: TenantKey) = TemplateId(TemplateKey.of("simple-letter"), testCatalog(TenantId(tenantKey), installed))
 
     private fun firstVariant(tenantKey: TenantKey) = withMediator { ListVariants(simpleLetter(tenantKey)).query().first() }
 
-    private fun companyHeader(tenantKey: TenantKey) = StencilId(StencilKey.of("company-header"), CatalogId(installed, TenantId(tenantKey)))
+    private fun companyHeader(tenantKey: TenantKey) = StencilId(StencilKey.of("company-header"), testCatalog(TenantId(tenantKey), installed))
 
     @Test
     fun `UpdateVariant is refused and leaves the installed variant as it was`() {
@@ -92,7 +93,7 @@ class SubscribedCatalogContentReadOnlyTest : IntegrationTestBase() {
 
         assertThatThrownBy {
             withMediator {
-                ImportFont(tenantId = TenantId(tenantKey), catalogKey = installed, slug = "rogue-sans", name = "Rogue Sans", kind = "sans").execute()
+                ImportFont(catalog = testCatalog(TenantId(tenantKey), installed), slug = "rogue-sans", name = "Rogue Sans", kind = "sans").execute()
             }
         }.isInstanceOf(CatalogReadOnlyException::class.java)
     }

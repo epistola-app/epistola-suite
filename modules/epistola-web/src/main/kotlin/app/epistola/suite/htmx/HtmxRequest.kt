@@ -5,7 +5,6 @@
 package app.epistola.suite.htmx
 
 import app.epistola.catalog.protocol.CatalogNamespaces
-import app.epistola.suite.catalog.CatalogNames
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.DraftRef
@@ -31,6 +30,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.mediator.query
 import org.springframework.web.servlet.function.ServerRequest
 import java.util.UUID
 
@@ -118,8 +118,8 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pa
 fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
 
 /**
- * A catalog in a UI route, optionally one of its drafts: `letters` for its next version, or
- * `letters@<version id>` for another draft of `letters` (contract ADR 0002). A draft has no number
+ * A catalog in a UI route, optionally one of its drafts: `acme/letters` for its next version, or
+ * `acme/letters@<version id>` for another draft of it (contract ADR 0002). A draft has no number
  * until it is released, so its id (contract `CatalogVersionId`) names it.
  *
  * The draft travels in the catalog's own path segment (or `catalog` parameter) rather than in the
@@ -127,26 +127,42 @@ fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("ten
  * the segment stays on that draft. Without one the route works on the catalog's current version: its
  * next version. `@` cannot occur in a catalog key, so the two never collide.
  *
- * A catalog's [namespace] goes before its key, `acme/letters` (ADR 0034, phase 4): within a tenant a
- * catalog is unique by namespace and key, so where two catalogs share a key their pages are addressed
- * `/tenants/{t}/catalogs/{namespace}/{key}/…` ([catalogScopedRoutes]). Without one the key names the
- * tenant's one catalog with it.
+ * A catalog's [namespace] goes before its key, `acme/letters` (ADR 0034, section 9): within a tenant a
+ * catalog is unique by namespace and key, so its pages are addressed `/tenants/{t}/catalogs/{namespace}/{key}/…`
+ * ([catalogScopedRoutes]). A segment parsed from a key alone has none until the key is resolved.
  */
 data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val namespace: String? = null) {
     /** The segment as it appears in a URL: `[namespace/]key[@draft]`. */
     val value: String get() = (namespace?.let { "$it/" } ?: "") + (draft?.let { "${key.value}@$it" } ?: key.value)
 
     /** The draft this names, for a message's `catalogVersion`; null for the catalog's current version. */
-    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(tenantKey, key, DraftRef.Id(it)) }
+    fun ref(tenantKey: TenantKey): CatalogReleaseRef? = draft?.let { CatalogReleaseRef(catalogIn(tenantKey), DraftRef.Id(it)) }
+
+    /** The catalog this names in [tenantKey], by its address; its [namespace] must be known. */
+    fun catalogIn(tenantKey: TenantKey): CatalogId = CatalogId(requireNotNull(namespace) { "The catalog ${key.value} is addressed without its namespace" }, key, TenantId(tenantKey))
+
+    /** [catalogIn] for a [TenantId]. */
+    fun catalogIn(tenantId: TenantId): CatalogId = catalogIn(tenantId.key)
+
+    /** The catalog's address, `namespace/key`, without a draft; the key alone when the namespace is not known. */
+    val address: String get() = (namespace?.let { "$it/" } ?: "") + key.value
 
     /** The same catalog at draft [draft], or at its current version when that is null. */
     fun at(draft: String?): CatalogSegment = copy(draft = draft)
 
     /**
-     * The segment to link a resource of catalog [catalogKey] with: this one when it is the same
-     * catalog, so a list filtered to a draft links its rows into the draft, else the plain key.
+     * The segment to link a resource of catalog [catalog] (an address, `namespace/key`, or a
+     * [CatalogId]) with: this one when it is the same catalog, so a list filtered to a draft links its
+     * rows into the draft, else that catalog's address.
      */
-    fun linkFor(catalogKey: Any?): String = catalogKey?.toString()?.takeIf { it != key.value } ?: value
+    fun linkFor(catalog: Any?): String {
+        val other = when (catalog) {
+            null -> return value
+            is CatalogId -> catalog.address
+            else -> catalog.toString()
+        }
+        return if (other == address || other == key.value) value else other
+    }
 
     override fun toString(): String = value
 
@@ -178,12 +194,18 @@ data class CatalogSegment(val key: CatalogKey, val draft: String? = null, val na
 
 /**
  * The catalog in the route: the `catalogId` path variable, and the draft it names if any, with the
- * namespace the address names before it (`{catalogNamespace}`, [catalogScopedRoutes]) when it names one.
+ * namespace the address names before it (`{catalogNamespace}`, [catalogScopedRoutes]), or, for an
+ * action reached by key alone, the namespace that key was resolved to ([CATALOG_NAMESPACE_ATTRIBUTE]).
  */
-fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId")).copy(namespace = pathVariables()[CATALOG_NAMESPACE_VARIABLE]).named()
+fun ServerRequest.catalogSegment(): CatalogSegment = CatalogSegment.parse(pathVariable("catalogId")).let { segment ->
+    segment.copy(namespace = pathVariables()[CATALOG_NAMESPACE_VARIABLE] ?: attribute(CATALOG_NAMESPACE_ATTRIBUTE).orElse(null) as String? ?: segment.namespace)
+}
 
-/** This segment, with the namespace it names learned for the rest of the request ([CatalogNames.name]). */
-fun CatalogSegment.named(): CatalogSegment = also { s -> s.namespace?.let { CatalogNames.name(s.key, it) } }
+/** The catalog in the route, by its address (ADR 0034, section 9). */
+fun ServerRequest.catalog(tenantId: TenantId): CatalogId = catalogSegment().catalogIn(tenantId)
+
+/** [catalog] for a [TenantKey]. */
+fun ServerRequest.catalog(tenantKey: TenantKey): CatalogId = catalogSegment().catalogIn(tenantKey)
 
 /**
  * Extract a [CatalogKey] from the `catalogId` path variable (without the `@version` of a draft).
@@ -214,14 +236,43 @@ fun ServerRequest.catalogVersion(): CatalogReleaseRef? = catalogSegment().ref(te
  * there or it is blank.
  */
 fun ServerRequest.catalogParam(name: String = "catalog"): CatalogSegment? = pathVariables()["catalogId"]?.let { catalogSegment() }
-    ?: param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()).named() }
+    ?: namedCatalogParam(name)
+
+/**
+ * The catalog [ref] names in [tenantId]: `namespace/key` by its address, or a key alone, the tenant's
+ * one catalog with that key (ADR 0034, section 9); null when it names none.
+ */
+fun catalogNamed(tenantId: TenantId, ref: String): CatalogId? {
+    val value = ref.trim()
+    val namespace = value.substringBeforeLast('/', "")
+    val key = CatalogKey.validateOrNull(value.substringAfterLast('/')) ?: return null
+    if (namespace.isNotEmpty()) return CatalogId(namespace, key, tenantId)
+    return app.epistola.suite.catalog.queries.FindCatalogsByKey(tenantId.key, key).query().only
+}
+
+/**
+ * The catalog the form or query parameter [name] names, `[namespace/]key[@draft]`: by its address, or,
+ * by key alone, the tenant's one catalog with that key (ADR 0034, section 9). Null when the parameter
+ * is absent or blank; a key that names no catalog, or several, gives a segment without a namespace.
+ */
+fun ServerRequest.namedCatalogParam(name: String): CatalogSegment? = param(name).orElse(null)?.ifBlank { null }?.let { CatalogSegment.parse(it.trim()).resolvedIn(tenantId().key) }
+
+/**
+ * This segment with its namespace: as written, or, for a key alone, the namespace of [tenantKey]'s one
+ * catalog with that key (ADR 0034, section 9); still without one when the key names none, or several.
+ */
+fun CatalogSegment.resolvedIn(tenantKey: TenantKey): CatalogSegment = if (namespace != null) {
+    this
+} else {
+    copy(namespace = app.epistola.suite.catalog.queries.FindCatalogsByKey(tenantKey, key).query().only?.namespace)
+}
 
 /**
  * Extract and validate a [TemplateId] from the `id` and `catalogId` path variables.
  * Returns null if the template key is invalid.
  */
 fun ServerRequest.templateId(tenantId: TenantId): TemplateId? {
-    val catalog = CatalogId(catalogId(), tenantId)
+    val catalog = catalog(tenantId)
     val key = TemplateKey.validateOrNull(pathVariable("id")) ?: return null
     return TemplateId(key, catalog)
 }
@@ -250,7 +301,7 @@ fun ServerRequest.versionId(variantId: VariantId): VersionId? {
  * Returns null if the theme key is invalid.
  */
 fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
-    val catalog = CatalogId(catalogId(), tenantId)
+    val catalog = catalog(tenantId)
     val key = ThemeKey.validateOrNull(pathVariable("themeId")) ?: return null
     return ThemeId(key, catalog)
 }
@@ -260,7 +311,7 @@ fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
  * Returns null if the stencil key is invalid.
  */
 fun ServerRequest.stencilId(tenantId: TenantId): StencilId? {
-    val catalog = CatalogId(catalogId(), tenantId)
+    val catalog = catalog(tenantId)
     val key = StencilKey.validateOrNull(pathVariable("stencilId")) ?: return null
     return StencilId(key, catalog)
 }
@@ -279,7 +330,7 @@ fun ServerRequest.environmentId(tenantId: TenantId): EnvironmentId? {
  * Returns null if the attribute key is invalid.
  */
 fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
-    val catalog = CatalogId(catalogId(), tenantId)
+    val catalog = catalog(tenantId)
     val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
     return AttributeId(key, catalog)
 }
@@ -289,7 +340,7 @@ fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
  * Returns null if the slug is invalid.
  */
 fun ServerRequest.codeListId(tenantId: TenantId): CodeListId? {
-    val catalog = CatalogId(catalogId(), tenantId)
+    val catalog = catalog(tenantId)
     val key = CodeListKey.validateOrNull(pathVariable("codeListId")) ?: return null
     return CodeListId(key, catalog)
 }

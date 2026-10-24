@@ -14,7 +14,7 @@ import app.epistola.suite.mcp.dto.PreviewResult
 import app.epistola.suite.mcp.dto.TemplateDataAnalysisInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
@@ -85,8 +85,7 @@ class PreviewMcpTools(
 
         val pdfBytes = mediator.query(
             PreviewDocument(
-                tenantId = mcpTenantKey(),
-                catalogKey = mcpCatalogKey(catalogId),
+                catalog = mcpCatalog(catalogId),
                 templateId = TemplateKey.of(templateId),
                 variantId = variantId?.let { VariantKey.of(it) },
                 environmentId = environmentId?.let { EnvironmentKey.of(it) },
@@ -141,8 +140,7 @@ class PreviewMcpTools(
         data: String?,
     ): TemplateDataAnalysisInfo {
         val analysis = AnalyzeTemplateData(
-            tenantKey = mcpTenantKey(),
-            catalogKey = mcpCatalogKey(catalogId),
+            catalog = mcpCatalog(catalogId),
             templateId = TemplateKey.of(templateId),
             variantId = variantId?.let { VariantKey.of(it) },
             releaseVersion = releaseVersion,

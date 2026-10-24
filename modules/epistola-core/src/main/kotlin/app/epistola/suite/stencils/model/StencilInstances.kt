@@ -41,11 +41,22 @@ object StencilInstances {
         val parameterSchema: Map<String, Any?>?,
         /** The stencil reads the template's data (ADR 0006 part 5). */
         val readsTemplateData: Boolean = false,
+        /**
+         * The catalog the stencil is of, as the resolver names catalogs: what the stencil's own
+         * instances resolve from. Null for the catalog it was asked from.
+         */
+        val catalog: String? = null,
     )
 
-    /** Resolves the stencil [stencilKey] of catalog [catalogKey], or null when there is none. */
+    /**
+     * Resolves the stencil [stencilKey] that an instance in content of catalog [from] names by
+     * [alias] (null for [from] itself), or null when there is none. Catalogs are named as the caller
+     * chooses (an address, `namespace/key`, in the suite): a reference resolves from the catalog of
+     * the content it is written in (ADR 0034, section 9), so a stencil's own instances resolve from
+     * the stencil's catalog.
+     */
     fun interface Resolver {
-        fun resolve(stencilKey: String, catalogKey: String): Content?
+        fun resolve(stencilKey: String, alias: String?, from: String): Content?
     }
 
     enum class Problem {
@@ -207,8 +218,10 @@ object StencilInstances {
             if (!expanded.add(node.id)) return
             val props = node.props.orEmpty()
             val stencilKey = props[StencilNodeKeys.PROP_STENCIL_KEY] as? String ?: return
-            val ref = StencilRef(stencilKey, (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() } ?: contextCatalog)
-            fun finding(problem: Problem, name: String? = null, detail: String? = null) = Finding(node.id, ref.stencilKey, ref.catalogKey, path.lastOrNull(), problem, name, detail)
+            val alias = (props[StencilNodeKeys.PROP_CATALOG_KEY] as? String)?.takeIf { it.isNotBlank() }
+            val resolved = resolver.resolve(stencilKey, alias, contextCatalog)
+            val ref = StencilRef(stencilKey, resolved?.catalog ?: alias ?: contextCatalog)
+            fun finding(problem: Problem, name: String? = null, detail: String? = null) = Finding(node.id, ref.stencilKey, alias ?: contextCatalog, path.lastOrNull(), problem, name, detail)
 
             val childrenSlotId = node.slots.single()
             val fills = fillsByName(slots.getValue(childrenSlotId).children, nodes, slots)
@@ -218,7 +231,7 @@ object StencilInstances {
             val content = when {
                 ref in path -> null.also { findings += finding(Problem.RECURSION) }
                 path.size >= TemplateValidationLimits.MAX_STENCIL_NESTING_DEPTH -> null.also { findings += finding(Problem.DEPTH_EXCEEDED) }
-                else -> resolver.resolve(ref.stencilKey, ref.catalogKey) ?: null.also { findings += finding(Problem.STENCIL_NOT_FOUND) }
+                else -> resolved ?: null.also { findings += finding(Problem.STENCIL_NOT_FOUND) }
             } ?: return
 
             val inlined = inline(node.id, content.document)

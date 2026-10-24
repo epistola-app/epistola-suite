@@ -22,7 +22,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -55,13 +57,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -81,7 +82,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
         val letters = CatalogKey.of("letters")
         mediator.send(CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters"))
-        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(letters, TenantId(tenant.id)))
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenant.id), letters))
         mediator.send(CreateDocumentTemplate(id = templateId, name = "Letter"))
         val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))
@@ -90,8 +91,7 @@ class DocumentQueriesTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
-                catalogKey = letters,
+                catalog = testCatalog(tenant.id, letters),
                 templateId = templateId.key,
                 variantId = variantId.key,
                 environmentId = null,
@@ -137,13 +137,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant1.id,
+                catalog = testCatalog(tenant1.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -175,13 +174,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
         (1..3).forEach { i ->
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = template.id,
                     variantId = variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -222,13 +220,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
         (1..5).forEach { i ->
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = template.id,
                     variantId = variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "test-$i.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -271,13 +268,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -354,13 +350,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
         (1..2).forEach { i ->
             mediator.send(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = template1.id,
                     variantId = variant1.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode().put("test", i),
                     filename = "template1-$i.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }
@@ -368,13 +363,12 @@ class DocumentQueriesTest : IntegrationTestBase() {
         // Generate document for template2
         mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template2.id,
                 variantId = variant2.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "template2.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

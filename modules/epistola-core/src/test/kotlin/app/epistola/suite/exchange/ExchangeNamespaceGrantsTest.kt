@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.FakeExchangeServer
 import app.epistola.suite.testing.TestTenantCounter
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -67,9 +68,9 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
             // A new catalog may be named in the granted namespace, and a release there is the tenant's to issue.
             val catalog = CatalogKey.of("services")
             CreateCatalog(tenant, catalog, "Services", namespace = "public-services").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))), "Brand").execute()
-            MarkCatalogReady(tenant, catalog).execute()
-            ReleaseCatalogDraft(tenant, catalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.SKIP).execute()
 
             // Reauthorizing grants nothing twice.
             enroll(tenant)
@@ -87,15 +88,15 @@ class ExchangeNamespaceGrantsTest : ExchangeIntegrationTestBase() {
             // Named under local before the connection granted the same token.
             CreateCatalog(tenant, catalog, "Local letters", registry = LocalAuthority.NAME, namespace = "public-services").execute()
             enroll(tenant)
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))), "Brand").execute()
-            MarkCatalogReady(tenant, catalog).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)), "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant, catalog)).execute()
 
             // Releasing does not queue it for the Exchange, though publishing is asked for.
-            val released = ReleaseCatalogDraft(tenant, catalog, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            val released = ReleaseCatalogDraft(testCatalog(tenant, catalog), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             assertThat(released.publicationId).isNull()
-            assertThat(GetCatalogPublicationState(tenant, catalog).query()?.publications.orEmpty()).isEmpty()
+            assertThat(GetCatalogPublicationState(testCatalog(tenant, catalog)).query()?.publications.orEmpty()).isEmpty()
 
-            assertThatThrownBy { PublishCurrentCatalogRelease(tenant, catalog, "1.0.0").execute() }
+            assertThatThrownBy { PublishCurrentCatalogRelease(testCatalog(tenant, catalog), "1.0.0").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) {
                     assertThat(it.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_LOCAL)
                     assertThat(it.message).isEqualTo("local/public-services/local-letters is named under local, which never leaves this organisation, so it is not published to Epistola Exchange.")

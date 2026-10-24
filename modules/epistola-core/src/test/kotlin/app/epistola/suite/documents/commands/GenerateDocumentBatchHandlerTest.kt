@@ -18,7 +18,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -59,7 +61,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", i),
                 filename = "doc-$i.pdf",
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(template.tenantKey, CatalogKey.DEFAULT),
             )
         }
 
@@ -114,7 +116,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 1),
                 filename = "doc-1.pdf",
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(template.tenantKey, CatalogKey.DEFAULT),
             ),
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
@@ -122,7 +124,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
             ),
         )
 
@@ -154,7 +156,7 @@ class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
                 environmentId = TestIdHelpers.nextEnvironmentId(),
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(TenantKey.of("dummy-tenant"), CatalogKey.DEFAULT),
             )
         }.doesNotThrowAnyException()
     }

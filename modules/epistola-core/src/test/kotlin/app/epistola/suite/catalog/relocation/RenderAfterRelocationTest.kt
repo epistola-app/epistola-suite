@@ -43,7 +43,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         releaseAll(tenant, catalogsOf(tenant))
         assertPreviewRenders(tenant, archive)
 
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
         // The release kept the font's bytes, so moving the family in the working copy does not reach it.
         assertPreviewRenders(tenant, archive)
@@ -58,7 +58,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         releaseAll(tenant, catalogsOf(tenant))
         assertPreviewRenders(tenant, letters)
 
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").renamedTo("acme-grotesk"))
+        move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").renamedTo("acme-grotesk"))
 
         // The release kept the font's bytes, so renaming the family in the working copy does not reach it.
         assertPreviewRenders(tenant, letters)
@@ -72,7 +72,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         publishTemplate(tenant, archive, textModel(usesTheme("brand", letters.value).themeRef))
         releaseAll(tenant, catalogsOf(tenant))
 
-        move(tenant, address(CatalogResourceType.THEME, letters, "brand").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
         assertPreviewRenders(tenant, archive)
     }
@@ -84,7 +84,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         publishTemplate(tenant, letters, singleNodeModel(Node(id = "logo", type = "image", props = mapOf("imageKey" to "logo", "catalogKey" to letters.value))))
         releaseAll(tenant, catalogsOf(tenant))
 
-        move(tenant, address(CatalogResourceType.IMAGE, letters, "logo").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.IMAGE, letters, "logo").movedTo(shared))
 
         assertPreviewRenders(tenant, letters)
     }
@@ -98,7 +98,7 @@ class RenderAfterRelocationTest : RelocationTestSupport() {
         }
         releaseAll(tenant, catalogsOf(tenant))
 
-        move(tenant, address(CatalogResourceType.STENCIL, letters, "header").movedTo(shared, "masthead"))
+        move(tenant, address(tenant, CatalogResourceType.STENCIL, letters, "header").movedTo(shared, "masthead"))
 
         assertPreviewRenders(tenant, letters)
     }

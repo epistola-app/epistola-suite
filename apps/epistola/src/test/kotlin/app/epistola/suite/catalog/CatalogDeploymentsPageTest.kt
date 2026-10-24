@@ -24,6 +24,7 @@ import app.epistola.suite.environments.queries.ListDeployments
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -50,22 +51,22 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(tenant.id, CatalogKey.of("dep-page")).execute()
-            ReleaseCatalogDraft(tenant.id, CatalogKey.of("dep-page"), version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-page"))).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-page")), version = "1.0.0").execute()
         }
 
         val before = live(tenant, "dep-page")
         assertThat(before).contains("<h2>Environments</h2>").contains("Production").contains(">not deployed<")
-        assertThat(before).contains("catalogs/dep-page/deployments").contains("value=\"1.0.0\"")
+        assertThat(before).contains("catalogs/${tenant.id}/dep-page/deployments").contains("value=\"1.0.0\"")
 
         val response = restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-page/deployments",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-page/deployments",
             form("environmentId" to "production", "version" to "1.0.0"),
             String::class.java,
         )
         assertThat(response.statusCode.is2xxSuccessful).`as`("the redirect lands back on the Deployments page").isTrue()
 
-        val served = withMediator { ListDeployments(tenant.id, CatalogKey.of("dep-page")).query() }
+        val served = withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, CatalogKey.of("dep-page"))).query() }
         assertThat(served.map { it.environmentKey.value to it.version }).containsExactly("production" to "1.0.0")
         assertThat(live(tenant, "dep-page")).contains("v1.0.0").contains("Undeploy")
     }
@@ -78,14 +79,14 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
             // A correction, so the next patch.
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenant.id, key, version = "1.0.1").execute()
-            DeployCatalogRelease(production, key, "1.0.0").execute()
-            DeployCatalogRelease(production, key, "1.0.1").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.1").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.1").execute()
         }
 
         val body = live(tenant, "dep-two")
@@ -94,12 +95,12 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         assertThat(body).contains("v1.0.1 (deployed)").contains("v1.0.0 (deployed)")
 
         restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-two/deployments/production/undeploy",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-two/deployments/production/undeploy",
             form("version" to "1.0.1"),
             String::class.java,
         )
 
-        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version }).containsExactly("1.0.0")
+        assertThat(withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, key)).query() }.map { it.version }).containsExactly("1.0.0")
     }
 
     @Test
@@ -110,29 +111,29 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
             // A correction, so the next patch.
             UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), name = "Brand, corrected").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenant.id, key, version = "1.1.0").execute()
-            DeployCatalogRelease(production, key, "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.1.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, key), "1.0.0").execute()
         }
 
         restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-replace/deployments",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-replace/deployments",
             form("environmentId" to "production", "version" to "1.1.0"),
             String::class.java,
         )
-        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version })
+        assertThat(withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, key)).query() }.map { it.version })
             .`as`("beside the other: requests pinned to 1.0.0 keep working").containsExactly("1.1.0", "1.0.0")
 
         restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-replace/deployments",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-replace/deployments",
             form("environmentId" to "production", "version" to "1.1.0", "replace" to "true"),
             String::class.java,
         )
-        assertThat(withMediator { ListDeployments(tenant.id, key).query() }.map { it.version }).containsExactly("1.1.0")
+        assertThat(withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, key)).query() }.map { it.version }).containsExactly("1.1.0")
     }
 
     @Test
@@ -143,18 +144,18 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
-            MarkCatalogReady(tenant.id, shared).execute()
-            ReleaseCatalogDraft(tenant.id, shared, version = "1.0.0").execute()
-            val target = GetCatalog(tenant.id, shared).query()!!
-            UpdateCatalogDependencies(tenant.id, key, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, shared), version = "1.0.0").execute()
+            val target = GetCatalog(testCatalog(tenant.id, shared)).query()!!
+            UpdateCatalogDependencies(testCatalog(tenant.id, key), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             CreateTheme(ThemeId(ThemeKey.of("own"), catalog(tenant)), "Own").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenant.id, key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, key), version = "1.0.0").execute()
         }
 
         val deployed = restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-deps/deployments",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-deps/deployments",
             form("environmentId" to "production", "version" to "1.0.0"),
             String::class.java,
         )
@@ -175,7 +176,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         val body = live(tenant, "dep-noenv")
 
         assertThat(body).contains("There are no environments yet").contains("/tenants/${tenant.id.value}/environments")
-        assertThat(body).`as`("no deploy form").doesNotContain("action=\"/tenants/${tenant.id.value}/catalogs/dep-noenv/deployments\"")
+        assertThat(body).`as`("no deploy form").doesNotContain("action=\"/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-noenv/deployments\"")
     }
 
     @Test
@@ -200,13 +201,13 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
             CreateEnvironment(production, "Production").execute()
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog(tenant)), "Brand").execute()
-            MarkCatalogReady(tenant.id, CatalogKey.of("dep-guard")).execute()
-            ReleaseCatalogDraft(tenant.id, CatalogKey.of("dep-guard"), version = "1.0.0").execute()
-            DeployCatalogRelease(production, CatalogKey.of("dep-guard"), "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, CatalogKey.of("dep-guard"))).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.of("dep-guard")), version = "1.0.0").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.of("dep-guard")), "1.0.0").execute()
         }
 
         val response = restTemplate.postForEntity(
-            "/tenants/${tenant.id.value}/catalogs/dep-guard/releases/1.0.0/delete",
+            "/tenants/${tenant.id.value}/catalogs/${tenant.id.value}/dep-guard/releases/1.0.0/delete",
             HttpEntity<Void>(HttpHeaders()),
             String::class.java,
         )
@@ -215,7 +216,7 @@ class CatalogDeploymentsPageTest : BaseIntegrationTest() {
         assertThat(response.body).contains("deployed to &#39;production&#39;")
     }
 
-    private fun catalog(tenant: Tenant) = CatalogId(CatalogKey.of(tenant.name.substringAfterLast(' ')), TenantId(tenant.id))
+    private fun catalog(tenant: Tenant) = testCatalog(TenantId(tenant.id), CatalogKey.of(tenant.name.substringAfterLast(' ')))
 
     private fun tenantWithCatalog(slug: String): Tenant {
         lateinit var created: Tenant

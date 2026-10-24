@@ -18,7 +18,7 @@ class StencilDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Stencil Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/stencils/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/[^/]+/default/stencils/new$")
 
     @Test
     fun `dialog is not open on initial load of the stencils list`() {

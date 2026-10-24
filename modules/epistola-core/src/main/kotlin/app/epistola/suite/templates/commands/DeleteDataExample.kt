@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -51,7 +52,7 @@ class DeleteDataExampleHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<DeleteDataExample, DeleteDataExampleResult?> {
     override fun handle(command: DeleteDataExample): DeleteDataExampleResult? {
-        requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
+        requireCatalogEditable(command.templateId.catalogId)
 
         return jdbi.inTransaction<DeleteDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
@@ -77,7 +78,7 @@ class DeleteDataExampleHandler(
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
-                .bind("catalogKey", command.templateId.catalogKey)
+                .bindCatalog("catalogKey", command.templateId.catalogId)
                 .bind("templateKey", command.templateId.key)
                 .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
                 .mapTo(Long::class.java)

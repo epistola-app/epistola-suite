@@ -38,6 +38,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -61,16 +62,16 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
 
     private fun setUp(name: String): TenantKey = withMediator {
         val tenant = createTenant(name).id
-        val catalog = CatalogId(shared, TenantId(tenant))
+        val catalog = testCatalog(TenantId(tenant), shared)
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
         CreateStencil(StencilId(StencilKey.of("footer"), catalog), "Footer", content = footer("Acme")).execute()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
         CreateDocumentTemplate(invoice(tenant), "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+        UpdateDocumentTemplate(invoice(tenant), themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice(tenant).tenantKey, shared)).execute()
         UpdateVariantContent(
             VariantId(VariantKey.INITIAL, invoice(tenant)),
             stencilDocument {
@@ -85,7 +86,7 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
         tenant
     }
 
-    private fun invoice(tenant: TenantKey) = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+    private fun invoice(tenant: TenantKey) = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
 
     private fun footer(line: String) = stencilDocument {
         text("line", line)
@@ -93,19 +94,18 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
     }
 
     private fun editorTheme(tenant: TenantKey): Any? = withMediator {
-        ResolveTemplateTheme(tenant, ThemeKey.of("brand"), null, editorModel(tenant), templateCatalogKey = shared, catalogKey = letters).query()
+        ResolveTemplateTheme(testCatalog(tenant, letters), ThemeKey.of("brand"), null, editorModel(tenant), templateThemeCatalog = testCatalog(tenant, shared)).query()
     }?.documentStyles?.get("color")
 
     private fun editorModel(tenant: TenantKey) = withMediator { GetEditorContext(VariantId(VariantKey.INITIAL, invoice(tenant))).query() }!!.templateModel
 
     private fun prepared(tenant: TenantKey) = withMediator {
         PrepareDraftRender(
-            tenant,
-            letters,
+            testCatalog(tenant, letters),
             TemplateKey.of("invoice"),
             VariantKey.INITIAL,
             JsonNodeFactory.instance.objectNode().put("name", "x"),
-            CatalogReleaseRef(tenant, letters, DraftRef.Next),
+            CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Next),
         ).query()
     }
 
@@ -123,9 +123,9 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
     @Test
     fun `a named draft renders from that draft, live`() {
         val tenant = setUp("draft-named")
-        val sharedNext = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, shared).query() }!!.versionId
-        val target = withMediator { GetCatalog(tenant, shared).query() }!!
-        withMediator { UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute() }
+        val sharedNext = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(testCatalog(tenant, shared)).query() }!!.versionId
+        val target = withMediator { GetCatalog(testCatalog(tenant, shared)).query() }!!
+        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute() }
 
         assertThat(editorModel(tenant).texts()).containsExactly("Acme Corp")
         assertThat(editorTheme(tenant)).isEqualTo("#ff0000")
@@ -135,16 +135,16 @@ class DraftRendersWithDeclarationsTest : IntegrationTestBase() {
     @Test
     fun `a named draft other than the next version renders from that draft`() {
         val tenant = setUp("draft-named-other")
-        val redesign = withMediator { CreateCatalogDraft(tenant, shared, "Redesign", from = "1.0.0").execute() }.versionId
+        val redesign = withMediator { CreateCatalogDraft(testCatalog(tenant, shared), "Redesign", from = "1.0.0").execute() }.versionId
         withMediator {
             UpdateStencil(
-                StencilId(StencilKey.of("footer"), CatalogId(shared, TenantId(tenant))),
+                StencilId(StencilKey.of("footer"), testCatalog(TenantId(tenant), shared)),
                 content = footer("Acme Redesign"),
-                catalogVersion = CatalogReleaseRef(tenant, shared, DraftRef.Id(redesign)),
+                catalogVersion = CatalogReleaseRef(testCatalog(tenant, shared), DraftRef.Id(redesign)),
             ).execute()
         }
-        val target = withMediator { GetCatalog(tenant, shared).query() }!!
-        withMediator { UpdateCatalogDependencies(tenant, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = redesign))).execute() }
+        val target = withMediator { GetCatalog(testCatalog(tenant, shared)).query() }!!
+        withMediator { UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = redesign))).execute() }
 
         assertThat(editorModel(tenant).texts()).containsExactly("Acme Redesign")
     }

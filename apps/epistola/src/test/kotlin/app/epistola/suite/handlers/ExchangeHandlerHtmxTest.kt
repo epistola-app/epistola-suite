@@ -5,6 +5,7 @@
 package app.epistola.suite.handlers
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ChangeCatalogNamespace
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -21,6 +22,7 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -84,9 +86,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             listOf("activity-alpha", "activity-beta").forEach { slug ->
                 val key = CatalogKey.of(slug)
                 CreateCatalog(tenant.id, key, slug).execute()
-                ChangeCatalogNamespace(tenant.id, key, "public-services").execute()
-                MarkCatalogReady(tenant.id, key).execute()
-                ReleaseCatalogDraft(tenant.id, key, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+                ChangeCatalogNamespace(testCatalog(tenant.id, key), "public-services").execute()
+                MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, key), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             }
         }
 
@@ -176,9 +178,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Stalled").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
         }
 
         assertThat(catalogPage(tenant, catalogKey)).doesNotContain("waiting to publish for over an hour")
@@ -216,9 +218,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Deep link").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             // Only once Exchange has taken it does a page exist there to link to.
             worker.run()
         }
@@ -253,9 +255,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Refusal reason").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
 
@@ -280,9 +282,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             // to null, and SpEL cannot convert null to boolean - so getting this wrong does not
             // hide a button, it returns 500 for every catalog page that has ever published.
             CreateCatalog(tenant.id, healthyKey, "Healthy").execute()
-            ChangeCatalogNamespace(tenant.id, healthyKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, healthyKey).execute()
-            ReleaseCatalogDraft(tenant.id, healthyKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, healthyKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, healthyKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, healthyKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
 
             exchange.submitResponse = {
@@ -297,9 +299,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
                 )
             }
             CreateCatalog(tenant.id, refusedKey, "Refused").execute()
-            ChangeCatalogNamespace(tenant.id, refusedKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, refusedKey).execute()
-            ReleaseCatalogDraft(tenant.id, refusedKey, "1.0.0", publication = ReleasePublication.PUBLISH).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, refusedKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, refusedKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, refusedKey), "1.0.0", publication = ReleasePublication.PUBLISH).execute()
             worker.run()
         }
 
@@ -332,12 +334,11 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Drifted").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
             UpdateCatalogMetadata(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 name = "Drifted",
                 description = "Changed after releasing",
                 attributes = emptyList(),
@@ -622,10 +623,9 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Row publish").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
             ReleaseCatalogDraft(
-                tenantKey = tenant.id,
-                catalogKey = catalogKey,
+                catalog = testCatalog(tenant.id, catalogKey),
                 version = "1.0.0",
                 publication = ReleasePublication.SKIP,
             ).execute()
@@ -635,7 +635,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             .`as`("retained, somewhere to send it, not sent yet")
             .contains("data-testid=\"release-exchange-publish\"")
 
-        withMediator { PublishCurrentCatalogRelease(tenant.id, catalogKey, version = "1.0.0").execute() }
+        withMediator { PublishCurrentCatalogRelease(testCatalog(tenant.id, catalogKey), version = "1.0.0").execute() }
 
         val afterSending = releasePage(tenant, catalogKey, "1.0.0")
         assertThat(afterSending)
@@ -659,12 +659,12 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
         withMediator {
             enroll(tenant)
             CreateCatalog(tenant.id, catalogKey, "Row version").execute()
-            ChangeCatalogNamespace(tenant.id, catalogKey, "public-services").execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.0.0", publication = ReleasePublication.SKIP).execute()
-            UpdateCatalogMetadata(tenant.id, catalogKey, name = "Row version edited", description = null).execute()
-            MarkCatalogReady(tenant.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenant.id, catalogKey, "1.1.0", publication = ReleasePublication.SKIP).execute()
+            ChangeCatalogNamespace(testCatalog(tenant.id, catalogKey), "public-services").execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.0.0", publication = ReleasePublication.SKIP).execute()
+            UpdateCatalogMetadata(testCatalog(tenant.id, catalogKey), name = "Row version edited", description = null).execute()
+            MarkCatalogReady(testCatalog(tenant.id, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, catalogKey), "1.1.0", publication = ReleasePublication.SKIP).execute()
         }
 
         val headers = HttpHeaders().apply { contentType = MediaType.APPLICATION_FORM_URLENCODED }
@@ -685,7 +685,7 @@ class ExchangeHandlerHtmxTest : ExchangeHandlerTestBase() {
             "SELECT version FROM catalog_release_publications WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version",
         )
             .bind("t", tenant.id)
-            .bind("c", catalogKey)
+            .bindCatalog("c", testCatalog(tenant.id, catalogKey))
             .mapTo(String::class.java)
             .list()
     }

@@ -109,4 +109,9 @@ data class Theme(
     val updatedBy: UserKey? = null,
     /** Raised by every change; see [app.epistola.suite.common.Revisions]. */
     val revision: Long = 1,
-)
+    /** The namespace of its catalog: with the catalog key, its address (ADR 0034, section 9). */
+    val namespace: String = "",
+) {
+    /** Its catalog, by its address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+}

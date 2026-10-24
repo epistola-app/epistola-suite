@@ -77,8 +77,8 @@ class CodeListHandler(
         "draftSegment" to segment
         "draftBar" to bar
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = tenantId, catalogKey = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.value}/code-lists/${l.slug.value}", n) }
-        "codeLists" to ListCodeLists(tenantId = tenantId, catalogKey = segment.key, catalogVersion = segment.ref(tenantId.key)).query()
+        "fromOtherCatalogs" to FromOtherCatalogs.of(bar, { ListCodeLists(tenantId = it.tenantId, catalog = it).query() }) { l, c, n -> FromOtherCatalog(l.displayName, "/tenants/${tenantId.key}/catalogs/${c.address}/code-lists/${l.slug.value}", n) }
+        "codeLists" to ListCodeLists(tenantId = tenantId, catalog = segment.catalogIn(tenantId), catalogVersion = segment.ref(tenantId.key)).query()
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
@@ -139,7 +139,7 @@ class CodeListHandler(
         // Safe !!: asCodeListId already rejected an invalid non-blank slug, and
         // required() rejected a blank one, so a valid key is guaranteed here.
         val slug = CodeListKey.validateOrNull(form["slug"])!!
-        val catalogKey = catalogSegment.key
+        val catalog = catalogSegment.catalogIn(request.tenantId())
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
             ?: return renderCreateError(request, FormData(form.formData, mapOf("sourceType" to "Unknown source type")), tenantId)
 
@@ -151,7 +151,7 @@ class CodeListHandler(
 
         val result = form.executeOrFormError {
             CreateCodeList(
-                id = CodeListId(slug, CatalogId(catalogKey, tenantId)),
+                id = CodeListId(slug, catalog),
                 displayName = form["displayName"],
                 description = form.formData["description"]?.ifBlank { null },
                 sourceType = sourceType,
@@ -266,7 +266,7 @@ class CodeListHandler(
                     "codeList" to codeList
                     "catalogSegment" to request.catalogSegment().value
                     "entries" to ListCodeListEntries(codeListId, catalogVersion = request.catalogVersion()).query()
-                    "editable" to IsCatalogEditable(tenantId.key, codeListId.catalogId.key).query()
+                    "editable" to IsCatalogEditable(codeListId.catalogId).query()
                     "includeHidden" to false
                     "error" to (e.message ?: "Cannot delete")
                 }

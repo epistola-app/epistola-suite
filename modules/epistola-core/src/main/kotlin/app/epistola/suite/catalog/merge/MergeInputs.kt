@@ -12,13 +12,13 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
-import app.epistola.suite.catalog.releases.CatalogDefaultTheme
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.CatalogDrafts
 import app.epistola.suite.catalog.releases.CatalogPreset
 import app.epistola.suite.catalog.releases.CatalogReleaseNotFoundException
 import app.epistola.suite.catalog.releases.ReleaseLineage
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -47,8 +47,11 @@ sealed interface CatalogSetting {
     /** Its value in a fixed shape and order, so that equal settings fingerprint equally on every side. */
     val canonical: Any?
 
-    /** The theme a template that names none renders with; null for none. */
-    data class DefaultTheme(val theme: CatalogDefaultTheme?) : CatalogSetting {
+    /**
+     * The theme a template that names none renders with; null for none. As content holds it: by the
+     * alias of its catalog (ADR 0034, section 9), resolved when it is written.
+     */
+    data class DefaultTheme(val theme: ThemeByAlias?) : CatalogSetting {
         override val key get() = "defaultTheme"
         override val label get() = "Default theme"
         override val canonical get() = theme?.let { mapOf("catalogKey" to it.catalogKey.value, "key" to it.themeKey.value) }
@@ -111,7 +114,7 @@ sealed interface CatalogSetting {
          * may name a draft of another catalog; the wire form cannot), else from the content.
          */
         fun of(catalogKey: CatalogKey, content: CatalogContent, declarations: List<CatalogDependencyDeclaration>? = null): List<CatalogSetting> = listOf(
-            DefaultTheme(content.catalog.defaultTheme?.let { CatalogDefaultTheme(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: catalogKey) }),
+            DefaultTheme(content.catalog.defaultTheme?.let { ThemeByAlias(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: catalogKey) }),
             Presets(content.catalog.presets.map { CatalogPreset(it.key, it.name, it.description) }),
         ) + (declarations ?: content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of)).distinctBy { it.catalogKey }.map(::Dependency)
 
@@ -219,30 +222,30 @@ class MergeInputReader(
      *
      * @throws CatalogReleaseNotFoundException when the catalog has no such draft, or no such release.
      */
-    fun read(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftName: String): MergeInputs {
-        val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, tenantKey, catalogKey) }
-            ?: throw CatalogReleaseNotFoundException(catalogKey, draftName)
-        val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, tenantKey, catalogKey) }
+    fun read(catalog: CatalogId, release: String, draftName: String): MergeInputs {
+        val draft = jdbi.withHandle<_, Exception> { drafts.draft(it, catalog) }
+            ?: throw CatalogReleaseNotFoundException(catalog.key, draftName)
+        val lineage = jdbi.withHandle<ReleaseLineage, Exception> { ReleaseLineage.read(it, catalog) }
         val lines = lineage.releases
-        if (release !in lines) throw CatalogReleaseNotFoundException(catalogKey, release)
+        if (release !in lines) throw CatalogReleaseNotFoundException(catalog.key, release)
         // What the draft contains: its base, what it merged, and every parent of those (base and merges).
         val contained = lineage.containedBy(draft.base, draft.merged)
         val found = lineage.closestIn(release, contained)
-        val installed = found?.takeIf { lines[it.version]?.let { line -> it.fingerprint == null || sameRelease(tenantKey, catalogKey, it.version, line.fingerprint, it.fingerprint) } == true }
+        val installed = found?.takeIf { lines[it.version]?.let { line -> it.fingerprint == null || sameRelease(catalog, it.version, line.fingerprint, it.fingerprint) } == true }
         // Found by lineage and not here (or another release under its number): named, to get first. One
         // that is not here and whose fingerprint nobody named cannot be asked for, so no base is known.
         val missing = found?.takeIf { installed == null }?.fingerprint?.let { MergeBaseRef(found.version, it) }
         val mergeBase = installed?.version
-        val base = mergeBase?.let { releaseInput(tenantKey, catalogKey, it) } ?: MergeInput.NONE
+        val base = mergeBase?.let { releaseInput(catalog, it) } ?: MergeInput.NONE
         return MergeInputs(
             draft = draft,
             release = release,
             mergeBase = mergeBase,
             contained = contained,
             base = base,
-            ours = draftInput(tenantKey, catalogKey),
-            theirs = releaseInput(tenantKey, catalogKey, release),
-            heldBase = mergeBase?.let { heldBase(tenantKey, catalogKey, draft, it, base, lineage) }.orEmpty(),
+            ours = draftInput(catalog),
+            theirs = releaseInput(catalog, release),
+            heldBase = mergeBase?.let { heldBase(catalog, draft, it, base, lineage) }.orEmpty(),
             missingBase = missing,
         )
     }
@@ -251,9 +254,9 @@ class MergeInputReader(
      * Whether the release installed as [version] with [installed] is the one [expected] names: by its
      * content hash, or another algorithm's fingerprint of the same content ([ReleaseIdentity]).
      */
-    private fun sameRelease(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, installed: String, expected: String): Boolean {
+    private fun sameRelease(catalog: CatalogId, version: String, installed: String, expected: String): Boolean {
         if (installed == expected) return true
-        return jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, tenantKey, catalogKey, version, expected) }
+        return jdbi.withHandle<Boolean, Exception> { identity.isRelease(it, catalog, version, expected) }
     }
 
     /**
@@ -262,8 +265,7 @@ class MergeInputReader(
      * every entry the two releases have alike; else the base as released.
      */
     private fun heldBase(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         draft: CatalogDraft,
         mergeBase: String,
         base: MergeInput,
@@ -272,11 +274,11 @@ class MergeInputReader(
         val anchors = listOfNotNull(draft.base) + draft.merged
         for (anchor in anchors) {
             if (!lineage.descendsFrom(anchor, mergeBase)) continue
-            val held = recordedHeld(tenantKey, draft, anchor) ?: continue
+            val held = recordedHeld(catalog.tenantKey, draft, anchor) ?: continue
             if (anchor == mergeBase) return CatalogSetting.completeBaseline(held, base.fingerprints)
             // What the draft holds of the anchor is what it holds of the merge base wherever the two
             // releases are alike; elsewhere the anchor changed it, and the base as released is compared.
-            val anchorReleased = releaseInput(tenantKey, catalogKey, anchor).fingerprints
+            val anchorReleased = releaseInput(catalog, anchor).fingerprints
             val complete = CatalogSetting.completeBaseline(held, anchorReleased)
             return base.fingerprints.mapValues { (key, released) -> if (anchorReleased[key] == released) complete[key] ?: released else released }
         }
@@ -296,19 +298,19 @@ class MergeInputReader(
         return fingerprints.readBaseline(recorded)
     }
 
-    private fun releaseInput(tenantKey: TenantKey, catalogKey: CatalogKey, release: String): MergeInput {
-        val retained = assembler.assemble(tenantKey, catalogKey, release) ?: throw CatalogReleaseNotFoundException(catalogKey, release)
-        return input(catalogKey, retained.content)
+    private fun releaseInput(catalog: CatalogId, release: String): MergeInput {
+        val retained = assembler.assemble(catalog, release) ?: throw CatalogReleaseNotFoundException(catalog.key, release)
+        return input(catalog.key, retained.content)
     }
 
     /**
      * The draft the running message targets, as one side: its content and its own dependency
      * declarations (which may name a draft of another catalog), fingerprinted.
      */
-    fun draftInput(tenantKey: TenantKey, catalogKey: CatalogKey): MergeInput {
-        val content = contentBuilder.build(tenantKey, catalogKey)
-        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, tenantKey, catalogKey) }
-        return input(catalogKey, content, declarations)
+    fun draftInput(catalog: CatalogId): MergeInput {
+        val content = contentBuilder.build(catalog)
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, catalog) }
+        return input(catalog.key, content, declarations)
     }
 
     /** One side: every resource and setting of [content], fingerprinted; dependencies from [declarations] when given. */
@@ -334,3 +336,6 @@ class MergeInputReader(
         return paths.mapNotNull { path -> content.assetContents[path]?.let { path to it } }.toMap()
     }
 }
+
+/** A theme as content names it: its key and the alias of its catalog, which is the catalog's key (ADR 0034). */
+data class ThemeByAlias(val themeKey: ThemeKey, val catalogKey: CatalogKey)

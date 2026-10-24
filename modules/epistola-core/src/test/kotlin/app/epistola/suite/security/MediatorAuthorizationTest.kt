@@ -11,6 +11,8 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -52,7 +54,7 @@ class MediatorAuthorizationTest : IntegrationTestBase() {
                         app.epistola.suite.tenants.commands.SetTenantDefaultTheme(
                             tenantId = TenantKey.of("authz-no-access"),
                             themeId = app.epistola.suite.common.ids.ThemeKey.of("nonexistent"),
-                            catalogKey = app.epistola.suite.common.ids.CatalogKey.DEFAULT,
+                            catalog = testCatalog(TenantKey.of("authz-no-access"), app.epistola.suite.common.ids.CatalogKey.DEFAULT),
                         ),
                     )
                 }.isInstanceOf(TenantAccessDeniedException::class.java)

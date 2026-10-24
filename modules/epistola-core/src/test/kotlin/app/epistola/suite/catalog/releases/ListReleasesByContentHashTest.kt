@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.recordBeforeContentHashes
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -44,22 +45,22 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
 
     private fun released(tenant: TenantKey, key: CatalogKey, version: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = key.value).execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant))), "Brand").execute()
-        MarkCatalogReady(tenant, key).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = version).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), key)), "Brand").execute()
+        MarkCatalogReady(testCatalog(tenant, key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version).execute()
     }
 
     /** The tenant described above; the content hash of 1.0.0. */
     private fun seeded(tenant: TenantKey): String = withMediator {
         released(tenant, letters, "1.0.0")
         // The same content again, under two more numbers: only the notes are new.
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.1", notes = "Notes only").execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.2", notes = "Notes again").execute()
-        UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(letters, TenantId(tenant))), name = "Brand, changed").execute()
-        MarkCatalogReady(tenant, letters).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.1.0").execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.1", notes = "Notes only").execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.2", notes = "Notes again").execute()
+        UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), letters)), name = "Brand, changed").execute()
+        MarkCatalogReady(testCatalog(tenant, letters)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0").execute()
         released(tenant, forms, "1.0.0")
-        GetCatalogRelease(tenant, letters, "1.0.0").query()!!.contentHash!!
+        GetCatalogRelease(testCatalog(tenant, letters), "1.0.0").query()!!.contentHash!!
     }
 
     @Test
@@ -69,10 +70,10 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
         withMediator {
             val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
             CreateEnvironment(production, "Production").execute()
-            DeployCatalogRelease(production, letters, "1.0.1").execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.0.1").execute()
         }
 
-        val found = withMediator { ListReleasesByContentHash(tenant, letters, hash).query() }
+        val found = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash).query() }
 
         assertThat(found.items.map { it.version }).containsExactly("1.0.2", "1.0.1", "1.0.0")
         assertThat(found.total).isEqualTo(3)
@@ -82,7 +83,7 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
         }
         assertThat(found.items.single { it.version == "1.0.1" }.deployedTo).containsExactly("production")
         assertThat(found.items.single { it.version == "1.0.1" }.notes).isEqualTo("Notes only")
-        assertThat(withMediator { ListReleasesByContentHash(tenant, letters, "v6:${"0".repeat(64)}").query() })
+        assertThat(withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), "v6:${"0".repeat(64)}").query() })
             .isEqualTo(CatalogReleasePage(emptyList(), 0))
     }
 
@@ -91,9 +92,9 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
         val tenant = createTenant("By content hash paged").id
         val hash = seeded(tenant)
 
-        val first = withMediator { ListReleasesByContentHash(tenant, letters, hash, limit = 2, offset = 0).query() }
-        val second = withMediator { ListReleasesByContentHash(tenant, letters, hash, limit = 2, offset = 2).query() }
-        val past = withMediator { ListReleasesByContentHash(tenant, letters, hash, limit = 2, offset = 4).query() }
+        val first = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash, limit = 2, offset = 0).query() }
+        val second = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash, limit = 2, offset = 2).query() }
+        val past = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash, limit = 2, offset = 4).query() }
 
         assertThat(first.items.map { it.version }).containsExactly("1.0.2", "1.0.1")
         assertThat(first.total).isEqualTo(3)
@@ -106,9 +107,9 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
     fun `a release whose content hash is not computed yet is no match`() {
         val tenant = createTenant("By content hash pending").id
         val hash = seeded(tenant)
-        withMediator { mediator.recordBeforeContentHashes(jdbi, tenant, letters, "1.0.1") }
+        withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.1") }
 
-        val found = withMediator { ListReleasesByContentHash(tenant, letters, hash).query() }
+        val found = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash).query() }
 
         assertThat(found.items.map { it.version }).containsExactly("1.0.2", "1.0.0")
     }

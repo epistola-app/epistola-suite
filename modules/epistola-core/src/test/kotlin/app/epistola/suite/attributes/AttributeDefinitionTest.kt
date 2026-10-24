@@ -17,6 +17,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -112,7 +114,7 @@ class AttributeDefinitionTest : IntegrationTestBase() {
             // country) that we don't want to assert on here.
             val attributes = ListAttributeDefinitions(
                 tenantId = tenantId,
-                catalogKey = CatalogKey.of("default"),
+                catalog = testCatalog(tenantId, CatalogKey.of("default")),
             ).query()
 
             assertThat(attributes).hasSize(2)
@@ -142,11 +144,11 @@ class AttributeDefinitionTest : IntegrationTestBase() {
 
             val tenant1Attrs = ListAttributeDefinitions(
                 tenantId = tenantId1,
-                catalogKey = CatalogKey.of("default"),
+                catalog = testCatalog(tenantId1, CatalogKey.of("default")),
             ).query()
             val tenant2Attrs = ListAttributeDefinitions(
                 tenantId = tenantId2,
-                catalogKey = CatalogKey.of("default"),
+                catalog = testCatalog(tenantId2, CatalogKey.of("default")),
             ).query()
 
             assertThat(tenant1Attrs).hasSize(1)

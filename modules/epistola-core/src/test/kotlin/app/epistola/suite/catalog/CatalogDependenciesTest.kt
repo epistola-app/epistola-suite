@@ -49,6 +49,8 @@ import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -78,34 +80,34 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = createTenant(name).id
         CreateCatalog(tenant, shared, "Shared").execute()
         CreateCatalog(tenant, letters, "Letters").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand", documentStyles = mapOf("color" to "#000000")).execute()
         releases.forEach {
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenant, shared, it).execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), it).execute()
         }
         tenant
     }
 
     private fun declared(tenant: TenantKey, version: String) = withMediator {
-        val target = GetCatalog(tenant, shared).query()!!
+        val target = GetCatalog(testCatalog(tenant, shared)).query()!!
         DeclaredCatalogDependency(target.registry, target.namespace, shared.value, version)
     }
 
     private fun update(tenant: TenantKey, vararg dependencies: DeclaredCatalogDependency) = withMediator {
-        UpdateCatalogDependencies(tenant, letters, dependencies.toList()).execute()
+        UpdateCatalogDependencies(testCatalog(tenant, letters), dependencies.toList()).execute()
     }
 
     private fun releaseShared(tenant: TenantKey, version: String, color: String) = withMediator {
-        UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), documentStyles = mapOf("color" to color)).execute()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, version).execute()
+        UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), documentStyles = mapOf("color" to color)).execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), version).execute()
     }
 
     /** An invoice in `letters` using shared's brand theme, published. */
     private fun invoiceOnSharedTheme(tenant: TenantKey) = withMediator {
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+        UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(templateId.tenantKey, shared)).execute()
         val variant = VariantId(VariantKey.INITIAL, templateId)
         UpdateVariantContent(variant, plainModel()).execute()
         MarkVariantReady(variant).execute()
@@ -121,7 +123,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
         assertThat(pinned.releaseVersion).`as`("the release named, not the highest").isEqualTo("1.1.0")
         assertThat(pinned.releaseFingerprint).isEqualTo(releaseFingerprint(tenant, shared, "1.1.0"))
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).containsExactly(pinned)
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }).containsExactly(pinned)
     }
 
     @Test
@@ -130,9 +132,9 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         update(tenant, declared(tenant, "1.0.0"))
         releaseShared(tenant, "1.1.0", "#111111")
 
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion).isEqualTo("1.0.0")
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single().releaseVersion).isEqualTo("1.0.0")
 
-        val resolved = withMediator { UpgradeCatalogDependencies(tenant, letters).execute() }.single()
+        val resolved = withMediator { UpgradeCatalogDependencies(testCatalog(tenant, letters)).execute() }.single()
         assertThat(resolved.releaseVersion).isEqualTo("1.1.0")
     }
 
@@ -150,7 +152,7 @@ class CatalogDependenciesTest : IntegrationTestBase() {
     fun `a declaration is refused for a range, a duplicate, itself or a catalog the tenant does not have`() {
         val tenant = setUp("deps-refused", "1.0.0")
         val good = declared(tenant, "1.0.0")
-        val own = withMediator { GetCatalog(tenant, letters).query()!! }
+        val own = withMediator { GetCatalog(testCatalog(tenant, letters)).query()!! }
 
         fun refused(vararg dependencies: DeclaredCatalogDependency, message: String) = assertThatThrownBy { update(tenant, *dependencies) }
             .isInstanceOf(ValidationException::class.java)
@@ -171,10 +173,10 @@ class CatalogDependenciesTest : IntegrationTestBase() {
 
         withMediator {
             TestNamespaces.grant(tenant, "renamed").execute()
-            ChangeCatalogNamespace(tenant, shared, "renamed").execute()
+            ChangeCatalogNamespace(testCatalog(tenant, shared), "renamed").execute()
         }
 
-        val after = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
+        val after = withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single()
         assertThat(after).isEqualTo(before.copy(namespace = "renamed"))
     }
 
@@ -183,23 +185,23 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = setUp("deps-move-declares", "1.0.0")
         withMediator {
             // letters' invoice uses letters' own theme, which then moves to shared.
-            CreateTheme(ThemeId(ThemeKey.of("house"), CatalogId(letters, TenantId(tenant))), "House").execute()
-            val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+            CreateTheme(ThemeId(ThemeKey.of("house"), testCatalog(TenantId(tenant), letters)), "House").execute()
+            val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
             CreateDocumentTemplate(templateId, "Invoice").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("house"), themeCatalogKey = letters).execute()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("house"), themeCatalog = testCatalog(templateId.tenantKey, letters)).execute()
             val variant = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariantContent(variant, plainModel()).execute()
             MarkVariantReady(variant).execute()
         }
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }).isEmpty()
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }).isEmpty()
 
-        val relocations = listOf(ResourceAddress(CatalogResourceType.THEME, letters.value, "house").movedTo(shared))
+        val relocations = listOf(testAddress(tenant, CatalogResourceType.THEME, letters.value, "house").movedTo(shared))
         withMediator {
             val plan = PreviewCatalogResourceMove(tenant, relocations).query()
             MoveCatalogResources(tenant, relocations, plan.planFingerprint).execute()
         }
 
-        val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
+        val declared = withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single()
         assertThat(declared.catalogKey to declared.releaseVersion).`as`("pinned to its highest release").isEqualTo(shared.value to "1.0.0")
     }
 
@@ -212,14 +214,14 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         invoiceOnSharedTheme(tenant)
         releaseShared(tenant, "1.1.0", "#111111")
 
-        withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0").execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() }
 
-        val pins = withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }
+        val pins = withMediator { ListReleaseDependencies(testCatalog(tenant, letters), "1.0.0").query() }
         assertThat(pins.map { it.catalogKey to it.releaseVersion }).containsExactly(shared.value to "1.0.0")
         val sharedFingerprint = pins.single().releaseFingerprint
         assertThat(sharedFingerprint).isEqualTo(releaseFingerprint(tenant, shared, "1.0.0"))
-        val archive = withMediator { ExportCatalogZip(tenant, letters, version = "1.0.0").execute() }.zipBytes
+        val archive = withMediator { ExportCatalogZip(testCatalog(tenant, letters), version = "1.0.0").execute() }.zipBytes
         assertThat(String(entry(archive, "catalog.json"))).contains("\"releaseVersion\":\"1.0.0\"", "\"releaseFingerprint\":\"$sharedFingerprint\"")
     }
 
@@ -228,20 +230,20 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val tenant = setUp("deps-late")
         invoiceOnSharedTheme(tenant)
         // shared has no release yet, so the declaration this adds names its next version.
-        val declared = withMediator { ListCatalogDependencies(tenant, letters).query() }.single()
+        val declared = withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single()
         assertThat(declared.releaseVersion).isNull()
         assertThat(declared.draftName).isEqualTo("Next release")
 
-        withMediator { MarkCatalogReady(tenant, letters).execute() }
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0").execute() } }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() } }
             .isInstanceOf(CatalogDependenciesUnreleasedException::class.java)
             .hasMessageContaining("shared (Next release)")
 
         releaseShared(tenant, "1.0.0", "#111111")
-        assertThat(withMediator { ListCatalogDependencies(tenant, letters).query() }.single().releaseVersion)
+        assertThat(withMediator { ListCatalogDependencies(testCatalog(tenant, letters)).query() }.single().releaseVersion)
             .`as`("releasing the draft it named pins its release").isEqualTo("1.0.0")
-        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0").execute() }
-        assertThat(withMediator { ListReleaseDependencies(tenant, letters, "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() }
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant, letters), "1.0.0").query() }.single().releaseVersion).isEqualTo("1.0.0")
     }
 
     @Test
@@ -251,8 +253,8 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         // Using Shared declared it; an author then removed the declaration.
         update(tenant)
 
-        withMediator { MarkCatalogReady(tenant, letters).execute() }
-        assertThatThrownBy { withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0").execute() } }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        assertThatThrownBy { withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0").execute() } }
             .hasMessageContaining("which catalogDependencies does not declare")
     }
 
@@ -263,11 +265,11 @@ class CatalogDependenciesTest : IntegrationTestBase() {
         val origin = setUp("deps-origin", "1.0.0")
         update(origin, declared(origin, "1.0.0"))
         invoiceOnSharedTheme(origin)
-        withMediator { MarkCatalogReady(origin, letters).execute() }
-        withMediator { ReleaseCatalogDraft(origin, letters, "1.0.0").execute() }
+        withMediator { MarkCatalogReady(testCatalog(origin, letters)).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(origin, letters), "1.0.0").execute() }
         releaseShared(origin, "1.1.0", "#ff0000")
-        val sharedArchives = listOf("1.0.0", "1.1.0").map { version -> withMediator { ExportCatalogZip(origin, shared, version).execute() }.zipBytes }
-        val lettersArchive = withMediator { ExportCatalogZip(origin, letters, "1.0.0").execute() }.zipBytes
+        val sharedArchives = listOf("1.0.0", "1.1.0").map { version -> withMediator { ExportCatalogZip(testCatalog(origin, shared), version).execute() }.zipBytes }
+        val lettersArchive = withMediator { ExportCatalogZip(testCatalog(origin, letters), "1.0.0").execute() }.zipBytes
 
         val target = createTenant("deps-target").id
         withMediator {
@@ -275,18 +277,18 @@ class CatalogDependenciesTest : IntegrationTestBase() {
             ImportCatalogZip(target, lettersArchive).execute()
         }
 
-        val pin = withMediator { ListReleaseDependencies(target, letters, "1.0.0").query() }.single()
+        val pin = withMediator { ListReleaseDependencies(testCatalog(target, letters), "1.0.0").query() }.single()
         assertThat(pin.releaseVersion).isEqualTo("1.0.0")
         assertThat(pin.releaseFingerprint).isEqualTo(releaseFingerprint(origin, shared, "1.0.0"))
         val tenant = withMediator { GetTenant(target).query()!! }
-        val inputs = source.resolve(tenant, ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenant, ReleaseRef(testCatalog(tenant.id, letters), "1.0.0"), "invoice", VariantKey.INITIAL.value)
         assertThat(inputs.resolvedTheme.documentStyles)
             .`as`("shared@1.0.0 as pinned, though the target installed shared@1.1.0 since")
             .containsEntry("color", "#000000")
     }
 
     private fun releaseFingerprint(tenant: TenantKey, catalog: CatalogKey, version: String): String = withMediator {
-        ListCatalogReleaseSummaries(tenant, catalog).query().single { it.version == version }.fingerprint
+        ListCatalogReleaseSummaries(testCatalog(tenant, catalog)).query().single { it.version == version }.fingerprint
     }
 
     private fun entry(zip: ByteArray, name: String): ByteArray = ZipInputStream(zip.inputStream()).use { stream ->

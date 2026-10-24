@@ -35,6 +35,7 @@ import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -271,7 +272,7 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         released(tenantId)
         val redesign = work(tenantId, "Redesign")
         runAsApiKey(tenantId) { themeTools.createTheme("default", "seasonal", "Seasonal", null, null, null, null, null) }
-        withMediator { SetTenantDefaultTheme(tenantId.key, ThemeKey.of("seasonal"), CatalogKey.of("default")).execute() }
+        withMediator { SetTenantDefaultTheme(tenantId.key, testCatalog(tenantId.key, CatalogKey.of("default")), ThemeKey.of("seasonal")).execute() }
 
         val left = runAsApiKey(tenantId) { versionTools.discardDraft("default", redesign) }
 
@@ -306,11 +307,11 @@ class CatalogReleaseMcpToolsIntegrationTest : IntegrationTestBase() {
         val shared = CatalogKey.of("shared")
         withMediator {
             CreateCatalog(tenantKey = tenantId.key, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("base"), CatalogId(shared, tenantId)), "Base").execute()
-            MarkCatalogReady(tenantId.key, shared).execute()
-            ReleaseCatalogDraft(tenantId.key, shared, "1.0.0").execute()
-            val catalog = GetCatalog(tenantId.key, shared).query()!!
-            UpdateCatalogDependencies(tenantId.key, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", releaseVersion = "1.0.0"))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(tenantId, shared)), "Base").execute()
+            MarkCatalogReady(testCatalog(tenantId.key, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, shared), "1.0.0").execute()
+            val catalog = GetCatalog(testCatalog(tenantId.key, shared)).query()!!
+            UpdateCatalogDependencies(testCatalog(tenantId.key, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, "shared", releaseVersion = "1.0.0"))).execute()
         }
         val fix = work(tenantId, "Fix")
         runAsApiKey(tenantId) {

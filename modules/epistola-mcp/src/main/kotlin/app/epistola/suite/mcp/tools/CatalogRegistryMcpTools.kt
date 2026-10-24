@@ -13,7 +13,7 @@ import app.epistola.suite.mcp.dto.RegistryInstallInfo
 import app.epistola.suite.mcp.dto.RegistryPublicationInfo
 import app.epistola.suite.mcp.dto.RegistryReleasesInfo
 import app.epistola.suite.mcp.dto.ReleaseRegistriesInfo
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -80,7 +80,7 @@ class CatalogRegistryMcpTools {
         val name = registry?.trim()?.takeIf { it.isNotEmpty() }
             ?: ListReleaseRegistries(tenantKey).query().registries.singleOrNull()?.name
             ?: ""
-        return RegistryPublicationInfo.from(PublishReleaseToReleaseRegistry(tenantKey, mcpCatalogKey(catalogId), version.trim(), name).execute())
+        return RegistryPublicationInfo.from(PublishReleaseToReleaseRegistry(mcpCatalog(catalogId), version.trim(), name).execute())
     }
 
     @McpTool(

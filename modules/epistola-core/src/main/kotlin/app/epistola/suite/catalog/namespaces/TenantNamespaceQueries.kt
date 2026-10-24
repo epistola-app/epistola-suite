@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.namespaces
 import app.epistola.suite.catalog.CatalogIdentityProperties
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -56,10 +58,11 @@ data class HeldNamespaces(
 
 /** Whether the tenant holds the namespace a catalog is named in, so that it may release it (ADR 0034, section 2). */
 data class GetCatalogNamespaceHolding(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<CatalogNamespaceHolding>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -110,45 +113,15 @@ class GetCatalogNamespaceHoldingHandler(
     private val store: NamespaceGrantStore,
 ) : QueryHandler<GetCatalogNamespaceHolding, CatalogNamespaceHolding> {
     override fun handle(query: GetCatalogNamespaceHolding): CatalogNamespaceHolding = jdbi.withHandle<CatalogNamespaceHolding, Exception> { handle ->
-        holdingOf(handle, store, query.tenantKey, query.catalogKey)
+        holdingOf(handle, store, query.catalog)
     }
 }
 
 /** Whether the tenant holds [catalogKey]'s namespace, on [handle]. */
-fun holdingOf(handle: Handle, store: NamespaceGrantStore, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogNamespaceHolding {
-    val name = handle.createQuery("SELECT registry, namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)")
-        .bind("tenantKey", tenantKey).bind("catalogKey", catalogKey)
+fun holdingOf(handle: Handle, store: NamespaceGrantStore, catalog: CatalogId): CatalogNamespaceHolding {
+    val name = handle.createQuery("SELECT registry, namespace FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)")
+        .bind("tenantKey", catalog.tenantKey).bindCatalog("catalogKey", catalog)
         .map { rs, _ -> NamespaceName(rs.getString("registry"), rs.getString("namespace")) }
-        .findOne().orElseThrow { CatalogNotFoundException(catalogKey) }
-    return CatalogNamespaceHolding(name, store.holds(handle, tenantKey, name))
-}
-
-/**
- * The namespaces in which the tenant has a catalog with [catalogKey] (ADR 0034, phase 4): one for a
- * key that names one catalog, several when catalogs of different namespaces share it, none when the
- * tenant has no such catalog. What an address naming a catalog by key alone is checked against.
- */
-data class ListCatalogKeyNamespaces(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
-) : Query<CatalogKeyNamespaces>,
-    RequiresPermission {
-    override val permission get() = Permission.CATALOG_VIEW
-}
-
-/** The namespaces a catalog key is used in, by name. */
-data class CatalogKeyNamespaces(val namespaces: List<String>) {
-    /** The one namespace the key names a catalog in; null when it names none or several. */
-    val single: String? get() = namespaces.singleOrNull()
-}
-
-@Component
-class ListCatalogKeyNamespacesHandler(private val jdbi: Jdbi) : QueryHandler<ListCatalogKeyNamespaces, CatalogKeyNamespaces> {
-    override fun handle(query: ListCatalogKeyNamespaces): CatalogKeyNamespaces = jdbi.withHandle<CatalogKeyNamespaces, Exception> { handle ->
-        CatalogKeyNamespaces(
-            handle.createQuery("SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_key = :k ORDER BY namespace")
-                .bind("t", query.tenantKey).bind("k", query.catalogKey)
-                .mapTo(String::class.java).list(),
-        )
-    }
+        .findOne().orElseThrow { CatalogNotFoundException(catalog.key) }
+    return CatalogNamespaceHolding(name, store.holds(handle, catalog.tenantKey, name))
 }

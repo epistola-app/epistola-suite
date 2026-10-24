@@ -54,11 +54,11 @@ class RelocationSnapshotRoundTripTest : RelocationTestSupport() {
         withMediator { UpdateVariant(templateVariant(tenant, letters), "Main", mapOf("letters.brand" to "acme")).execute() }
 
         val moved = listOf(
-            address(CatalogResourceType.FONT, letters, "acme"),
-            address(CatalogResourceType.IMAGE, letters, "logo"),
-            address(CatalogResourceType.THEME, letters, "brand"),
-            address(CatalogResourceType.STENCIL, letters, "header"),
-            address(CatalogResourceType.ATTRIBUTE, letters, "brand"),
+            address(tenant, CatalogResourceType.FONT, letters, "acme"),
+            address(tenant, CatalogResourceType.IMAGE, letters, "logo"),
+            address(tenant, CatalogResourceType.THEME, letters, "brand"),
+            address(tenant, CatalogResourceType.STENCIL, letters, "header"),
+            address(tenant, CatalogResourceType.ATTRIBUTE, letters, "brand"),
         )
         move(tenant, moved.map { it.movedTo(shared) })
         // The published invoice still names letters, where nothing is left, so its catalog cannot be

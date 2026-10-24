@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.identity
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.common.ids.CatalogId
@@ -20,6 +21,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -46,7 +48,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Resource identities")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("letters")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
         val stencilId = StencilId(StencilKey.of("header"), catalogId)
 
         withMediator {
@@ -67,7 +69,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
                 """,
             )
                 .bind("tenantKey", tenant.id)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", testCatalog(tenant.id, catalogKey))
                 .map { rs, _ ->
                     IdentityRow(
                         rs.getObject("resource_id", UUID::class.java),
@@ -101,7 +103,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
                 """,
             )
                 .bind("tenantKey", tenant.id)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", testCatalog(tenant.id, catalogKey))
                 .mapTo(Boolean::class.java)
                 .one()
         }
@@ -120,7 +122,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Identity version")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("letters")
-        val catalogId = CatalogId(catalogKey, tenantId)
+        val catalogId = testCatalog(tenantId, catalogKey)
 
         withMediator {
             CreateCatalog(tenant.id, catalogKey, "Letters").execute()
@@ -138,7 +140,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
                 """,
             )
                 .bind("tenantKey", tenant.id)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", testCatalog(tenant.id, catalogKey))
                 .map { rs, _ -> rs.getObject("resource_id", UUID::class.java) }
                 .list()
         }
@@ -221,7 +223,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
     fun `two transactions cannot register different identities at one address`() {
         val tenant = createTenant("Identity race")
         val catalogKey = CatalogKey.of("letters")
-        val themeId = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(tenant.id)))
+        val themeId = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), catalogKey))
         withMediator { CreateCatalog(tenant.id, catalogKey, "Letters").execute() }
 
         val holderReady = CountDownLatch(1)
@@ -273,7 +275,7 @@ class CatalogResourceIdentityIntegrationTest : IntegrationTestBase() {
                         "AND resource_type = 'theme' AND catalog_id = ${catalogAt("t", "c")} AND resource_key = 'brand'",
                 )
                 .bind("t", tenant.id)
-                .bind("c", catalogKey)
+                .bindCatalog("c", testCatalog(tenant.id, catalogKey))
                 .mapTo(Int::class.java)
                 .one()
         }

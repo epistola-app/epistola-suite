@@ -14,6 +14,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -80,9 +81,9 @@ class DemoTenantListReachableIT : IntegrationTestBase() {
 
         withMediator {
             assertThat(ListNamespaceGrants(demo).query().map { it.name }).contains(held)
-            val default = GetCatalog(demo, CatalogKey.DEFAULT).query()!!
+            val default = GetCatalog(testCatalog(demo, CatalogKey.DEFAULT)).query()!!
             assertThat(NamespaceName(default.registry, default.namespace)).isEqualTo(held)
-            assertThat(GetCatalogNamespaceHolding(demo, CatalogKey.DEFAULT).query().refusal).`as`("the demo releases its own catalogs").isNull()
+            assertThat(GetCatalogNamespaceHolding(testCatalog(demo, CatalogKey.DEFAULT)).query().refusal).`as`("the demo releases its own catalogs").isNull()
         }
     }
 }

@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZipResult
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -67,8 +68,10 @@ class ExchangeCatalogInstaller(
         val release = resolveRelease(baseUrl, token, namespace, catalogKey, version)
         // Whether this catalog is already here decides what an abort has to undo, so it is
         // established before anything is fetched rather than inferred afterwards.
-        val existedBefore = GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query() != null
-        requireNoLocalConflict(tenantKey, catalogKey, sourceUri)
+        // Installed under its address on the Exchange (ADR 0034, section 9).
+        val catalog = CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
+        val existedBefore = GetCatalog(catalog).query() != null
+        requireNoLocalConflict(catalog, sourceUri)
         requireImportableSize(release)
 
         val archive = client.downloadArchive(baseUrl, token, namespace, catalogKey, release.version, sizeLimits.maxZipSize.toBytes())
@@ -100,7 +103,8 @@ class ExchangeCatalogInstaller(
             return ExchangeInstallResult(imported, release, aborted = true, rolledBack = !existedBefore)
         }
 
-        upstreamChecks.recordInstalled(tenantKey, imported.catalogKey, release.version, release.sha256)
+        // Where the import named it: its manifest's namespace.
+        upstreamChecks.recordInstalled(imported.catalog ?: catalog, release.version, release.sha256)
         return ExchangeInstallResult(imported, release, aborted = false)
     }
 
@@ -157,20 +161,20 @@ class ExchangeCatalogInstaller(
     /**
      * Refuses an install that would land on a catalog that is already something else.
      *
-     * A catalog is addressed within a tenant by the slug in its own manifest, so `acme/invoices` and
-     * `globex/invoices` both want to be `invoices` here, and without this the second install would
-     * quietly land on the first, which is worse than failing.
+     * A catalog is addressed within a tenant by its namespace and key (ADR 0034), so `acme/invoices`
+     * and `globex/invoices` are two catalogs here; this refuses only an install whose address a catalog
+     * from somewhere else already has.
      *
      * Checked before downloading: a collision costs no bandwidth to discover.
      */
-    private fun requireNoLocalConflict(tenantKey: TenantKey, catalogKey: String, sourceUri: String) {
-        localConflict(tenantKey, catalogKey, sourceUri)?.let { throw ValidationException("catalogKey", it, ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN) }
+    private fun requireNoLocalConflict(catalog: CatalogId, sourceUri: String) {
+        localConflict(catalog, sourceUri)?.let { throw ValidationException("catalogKey", it, ValidationCode.EXCHANGE_CATALOG_KEY_TAKEN) }
     }
 
     /** Why installing [sourceUri] here would be refused before a download, as [requireNoLocalConflict] says it; null when it would not. */
-    fun localConflict(tenantKey: TenantKey, catalogKey: String, sourceUri: String): String? {
-        val localKey = CatalogKey.of(catalogKey)
-        val existing = GetCatalog(tenantKey, localKey).query() ?: return null
+    fun localConflict(catalog: CatalogId, sourceUri: String): String? {
+        val localKey = catalog.key
+        val existing = GetCatalog(catalog).query() ?: return null
         if (existing.sourceUrl == sourceUri) return null
 
         val heldBy = when {

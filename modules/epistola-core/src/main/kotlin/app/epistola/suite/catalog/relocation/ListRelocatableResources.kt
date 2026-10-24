@@ -67,7 +67,7 @@ class ListRelocatableResourcesHandler(
             -- Each catalog that can be changed here (not one Epistola supplies, ADR 0032) with its
             -- current version, whose content is what can move.
             WITH editable AS (
-                SELECT c.catalog_id, cv.version_id, c.catalog_key, c.name,
+                SELECT c.catalog_id, cv.version_id, c.namespace, c.catalog_key, c.name,
                        EXISTS(
                            SELECT 1 FROM catalog_releases r
                            WHERE r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id
@@ -76,40 +76,40 @@ class ListRelocatableResourcesHandler(
                 JOIN catalog_current_versions cv ON cv.tenant_key = c.tenant_key AND cv.catalog_id = c.catalog_id
                 WHERE c.tenant_key = :tenantKey AND COALESCE(c.source_url NOT LIKE 'classpath:%', TRUE)
             )
-            SELECT resource_type, catalog_key, resource_key, resource_name, catalog_name, released
+            SELECT resource_type, namespace, catalog_key, resource_key, resource_name, catalog_name, released
             FROM (
-                SELECT 'stencil' resource_type, c.catalog_key::text, s.id::text resource_key, s.name resource_name,
+                SELECT 'stencil' resource_type, c.namespace, c.catalog_key::text, s.id::text resource_key, s.name resource_name,
                        c.name catalog_name, c.released
                 FROM stencils s JOIN editable c ON c.version_id = s.version_id
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'attribute', c.catalog_key::text, a.id::text, a.display_name, c.name, c.released
+                SELECT 'attribute', c.namespace, c.catalog_key::text, a.id::text, a.display_name, c.name, c.released
                 FROM variant_attribute_definitions a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'template', c.catalog_key::text, t.id::text, t.name, c.name, c.released
+                SELECT 'template', c.namespace, c.catalog_key::text, t.id::text, t.name, c.name, c.released
                 FROM document_templates t JOIN editable c ON c.version_id = t.version_id
                 WHERE t.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'codeList', c.catalog_key::text, l.slug::text, l.display_name, c.name, c.released
+                SELECT 'codeList', c.namespace, c.catalog_key::text, l.slug::text, l.display_name, c.name, c.released
                 FROM code_lists l JOIN editable c ON c.version_id = l.version_id
                 WHERE l.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'image', c.catalog_key::text, a.id::text, a.name, c.name, c.released
+                SELECT 'image', c.namespace, c.catalog_key::text, a.id::text, a.name, c.name, c.released
                 FROM assets a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'font', c.catalog_key::text, f.slug::text, f.name, c.name, c.released
+                SELECT 'font', c.namespace, c.catalog_key::text, f.slug::text, f.name, c.name, c.released
                 FROM fonts f JOIN editable c ON c.version_id = f.version_id
                 WHERE f.tenant_key = :tenantKey
                 UNION ALL
-                SELECT 'theme', c.catalog_key::text, th.id::text, th.name, c.name, c.released
+                SELECT 'theme', c.namespace, c.catalog_key::text, th.id::text, th.name, c.name, c.released
                 FROM themes th JOIN editable c ON c.version_id = th.version_id
                 WHERE th.tenant_key = :tenantKey
             ) resources
             WHERE resource_type IN (<types>)
               AND (:search IS NULL OR resource_name ILIKE :search OR resource_key ILIKE :search)
-              AND (:anyAddress OR resource_type || ':' || catalog_key || '/' || resource_key IN (<addresses>))
+              AND (:anyAddress OR resource_type || ':' || namespace || '/' || catalog_key || '/' || resource_key IN (<addresses>))
             ORDER BY catalog_name, resource_type, resource_name
             LIMIT :limit
             """,
@@ -125,6 +125,7 @@ class ListRelocatableResourcesHandler(
                 RelocatableResource(
                     address = ResourceAddress(
                         CatalogResourceType.entries.single { it.wireName == rs.getString("resource_type") },
+                        rs.getString("namespace"),
                         rs.getString("catalog_key"),
                         rs.getString("resource_key"),
                     ),

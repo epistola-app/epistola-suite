@@ -29,6 +29,7 @@ import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -60,13 +61,12 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
         .contentAsByteArray
 
     private fun uploadFace(tenant: TenantId, catalog: CatalogKey, name: String): AssetKey = UploadAsset(
-        tenantId = tenant.key,
+        catalog = testCatalog(tenant.key, catalog),
         name = name,
         mediaType = AssetMediaType.TTF,
         content = ttfBytes(),
         width = null,
         height = null,
-        catalogKey = catalog,
     ).execute().id
 
     @Test
@@ -79,8 +79,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             val bold = uploadFace(tenantId, CatalogKey.DEFAULT, "acme-sans-bold.ttf")
 
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
@@ -90,12 +89,12 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 ),
             ).execute()
 
-            val fonts = ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query()
+            val fonts = ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query()
             val acme = fonts.single { it.slug.value == "acme-sans" }
             assertThat(acme.name).isEqualTo("Acme Sans")
             assertThat(acme.kind).isEqualTo(FontKind.SANS)
 
-            val variants = GetFontVariants(FontId(FontKey.of("acme-sans"), CatalogId(CatalogKey.DEFAULT, tenantId)))
+            val variants = GetFontVariants(FontId(FontKey.of("acme-sans"), testCatalog(tenantId, CatalogKey.DEFAULT)))
                 .query().map { it.weight to it.italic }
             assertThat(variants).containsExactlyInAnyOrder(400 to false, 700 to false)
         }
@@ -108,13 +107,12 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             // The asset upload itself targets system → CatalogReadOnlyException.
             assertThatThrownBy {
                 UploadAsset(
-                    tenantId = createTenant("Font System Reject Tenant 2").id,
+                    catalog = testCatalog(createTenant("Font System Reject Tenant 2").id, SYSTEM_CATALOG_KEY),
                     name = "rogue.ttf",
                     mediaType = AssetMediaType.TTF,
                     content = ttfBytes(),
                     width = null,
                     height = null,
-                    catalogKey = SYSTEM_CATALOG_KEY,
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -128,18 +126,17 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
 
             val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "del-regular.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "delete-me",
                 name = "Delete Me",
                 kind = FontKind.SERIF.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
             ).execute()
 
-            val deleted = DeleteFont(FontId(FontKey.of("delete-me"), CatalogId(CatalogKey.DEFAULT, tenantId))).execute()
+            val deleted = DeleteFont(FontId(FontKey.of("delete-me"), testCatalog(tenantId, CatalogKey.DEFAULT))).execute()
             assertThat(deleted).isTrue()
 
-            assertThat(ListFonts(tenantId = tenantId, catalogKey = CatalogKey.DEFAULT).query().map { it.slug.value })
+            assertThat(ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query().map { it.slug.value })
                 .doesNotContain("delete-me")
             // The backing ASSET binary is gone too.
             assertThat(GetAsset(tenantId = tenant.id, assetId = regular).query()).isNull()
@@ -153,7 +150,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             val tenantId = TenantId(tenant.id)
 
             assertThatThrownBy {
-                DeleteFont(FontId(FontKey.of("inter"), CatalogId(SYSTEM_CATALOG_KEY, tenantId))).execute()
+                DeleteFont(FontId(FontKey.of("inter"), testCatalog(tenantId, SYSTEM_CATALOG_KEY))).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
     }
@@ -166,8 +163,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
 
             val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "used-regular.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "used-font",
                 name = "Used Font",
                 kind = FontKind.SANS.wire,
@@ -175,14 +171,14 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             ).execute()
 
             CreateTheme(
-                id = ThemeId(ThemeKey.of("brand-theme"), CatalogId(CatalogKey.DEFAULT, tenantId)),
+                id = ThemeId(ThemeKey.of("brand-theme"), testCatalog(tenantId, CatalogKey.DEFAULT)),
                 name = "Brand Theme",
                 documentStyles = mapOf(
                     "fontFamily" to mapOf("key" to "used-font", "catalogKey" to "default"),
                 ),
             ).execute()
 
-            val fontId = FontId(FontKey.of("used-font"), CatalogId(CatalogKey.DEFAULT, tenantId))
+            val fontId = FontId(FontKey.of("used-font"), testCatalog(tenantId, CatalogKey.DEFAULT))
 
             val usages = FindFontUsages(fontId).query()
             assertThat(usages).hasSize(1)
@@ -205,8 +201,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             val tenantId = TenantId(tenant.id)
             val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "slug-regular.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "slug-font",
                 name = "Slug Font",
                 kind = FontKind.SANS.wire,
@@ -214,12 +209,12 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             ).execute()
             // The wire-v7 member name, as 1.x stored it.
             CreateTheme(
-                id = ThemeId(ThemeKey.of("old-theme"), CatalogId(CatalogKey.DEFAULT, tenantId)),
+                id = ThemeId(ThemeKey.of("old-theme"), testCatalog(tenantId, CatalogKey.DEFAULT)),
                 name = "Old Theme",
                 documentStyles = mapOf("fontFamily" to mapOf("slug" to "slug-font", "catalogKey" to "default")),
             ).execute()
 
-            val usages = FindFontUsages(FontId(FontKey.of("slug-font"), CatalogId(CatalogKey.DEFAULT, tenantId))).query()
+            val usages = FindFontUsages(FontId(FontKey.of("slug-font"), testCatalog(tenantId, CatalogKey.DEFAULT))).query()
 
             assertThat(usages.map { it.name }).containsExactly("Old Theme")
         }
@@ -233,8 +228,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
 
             val regular = uploadFace(tenantId, CatalogKey.DEFAULT, "lonely-regular.ttf")
             ImportFont(
-                tenantId = tenantId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = "lonely-font",
                 name = "Lonely Font",
                 kind = FontKind.MONO.wire,
@@ -242,7 +236,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             ).execute()
 
             val usages = FindFontUsages(
-                FontId(FontKey.of("lonely-font"), CatalogId(CatalogKey.DEFAULT, tenantId)),
+                FontId(FontKey.of("lonely-font"), testCatalog(tenantId, CatalogKey.DEFAULT)),
             ).query()
             assertThat(usages).isEmpty()
         }
@@ -255,8 +249,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             val sourceId = TenantId(source.id)
             val regular = uploadFace(sourceId, CatalogKey.DEFAULT, "rt-regular.ttf")
             ImportFont(
-                tenantId = sourceId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(sourceId, CatalogKey.DEFAULT),
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
@@ -269,19 +262,18 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             val targetId = TenantId(target.id)
             val importedAsset = uploadFace(targetId, CatalogKey.DEFAULT, "rt-imported.ttf")
             ImportFont(
-                tenantId = targetId,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(targetId, CatalogKey.DEFAULT),
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
                 variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = importedAsset)),
             ).execute()
 
-            val imported = ListFonts(tenantId = targetId, catalogKey = CatalogKey.DEFAULT).query()
+            val imported = ListFonts(tenantId = targetId, catalog = testCatalog(targetId, CatalogKey.DEFAULT)).query()
                 .single { it.slug.value == "round-trip" }
             assertThat(imported.name).isEqualTo("Round Trip")
             assertThat(
-                GetFontVariants(FontId(FontKey.of("round-trip"), CatalogId(CatalogKey.DEFAULT, targetId)))
+                GetFontVariants(FontId(FontKey.of("round-trip"), testCatalog(targetId, CatalogKey.DEFAULT)))
                     .query().map { it.weight to it.italic },
             ).containsExactly(400 to false)
         }

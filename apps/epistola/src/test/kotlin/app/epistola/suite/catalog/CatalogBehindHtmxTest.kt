@@ -22,6 +22,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -49,18 +50,18 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun catalogId(tenant: Tenant) = CatalogId(letters, TenantId(tenant.id))
+    private fun catalogId(tenant: Tenant) = testCatalog(TenantId(tenant.id), letters)
 
     private fun theme(tenant: Tenant, key: String) = ThemeId(ThemeKey.of(key), catalogId(tenant))
 
-    private fun work(tenant: Tenant, id: String) = CatalogReleaseRef(tenant.id, letters, DraftRef.Id(id))
+    private fun work(tenant: Tenant, id: String) = CatalogReleaseRef(testCatalog(tenant.id, letters), DraftRef.Id(id))
 
     /** A fix of theme [key], renamed to [name], made in other work on [on] and published as [version]. */
     private fun fix(tenant: Tenant, key: String, name: String, on: String, version: String, acknowledged: Set<String> = emptySet()) = withMediator {
-        val draft = work(tenant, CreateCatalogDraft(tenant.id, letters, "Fix $version", on).execute().versionId)
+        val draft = work(tenant, CreateCatalogDraft(testCatalog(tenant.id, letters), "Fix $version", on).execute().versionId)
         UpdateTheme(theme(tenant, key), name = name, catalogVersion = draft).execute()
-        MarkCatalogReady(tenant.id, letters, draft).execute()
-        ReleaseCatalogDraft(tenant.id, letters, version, catalogVersion = draft, acknowledgedBehind = acknowledged).execute()
+        MarkCatalogReady(testCatalog(tenant.id, letters), draft).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), version, catalogVersion = draft, acknowledgedBehind = acknowledged).execute()
     }
 
     /** 1.0.0, then 1.0.1 from other work: the next release, on 1.0.0, lacks it. */
@@ -69,8 +70,8 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
             CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
             CreateTheme(theme(tenant, "brand"), "Brand").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-            MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
         }
         fix(tenant, "brand", "Brand 2", on = "1.0.0", version = "1.0.1")
     }
@@ -80,8 +81,8 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
         oneMissing(tenant)
         withMediator {
             CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
-            MarkCatalogReady(tenant.id, letters).execute()
-            ReleaseCatalogDraft(tenant.id, letters, "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.1.0", acknowledgedBehind = setOf("1.0.1")).execute()
         }
         fix(tenant, "letterhead", "Letterhead 2", on = "1.1.0", version = "1.1.1", acknowledged = setOf("1.0.1"))
     }
@@ -89,7 +90,7 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
     /** The catalog's page and the next release's own page, as a viewer holding [roles] (all, when null). */
     private fun pages(tenant: Tenant, roles: String? = null): List<String> = listOf("browse", "draft").map { page ->
         val headers = HttpHeaders().apply { roles?.let { set(TEST_TENANT_ROLES_HEADER, it) } }
-        restTemplate.exchange("/tenants/${tenant.id}/catalogs/letters/$page", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java).body!!
+        restTemplate.exchange("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/$page", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java).body!!
     }
 
     private fun String.count(text: String): Int = windowed(text.length).count { it == text }
@@ -137,11 +138,11 @@ class CatalogBehindHtmxTest : BaseIntegrationTest() {
             // One row each, oldest first, with where it was made, what it changed and Merge….
             assertThat(Regex("""data-testid="catalog-draft-behind-release" data-version="([^"]+)"""").findAll(page).map { it.groupValues[1] }.toList())
                 .containsExactly("1.0.1", "1.1.1")
-            assertThat(page).contains("/tenants/${tenant.id}/catalogs/letters/releases/1.0.1")
+            assertThat(page).contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/releases/1.0.1")
                 .contains(">made on v1.0.0<").contains(">made on v1.1.0<")
                 .contains(">Changed Brand 2<").contains(">Changed Letterhead 2<")
-                .contains("/tenants/${tenant.id}/catalogs/letters/merge?release=1.0.1")
-                .contains("/tenants/${tenant.id}/catalogs/letters/merge?release=1.1.1")
+                .contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/merge?release=1.0.1")
+                .contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/merge?release=1.1.1")
             assertThat(Regex("""published \d{4}-\d{2}-\d{2}""").findAll(page).count()).isEqualTo(2)
             assertThat(page.count("data-testid=\"catalog-merge-open\"")).isEqualTo(2)
             assertThat(page).doesNotContain("data-testid=\"catalog-merge-withheld\"")

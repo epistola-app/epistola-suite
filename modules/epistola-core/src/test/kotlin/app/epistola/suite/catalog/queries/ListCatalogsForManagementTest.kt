@@ -22,6 +22,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -51,9 +52,9 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         val key = CatalogKey.of("drift-none")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift None").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(key)
         }
@@ -63,12 +64,12 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
     fun `editing a released catalog makes it pending`() {
         val tenant = createTenant("Drift Edited")
         val key = CatalogKey.of("drift-edited")
-        val catalogId = CatalogId(key, TenantId(tenant.id))
+        val catalogId = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
 
             // A resource changed after the release → working copy drifted.
             CreateTheme(id = ThemeId(ThemeKey.of("added"), catalogId), name = "Added After Release").execute()
@@ -83,10 +84,10 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         val key = CatalogKey.of("drift-reimport")
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Reimport").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(tenant.id))), name = "Brand").execute()
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
-            val zip = mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(key, app.epistola.suite.common.ids.TenantId(tenant.id))).zipBytes
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            val zip = mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), key)).zipBytes
 
             // Re-import bumps resources' updated_at, but also imported_at (set
             // after the upserts) — so the baseline keeps pace and this is NOT
@@ -101,7 +102,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
     fun `a never-released catalog is never pending (even when edited)`() {
         val tenant = createTenant("Drift Unreleased")
         val key = CatalogKey.of("drift-unreleased")
-        val catalogId = CatalogId(key, TenantId(tenant.id))
+        val catalogId = testCatalog(TenantId(tenant.id), key)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Drift Unreleased").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalogId), name = "Brand").execute()
@@ -119,13 +120,13 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         val key = CatalogKey.of("drift-received")
         withMediator {
             CreateCatalog(tenantKey = author.id, id = key, name = "Drift Received").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(key, TenantId(author.id))), name = "Brand").execute()
-            val zip = mediator.exportReleased(CatalogId(key, TenantId(author.id))).zipBytes
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(author.id), key)), name = "Brand").execute()
+            val zip = mediator.exportReleased(testCatalog(TenantId(author.id), key)).zipBytes
 
             ImportCatalogZip(tenantKey = receiver.id, zipBytes = zip).execute()
             assertThat(pendingKeys(receiver.id)).`as`("what it received is its release").doesNotContain(key)
 
-            CreateTheme(id = ThemeId(ThemeKey.of("ours"), CatalogId(key, TenantId(receiver.id))), name = "Ours").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(receiver.id), key)), name = "Ours").execute()
             assertThat(pendingKeys(receiver.id)).contains(key)
         }
     }
@@ -135,7 +136,7 @@ class ListCatalogsForManagementTest : IntegrationTestBase() {
         val tenant = createTenant("Drift Subscribed")
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
 
             assertThat(pendingKeys(tenant.id)).doesNotContain(CatalogKey.of("epistola-demo"))
         }

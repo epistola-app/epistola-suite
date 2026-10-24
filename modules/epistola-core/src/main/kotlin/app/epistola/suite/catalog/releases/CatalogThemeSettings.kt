@@ -4,10 +4,12 @@
 
 package app.epistola.suite.catalog.releases
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
@@ -25,7 +27,9 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 /** A theme a catalog version names as its default: its key and the catalog it lives in. */
-data class CatalogDefaultTheme(val themeKey: ThemeKey, val catalogKey: CatalogKey)
+data class CatalogDefaultTheme(val themeKey: ThemeKey, val catalog: CatalogId) {
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /** A block style preset a catalog version declares (contract ADR 0007); its themes style it. */
 data class CatalogPreset(val key: String, val name: String, val description: String? = null) {
@@ -57,12 +61,13 @@ data class CatalogThemeSettings(
  * one, or [catalogVersion].
  */
 data class GetCatalogThemeSettings(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : Query<CatalogThemeSettings>,
     CatalogReleaseScoped,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -74,7 +79,7 @@ class GetCatalogThemeSettingsHandler(
     override fun handle(query: GetCatalogThemeSettings): CatalogThemeSettings = jdbi.withHandle<CatalogThemeSettings, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.resource_key AS theme_key, tc.catalog_key AS theme_catalog_key, v.presets::text AS presets
+            SELECT r.resource_key AS theme_key, tc.namespace AS theme_catalog_namespace, tc.catalog_key AS theme_catalog_key, v.presets::text AS presets
             FROM catalog_versions v
             LEFT JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.default_theme_resource_id
             LEFT JOIN catalogs tc ON tc.tenant_key = r.tenant_key AND tc.catalog_id = r.catalog_id
@@ -82,11 +87,11 @@ class GetCatalogThemeSettingsHandler(
             """,
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .map { rs, _ ->
                 val themeKey = rs.getString("theme_key")
                 CatalogThemeSettings(
-                    defaultTheme = themeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), CatalogKey.of(rs.getString("theme_catalog_key"))) },
+                    defaultTheme = themeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), CatalogId(rs.getString("theme_catalog_namespace"), CatalogKey.of(rs.getString("theme_catalog_key")), query.catalog.tenantId)) },
                     presets = presetsOf(objectMapper, rs.getString("presets")),
                 )
             }
@@ -115,8 +120,7 @@ internal fun presetsOf(objectMapper: ObjectMapper, json: String?): List<CatalogP
  * names; only a catalog it does not declare yet is read from its current version.
  */
 data class SetCatalogDefaultTheme(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val theme: CatalogDefaultTheme?,
     override val catalogVersion: CatalogReleaseRef? = null,
     /**
@@ -127,6 +131,8 @@ data class SetCatalogDefaultTheme(
 ) : Command<CatalogThemeSettings>,
     CatalogReleaseScoped,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 }
 
@@ -137,18 +143,18 @@ class SetCatalogDefaultThemeHandler(
     private val dependencyStore: app.epistola.suite.catalog.dependencies.CatalogDependencyStore,
 ) : CommandHandler<SetCatalogDefaultTheme, CatalogThemeSettings> {
     override fun handle(command: SetCatalogDefaultTheme): CatalogThemeSettings {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         jdbi.useHandle<Exception> { handle ->
             val resourceId = command.theme?.let { theme -> themeIdentity(handle, command, theme) }
             handle.createUpdate("UPDATE catalog_versions SET default_theme_resource_id = :theme WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
                 .bind("t", command.tenantKey)
-                .bind("c", command.catalogKey)
+                .bindCatalog("c", command.catalog)
                 .bind("theme", resourceId)
                 .execute()
         }
         // A theme of another catalog is a use of it, declared as any reference is.
-        if (command.declaresCatalog) command.theme?.catalogKey?.takeIf { it != command.catalogKey }?.let { usedCatalogs.declare(command.tenantKey, command.catalogKey, it) }
-        return GetCatalogThemeSettings(command.tenantKey, command.catalogKey, command.catalogVersion).query()
+        if (command.declaresCatalog) command.theme?.catalog?.takeIf { it != command.catalog }?.let { usedCatalogs.declare(command.catalog, it) }
+        return GetCatalogThemeSettings(command.catalog, command.catalogVersion).query()
     }
 
     /**
@@ -157,9 +163,9 @@ class SetCatalogDefaultThemeHandler(
      * that catalog's current version.
      */
     private fun themeIdentity(handle: org.jdbi.v3.core.Handle, command: SetCatalogDefaultTheme, theme: CatalogDefaultTheme): java.util.UUID {
-        val name = "${theme.catalogKey.value}/${theme.themeKey.value}"
-        val declaration = theme.catalogKey.takeIf { it != command.catalogKey }
-            ?.let { other -> dependencyStore.declarations(handle, command.tenantKey, command.catalogKey).firstOrNull { it.catalogKey == other.value } }
+        val name = "${theme.catalog.address}/${theme.themeKey.value}"
+        val declaration = theme.catalog.takeIf { it != command.catalog }
+            ?.let { other -> dependencyStore.declarations(handle, command.catalog).firstOrNull { it.catalogIn(command.tenantKey) == other } }
         val draftKey = declaration?.draftId
         val pinned = declaration?.releaseVersion
         return when {
@@ -185,7 +191,7 @@ class SetCatalogDefaultThemeHandler(
                 """,
             )
                 .bind("t", command.tenantKey)
-                .bind("themeCatalog", theme.catalogKey)
+                .bindCatalog("themeCatalog", theme.catalog)
                 .bind("version", pinned)
                 .bind("theme", theme.themeKey)
                 .mapTo(java.util.UUID::class.java)
@@ -197,7 +203,7 @@ class SetCatalogDefaultThemeHandler(
                 "SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = :theme",
             )
                 .bind("t", command.tenantKey)
-                .bind("themeCatalog", theme.catalogKey)
+                .bindCatalog("themeCatalog", theme.catalog)
                 .bind("theme", theme.themeKey)
                 .mapTo(java.util.UUID::class.java)
                 .findOne()
@@ -212,13 +218,14 @@ class SetCatalogDefaultThemeHandler(
  * them. Keys are unique.
  */
 data class SetCatalogPresets(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val presets: List<CatalogPreset>,
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : Command<CatalogThemeSettings>,
     CatalogReleaseScoped,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
 
     init {
@@ -233,21 +240,23 @@ class SetCatalogPresetsHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<SetCatalogPresets, CatalogThemeSettings> {
     override fun handle(command: SetCatalogPresets): CatalogThemeSettings {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         val json = objectMapper.writeValueAsString(command.presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) })
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate("UPDATE catalog_versions SET presets = CAST(:presets AS JSONB) WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
                 .bind("t", command.tenantKey)
-                .bind("c", command.catalogKey)
+                .bindCatalog("c", command.catalog)
                 .bind("presets", json)
                 .execute()
         }
-        return GetCatalogThemeSettings(command.tenantKey, command.catalogKey, command.catalogVersion).query()
+        return GetCatalogThemeSettings(command.catalog, command.catalogVersion).query()
     }
 }
 
 /** A preset the content of a catalog may use (contract ADR 0007), and the catalog that declares it. */
-data class AvailablePreset(val key: String, val name: String, val description: String?, val catalogKey: CatalogKey)
+data class AvailablePreset(val key: String, val name: String, val description: String?, val catalog: CatalogId) {
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 /**
  * The presets the content of [catalogKey] may use (contract ADR 0007): the ones its version declares,
@@ -255,24 +264,26 @@ data class AvailablePreset(val key: String, val name: String, val description: S
  * declares any; the editor then falls back to the presets its theme styles.
  */
 data class GetAvailablePresets(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : Query<List<AvailablePreset>>,
     CatalogReleaseScoped,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
 class GetAvailablePresetsHandler : QueryHandler<GetAvailablePresets, List<AvailablePreset>> {
     override fun handle(query: GetAvailablePresets): List<AvailablePreset> {
-        val own = GetCatalogThemeSettings(query.tenantKey, query.catalogKey, query.catalogVersion).query().presets
-            .map { AvailablePreset(it.key, it.name, it.description, query.catalogKey) }
-        val fromDependencies = app.epistola.suite.catalog.queries.ListCatalogDependencies(query.tenantKey, query.catalogKey, query.catalogVersion).query()
-            .map { CatalogKey.of(it.catalogKey) }
+        val own = GetCatalogThemeSettings(query.catalog, query.catalogVersion).query().presets
+            .map { AvailablePreset(it.key, it.name, it.description, query.catalog) }
+        // Each dependency by the catalog its declaration names (ADR 0034, section 9).
+        val fromDependencies = app.epistola.suite.catalog.queries.ListCatalogDependencies(query.catalog, query.catalogVersion).query()
+            .map { it.catalogIn(query.tenantKey) }
             .distinct()
-            .flatMap { dependency -> GetCatalogThemeSettings(query.tenantKey, dependency).query().presets.map { AvailablePreset(it.key, it.name, it.description, dependency) } }
+            .flatMap { dependency -> GetCatalogThemeSettings(dependency).query().presets.map { AvailablePreset(it.key, it.name, it.description, dependency) } }
         return (own + fromDependencies).distinctBy { it.key }
     }
 }
@@ -284,14 +295,13 @@ class GetAvailablePresetsHandler : QueryHandler<GetAvailablePresets, List<Availa
  */
 object PresetUse {
     fun requireAvailable(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         document: app.epistola.suite.templates.model.TemplateDocument,
         catalogVersion: CatalogReleaseRef? = null,
     ) {
         val named = document.nodes.values.mapNotNull { it.stylePreset?.takeIf(String::isNotBlank) }.toSet()
         if (named.isEmpty()) return
-        val available = GetAvailablePresets(tenantKey, catalogKey, catalogVersion).query().map { it.key }.toSet()
+        val available = GetAvailablePresets(catalog, catalogVersion).query().map { it.key }.toSet()
         if (available.isEmpty()) return
         val unknown = (named - available).sorted()
         if (unknown.isNotEmpty()) {
@@ -309,23 +319,30 @@ object PresetUse {
  * from what it froze; empty settings for a release published before catalogs had them.
  */
 data class GetReleasedThemeSettings(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Query<CatalogThemeSettings>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
 @Component
 class GetReleasedThemeSettingsHandler(
     private val assembler: app.epistola.suite.catalog.revisions.ReleaseContentAssembler,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
+    private val jdbi: org.jdbi.v3.core.Jdbi,
 ) : QueryHandler<GetReleasedThemeSettings, CatalogThemeSettings> {
     override fun handle(query: GetReleasedThemeSettings): CatalogThemeSettings {
-        val info = assembler.readCatalogInfo(query.tenantKey, query.catalogKey, query.version)
+        val info = assembler.readCatalogInfo(query.catalog, query.version)
             ?: return CatalogThemeSettings(defaultTheme = null, presets = emptyList())
         return CatalogThemeSettings(
-            defaultTheme = info.defaultTheme?.let { CatalogDefaultTheme(ThemeKey.of(it.key), it.catalogKey?.let(CatalogKey::of) ?: query.catalogKey) },
+            // Its catalog by alias, from the release's pins (ADR 0034, section 9).
+            defaultTheme = info.defaultTheme?.let { theme ->
+                jdbi.withHandle<CatalogId?, Exception> { references.resolveInRelease(it, query.catalog, query.version, theme.catalogKey) }
+                    ?.let { CatalogDefaultTheme(ThemeKey.of(theme.key), it) }
+            },
             presets = info.presets.map { CatalogPreset(it.key, it.name, it.description) },
         )
     }

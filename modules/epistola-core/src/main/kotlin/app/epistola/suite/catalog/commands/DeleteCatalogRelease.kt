@@ -5,9 +5,11 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogReleasePublicationPort
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -45,11 +47,12 @@ import org.springframework.stereotype.Component
  * catalog whose pointer names a deleted release is not a state anything should be able to observe.
  */
 data class DeleteCatalogRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String,
 ) : Command<Boolean>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
@@ -66,7 +69,7 @@ class DeleteCatalogReleaseHandler(
         // Refused only while Exchange is mid-send: the outbox row and the archive bytes a sender is
         // working from cascade away with the release. Having *been* published is no reason to refuse.
         requireNoSendInFlight(handle, command)
-        ReleaseInUse.requireUnused(handle, command.tenantKey, command.catalogKey, command.version)
+        ReleaseInUse.requireUnused(handle, command.catalog, command.version)
 
         val deleted = handle.createUpdate(
             """
@@ -75,7 +78,7 @@ class DeleteCatalogReleaseHandler(
             """,
         )
             .bind("t", command.tenantKey)
-            .bind("c", command.catalogKey)
+            .bindCatalog("c", command.catalog)
             .bind("v", command.version)
             .execute() > 0
 
@@ -97,8 +100,7 @@ class DeleteCatalogReleaseHandler(
     private fun requireNoSendInFlight(handle: Handle, command: DeleteCatalogRelease) {
         val inFlight = publicationPort.ifAvailable?.isSendInFlight(
             handle,
-            command.tenantKey,
-            command.catalogKey,
+            command.catalog,
             command.version,
         ) ?: false
 
@@ -134,11 +136,11 @@ class DeleteCatalogReleaseHandler(
                 ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
                 LIMIT 1
             ) AS latest
-            WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c)
+            WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c)
             """,
         )
             .bind("t", command.tenantKey)
-            .bind("c", command.catalogKey)
+            .bindCatalog("c", command.catalog)
             .execute()
             .let { rows ->
                 // No rows updated means the subquery found nothing: the catalog has no releases
@@ -152,11 +154,11 @@ class DeleteCatalogReleaseHandler(
             """
             UPDATE catalogs
             SET released_version = NULL, released_fingerprint = NULL, released_at = NULL, updated_at = NOW()
-            WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)
+            WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
             """,
         )
             .bind("t", command.tenantKey)
-            .bind("c", command.catalogKey)
+            .bindCatalog("c", command.catalog)
             .execute()
     }
 }

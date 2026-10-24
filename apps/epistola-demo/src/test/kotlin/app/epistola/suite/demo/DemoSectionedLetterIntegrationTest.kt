@@ -16,6 +16,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.contracts.queries.GetDataContract
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfReader
 import com.itextpdf.kernel.pdf.canvas.parser.PdfTextExtractor
@@ -42,10 +43,10 @@ class DemoSectionedLetterIntegrationTest : IntegrationTestBase() {
 
     private fun previewPages(tenantKey: TenantKey, template: TemplateKey, example: String): List<String> {
         val data = withMediator {
-            GetDataContract(TemplateId(template, CatalogId(demoCatalog, TenantId(tenantKey)))).query()
+            GetDataContract(TemplateId(template, testCatalog(TenantId(tenantKey), demoCatalog))).query()
         }!!.dataExamples.single { it.name == example }.data
         val pdf = withMediator {
-            PreviewDocument(tenantId = tenantKey, catalogKey = demoCatalog, templateId = template, data = data).query()
+            PreviewDocument(catalog = testCatalog(tenantKey, demoCatalog), templateId = template, data = data).query()
         }
         return PdfDocument(PdfReader(ByteArrayInputStream(pdf))).use { doc ->
             (1..doc.numberOfPages).map { PdfTextExtractor.getTextFromPage(doc.getPage(it)) }

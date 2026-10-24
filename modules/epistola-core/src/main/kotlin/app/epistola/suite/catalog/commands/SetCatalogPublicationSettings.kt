@@ -8,7 +8,9 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -19,11 +21,12 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class SetCatalogPublicationSettings(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val policy: CatalogPublicationPolicy,
 ) : Command<Catalog>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission = Permission.CATALOG_MANAGE
 }
 
@@ -32,18 +35,18 @@ class SetCatalogPublicationSettingsHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetCatalogPublicationSettings, Catalog> {
     override fun handle(command: SetCatalogPublicationSettings): Catalog {
-        requireCatalogEditable(command.tenantKey, command.catalogKey)
+        requireCatalogEditable(command.catalog)
         return jdbi.withHandle<Catalog, Exception> { handle ->
             handle.createQuery(
                 """
                 UPDATE catalogs
                 SET exchange_publication_policy = :policy
-                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey)
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
                 RETURNING *
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("policy", command.policy)
                 .mapTo<Catalog>()
                 .findOne()

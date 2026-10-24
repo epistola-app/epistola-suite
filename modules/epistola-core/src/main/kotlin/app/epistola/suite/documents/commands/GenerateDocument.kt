@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.NotAudited
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.ids.CatalogId
@@ -42,7 +43,7 @@ import tools.jackson.databind.node.ObjectNode
  * Variant can be specified either explicitly via [variantId] or resolved automatically
  * via [variantSelectionCriteria]. Exactly one of the two must be set.
  *
- * @property tenantId Tenant that owns the template
+ * @property catalog The template's catalog, in the tenant that owns it
  * @property templateId Template to use for generation
  * @property variantId Explicit variant ID (mutually exclusive with variantSelectionCriteria)
  * @property variantSelectionCriteria Attribute criteria for auto-selecting a variant (mutually exclusive with variantId)
@@ -55,8 +56,8 @@ import tools.jackson.databind.node.ObjectNode
  * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
-    val tenantId: TenantKey,
-    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
+    /** The template's catalog, by its address (ADR 0034, section 9). */
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val variantId: VariantKey? = null,
     val variantSelectionCriteria: VariantSelectionCriteria? = null,
@@ -71,7 +72,9 @@ data class GenerateDocument(
     NotAudited,
     NotEventLogged {
     override val permission get() = Permission.DOCUMENT_GENERATE
-    override val tenantKey get() = tenantId
+    override val tenantKey get() = catalog.tenantKey
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: app.epistola.suite.common.ids.CatalogKey get() = catalog.key
 
     init {
         require(variantId == null || variantSelectionCriteria == null) {
@@ -96,8 +99,7 @@ class GenerateDocumentHandler(
         // release holds. Bound now, at acceptance: a release cut or deployed while the request waits
         // in the queue does not change what it renders.
         val target = releaseTargetResolver.resolveForGeneration(
-            command.tenantId,
-            command.catalogKey,
+            command.catalog,
             command.templateId,
             command.variantId,
             command.variantSelectionCriteria,
@@ -116,12 +118,12 @@ class GenerateDocumentHandler(
                     environment_key, release_version, draft_id, draft_label, catalog_version_id, template_resource_id, data, filename, correlation_id, routing_key, document_key, status
                 )
                 VALUES (:id, NULL, :tenantId, :catalogKey,
-                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
-                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey)),
+                        (SELECT registry FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
+                        (SELECT namespace FROM catalogs WHERE tenant_key = :tenantId AND catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey)),
                         :templateId, :variantId, NULL, :environmentId,
                         :releaseVersion, :draftId, :draftLabel,
                         COALESCE(:draftId, (SELECT r.version_key FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey) AND r.version = :releaseVersion)),
+                         WHERE c.tenant_key = :tenantId AND c.catalog_id = epistola_catalog_id(:tenantId, :catalogKey_ns, :catalogKey) AND r.version = :releaseVersion)),
                         :templateResourceId, :data::jsonb, :filename, :correlationId, :routingKey, NULL, :status)
                 RETURNING id, batch_id, tenant_key, catalog_key, registry, namespace, template_key, variant_key, version_key, environment_key,
                           release_version, draft_id, draft_label, catalog_version_id, data, filename, correlation_id, routing_key, document_key, status, claimed_by,
@@ -130,7 +132,7 @@ class GenerateDocumentHandler(
             )
                 .bind("id", requestId)
                 .bind("tenantId", command.tenantId)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("templateId", command.templateId)
                 .bind("variantId", target.variantKey)
                 .bind("environmentId", command.environmentId)
@@ -151,7 +153,7 @@ class GenerateDocumentHandler(
         }.also {
             // How much the deployed version is used, for deciding when to undeploy it.
             val version = target.releaseVersion
-            if (command.environmentId != null && version != null) usage.record(command.tenantId, command.environmentId, command.catalogKey, version)
+            if (command.environmentId != null && version != null) usage.record(command.environmentId, command.catalog, version)
         }
     }
 }

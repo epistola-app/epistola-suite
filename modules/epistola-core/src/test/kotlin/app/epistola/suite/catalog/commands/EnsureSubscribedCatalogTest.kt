@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -80,7 +81,7 @@ class EnsureSubscribedCatalogTest : IntegrationTestBase() {
         val tenant = createTenant("Ensure Missing")
         val tenantId = TenantId(tenant.id)
         val catalogKey = CatalogKey.of("epistola-demo")
-        val templateId = TemplateId(TemplateKey.of("advanced-data-contract"), CatalogId(catalogKey, tenantId))
+        val templateId = TemplateId(TemplateKey.of("advanced-data-contract"), testCatalog(tenantId, catalogKey))
 
         withMediator {
             EnsureSubscribedCatalog(tenantKey = tenant.id, sourceUrl = demoUrl).execute()

@@ -37,7 +37,7 @@ class RunOnlyCatalogPagesHtmxTest : BaseIntegrationTest() {
         val browse = get(tenant, "/catalogs/default/browse")
         assertThat(browse.substringAfter("data-testid=\"catalog-read-only-reason\"").substringBefore("</span>"))
             .contains(">This installation only runs releases").contains("only receives and runs releases")
-        assertThat(browse).`as`("no next version to publish").doesNotContain("/catalogs/default/bar-status")
+        assertThat(browse).`as`("no next version to publish").doesNotContain("/default/bar-status")
         assertThat(browse).doesNotContain("data-testid=\"ws-start-parallel\"").doesNotContain("Change in Settings")
 
         val themes = get(tenant, "/catalogs/default/themes")
@@ -46,7 +46,7 @@ class RunOnlyCatalogPagesHtmxTest : BaseIntegrationTest() {
         assertThat(themes).doesNotContain("New Theme")
 
         val list = get(tenant, "/catalogs")
-        assertThat(list.substringAfter("id=\"catalog-list\"").substringAfter("catalogs/default/browse").substringBefore("</tr>"))
+        assertThat(list.substringAfter("id=\"catalog-list\"").substringAfter("/default/browse").substringBefore("</tr>"))
             .contains(">This installation only runs releases<").doesNotContain("Publish a new release")
     }
 }

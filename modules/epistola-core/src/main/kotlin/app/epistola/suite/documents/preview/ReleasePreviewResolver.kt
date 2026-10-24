@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents.preview
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -45,8 +46,7 @@ class ReleasePreviewResolver(
     private val schemaValidator: JsonSchemaValidator,
 ) {
     fun resolve(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         templateKey: TemplateKey,
         data: ObjectNode,
         variantKey: VariantKey?,
@@ -54,8 +54,8 @@ class ReleasePreviewResolver(
         environmentKey: EnvironmentKey?,
         releaseVersion: String? = null,
     ): ReleasePreview {
-        val tenant = mediator.query(GetTenant(id = tenantKey)) ?: throw TenantNotFoundException(tenantKey)
-        val target = targetResolver.resolve(tenantKey, catalogKey, templateKey, variantKey, criteria, environmentKey, releaseVersion)
+        val tenant = mediator.query(GetTenant(id = catalog.tenantKey)) ?: throw TenantNotFoundException(catalog.tenantKey)
+        val target = targetResolver.resolve(catalog, templateKey, variantKey, criteria, environmentKey, releaseVersion)
         val inputs = renderSource.resolve(tenant, target.release, templateKey.value, target.variantKey.value, environment = environmentKey)
         val requested = if (data.isEmpty) inputs.firstDataExample ?: data else data
         val effective = inputs.dataModel?.let { schemaValidator.applyDefaults(it, requested) } ?: requested

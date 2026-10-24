@@ -27,6 +27,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -97,9 +98,9 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            assertThat(InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
+            assertThat(InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute().filter { it.status == InstallStatus.FAILED }).isEmpty()
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.hasChanges).isFalse()
             assertThat(diff.added).isEmpty()
@@ -118,14 +119,14 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             // Publisher edits the theme after we registered.
             rewriteJson(tmp.resolve("resources/themes/test-theme.json")) { detail ->
                 (detail.get("resource") as ObjectNode).put("name", "Renamed By Publisher")
             }
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.changed).containsExactly(UpgradeResourceChange("theme", "test-theme"))
             assertThat(diff.added).isEmpty()
@@ -150,7 +151,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
                     .set("keywords", objectMapper.createArrayNode().add("new-keyword"))
             }
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.added).isEmpty()
             assertThat(diff.removed).isEmpty()
@@ -159,8 +160,8 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
                 .containsExactly(CatalogMetadataSection.IDENTITY, CatalogMetadataSection.KEYWORDS)
             assertThat(diff.hasChanges).isTrue()
 
-            UpgradeCatalog(tenant.id, depKey).execute()
-            val upgraded = GetCatalog(tenant.id, depKey).query()!!
+            UpgradeCatalog(testCatalog(tenant.id, depKey)).execute()
+            val upgraded = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
             assertThat(upgraded.name).isEqualTo("Publisher Renamed Catalog")
             assertThat(upgraded.catalogMetadata.keywords).containsExactly("new-keyword")
         }
@@ -173,14 +174,14 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             // Wire v8 added the description; the per-resource V3 form leaves it out.
             rewriteJson(tmp.resolve("resources/templates/no-deps.json")) { detail ->
                 (detail.get("resource") as ObjectNode).put("description", "Now described")
             }
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.changed).containsExactly(UpgradeResourceChange("template", "no-deps"))
             assertThat(diff.unchanged).hasSize(5)
@@ -194,11 +195,11 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
         }
         // What register stored before baselines named their function: a flat map of V3 values. No
         // command writes that form any more, so it is put in place directly.
-        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(tenant.id, depKey))) }
+        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(testCatalog(tenant.id, depKey)))) }
         jdbi.useHandle<Exception> { h ->
             h.createUpdate("UPDATE catalogs SET installed_resource_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND catalog_key = :c")
                 .bind("f", legacy).bind("t", tenant.id).bind("c", depKey).execute()
@@ -206,7 +207,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             // The source still serves the installed release: nothing changed.
-            assertThat(PreviewCatalogUpgrade(tenant.id, depKey).query().hasChanges).isFalse()
+            assertThat(PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query().hasChanges).isFalse()
 
             // The publisher's next release describes a template and renames the theme.
             rewriteJson(tmp.resolve("resources/templates/no-deps.json")) { detail ->
@@ -217,16 +218,16 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             }
             rewriteJson(tmp.resolve("catalog.json")) { manifest -> (manifest.get("release") as ObjectNode).put("version", "1.1.0") }
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
             assertThat(diff.changed).containsExactlyInAnyOrder(UpgradeResourceChange("template", "no-deps"), UpgradeResourceChange("theme", "test-theme"))
             assertThat(diff.added).isEmpty()
             assertThat(diff.removed).isEmpty()
 
-            UpgradeCatalog(tenant.id, depKey).execute()
-            val upgraded = GetCatalog(tenant.id, depKey).query()!!
+            UpgradeCatalog(testCatalog(tenant.id, depKey)).execute()
+            val upgraded = GetCatalog(testCatalog(tenant.id, depKey)).query()!!
             assertThat(upgraded.installedReleaseVersion).isEqualTo("1.1.0")
             assertThat(fingerprints.readBaseline(upgraded.installedResourceFingerprints)).isNotNull()
-            assertThat(PreviewCatalogUpgrade(tenant.id, depKey).query().hasChanges).isFalse()
+            assertThat(PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query().hasChanges).isFalse()
         }
     }
 
@@ -237,11 +238,11 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             removeResource(tmp, "no-deps") // publisher pulled a template
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.removed).containsExactly(UpgradeResourceChange("template", "no-deps"))
             assertThat(diff.added).isEmpty()
@@ -257,7 +258,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             // Publisher ships a brand-new theme in the next release.
             Files.write(
@@ -274,7 +275,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
                 )
             }
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.added).containsExactly(UpgradeResourceChange("theme", "extra-theme"))
             assertThat(diff.removed).isEmpty()
@@ -287,21 +288,21 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
     fun `preview surfaces a cross-catalog conflict before apply`(@TempDir tmp: Path) {
         val sourceUrl = copyFixture(tmp)
         val tenant = createTenant("Preview Conflict")
-        val defaultCatalogId = CatalogId(CatalogKey.DEFAULT, TenantId(tenant.id))
+        val defaultCatalogId = testCatalog(TenantId(tenant.id), CatalogKey.DEFAULT)
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant.id, catalogKey = depKey).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant.id, depKey)).execute()
 
             // A template in another catalog pins the fixture's theme.
             val templateId = TemplateId(TestIdHelpers.nextTemplateId(), defaultCatalogId)
             CreateDocumentTemplate(id = templateId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalogKey = depKey).execute()
+            UpdateDocumentTemplate(id = templateId, themeId = ThemeKey.of("test-theme"), themeCatalog = testCatalog(templateId.tenantKey, depKey)).execute()
 
             // Publisher removes that theme in the next release.
             removeResource(tmp, "test-theme")
 
-            val diff = PreviewCatalogUpgrade(tenant.id, depKey).query()
+            val diff = PreviewCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(diff.removed).contains(UpgradeResourceChange("theme", "test-theme"))
             assertThat(diff.hasConflicts).isTrue()
@@ -330,7 +331,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
 
-            val status = CheckCatalogUpgrade(tenant.id, depKey).query()
+            val status = CheckCatalogUpgrade(testCatalog(tenant.id, depKey)).query()
 
             assertThat(status.sourceSchemaVersion).isEqualTo(CATALOG_SCHEMA_VERSION)
             assertThat(status.schemaSyncState).isEqualTo(CatalogSchemaSyncState.IN_SYNC)
@@ -342,7 +343,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
         val tenant = createTenant("Preview Missing")
         withMediator {
             assertThrows<CatalogNotFoundException> {
-                PreviewCatalogUpgrade(tenant.id, CatalogKey.of("no-such-catalog")).query()
+                PreviewCatalogUpgrade(testCatalog(tenant.id, CatalogKey.of("no-such-catalog"))).query()
             }
         }
     }
@@ -355,7 +356,7 @@ class PreviewCatalogUpgradeTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = key, name = "Authored Cat").execute()
 
             val ex = assertThrows<CatalogNotUpgradeableException> {
-                PreviewCatalogUpgrade(tenant.id, key).query()
+                PreviewCatalogUpgrade(testCatalog(tenant.id, key)).query()
             }
             assertThat(ex.catalogKey).isEqualTo(key)
         }

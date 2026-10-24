@@ -24,6 +24,8 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -125,24 +127,24 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
             UpdateDocumentTemplate(
                 id = TemplateId(seeded.second.id, catalogId),
                 themeId = currentTheme.key,
-                themeCatalogKey = currentTheme.catalogKey,
+                themeCatalog = testCatalog(TemplateId(seeded.second.id, catalogId).tenantKey, currentTheme.catalogKey),
             ).execute()
             Triple(seeded.first, seeded.second, staleTheme)
         }
 
         gotoAndReady("/tenants/${tenant.id}/catalogs/default/templates/${template.id}/settings")
         val select = page.locator("#theme-select")
-        assertThat(select).hasValue("default/current-theme")
+        assertThat(select).hasValue("${CatalogId.default(TenantId(tenant.id)).address}/current-theme")
 
         // The page still offers this option, but another user/tab removes it
         // before the selection reaches the server.
         withMediator { DeleteTheme(staleTheme).execute() }
-        select.selectOption("default/stale-theme")
+        select.selectOption("${CatalogId.default(TenantId(tenant.id)).address}/stale-theme")
 
-        assertThat(select).hasValue("default/current-theme")
+        assertThat(select).hasValue("${CatalogId.default(TenantId(tenant.id)).address}/current-theme")
         val error = page.locator("#theme-select-error")
         assertThat(error).isVisible()
-        assertThat(error).containsText("The selected theme 'default/stale-theme' no longer exists")
+        assertThat(error).containsText("/default/stale-theme' no longer exists")
     }
 
     /** Makes the endpoint answer 500 so the control's error path runs. */
@@ -150,8 +152,8 @@ class TemplateSettingsUiTest : BasePlaywrightTest() {
     fun `an inline save refreshes what the bar says is not published`() {
         val (tenant, template) = withMediator {
             createTemplate().also { (tenant, _) ->
-                MarkCatalogReady(tenant.id, CatalogKey.DEFAULT).execute()
-                ReleaseCatalogDraft(tenant.id, CatalogKey.DEFAULT).execute()
+                MarkCatalogReady(testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, CatalogKey.DEFAULT)).execute()
             }
         }
 

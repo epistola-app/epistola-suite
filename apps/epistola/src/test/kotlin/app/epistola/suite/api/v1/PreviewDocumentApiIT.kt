@@ -24,6 +24,7 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat

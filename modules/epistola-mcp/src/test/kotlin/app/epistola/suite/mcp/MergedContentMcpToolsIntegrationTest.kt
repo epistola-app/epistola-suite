@@ -30,6 +30,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -76,18 +77,18 @@ class MergedContentMcpToolsIntegrationTest : IntegrationTestBase() {
 
     private fun bothRetitled(name: String): TenantId {
         val tenant = createTenant("$name ${UUID.randomUUID()}").id
-        val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))
+        val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))
         fun variant(key: String) = VariantId(VariantKey.of(key), invoice)
         withMediator {
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             CreateDocumentTemplate(id = invoice, name = "Invoice").execute()
             CreateVariant(variant("english"), title = "English", description = null).execute()
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.0").execute()
-            val fixRef = CatalogReleaseRef(tenant, letters, DraftRef.Id(CreateCatalogDraft(tenant, letters, "Fix", "1.0.0").execute().versionId))
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
+            val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             UpdateVariant(variant("english"), "English (fixed)", emptyMap(), catalogVersion = fixRef).execute()
-            MarkCatalogReady(tenant, letters, catalogVersion = fixRef).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.1.0", catalogVersion = fixRef).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", catalogVersion = fixRef).execute()
             UpdateVariant(variant("initial"), "Standard", emptyMap()).execute()
         }
         return TenantId(tenant)

@@ -96,12 +96,12 @@ class EpistolaStencilApi(
             tenantId = tenantId,
             searchTerm = q,
             tag = tag,
-            catalogKey = at.catalogKey,
+            catalog = at.catalogId,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
             catalogVersion = at.ref,
         ).query()
-        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalogKey = at.catalogKey, catalogVersion = at.ref).query()
+        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalog = at.catalogId, catalogVersion = at.ref).query()
         val statuses = ResourceStatuses.of(at)
         return ResponseEntity.ok(
             StencilListResponse(

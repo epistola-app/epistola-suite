@@ -33,6 +33,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -69,11 +70,11 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val released = withMediator {
             seedResources(catalog)
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
-        val rebuilt = assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")
+        val rebuilt = assembler.assemble(catalog, "1.0.0")
         assertThat(rebuilt).`as`("the release retained its content").isNotNull()
         assertThat(fingerprintService.fingerprint(rebuilt!!.content)).isEqualTo(released.fingerprint)
     }
@@ -84,8 +85,8 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
 
         val (image, first) = withMediator {
             val seeded = seedResources(catalog)
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            seeded to ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            seeded to ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         // Everything the release named, changed or gone: the theme edited, the image deleted, the
@@ -96,16 +97,16 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
             val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
             UpdateVariantContent(variant, model("changed")).execute()
             MarkVariantReady(variant).execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "2.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "2.0.0").execute()
         }
 
         assertThat(second.fingerprint).`as`("the working copy really did change").isNotEqualTo(first.fingerprint)
 
-        val rebuiltFirst = assembler.assemble(catalog.tenantKey, catalog.key, "1.0.0")
+        val rebuiltFirst = assembler.assemble(catalog, "1.0.0")
         assertThat(fingerprintService.fingerprint(rebuiltFirst!!.content)).isEqualTo(first.fingerprint)
 
-        val rebuiltSecond = assembler.assemble(catalog.tenantKey, catalog.key, "2.0.0")
+        val rebuiltSecond = assembler.assemble(catalog, "2.0.0")
         assertThat(fingerprintService.fingerprint(rebuiltSecond!!.content)).isEqualTo(second.fingerprint)
     }
 
@@ -113,13 +114,12 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
     private fun seedResources(catalog: CatalogId): AssetKey {
         CreateTheme(id = ThemeId(ThemeKey.of("brand"), catalog), name = "Brand").execute()
         val image = UploadAsset(
-            tenantId = catalog.tenantKey,
+            catalog = testCatalog(catalog.tenantKey, catalog.key),
             name = "logo.png",
             mediaType = AssetMediaType.PNG,
             content = ByteArray(120) { ((it * 11) % 256).toByte() },
             width = 1,
             height = 1,
-            catalogKey = catalog.key,
         ).execute().id
         val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
@@ -144,6 +144,6 @@ class ReleaseRoundTripTest : IntegrationTestBase() {
         val tenant = createTenant(slug)
         val catalogKey = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = slug).execute() }
-        return CatalogId(catalogKey, TenantId(tenant.id))
+        return testCatalog(TenantId(tenant.id), catalogKey)
     }
 }

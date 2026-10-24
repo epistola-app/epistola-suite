@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -36,7 +37,7 @@ class SuppliedCatalogListsHtmxTest : BaseIntegrationTest() {
             tenantKey = tenant.id.value
             withMediator {
                 RegisterCatalog(tenantKey = tenant.id, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of("epistola-demo"))).execute()
             }
         }
         whenever { lists.associateWith { list -> restTemplate.getForEntity("/tenants/$tenantKey/catalogs/epistola-demo/$list", String::class.java).body!! } }

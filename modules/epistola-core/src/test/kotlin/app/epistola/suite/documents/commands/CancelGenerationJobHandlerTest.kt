@@ -18,7 +18,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
@@ -58,13 +60,12 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant1.id,
+                catalog = testCatalog(tenant1.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 
@@ -94,13 +95,12 @@ class CancelGenerationJobHandlerTest : IntegrationTestBase() {
 
         val request = mediator.send(
             GenerateDocument(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("test", "value"),
                 filename = "test.pdf",
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

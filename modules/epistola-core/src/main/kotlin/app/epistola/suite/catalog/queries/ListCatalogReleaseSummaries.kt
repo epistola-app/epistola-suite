@@ -4,7 +4,9 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -22,14 +24,15 @@ import java.time.OffsetDateTime
  * or deployed exactly as it was released.
  */
 data class ListCatalogReleaseSummaries(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** Releases to skip, newest first; with [limit], pages the history in the database. */
     val offset: Int = 0,
     /** At most this many releases; null for all of them. */
     val limit: Int? = null,
 ) : Query<List<CatalogReleaseSummary>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -64,7 +67,7 @@ class ListCatalogReleaseSummariesHandler(
             """,
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .bind("limit", query.limit)
             .bind("offset", query.offset)
             .map { rs, _ ->
@@ -82,10 +85,11 @@ class ListCatalogReleaseSummariesHandler(
 
 /** How many releases a catalog has, to page [ListCatalogReleaseSummaries]. */
 data class CountCatalogReleases(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<Long>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -96,7 +100,7 @@ class CountCatalogReleasesHandler(
     override fun handle(query: CountCatalogReleases): Long = jdbi.withHandle<Long, Exception> { handle ->
         handle.createQuery("SELECT count(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .mapTo(Long::class.java)
             .one()
     }

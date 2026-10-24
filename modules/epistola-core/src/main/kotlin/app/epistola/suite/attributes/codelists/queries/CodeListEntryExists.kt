@@ -5,7 +5,9 @@
 package app.epistola.suite.attributes.codelists.queries
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantKey
@@ -25,12 +27,14 @@ import org.springframework.stereotype.Component
  * already inside a permission-checked command — no need to re-authorise here.
  */
 data class CodeListEntryExists(
-    val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val codeListSlug: CodeListKey,
     val code: String,
 ) : Query<Boolean>,
-    SystemInternal
+    SystemInternal {
+    val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+}
 
 @Component
 class CodeListEntryExistsHandler(
@@ -48,7 +52,7 @@ class CodeListEntryExistsHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("slug", query.codeListSlug)
             .bind("code", query.code)
             .mapTo(Int::class.java)

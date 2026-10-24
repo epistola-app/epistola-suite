@@ -19,6 +19,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestPrincipalUser
 import app.epistola.suite.testing.TestTenantCounter
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -56,7 +57,7 @@ class NamespaceGrantsTest : IntegrationTestBase() {
                 assertThat(it.grantedBy).isEqualTo(TestPrincipalUser.ID)
                 assertThat(it.grantedByName).isEqualTo(TestPrincipalUser.DISPLAY_NAME)
             }
-            val default = GetCatalog(tenant, CatalogKey.DEFAULT).query()!!
+            val default = GetCatalog(testCatalog(tenant, CatalogKey.DEFAULT)).query()!!
             assertThat(default.registry to default.namespace).isEqualTo("gemeente-x.nl" to "acme")
         }
     }
@@ -67,7 +68,7 @@ class NamespaceGrantsTest : IntegrationTestBase() {
 
         withMediator {
             assertThat(ListNamespaceGrants(tenant).query()).isEmpty()
-            val default = GetCatalog(tenant, CatalogKey.DEFAULT).query()!!
+            val default = GetCatalog(testCatalog(tenant, CatalogKey.DEFAULT)).query()!!
             assertThat(default.registry to default.namespace).isEqualTo(LocalAuthority.NAME to LocalAuthority.DEFAULT_NAMESPACE)
         }
     }
@@ -123,8 +124,8 @@ class NamespaceGrantsTest : IntegrationTestBase() {
             assertThat(refused.message).isEqualTo("acme is not revoked: the catalogs default, letters are named in it. Move or delete them first.")
             assertThat(ListNamespaceGrants(tenant).query().map { it.name }).containsExactly(acme)
 
-            DeleteCatalog(tenant, CatalogKey.of("letters"), force = true).execute()
-            DeleteCatalog(tenant, CatalogKey.DEFAULT, force = true).execute()
+            DeleteCatalog(testCatalog(tenant, CatalogKey.of("letters")), force = true).execute()
+            DeleteCatalog(testCatalog(tenant, CatalogKey.DEFAULT), force = true).execute()
             assertThat(RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute()).isEqualTo(NamespaceRevocation(acme, revoked = true))
             assertThat(ListNamespaceGrants(tenant).query()).isEmpty()
             assertThat(RevokeTenantNamespace(tenant, "gemeente-x.nl", "acme").execute().revoked).`as`("revoking what is not held does nothing").isFalse()

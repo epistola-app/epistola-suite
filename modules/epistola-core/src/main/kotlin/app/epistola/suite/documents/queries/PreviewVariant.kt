@@ -8,6 +8,7 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.CatalogId
+import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -41,8 +42,7 @@ import tools.jackson.databind.node.ObjectNode
  * @property templateModel Optional live template model override; null renders the variant's working model
  */
 data class PreviewVariant(
-    val tenantId: TenantKey,
-    val catalogKey: app.epistola.suite.common.ids.CatalogKey,
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val data: ObjectNode,
@@ -53,6 +53,8 @@ data class PreviewVariant(
 ) : CatalogReleaseScoped,
     Query<ByteArray>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 }
@@ -68,8 +70,7 @@ class PreviewVariantHandler(
 ) : QueryHandler<PreviewVariant, ByteArray> {
 
     override fun handle(query: PreviewVariant): ByteArray {
-        val tenantId = TenantId(query.tenantId)
-        val catalogId = CatalogId(query.catalogKey, tenantId)
+        val catalogId = query.catalog
         val templateId = TemplateId(query.templateId, catalogId)
         val variantId = app.epistola.suite.common.ids.VariantId(query.variantId, templateId)
 
@@ -105,7 +106,6 @@ class PreviewVariantHandler(
 
         // 5. Render — always live theme cascade for drafts (no snapshot)
         return renderer.render(
-            tenantId = query.tenantId,
             templateModel = templateModel,
             template = template,
             tenant = tenant,

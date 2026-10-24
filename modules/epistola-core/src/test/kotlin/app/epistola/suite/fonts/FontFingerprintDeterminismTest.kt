@@ -33,7 +33,9 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -70,19 +72,17 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
         .contentAsByteArray
 
     private fun upload(tenant: TenantId, name: String, resource: String): AssetKey = UploadAsset(
-        tenantId = tenant.key,
+        catalog = testCatalog(tenant.key, CatalogKey.DEFAULT),
         name = name,
         mediaType = AssetMediaType.TTF,
         content = bytesOf(resource),
         width = null,
         height = null,
-        catalogKey = CatalogKey.DEFAULT,
     ).execute().id
 
     private fun importBrandFont(tenant: TenantId, asset: AssetKey) {
         ImportFont(
-            tenantId = tenant,
-            catalogKey = CatalogKey.DEFAULT,
+            catalog = testCatalog(tenant, CatalogKey.DEFAULT),
             slug = "brand-sans",
             name = "Brand Sans",
             kind = FontKind.SANS.wire,
@@ -130,7 +130,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
         }
         val inputs = releaseRenderSource.resolve(
             tenantRow,
-            app.epistola.suite.generation.release.ReleaseRef(CatalogKey.DEFAULT, version),
+            app.epistola.suite.generation.release.ReleaseRef(testCatalog(tenant, CatalogKey.DEFAULT), version),
             template,
             VariantKey.INITIAL.value,
         )
@@ -179,7 +179,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             UpdateDocumentTemplate(
                 id = templateId,
                 themeId = ThemeKey.of("brand-theme"),
-                themeCatalogKey = CatalogKey.DEFAULT,
+                themeCatalog = testCatalog(templateId.tenantKey, CatalogKey.DEFAULT),
             ).execute()
 
             val variantId = VariantId(VariantKey.INITIAL, templateId)
@@ -205,8 +205,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             // 4. Released, and the release renders.
             mediator.releaseNext(catalogId)
             val ok = PreviewDocument(
-                tenantId = tenant.id,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = templateId.key,
                 data = previewData(),
             ).query()
@@ -221,8 +220,7 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
             // 6. The release still renders, with the bytes it kept: replacing a face in the working
             //    copy does not reach a release.
             val stillOk = PreviewDocument(
-                tenantId = tenant.id,
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = templateId.key,
                 data = previewData(),
             ).query()

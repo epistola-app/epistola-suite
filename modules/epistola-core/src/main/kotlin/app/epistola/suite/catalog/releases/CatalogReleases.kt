@@ -5,9 +5,11 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -149,27 +151,27 @@ class CatalogDrafts {
      * catalog's next version. Null when there is none (a subscribed catalog, or a next version that was
      * discarded and not opened again).
      */
-    fun draft(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogDraft? = handle
+    fun draft(handle: Handle, catalog: CatalogId): CatalogDraft? = handle
         .createQuery("$SELECT WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND kind = 'draft'")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map(::toDraft)
         .findOne()
         .orElse(null)
 
     /** The catalog's next version, whichever draft a message targets; null when it has none. */
-    fun next(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogDraft? = drafts(handle, tenantKey, catalogKey).firstOrNull { it.isNext }
+    fun next(handle: Handle, catalog: CatalogId): CatalogDraft? = drafts(handle, catalog).firstOrNull { it.isNext }
 
     /** Every open draft of the catalog: the next version first, then parallel work, oldest first. */
-    fun drafts(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDraft> = handle
+    fun drafts(handle: Handle, catalog: CatalogId): List<CatalogDraft> = handle
         .createQuery("$SELECT WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' ORDER BY is_next DESC, created_at, version_id")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map(::toDraft)
         .list()
 
     /** The draft [ref] names, or null. */
-    fun find(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, ref: DraftRef): CatalogDraft? = drafts(handle, tenantKey, catalogKey).firstOrNull { draft ->
+    fun find(handle: Handle, catalog: CatalogId, ref: DraftRef): CatalogDraft? = drafts(handle, catalog).firstOrNull { draft ->
         when (ref) {
             DraftRef.Next -> draft.isNext
             is DraftRef.Id -> draft.key == ref.key
@@ -181,7 +183,7 @@ class CatalogDrafts {
      * next version, which must not have one yet; with one, it is another draft. [createdFrom] is the
      * key of the draft it is a copy of, if any.
      */
-    fun open(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, base: String?, name: String? = null, createdFrom: String? = null): UUID = handle
+    fun open(handle: Handle, catalog: CatalogId, base: String?, name: String? = null, createdFrom: String? = null): UUID = handle
         .createQuery(
             """
             INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next, name, base_version, created_from)
@@ -189,8 +191,8 @@ class CatalogDrafts {
             RETURNING version_id
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("next", name == null)
         .bind("name", name)
         .bind("base", base)

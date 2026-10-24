@@ -43,7 +43,7 @@ class GetLoadTestRunHandler(
                 r.id,
                 r.batch_id,
                 r.tenant_key,
-                cat.catalog_key AS catalog_key,
+                cat.catalog_key AS catalog_key, cat.namespace AS namespace,
                 template.id AS template_key,
                 r.variant_key,
                 r.version_key,

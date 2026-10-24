@@ -20,6 +20,7 @@ import app.epistola.suite.templates.contracts.commands.UpdateDataContract
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

@@ -16,6 +16,8 @@ import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -81,13 +83,12 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
 
             fun request(filename: String) = execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = template.id,
                     variantId = variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 
@@ -115,7 +116,7 @@ class StaleJobRecoveryIntegrationTest : IntegrationTestBase() {
             val variant = variant(compositeTemplateId, "Default")
             released(VariantId(variant.id, compositeTemplateId), TestTemplateBuilder.buildMinimal(name = "Crashing Template"))
             val request = execute(
-                GenerateDocument(tenantId = tenant.id, templateId = template.id, variantId = variant.id, environmentId = null, data = objectMapper.createObjectNode(), filename = null, catalogKey = CatalogKey.DEFAULT),
+                GenerateDocument(catalog = testCatalog(tenant.id, CatalogKey.DEFAULT), templateId = template.id, variantId = variant.id, environmentId = null, data = objectMapper.createObjectNode(), filename = null),
             )
             // Three nodes in turn stop while rendering it.
             repeat(3) {

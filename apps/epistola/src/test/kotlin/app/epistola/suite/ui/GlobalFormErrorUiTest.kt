@@ -15,6 +15,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -58,7 +59,7 @@ class GlobalFormErrorUiTest : BasePlaywrightTest() {
         // The slot ships in the form, hidden until an error arrives.
         assertThat(page.locator("#start-load-test-error")).isHidden()
 
-        page.locator("#templateId").selectOption("default/$templateKey")
+        page.locator("#templateId").selectOption("${CatalogId.default(TenantId(tenant.id)).address}/$templateKey")
         page.htmxSettle() // cascading variant/version/environment fragment
 
         page.locator("#testData").fill("{}")

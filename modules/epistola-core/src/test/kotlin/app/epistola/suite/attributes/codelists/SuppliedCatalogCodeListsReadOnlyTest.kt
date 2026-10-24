@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.codelists.commands.UpdateCodeListEntryHidde
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -21,6 +22,7 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -43,7 +45,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy {
                 CreateCodeList(
-                    id = CodeListId(CodeListKey.of("any-list"), CatalogId(suppliedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("any-list"), testCatalog(tenantId, suppliedCatalog)),
                     displayName = "Any list",
                     sourceType = CodeListSource.INLINE,
                     entries = listOf(CodeListEntry("x", "X")),
@@ -62,7 +64,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy {
                 UpdateCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                     displayName = "Renamed",
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
@@ -77,7 +79,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy {
                 DeleteCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -91,7 +93,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy {
                 RefreshCodeList(
-                    id = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
+                    id = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
@@ -106,7 +108,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy {
                 UpdateCodeListEntryHidden(
-                    codeListId = CodeListId(CodeListKey.of("regions"), CatalogId(suppliedCatalog, tenantId)),
+                    codeListId = CodeListId(CodeListKey.of("regions"), testCatalog(tenantId, suppliedCatalog)),
                     code = "eu",
                     hidden = true,
                 ).execute()
@@ -160,7 +162,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
             )
                 .bind("slug", slug)
                 .bind("tenantKey", tenantId.key)
-                .bind("catalogKey", catalog)
+                .bindCatalog("catalogKey", testCatalog(tenantId.key, catalog))
                 .bind("displayName", display)
                 .bind("sourceType", if (sourceUrl == null) "INLINE" else "URL")
                 .bind("sourceUrl", sourceUrl)
@@ -189,7 +191,7 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
                 """,
             )
                 .bind("tenantKey", tenantId.key)
-                .bind("catalogKey", catalog)
+                .bindCatalog("catalogKey", testCatalog(tenantId.key, catalog))
                 .bind("slug", slug)
                 .bind("code", code)
                 .bind("label", label)

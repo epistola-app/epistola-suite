@@ -22,6 +22,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.default
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern
@@ -71,7 +72,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // The page has multiple `type="submit"` buttons (form + nav-bar logout
         // forms). Match by visible text to disambiguate.
         page.locator("button:has-text('Create code list')").click()
-        page.waitForURL(Pattern.compile(".*/catalogs/default/code-lists/locales$"))
+        page.waitForURL(Pattern.compile(".*/catalogs/[^/]+/default/code-lists/locales$"))
 
         // Detail page: both entries listed in the entries table.
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
@@ -106,7 +107,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a validation error retargets the form (422) and swaps it
         // in place, leaving the dialog open on the /new route (no HX-Push-Url on the
         // error response). The form + errors + entered values stay shown (asserted here).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/[^/]+/default/code-lists/new$"))
         assertThat(page.locator("#entries-tbody tr")).hasCount(2)
         assertThat(page.locator("#entries-tbody tr").first().locator("input[placeholder='code']")).hasValue("test")
         assertThat(page.locator("#entries-tbody tr").nth(1).locator("input[placeholder='code']")).hasValue("test")
@@ -141,7 +142,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         // Server-sent dialog: a duplicate slug retargets the form (422) and swaps it in
         // place, leaving the dialog open on the /new route (no HX-Push-Url on the error
         // response). The form + errors + entered value stay shown (asserted above/below).
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/default/code-lists/new$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/${tenant.id}/catalogs/[^/]+/default/code-lists/new$"))
         assertThat(page.locator("#slug")).hasValue("locales")
     }
 
@@ -171,7 +172,7 @@ class CodeListUiTest : BasePlaywrightTest() {
         assertThat(page.locator("[data-constraint-pane='code-list']")).isVisible()
 
         // The select carries "<catalog>/<slug>" packed values.
-        page.locator("#codeList").selectOption("default/locales")
+        page.locator("#codeList").selectOption("${CatalogId.default(TenantId(tenant.id)).address}/locales")
 
         page.locator("button:has-text('Create Attribute')").click()
         page.waitForURL(Pattern.compile(".*/attributes$"))

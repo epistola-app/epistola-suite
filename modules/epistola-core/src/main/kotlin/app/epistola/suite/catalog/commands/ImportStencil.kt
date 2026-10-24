@@ -4,9 +4,11 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
@@ -33,8 +35,7 @@ import tools.jackson.databind.ObjectMapper
  * equal what is stored is `SKIPPED`; otherwise the stencil is `INSTALLED` or `UPDATED`.
  */
 data class ImportStencil(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: String,
     val name: String,
     val description: String? = null,
@@ -44,6 +45,8 @@ data class ImportStencil(
     val readsTemplateData: Boolean = false,
 ) : Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.STENCIL_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -82,7 +85,7 @@ class ImportStencilHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("id", StencilKey.of(command.slug))
                 .bind("content", contentJson)
                 .bind("parameterSchema", parameterSchemaJson)
@@ -105,7 +108,7 @@ class ImportStencilHandler(
             )
                 .bind("id", StencilKey.of(command.slug))
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("tags", objectMapper.writeValueAsString(command.tags))

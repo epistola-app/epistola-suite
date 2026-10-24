@@ -33,7 +33,7 @@ async function focused(type: ResourceType): Promise<HTMLElement> {
   document.body.appendChild(element);
   await element.updateComplete;
   const focus = {
-    id: `${type}:letters/brand`,
+    id: `${type}:acme/letters/brand`,
     type,
     catalogKey: 'letters',
     key: 'brand',
@@ -65,7 +65,7 @@ describe('ep-resource-graph move hand-off', () => {
       );
 
       expect(link?.getAttribute('href')).toBe(
-        `/tenants/acme/catalogs/organise?resource=${encodeURIComponent(`${type}:letters/brand`)}`,
+        `/tenants/acme/catalogs/organise?resource=${encodeURIComponent(`${type}:acme/letters/brand`)}`,
       );
     },
   );

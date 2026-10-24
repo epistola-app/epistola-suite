@@ -136,7 +136,6 @@ class VariantRouteHandler {
 
     fun updateVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -260,7 +259,7 @@ class VariantRouteHandler {
         val version = segment.ref(tenantId.key)
         val template = GetDocumentTemplate(id = templateId, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
-        val editable = IsCatalogEditable(tenantId.key, catalogId).query()
+        val editable = IsCatalogEditable(segment.catalogIn(tenantId)).query()
         val auth = AuthContext.from(SecurityContext.current(), tenantId.key)
         val variants = variantsModel(templateId, editable, auth, version)
 

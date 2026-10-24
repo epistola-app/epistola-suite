@@ -71,7 +71,7 @@ class EpistolaCodeListApi : CodeListsApi {
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val items = if (at.isDraft) {
-            at.catalog.readOnlyHere().let { readOnly -> ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalogKey = at.catalogKey, catalogVersion = at.ref).query().map { it.toDto(at.catalog, readOnly) } }
+            at.catalog.readOnlyHere().let { readOnly -> ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query().map { it.toDto(at.catalog, readOnly) } }
         } else {
             // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
             at.releasedResources<CodeListResource>("codeList").map { it.toDto(at) }
@@ -231,7 +231,7 @@ class EpistolaCodeListApi : CodeListsApi {
 
     private fun ResolvedCatalogRelease.codeListId(key: String) = CodeListId(key = CodeListKey.of(key), catalogId = catalogId)
 
-    private fun ResolvedCatalogRelease.codeListNotFound(key: String) = CodeListNotFoundException(catalog.tenantKey, catalogKey, CodeListKey.of(key))
+    private fun ResolvedCatalogRelease.codeListNotFound(key: String) = CodeListNotFoundException(catalogId, CodeListKey.of(key))
 
     private fun CreateCodeListRequest.AuthType.toModel(): AuthType = when (this) {
         CreateCodeListRequest.AuthType.NONE -> AuthType.NONE

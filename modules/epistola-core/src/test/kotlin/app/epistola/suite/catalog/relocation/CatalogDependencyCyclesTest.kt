@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 
 class CatalogDependencyCyclesTest {
-    private fun address(catalog: String, key: String, type: CatalogResourceType = CatalogResourceType.STENCIL) = ResourceAddress(type, catalog, key)
+    private fun address(catalog: String, key: String, type: CatalogResourceType = CatalogResourceType.STENCIL) = ResourceAddress(type, "acme", catalog, key)
 
     private fun graphOf(vararg edges: Pair<ResourceAddress, ResourceAddress>): TenantResourceGraph = graphOfKinds(*edges.map { Triple(it.first, it.second, "test") }.toTypedArray())
 
@@ -86,7 +86,7 @@ class CatalogDependencyCyclesTest {
         // Moving header to shared makes shared depend on letters, while letters/cover already
         // depends on shared.
         assertThat(CatalogDependencyCycles.introducedBy(graph, listOf(header.movedTo(CatalogKey.of("shared")))))
-            .containsExactly("letters", "shared")
+            .containsExactly("acme/letters", "acme/shared")
     }
 
     @Test

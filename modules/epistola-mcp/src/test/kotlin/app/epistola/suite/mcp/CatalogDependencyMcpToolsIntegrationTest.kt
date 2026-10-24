@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -60,8 +61,8 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
             catalogTools.createCatalog("shared", "Shared", null)
         }
         withMediator {
-            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("shared"), "1.0.0").execute()
-            ReleaseCatalogDraft(tenantId.key, CatalogKey.of("shared"), "1.1.0").execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.0.0").execute()
+            ReleaseCatalogDraft(testCatalog(tenantId.key, CatalogKey.of("shared")), "1.1.0").execute()
         }
         return tenantId
     }
@@ -105,7 +106,7 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
     fun `a dependency names the pinned release's content hash, and a catalog its highest release's`() {
         val tenantId = setUp()
         val (v100, v110) = withMediator {
-            val releases = ListCatalogReleases(tenantId.key, CatalogKey.of("shared"), CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
+            val releases = ListCatalogReleases(testCatalog(tenantId.key, CatalogKey.of("shared")), CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
             releases["1.0.0"]!! to releases["1.1.0"]!!
         }
 
@@ -129,6 +130,6 @@ class CatalogDependencyMcpToolsIntegrationTest : IntegrationTestBase() {
         }.hasMessageContaining("TEMPLATE_EDIT")
         assertThatThrownBy {
             runAsApiKey(tenantId) { catalogTools.updateCatalogDependencies("letters", listOf(CatalogDependencyInput("nowhere"))) }
-        }.hasMessageContaining("Catalog not found: nowhere")
+        }.hasMessageContaining("Catalog 'nowhere' not found")
     }
 }

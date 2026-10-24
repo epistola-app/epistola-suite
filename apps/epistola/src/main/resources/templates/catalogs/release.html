@@ -136,7 +136,7 @@
                     <span class="catalog-detail-label">The same release as</span>
                     <p class="catalog-detail-value"><th:block th:each="other, stat : ${sameAs}"><a
                            data-testid="release-same-as-link" th:attr="data-catalog=${other.catalogKey},data-version=${other.version}"
-                           th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${other.catalogKey},v=${other.version})}"
+                           th:href="@{/tenants/{t}/catalogs/{c}/releases/{v}(t=${tenantId},c=${other.address},v=${other.version})}"
                            th:text="${other.sameCatalog} ? 'v' + ${other.version} : ${other.catalogName} + ' v' + ${other.version}">v1.0.0</a><th:block
                            th:unless="${stat.last}">, </th:block></th:block></p>
                     <p class="form-hint" style="margin: var(--ep-space-1) 0 0;">The same content, under another number or in another catalog.</p>

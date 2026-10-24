@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.zip.ZipInputStream
@@ -33,11 +34,11 @@ class InstalledReleaseExportTest : IntegrationTestBase() {
         val key = CatalogKey.of("epistola-demo")
         withMediator {
             RegisterCatalog(tenant, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = key).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, key)).execute()
         }
-        val catalog = withMediator { GetCatalog(tenant, key).query()!! }
+        val catalog = withMediator { GetCatalog(testCatalog(tenant, key)).query()!! }
 
-        val export = withMediator { ExportCatalogZip(tenant, key).execute() }
+        val export = withMediator { ExportCatalogZip(testCatalog(tenant, key)).execute() }
 
         assertThat(manifest(export.zipBytes)).contains("\"fingerprint\":\"${catalog.installedFingerprint}\"")
     }
@@ -48,14 +49,14 @@ class InstalledReleaseExportTest : IntegrationTestBase() {
         val key = CatalogKey.of("epistola-demo")
         val zip = withMediator {
             RegisterCatalog(source, sourceUrl = "classpath:epistola/catalogs/fixture/catalog.json", authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = source, catalogKey = key).execute()
-            ExportCatalogZip(source, key).execute().zipBytes
+            InstallFromCatalog(catalog = testCatalog(source, key)).execute()
+            ExportCatalogZip(testCatalog(source, key)).execute().zipBytes
         }
         val target = createTenant("installed-export-target").id
 
         val again = withMediator {
             ImportCatalogZip(target, zip).execute()
-            ExportCatalogZip(target, key).execute().zipBytes
+            ExportCatalogZip(testCatalog(target, key)).execute().zipBytes
         }
 
         val published = Regex("\"release\":\\{[^}]*\\}").find(manifest(zip))!!.value.replace(Regex("\"releasedAt\":\"[^\"]*\","), "")

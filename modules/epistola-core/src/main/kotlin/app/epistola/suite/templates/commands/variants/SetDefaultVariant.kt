@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -44,7 +45,7 @@ class SetDefaultVariantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetDefaultVariant, TemplateVariant?> {
     override fun handle(command: SetDefaultVariant): TemplateVariant? {
-        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        requireCatalogEditable(command.variantId.catalogId)
         return setDefault(command)
     }
 
@@ -62,7 +63,7 @@ class SetDefaultVariantHandler(
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
+            .bindCatalog("catalogKey", command.variantId.catalogId)
             .bind("templateId", command.variantId.templateKey)
             .execute()
 
@@ -77,7 +78,7 @@ class SetDefaultVariantHandler(
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
-            .bind("catalogKey", command.variantId.catalogKey)
+            .bindCatalog("catalogKey", command.variantId.catalogId)
             .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .mapTo<TemplateVariant>()

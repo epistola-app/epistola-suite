@@ -34,8 +34,10 @@ import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
@@ -183,11 +185,11 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
         val version = withMediator {
             val shared = CatalogKey.of("shared")
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
-            CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
-            val target = GetCatalog(tenant, shared).query()!!
-            UpdateCatalogDependencies(tenant, CatalogKey.DEFAULT, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
+            val target = GetCatalog(testCatalog(tenant, shared)).query()!!
+            UpdateCatalogDependencies(testCatalog(tenant, CatalogKey.DEFAULT), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", "1.0.0"))).execute()
             mediator.releaseNext(CatalogId.default(TenantId(tenant)))
         }
 
@@ -261,7 +263,7 @@ class ReleasesAndDeploymentsApiIT : IntegrationTestBase() {
             assertThat(accepted.statusCode).describedAs(accepted.body).isEqualTo(HttpStatus.ACCEPTED)
             exchange(HttpMethod.GET, "/api/tenants/${tenant.value}/documents/jobs/${JsonPath.read<String>(accepted.body!!, "$.requestId")}", key).body!!
         }
-        val next = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId }
+        val next = withMediator { app.epistola.suite.catalog.releases.GetCatalogDraft(testCatalog(tenant, CatalogKey.DEFAULT)).query()!!.versionId }
 
         // Production serves only releases.
         val marked = exchange(HttpMethod.PATCH, "$environments/production", key, """{"production":true}""")

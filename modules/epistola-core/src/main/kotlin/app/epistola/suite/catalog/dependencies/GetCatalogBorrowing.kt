@@ -19,6 +19,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.ListCatalogReleases
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -39,13 +40,14 @@ import org.springframework.stereotype.Component
  * declaration says, what a pinned release offers, and what a named draft would be released as.
  */
 data class GetCatalogBorrowing(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<CatalogBorrowing>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -107,8 +109,16 @@ data class BorrowedCatalog(
      * a catalog used but not declared, the key its references name.
      */
     val alias: String = catalogKey,
+    /** Its namespace: with [catalogKey], its address (ADR 0034, section 9). */
+    val namespace: String = "",
 ) {
     val used: Boolean get() = uses.isNotEmpty()
+
+    /** `namespace/key`, as its pages are addressed. */
+    val address: String get() = "$namespace/$catalogKey"
+
+    /** This catalog in [tenantKey], by its address. */
+    fun catalogIn(tenantKey: TenantKey): CatalogId = CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
 
     /** What this version uses of it that the named draft changed and has not published. */
     val unpublishedUsed: List<BorrowedResource> get() = uses.filter { used -> unpublished.any { it.type == used.type && it.key == used.key } }
@@ -132,7 +142,10 @@ data class UseBreak(val type: String, val key: String, val name: String?, val re
 data class BorrowedResource(val type: String, val key: String, val name: String?)
 
 /** A catalog of the tenant this version does not use, with its latest published version. */
-data class OtherCatalog(val catalogKey: String, val name: String, val latestRelease: String?)
+data class OtherCatalog(val catalogKey: String, val name: String, val latestRelease: String?, val namespace: String = "") {
+    /** `namespace/key`, as its pages are addressed (ADR 0034, section 9). */
+    val address: String get() = "$namespace/$catalogKey"
+}
 
 @Component
 class GetCatalogBorrowingHandler(
@@ -143,52 +156,57 @@ class GetCatalogBorrowingHandler(
 ) : QueryHandler<GetCatalogBorrowing, CatalogBorrowing> {
 
     override fun handle(query: GetCatalogBorrowing): CatalogBorrowing {
-        val content = contentBuilder.build(query.tenantKey, query.catalogKey)
+        val content = contentBuilder.build(query.catalog)
         val own = query.catalogKey.value
-        val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { store.declarations(it, query.tenantKey, query.catalogKey) }
+        val declared = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { store.declarations(it, query.catalog) }
         val references = (content.dependencies.orEmpty().map { it.toBorrowed() } + settingUses(content)).filter { it.first != own }
-        val catalogs = ListCatalogs(query.tenantKey).query().filter { it.id.value != own }
+        val catalogs = ListCatalogs(query.tenantKey).query().filter { it.catalogId != query.catalog }
 
-        val involved = (references.map { it.first } + declared.map { it.catalogKey }).distinct()
-        val borrowed = involved.mapNotNull { key ->
-            val catalog = catalogs.firstOrNull { it.id.value == key } ?: return@mapNotNull null
-            val declaration = declared.firstOrNull { it.catalogKey == key }
+        // By alias, as content names another catalog (ADR 0034, section 9): the catalog its declaration
+        // names, or, used but not declared, the tenant's one catalog with that key.
+        val involved = (references.map { it.first } + declared.map { it.alias }).distinct()
+        val borrowed = involved.mapNotNull { alias ->
+            val declaration = declared.firstOrNull { it.alias == alias }
+            val catalog = declaration?.catalogIn(query.tenantKey)?.let { id -> catalogs.firstOrNull { it.catalogId == id } }
+                ?: catalogs.filter { it.id.value == alias }.singleOrNull().takeIf { declaration == null }
+                ?: return@mapNotNull null
+            val key = catalog.id.value
             val release = declaration?.releaseVersion
-            val offers = release?.let { GetCatalogReleaseDetail(query.tenantKey, catalog.id, it).query() }?.resources.orEmpty()
+            val offers = release?.let { GetCatalogReleaseDetail(catalog.catalogId, it).query() }?.resources.orEmpty()
                 .filter { it.resourceType in BORROWABLE }
                 .map { BorrowedResource(it.resourceType, it.resourceKey, it.name) }
                 .sortedWith(compareBy({ BORROWABLE.indexOf(it.type) }, { it.name?.lowercase() ?: it.key }))
             // Named from the release it renders from; failing that (nothing published, or not in it),
             // from the catalog as it is now, which is where the editor picked it.
-            val current by lazy { BrowseCatalog(query.tenantKey, catalog.id).query().resources }
-            val uses = references.filter { it.first == key }.map { it.second }.distinct().map { used ->
+            val current by lazy { BrowseCatalog(catalog.catalogId).query().resources }
+            val uses = references.filter { it.first == alias }.map { it.second }.distinct().map { used ->
                 val name = offers.firstOrNull { it.type == used.type && it.key == used.key }?.name
                     ?: current.firstOrNull { it.type == used.type && it.slug == used.key }?.name
                 used.copy(name = name)
             }
             // A named draft: what it has not published, and the number publishing it along gives it.
-            val namedDraft = declaration?.draftId?.let { CatalogReleaseRef(query.tenantKey, catalog.id, DraftRef.Id(it)) }
+            val namedDraft = declaration?.draftId?.let { CatalogReleaseRef(catalog.catalogId, DraftRef.Id(it)) }
             // Its resources and what it holds beside them (its own dependencies, default theme, presets,
             // license): a draft whose only change is one of those has something to publish too.
             val unpublished = namedDraft?.let { ref ->
-                val changes = GetCatalogResourceChanges(query.tenantKey, catalog.id, ref).query()
+                val changes = GetCatalogResourceChanges(catalog.catalogId, ref).query()
                 changes.resources
                     .filter { it.state != CatalogResourceState.RELEASED }
                     .map { change -> BorrowedResource(change.type, change.slug, change.name) } +
                     changes.settings.map { change -> BorrowedResource(change.type, change.key, change.name) }
             }.orEmpty()
-            val nextNumber = namedDraft?.takeIf { unpublished.isNotEmpty() }?.let { AssessDraftNumber(query.tenantKey, catalog.id, it.draft).query()?.suggested }
-            val latest = latestRelease(query.tenantKey, catalog.id)
+            val nextNumber = namedDraft?.takeIf { unpublished.isNotEmpty() }?.let { AssessDraftNumber(catalog.catalogId, it.draft).query()?.suggested }
+            val latest = latestRelease(catalog.catalogId)
             val newerBreaks = if (release != null && latest != null && isAbove(latest, release) && uses.isNotEmpty()) {
-                compatibility.breaks(query.tenantKey, catalog.id, release, latest, uses)
+                compatibility.breaks(catalog.catalogId, release, latest, uses)
             } else {
                 emptyList()
             }
-            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, declaration?.draftId, declaration?.draftName, latest, newerBreaks, alias = declaration?.alias ?: key)
+            BorrowedCatalog(key, catalog.name, declaration != null, release, uses, offers, unpublished, nextNumber, declaration?.draftId, declaration?.draftName, latest, newerBreaks, alias = alias, namespace = catalog.namespace)
         }.sortedWith(compareBy({ !it.used }, { it.name.lowercase() }))
 
-        val others = catalogs.filter { c -> borrowed.none { it.catalogKey == c.id.value } }
-            .map { OtherCatalog(it.id.value, it.name, latestRelease(query.tenantKey, it.id)) }
+        val others = catalogs.filter { c -> borrowed.none { it.address == c.address } }
+            .map { OtherCatalog(it.id.value, it.name, latestRelease(it.catalogId), it.namespace) }
             .sortedBy { it.name.lowercase() }
         return CatalogBorrowing(borrowed, others)
     }
@@ -199,7 +217,7 @@ class GetCatalogBorrowingHandler(
         return a > b
     }
 
-    private fun latestRelease(tenantKey: TenantKey, catalogKey: CatalogKey): String? = ListCatalogReleaseSummaries(tenantKey, catalogKey, limit = 1).query().firstOrNull()?.version
+    private fun latestRelease(catalog: CatalogId): String? = ListCatalogReleaseSummaries(catalog, limit = 1).query().firstOrNull()?.version
 
     /**
      * What the version uses of other catalogs outside its resources' references: the default theme the

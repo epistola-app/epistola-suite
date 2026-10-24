@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import com.sun.net.httpserver.HttpServer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -53,12 +54,12 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
     fun `attribute in catalog A binds to code list in catalog B (same tenant)`() {
         val tenant = createTenant("CrossBind1")
         val tenantId = TenantId(tenant.id)
-        val systemCatalog = CatalogId(SYSTEM_CATALOG_KEY, tenantId)
+        val systemCatalog = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
         val authoredCatalog = CatalogKey.of("cross-bind-authored")
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = authoredCatalog, name = "Cross Bind Authored").execute()
-            val authoredId = CatalogId(authoredCatalog, tenantId)
+            val authoredId = testCatalog(tenantId, authoredCatalog)
 
             CreateAttributeDefinition(
                 id = AttributeId(AttributeKey.of("preferred-language"), authoredId),
@@ -78,7 +79,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
     fun `export emits DependencyRef CodeList for cross-catalog bindings, re-import preserves them`() {
         val tenant = createTenant("CrossBind2")
         val tenantId = TenantId(tenant.id)
-        val systemCatalog = CatalogId(SYSTEM_CATALOG_KEY, tenantId)
+        val systemCatalog = testCatalog(tenantId, SYSTEM_CATALOG_KEY)
         val source = CatalogKey.of("xref-source")
 
         // Author a catalog containing one attribute bound across to `system`.
@@ -86,12 +87,12 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = source, name = "Xref Source").execute()
             declareDependency(tenant.id, source, on = SYSTEM_CATALOG_KEY)
             CreateAttributeDefinition(
-                id = AttributeId(AttributeKey.of("locale-pref"), CatalogId(source, tenantId)),
+                id = AttributeId(AttributeKey.of("locale-pref"), testCatalog(tenantId, source)),
                 displayName = "Locale preference",
                 codeListId = CodeListId(CodeListKey.of("bcp-47"), systemCatalog),
             ).execute()
 
-            mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(source, app.epistola.suite.common.ids.TenantId(tenant.id)))
+            mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant.id), source))
         }
 
         // Inspect the manifest + the attribute detail before re-import. The
@@ -124,7 +125,7 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
             }
 
             val fetched = GetAttributeDefinition(
-                AttributeId(AttributeKey.of("locale-pref"), CatalogId(result.catalogKey, targetTenantId)),
+                AttributeId(AttributeKey.of("locale-pref"), testCatalog(targetTenantId, result.catalogKey)),
             ).query()
             assertThat(fetched).isNotNull()
             assertThat(fetched!!.codeListCatalogKey?.value).isEqualTo("system")
@@ -167,13 +168,13 @@ class CrossCatalogCodeListBindingTest : IntegrationTestBase() {
                         authType = AuthType.NONE,
                         authCredential = null,
                     ).execute()
-                    InstallFromCatalog(tenantKey = tenant.id, catalogKey = catalog.id).execute()
+                    InstallFromCatalog(catalog = testCatalog(tenant.id, catalog.id)).execute()
                 }
 
                 val fetched = GetAttributeDefinition(
                     AttributeId(
                         AttributeKey.of("lang"),
-                        CatalogId(targetCatalogKey, TenantId(tenant.id)),
+                        testCatalog(TenantId(tenant.id), targetCatalogKey),
                     ),
                 ).query()
                 assertThat(fetched).isNotNull()

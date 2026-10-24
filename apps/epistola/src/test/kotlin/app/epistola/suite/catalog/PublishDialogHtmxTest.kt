@@ -37,6 +37,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -77,20 +78,20 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
                         sourceType = CodeListSource.INLINE,
                         entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
                     ).execute()
-                    mediator.releaseNext(CatalogId(letters, TenantId(tenant.id)))
+                    mediator.releaseNext(testCatalog(TenantId(tenant.id), letters))
                 }
             }
         }
         return tenant
     }
 
-    private fun codeList(tenant: Tenant) = CodeListId(CodeListKey.of("languages"), CatalogId(letters, TenantId(tenant.id)))
+    private fun codeList(tenant: Tenant) = CodeListId(CodeListKey.of("languages"), testCatalog(TenantId(tenant.id), letters))
 
     @Test
     fun `an addition is named, said to keep everything working, and published as the next minor`() {
         val tenant = published("Publish Additive")
         withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters)), "Invoice")
                 .execute().withRequiredDataExample()
         }
 
@@ -134,7 +135,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         val response = postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.0.1", "notes" to "Only new notes"))
 
-        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query().map { it.version } }
+        val released = withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query().map { it.version } }
         assertThat(released).containsExactly("1.0.0")
         assertThat(response.body).contains("has nothing to release")
     }
@@ -143,13 +144,13 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     fun `publishing marks the changes ready itself and publishes under the picked number`() {
         val tenant = published("Publish Submit")
         withMediator {
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters)), "Invoice")
                 .execute().withRequiredDataExample()
         }
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
 
-        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query().map { it.version } }
+        val released = withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query().map { it.version } }
         assertThat(released).contains("1.1.0")
     }
 
@@ -158,7 +159,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val tenant = published("Publish Live")
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters)), "Invoice")
                 .execute().withRequiredDataExample()
         }
 
@@ -169,7 +170,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "liveIn" to "test"))
 
-        val live = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
+        val live = withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }.deployedTo
         assertThat(live).containsExactly("test")
     }
 
@@ -179,8 +180,8 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id))
         withMediator {
             CreateEnvironment(production, "Production", production = true).execute()
-            DeployCatalogRelease(production, letters, "1.0.0").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, letters), "1.0.0").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters)), "Invoice")
                 .execute().withRequiredDataExample()
         }
 
@@ -190,12 +191,12 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         assertThat(dialog).contains("data-testid=\"publish-live-replace\"")
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0", "liveIn" to "production"))
-        assertThat(withMediator { ListDeployments(tenant.id, letters).query() }.map { it.version })
+        assertThat(withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, letters)).query() }.map { it.version })
             .`as`("beside 1.0.0, which pinned requests keep getting").containsExactlyInAnyOrder("1.1.0", "1.0.0")
 
-        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), CatalogId(letters, TenantId(tenant.id))), "Reminder").execute().withRequiredDataExample() }
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("reminder"), testCatalog(TenantId(tenant.id), letters)), "Reminder").execute().withRequiredDataExample() }
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.2.0", "liveIn" to "production", "replaceLive" to "true"))
-        assertThat(withMediator { ListDeployments(tenant.id, letters).query() }.map { it.version }).containsExactly("1.2.0")
+        assertThat(withMediator { ListDeployments(tenant.id, testCatalog(tenant.id, letters)).query() }.map { it.version }).containsExactly("1.2.0")
     }
 
     @Test
@@ -204,7 +205,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         withMediator {
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant.id)), "Test").execute()
             CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant.id)), "Production").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id))), "Invoice")
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters)), "Invoice")
                 .execute().withRequiredDataExample()
         }
 
@@ -213,7 +214,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to "1.1.0"))
 
-        val released = withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }
+        val released = withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query() }.first { it.version == "1.1.0" }
         assertThat(released.deployedTo).isEmpty()
     }
 
@@ -221,11 +222,11 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
     private fun usingSharedTheme(tenant: Tenant, publishShared: Boolean = true) = withMediator {
         val shared = CatalogKey.of("shared")
         CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant.id))), "Brand").execute()
-        if (publishShared) mediator.releaseNext(CatalogId(shared, TenantId(tenant.id)))
-        val invoice = TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant.id)))
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), shared)), "Brand").execute()
+        if (publishShared) mediator.releaseNext(testCatalog(TenantId(tenant.id), shared))
+        val invoice = TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant.id), letters))
         CreateDocumentTemplate(invoice, "Invoice").execute().withRequiredDataExample()
-        UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalogKey = shared).execute()
+        UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("brand"), themeCatalog = testCatalog(invoice.tenantKey, shared)).execute()
     }
 
     /**
@@ -246,8 +247,8 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
-        assertThat(withMediator { ListCatalogReleases(tenant.id, letters, CatalogReleaseStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
-        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
+        assertThat(withMediator { ListCatalogReleases(testCatalog(tenant.id, letters), CatalogReleaseStatus.RELEASED).query() }.map { it.version }).contains("1.1.0")
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), "1.1.0").query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
     }
 
@@ -264,7 +265,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
-        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.0")
     }
 
@@ -286,7 +287,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val tenant = published("Publish Along")
         usingSharedTheme(tenant)
         withMediator {
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), CatalogKey.of("shared"))), documentStyles = mapOf("color" to "#ff0000")).execute()
         }
 
         val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters/release").body!!
@@ -295,7 +296,7 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
 
         postForm("/tenants/${tenant.id}/catalogs/letters/release", mapOf("version" to offered(dialog)))
 
-        assertThat(withMediator { ListReleaseDependencies(tenant.id, letters, offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
+        assertThat(withMediator { ListReleaseDependencies(testCatalog(tenant.id, letters), offered(dialog)).query() }.map { it.catalogKey to it.releaseVersion })
             .containsExactly("shared" to "1.0.1")
     }
 
@@ -304,12 +305,12 @@ class PublishDialogHtmxTest : BaseIntegrationTest() {
         val tenant = published("Publish Only Others")
         usingSharedTheme(tenant)
         withMediator {
-            mediator.releaseNext(CatalogId(letters, TenantId(tenant.id)))
+            mediator.releaseNext(testCatalog(TenantId(tenant.id), letters))
             // Letters' next version now pins Shared 1.0.0; building on Shared's next version again is a choice.
-            val target = GetCatalog(tenant.id, CatalogKey.of("shared")).query()!!
-            val sharedNext = GetCatalogDraft(tenant.id, CatalogKey.of("shared")).query()!!.versionId
-            UpdateCatalogDependencies(tenant.id, letters, listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute()
-            UpdateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(CatalogKey.of("shared"), TenantId(tenant.id))), documentStyles = mapOf("color" to "#ff0000")).execute()
+            val target = GetCatalog(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!
+            val sharedNext = GetCatalogDraft(testCatalog(tenant.id, CatalogKey.of("shared"))).query()!!.versionId
+            UpdateCatalogDependencies(testCatalog(tenant.id, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "shared", versionId = sharedNext))).execute()
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), CatalogKey.of("shared"))), documentStyles = mapOf("color" to "#ff0000")).execute()
         }
 
         val page = restTemplate.getForEntity("/tenants/${tenant.id}/catalogs/letters/browse", String::class.java).body!!

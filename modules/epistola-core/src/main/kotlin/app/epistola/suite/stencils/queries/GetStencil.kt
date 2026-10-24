@@ -4,6 +4,7 @@
 
 package app.epistola.suite.stencils.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -46,7 +47,7 @@ class GetStencilHandler(
         )
             .bind("id", query.id.key)
             .bind("tenantId", query.id.tenantKey)
-            .bind("catalogKey", query.id.catalogKey)
+            .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<Stencil>()
             .map(Stencil::withAbsentSchemaAsNull)
             .findOne()

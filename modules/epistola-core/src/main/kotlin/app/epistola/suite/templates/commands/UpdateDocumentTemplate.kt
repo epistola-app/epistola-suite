@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -41,7 +42,8 @@ data class UpdateDocumentTemplate(
     val id: TemplateId,
     val name: String? = null,
     val themeId: ThemeKey? = null,
-    val themeCatalogKey: CatalogKey? = null,
+    /** The catalog [themeId] is in, by its address (ADR 0034, section 9). */
+    val themeCatalog: app.epistola.suite.common.ids.CatalogId? = null,
     val clearThemeId: Boolean = false,
     val pdfaEnabled: Boolean? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
@@ -55,13 +57,14 @@ data class UpdateDocumentTemplate(
     RequiresPermission {
     override val permission = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = id.tenantKey
+    val themeCatalogKey: CatalogKey? get() = themeCatalog?.key
 
     init {
         if (name != null) {
             validate("name", name.isNotBlank()) { "Name cannot be blank" }
             validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
         }
-        validate("themeCatalogKey", themeId == null || themeCatalogKey != null) { "A theme needs the catalog it lives in" }
+        validate("themeCatalogKey", themeId == null || themeCatalog != null) { "A theme needs the catalog it lives in" }
         validate("description", description.fitsTemplateDescription()) { "Description must be $MAX_TEMPLATE_DESCRIPTION_LENGTH characters or less" }
     }
 }
@@ -75,12 +78,12 @@ class UpdateDocumentTemplateHandler(
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        if (saved != null && command.themeId != null) usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.themeCatalogKey)
+        if (saved != null && command.themeId != null) usedCatalogs.declare(command.id.catalogId, command.themeCatalog)
         return saved
     }
 
     private fun save(command: UpdateDocumentTemplate): DocumentTemplate? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         // Build dynamic UPDATE query
         val updates = mutableListOf<String>()
@@ -99,7 +102,8 @@ class UpdateDocumentTemplateHandler(
         } else if (command.themeId != null) {
             updates.add("theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeId")}")
             bindings["themeId"] = command.themeId
-            bindings["themeCatalogKey"] = command.themeCatalogKey
+            bindings["themeCatalogKey"] = command.themeCatalog?.key
+            bindings["themeCatalogKey_ns"] = command.themeCatalog?.namespace
         }
         if (command.pdfaEnabled != null) {
             updates.add("pdfa_enabled = :pdfaEnabled")
@@ -123,7 +127,7 @@ class UpdateDocumentTemplateHandler(
 
         val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
             if (!command.clearThemeId && command.themeId != null) {
-                val themeCatalogKey = command.themeCatalogKey
+                val themeCatalogKey = command.themeCatalog?.address
                 val themeExists = handle.createQuery(
                     """
                     SELECT 1
@@ -135,7 +139,7 @@ class UpdateDocumentTemplateHandler(
                     """,
                 )
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("themeCatalogKey", themeCatalogKey)
+                    .bindCatalog("themeCatalogKey", command.themeCatalog)
                     .bind("themeId", command.themeId)
                     .mapTo(Int::class.java)
                     .findOne()
@@ -151,7 +155,7 @@ class UpdateDocumentTemplateHandler(
             val update = handle.createUpdate(sql)
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("expectedRevision", command.expectedRevision)
 
             bindings.forEach { (key, value) -> update.bind(key, value) }
@@ -175,7 +179,7 @@ internal fun templateRevision(handle: Handle, id: TemplateId): Long? = handle.cr
     "SELECT revision FROM document_templates WHERE tenant_key = :t AND id = :k AND version_id = ${versionAt("t", "c")}",
 )
     .bind("t", id.tenantKey)
-    .bind("c", id.catalogKey)
+    .bindCatalog("c", id.catalogId)
     .bind("k", id.key)
     .mapTo(Long::class.java)
     .findOne()

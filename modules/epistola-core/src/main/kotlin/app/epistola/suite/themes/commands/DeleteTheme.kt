@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -48,7 +49,7 @@ class DeleteThemeHandler(
      * @throws ThemeInUseException if the theme is the tenant's default theme, or the version still uses it
      */
     override fun handle(command: DeleteTheme): Boolean {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             val isDefaultTheme = handle.createQuery(
                 """
@@ -61,7 +62,7 @@ class DeleteThemeHandler(
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("themeId", command.id.key)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .mapTo<Long>()
                 .one() > 0
 
@@ -94,7 +95,7 @@ class DeleteThemeHandler(
             )
                 .bind("tenantId", command.id.tenantKey)
                 .bind("themeId", command.id.key)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .mapTo<String>()
                 .list()
             if (users.isNotEmpty()) {
@@ -108,7 +109,7 @@ class DeleteThemeHandler(
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .execute()
             deleted > 0
         }

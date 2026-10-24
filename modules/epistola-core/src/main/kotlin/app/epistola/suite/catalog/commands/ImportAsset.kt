@@ -8,8 +8,10 @@ import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.SvgContentPolicy
 import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -30,8 +32,7 @@ import org.springframework.stereotype.Component
  * Skips if an asset with the same ID already exists (assets are immutable).
  */
 data class ImportAsset(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val id: AssetKey,
     val name: String,
     val mediaType: AssetMediaType,
@@ -43,6 +44,8 @@ data class ImportAsset(
     val sensitive: Boolean = false,
 ) : Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.TEMPLATE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -78,7 +81,7 @@ class ImportAssetHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("id", command.id.value)
                 .mapTo(Boolean::class.java)
                 .one()
@@ -101,7 +104,7 @@ class ImportAssetHandler(
                     """,
                 )
                     .bind("tenantKey", command.tenantKey)
-                    .bind("catalogKey", command.catalogKey)
+                    .bindCatalog("catalogKey", command.catalog)
                     .bind("id", command.id.value)
                     .bind("name", command.name)
                     .bind("mediaType", command.mediaType.mimeType)
@@ -118,8 +121,7 @@ class ImportAssetHandler(
 
         // Upload with the original ID to preserve template image node references
         UploadAsset(
-            tenantId = command.tenantKey,
-            catalogKey = command.catalogKey,
+            catalog = command.catalog,
             name = command.name,
             mediaType = command.mediaType,
             content = command.content,

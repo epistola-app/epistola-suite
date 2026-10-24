@@ -41,7 +41,7 @@ class WorkspaceScopeTest {
     private fun bar(
         drafts: List<CatalogRelease>,
         releases: List<CatalogRelease>,
-        segment: CatalogSegment = CatalogSegment(letters),
+        segment: CatalogSegment = CatalogSegment(letters, namespace = "acme"),
         readOnlyReason: CatalogReadOnlyReason? = null,
         installed: CatalogRelease? = null,
     ) = CatalogDraftBar(
@@ -63,7 +63,7 @@ class WorkspaceScopeTest {
     private val everything: (Permission) -> Boolean = { true }
 
     private val work = listOf(next("1.2.0"), parallel("Redesign", "1.1.0"))
-    private val onRedesign = CatalogSegment(letters, redesignId)
+    private val onRedesign = CatalogSegment(letters, redesignId, "acme")
     private val published = listOf(release("1.2.0", liveIn = listOf("production")), release("1.1.0", liveIn = listOf("test")))
 
     @Test
@@ -78,7 +78,7 @@ class WorkspaceScopeTest {
 
     @Test
     fun `a published version's page and a catalog that cannot be changed here each say so`() {
-        assertThat(WorkspaceBuilder.scope(bar(work, published), "v1.1.0, published", "/tenants/acme/catalogs/letters/releases/1.1.0", everything).versionLabel)
+        assertThat(WorkspaceBuilder.scope(bar(work, published), "v1.1.0, published", "/tenants/acme/catalogs/acme/letters/releases/1.1.0", everything).versionLabel)
             .isEqualTo("v1.1.0, published")
 
         val supplied = WorkspaceBuilder.scope(bar(emptyList(), published, readOnlyReason = CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA, installed = release("1.2.0")), null, "/", everything)
@@ -104,23 +104,23 @@ class WorkspaceScopeTest {
         // The same from every page, so the bar is not sent again while moving around in a version; the
         // switch takes the page along (VersionSwitch).
         assertThat(versions.map { it.href }).containsExactly(
-            "/tenants/acme/catalogs/letters/switch",
-            "/tenants/acme/catalogs/letters@$redesignId/switch",
+            "/tenants/acme/catalogs/acme/letters/switch",
+            "/tenants/acme/catalogs/acme/letters@$redesignId/switch",
         )
         assertThat(versions.first().current).isTrue()
     }
 
     @Test
     fun `the catalog nav carries the page's segment to content, the plain key to versions and where it is live`() {
-        val nav = CatalogNav.sections(bar(work, published, onRedesign), "/tenants/acme/catalogs/letters@$redesignId/stencils/footer", everything).flatten()
+        val nav = CatalogNav.sections(bar(work, published, onRedesign), "/tenants/acme/catalogs/acme/letters@$redesignId/stencils/footer", everything).flatten()
 
-        assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/catalogs/letters@$redesignId/templates")
-            .containsEntry("stencils", "/tenants/acme/catalogs/letters@$redesignId/stencils")
-            .containsEntry("dependencies", "/tenants/acme/catalogs/letters@$redesignId/dependencies")
-            .containsEntry("settings", "/tenants/acme/catalogs/letters@$redesignId/settings")
-            .containsEntry("versions", "/tenants/acme/catalogs/letters/releases")
-            .containsEntry("deployments", "/tenants/acme/catalogs/letters/deployments")
-            .`as`("parallel work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/letters@$redesignId/draft")
+        assertThat(nav.associate { it.key to it.href }).containsEntry("templates", "/tenants/acme/catalogs/acme/letters@$redesignId/templates")
+            .containsEntry("stencils", "/tenants/acme/catalogs/acme/letters@$redesignId/stencils")
+            .containsEntry("dependencies", "/tenants/acme/catalogs/acme/letters@$redesignId/dependencies")
+            .containsEntry("settings", "/tenants/acme/catalogs/acme/letters@$redesignId/settings")
+            .containsEntry("versions", "/tenants/acme/catalogs/acme/letters/releases")
+            .containsEntry("deployments", "/tenants/acme/catalogs/acme/letters/deployments")
+            .`as`("parallel work's overview is its draft page").containsEntry("overview", "/tenants/acme/catalogs/acme/letters@$redesignId/draft")
         assertThat(nav.filter { it.active }.map { it.key }).containsExactly("stencils")
     }
 
@@ -133,13 +133,13 @@ class WorkspaceScopeTest {
 
     @Test
     fun `each page of a catalog lights up its own item`() {
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/browse", "letters")).isEqualTo("overview")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters@$redesignId/draft", "letters")).isEqualTo("overview")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/releases/1.2.0", "letters")).isEqualTo("versions")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/deployments", "letters")).isEqualTo("deployments")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/templates/invoice", "letters")).isEqualTo("templates")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/letters/code-lists/countries", "letters")).isEqualTo("code-lists")
-        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/shared/browse", "letters")).`as`("another catalog").isNull()
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters/browse", "acme/letters")).isEqualTo("overview")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters@$redesignId/draft", "acme/letters")).isEqualTo("overview")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters/releases/1.2.0", "acme/letters")).isEqualTo("versions")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters/deployments", "acme/letters")).isEqualTo("deployments")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters/templates/invoice", "acme/letters")).isEqualTo("templates")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/letters/code-lists/countries", "acme/letters")).isEqualTo("code-lists")
+        assertThat(CatalogNav.activeKey("/tenants/acme/catalogs/acme/shared/browse", "acme/letters")).`as`("another catalog").isNull()
     }
 
     @Test
@@ -151,25 +151,25 @@ class WorkspaceScopeTest {
 
     @Test
     fun `templates lead the group of what the catalog holds, and quality sits with the overview when it is on`() {
-        val sections = CatalogNav.sections(bar(work, published), "/tenants/acme/catalogs/letters/quality", everything, qualityAvailable = true)
+        val sections = CatalogNav.sections(bar(work, published), "/tenants/acme/catalogs/acme/letters/quality", everything, qualityAvailable = true)
 
         assertThat(sections[0].map { it.key }).containsExactly("overview", "quality")
         assertThat(sections[1].map { it.key }).containsExactly("templates", "stencils", "themes", "images", "fonts", "attributes", "code-lists")
-        assertThat(sections[0].first { it.key == "quality" }.href).isEqualTo("/tenants/acme/catalogs/letters/quality")
+        assertThat(sections[0].first { it.key == "quality" }.href).isEqualTo("/tenants/acme/catalogs/acme/letters/quality")
         assertThat(sections.flatten().filter { it.active }.map { it.key }).containsExactly("quality")
         assertThat(CatalogNav.sections(bar(work, published), "/", everything).flatten().map { it.key }).doesNotContain("quality")
     }
 
     @Test
     fun `a page missing from a version leads to its section in that version, and to the version's overview`() {
-        val template = CatalogNav.sectionOf("/tenants/acme/catalogs/letters@$redesignId/templates/invoice/variants/standard/editor")!!
+        val template = CatalogNav.sectionOf("/tenants/acme/catalogs/acme/letters@$redesignId/templates/invoice/variants/standard/editor")!!
         assertThat(template.label).isEqualTo("Templates")
-        assertThat(template.href).isEqualTo("/tenants/acme/catalogs/letters@$redesignId/templates")
-        assertThat(template.overviewHref).isEqualTo("/tenants/acme/catalogs/letters@$redesignId/draft")
+        assertThat(template.href).isEqualTo("/tenants/acme/catalogs/acme/letters@$redesignId/templates")
+        assertThat(template.overviewHref).isEqualTo("/tenants/acme/catalogs/acme/letters@$redesignId/draft")
 
-        val stencil = CatalogNav.sectionOf("/tenants/acme/catalogs/letters/stencils/header")!!
-        assertThat(stencil.href).isEqualTo("/tenants/acme/catalogs/letters/stencils")
-        assertThat(stencil.overviewHref).isEqualTo("/tenants/acme/catalogs/letters/browse")
+        val stencil = CatalogNav.sectionOf("/tenants/acme/catalogs/acme/letters/stencils/header")!!
+        assertThat(stencil.href).isEqualTo("/tenants/acme/catalogs/acme/letters/stencils")
+        assertThat(stencil.overviewHref).isEqualTo("/tenants/acme/catalogs/acme/letters/browse")
 
         assertThat(CatalogNav.sectionOf("/tenants/acme/environments/test")).`as`("not a catalog page").isNull()
         assertThat(CatalogNav.sectionOf("/tenants/acme/templates/letters")).`as`("a section list itself").isNull()

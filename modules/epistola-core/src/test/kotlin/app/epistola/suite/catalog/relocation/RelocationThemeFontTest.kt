@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -37,10 +38,10 @@ class RelocationThemeFontTest : RelocationTestSupport() {
         importFont(tenant, letters, "acme")
         createTheme(tenant, archive, fontCatalog = letters.value)
 
-        move(tenant, address(CatalogResourceType.FONT, letters, "acme").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.FONT, letters, "acme").movedTo(shared))
 
         withMediator { BuildTenantSnapshot(tenant).execute() }
-        val theme = withMediator { mediator.exportReleased(app.epistola.suite.common.ids.CatalogId(archive, app.epistola.suite.common.ids.TenantId(tenant))) }.zipBytes.let(::unzipText).getValue("resources/theme/brand.json")
+        val theme = withMediator { mediator.exportReleased(testCatalog(app.epistola.suite.common.ids.TenantId(tenant), archive)) }.zipBytes.let(::unzipText).getValue("resources/theme/brand.json")
         assertThat(theme).contains("\"catalogKey\":\"shared\"")
     }
 
@@ -55,12 +56,12 @@ class RelocationThemeFontTest : RelocationTestSupport() {
         importFont(tenant, letters, "acme")
         createTheme(tenant, letters, fontCatalog = null)
 
-        move(tenant, address(CatalogResourceType.THEME, letters, "brand").movedTo(shared))
+        move(tenant, address(tenant, CatalogResourceType.THEME, letters, "brand").movedTo(shared))
 
         val edge = withMediator { GetTenantResourceGraph(tenant, includeHistory = false).query() }.edges
-            .single { it.source == address(CatalogResourceType.THEME, shared, "brand") && it.targetSelector.type == CatalogResourceType.FONT }
+            .single { it.source == address(tenant, CatalogResourceType.THEME, shared, "brand") && it.targetSelector.type == CatalogResourceType.FONT }
         assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
-        assertThat(edge.target).isEqualTo(address(CatalogResourceType.FONT, letters, "acme"))
+        assertThat(edge.target).isEqualTo(address(tenant, CatalogResourceType.FONT, letters, "acme"))
         withMediator { BuildTenantSnapshot(tenant).execute() }
     }
 

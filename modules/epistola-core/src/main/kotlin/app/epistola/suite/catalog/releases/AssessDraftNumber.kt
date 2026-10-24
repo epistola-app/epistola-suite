@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -27,16 +28,17 @@ import org.springframework.stereotype.Component
  * is `3.0.0`). The author may choose a higher number, never a lower one ([DraftNumberAssessment.refuses]).
  */
 data class AssessDraftNumber(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val draft: DraftRef = DraftRef.Next,
 ) : Query<DraftNumberAssessment?>,
     CatalogReleaseScoped,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 
     /** The draft itself: its content is what its changes are measured on. */
-    override val catalogVersion: CatalogReleaseRef get() = CatalogReleaseRef(tenantKey, catalogKey, draft)
+    override val catalogVersion: CatalogReleaseRef get() = CatalogReleaseRef(catalog, draft)
 }
 
 /**
@@ -96,8 +98,8 @@ class AssessDraftNumberHandler(
     private val changeKinds: DraftChangeKinds,
 ) : QueryHandler<AssessDraftNumber, DraftNumberAssessment?> {
     override fun handle(query: AssessDraftNumber): DraftNumberAssessment? {
-        val draft = jdbi.withHandle<CatalogDraft?, Exception> { drafts.find(it, query.tenantKey, query.catalogKey, query.draft) } ?: return null
-        val taken = ListCatalogReleaseSummaries(query.tenantKey, query.catalogKey).query().map { it.version }.toSet()
+        val draft = jdbi.withHandle<CatalogDraft?, Exception> { drafts.find(it, query.catalog, query.draft) } ?: return null
+        val taken = ListCatalogReleaseSummaries(query.catalog).query().map { it.version }.toSet()
         val base = draft.base
         if (base == null) {
             // Nothing to measure against: the first number, or the next free major after it.
@@ -105,7 +107,7 @@ class AssessDraftNumberHandler(
             return DraftNumberAssessment(null, null, emptyList(), first.toString(), DraftNumberAssessment.nextFree(first, ChangeKind.BREAKING, taken).toString(), taken)
         }
         val baseVersion = SemVer.parse(base)
-        val changes = changeKinds.against(query.tenantKey, query.catalogKey, base)
+        val changes = changeKinds.against(query.catalog, base)
         val kind = changes?.kind ?: ChangeKind.NONE
         val needed = when (kind) {
             ChangeKind.BREAKING -> baseVersion.bumpMajor()

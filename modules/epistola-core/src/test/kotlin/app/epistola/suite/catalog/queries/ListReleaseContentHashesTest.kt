@@ -21,6 +21,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.recordBeforeContentHashes
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -40,9 +41,9 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
     private fun released(tenant: TenantKey, key: CatalogKey, vararg versions: String) = withMediator {
         CreateCatalog(tenantKey = tenant, id = key, name = key.value).execute()
         versions.forEachIndexed { index, version ->
-            CreateTheme(ThemeId(ThemeKey.of("theme-$index"), CatalogId(key, TenantId(tenant))), "Theme $index").execute()
-            MarkCatalogReady(tenant, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = key, version = version).execute()
+            CreateTheme(ThemeId(ThemeKey.of("theme-$index"), testCatalog(TenantId(tenant), key)), "Theme $index").execute()
+            MarkCatalogReady(testCatalog(tenant, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, key), version = version).execute()
         }
     }
 
@@ -50,7 +51,7 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
     private fun ReleaseContentHashes.authored() = byRelease.keys.filterNot { it.first.key == SYSTEM_CATALOG_KEY }.map { it.first.key to it.second }
 
     private fun recorded(tenant: TenantKey, key: CatalogKey): Map<String?, String?> = withMediator {
-        ListCatalogReleases(tenant, key, CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
+        ListCatalogReleases(testCatalog(tenant, key), CatalogReleaseStatus.RELEASED).query().associate { it.version to it.contentHash }
     }
 
     @Test
@@ -65,16 +66,16 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
         val hashes = withMediator { ListReleaseContentHashes(tenant).query() }
 
         assertThat(hashes.authored()).containsExactlyInAnyOrder(letters to "1.0.0", letters to "1.1.0", CatalogKey.of("forms") to "2.0.0")
-        assertThat(hashes.of(letters, "1.1.0")).startsWith("v6:").isEqualTo(ownHashes["1.1.0"])
-        assertThat(hashes.of(letters, "9.0.0")).`as`("another tenant's").isNull()
-        assertThat(hashes.of(letters, null)).`as`("no release").isNull()
+        assertThat(hashes.of(testCatalog(tenant, letters), "1.1.0")).startsWith("v6:").isEqualTo(ownHashes["1.1.0"])
+        assertThat(hashes.of(testCatalog(tenant, letters), "9.0.0")).`as`("another tenant's").isNull()
+        assertThat(hashes.of(testCatalog(tenant, letters), null)).`as`("no release").isNull()
     }
 
     @Test
     fun `a release without its content hash yet is not in it`() {
         val tenant = createTenant("Content hashes pending").id
         released(tenant, letters, "1.0.0", "1.1.0")
-        withMediator { mediator.recordBeforeContentHashes(jdbi, tenant, letters, "1.0.0") }
+        withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.0") }
 
         val hashes = withMediator { ListReleaseContentHashes(tenant).query() }
 

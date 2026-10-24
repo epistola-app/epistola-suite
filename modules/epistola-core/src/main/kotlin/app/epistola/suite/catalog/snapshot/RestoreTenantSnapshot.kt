@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.snapshot
 
 import app.epistola.suite.catalog.CatalogImportContext
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.DraftFillMode
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -66,6 +67,8 @@ data class RestoreTenantSnapshot(
 
 data class RestoreResult(
     val restoredCatalogKeys: List<String>,
+    /** The catalogs restored, by address (ADR 0034). */
+    val restoredCatalogs: List<app.epistola.suite.common.ids.CatalogId> = emptyList(),
 )
 
 @Component
@@ -79,7 +82,18 @@ class RestoreTenantSnapshotHandler(
 
     @Transactional
     override fun handle(command: RestoreTenantSnapshot): RestoreResult = CatalogImportContext.runAsImport {
-        val (manifest, identities, innerZips) = parseArchive(command.archiveBytes)
+        val (parsed, identities, innerZips) = parseArchive(command.archiveBytes)
+        // A snapshot from before schema 4 names no namespace in its entries: its archives do.
+        val manifest = parsed.copy(
+            catalogs = parsed.catalogs.map { entry ->
+                if (entry.namespace != null) {
+                    entry
+                } else {
+                    val zip = requireNotNull(innerZips[entry.zipPath]) { "Snapshot archive is missing ${entry.zipPath}" }
+                    entry.copy(namespace = schemaMigrator.migrateAndBindManifest(catalogJson(zip), command.tenantKey.value).manifest.catalog.namespace)
+                }
+            },
+        )
 
         // Validate fully BEFORE the destructive purge — a bad archive must not leave the tenant wiped.
         require(manifest.schemaVersion <= SUPPORTED_SCHEMA_VERSION) {
@@ -103,10 +117,10 @@ class RestoreTenantSnapshotHandler(
         // Before the import, so the sync trigger adopts each recorded identity instead of minting a
         // fresh one. Restoring with new identities would dangle the template_resource_id on every
         // generation record (no foreign key protects it, so it just stops joining).
-        identityStore.plantIdentities(command.tenantKey, identities.resources)
+        identityStore.plantIdentities(command.tenantKey, identities.resources) { record -> catalogOf(command.tenantKey, record, ordered) }
 
         for (entry in ordered) {
-            val restored = requireNotNull(app.epistola.suite.catalog.queries.GetCatalog(command.tenantKey, CatalogKey.of(entry.catalogKey)).query())
+            val restored = requireNotNull(app.epistola.suite.catalog.queries.GetCatalog(entry.catalogIn(command.tenantKey)).query())
             // Its releases first, lowest first, each recorded beside as it says it is (schema 3), so
             // the next version the working copy fills is not moved onto them.
             for (release in entry.releases) {
@@ -140,7 +154,7 @@ class RestoreTenantSnapshotHandler(
         reapplyDefaultTheme(command.tenantKey, prior)
 
         logger.info("Restored tenant {} from snapshot ({} catalogs)", command.tenantKey.value, ordered.size)
-        RestoreResult(restoredCatalogKeys = ordered.map { it.catalogKey })
+        RestoreResult(restoredCatalogKeys = ordered.map { it.catalogKey }, restoredCatalogs = ordered.map { it.catalogIn(command.tenantKey) })
     }
 
     /**
@@ -164,7 +178,7 @@ class RestoreTenantSnapshotHandler(
                 .bind("catalogKey", entry.catalogKey)
                 .bind("tenantKey", tenantKey)
                 .bind("registry", requireNotNull(catalog.registry) { "Snapshot catalog ${entry.catalogKey} names no registry" })
-                .bind("namespace", requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
+                .bind("namespace", entry.namespace ?: requireNotNull(catalog.namespace) { "Snapshot catalog ${entry.catalogKey} names no namespace" })
                 .bind("name", entry.name)
                 // Where it receives releases from (schema 3); its credential is not in a snapshot.
                 .bind("sourceUrl", entry.source?.url)
@@ -190,7 +204,7 @@ class RestoreTenantSnapshotHandler(
                     WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                     """,
                 )
-                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", release.version)
+                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", release.version)
                     .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
                     .execute()
             }
@@ -199,17 +213,17 @@ class RestoreTenantSnapshotHandler(
                     """
                     UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
                     FROM catalog_releases r
-                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
+                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
                     """,
                 )
-                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", entry.version)
+                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", entry.version)
                     .execute()
             }
             entry.installed?.let { installed ->
                 handle.createUpdate(
-                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c)",
+                    "UPDATE catalogs SET installed_release_version = :v, installed_fingerprint = :f, installed_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)",
                 )
-                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("v", installed.version).bind("f", installed.fingerprint)
+                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", installed.version).bind("f", installed.fingerprint)
                     .execute()
             }
             entry.nextBase?.let { base ->
@@ -220,7 +234,7 @@ class RestoreTenantSnapshotHandler(
                       AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     """,
                 )
-                    .bind("t", tenantKey).bind("c", entry.catalogKey).bind("b", base)
+                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("b", base)
                     .execute()
             }
         }
@@ -239,11 +253,12 @@ class RestoreTenantSnapshotHandler(
     ) {
         val catalogKey = prior.priorDefaultThemeCatalogKey ?: return
         val themeKey = prior.priorDefaultThemeKey ?: return
+        val namespace = prior.priorDefaultThemeNamespace ?: return
         try {
             SetTenantDefaultTheme(
                 tenantId = tenantKey,
                 themeId = ThemeKey.of(themeKey),
-                catalogKey = CatalogKey.of(catalogKey),
+                catalog = app.epistola.suite.common.ids.CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey)),
             ).execute()
         } catch (e: Exception) {
             // The default theme's catalog/theme may not be in the snapshot — leave it cleared.
@@ -256,25 +271,36 @@ class RestoreTenantSnapshotHandler(
      * (Kahn's algorithm, deterministic by key). Throws on a dependency cycle.
      */
     private fun topologicalOrder(entries: List<SnapshotCatalogEntry>): List<SnapshotCatalogEntry> {
-        val byKey = entries.associateBy { it.catalogKey }
-        val remaining = byKey.toMutableMap()
-        val unmet =
-            entries
-                .associate { e -> e.catalogKey to e.dependsOnCatalogKeys.filter { byKey.containsKey(it) }.toMutableSet() }
-                .toMutableMap()
+        // By address (schema 4); a snapshot from before names dependencies by key, which named one
+        // catalog then.
+        val byAddress = entries.associateBy { it.address }
+        val byKey = entries.groupBy { it.catalogKey }
+        fun dependencies(entry: SnapshotCatalogEntry): Set<String> = (
+            entry.dependsOnCatalogs.filter { byAddress.containsKey(it) } +
+                entry.dependsOnCatalogKeys.mapNotNull { key -> byKey[key]?.singleOrNull()?.address }
+            ).filter { it != entry.address }.toMutableSet()
+        val remaining = byAddress.toMutableMap()
+        val unmet = entries.associate { e -> e.address to dependencies(e).toMutableSet() }.toMutableMap()
 
         val ordered = mutableListOf<SnapshotCatalogEntry>()
         while (remaining.isNotEmpty()) {
-            val nextKey =
+            val next =
                 remaining.keys.filter { unmet[it]!!.isEmpty() }.minOrNull()
                     ?: throw IllegalStateException(
                         "Cyclic cross-catalog dependencies in snapshot: ${remaining.keys.sorted()}",
                     )
-            ordered += remaining.remove(nextKey)!!
-            unmet.remove(nextKey)
-            unmet.values.forEach { it.remove(nextKey) }
+            ordered += remaining.remove(next)!!
+            unmet.remove(next)
+            unmet.values.forEach { it.remove(next) }
         }
         return ordered
+    }
+
+    /** The catalog an identity was recorded in: by its namespace (schema 4), else the one restored catalog with its key. */
+    private fun catalogOf(tenantKey: TenantKey, record: app.epistola.suite.catalog.identity.ResourceIdentityRecord, entries: List<SnapshotCatalogEntry>): app.epistola.suite.common.ids.CatalogId {
+        val namespace = record.namespace ?: entries.singleOrNull { it.catalogKey == record.catalogKey }?.namespace
+            ?: throw IllegalArgumentException("Snapshot identity ${record.type}:${record.catalogKey}/${record.key} names no catalog this snapshot restores")
+        return app.epistola.suite.common.ids.CatalogId(namespace, CatalogKey.of(record.catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
     }
 
     private data class ParsedArchive(
@@ -316,6 +342,6 @@ class RestoreTenantSnapshotHandler(
 
     private companion object {
         /** Highest snapshot manifest schema version this suite can restore. */
-        const val SUPPORTED_SCHEMA_VERSION = 3
+        const val SUPPORTED_SCHEMA_VERSION = 4
     }
 }

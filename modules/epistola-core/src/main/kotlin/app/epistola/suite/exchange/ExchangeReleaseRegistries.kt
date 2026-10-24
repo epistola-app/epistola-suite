@@ -20,6 +20,7 @@ import app.epistola.suite.catalog.registry.ReleaseRegistryRelease
 import app.epistola.suite.catalog.registry.ReleaseRegistrySummary
 import app.epistola.suite.catalog.registry.releaseVersionsNewestFirst
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -60,8 +61,9 @@ class ExchangeReleaseRegistries(
             val token = credentials.accessToken(connection)
                 ?: throw CatalogSourceUnavailableException("Epistola Exchange would not issue an access token for this tenant. Reconnect it on the Exchange page.")
             val offered = translate { client.releases(connection.baseUrl, token, namespace, catalogKey) }.filter { it.installable }.associateBy { it.version }
-            val conflict = installer.localConflict(tenantKey, catalogKey, ExchangeSourceUri.of(namespace, catalogKey))
-            val here = if (conflict == null) ListCatalogReleaseSummaries(tenantKey, CatalogKey.of(catalogKey)).query().map { it.version }.toSet() else emptySet()
+            val catalog = app.epistola.suite.common.ids.CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
+            val conflict = installer.localConflict(catalog, ExchangeSourceUri.of(namespace, catalogKey))
+            val here = if (conflict == null) ListCatalogReleaseSummaries(catalog).query().map { it.version }.toSet() else emptySet()
             ReleaseRegistryListing(
                 registry = name,
                 kind = ReleaseRegistryKind.EXCHANGE,
@@ -80,8 +82,8 @@ class ExchangeReleaseRegistries(
             ReleaseRegistryInstall(name, installed.imported, installed.aborted)
         }
 
-        override fun publish(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): ReleaseRegistryPublication = refusals {
-            val outcome = PublishCurrentCatalogRelease(tenantKey, catalogKey, version).execute()
+        override fun publish(catalog: CatalogId, version: String): ReleaseRegistryPublication = refusals {
+            val outcome = PublishCurrentCatalogRelease(catalog, version).execute()
             ReleaseRegistryPublication(
                 registry = name,
                 kind = ReleaseRegistryKind.EXCHANGE,

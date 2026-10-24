@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -52,13 +53,13 @@ class UpdateVariantHandler(
     private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
-        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
+        requireCatalogEditable(command.variantId.catalogId)
 
         // Validate attributes against the tenant's attribute definitions
         validateAttributes(command.variantId.tenantId, command.attributes)
         // An attribute of another catalog names it by alias (`system.locale`): that catalog is declared now,
         // as every write that starts using another catalog declares it (contract ADR 0003).
-        usedCatalogs.declareAttributes(command.variantId.tenantKey, command.variantId.catalogKey, command.attributes.keys)
+        usedCatalogs.declareAttributes(command.variantId.catalogId, command.attributes.keys)
 
         val auditUser = currentUserIdOrNull()?.value
 
@@ -76,7 +77,7 @@ class UpdateVariantHandler(
                 """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
+                .bindCatalog("catalogKey", command.variantId.catalogId)
                 .bind("variantId", command.variantId.key)
                 .bind("templateId", command.variantId.templateKey)
                 .bind("title", command.title)

@@ -29,7 +29,7 @@ class CodeListDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Code List Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/code-lists/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/[^/]+/default/code-lists/new$")
 
     /**
      * Opens the create dialog off the always-present page-header action via keyboard

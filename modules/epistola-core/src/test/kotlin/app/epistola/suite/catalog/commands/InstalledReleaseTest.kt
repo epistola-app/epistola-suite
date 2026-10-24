@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.queries.GetCatalog
@@ -29,7 +30,9 @@ import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -55,10 +58,10 @@ class InstalledReleaseTest : IntegrationTestBase() {
     fun `installing the system catalog records its release, with the fonts seeded beside it`() {
         val tenant = createTenant("Installed system release").id
 
-        val catalog = withMediator { GetCatalog(tenant, SYSTEM_CATALOG_KEY).query()!! }
+        val catalog = withMediator { GetCatalog(testCatalog(tenant, SYSTEM_CATALOG_KEY)).query()!! }
         val version = catalog.installedReleaseVersion!!
         val fingerprint = releaseFingerprint(tenant, SYSTEM_CATALOG_KEY, version)
-        val recorded = jdbi.withHandle<List<String>, Exception> { entries.entriesOf(it, tenant, SYSTEM_CATALOG_KEY, version).map { e -> e.contentKey } }
+        val recorded = jdbi.withHandle<List<String>, Exception> { entries.entriesOf(it, testCatalog(tenant, SYSTEM_CATALOG_KEY), version).map { e -> e.contentKey } }
 
         assertThat(fingerprint).`as`("the publisher's fingerprint, not a recomputation").isEqualTo(catalog.installedFingerprint)
         assertThat(recorded).contains("theme/default")
@@ -84,13 +87,13 @@ class InstalledReleaseTest : IntegrationTestBase() {
         withMediator {
             declareDependency(tenant, CatalogKey.DEFAULT, on = SYSTEM_CATALOG_KEY)
             CreateDocumentTemplate(templateId, "Letter").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalogKey = SYSTEM_CATALOG_KEY).execute()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("default"), themeCatalog = testCatalog(templateId.tenantKey, SYSTEM_CATALOG_KEY)).execute()
             UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Letter")).execute()
             mediator.publishAndRelease(variant)
         }
 
         val tenantRow = withMediator { GetTenant(tenant).query()!! }
-        val inputs = renderSource.resolve(tenantRow, ReleaseRef(CatalogKey.DEFAULT, "1.0.0"), "letter", VariantKey.INITIAL.value)
+        val inputs = renderSource.resolve(tenantRow, ReleaseRef(testCatalog(tenantRow.id, CatalogKey.DEFAULT), "1.0.0"), "letter", VariantKey.INITIAL.value)
         assertThat(inputs.resolvedTheme.documentStyles)
             .`as`("the system theme, read from the release the system catalog installed")
             .isNotEmpty()
@@ -100,7 +103,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     private fun releaseFingerprint(tenant: TenantKey, catalog: CatalogKey, version: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant)
-            .bind("c", catalog)
+            .bindCatalog("c", testCatalog(tenant, catalog))
             .bind("v", version)
             .map { rs, _ -> rs.getString("fingerprint") }
             .one()
@@ -109,7 +112,7 @@ class InstalledReleaseTest : IntegrationTestBase() {
     private fun releaseCount(tenant: TenantKey, catalog: CatalogKey): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery("SELECT COUNT(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenant)
-            .bind("c", catalog)
+            .bindCatalog("c", testCatalog(tenant, catalog))
             .mapTo(Int::class.java)
             .one()
     }

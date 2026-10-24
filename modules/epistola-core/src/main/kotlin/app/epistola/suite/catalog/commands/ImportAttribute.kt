@@ -5,9 +5,11 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
@@ -33,15 +35,17 @@ import tools.jackson.databind.ObjectMapper
  * here both keys are either both present or both null.
  */
 data class ImportAttribute(
-    val tenantId: TenantId,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: String,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
-    val codeListCatalogKey: CatalogKey? = null,
+    /** The catalog of the bound code list, by its address (ADR 0034, section 9). */
+    val codeListCatalog: CatalogId? = null,
     val codeListSlug: CodeListKey? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
+    val tenantId: TenantId get() = catalog.tenantId
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_EDIT
     override val tenantKey: TenantKey get() = tenantId.key
 
@@ -89,10 +93,10 @@ class ImportAttributeHandler(
             )
                 .bind("id", attributeKey)
                 .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
-                .bind("codeListCatalogKey", command.codeListCatalogKey)
+                .bindCatalog("codeListCatalogKey", command.codeListCatalog)
                 .bind("codeListSlug", command.codeListSlug)
                 .mapTo(Boolean::class.java)
                 .one()

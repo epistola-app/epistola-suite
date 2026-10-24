@@ -10,9 +10,10 @@ export interface OrganiseCatalog {
 }
 
 export interface OrganiseResource {
-  /** `<type>:<catalog>/<key>` — also the deep-link form. */
+  /** `<type>:<namespace>/<catalog>/<key>` — also the deep-link form. */
   id: string;
   type: string;
+  /** The catalog's address, `<namespace>/<catalog>` (ADR 0034), as {@link OrganiseCatalog.key} names it. */
   catalogKey: string;
   key: string;
   name: string;
@@ -35,9 +36,17 @@ export interface Destination {
   overridden: boolean;
 }
 
+/** A resource as a plan names it: its catalog by key, and by address, `<namespace>/<catalog>`. */
+export interface PlannedAddress {
+  type: string;
+  catalogKey: string;
+  catalogAddress: string;
+  key: string;
+}
+
 export interface RelocationPlan {
-  source: { type: string; catalogKey: string; key: string };
-  target: { type: string; catalogKey: string; key: string };
+  source: PlannedAddress;
+  target: PlannedAddress;
   mutableRewriteCount: number;
   immutableReferenceCount: number;
 }
@@ -46,7 +55,7 @@ export interface Blocker {
   code: string;
   message: string;
   source?: { type: string; catalogKey: string; key: string };
-  /** The blocked resource as `<type>:<catalog>/<key>`, the same form as {@link OrganiseResource.id}. */
+  /** The blocked resource as `<type>:<namespace>/<catalog>/<key>`, the same form as {@link OrganiseResource.id}. */
   sourceId?: string | null;
 }
 

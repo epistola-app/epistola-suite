@@ -20,6 +20,7 @@ import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -39,7 +40,7 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
     fun `a bundled system face carries the hash of its bytes`() {
         val tenant = createTenant("Font hash system")
 
-        val face = withMediator { ResolveFontFace(tenant.id, SYSTEM_CATALOG_KEY, FontKey.of("lora"), 700, italic = true).query() }
+        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of("lora"), 700, italic = true).query() }
 
         assertThat(face).isNotNull()
         assertThat(face!!.contentHash).isEqualTo(FontProgramCache.contentHash(face.content))
@@ -54,17 +55,15 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
             val asset = UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, letters),
                 name = "house-sans-bold.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = upload,
                 width = null,
                 height = null,
-                catalogKey = letters,
             ).execute().id
             ImportFont(
-                tenantId = TenantId(tenant.id),
-                catalogKey = letters,
+                catalog = testCatalog(TenantId(tenant.id), letters),
                 slug = "house-sans",
                 name = "House Sans",
                 kind = FontKind.SANS.wire,
@@ -72,7 +71,7 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
             ).execute()
         }
 
-        val face = withMediator { ResolveFontFace(tenant.id, letters, FontKey.of("house-sans"), 700, italic = false).query() }
+        val face = withMediator { ResolveFontFace(testCatalog(tenant.id, letters), FontKey.of("house-sans"), 700, italic = false).query() }
 
         assertThat(face).isNotNull()
         assertThat(face!!.content).isEqualTo(upload)

@@ -30,6 +30,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -50,14 +51,14 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
     private val letters = CatalogKey.of("letters")
     private val shared = CatalogKey.of("shared")
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     private fun declare(tenant: TenantKey, pins: Map<CatalogKey, String>, version: CatalogReleaseRef? = null) {
         val declared = pins.map { (on, release) ->
-            val target = GetCatalog(tenant, on).query()!!
+            val target = GetCatalog(testCatalog(tenant, on)).query()!!
             DeclaredCatalogDependency(target.registry, target.namespace, on.value, releaseVersion = release)
         }
-        UpdateCatalogDependencies(tenant, letters, declared, catalogVersion = version).execute()
+        UpdateCatalogDependencies(testCatalog(tenant, letters), declared, catalogVersion = version).execute()
     }
 
     /** The catalogs; [fix] changes the fix before it is released as 1.0.1, [next] the next release. */
@@ -66,25 +67,25 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(id = theme(tenant, shared, "base"), name = "Base").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0").execute()
             CreateTheme(id = theme(tenant, shared, "extra"), name = "Extra").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.1.0").execute()
             CreateTheme(id = theme(tenant, shared, "more"), name = "More").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.2.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.2.0").execute()
 
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             CreateTheme(id = theme(tenant, letters, "own"), name = "Own").execute()
             declare(tenant, mapOf(shared to basePin))
-            MarkCatalogReady(tenant, letters).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, letters)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.0.0").execute()
 
-            val fixRef = CatalogReleaseRef(tenant, letters, DraftRef.Id(CreateCatalogDraft(tenant, letters, "Fix", "1.0.0").execute().versionId))
+            val fixRef = CatalogReleaseRef(testCatalog(tenant, letters), DraftRef.Id(CreateCatalogDraft(testCatalog(tenant, letters), "Fix", "1.0.0").execute().versionId))
             fix(tenant, fixRef)
-            MarkCatalogReady(tenant, letters, catalogVersion = fixRef).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = letters, version = "1.1.0", catalogVersion = fixRef).execute()
+            MarkCatalogReady(testCatalog(tenant, letters), catalogVersion = fixRef).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, letters), version = "1.1.0", catalogVersion = fixRef).execute()
 
             next(tenant)
         }
@@ -98,16 +99,16 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
             // The fix uses shared 1.1.0's theme as its default theme.
             fix = { tenant, fixRef ->
                 declare(tenant, mapOf(shared to "1.1.0"), fixRef)
-                SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("extra"), shared), catalogVersion = fixRef).execute()
+                SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("extra"), testCatalog(tenant, shared)), catalogVersion = fixRef).execute()
             },
             // The next release stops using shared, and has a default theme of its own.
             next = { tenant ->
                 declare(tenant, emptyMap())
-                SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("own"), letters)).execute()
+                SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("own"), testCatalog(tenant, letters))).execute()
             },
         )
         withMediator {
-            val preview = PreviewDraftMerge(tenant, letters, "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query()
             assertThat(preview.conflicts.map { it.contentKey }).containsExactlyInAnyOrder("catalog/defaultTheme", "catalogDependency/shared")
             assertThat(preview.resources.single { it.contentKey == "catalog/defaultTheme" }.needs)
                 .`as`("the default theme goes with the dependency it resolves through")
@@ -115,24 +116,22 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
 
             assertThatThrownBy {
                 MergeReleaseIntoDraft(
-                    tenant,
-                    letters,
+                    testCatalog(tenant, letters),
                     "1.1.0",
                     resolutions = mapOf("catalog/defaultTheme" to MergeResolution.Theirs, "catalogDependency/shared" to MergeResolution.Ours),
                 ).execute()
             }
                 .isInstanceOf(MergeRefusedException::class.java)
                 .hasMessageContaining("the default theme 'extra' of 'shared' needs 'shared' as a dependency: take v1.1.0's dependency on 'shared' too, or keep your default theme")
-            assertThat(GetCatalogThemeSettings(tenant, letters).query().defaultTheme?.themeKey).`as`("nothing changed").isEqualTo(ThemeKey.of("own"))
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant, letters)).query().defaultTheme?.themeKey).`as`("nothing changed").isEqualTo(ThemeKey.of("own"))
 
             MergeReleaseIntoDraft(
-                tenant,
-                letters,
+                testCatalog(tenant, letters),
                 "1.1.0",
                 resolutions = mapOf("catalog/defaultTheme" to MergeResolution.Theirs, "catalogDependency/shared" to MergeResolution.Theirs),
             ).execute()
-            assertThat(GetCatalogThemeSettings(tenant, letters).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("extra"), shared))
-            assertThat(ListCatalogDependencies(tenant, letters).query().map { it.catalogKey to it.releaseVersion }).containsExactly("shared" to "1.1.0")
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant, letters)).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("extra"), testCatalog(tenant, shared)))
+            assertThat(ListCatalogDependencies(testCatalog(tenant, letters)).query().map { it.catalogKey to it.releaseVersion }).containsExactly("shared" to "1.1.0")
         }
     }
 
@@ -146,19 +145,19 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
             // The next release moves on to shared 1.2.0 and uses its theme `extra`.
             next = { tenant ->
                 declare(tenant, mapOf(shared to "1.2.0"))
-                val template = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(letters, TenantId(tenant)))
+                val template = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenant), letters))
                 CreateDocumentTemplate(id = template, name = "Invoice").execute()
-                UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("extra"), themeCatalogKey = shared).execute()
+                UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("extra"), themeCatalog = testCatalog(template.tenantKey, shared)).execute()
             },
         )
         withMediator {
             // Both moved the pin: choosing the fix's leaves the template's theme where 1.0.0 lacks it.
-            assertThatThrownBy { MergeReleaseIntoDraft(tenant, letters, "1.1.0", resolutions = mapOf("catalogDependency/shared" to MergeResolution.Theirs)).execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0", resolutions = mapOf("catalogDependency/shared" to MergeResolution.Theirs)).execute() }
                 .isInstanceOf(MergeRefusedException::class.java)
                 .hasMessageContaining("uses theme 'extra' of 'shared', which v1.0.0 of 'shared', the release this catalog uses, does not have")
                 .hasMessageContaining("keep your dependency on 'shared'")
-            assertThat(ListCatalogDependencies(tenant, letters).query().map { it.catalogKey to it.releaseVersion }).`as`("nothing changed").containsExactly("shared" to "1.2.0")
-            assertThat(PreviewDraftMerge(tenant, letters, "1.1.0").query().resources.single { it.contentKey.startsWith("template/") }.needs)
+            assertThat(ListCatalogDependencies(testCatalog(tenant, letters)).query().map { it.catalogKey to it.releaseVersion }).`as`("nothing changed").containsExactly("shared" to "1.2.0")
+            assertThat(PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query().resources.single { it.contentKey.startsWith("template/") }.needs)
                 .containsExactly("catalogDependency/shared")
         }
     }
@@ -169,19 +168,19 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
             "Merge Own Reference",
             // The fix adds a template on the catalog's own theme.
             fix = { tenant, fixRef ->
-                val template = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(letters, TenantId(tenant)))
+                val template = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenant), letters))
                 CreateDocumentTemplate(id = template, name = "Letter", catalogVersion = fixRef).execute()
-                UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("own"), themeCatalogKey = letters, catalogVersion = fixRef).execute()
+                UpdateDocumentTemplate(id = template, themeId = ThemeKey.of("own"), themeCatalog = testCatalog(template.tenantKey, letters), catalogVersion = fixRef).execute()
             },
             // The next release removes that theme.
             next = { tenant -> app.epistola.suite.themes.commands.DeleteTheme(theme(tenant, letters, "own")).execute() },
         )
         withMediator {
-            val preview = PreviewDraftMerge(tenant, letters, "1.1.0").query()
+            val preview = PreviewDraftMerge(testCatalog(tenant, letters), "1.1.0").query()
             val template = preview.taken.single { it.type == "template" }
             assertThat(template.needs).containsExactly("theme/own")
 
-            assertThatThrownBy { MergeReleaseIntoDraft(tenant, letters, "1.1.0").execute() }
+            assertThatThrownBy { MergeReleaseIntoDraft(testCatalog(tenant, letters), "1.1.0").execute() }
                 .isInstanceOf(MergeRefusedException::class.java)
                 .hasMessageContaining("theme 'own'")
         }
@@ -193,18 +192,18 @@ class MergeReferencesResolveTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = tenant, id = shared, name = "Shared").execute()
             CreateTheme(id = theme(tenant, shared, "base"), name = "Base").execute()
-            MarkCatalogReady(tenant, shared).execute()
-            ReleaseCatalogDraft(tenantKey = tenant, catalogKey = shared, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant, shared)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant, shared), version = "1.0.0").execute()
             // In shared's next release only, not in the release letters pins.
             CreateTheme(id = theme(tenant, shared, "fresh"), name = "Fresh").execute()
             CreateCatalog(tenantKey = tenant, id = letters, name = "Letters").execute()
             declare(tenant, mapOf(shared to "1.0.0"))
 
-            assertThatThrownBy { SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("fresh"), shared)).execute() }
+            assertThatThrownBy { SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("fresh"), testCatalog(tenant, shared))).execute() }
                 .isInstanceOf(ValidationException::class.java)
                 .hasMessageContaining("not in v1.0.0 of 'shared'")
-            SetCatalogDefaultTheme(tenant, letters, CatalogDefaultTheme(ThemeKey.of("base"), shared)).execute()
-            assertThat(GetCatalogThemeSettings(tenant, letters).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("base"), shared))
+            SetCatalogDefaultTheme(testCatalog(tenant, letters), CatalogDefaultTheme(ThemeKey.of("base"), testCatalog(tenant, shared))).execute()
+            assertThat(GetCatalogThemeSettings(testCatalog(tenant, letters)).query().defaultTheme).isEqualTo(CatalogDefaultTheme(ThemeKey.of("base"), testCatalog(tenant, shared)))
         }
     }
 }

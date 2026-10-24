@@ -4,7 +4,6 @@
 
 package app.epistola.suite.handlers
 
-import app.epistola.suite.htmx.CatalogAddresses
 import app.epistola.suite.htmx.CatalogSegment
 
 /**
@@ -22,25 +21,26 @@ object VersionSwitch {
     fun samePage(from: String, tenantKey: String, target: CatalogSegment): String? {
         val tenantPrefix = "/tenants/$tenantKey/"
         if (!from.startsWith(tenantPrefix) || "//" in from || "\\" in from) return null
-        // By key: the address is named again where it is used (CatalogAddresses).
-        val path = CatalogAddresses.byKey(from.substringBefore('?'))
+        val path = from.substringBefore('?')
         val query = from.substringAfter('?', missingDelimiterValue = "")
         val key = target.key.value
-        val parts = path.split('/').toMutableList() // "", "tenants", tenant, "catalogs", catalog, …
-        fun isThisCatalog(segment: String) = segment.substringBefore('@') == key
+        // "", "tenants", tenant, "catalogs", namespace/catalog, … (ADR 0034, section 9)
+        val parts = catalogPathParts(path)
+        fun isThisCatalog(segment: String) = segment.substringBefore('@').let { it == target.address || it == key }
+        val address = target.at(null).value
 
         if (parts.getOrNull(3) == "catalogs") {
             val segment = parts.getOrNull(4) ?: return null
             if (!isThisCatalog(segment)) return null
             return when (parts.getOrNull(5)) {
                 // A version's overview has its own address: the next version's, or the work's.
-                null, "browse", "draft" -> if (target.draft == null) "/tenants/$tenantKey/catalogs/$key/browse" else "/tenants/$tenantKey/catalogs/${target.copy(namespace = null).value}/draft"
+                null, "browse", "draft" -> if (target.draft == null) "/tenants/$tenantKey/catalogs/$address/browse" else "/tenants/$tenantKey/catalogs/${target.value}/draft"
 
                 // The same for every version.
                 "versions", "releases", "deployments" -> from
 
                 else -> {
-                    parts[4] = target.copy(namespace = null).value
+                    parts[4] = target.value
                     parts.joinToString("/") + (query.takeIf { it.isNotEmpty() }?.let { "?$it" } ?: "")
                 }
             }
@@ -48,4 +48,17 @@ object VersionSwitch {
         // Every page of a catalog is under `/catalogs/{catalog}/`; anything else is not one.
         return null
     }
+}
+
+/**
+ * [path] split at `/`, a catalog's address after `catalogs` (`{namespace}/{key}[@draft]`, ADR 0034,
+ * section 9) kept as one part, so the catalog is part 4: "", "tenants", tenant, "catalogs", catalog, ….
+ */
+internal fun catalogPathParts(path: String): MutableList<String> {
+    val parts = path.split('/').toMutableList()
+    if (parts.getOrNull(3) == "catalogs" && parts.size > 5) {
+        parts[4] = parts[4] + "/" + parts[5]
+        parts.removeAt(5)
+    }
+    return parts
 }

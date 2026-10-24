@@ -38,6 +38,8 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -50,8 +52,8 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
-        val stencilId = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
-        val address = ResourceAddress(CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
+        val stencilId = StencilId(StencilKey.of("header"), testCatalog(tenantId, letters))
+        val address = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
@@ -86,31 +88,29 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
             CreateCatalog(tenant.id, lettersCatalog, "Letters").execute()
             CreateCatalog(tenant.id, brandCatalog, "Brand").execute()
             CreateTheme(
-                id = ThemeId(ThemeKey.of("corporate"), CatalogId(brandCatalog, tenantId)),
+                id = ThemeId(ThemeKey.of("corporate"), testCatalog(tenantId, brandCatalog)),
                 name = "Corporate",
                 documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system")),
             ).execute()
             UploadAsset(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, brandCatalog),
                 name = "Logo",
                 mediaType = AssetMediaType.PNG,
                 content = byteArrayOf(1),
                 width = 1,
                 height = 1,
-                catalogKey = brandCatalog,
                 id = assetKey,
             ).execute()
             ImportAttribute(
-                tenantId = tenantId,
-                catalogKey = brandCatalog,
+                catalog = testCatalog(tenantId, brandCatalog),
                 slug = "audience",
                 displayName = "Audience",
                 allowedValues = listOf("customer"),
             ).execute()
 
-            val templateId = TemplateId(TemplateKey.of("welcome"), CatalogId(lettersCatalog, tenantId))
+            val templateId = TemplateId(TemplateKey.of("welcome"), testCatalog(tenantId, lettersCatalog))
             CreateDocumentTemplate(templateId, "Welcome").execute().withRequiredDataExample()
-            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("corporate"), themeCatalogKey = brandCatalog).execute()
+            UpdateDocumentTemplate(templateId, themeId = ThemeKey.of("corporate"), themeCatalog = testCatalog(templateId.tenantKey, brandCatalog)).execute()
             val variantId = VariantId(VariantKey.INITIAL, templateId)
             UpdateVariant(variantId, "Default", mapOf("brand.audience" to "customer")).execute()
             UpdateVariantContent(variantId, templateWithAsset(assetKey, brandCatalog)).execute()
@@ -121,13 +121,13 @@ class GetTenantResourceGraphIntegrationTest : IntegrationTestBase() {
 
         assertThat(live.edges).anySatisfy { edge ->
             assertThat(edge.kind).isEqualTo("template-default-theme")
-            assertThat(edge.source).isEqualTo(ResourceAddress(CatalogResourceType.TEMPLATE, "letters", "welcome"))
-            assertThat(edge.target).isEqualTo(ResourceAddress(CatalogResourceType.THEME, "brand", "corporate"))
+            assertThat(edge.source).isEqualTo(testAddress(tenant.id, CatalogResourceType.TEMPLATE, "letters", "welcome"))
+            assertThat(edge.target).isEqualTo(testAddress(tenant.id, CatalogResourceType.THEME, "brand", "corporate"))
             assertThat(edge.resolution).isEqualTo(ReferenceResolution.RESOLVED)
         }
         assertThat(live.edges).anySatisfy { edge ->
             assertThat(edge.kind).isEqualTo("variant-attribute")
-            assertThat(edge.target).isEqualTo(ResourceAddress(CatalogResourceType.ATTRIBUTE, "brand", "audience"))
+            assertThat(edge.target).isEqualTo(testAddress(tenant.id, CatalogResourceType.ATTRIBUTE, "brand", "audience"))
             assertThat(edge.qualification).isEqualTo(ReferenceQualification.EXPLICIT)
         }
         assertThat(live.edges).anySatisfy { edge ->

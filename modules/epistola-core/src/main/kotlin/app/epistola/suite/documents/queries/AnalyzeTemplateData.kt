@@ -42,8 +42,7 @@ import tools.jackson.databind.node.ObjectNode
  * exactly why that preview would fail. It never throws for bad data — that is its result.
  */
 data class AnalyzeTemplateData(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val data: ObjectNode,
     val variantId: VariantKey? = null,
@@ -53,6 +52,9 @@ data class AnalyzeTemplateData(
     val environmentId: EnvironmentKey? = null,
 ) : Query<TemplateDataAnalysis>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
+
     // Template view, not document generate: nothing is rendered, and the answer reveals no more than
     // the contract itself, which a template viewer can already read.
     override val permission get() = Permission.TEMPLATE_VIEW
@@ -76,11 +78,10 @@ class AnalyzeTemplateDataHandler(
 
     override fun handle(query: AnalyzeTemplateData): TemplateDataAnalysis {
         // Through an environment that follows a draft, the draft's contract is the one generation applies.
-        val selection = query.environmentId?.let { targetResolver.select(query.tenantKey, query.catalogKey, it, query.releaseVersion) }
+        val selection = query.environmentId?.let { targetResolver.select(query.catalog, it, query.releaseVersion) }
         if (selection is CatalogSelection.Draft) return analyzeDraft(query, selection)
         val preview = releasePreview.resolve(
-            query.tenantKey,
-            query.catalogKey,
+            query.catalog,
             query.templateId,
             query.data,
             query.variantId,
@@ -93,9 +94,9 @@ class AnalyzeTemplateDataHandler(
     }
 
     private fun analyzeDraft(query: AnalyzeTemplateData, selection: CatalogSelection.Draft): TemplateDataAnalysis {
-        val draft = CatalogReleaseRef(query.tenantKey, query.catalogKey, DraftRef.Id(selection.source.draftId))
-        val templateId = TemplateId(query.templateId, CatalogId(query.catalogKey, TenantId(query.tenantKey)))
-        val variant = targetResolver.resolveIn(query.tenantKey, query.catalogKey, selection, query.templateId, query.variantId, query.variantSelectionCriteria).variantKey
+        val draft = CatalogReleaseRef(query.catalog, DraftRef.Id(selection.source.draftId))
+        val templateId = TemplateId(query.templateId, query.catalog)
+        val variant = targetResolver.resolveIn(query.catalog, selection, query.templateId, query.variantId, query.variantSelectionCriteria).variantKey
         val contract = mediator.query(GetDataContract(templateId, draft))
         val dataModel = contract?.dataModel ?: return TemplateDataAnalysis.NO_CONTRACT
         val model = mediator.query(GetVariantContent(VariantId(variant, templateId), draft)) ?: return TemplateDataAnalysis.NO_CONTRACT

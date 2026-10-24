@@ -30,6 +30,7 @@ import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
@@ -139,13 +140,13 @@ class DeletionDriftTest : IntegrationTestBase() {
     private fun assertDeletionDrifts(slug: String, seed: (CatalogId) -> Unit, delete: (CatalogId) -> Unit) {
         val tenant = createTenant("Deletion drift $slug")
         val key = CatalogKey.of(slug)
-        val catalog = CatalogId(key, TenantId(tenant.id))
+        val catalog = testCatalog(TenantId(tenant.id), key)
 
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = key, name = slug).execute()
             seed(catalog)
-            MarkCatalogReady(tenant.id, key).execute()
-            ReleaseCatalogDraft(tenantKey = tenant.id, catalogKey = key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(tenant.id, key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
         }
 
         assertThat(pendingChanges(tenant.id, key))

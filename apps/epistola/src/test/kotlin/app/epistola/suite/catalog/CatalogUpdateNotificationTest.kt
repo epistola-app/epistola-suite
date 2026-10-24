@@ -5,11 +5,13 @@
 package app.epistola.suite.catalog
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -115,7 +117,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
                 VALUES (:t, ${catalogAt("t", "c")}, :v, NOW())
                 ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET available_release_version = :v
                 """,
-            ).bind("t", tenant).bind("c", CatalogKey.of("epistola-demo")).bind("v", version).execute()
+            ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, CatalogKey.of("epistola-demo"))).bind("v", version).execute()
         }
     }
 
@@ -127,7 +129,7 @@ class CatalogUpdateNotificationTest : BaseIntegrationTest() {
                 VALUES (:t, ${catalogAt("t", "c")}, 'WITHDRAWN', NOW())
                 ON CONFLICT (tenant_key, catalog_id) DO UPDATE SET installed_availability = 'WITHDRAWN'
                 """,
-            ).bind("t", tenant).bind("c", CatalogKey.of("epistola-demo")).execute()
+            ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, CatalogKey.of("epistola-demo"))).execute()
         }
     }
 }

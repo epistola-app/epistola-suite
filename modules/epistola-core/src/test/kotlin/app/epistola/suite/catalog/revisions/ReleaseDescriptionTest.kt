@@ -8,6 +8,7 @@ import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.catalog.protocol.CatalogManifest
 import app.epistola.catalog.protocol.ReleaseBase
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CatalogImportConflictException
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -28,6 +29,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -57,7 +59,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
 
     @Autowired private lateinit var installation: app.epistola.suite.installation.InstallationService
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     internal fun entries(bytes: ByteArray): LinkedHashMap<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
@@ -96,7 +98,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
 
     private fun snapshotRelease(tenant: TenantKey, catalog: CatalogKey, version: String): CatalogManifest = jdbi.withHandle<CatalogManifest, Exception> { h ->
         h.createQuery("SELECT manifest_snapshot::text FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
-            .bind("t", tenant).bind("c", catalog).bind("v", version)
+            .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("v", version)
             .map { rs, _ -> objectMapper.readValue(rs.getString(1), CatalogManifest::class.java) }
             .one()
     }
@@ -108,15 +110,15 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
 
-            val releases = ListCatalogReleases(a, catalog).query().filter { it.status == CatalogReleaseStatus.RELEASED }.associateBy { it.version }
-            val first = manifestOf(ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).release
-            val second = manifestOf(ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes).release
+            val releases = ListCatalogReleases(testCatalog(a, catalog)).query().filter { it.status == CatalogReleaseStatus.RELEASED }.associateBy { it.version }
+            val first = manifestOf(ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).release
+            val second = manifestOf(ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes).release
             val metadata = mapOf("app.epistola.suite" to mapOf("renderingDefaultsVersion" to RenderingDefaults.CURRENT.version, "releasedByInstallation" to installation.get().id.toString()))
 
             assertThat(first.releaseId).isEqualTo(releases.getValue("1.0.0").versionId)
@@ -138,12 +140,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Release Description FP").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(a, catalog).execute()
-            val released = ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
-            val archive = ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            val released = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            val archive = ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes
             val bare = withRelease(archive) { it.remove(listOf("releaseId", "metadata", "base")) }
 
             fun fingerprintOf(bytes: ByteArray) = CatalogArchiveReader.read(ByteArrayInputStream(bytes)).archive!!.use { PortableCatalogCanonicalizer.currentQualifiedFingerprint(it).toString() }
@@ -162,12 +164,12 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
         return withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = name).execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
             UpdateTheme(theme(a, catalog, "brand"), name = "Brand 2").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.1.0").execute()
-            Lineage(a, catalog, ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes, ExportCatalogZip(a, catalog, "1.1.0").execute().zipBytes)
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.1.0").execute()
+            Lineage(a, catalog, ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes, ExportCatalogZip(testCatalog(a, catalog), "1.1.0").execute().zipBytes)
         }
     }
 
@@ -175,7 +177,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
 
     private fun recorded(tenant: TenantKey, catalog: CatalogKey, version: String): Recorded? = jdbi.withHandle<Recorded?, Exception> { h ->
         h.createQuery("SELECT version_key, rendering_defaults_version, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
-            .bind("t", tenant).bind("c", catalog).bind("v", version)
+            .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("v", version)
             .map { rs, _ -> Recorded(rs.getString(1), rs.getObject(2) as Int?, rs.getString(3), rs.getString(4)) }
             .findOne().orElse(null)
     }
@@ -201,7 +203,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             assertThat(received.renderingDefaults).isEqualTo(RenderingDefaults.CURRENT.version)
             assertThat(recorded(b, catalog, "1.0.0")!!.versionKey).isEqualTo(manifestOf(v100).release.releaseId)
 
-            val again = manifestOf(ExportCatalogZip(b, catalog, "1.1.0").execute().zipBytes).release
+            val again = manifestOf(ExportCatalogZip(testCatalog(b, catalog), "1.1.0").execute().zipBytes).release
             assertThat(again.releaseId).isEqualTo(sent.releaseId)
             assertThat(again.base).isEqualTo(sent.base)
             assertThat(again.metadata).isEqualTo(sent.metadata!! + ("org.example.producer" to mapOf("batch" to 7)))
@@ -238,7 +240,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
             assertThatThrownBy { ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, RenderingDefaults.CURRENT.version + 1)).execute() }
                 .isInstanceOf(ReleaseRenderingDefaultsTooNewException::class.java)
                 .hasMessageContaining("Upgrade Epistola to receive this release")
-            assertThat(GetCatalog(b, catalog).query()).isNull()
+            assertThat(GetCatalog(testCatalog(b, catalog)).query()).isNull()
 
             ImportCatalogZip(tenantKey = b, zipBytes = renderingWith(v110, 5)).execute()
             assertThat(recorded(b, catalog, "1.1.0")!!.renderingDefaults).isEqualTo(5)

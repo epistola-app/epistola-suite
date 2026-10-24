@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogReadOnlyException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
@@ -19,6 +20,7 @@ import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.revisions.ReleaseEntry
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -44,13 +46,14 @@ import org.springframework.stereotype.Component
  * page about one catalog, not for a list of them.
  */
 data class GetCatalogResourceChanges(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
     Query<CatalogResourceChanges>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -136,24 +139,23 @@ class GetCatalogResourceChangesHandler(
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
-        val catalog = GetCatalog(query.tenantKey, query.catalogKey).query()
-            ?: throw CatalogNotFoundException(query.catalogKey)
+        GetCatalog(query.catalog).query() ?: throw CatalogNotFoundException(query.catalogKey)
         // Only a catalog that can be changed here has a next release to describe (ADR 0032): one the
         // suite supplies, or any in a run-only installation, only receives releases.
-        val editability = GetCatalogEditability(query.tenantKey, query.catalogKey).query()
+        val editability = GetCatalogEditability(query.catalog).query()
         if (!editability.editable) throw CatalogReadOnlyException(query.catalogKey, editability.reason)
 
-        val content = contentBuilder.build(query.tenantKey, query.catalogKey)
+        val content = contentBuilder.build(query.catalog)
         val working = fingerprintService.resourceFingerprints(content)
-        val release = loadBaseRelease(query.tenantKey, query.catalogKey)
-        val released = release?.let { entriesOf(query.tenantKey, query.catalogKey, it.version) }.orEmpty()
+        val release = loadBaseRelease(query.catalog)
+        val released = release?.let { entriesOf(query.catalog, it.version) }.orEmpty()
 
         // The working copy names a resource it still has; the release names one dropped since.
         val names = content.resourceEntries.associate { "${it.type}/${it.key}" to it.name } +
             released.filterKeys { it !in working }.mapValues { (_, entry) -> entry.name }
 
-        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.tenantKey, query.catalogKey) }
-        val mergedForReview = jdbi.withHandle<Set<String>, Exception> { readyMarks.mergedAwaitingReview(it, query.tenantKey, query.catalogKey) }
+        val readiness = jdbi.withHandle<Map<String, Boolean>, Exception> { readyMarks.readiness(it, query.catalog) }
+        val mergedForReview = jdbi.withHandle<Set<String>, Exception> { readyMarks.mergedAwaitingReview(it, query.catalog) }
 
         fun change(key: String, state: CatalogResourceState) = CatalogResourceChange(
             type = key.substringBefore('/'),
@@ -165,15 +167,19 @@ class GetCatalogResourceChangesHandler(
         )
 
         // The draft's own declarations, which may name a draft of another catalog; the wire form cannot.
-        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, query.tenantKey, query.catalogKey) }
+        val declarations = jdbi.withHandle<List<CatalogDependencyDeclaration>, Exception> { dependencyStore.declarations(it, query.catalog) }
         // A declaration naming a draft pins that draft's base when it has nothing to publish.
         val namedDraftBases = declarations.mapNotNull { declaration ->
             val draftId = declaration.draftId ?: return@mapNotNull null
-            GetCatalogDraft(query.tenantKey, CatalogKey.of(declaration.catalogKey), DraftRef.Id(draftId)).query()?.base?.let { declaration.alias to it }
+            GetCatalogDraft(declaration.catalogIn(query.tenantKey), DraftRef.Id(draftId)).query()?.base?.let { declaration.alias to it }
         }.toMap()
         val draftSettings = CatalogSettings(content.catalog, declarations, namedDraftBases)
-        val settings = CatalogSettingDiff.between(query.catalogKey, base = baseSettings(query.tenantKey, query.catalogKey, release?.version), draft = draftSettings) { alias ->
-            GetCatalog(query.tenantKey, CatalogKey.of(alias)).query()?.name
+        val base = baseSettings(query.catalog, release?.version)
+        val settings = CatalogSettingDiff.between(query.catalogKey, base = base, draft = draftSettings) { alias ->
+            // The catalog an alias names, by the draft's declaration of it, or the release's for one
+            // the draft no longer declares (ADR 0034, section 9).
+            ((declarations + base.dependencies).firstOrNull { it.alias == alias }?.catalogIn(query.tenantKey) ?: query.catalog.takeIf { alias == query.catalogKey.value })
+                ?.let { GetCatalog(it).query()?.name }
         }
 
         // Nothing released yet: every resource is new, and that is a complete answer.
@@ -186,7 +192,7 @@ class GetCatalogResourceChangesHandler(
             )
         }
 
-        val baseline = baseline(query.tenantKey, query.catalogKey, release.version)
+        val baseline = baseline(query.catalog, release.version)
 
         val resources = (working.keys + baseline.keys).sorted().map { key ->
             val state = when {
@@ -210,8 +216,8 @@ class GetCatalogResourceChangesHandler(
      * The catalog-level content [version] was released with, as its manifest froze it (what its
      * content hash covers); [CatalogSettings.NONE] before a first release.
      */
-    private fun baseSettings(tenantKey: TenantKey, catalogKey: CatalogKey, version: String?): CatalogSettings {
-        val manifest = version?.let { assembler.readManifest(tenantKey, catalogKey, it) } ?: return CatalogSettings.NONE
+    private fun baseSettings(catalog: CatalogId, version: String?): CatalogSettings {
+        val manifest = version?.let { assembler.readManifest(catalog, it) } ?: return CatalogSettings.NONE
         return CatalogSettings(manifest.catalog, manifest.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of))
     }
 
@@ -223,12 +229,12 @@ class GetCatalogResourceChangesHandler(
      * (the draft's `base_fingerprints`), else its retained content, fingerprinted now. Never the
      * digests `release_entries` stored, which another function computed.
      */
-    private fun baseline(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Map<String, String> {
+    private fun baseline(catalog: CatalogId, version: String): Map<String, String> {
         val held = jdbi.withHandle<String?, Exception> { handle ->
-            drafts.draft(handle, tenantKey, catalogKey)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, tenantKey, it.versionId) }
+            drafts.draft(handle, catalog)?.takeIf { it.base == version }?.let { drafts.baseFingerprints(handle, catalog.tenantKey, it.versionId) }
         }
         fingerprintService.readBaseline(held)?.let { recorded -> return recorded.filterKeys { !app.epistola.suite.catalog.merge.CatalogSetting.isSettingKey(it) } }
-        return assembler.assemble(tenantKey, catalogKey, version)?.let { fingerprintService.resourceFingerprints(it.content) }.orEmpty()
+        return assembler.assemble(catalog, version)?.let { fingerprintService.resourceFingerprints(it.content) }.orEmpty()
     }
 
     /**
@@ -236,7 +242,7 @@ class GetCatalogResourceChangesHandler(
      * started from, or, when it records none that the catalog still has, the highest release below its
      * number. Without a draft, the latest release.
      */
-    private fun loadBaseRelease(tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
+    private fun loadBaseRelease(catalog: CatalogId): ReleaseRow? = jdbi.withHandle<ReleaseRow?, Exception> { handle ->
         val releases = handle.createQuery(
             """
             SELECT version, fingerprint
@@ -245,19 +251,19 @@ class GetCatalogResourceChangesHandler(
             $LATEST_RELEASE_ORDER
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> ReleaseRow(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
             .list()
-        val draft = drafts.draft(handle, tenantKey, catalogKey) ?: return@withHandle releases.firstOrNull()
+        val draft = drafts.draft(handle, catalog) ?: return@withHandle releases.firstOrNull()
         // A draft that recorded no base (opened before drafts did) is measured against the latest release.
         val base = draft.base?.takeIf { base -> releases.any { it.version == base } }
             ?: CatalogDrafts.latest(releases.map { it.version })
         releases.firstOrNull { it.version == base }
     }
 
-    private fun entriesOf(tenantKey: TenantKey, catalogKey: CatalogKey, version: String) = jdbi
+    private fun entriesOf(catalog: CatalogId, version: String) = jdbi
         .withHandle<Map<String, ReleaseEntry>, Exception> { handle ->
-            releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version).associateBy { it.contentKey }
+            releaseEntryStore.entriesOf(handle, catalog, version).associateBy { it.contentKey }
         }
 }

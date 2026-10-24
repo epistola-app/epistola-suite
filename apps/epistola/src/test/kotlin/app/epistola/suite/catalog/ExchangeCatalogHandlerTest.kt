@@ -24,6 +24,8 @@ import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.handlers.ExchangeHandlerTestBase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.FakeExchangeServer
+import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
@@ -137,9 +139,12 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
     @Test
     fun `a colliding catalog id is refused inside the dialog, not as an error page`() {
         val tenant = connectedTenant("install-collision")
-        exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
         exchange.publish("globex", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
-        withMediator { InstallExchangeCatalog(tenant, "acme", "invoices").execute() }
+        // Made here at the address the release would be installed at (ADR 0034, section 9).
+        withMediator {
+            TestNamespaces.grant(tenant, "globex").execute()
+            CreateCatalog(tenant, CatalogKey.of("invoices"), "Invoices", namespace = "globex").execute()
+        }
 
         val response = restTemplate.postForEntity(
             "/tenants/$tenant/catalogs/exchange/globex/invoices/install",
@@ -149,7 +154,7 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
 
         assertThat(response.statusCode.value()).isEqualTo(422)
         assertThat(response.body).contains("exchange-install-error")
-        assertThat(response.body).contains("acme/invoices")
+        assertThat(response.body).contains("globex/invoices")
     }
 
     /**
@@ -203,7 +208,7 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
         exchange.publish("acme", "invoices", releaseArchive("invoices", "2.0.0"), version = "2.0.0")
 
         val response = restTemplate.exchange(
-            "/tenants/$tenant/catalogs/invoices/exchange-upgrade",
+            "/tenants/$tenant/catalogs/${testCatalog(TenantId(tenant), CatalogKey.of("invoices")).address}/exchange-upgrade",
             HttpMethod.GET,
             HttpEntity<Void>(htmxGet()),
             String::class.java,
@@ -248,7 +253,7 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
         exchange.publish("acme", "invoices", releaseArchive("invoices", "1.0.0"), version = "1.0.0")
         withMediator { InstallExchangeCatalog(tenant, "acme", "invoices").execute() }
 
-        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/invoices/browse", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/${testCatalog(TenantId(tenant), CatalogKey.of("invoices")).address}/browse", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         val body = requireNotNull(response.body)
@@ -275,7 +280,7 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
             ).execute()
         }
 
-        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/epistola-demo/browse", String::class.java)
+        val response = restTemplate.getForEntity("/tenants/$tenant/catalogs/epistola/epistola-demo/browse", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(requireNotNull(response.body)).doesNotContain("/catalogs/acme/")
@@ -304,12 +309,12 @@ class ExchangeCatalogHandlerTest : ExchangeHandlerTestBase() {
         return withMediator {
             CreateCatalog(publisher, catalogKey, "Invoices").execute()
             CreateTheme(
-                id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher))),
+                id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher), catalogKey)),
                 name = "Theme $version",
             ).execute()
-            MarkCatalogReady(publisher, catalogKey).execute()
-            ReleaseCatalogDraft(publisher, catalogKey, version = version).execute()
-            ExportCatalogZip(tenantKey = publisher, catalogKey = catalogKey).execute().zipBytes
+            MarkCatalogReady(testCatalog(publisher, catalogKey)).execute()
+            ReleaseCatalogDraft(testCatalog(publisher, catalogKey), version = version).execute()
+            ExportCatalogZip(catalog = testCatalog(publisher, catalogKey)).execute().zipBytes
         }
     }
 }

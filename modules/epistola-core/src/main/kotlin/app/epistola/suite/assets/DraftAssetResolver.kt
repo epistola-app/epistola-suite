@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
@@ -23,16 +24,18 @@ import app.epistola.suite.mediator.query
  * bound on the calling thread.
  */
 fun draftAssetResolver(
-    tenantKey: TenantKey,
+    /** The catalog of the content the references are written in: they name other catalogs by alias from it (ADR 0034, section 9). */
+    owning: CatalogId,
     catalogVersion: CatalogReleaseRef?,
-    dependencies: DraftDependencyView?,
-): AssetResolver = AssetResolver { assetId, assetCatalog ->
-    val catalog = assetCatalog?.let(CatalogKey::of)
-    if (catalog != null && dependencies?.releaseOf(catalog) != null) {
+    dependencies: DraftDependencyView,
+): AssetResolver = AssetResolver { assetId, alias ->
+    // An image that names no catalog is found by its id, which is the tenant's.
+    val catalog = alias?.let { dependencies.resolve(owning, it) ?: return@AssetResolver null }
+    if (catalog != null && dependencies.releaseOf(catalog) != null) {
         val image = dependencies.released(catalog, "image", assetId) as? ImageResource ?: return@AssetResolver null
         return@AssetResolver dependencies.releasedBinary(image.contentHash)?.let { AssetResolution(it, image.mediaType) }
     }
-    val namedDraft = catalog?.let { dependencies?.draftOf(it) }?.let { CatalogReleaseRef(tenantKey, catalog, DraftRef.Id(it.key)) }
-    GetAssetContent(tenantKey, AssetKey.of(assetId), catalog, catalogVersion = namedDraft ?: catalogVersion).query()
+    val namedDraft = catalog?.let { dependencies.draftOf(it) }?.let { CatalogReleaseRef(catalog, DraftRef.Id(it.key)) }
+    GetAssetContent(owning.tenantKey, AssetKey.of(assetId), catalog, catalogVersion = namedDraft ?: catalogVersion).query()
         ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
 }

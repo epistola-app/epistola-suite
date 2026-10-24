@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.DependencyScanner
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -62,13 +63,13 @@ class UpdateVariantContentHandler(
     override fun handle(command: UpdateVariantContent): SavedVariantContent {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(command.variantId.tenantKey, command.variantId.catalogKey, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
+        usedCatalogs.declare(command.variantId.catalogId, DependencyScanner.crossCatalogRefs(command.templateModel, command.variantId.catalogKey.value))
         return saved
     }
 
     private fun save(command: UpdateVariantContent): SavedVariantContent {
-        requireCatalogEditable(command.variantId.tenantKey, command.variantId.catalogKey)
-        PresetUse.requireAvailable(command.variantId.tenantKey, command.variantId.catalogKey, command.templateModel)
+        requireCatalogEditable(command.variantId.catalogId)
+        PresetUse.requireAvailable(command.variantId.catalogId, command.templateModel)
         val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.catalogKey)
         val revision = jdbi.withHandle<Long?, Exception> { handle ->
             val written = handle.createQuery(
@@ -82,7 +83,7 @@ class UpdateVariantContentHandler(
                 """,
             )
                 .bind("tenantKey", command.variantId.tenantKey)
-                .bind("catalogKey", command.variantId.catalogKey)
+                .bindCatalog("catalogKey", command.variantId.catalogId)
                 .bind("templateKey", command.variantId.templateKey)
                 .bind("variantKey", command.variantId.key)
                 .bind("templateModel", prepared.templateModelJson)
@@ -109,7 +110,7 @@ internal fun variantRevision(handle: Handle, variantId: VariantId): Long? = hand
     """,
 )
     .bind("t", variantId.tenantKey)
-    .bind("c", variantId.catalogKey)
+    .bindCatalog("c", variantId.catalogId)
     .bind("k", variantId.templateKey)
     .bind("v", variantId.key)
     .mapTo(Long::class.java)

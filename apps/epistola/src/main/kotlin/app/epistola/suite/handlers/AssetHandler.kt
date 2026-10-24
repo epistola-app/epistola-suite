@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.catalog.queries.ListCatalogs
+import app.epistola.suite.catalog.queries.ResolveCatalogAlias
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
@@ -28,6 +29,7 @@ import app.epistola.suite.htmx.catalogSegment
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -56,9 +58,9 @@ class AssetHandler(
     private fun listImages(
         tenantId: TenantKey,
         searchTerm: String? = null,
-        catalogKey: CatalogKey? = null,
+        catalog: app.epistola.suite.common.ids.CatalogId? = null,
         version: CatalogReleaseRef? = null,
-    ): List<Asset> = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogKey, catalogVersion = version)
+    ): List<Asset> = ListAssets(tenantId = tenantId, searchTerm = searchTerm, catalog = catalog, catalogVersion = version)
         .query()
         .filter { it.mediaType.category != AssetMediaCategory.FONT }
 
@@ -68,13 +70,13 @@ class AssetHandler(
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.param("q").orElse(null)
         val segment = request.catalogParam()
-        val catalogFilter = segment?.key
+        val catalogFilter = segment?.catalogIn(tenantId)
         val version = segment?.ref(tenantId)
 
         // HTMX search — return HTML fragment
         if (request.isHtmx) {
             val tenant = GetTenant(id = tenantId).query()
-            val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, version = version)
+            val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, version = version)
             return request.htmx {
                 fragment("images/list", "asset-grid-items") {
                     "tenantId" to tenantId.value
@@ -91,7 +93,7 @@ class AssetHandler(
         }
 
         // Editor calls with Accept: application/json
-        val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalogKey = catalogFilter, version = version)
+        val assets = listImages(tenantId = tenantId, searchTerm = searchTerm, catalog = catalogFilter, version = version)
         val assetInfoList = assets.map { asset ->
             mapOf(
                 "id" to asset.id.value,
@@ -101,7 +103,7 @@ class AssetHandler(
                 "width" to asset.width,
                 "height" to asset.height,
                 "catalogKey" to asset.catalogKey.value,
-                "contentUrl" to "/tenants/${tenantId.value}/catalogs/${segment?.linkFor(asset.catalogKey.value) ?: asset.catalogKey.value}/images/${asset.id.value}/content",
+                "contentUrl" to "/tenants/${tenantId.value}/catalogs/${segment?.linkFor(asset.catalogId) ?: asset.catalogId.address}/images/${asset.id.value}/content",
             )
         }
         return ServerResponse.ok()
@@ -120,10 +122,10 @@ class AssetHandler(
         val editability = ListCatalogEditability(tenantId).query()
         val catalogList = ListCatalogs(tenantId).query().map { catalog ->
             mapOf(
-                "key" to catalog.id.value,
+                "key" to catalog.address,
                 "name" to catalog.name,
                 // Uploads go only into a catalog that can be changed here (ADR 0032).
-                "editable" to editability.editable(catalog.id),
+                "editable" to editability.editable(catalog.catalogId),
             )
         }
         return ServerResponse.ok()
@@ -167,10 +169,10 @@ class AssetHandler(
         val segment = request.catalogSegment()
         val tenant = GetTenant(id = tenantId).query()
         val catalogs = ListCatalogs(tenantId).query()
-        val assets = listImages(tenantId = tenantId, catalogKey = segment.key, version = segment.ref(tenantId))
+        val assets = listImages(tenantId = tenantId, catalog = segment.catalogIn(tenantId), version = segment.ref(tenantId))
         val bar = segment.let { s -> CatalogDraftBar.of(tenantId, s) { "/tenants/${tenantId.value}/catalogs/${it.value}/images" } }
         // What the catalogs this one depends on hold of this kind, listed read-only below its own.
-        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { listImages(tenantId = tenantId, catalogKey = it) }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/catalogs/${c.value}/images", n) }
+        val fromOtherCatalogs = FromOtherCatalogs.of(bar, { listImages(tenantId = tenantId, catalog = it) }) { a, c, n -> FromOtherCatalog(a.name, "/tenants/${tenantId.value}/catalogs/${c.address}/images", n) }
         "pageTitle" to "Images - Epistola"
         "tenantId" to tenantId.value
         "tenant" to tenant
@@ -194,7 +196,7 @@ class AssetHandler(
 
         // The catalog the dialog was opened in, or one of its drafts (`letters@<draft>`), from the path.
         val catalogSegment = request.catalogSegment()
-        val catalogKey = catalogSegment.key
+        val catalog = catalogSegment.catalogIn(request.tenantId())
 
         val filePart: Part? = multipartData["file"]?.firstOrNull()
         var contentBytes: ByteArray? = null
@@ -230,13 +232,12 @@ class AssetHandler(
         if (errors.isEmpty()) {
             try {
                 asset = UploadAsset(
-                    tenantId = tenantId,
+                    catalog = catalog,
                     name = originalFilename!!,
                     mediaType = mediaType!!,
                     content = contentBytes!!,
                     width = dimensions?.first,
                     height = dimensions?.second,
-                    catalogKey = catalogKey,
                     catalogVersion = catalogSegment.ref(tenantId),
                 ).execute()
             } catch (e: AssetTooLargeException) {
@@ -275,7 +276,7 @@ class AssetHandler(
         // Success. Browser dialog: close + OOB-refresh the grid; boosted: redirect.
         if (request.isHtmx) {
             val draft = catalogSegment.takeIf { it.draft != null }
-            val assets = listImages(tenantId = tenantId, catalogKey = draft?.key, version = draft?.ref(tenantId))
+            val assets = listImages(tenantId = tenantId, catalog = draft?.catalogIn(tenantId), version = draft?.ref(tenantId))
             return request.htmx {
                 dialogSuccess("images/list", "asset-list", CatalogPages.list(request, tenantId, "images")) {
                     "tenantId" to tenantId.value
@@ -299,7 +300,7 @@ class AssetHandler(
                     "sizeBytes" to created.sizeBytes,
                     "width" to created.width,
                     "height" to created.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/catalogs/${catalogSegment.linkFor(created.catalogKey.value)}/images/${created.id.value}/content",
+                    "contentUrl" to "/tenants/${tenantId.value}/catalogs/${catalogSegment.linkFor(created.catalogId)}/images/${created.id.value}/content",
                 ),
             )
     }
@@ -307,16 +308,22 @@ class AssetHandler(
     fun content(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val segment = request.catalogSegment()
-        val catalogId = segment.key
+        val catalog = segment.catalogIn(tenantId)
         // An image key is text, not a UUID: a catalog may name its images readably, and parsing
         // the path variable as a UUID made every such image unviewable and undeletable here.
         val assetId = AssetKey.of(request.pathVariable("assetId"))
         // The draft: named in the path (`letters@2.0.0`), or by the editor's `in=` for its own
         // catalog, whose image URLs it builds from a pattern that names the catalog plainly.
-        val version = segment.ref(tenantId)
-            ?: request.catalogParam("in")?.takeIf { it.key == catalogId }?.ref(tenantId)
+        val ownVersion = segment.ref(tenantId)
+            ?: request.catalogParam("in")?.takeIf { it.address == segment.address }?.ref(tenantId)
+        // The editor names an image's catalog by the alias its content holds, asked of the template's
+        // catalog, which resolves it (ADR 0034, section 9); another catalog is read in its current version.
+        val target = request.param("alias").orElse(null)?.takeIf { it.isNotBlank() }
+            ?.let { ResolveCatalogAlias(catalog, it).query() ?: return ServerResponse.notFound().build() }
+            ?: catalog
+        val version = ownVersion.takeIf { target == catalog }
 
-        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalogKey = catalogId, catalogVersion = version).query()
+        val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId, catalog = target, catalogVersion = version).query()
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -340,7 +347,7 @@ class AssetHandler(
         // The list dropdown's active catalog filter rides along as a query param so
         // the refreshed grid stays consistent with the dropdown after a delete.
         val segment = request.catalogParam()
-        val catalogFilter = segment?.key
+        val catalogFilter = segment?.catalogIn(tenantId)
         val version = request.catalogSegment().ref(tenantId)
 
         val force = request.param("force").orElse("false").toBoolean()
@@ -354,7 +361,7 @@ class AssetHandler(
         }
 
         val tenant = GetTenant(id = tenantId).query()
-        val assets = listImages(tenantId = tenantId, catalogKey = catalogFilter, version = segment?.ref(tenantId))
+        val assets = listImages(tenantId = tenantId, catalog = catalogFilter, version = segment?.ref(tenantId))
         return request.htmx {
             fragment("images/list", "asset-grid-items") {
                 "tenantId" to tenantId.value

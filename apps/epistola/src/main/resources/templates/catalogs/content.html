@@ -76,7 +76,7 @@
             <p th:if="${readiness.borrowing.catalogs.isEmpty() and !readiness.borrowing.others.isEmpty()}" class="form-hint" style="margin-bottom: 0;"
                data-testid="catalog-borrowed-others">
                 Themes, stencils, images, fonts and code lists of other catalogs can be used too:
-                <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
+                <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.address})}"
                        th:text="${other.name}">Forms</a><th:block th:unless="${stat.last}">, </th:block></th:block>.
             </p>
         </div>
@@ -109,7 +109,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="borrowed : ${readiness.borrowing.catalogs}" data-testid="catalog-borrowed-catalog" th:attr="data-catalog=${borrowed.catalogKey}">
-                        <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.catalogKey})}" th:text="${borrowed.name}">Shared</a></td>
+                        <td><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${borrowed.address})}" th:text="${borrowed.name}">Shared</a></td>
                         <td data-testid="catalog-borrowed-alias"><code th:text="${borrowed.alias}">shared</code></td>
                         <td data-testid="catalog-borrowed-uses">
                             <th:block th:if="${borrowed.used}" th:each="used, stat : ${borrowed.uses}"><span th:text="${used.name ?: used.key}">Brand</span>
@@ -137,7 +137,7 @@
                 </tbody>
             </table>
             <p th:unless="${readiness.borrowing.others.isEmpty()}" class="form-hint" style="margin-bottom: 0;" data-testid="catalog-borrowed-others">
-                Also in this tenant: <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.catalogKey})}"
+                Also in this tenant: <th:block th:each="other, stat : ${readiness.borrowing.others}"><a th:href="@{/tenants/{t}/catalogs/{c}/browse(t=${tenantId},c=${other.address})}"
                        th:text="${other.name}">Forms</a><th:block th:unless="${stat.last}">, </th:block></th:block>.
                 Their themes, stencils, images, fonts and code lists can be picked in the editor; publishing records the catalog it came from.
             </p>
@@ -155,7 +155,7 @@
                        separate action above. */-->
                 <button th:if="${catalog.hasSource and hasUninstalledResources}"
                         type="button" class="ep-btn ep-btn-primary ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id})}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/install-preview(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address})}"
                         hx-target="#install-preview-body"
                         hx-swap="innerHTML"
                         data-open-dialog="install-preview-dialog">Install catalog</button>
@@ -201,19 +201,19 @@
                                 <!-- Without a source: link to detail page for templates/themes/stencils -->
                                 <th:block th:unless="${catalog.hasSource}">
                                     <a th:if="${resource.type == 'template'}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/templates/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'theme'}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/themes/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'stencil'}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},slug=${resource.slug})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/stencils/{slug}(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},slug=${resource.slug})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'attribute'}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/attributes(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.address})}"
                                        th:text="${resource.name}"></a>
                                     <a th:if="${resource.type == 'image'}"
-                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}"
+                                       th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.address})}"
                                        th:text="${resource.name}"></a>
                                 </th:block>
                                 <!--/* From a source: the resource may not be installed here, but a
@@ -243,7 +243,7 @@
                                         type="button" class="badge badge-default"
                                         style="cursor: pointer; border: none; background: var(--ep-muted); padding: 2px 8px;"
                                         th:text="${count}"
-                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},type=${resource.type},slug=${resource.slug})}"
+                                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/usages(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},type=${resource.type},slug=${resource.slug})}"
                                         hx-target="#usage-detail-body"
                                         hx-swap="innerHTML"
                                         data-open-dialog="usage-detail-dialog">
@@ -284,7 +284,7 @@
                     <p class="text-muted text-sm" style="margin: var(--ep-space-1) 0 0;">Identity, discovery, presentation, and usage terms.</p>
                 </div>
                 <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='details')}"
+                        th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},section='details')}"
                         hx-target="#dialog-mount" hx-swap="innerHTML">Edit details</button>
             </div>
 
@@ -318,7 +318,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>Discovery attributes</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='attributes')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},section='attributes')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <div th:if="${!catalog.catalogMetadata.attributes.isEmpty()}" class="badge-list">
@@ -333,7 +333,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>Keywords</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='keywords')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},section='keywords')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <!--/* Order comes from the model, not the stored set - see CatalogKeywordOrder.
@@ -354,7 +354,7 @@
                           below says where images come from (.agents/rules/ui-affordances.md).
                         -->
                         <button th:if="${canEditMetadata and hasImages}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='presentation')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},section='presentation')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <p th:if="${presentationIcon == null and presentationImages.isEmpty() and hasImages}"
@@ -362,13 +362,13 @@
                     <p th:if="${presentationIcon == null and presentationImages.isEmpty() and !hasImages}"
                        class="text-muted text-sm" style="margin: 0;">
                         This catalog has no images yet. Add one under
-                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.id})}">Images</a>
+                        <a th:href="@{/tenants/{tenantId}/catalogs/{catalogSeg}/images(tenantId=${tenantId},catalogSeg=${catalogId ?: catalog.address})}">Images</a>
                         to choose an icon or build a gallery.
                     </p>
                     <div th:if="${presentationIcon != null}" style="margin-bottom: var(--ep-space-3);">
                         <span class="catalog-detail-label">Icon</span>
                         <img th:if="${presentationIcon.available}" alt="Catalog icon" class="catalog-presentation-icon"
-                             th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${presentationIcon.asset.id})}" />
+                             th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},assetId=${presentationIcon.asset.id})}" />
                         <div th:unless="${presentationIcon.available}" class="alert alert-warning">
                             Catalog icon is unavailable until asset <code th:text="${presentationIcon.slug}"></code> is installed.
                         </div>
@@ -378,7 +378,7 @@
                         <div class="ep-row ep-gap-3 ep-row-wrap">
                             <div th:each="image : ${presentationImages}">
                                 <img th:if="${image.available}" th:alt="${image.asset.name}" class="catalog-presentation-image"
-                                     th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},assetId=${image.asset.id})}" />
+                                     th:src="@{/tenants/{tenantId}/catalogs/{catalogId}/images/{assetId}/content(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},assetId=${image.asset.id})}" />
                                 <div th:unless="${image.available}" class="catalog-presentation-placeholder text-muted text-sm">
                                     Unavailable until installed<br /><code th:text="${image.slug}"></code>
                                 </div>
@@ -391,7 +391,7 @@
                     <div class="catalog-detail-item-header">
                         <h3>License</h3>
                         <button th:if="${canEditMetadata}" type="button" class="ep-btn ep-btn-outline ep-btn-sm"
-                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.id},section='license')}"
+                                th:hx-get="@{/tenants/{tenantId}/catalogs/{catalogId}/metadata(tenantId=${tenantId},catalogId=${catalogId ?: catalog.address},section='license')}"
                                 hx-target="#dialog-mount" hx-swap="innerHTML">Change</button>
                     </div>
                     <p th:if="${catalog.catalogMetadata.license == null}" class="text-muted text-sm" style="margin: 0;">No license information.</p>

@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -141,7 +142,7 @@ class TenantNamespacesHtmxTest : BaseIntegrationTest() {
         assertThat(created.body!!).contains("/platform/tenants/$key/namespaces")
         val tenant = TenantKey.of(key)
         assertThat(withMediator { ListNamespaceGrants(tenant).query() }.map { it.name }).containsExactly(NamespaceName("gemeente-x.nl", "gemeente-x"))
-        val default = withMediator { GetCatalog(tenant, CatalogKey.DEFAULT).query() }!!
+        val default = withMediator { GetCatalog(testCatalog(tenant, CatalogKey.DEFAULT)).query() }!!
         assertThat(default.registry to default.namespace).isEqualTo("gemeente-x.nl" to "gemeente-x")
     }
 }

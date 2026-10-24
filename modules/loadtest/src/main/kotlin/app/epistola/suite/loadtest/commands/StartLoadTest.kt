@@ -4,7 +4,9 @@
 
 package app.epistola.suite.loadtest.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -41,8 +43,7 @@ import tools.jackson.databind.node.ObjectNode
  * @property testData JSON data to use for all document generation requests
  */
 data class StartLoadTest(
-    val tenantId: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val templateId: TemplateKey,
     val variantId: VariantKey,
     val environmentId: EnvironmentKey? = null,
@@ -53,6 +54,8 @@ data class StartLoadTest(
     RequiresPermission,
     // Long-running load-test bootstrap; owns its transaction boundaries.
     SelfManagedTransaction {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.DOCUMENT_GENERATE
     override val tenantKey get() = tenantId
 
@@ -93,7 +96,7 @@ class StartLoadTestHandler(
                 """,
             )
                 .bind("templateId", command.templateId)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("variantId", command.variantId)
                 .bind("tenantId", command.tenantId)
                 .mapTo<Boolean>()
@@ -107,9 +110,9 @@ class StartLoadTestHandler(
             //    environment serves, or the catalog's latest. Failing here, with generation's own
             //    error, beats a run that is accepted and then fails every one of its requests.
             if (command.environmentId != null) {
-                releaseTargetResolver.resolveDeployed(command.tenantId, command.environmentId, command.catalogKey, command.templateId, command.variantId, null)
+                releaseTargetResolver.resolveDeployed(command.environmentId, command.catalog, command.templateId, command.variantId, null)
             } else {
-                releaseTargetResolver.resolveLatest(command.tenantId, command.catalogKey, command.templateId, command.variantId, null)
+                releaseTargetResolver.resolveLatest(command.catalog, command.templateId, command.variantId, null)
             }
 
             // 3. Create load test run (stays in PENDING status for poller to pick up)
@@ -122,7 +125,7 @@ class StartLoadTestHandler(
                 )
                 VALUES (:id, :tenantId, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :variantId, NULL, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
-                RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key,
+                RETURNING id, tenant_key, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:catalogKey_ns AS TEXT) AS namespace,
                           CAST(:templateId AS TEXT) AS template_key,
                           variant_key, version_key, environment_key,
                           target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
@@ -134,7 +137,7 @@ class StartLoadTestHandler(
             )
                 .bind("id", runId)
                 .bind("tenantId", command.tenantId)
-                .bind("catalogKey", command.catalogKey)
+                .bindCatalog("catalogKey", command.catalog)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)
                 .bind("environmentId", command.environmentId)

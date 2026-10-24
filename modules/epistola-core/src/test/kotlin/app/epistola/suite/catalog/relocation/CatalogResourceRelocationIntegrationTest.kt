@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -58,6 +59,8 @@ import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
@@ -85,11 +88,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
         val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val sourceAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -115,7 +118,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(identityAt(tenant.id, sourceAddress.copy(catalogKey = targetCatalog.value))).isEqualTo(before)
         assertThat(identityAt(tenant.id, sourceAddress)).isNull()
 
-        val movedStencilId = StencilId(stencilId.key, CatalogId(targetCatalog, tenantId))
+        val movedStencilId = StencilId(stencilId.key, testCatalog(tenantId, targetCatalog))
         assertThat(withMediator { GetStencil(movedStencilId).query() }).isNotNull()
 
         val content = withMediator { GetVariantContent(variantId).query()!! }
@@ -138,11 +141,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
         val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val sourceAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -170,8 +173,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val stencilId = StencilId(StencilKey.of("header"), CatalogId(sourceCatalog, tenantId))
-        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val stencilId = StencilId(StencilKey.of("header"), testCatalog(tenantId, sourceCatalog))
+        val sourceAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -196,9 +199,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val stencilId = StencilId(StencilKey.of("header"), CatalogId(sourceCatalog, tenantId))
-        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
-        val movedAddress = ResourceAddress(CatalogResourceType.STENCIL, targetCatalog.value, stencilId.key.value)
+        val stencilId = StencilId(StencilKey.of("header"), testCatalog(tenantId, sourceCatalog))
+        val sourceAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val movedAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, targetCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -224,11 +227,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
         val referencingVariant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), sourceCatalogId))
         val unrelatedVariant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("memo"), sourceCatalogId))
-        val sourceAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val sourceAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -257,9 +260,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val header = StencilId(StencilKey.of("header"), sourceCatalogId)
-        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, header.key.value)
+        val headerAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, header.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -290,9 +293,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val header = StencilId(StencilKey.of("header"), sourceCatalogId)
-        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, header.key.value)
+        val headerAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, header.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -321,7 +324,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(headerAddress.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The stencil now says what it always meant: the theme in the catalog it left.
-        val moved = withMediator { GetStencil(StencilId(header.key, CatalogId(targetCatalog, tenantId))).query()!! }
+        val moved = withMediator { GetStencil(StencilId(header.key, testCatalog(tenantId, targetCatalog))).query()!! }
         assertThat((moved.content.themeRef as ThemeRefOverride).catalogKey).isEqualTo(sourceCatalog.value)
         val graph = withMediator { GetTenantResourceGraph(tenant.id, includeHistory = true).query() }
         assertThat(graph.edges)
@@ -336,11 +339,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
         val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -362,7 +365,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         // Relative meant "letters" when it was written. After the move that is spelled out, so the
         // moved variant does not resolve against "shared", and it can still be marked ready.
-        val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(templateId.key, CatalogId(targetCatalog, tenantId)))
+        val movedVariant = VariantId(VariantKey.INITIAL, TemplateId(templateId.key, testCatalog(tenantId, targetCatalog)))
         val moved = withMediator { GetVariantContent(movedVariant).query()!! }
         assertThat(moved.nodes.getValue("stencil-instance").props?.get("catalogKey")).isEqualTo(sourceCatalog.value)
         withMediator { MarkVariantReady(movedVariant).execute() }
@@ -384,7 +387,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             )
                 .bind("path", path)
                 .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", testCatalog(tenantKey, catalogKey))
                 .bind("ownerKey", ownerKey)
                 .execute()
             assertThat(stripped).isEqualTo(1)
@@ -405,11 +408,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val attribute = AttributeId(AttributeKey.of("brand"), sourceCatalogId)
         val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val address = ResourceAddress(CatalogResourceType.ATTRIBUTE, sourceCatalog.value, attribute.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.ATTRIBUTE, sourceCatalog.value, attribute.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -454,9 +457,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(sourceCatalog, tenantId))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(tenantId, sourceCatalog))
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val address = ResourceAddress(CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, sourceCatalog.value, templateId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -550,9 +553,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("History after rename")
         val tenantId = TenantId(tenant.id)
         val catalog = CatalogKey.of("letters")
-        val templateId = TemplateId(TemplateKey.of("invoice"), CatalogId(catalog, tenantId))
+        val templateId = TemplateId(TemplateKey.of("invoice"), testCatalog(tenantId, catalog))
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val address = ResourceAddress(CatalogResourceType.TEMPLATE, catalog.value, templateId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.TEMPLATE, catalog.value, templateId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, catalog, "Letters").execute()
@@ -577,11 +580,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val stencilId = StencilId(StencilKey.of("header"), sourceCatalogId)
         val templateId = TemplateId(TemplateKey.of("invoice"), sourceCatalogId)
         val variantId = VariantId(VariantKey.INITIAL, templateId)
-        val address = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -596,7 +599,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         // The move re-pointed the variant, so asking the moved stencil what uses it surfaces it.
-        val movedStencil = StencilId(stencilId.key, CatalogId(targetCatalog, tenantId))
+        val movedStencil = StencilId(stencilId.key, testCatalog(tenantId, targetCatalog))
         val usage = withMediator { GetStencilUsagePage(movedStencil).query() }
 
         assertThat(usage.items).isNotEmpty()
@@ -611,8 +614,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
-        val lettersId = CatalogId(letters, tenantId)
-        val sharedId = CatalogId(shared, tenantId)
+        val lettersId = testCatalog(tenantId, letters)
+        val sharedId = testCatalog(tenantId, shared)
 
         // letters/invoice already depends on shared/base-theme, so shared must install first.
         val sharedTheme = ThemeId(ThemeKey.of("base"), sharedId)
@@ -636,7 +639,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         // Moving the stencil into shared would make shared depend on letters, closing the loop.
         val preview = withMediator {
-            PreviewCatalogResourceMove(tenant.id, listOf(ResourceAddress(CatalogResourceType.STENCIL, letters.value, header.key.value).movedTo(shared))).query()
+            PreviewCatalogResourceMove(tenant.id, listOf(testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, header.key.value).movedTo(shared))).query()
         }
 
         assertThat(preview.executable).isFalse()
@@ -660,15 +663,15 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val stencilId = StencilId(StencilKey.of("header"), CatalogId(sourceCatalog, tenantId))
-        val address = ResourceAddress(CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
+        val stencilId = StencilId(StencilKey.of("header"), testCatalog(tenantId, sourceCatalog))
+        val address = testAddress(tenant.id, CatalogResourceType.STENCIL, sourceCatalog.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
             CreateCatalog(tenant.id, targetCatalog, "Shared").execute()
             CreateStencil(stencilId, "Header").execute()
-            MarkCatalogReady(tenant.id, sourceCatalog).execute()
-            ReleaseCatalogDraft(tenant.id, sourceCatalog, "1.0.0", publication = ReleasePublication.SKIP).execute()
+            MarkCatalogReady(testCatalog(tenant.id, sourceCatalog)).execute()
+            ReleaseCatalogDraft(testCatalog(tenant.id, sourceCatalog), "1.0.0", publication = ReleasePublication.SKIP).execute()
         }
 
         // A subscriber cannot follow the move, but that is the operator's judgement, not something
@@ -688,10 +691,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val sourceCatalog = CatalogKey.of("letters")
         val targetCatalog = CatalogKey.of("shared")
-        val sourceCatalogId = CatalogId(sourceCatalog, tenantId)
+        val sourceCatalogId = testCatalog(tenantId, sourceCatalog)
         val codeListId = CodeListId(CodeListKey.of("languages"), sourceCatalogId)
         val attributeId = AttributeId(AttributeKey.of("language"), sourceCatalogId)
-        val address = ResourceAddress(CatalogResourceType.CODE_LIST, sourceCatalog.value, codeListId.key.value)
+        val address = testAddress(tenant.id, CatalogResourceType.CODE_LIST, sourceCatalog.value, codeListId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, sourceCatalog, "Letters").execute()
@@ -734,7 +737,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("catalogKey", catalogKey)
+            .bindCatalog("catalogKey", testCatalog(tenantKey, catalogKey))
             .bind("slug", slug)
             .mapTo(String::class.java)
             .list()
@@ -751,7 +754,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("catalogKey", attributeId.catalogKey)
+            .bindCatalog("catalogKey", testCatalog(tenantKey, attributeId.catalogKey))
             .bind("id", attributeId.key)
             .mapTo(String::class.java)
             .findOne()
@@ -764,8 +767,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
-        val stencilId = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
-        val address = ResourceAddress(CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
+        val stencilId = StencilId(StencilKey.of("header"), testCatalog(tenantId, letters))
+        val address = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, stencilId.key.value)
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
@@ -779,12 +782,12 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         withMediator { MoveCatalogResources(tenant.id, listOf(relocation), preview.planFingerprint).execute() }
 
         // Both halves of the address changed, and the old one is left empty.
-        assertThat(identityAt(tenant.id, ResourceAddress(CatalogResourceType.STENCIL, shared.value, "letterhead"))).isNotNull()
+        assertThat(identityAt(tenant.id, testAddress(tenant.id, CatalogResourceType.STENCIL, shared.value, "letterhead"))).isNotNull()
         assertThat(identityAt(tenant.id, address)).isNull()
 
         // The owned hierarchy followed the rename, not only the catalog change: the ON UPDATE
         // CASCADE foreign key fires on any referenced column.
-        val renamed = StencilId(StencilKey.of("letterhead"), CatalogId(shared, tenantId))
+        val renamed = StencilId(StencilKey.of("letterhead"), testCatalog(tenantId, shared))
         assertThat(withMediator { GetStencil(renamed).query() }).isNotNull()
     }
 
@@ -794,10 +797,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
-        val header = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
-        val draft = StencilId(StencilKey.of("draft-header"), CatalogId(letters, tenantId))
-        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
-        val draftAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "draft-header")
+        val header = StencilId(StencilKey.of("header"), testCatalog(tenantId, letters))
+        val draft = StencilId(StencilKey.of("draft-header"), testCatalog(tenantId, letters))
+        val headerAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "header")
+        val draftAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "draft-header")
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
@@ -825,10 +828,10 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Swap refused")
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
-        val header = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
-        val footer = StencilId(StencilKey.of("footer"), CatalogId(letters, tenantId))
-        val headerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
-        val footerAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "footer")
+        val header = StencilId(StencilKey.of("header"), testCatalog(tenantId, letters))
+        val footer = StencilId(StencilKey.of("footer"), testCatalog(tenantId, letters))
+        val headerAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "header")
+        val footerAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "footer")
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
@@ -854,9 +857,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val tenantId = TenantId(tenant.id)
         val letters = CatalogKey.of("letters")
         val shared = CatalogKey.of("shared")
-        val good = StencilId(StencilKey.of("header"), CatalogId(letters, tenantId))
-        val goodAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "header")
-        val missingAddress = ResourceAddress(CatalogResourceType.STENCIL, letters.value, "does-not-exist")
+        val good = StencilId(StencilKey.of("header"), testCatalog(tenantId, letters))
+        val goodAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "header")
+        val missingAddress = testAddress(tenant.id, CatalogResourceType.STENCIL, letters.value, "does-not-exist")
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
@@ -913,7 +916,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         )
             .bind("tenantKey", tenantKey)
             .bind("resourceType", address.type.wireName)
-            .bind("catalogKey", address.catalogKey)
+            .bindCatalog("catalogKey", testCatalog(tenantKey, address.catalogKey))
             .bind("resourceKey", address.key)
             .map { rs, _ -> ResourceIdentity.of(rs.getString("resource_id")) }
             .findOne()

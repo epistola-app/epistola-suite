@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.testing.testCatalog
 
 /**
  * Declares that [catalogKey] depends on the tenant's catalog [on], pinning [release], or by default
@@ -21,15 +22,14 @@ import app.epistola.suite.mediator.query
  * declaration of [on]). Runs inside a mediator scope.
  */
 fun declareDependency(tenantKey: TenantKey, catalogKey: CatalogKey, on: CatalogKey, release: String? = null): List<CatalogDependencyDeclaration> {
-    val target = requireNotNull(GetCatalog(tenantKey, on).query()) { "No catalog '${on.value}'" }
+    val target = requireNotNull(GetCatalog(testCatalog(tenantKey, on)).query()) { "No catalog '${on.value}'" }
     val pinned = release ?: target.releasedVersion ?: target.installedReleaseVersion
-    val draft = if (pinned == null) requireNotNull(GetCatalogDraft(tenantKey, on).query()) { "Catalog '${on.value}' has neither a release nor a draft" }.versionId else null
-    val others = ListCatalogDependencies(tenantKey, catalogKey).query()
+    val draft = if (pinned == null) requireNotNull(GetCatalogDraft(testCatalog(tenantKey, on)).query()) { "Catalog '${on.value}' has neither a release nor a draft" }.versionId else null
+    val others = ListCatalogDependencies(testCatalog(tenantKey, catalogKey)).query()
         .filter { it.catalogKey != on.value }
         .map { DeclaredCatalogDependency(it.registry, it.namespace, it.catalogKey, it.releaseVersion, it.draftId) }
     return UpdateCatalogDependencies(
-        tenantKey,
-        catalogKey,
+        testCatalog(tenantKey, catalogKey),
         others + DeclaredCatalogDependency(target.registry, target.namespace, on.value, pinned, draft),
     ).execute()
 }

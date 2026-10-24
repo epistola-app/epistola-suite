@@ -49,6 +49,7 @@ import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -87,7 +88,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             publish(variant(catalog), model("changed"))
         }
 
-        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inputs.resolvedTheme.documentStyles).containsEntry("color", "#ff0000")
         assertThat(inputs.templateModel.nodes).containsKey("original").doesNotContainKey("changed")
@@ -104,7 +105,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             release(catalog, "1.0.0")
         }
 
-        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inputs.resolvedTheme.spacingUnit)
             .`as`("the theme's spacing unit, not the default the renderer falls back to")
@@ -118,22 +119,20 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), catalog), "Brand", documentStyles = mapOf("color" to "#ff0000")).execute()
             CreateTheme(ThemeId(ThemeKey.of("other"), catalog), "Other", documentStyles = mapOf("color" to "#0000ff")).execute()
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
-                catalog.tenantKey,
-                catalog.key,
-                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("brand"), catalog.key),
+                testCatalog(catalog.tenantKey, catalog.key),
+                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("brand"), catalog),
             ).execute()
             invoice(catalog, theme = null, nodeId = "body")
             release(catalog, "1.0.0")
 
             // The next version moves on to another default; the release keeps the one it was published with.
             app.epistola.suite.catalog.releases.SetCatalogDefaultTheme(
-                catalog.tenantKey,
-                catalog.key,
-                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("other"), catalog.key),
+                testCatalog(catalog.tenantKey, catalog.key),
+                app.epistola.suite.catalog.releases.CatalogDefaultTheme(ThemeKey.of("other"), catalog),
             ).execute()
         }
 
-        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inputs.resolvedTheme.documentStyles).containsEntry("color", "#ff0000")
     }
@@ -155,7 +154,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             UpdateTheme(ThemeId(ThemeKey.of("brand"), shared), documentStyles = mapOf("color" to "#00ff00")).execute()
         }
 
-        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value)
 
         assertThat(inputs.resolvedTheme.documentStyles)
             .`as`("letters@1.0.0 was cut with shared@1.0.0: not shared's later release nor its unreleased edit")
@@ -179,11 +178,11 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
             CreateEnvironment(production, "Production").execute()
             // shared@1.0.0 comes along with letters, since letters renders with it; 1.1.0 is the highest served.
-            DeployCatalogRelease(production, shared.key, "1.1.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.0", includeDependencies = true).execute()
+            DeployCatalogRelease(production, shared, "1.1.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.0", includeDependencies = true).execute()
         }
 
-        val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
+        val inProduction = source.resolve(tenantOf(letters), ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value, production.key)
 
         assertThat(inProduction.resolvedTheme.documentStyles)
             .`as`("production serves shared@1.1.0 as its highest, but letters@1.0.0 was cut with shared@1.0.0")
@@ -217,7 +216,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             release(base, "1.1.0")
         }
 
-        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value)
         val face = inputs.fontFamilyResolver.resolve("base", "brand-sans", 400, false)
         assertThat(face?.bytes)
             .`as`("base@1.0.0, which shared@1.0.0 pinned, reached through shared's theme")
@@ -242,7 +241,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             release(letters, "1.0.0")
         }
 
-        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(letters), ReleaseRef(letters, "1.0.0"), "invoice", VariantKey.INITIAL.value)
         val face = inputs.fontFamilyResolver.resolve("system", "inter", 400, false)
 
         assertThat(face?.bytes)
@@ -277,13 +276,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         val bytes = ByteArray(96) { ((it * 7) % 256).toByte() }
         val image = withMediator {
             val asset = UploadAsset(
-                tenantId = catalog.tenantKey,
+                catalog = testCatalog(catalog.tenantKey, catalog.key),
                 name = "logo.png",
                 mediaType = AssetMediaType.PNG,
                 content = bytes,
                 width = 1,
                 height = 1,
-                catalogKey = catalog.key,
             ).execute().id
             invoice(catalog, theme = null, nodeId = "body")
             release(catalog, "1.0.0")
@@ -291,7 +289,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             asset
         }
 
-        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog.key, "1.0.0"), "invoice", VariantKey.INITIAL.value)
+        val inputs = source.resolve(tenantOf(catalog), ReleaseRef(catalog, "1.0.0"), "invoice", VariantKey.INITIAL.value)
         val resolved = inputs.assetResolver.resolve(image.value, null)
 
         assertThat(resolved).isNotNull()
@@ -308,13 +306,13 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
         }
         val tenant = tenantOf(catalog)
 
-        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog.key, "1.0.0"), "letter", VariantKey.INITIAL.value) }
+        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog, "1.0.0"), "letter", VariantKey.INITIAL.value) }
             .isInstanceOf(ReleaseRenderException::class.java)
             .hasMessageContaining("does not contain template 'letter'")
-        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog.key, "1.0.0"), "invoice", "nl") }
+        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog, "1.0.0"), "invoice", "nl") }
             .isInstanceOf(ReleaseRenderException::class.java)
             .hasMessageContaining("no variant 'nl'")
-        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog.key, "2.0.0"), "invoice", VariantKey.INITIAL.value) }
+        assertThatThrownBy { source.resolve(tenant, ReleaseRef(catalog, "2.0.0"), "invoice", VariantKey.INITIAL.value) }
             .isInstanceOf(ReleaseRenderException::class.java)
             .hasMessageContaining("does not exist")
     }
@@ -327,7 +325,7 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
             UpdateDataContract(templateId = templateId, dataModel = JsonNodeFactory.instance.objectNode().put("type", "object")).execute()
         }
         if (theme != null) {
-            UpdateDocumentTemplate(templateId, themeId = theme, themeCatalogKey = themeCatalog ?: catalog.key).execute()
+            UpdateDocumentTemplate(templateId, themeId = theme, themeCatalog = testCatalog(templateId.tenantKey, themeCatalog ?: catalog.key)).execute()
         }
         publish(variant(catalog), model(nodeId))
     }
@@ -338,8 +336,8 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     }
 
     private fun release(catalog: CatalogId, version: String) {
-        MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-        ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = version).execute()
+        MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = version).execute()
     }
 
     private fun variant(catalog: CatalogId) = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog))
@@ -357,17 +355,15 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
 
     private fun importFont(catalog: CatalogId, slug: String, bytes: ByteArray) {
         val asset = UploadAsset(
-            tenantId = catalog.tenantKey,
+            catalog = testCatalog(catalog.tenantKey, catalog.key),
             name = "$slug-${bytes.size}.ttf",
             mediaType = AssetMediaType.TTF,
             content = bytes,
             width = null,
             height = null,
-            catalogKey = catalog.key,
         ).execute().id
         ImportFont(
-            tenantId = TenantId(catalog.tenantKey),
-            catalogKey = catalog.key,
+            catalog = testCatalog(TenantId(catalog.tenantKey), catalog.key),
             slug = slug,
             name = slug,
             kind = FontKind.SANS.wire,
@@ -384,6 +380,6 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     private fun catalogIn(tenant: TenantKey, slug: String): CatalogId {
         val key = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant, id = key, name = slug).execute() }
-        return CatalogId(key, TenantId(tenant))
+        return testCatalog(TenantId(tenant), key)
     }
 }

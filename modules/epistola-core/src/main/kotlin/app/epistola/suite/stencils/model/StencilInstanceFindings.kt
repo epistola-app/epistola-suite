@@ -14,8 +14,9 @@ import app.epistola.suite.validation.ValidationCode
  * reported, so publishing, releasing and the usage page say the same thing.
  */
 fun Finding.describe(): String {
-    val stencil = "$catalogKey/$stencilKey"
-    val where = usedIn?.let { " (inside stencil ${it.catalogKey}/${it.stencilKey})" }.orEmpty()
+    // A catalog is named in content by its key, the alias it is used under (ADR 0034): so in words too.
+    val stencil = "${catalogKey.substringAfterLast('/')}/$stencilKey"
+    val where = usedIn?.let { " (inside stencil ${it.catalogKey.substringAfterLast('/')}/${it.stencilKey})" }.orEmpty()
     return when (problem) {
         Problem.UNKNOWN_PLACEHOLDER -> "fills placeholder '$name', which stencil $stencil does not have"
 

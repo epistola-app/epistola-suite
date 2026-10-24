@@ -4,7 +4,9 @@
 
 package app.epistola.suite.mcp
 
-import app.epistola.suite.catalog.CatalogNames
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
@@ -13,15 +15,16 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.UserKey
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mcp.dto.NamespaceNameInfo
 import app.epistola.suite.mcp.tools.CatalogMcpTools
+import app.epistola.suite.mcp.tools.CodeListMcpTools
 import app.epistola.suite.mcp.tools.ImageMcpTools
 import app.epistola.suite.mcp.tools.StencilMcpTools
 import app.epistola.suite.mcp.tools.TemplateMcpTools
@@ -31,6 +34,7 @@ import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -56,6 +60,8 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
     @Autowired private lateinit var stencilTools: StencilMcpTools
 
     @Autowired private lateinit var imageTools: ImageMcpTools
+
+    @Autowired private lateinit var codeListTools: CodeListMcpTools
 
     /** Like the API-key filter: a tenant-scoped service principal whose `users` row exists. */
     private fun <T> runAsApiKey(
@@ -102,20 +108,20 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
         val author = createTenant("MCP Catalogs Author ${UUID.randomUUID()}").id
         val receiver = newTenant()
         val catalog = CatalogKey.of("received")
-        val brand = { tenant: TenantKey -> ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant))) }
+        val brand = { tenant: TenantKey -> ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog)) }
         withMediator {
             CreateCatalog(tenantKey = author, id = catalog, name = "Received").execute()
             CreateTheme(id = brand(author), name = "Brand").execute()
-            MarkCatalogReady(author, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = author, catalogKey = catalog, version = "1.0.0").execute()
-            val archive = ExportCatalogZip(author, catalog, "1.0.0").execute().zipBytes
+            MarkCatalogReady(testCatalog(author, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(author, catalog), version = "1.0.0").execute()
+            val archive = ExportCatalogZip(testCatalog(author, catalog), "1.0.0").execute().zipBytes
             // Received from a file, then changed and released here: it is a catalog like any other.
             ImportCatalogZip(receiver.key, archive).execute()
             UpdateTheme(brand(receiver.key), name = "Brand, ours").execute()
-            MarkCatalogReady(receiver.key, catalog).execute()
+            MarkCatalogReady(testCatalog(receiver.key, catalog)).execute()
             // Releasing it here needs its namespace: the two tenants share it.
             TestNamespaces.share(author, receiver.key).execute()
-            ReleaseCatalogDraft(tenantKey = receiver.key, catalogKey = catalog, version = "1.0.1").execute()
+            ReleaseCatalogDraft(catalog = testCatalog(receiver.key, catalog), version = "1.0.1").execute()
         }
 
         val catalogs = runAsApiKey(receiver) { catalogTools.listCatalogs() }.associateBy { it.id }
@@ -162,23 +168,43 @@ class McpCatalogToolsIntegrationTest : IntegrationTestBase() {
         withMediator {
             TestNamespaces.grant(tenantId.key, "acme").execute()
             TestNamespaces.grant(tenantId.key, "bureau").execute()
-            SaveFeatureToggle(tenantId.key, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
         }
 
-        CatalogNames.frame {
-            runAsApiKey(tenantId) {
-                val acme = catalogTools.createCatalog("letters", "Acme letters", null, namespace = "acme")
-                catalogTools.createCatalog("letters", "Bureau letters", null, namespace = "bureau")
-                assertThat(acme.address).isEqualTo("acme/letters")
+        runAsApiKey(tenantId) {
+            val acme = catalogTools.createCatalog("letters", "Acme letters", null, namespace = "acme")
+            // The key alone names the one catalog with it, while there is one (ADR 0034, section 9).
+            assertThat(templateTools.listTemplates("letters", null)).isEmpty()
+            catalogTools.createCatalog("letters", "Bureau letters", null, namespace = "bureau")
+            assertThat(acme.address).isEqualTo("acme/letters")
+        }
+        runAsApiKey(tenantId) { templateTools.createTemplate("acme/letters", "invoice", "Acme invoice", null, null, null) }
+        runAsApiKey(tenantId) { templateTools.createTemplate("bureau/letters", "invoice", "Bureau invoice", null, null, null) }
+
+        assertThat(runAsApiKey(tenantId) { templateTools.listTemplates("bureau/letters", null) }.map { it.name }).containsExactly("Bureau invoice")
+        assertThat(runAsApiKey(tenantId) { templateTools.listTemplates("acme/letters", null) }.map { it.name }).containsExactly("Acme invoice")
+        assertThatThrownBy { runAsApiKey(tenantId) { templateTools.listTemplates("letters", null) } }
+            .hasMessage("Two catalogs have the key 'letters': name one as `acme/letters` or `bureau/letters`.")
+    }
+
+    @Test
+    fun `a list across the tenant gives each of two catalogs with one key its own editability`() {
+        val tenantId = newTenant()
+        withMediator {
+            TestNamespaces.grant(tenantId.key, "acme").execute()
+            TestNamespaces.grant(tenantId.key, "bureau").execute()
+            for (namespace in listOf("acme", "bureau")) {
+                CreateCatalog(tenantId.key, CatalogKey.of("letters"), "Letters of $namespace", namespace = namespace).execute()
+                CreateCodeList(
+                    id = CodeListId(CodeListKey.of("regions"), CatalogId(namespace, CatalogKey.of("letters"), tenantId)),
+                    displayName = "Regions of $namespace",
+                    sourceType = CodeListSource.INLINE,
+                    entries = listOf(CodeListEntry("eu", "Europe")),
+                ).execute()
             }
         }
-        CatalogNames.frame { runAsApiKey(tenantId) { templateTools.createTemplate("acme/letters", "invoice", "Acme invoice", null, null, null) } }
-        CatalogNames.frame { runAsApiKey(tenantId) { templateTools.createTemplate("bureau/letters", "invoice", "Bureau invoice", null, null, null) } }
 
-        assertThat(CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("bureau/letters", null) } }.map { it.name }).containsExactly("Bureau invoice")
-        assertThat(CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("acme/letters", null) } }.map { it.name }).containsExactly("Acme invoice")
-        assertThatThrownBy { CatalogNames.frame { runAsApiKey(tenantId) { templateTools.listTemplates("letters", null) } } }
-            .hasMessage("The catalog key letters names several catalogs of this tenant (acme/letters, bureau/letters): name its namespace.")
+        val lists = runAsApiKey(tenantId) { codeListTools.listCodeLists(null) }.filter { it.slug == "regions" }
+        assertThat(lists.map { it.displayName to it.editable }).containsExactlyInAnyOrder("Regions of acme" to true, "Regions of bureau" to true)
     }
 
     @Test

@@ -29,8 +29,6 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
@@ -40,6 +38,7 @@ import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import com.jayway.jsonpath.JsonPath
@@ -108,18 +107,18 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         TestNamespaces.createTenant(tenant, "Content hash tenant").execute()
         CreateEnvironment(EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant)), "Production").execute()
         CreateCatalog(tenant, shared, "Shared").execute()
-        CreateTheme(ThemeId(ThemeKey.of("brand"), CatalogId(shared, TenantId(tenant))), "Brand").execute()
-        CreateCodeList(CodeListId(CodeListKey.of("colours"), CatalogId(shared, TenantId(tenant))), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
-        MarkCatalogReady(tenant, shared).execute()
-        ReleaseCatalogDraft(tenant, shared, "1.0.0").execute()
+        CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), shared)), "Brand").execute()
+        CreateCodeList(CodeListId(CodeListKey.of("colours"), testCatalog(TenantId(tenant), shared)), "Colours", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("red", "Red"))).execute()
+        MarkCatalogReady(testCatalog(tenant, shared)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant, shared), "1.0.0").execute()
 
         CreateCatalog(tenant, letters, "Letters").execute()
-        val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))))
+        val variant = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)))
         CreateDocumentTemplate(variant.templateId, "Invoice").execute().withRequiredDataExample()
         UpdateVariantContent(variant, TestTemplateBuilder.buildMinimal(name = "Invoice")).execute()
         mediator.publishAndRelease(variant)
-        CreateTheme(ThemeId(ThemeKey.of("added"), CatalogId(letters, TenantId(tenant))), "Added").execute()
-        mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))))
+        CreateTheme(ThemeId(ThemeKey.of("added"), testCatalog(TenantId(tenant), letters)), "Added").execute()
+        mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters))))
         Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-it").execute().plaintextKey)
     }
 
@@ -150,7 +149,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         assertThat(malformed.statusCode).`as`("anything but a content hash").isEqualTo(HttpStatus.BAD_REQUEST)
 
         // Two numbers for one content: 1.1.1 re-releases 1.1.0 with new notes only. Paged as found.
-        withMediator { ReleaseCatalogDraft(seeded.tenant, letters, "1.1.1", notes = "Notes only").execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(seeded.tenant, letters), "1.1.1", notes = "Notes only").execute() }
         val firstPage = get("$catalog/releases?contentHash=${hashes[1]}&size=1", seeded)
         assertThat(JsonPath.read<List<String>>(firstPage, "$.items[*].version")).containsExactly("1.1.1")
         assertThat(JsonPath.read<Int>(firstPage, "$.page.total")).isEqualTo(2)
@@ -165,7 +164,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
     fun `releasing over HTTP returns the release with its content hash`() {
         val seeded = seeded()
         val catalog = path(seeded)
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), CatalogId(letters, TenantId(seeded.tenant))), "Third").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third").execute() }
         exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", seeded)
 
         val released = exchange(HttpMethod.POST, "$catalog/releases/next/release", seeded, "{}")
@@ -181,8 +180,8 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
             TestNamespaces.createTenant(tenant, "Content hash receiver").execute()
             // Receiving needs no grant.
-            ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(seeded.tenant, letters, "1.1.0").execute().zipBytes).execute()
-            CreateTheme(ThemeId(ThemeKey.of("ours"), CatalogId(letters, TenantId(tenant))), "Ours").execute()
+            ImportCatalogZip(tenantKey = tenant, zipBytes = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes).execute()
+            CreateTheme(ThemeId(ThemeKey.of("ours"), testCatalog(TenantId(tenant), letters)), "Ours").execute()
             Seeded(tenant, CreateApiKey(tenantId = tenant, name = "cah-receiver").execute().plaintextKey)
         }
         val catalog = path(receiver)
@@ -202,12 +201,9 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val (tenant, apiKey) = withMediator {
             val tenant = TenantKey.of("cah-${UUID.randomUUID().toString().take(8)}")
             app.epistola.suite.tenants.commands.CreateTenant(tenant, "Two letters", listOf(app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "acme"), app.epistola.suite.catalog.namespaces.NamespaceName("gemeente-x.nl", "bureau"))).execute()
-            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             for (namespace in listOf("acme", "bureau")) {
                 CreateCatalog(tenant, letters, "Letters of $namespace", namespace = namespace).execute()
-                app.epistola.suite.catalog.CatalogNames.within(letters, namespace) {
-                    CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice of $namespace").execute()
-                }
+                CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(namespace, letters, TenantId(tenant))), "Invoice of $namespace").execute()
             }
             tenant to CreateApiKey(tenantId = tenant, name = "two-letters").execute().plaintextKey
         }
@@ -225,9 +221,8 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant))
             app.epistola.suite.environments.commands.CreateEnvironment(production, "Production").execute()
             for (namespace in listOf("acme", "bureau")) {
-                app.epistola.suite.catalog.CatalogNames.within(letters, namespace) {
-                    app.epistola.suite.environments.commands.DeployCatalogRelease(production, letters, mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant)))))).execute()
-                }
+                val catalog = CatalogId(namespace, letters, TenantId(tenant))
+                app.epistola.suite.environments.commands.DeployCatalogRelease(production, catalog, mediator.publishAndRelease(app.epistola.suite.common.ids.VariantId(app.epistola.suite.common.ids.VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalog)))).execute()
             }
         }
         val deployments = get("/api/tenants/${tenant.value}/environments/production/deployments", seeded)
@@ -242,7 +237,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val catalog = path(seeded)
         val patch = "1.1.1-municipality.1"
         withMediator {
-            val archive = ExportCatalogZip(seeded.tenant, letters, "1.1.0").execute().zipBytes
+            val archive = ExportCatalogZip(testCatalog(seeded.tenant, letters), "1.1.0").execute().zipBytes
             ImportCatalogZip(tenantKey = seeded.tenant, zipBytes = numbered(archive, patch)).execute()
         }
 
@@ -255,7 +250,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         val deployed = exchange(HttpMethod.PUT, "/api/tenants/${seeded.tenant.value}/environments/production/deployments/~/$namespace/letters/$patch", seeded)
         assertThat(deployed.statusCode).`as`(deployed.body).isEqualTo(HttpStatus.OK)
 
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("fix"), CatalogId(letters, TenantId(seeded.tenant))), "Fix").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(seeded.tenant), letters)), "Fix").execute() }
         exchange(HttpMethod.POST, "$catalog/releases/next/mark-ready", seeded)
         // Above what the change needs (1.2.0), so only its being a patch number refuses it.
         val issued = exchange(HttpMethod.POST, "$catalog/releases/next/release", seeded, """{"version":"1.3.0-municipality.1"}""")
@@ -350,7 +345,7 @@ class ContentAddressedReleasesApiIT : IntegrationTestBase() {
         assertThat(JsonPath.read<Boolean>(changed, "$.dependenciesChanged")).isTrue()
         assertThat(JsonPath.read<Boolean>(changed, "$.releasable")).`as`("a catalog-level change is a change; it needs no ready mark").isTrue()
 
-        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), CatalogId(letters, TenantId(seeded.tenant))), "Third").execute() }
+        withMediator { CreateTheme(ThemeId(ThemeKey.of("third"), testCatalog(TenantId(seeded.tenant), letters)), "Third").execute() }
         val withResource = get("$catalog/releases/next/changes", seeded)
         assertThat(JsonPath.read<List<Boolean>>(withResource, "$.changes[?(@.key == 'third')].mergedForReview")).containsExactly(false)
         assertThat(JsonPath.read<Boolean>(withResource, "$.releasable")).`as`("a resource not marked ready").isFalse()

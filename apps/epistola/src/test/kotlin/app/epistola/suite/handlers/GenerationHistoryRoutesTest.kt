@@ -21,6 +21,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -126,7 +127,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Catalog Links Tenant")
             CreateCatalog(tenantKey = tenant.id, id = billing, name = "Billing").execute()
-            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(billing, TenantId(tenant.id)))
+            val templateId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(tenant.id), billing))
             templateKey = CreateDocumentTemplate(id = templateId, name = "Billing Invoice").execute().id
             val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
             val variant = CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()).execute()!!
@@ -134,8 +135,7 @@ class GenerationHistoryRoutesTest : BaseIntegrationTest() {
             // Generation renders billing's latest release.
             mediator.publishAndRelease(variantId)
             GenerateDocument(
-                tenantId = tenant.id,
-                catalogKey = billing,
+                catalog = testCatalog(tenant.id, billing),
                 templateId = templateKey,
                 variantId = variant.id,
                 data = JsonNodeFactory.instance.objectNode(),

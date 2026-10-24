@@ -6,11 +6,13 @@ package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.CatalogInUseException
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.queries.FindCatalogCrossReferences
 import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.revisions.ResourceRevisionStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -21,11 +23,12 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 data class DeleteCatalog(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val force: Boolean = false,
 ) : Command<Boolean>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
@@ -43,7 +46,7 @@ class DeleteCatalogHandler(
         }
 
         if (!command.force) {
-            val references = FindCatalogCrossReferences(command.tenantKey, command.catalogKey).query()
+            val references = FindCatalogCrossReferences(command.catalog).query()
             if (references.isNotEmpty()) {
                 throw CatalogInUseException(command.catalogKey, references)
             }
@@ -52,7 +55,7 @@ class DeleteCatalogHandler(
         return jdbi.withHandle<Boolean, Exception> { handle ->
             // Its releases go with it, so none of them may still be served or depended on. Not
             // bypassed by force: force overrides references from authoring content, not rendering.
-            ReleaseInUse.requireCatalogUnused(handle, command.tenantKey, command.catalogKey)
+            ReleaseInUse.requireCatalogUnused(handle, command.catalog)
             // Declarations in other catalogs' drafts that build on one of its drafts go with those
             // drafts: such a draft names the catalog's content, so forcing past it drops them.
             handle.createUpdate(
@@ -63,16 +66,16 @@ class DeleteCatalogHandler(
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("id", command.catalogKey)
+                .bindCatalog("id", command.catalog)
                 .execute()
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM catalogs
-                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :id)
+                WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :id_ns, :id)
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
-                .bind("id", command.catalogKey)
+                .bindCatalog("id", command.catalog)
                 .execute()
 
             // The catalog's releases cascade away with it, and their entries with them -- which

@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -50,7 +51,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         val catalogKey = CatalogKey.of(slug)
         withMediator {
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Rel $slug").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("tha"), CatalogId(catalogKey, tenantId)), name = "Th").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("tha"), testCatalog(tenantId, catalogKey)), name = "Th").execute()
         }
     }
 
@@ -60,7 +61,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         given {
             testTenant = tenant("Release Handler Tenant")
             seedAuthoredCatalog(testTenant, "rel-cat")
-            withMediator { MarkCatalogReady(testTenant.id, CatalogKey.of("rel-cat")).execute() }
+            withMediator { MarkCatalogReady(testCatalog(testTenant.id, CatalogKey.of("rel-cat"))).execute() }
         }
 
         whenever {
@@ -77,7 +78,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("rel-cat")).query() }
+            val catalog = withMediator { GetCatalog(testCatalog(testTenant.id, CatalogKey.of("rel-cat"))).query() }
             assertThat(catalog!!.releasedVersion).isEqualTo("1.0.0")
         }
     }
@@ -106,7 +107,7 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
             assertThat(response.headers.getFirst("HX-Reswap")).`as`("a refusal names its swap, so HTMX shows it").isEqualTo("innerHTML")
             assertThat(response.body).contains("release-dialog")
             assertThat(response.body).containsIgnoringCase("SemVer")
-            val catalog = withMediator { GetCatalog(testTenant.id, CatalogKey.of("bad-cat")).query() }
+            val catalog = withMediator { GetCatalog(testCatalog(testTenant.id, CatalogKey.of("bad-cat"))).query() }
             assertThat(catalog!!.releasedVersion).isNull()
         }
     }
@@ -117,10 +118,10 @@ class CatalogReleaseHandlerTest : BaseIntegrationTest() {
         given {
             testTenant = tenant("Release Dialog Tenant")
             seedAuthoredCatalog(testTenant, "diff-cat")
-            val catalogId = CatalogId(CatalogKey.of("diff-cat"), TenantId(testTenant.id))
+            val catalogId = testCatalog(TenantId(testTenant.id), CatalogKey.of("diff-cat"))
             withMediator {
-                MarkCatalogReady(testTenant.id, catalogId.key).execute()
-                ReleaseCatalogDraft(testTenant.id, catalogId.key, version = "1.0.0").execute()
+                MarkCatalogReady(testCatalog(testTenant.id, catalogId.key)).execute()
+                ReleaseCatalogDraft(testCatalog(testTenant.id, catalogId.key), version = "1.0.0").execute()
                 UpdateTheme(id = ThemeId(ThemeKey.of("tha"), catalogId), name = "Th edited").execute()
                 CreateTheme(id = ThemeId(ThemeKey.of("thb"), catalogId), name = "Th B").execute()
             }

@@ -140,8 +140,7 @@ class EnsureSystemFontsHandler(
         jdbi.inTransaction<Unit, Exception> { handle ->
             fontCatalogWriter.writeFonts(
                 handle = handle,
-                tenantId = tenantId,
-                catalogKey = SYSTEM_CATALOG_KEY,
+                catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key),
                 fonts = fonts,
             )
         }

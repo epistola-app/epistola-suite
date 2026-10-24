@@ -5,9 +5,11 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -51,8 +53,7 @@ import kotlin.math.abs
  * so the renderer's parsed-font cache need not hash the bytes again.
  */
 data class ResolveFontFace(
-    val tenantId: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
@@ -61,6 +62,8 @@ data class ResolveFontFace(
 ) : CatalogReleaseScoped,
     Query<ResolvedFontFace?>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
@@ -124,7 +127,7 @@ class ResolveFontFaceHandler(
 
     override fun handle(query: ResolveFontFace): ResolvedFontFace? {
         val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
-            handle.loadFaces(query.tenantId, query.catalogKey, query.slug)
+            handle.loadFaces(query.catalog, query.slug)
         }
 
         val best = pickBestFace(rows, query.weight, query.italic) ?: return null
@@ -135,7 +138,7 @@ class ResolveFontFaceHandler(
             }
 
             FontVariantSource.ASSET -> best.assetKey?.let { assetKey ->
-                GetAssetContent(query.tenantId, assetKey).query()?.content
+                GetAssetContent(query.tenantId, assetId = assetKey).query()?.content
             }
         }
         // Bytes are the same wherever a hash is; a face not yet hashed is read each time.
@@ -144,15 +147,15 @@ class ResolveFontFaceHandler(
     }
 }
 
-private fun Handle.loadFaces(tenantId: TenantKey, catalogKey: CatalogKey, slug: FontKey): List<FaceRow> = createQuery(
+private fun Handle.loadFaces(catalog: CatalogId, slug: FontKey): List<FaceRow> = createQuery(
     """
     SELECT faces.weight, faces.italic, faces.source,
            binary_asset.id AS asset_key, faces.classpath_location, faces.content_hash
     $FACES_OF_FAMILY_AT_ADDRESS
     """,
 )
-    .bind("tenantKey", tenantId)
-    .bind("catalogKey", catalogKey)
+    .bind("tenantKey", catalog.tenantKey)
+    .bindCatalog("catalogKey", catalog)
     .bind("slug", slug)
     .map { rs, _ ->
         FaceRow(

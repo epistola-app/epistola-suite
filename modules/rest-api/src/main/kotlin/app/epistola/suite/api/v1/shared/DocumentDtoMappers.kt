@@ -137,8 +137,7 @@ internal fun GenerateDocumentRequest.toCommand(
     }
     val catalog = catalogAt(registry, namespace, catalogKey)
     return app.epistola.suite.documents.commands.GenerateDocument(
-        tenantId = TenantKey.of(tenantKey),
-        catalogKey = catalog.id,
+        catalog = catalog.catalogId,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
@@ -159,7 +158,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     }
     val catalog = catalogAt(registry, namespace, catalogKey)
     return app.epistola.suite.documents.commands.BatchGenerationItem(
-        catalogKey = catalog.id,
+        catalog = catalog.catalogId,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
@@ -225,8 +224,7 @@ internal fun PreviewDocumentRequest.toQuery(
     val catalog = catalogAt(registry, namespace, catalogKey)
     draft?.let { requireDraft(catalog, it) }
     return PreviewDocument(
-        tenantId = TenantKey.of(tenantKey),
-        catalogKey = catalog.id,
+        catalog = catalog.catalogId,
         templateId = TemplateKey.of(templateKey),
         variantId = variantKey?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(catalog),
@@ -235,6 +233,6 @@ internal fun PreviewDocumentRequest.toQuery(
         workingCopy = draft != null,
         environmentId = environmentKey?.let { EnvironmentKey.of(it) },
         // The draft it names: the next version, or parallel work by its id.
-        catalogVersion = draft?.let { CatalogReleaseRef(catalog.tenantKey, catalog.id, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
+        catalogVersion = draft?.let { CatalogReleaseRef(catalog.catalogId, requireNotNull(DraftRef.parse(it)) { "Not a draft: '$it'" }) },
     )
 }

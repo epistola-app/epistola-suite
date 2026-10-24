@@ -16,6 +16,8 @@ import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -70,13 +72,12 @@ class JobPollerDatabasePressureIntegrationTest : IntegrationTestBase() {
 
             fun request(filename: String) = execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = template.id,
                     variantId = variant.id,
                     environmentId = null,
                     data = objectMapper.createObjectNode(),
                     filename = filename,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
 

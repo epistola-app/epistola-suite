@@ -57,13 +57,13 @@ class OnResourceRelocatedRepointFindings(
 
         jdbi.useHandle<Exception> { handle ->
             for (relocation in templates) {
-                // Segments are tenant/catalog/template. The address must end the URN or be followed
+                // Segments are tenant/namespace/catalog/template. The address must end the URN or be followed
                 // by '/': as a bare prefix, `letters/invoice` would also match `letters/invoice-v2`.
                 repoint(
                     handle,
                     event.tenantKey,
-                    old = "${event.tenantKey.value}/${relocation.source.catalogKey}/${relocation.source.key}",
-                    new = "${event.tenantKey.value}/${relocation.target.catalogKey}/${relocation.target.key}",
+                    old = "${event.tenantKey.value}/${relocation.source.catalogAddress}/${relocation.source.key}",
+                    new = "${event.tenantKey.value}/${relocation.target.catalogAddress}/${relocation.target.key}",
                 )
             }
         }
@@ -103,6 +103,6 @@ class OnResourceRelocatedRepointFindings(
     }
 
     private companion object {
-        val ADDRESS = Regex("^[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+$")
+        val ADDRESS = Regex("^[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+/[a-z0-9-]+$")
     }
 }

@@ -134,7 +134,10 @@ class LoadTestPoller(
                       (SELECT cat.catalog_key FROM document_templates t
                         JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
                         WHERE t.tenant_key = load_test_runs.tenant_key
-                          AND t.resource_id = load_test_runs.template_resource_id AND ${inCurrentVersion("t")}) AS catalog_key,
+                          AND t.resource_id = load_test_runs.template_resource_id AND ${inCurrentVersion("t")}) AS catalog_key, (SELECT cat.namespace FROM document_templates t
+                        JOIN catalogs cat ON cat.tenant_key = t.tenant_key AND cat.catalog_id = t.catalog_id
+                        WHERE t.tenant_key = load_test_runs.tenant_key
+                          AND t.resource_id = load_test_runs.template_resource_id AND ${inCurrentVersion("t")}) AS namespace,
                       (SELECT t.id FROM document_templates t
                         WHERE t.tenant_key = load_test_runs.tenant_key
                           AND t.resource_id = load_test_runs.template_resource_id AND ${inCurrentVersion("t")}) AS template_key,

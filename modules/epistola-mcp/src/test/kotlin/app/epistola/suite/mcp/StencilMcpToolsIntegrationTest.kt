@@ -18,6 +18,7 @@ import app.epistola.suite.security.TenantRole
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

@@ -24,7 +24,7 @@ import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.decodeBase64Argument
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mcp.support.parseArgument
 import app.epistola.suite.mediator.Mediator
@@ -72,18 +72,18 @@ class FontMcpTools(
         catalogVersion: String? = null,
     ): List<FontInfo> {
         val tenantId = TenantId(mcpTenantKey())
-        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalogKey(it) }
+        val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
         val version = catalogVersionRef(catalogId, catalogVersion)
         val editability = catalogEditability()
-        return mediator.query(ListFonts(tenantId = tenantId, catalogKey = filter, catalogVersion = version))
+        return mediator.query(ListFonts(tenantId = tenantId, catalog = filter, catalogVersion = version))
             .map { font ->
                 val variants = mediator.query(
                     GetFontVariants(
-                        fontId = FontId(font.slug, CatalogId(font.catalogKey, tenantId)),
+                        fontId = FontId(font.slug, font.catalogId),
                         catalogVersion = version,
                     ),
                 ).map { FontVariantInfo(it.weight, it.italic) }
-                FontInfo.from(font, variants, editability.editable(font.catalogKey))
+                FontInfo.from(font, variants, editability.editable(font.catalogId))
             }
     }
 
@@ -114,7 +114,7 @@ class FontMcpTools(
         catalogVersion: String? = null,
     ): FontInfo {
         val tenantId = TenantId(mcpTenantKey())
-        val catalogKey = mcpCatalogKey(catalogId)
+        val catalog = mcpCatalog(catalogId)
         val slug = FontKey.of(fontId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         val fontKind = try {
@@ -126,30 +126,28 @@ class FontMcpTools(
         val parsed = parseFaces(objectMapper.parseArgument("faces", faces, ArrayNode::class.java))
         val variants = parsed.map { face ->
             val asset = UploadAsset(
-                tenantId = tenantId.key,
+                catalog = catalog,
                 name = "${slug.value}-${face.weight}${if (face.italic) "-italic" else ""}.${face.extension}",
                 mediaType = face.mediaType,
                 content = face.bytes,
                 width = null,
                 height = null,
-                catalogKey = catalogKey,
                 catalogVersion = version,
             ).execute()
             ImportFontVariant(weight = face.weight, italic = face.italic, source = FontVariantSource.ASSET, assetKey = asset.id)
         }
         ImportFont(
-            tenantId = tenantId,
-            catalogKey = catalogKey,
+            catalog = catalog,
             slug = slug.value,
             name = name,
             kind = fontKind.wire,
             variants = variants,
             catalogVersion = version,
         ).execute()
-        val font = ListFonts(tenantId = tenantId, catalogKey = catalogKey, catalogVersion = version).query().first { it.slug == slug }
-        val stored = GetFontVariants(fontId = FontId(slug, CatalogId(catalogKey, tenantId)), catalogVersion = version).query()
+        val font = ListFonts(tenantId = tenantId, catalog = catalog, catalogVersion = version).query().first { it.slug == slug }
+        val stored = GetFontVariants(fontId = FontId(slug, catalog), catalogVersion = version).query()
             .map { FontVariantInfo(it.weight, it.italic) }
-        return FontInfo.from(font, stored, catalogEditability().editable(catalogKey))
+        return FontInfo.from(font, stored, catalogEditability().editable(catalog))
     }
 
     private class Face(val weight: Int, val italic: Boolean, val bytes: ByteArray, val mediaType: AssetMediaType) {

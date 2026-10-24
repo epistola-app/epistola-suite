@@ -4,6 +4,7 @@
 
 package app.epistola.suite.documents
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -64,7 +65,9 @@ class NoPublishedVersionException(
 class CatalogNotReleasedException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
-) : RuntimeException("Catalog '${catalogKey.value}' has no release to generate from. Release the catalog first.")
+) : RuntimeException("Catalog '${catalogKey.value}' has no release to generate from. Release the catalog first.") {
+    constructor(catalog: CatalogId) : this(catalog.tenantKey, catalog.key)
+}
 
 /**
  * The release being generated from does not contain the requested template or variant; or, with
@@ -80,14 +83,18 @@ class TemplateNotInReleaseException(
 ) : RuntimeException(
     (if (draftLabel != null) "'$draftLabel' of ${catalogKey.value}" else "Release ${catalogKey.value}@$releaseVersion") +
         if (variantId == null) " does not contain template '${templateId.value}'" else " has no variant '${variantId.value}' of template '${templateId.value}'",
-)
+) {
+    constructor(catalog: CatalogId, releaseVersion: String, templateId: TemplateKey, variantId: VariantKey?, draftLabel: String? = null) : this(catalog.tenantKey, catalog.key, releaseVersion, templateId, variantId, draftLabel)
+}
 
 /** A request names a release of the template's catalog that does not exist. */
 class ReleaseNotFoundException(
     val tenantKey: TenantKey,
     val catalogKey: CatalogKey,
     val releaseVersion: String,
-) : RuntimeException("Catalog '${catalogKey.value}' has no release $releaseVersion that can be rendered.")
+) : RuntimeException("Catalog '${catalogKey.value}' has no release $releaseVersion that can be rendered.") {
+    constructor(catalog: CatalogId, releaseVersion: String) : this(catalog.tenantKey, catalog.key, releaseVersion)
+}
 
 /**
  * A request names an environment that serves no release of the template's catalog, or, with

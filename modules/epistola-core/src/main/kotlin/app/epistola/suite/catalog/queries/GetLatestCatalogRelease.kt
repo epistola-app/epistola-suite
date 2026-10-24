@@ -6,7 +6,9 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -25,10 +27,11 @@ import org.springframework.stereotype.Component
  * [GetCatalogReleaseStatus] delegates here and adds the working-copy compare.
  */
 data class GetLatestCatalogRelease(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<LatestCatalogRelease>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -86,7 +89,7 @@ class GetLatestCatalogReleaseHandler(
                 """,
             )
                 .bind("t", query.tenantKey)
-                .bind("c", query.catalogKey)
+                .bindCatalog("c", query.catalog)
                 .map { rs, _ -> Row(version = rs.getString("version"), fingerprint = rs.getString("fingerprint")) }
                 .findOne()
                 .orElse(null)

@@ -7,6 +7,7 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.attributes.AttributeReferences
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.inCurrentVersion
@@ -81,12 +82,12 @@ class UpdateAttributeDefinitionHandler(
     override fun handle(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        if (saved != null) usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, command.codeListId?.catalogId?.key)
+        if (saved != null) usedCatalogs.declare(command.id.catalogId, command.codeListId?.catalogId)
         return saved
     }
 
     private fun save(command: UpdateAttributeDefinition): VariantAttributeDefinition? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
             // If allowed values are being narrowed, check for existing variants using removed values
             if (command.allowedValues.isNotEmpty()) {
@@ -98,7 +99,7 @@ class UpdateAttributeDefinitionHandler(
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .mapTo(String::class.java)
                     .findOne()
                     .orElse(null) ?: return@withHandle null
@@ -150,11 +151,19 @@ class UpdateAttributeDefinitionHandler(
                           (SELECT cat.catalog_key FROM catalogs cat
                             WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
                               AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
+                          (SELECT cat.namespace FROM catalogs cat
+                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS namespace,
                           (SELECT cl_cat.catalog_key FROM code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
                               AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
                               AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
+                          (SELECT cl_cat.namespace FROM code_lists cl
+                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
+                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
+                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_namespace,
                           (SELECT slug FROM code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
                               AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
@@ -163,17 +172,17 @@ class UpdateAttributeDefinitionHandler(
             )
                 .bind("id", command.id.key)
                 .bind("tenantId", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
-                .bind("codeListCatalogKey", command.codeListId?.catalogKey)
+                .bindCatalog("codeListCatalogKey", command.codeListId?.catalogId)
                 .bind("codeListSlug", command.codeListId?.key)
                 .bind("expectedRevision", command.expectedRevision)
                 .mapTo<VariantAttributeDefinition>()
                 .findOne()
                 .orElse(null)
                 ?: run {
-                    Revisions.refuse("Attribute '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("variant_attribute_definitions", "id", command.id.tenantKey, command.id.catalogKey, command.id.key))
+                    Revisions.refuse("Attribute '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("variant_attribute_definitions", "id", command.id.catalogId, command.id.key))
                     null
                 }
         }

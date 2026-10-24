@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.registry
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -45,8 +46,8 @@ private class ContainerReleaseRegistry(override val summary: ReleaseRegistrySumm
         ReleaseRegistryInstall(name, installed.imported, installed.aborted)
     }
 
-    override fun publish(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): ReleaseRegistryPublication = refusals {
-        val published = PublishReleaseToRegistry(tenantKey, catalogKey, version, name).execute()
+    override fun publish(catalog: CatalogId, version: String): ReleaseRegistryPublication = refusals {
+        val published = PublishReleaseToRegistry(catalog, version, name).execute()
         ReleaseRegistryPublication(
             registry = name,
             kind = ReleaseRegistryKind.CONTAINER,

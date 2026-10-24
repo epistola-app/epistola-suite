@@ -11,11 +11,10 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.features.KnownFeatures
-import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -51,11 +50,10 @@ class CatalogAddressHtmxTest : BaseIntegrationTest() {
         withMediator {
             TestNamespaces.grant(tenant, "acme").execute()
             TestNamespaces.grant(tenant, "bureau").execute()
-            SaveFeatureToggle(tenant, KnownFeatures.SHARED_CATALOG_KEYS, true).execute()
             CreateCatalog(tenant, letters, "Acme letters", namespace = "acme").execute()
             CreateCatalog(tenant, letters, "Bureau letters", namespace = "bureau").execute()
-            CatalogNames.within(letters, "acme") { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Acme invoice").execute() }
-            CatalogNames.within(letters, "bureau") { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Bureau invoice").execute() }
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("acme", letters, TenantId(tenant))), "Acme invoice").execute()
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId("bureau", letters, TenantId(tenant))), "Bureau invoice").execute()
         }
 
         val list = get("/tenants/${tenant.value}/catalogs").body!!
@@ -80,9 +78,10 @@ class CatalogAddressHtmxTest : BaseIntegrationTest() {
         withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
         val namespace = TestNamespaces.of(tenant).namespace
 
+        // A page by key alone redirects to the catalog's address (ADR 0034, section 9).
         val opened = get("/tenants/${tenant.value}/catalogs/letters/browse")
         assertThat(opened.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(opened.body!!).contains("/tenants/${tenant.value}/catalogs/letters/")
+        assertThat(opened.body!!).contains("/tenants/${tenant.value}/catalogs/$namespace/letters/")
 
         val named = get("/tenants/${tenant.value}/catalogs/$namespace/letters/browse")
         assertThat(named.statusCode).isEqualTo(HttpStatus.OK)

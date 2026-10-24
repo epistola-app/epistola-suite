@@ -55,6 +55,7 @@ data class RunQualityChecks(
 @Component
 class RunQualityChecksHandler(
     private val registry: QualitySourceRegistry,
+    private val references: app.epistola.suite.catalog.CatalogReferences,
 ) : CommandHandler<RunQualityChecks, Map<QualitySourceId, SubmitFindingsResult>> {
     override fun handle(command: RunQualityChecks): Map<QualitySourceId, SubmitFindingsResult> {
         val subject = QualitySubject.of(command.variantId)
@@ -139,11 +140,11 @@ class RunQualityChecksHandler(
         templateModel: app.epistola.suite.templates.model.TemplateDocument,
     ): Map<FontRef, Boolean> = DependencyScanner.documentFontRefs(templateModel).associateWith { ref ->
         val slug = FontKey.validateOrNull(ref.key) ?: return@associateWith false
-        val catalog = ref.catalogKey?.let { CatalogKey.validateOrNull(it) ?: return@associateWith false }
-            ?: subject.catalogKey
+        // The catalog the ref's alias names from the template's (ADR 0034, section 9); unresolved, none.
+        if (ref.catalogKey != null && CatalogKey.validateOrNull(ref.catalogKey!!) == null) return@associateWith false
+        val catalog = references.resolve(subject.catalogId, ref.catalogKey) ?: return@associateWith false
         ResolveFontFace(
-            tenantId = subject.tenantKey,
-            catalogKey = catalog,
+            catalog = catalog,
             slug = slug,
             weight = NEUTRAL_WEIGHT,
             italic = false,
@@ -155,15 +156,14 @@ class RunQualityChecksHandler(
      * catalog's default (contract ADR 0007); an empty set, named by no theme, when none applies.
      */
     private fun themePresets(subject: QualitySubject, context: app.epistola.suite.templates.queries.EditorContext): ThemePresets {
-        val catalogTheme = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(subject.tenantKey, subject.catalogKey).query().defaultTheme
+        val catalogTheme = app.epistola.suite.catalog.releases.GetCatalogThemeSettings(subject.catalogId).query().defaultTheme
         val theme = app.epistola.suite.themes.queries.ResolveTemplateTheme(
-            tenantKey = subject.tenantKey,
+            catalog = subject.catalogId,
             templateDefaultThemeId = context.templateThemeKey,
             catalogDefaultThemeId = catalogTheme?.themeKey,
             templateModel = context.templateModel,
-            templateCatalogKey = context.templateThemeCatalogKey,
-            catalogDefaultThemeCatalogKey = catalogTheme?.catalogKey,
-            catalogKey = subject.catalogKey,
+            templateThemeCatalog = context.templateThemeCatalog,
+            catalogDefaultThemeCatalog = catalogTheme?.catalog,
         ).query()
         return ThemePresets(themeName = theme?.name, styled = theme?.blockStylePresets?.keys.orEmpty())
     }

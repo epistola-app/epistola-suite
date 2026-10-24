@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.statement.StatementContext
@@ -23,17 +24,17 @@ class CatalogUpstreamCheckStore(
     private val jdbi: Jdbi,
 ) {
     /** Every recorded check for a tenant, by catalog (namespace and key, ADR 0034), for rendering a whole list at once. */
-    fun statesFor(tenantKey: TenantKey): Map<CatalogAddress, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogAddress, CatalogUpstreamCheck>, Exception> { handle ->
+    fun statesFor(tenantKey: TenantKey): Map<CatalogId, CatalogUpstreamCheck> = jdbi.withHandle<Map<CatalogId, CatalogUpstreamCheck>, Exception> { handle ->
         handle.createQuery("$SELECT_CHECK WHERE u.tenant_key = :t")
             .bind("t", tenantKey)
-            .map { rs, ctx -> CatalogAddress(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key"))) to map(rs, ctx) }
+            .map { rs, ctx -> CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), app.epistola.suite.common.ids.TenantId(tenantKey)) to map(rs, ctx) }
             .list()
             .toMap()
     }
 
-    fun stateFor(tenantKey: TenantKey, catalogKey: CatalogKey): CatalogUpstreamCheck? = jdbi.withHandle<CatalogUpstreamCheck?, Exception> { handle ->
+    fun stateFor(catalog: CatalogId): CatalogUpstreamCheck? = jdbi.withHandle<CatalogUpstreamCheck?, Exception> { handle ->
         handle.createQuery("$SELECT_CHECK WHERE u.tenant_key = :t AND u.catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", tenantKey).bind("c", catalogKey)
+            .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
             .map(::map).findOne().orElse(null)
     }
 
@@ -62,7 +63,7 @@ class CatalogUpstreamCheckStore(
      * fingerprint, which is a different thing computed a different way. Null for sources that do
      * not serve an archive.
      */
-    fun recordInstalled(tenantKey: TenantKey, catalogKey: CatalogKey, version: String, archiveSha256: String?) {
+    fun recordInstalled(catalog: CatalogId, version: String, archiveSha256: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -85,7 +86,7 @@ class CatalogUpstreamCheckStore(
                     updated_at = NOW()
                 """,
             )
-                .bind("t", tenantKey).bind("c", catalogKey)
+                .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .bind("version", version).bind("sha", archiveSha256)
                 .bind("interval", DEFAULT_INTERVAL_SECONDS)
                 .execute()
@@ -100,7 +101,7 @@ class CatalogUpstreamCheckStore(
      * the point, and resetting them because somebody pressed a button would lose exactly what the
      * button is meant to refresh.
      */
-    fun ensureTracked(tenantKey: TenantKey, catalogKey: CatalogKey) {
+    fun ensureTracked(catalog: CatalogId) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -108,7 +109,7 @@ class CatalogUpstreamCheckStore(
                 VALUES (:t, ${catalogAt("t", "c")})
                 ON CONFLICT (tenant_key, catalog_id) DO NOTHING
                 """,
-            ).bind("t", tenantKey).bind("c", catalogKey).execute()
+            ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).execute()
         }
     }
 
@@ -140,7 +141,7 @@ class CatalogUpstreamCheckStore(
         rows.forEach { catalog ->
             handle.createUpdate(
                 "UPDATE catalog_upstream_checks SET claimed_at = NOW() WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
-            ).bind("t", catalog.tenantKey).bind("c", catalog.id).execute()
+            ).bind("t", catalog.tenantKey).bindCatalog("c", catalog.catalogId).execute()
         }
         rows
     }
@@ -152,8 +153,7 @@ class CatalogUpstreamCheckStore(
      * another describes a state that never happened.
      */
     fun recordSuccess(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         state: CatalogUpstreamState,
         interval: Duration,
     ) {
@@ -177,7 +177,7 @@ class CatalogUpstreamCheckStore(
                 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 """,
             )
-                .bind("t", tenantKey).bind("c", catalogKey)
+                .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .bind("version", state.availableVersion)
                 .bind("schemaVersion", state.availableSchemaVersion)
                 .bind("publishedAt", state.availablePublishedAt)
@@ -195,8 +195,7 @@ class CatalogUpstreamCheckStore(
      * check keeps retrying on a long backoff and says so on the catalog instead.
      */
     fun recordFailure(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         failure: CatalogUpstreamCheckFailure,
         detail: String?,
         interval: Duration,
@@ -218,7 +217,7 @@ class CatalogUpstreamCheckStore(
                 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
                 """,
             )
-                .bind("t", tenantKey).bind("c", catalogKey)
+                .bind("t", catalog.tenantKey).bindCatalog("c", catalog)
                 .bind("code", failure.name).bind("detail", detail?.take(MAX_DETAIL))
                 .bind("interval", interval.toSeconds())
                 .execute()

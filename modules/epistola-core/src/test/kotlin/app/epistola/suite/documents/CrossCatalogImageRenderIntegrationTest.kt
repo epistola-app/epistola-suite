@@ -23,6 +23,8 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -59,13 +61,12 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
         val assetCatalogKey = CatalogKey.of("xcat-image-store")
         CreateCatalog(tenantKey = tenant.id, id = assetCatalogKey, name = "Cross-Catalog Image Store").execute()
         val asset = UploadAsset(
-            tenantId = tenant.id,
+            catalog = testCatalog(tenant.id, assetCatalogKey),
             name = "shared-badge.png",
             mediaType = AssetMediaType.PNG,
             content = testPngBytes,
             width = 1,
             height = 1,
-            catalogKey = assetCatalogKey,
         ).execute()
 
         // The template lives in the tenant's DEFAULT catalog and embeds that
@@ -136,8 +137,7 @@ class CrossCatalogImageRenderIntegrationTest : IntegrationTestBase() {
         ).execute()
 
         return PreviewVariant(
-            tenantId = tenantKey,
-            catalogKey = CatalogKey.DEFAULT,
+            catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
             templateId = templateKey,
             variantId = VariantKey.INITIAL,
             data = objectMapper.createObjectNode(),

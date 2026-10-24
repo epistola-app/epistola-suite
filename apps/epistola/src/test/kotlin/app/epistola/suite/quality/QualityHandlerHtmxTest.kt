@@ -22,6 +22,7 @@ import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -323,7 +324,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
 
         val response = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
 
-        val editorHref = "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
+        val editorHref = "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogId.address}/templates" +
             "/${subject.templateKey.value}/variants/${subject.variantKey}/editor"
         assertThat(response.body!!).contains(editorHref)
     }
@@ -366,7 +367,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("\"id\": \"quality\"")
         assertThat(body).contains("\"factoryExport\": \"createQualityEditorPlugin\"")
         assertThat(body).contains(
-            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/templates" +
+            "/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogId.address}/templates" +
                 "/${subject.templateKey.value}/variants/${subject.variantKey}/quality",
         )
     }
@@ -394,7 +395,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject, finding(message = "In the default catalog"))
 
         val matching = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.catalogKey.value}/quality", String::class.java)
-        val other = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/some-other-catalog/quality", String::class.java)
+        val other = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.tenantKey.value}/some-other-catalog/quality", String::class.java)
 
         assertThat(matching.body!!).contains("In the default catalog").doesNotContain("quality-filter-catalog")
         assertThat(other.body!!).doesNotContain("In the default catalog")
@@ -407,7 +408,7 @@ class QualityHandlerHtmxTest : BaseIntegrationTest() {
         submit(subject, finding())
         val key = onlyFinding(subject).key
 
-        val elsewhere = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/some-other-catalog/quality/${key.value}", String::class.java)
+        val elsewhere = restTemplate.getForEntity("/tenants/${subject.tenantKey.value}/catalogs/${subject.tenantKey.value}/some-other-catalog/quality/${key.value}", String::class.java)
 
         assertThat(elsewhere.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
     }

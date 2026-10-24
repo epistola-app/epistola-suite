@@ -50,6 +50,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -70,7 +71,7 @@ class ContentRevisionsTest : IntegrationTestBase() {
     private fun catalog(name: String): CatalogId {
         val tenant = createTenant(name).id
         withMediator { CreateCatalog(tenant, letters, "Letters").execute() }
-        return CatalogId(letters, TenantId(tenant))
+        return testCatalog(TenantId(tenant), letters)
     }
 
     private fun document(text: String): TemplateDocument = stencilDocument {
@@ -178,8 +179,8 @@ class ContentRevisionsTest : IntegrationTestBase() {
         val variant = template(catalog)
         withMediator {
             val atNext = UpdateVariantContent(variant, document("next")).execute().revision
-            val draft = CreateCatalogDraft(catalog.tenantKey, catalog.key, "Redesign", from = DraftRef.NEXT).execute()
-            val inDraft = CatalogReleaseRef(catalog.tenantKey, catalog.key, DraftRef.Id(draft.versionId))
+            val draft = CreateCatalogDraft(testCatalog(catalog.tenantKey, catalog.key), "Redesign", from = DraftRef.NEXT).execute()
+            val inDraft = CatalogReleaseRef(testCatalog(catalog.tenantKey, catalog.key), DraftRef.Id(draft.versionId))
 
             assertThat(GetVariant(variant, catalogVersion = inDraft).query()!!.revision).`as`("a copy keeps the revision").isEqualTo(atNext)
             UpdateVariantContent(variant, document("redesign"), catalogVersion = inDraft, expectedRevision = atNext).execute()

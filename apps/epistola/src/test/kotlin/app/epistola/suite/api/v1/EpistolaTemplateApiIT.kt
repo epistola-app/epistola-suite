@@ -29,6 +29,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.default
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -106,7 +107,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
-            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
+            val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
             val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
             MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
         }
@@ -131,7 +132,7 @@ class EpistolaTemplateApiIT : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey, CatalogKey.of("shared"), "Shared").execute()
             CreateDocumentTemplate(TemplateId(TemplateKey.of(slug), CatalogId.default(TenantId(tenantKey))), "Moved").execute()
-            val relocation = ResourceAddress(CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
+            val relocation = app.epistola.suite.testing.testAddress(tenantKey, CatalogResourceType.TEMPLATE, CatalogKey.DEFAULT.value, slug).movedTo(CatalogKey.of("shared"))
             val preview = PreviewCatalogResourceMove(tenantKey, listOf(relocation)).query()
             MoveCatalogResources(tenantKey, listOf(relocation), preview.planFingerprint).execute()
         }

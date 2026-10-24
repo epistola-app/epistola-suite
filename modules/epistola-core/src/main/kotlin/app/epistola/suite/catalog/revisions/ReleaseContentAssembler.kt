@@ -12,8 +12,10 @@ import app.epistola.catalog.protocol.ReleaseInfo
 import app.epistola.catalog.protocol.ResourceDetail
 import app.epistola.suite.catalog.CATALOG_SCHEMA_VERSION
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -65,26 +67,26 @@ class ReleaseContentAssembler(
      * carry them still holds them, and they are dropped here, so it is read, rendered, merged and
      * sent as content is now. Its content hash (V6) is over the content so read.
      */
-    fun assemble(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
-        assemble(handle, tenantKey, catalogKey, version)
+    fun assemble(catalog: CatalogId, version: String): RetainedRelease? = jdbi.withHandle<RetainedRelease?, Exception> { handle ->
+        assemble(handle, catalog, version)
     }
 
     /**
      * [assemble] on [handle], for a caller that already holds one: taking a second connection while
      * holding the first can drain the pool when many such callers run at once.
      */
-    fun assemble(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? {
-        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return null
-        val entries = releaseEntryStore.entriesOf(handle, tenantKey, catalogKey, version)
+    fun assemble(handle: Handle, catalog: CatalogId, version: String): RetainedRelease? {
+        if (!releaseEntryStore.versions(handle, catalog).contains(version)) return null
+        val entries = releaseEntryStore.entriesOf(handle, catalog, version)
 
-        val snapshot = loadManifestSnapshot(handle, tenantKey, catalogKey, version)
-        val payloads = loadPayloads(handle, tenantKey, entries.map { it.revisionDigest })
+        val snapshot = loadManifestSnapshot(handle, catalog, version)
+        val payloads = loadPayloads(handle, catalog.tenantKey, entries.map { it.revisionDigest })
 
         val details = entries.associate { entry ->
             val payload = requireNotNull(payloads[entry.revisionDigest]) {
-                "Release $version of ${catalogKey.value} names revision ${entry.revisionDigest}, which is not stored"
+                "Release $version of ${catalog.key.value} names revision ${entry.revisionDigest}, which is not stored"
             }
-            entry.contentKey to detailOf(handle, tenantKey, payload)
+            entry.contentKey to detailOf(handle, catalog.tenantKey, payload)
         }
 
         return RetainedRelease(
@@ -96,7 +98,7 @@ class ReleaseContentAssembler(
                 resourceDetails = details,
                 dependencies = snapshot.dependencies,
                 catalogDependencies = snapshot.catalogDependencies,
-                assetContents = loadAssetContents(handle, tenantKey, details.values),
+                assetContents = loadAssetContents(handle, catalog.tenantKey, details.values),
                 publisher = snapshot.publisher,
             ),
             release = snapshot.release,
@@ -110,8 +112,7 @@ class ReleaseContentAssembler(
      * binary, which is what an export wants and what a render must not pay for.
      */
     fun readResource(
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         resourceType: String,
         resourceKey: String,
@@ -123,18 +124,18 @@ class ReleaseContentAssembler(
               AND resource_type = :type AND resource_key = :key
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("version", version)
             .bind("type", resourceType)
             .bind("key", resourceKey)
             .mapTo(String::class.java)
             .findOne()
             .orElse(null) ?: return@withHandle null
-        val payload = requireNotNull(loadPayloads(handle, tenantKey, listOf(digest))[digest]) {
-            "Release $version of ${catalogKey.value} names revision $digest, which is not stored"
+        val payload = requireNotNull(loadPayloads(handle, catalog.tenantKey, listOf(digest))[digest]) {
+            "Release $version of ${catalog.key.value} names revision $digest, which is not stored"
         }
-        detailOf(handle, tenantKey, payload).resource
+        detailOf(handle, catalog.tenantKey, payload).resource
     }
 
     /**
@@ -183,11 +184,11 @@ class ReleaseContentAssembler(
     }
 
     /** The latest release of a catalog, or null when it has none. */
-    fun assembleLatest(tenantKey: TenantKey, catalogKey: CatalogKey): RetainedRelease? {
+    fun assembleLatest(catalog: CatalogId): RetainedRelease? {
         val latest = jdbi.withHandle<String?, Exception> { handle ->
-            releaseEntryStore.versions(handle, tenantKey, catalogKey).firstOrNull()
+            releaseEntryStore.versions(handle, catalog).firstOrNull()
         }
-        return latest?.let { assemble(tenantKey, catalogKey, it) }
+        return latest?.let { assemble(catalog, it) }
     }
 
     /**
@@ -309,15 +310,15 @@ class ReleaseContentAssembler(
      * The catalog details release [version] froze (its manifest's `catalog`): name, default theme,
      * presets (contract ADR 0007); null when the catalog has no such release.
      */
-    fun readCatalogInfo(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): app.epistola.catalog.protocol.CatalogInfo? = readManifest(tenantKey, catalogKey, version)?.catalog
+    fun readCatalogInfo(catalog: CatalogId, version: String): app.epistola.catalog.protocol.CatalogInfo? = readManifest(catalog, version)?.catalog
 
     /**
      * The manifest release [version] froze, without reading its resources back: its catalog details
      * and the catalogs it declares it uses, with their pins. Null when the catalog has no such release.
      */
-    fun readManifest(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest? = jdbi.withHandle<CatalogManifest?, Exception> { handle ->
-        if (!releaseEntryStore.versions(handle, tenantKey, catalogKey).contains(version)) return@withHandle null
-        loadManifestSnapshot(handle, tenantKey, catalogKey, version)
+    fun readManifest(catalog: CatalogId, version: String): CatalogManifest? = jdbi.withHandle<CatalogManifest?, Exception> { handle ->
+        if (!releaseEntryStore.versions(handle, catalog).contains(version)) return@withHandle null
+        loadManifestSnapshot(handle, catalog, version)
     }
 
     /**
@@ -325,15 +326,14 @@ class ReleaseContentAssembler(
      * of it ([ReleaseDescription.complete]), so a release recorded before a release said what it is
      * exports saying it too.
      */
-    private fun loadManifestSnapshot(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): CatalogManifest {
-        val merged = app.epistola.suite.catalog.releases.ReleaseLineage.mergedOf(handle, tenantKey, catalogKey, version)
-        return loadManifestSnapshot(handle, tenantKey, catalogKey, version, merged)
+    private fun loadManifestSnapshot(handle: Handle, catalog: CatalogId, version: String): CatalogManifest {
+        val merged = app.epistola.suite.catalog.releases.ReleaseLineage.mergedOf(handle, catalog, version)
+        return loadManifestSnapshot(handle, catalog, version, merged)
     }
 
     private fun loadManifestSnapshot(
         handle: Handle,
-        tenantKey: TenantKey,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         version: String,
         merged: List<app.epistola.suite.catalog.releases.ReleaseParent>,
     ): CatalogManifest = handle
@@ -346,8 +346,8 @@ class ReleaseContentAssembler(
             WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :version
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("version", version)
         .map { rs, _ ->
             val manifest = objectMapper.readValue(rs.getString("snapshot"), CatalogManifest::class.java)

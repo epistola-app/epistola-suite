@@ -4,7 +4,9 @@
 
 package app.epistola.suite.quality.queries
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
@@ -18,6 +20,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
 import app.epistola.suite.templates.currentTemplateJoin
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -57,7 +60,7 @@ enum class QualityFindingSort(
  */
 data class ListQualityFindings(
     override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey? = null,
+    val catalog: CatalogId? = null,
     val templateKey: TemplateKey? = null,
     val sourceId: QualitySourceId? = null,
     val ruleId: String? = null,
@@ -71,6 +74,11 @@ data class ListQualityFindings(
     val offset: Int = 0,
 ) : Query<QualityFindingPage>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission: Permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -128,7 +136,7 @@ class ListQualityFindingsHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantKey", query.tenantKey)
             .bind("manualSourceId", QualitySourceId.MANUAL.value)
-        query.catalogKey?.let { jdbiQuery.bind("catalogKey", it) }
+        query.catalog?.let { jdbiQuery.bindCatalog("catalogKey", it) }
         query.templateKey?.let { jdbiQuery.bind("templateKey", it) }
         query.sourceId?.let { jdbiQuery.bind("sourceId", it.value) }
         query.ruleId?.let { jdbiQuery.bind("ruleId", it) }

@@ -5,9 +5,11 @@
 package app.epistola.suite.catalog.queries
 
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -21,10 +23,11 @@ import org.springframework.stereotype.Component
  * Returns human-readable descriptions of each reference (e.g. "Template 'X' (catalog: Y) uses a theme").
  */
 data class FindCatalogCrossReferences(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
 ) : Query<List<String>>,
     RequiresPermission {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_VIEW
 }
 
@@ -50,7 +53,7 @@ class FindCatalogCrossReferencesHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .map { rs, _ ->
                 "Template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")}) uses a theme"
             }
@@ -73,7 +76,7 @@ class FindCatalogCrossReferencesHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .bind("catalogKeyStr", query.catalogKey.value)
             .map { rs, _ ->
                 "Template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")}) uses a stencil"
@@ -97,7 +100,7 @@ class FindCatalogCrossReferencesHandler(
             """,
         )
             .bind("tenantKey", query.tenantKey)
-            .bind("catalogKey", query.catalogKey)
+            .bindCatalog("catalogKey", query.catalog)
             .map { rs, _ ->
                 "Template '${rs.getString("name")}' (catalog: ${rs.getString("catalog_key")}) uses an asset"
             }

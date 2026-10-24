@@ -88,7 +88,12 @@ data class LoadTestRun(
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,
+    /** The namespace of [catalogKey]'s catalog: with it, the catalog's address (ADR 0034, section 9). */
+    val namespace: String = "",
 ) {
+    /** The template's catalog, by its address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+
     init {
         require(versionKey == null || environmentKey == null) {
             "A run names a template version or an environment, never both"

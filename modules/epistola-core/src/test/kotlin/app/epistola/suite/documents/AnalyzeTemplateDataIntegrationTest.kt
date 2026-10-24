@@ -24,6 +24,8 @@ import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ThenScope
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -111,16 +113,14 @@ class AnalyzeTemplateDataIntegrationTest : IntegrationTestBase() {
     }
 
     private fun DocumentSetup.analyze(data: ObjectNode) = AnalyzeTemplateData(
-        tenantKey = tenant.id,
-        catalogKey = CatalogKey.DEFAULT,
+        catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
         templateId = template.id,
         variantId = variant.id,
         data = data,
     )
 
     private fun DocumentSetup.preview(data: ObjectNode) = PreviewDocument(
-        tenantId = tenant.id,
-        catalogKey = CatalogKey.DEFAULT,
+        catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
         templateId = template.id,
         variantId = variant.id,
         data = data,

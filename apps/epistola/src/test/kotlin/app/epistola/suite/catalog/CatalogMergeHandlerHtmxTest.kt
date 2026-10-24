@@ -34,6 +34,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.testing.parallelReleaseLines
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -64,11 +65,11 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
 
     private val letters = CatalogKey.of("letters")
 
-    private fun catalogId(tenant: Tenant) = CatalogId(letters, TenantId(tenant.id))
+    private fun catalogId(tenant: Tenant) = testCatalog(TenantId(tenant.id), letters)
 
     private fun theme(tenant: Tenant, key: String) = ThemeId(ThemeKey.of(key), catalogId(tenant))
 
-    private fun work(tenant: Tenant, id: String) = CatalogReleaseRef(tenant.id, letters, DraftRef.Id(id))
+    private fun work(tenant: Tenant, id: String) = CatalogReleaseRef(testCatalog(tenant.id, letters), DraftRef.Id(id))
 
     /** The scenario above; the work's draft id. */
     private fun diverged(tenant: Tenant, alsoDefaultTheme: Boolean = false): String = withMediator {
@@ -76,18 +77,18 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         CreateTheme(theme(tenant, "brand"), "Brand").execute()
         CreateTheme(theme(tenant, "letterhead"), "Letterhead").execute()
         CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-        MarkCatalogReady(tenant.id, letters).execute()
-        ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
+        MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
 
-        val work = CreateCatalogDraft(tenant.id, letters, "Redesign").execute().versionId
+        val work = CreateCatalogDraft(testCatalog(tenant.id, letters), "Redesign").execute().versionId
         UpdateTheme(theme(tenant, "brand"), name = "Brand redesigned", catalogVersion = work(tenant, work)).execute()
 
         UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed").execute()
         UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead, fixed").execute()
-        if (alsoDefaultTheme) SetCatalogDefaultTheme(tenant.id, letters, CatalogDefaultTheme(ThemeKey.of("letterhead"), letters)).execute()
-        MarkCatalogReady(tenant.id, letters).execute()
+        if (alsoDefaultTheme) SetCatalogDefaultTheme(testCatalog(tenant.id, letters), CatalogDefaultTheme(ThemeKey.of("letterhead"), testCatalog(tenant.id, letters))).execute()
+        MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
         // Another default theme is a minor change, so that release is 1.1.0.
-        ReleaseCatalogDraft(tenant.id, letters, if (alsoDefaultTheme) "1.1.0" else "1.0.1").execute()
+        ReleaseCatalogDraft(testCatalog(tenant.id, letters), if (alsoDefaultTheme) "1.1.0" else "1.0.1").execute()
         work
     }
 
@@ -99,12 +100,12 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Offer")
             work = diverged(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!! }
+        whenever { get("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft").body!! }
         then {
             val page = result<String>()
             assertThat(page).contains("data-testid=\"catalog-draft-behind-release\"")
             assertThat(page).contains("data-testid=\"catalog-merge-open\"")
-                .contains("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1")
+                .contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.0.1")
                 .doesNotContain("data-testid=\"catalog-merge-withheld\"")
         }
     }
@@ -118,22 +119,22 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
                 CreateCatalog(tenantKey = tenant.id, id = letters, name = "Letters").execute()
                 CreateTheme(theme(tenant, "brand"), "Brand").execute()
                 CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), catalogId(tenant)), "Invoice").execute().withRequiredDataExample()
-                MarkCatalogReady(tenant.id, letters).execute()
-                ReleaseCatalogDraft(tenant.id, letters, "1.0.0").execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.0").execute()
 
                 // A fix published from separate work: the next release does not have it.
-                val fix = CreateCatalogDraft(tenant.id, letters, "Fix").execute().versionId
+                val fix = CreateCatalogDraft(testCatalog(tenant.id, letters), "Fix").execute().versionId
                 UpdateTheme(theme(tenant, "brand"), name = "Brand, fixed", catalogVersion = work(tenant, fix)).execute()
-                MarkCatalogReady(tenant.id, letters, work(tenant, fix)).execute()
-                ReleaseCatalogDraft(tenant.id, letters, "1.0.1", catalogVersion = work(tenant, fix)).execute()
+                MarkCatalogReady(testCatalog(tenant.id, letters), work(tenant, fix)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), "1.0.1", catalogVersion = work(tenant, fix)).execute()
             }
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters/browse").body!! }
+        whenever { get("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/browse").body!! }
         then {
             val page = result<String>()
             assertThat(page).contains("data-testid=\"catalog-draft-behind-release\"")
             assertThat(page).contains("data-testid=\"catalog-merge-open\"")
-                .contains("/tenants/${tenant.id}/catalogs/letters/merge?release=1.0.1")
+                .contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters/merge?release=1.0.1")
                 .contains("Merge it to bring its changes in")
                 .doesNotContain("data-testid=\"catalog-merge-withheld\"")
         }
@@ -147,7 +148,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Preview")
             work = diverged(tenant)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1") }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.0.1") }
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(200)
@@ -174,30 +175,29 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             work = diverged(tenant)
             withMediator {
                 CreateCatalog(tenantKey = tenant.id, id = shared, name = "Shared").execute()
-                CreateTheme(ThemeId(ThemeKey.of("base"), CatalogId(shared, TenantId(tenant.id))), "Base").execute()
-                MarkCatalogReady(tenant.id, shared).execute()
-                ReleaseCatalogDraft(tenant.id, shared, "1.0.0").execute()
-                val catalog = GetCatalog(tenant.id, shared).query()!!
+                CreateTheme(ThemeId(ThemeKey.of("base"), testCatalog(TenantId(tenant.id), shared)), "Base").execute()
+                MarkCatalogReady(testCatalog(tenant.id, shared)).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, shared), "1.0.0").execute()
+                val catalog = GetCatalog(testCatalog(tenant.id, shared)).query()!!
                 UpdateCatalogDependencies(
-                    tenant.id,
-                    letters,
+                    testCatalog(tenant.id, letters),
                     listOf(DeclaredCatalogDependency(catalog.registry, catalog.namespace, shared.value, releaseVersion = "1.0.0")),
                     catalogVersion = work(tenant, work),
                 ).execute()
             }
         }
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS")) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS")) }
         then {
             val location = result<ResponseEntity<String>>().headers.getFirst("HX-Location")!!
-            assertThat(location).contains("/catalogs/letters@$work/draft?merged=1.0.1")
+            assertThat(location).contains("/catalogs/${tenant.id}/letters@$work/draft?merged=1.0.1")
 
-            val page = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/draft?merged=1.0.1").body!!
+            val page = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft?merged=1.0.1").body!!
             assertThat(page).contains("data-testid=\"merge-unused-dependencies\"").contains("After merging v<span>1.0.1</span>").contains("<strong>Shared</strong>")
                 .contains("name=\"alias\" value=\"shared\"")
-            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!).`as`("asked after a merge only").doesNotContain("merge-unused-dependencies")
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft").body!!).`as`("asked after a merge only").doesNotContain("merge-unused-dependencies")
 
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/dependencies/remove-unused", mapOf("alias" to "shared"))
-            assertThat(withMediator { GetCatalogBorrowing(tenant.id, letters, work(tenant, work)).query().catalogs.filter { it.declared } }).isEmpty()
+            postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/dependencies/remove-unused", mapOf("alias" to "shared"))
+            assertThat(withMediator { GetCatalogBorrowing(testCatalog(tenant.id, letters), work(tenant, work)).query().catalogs.filter { it.declared } }).isEmpty()
         }
     }
 
@@ -209,14 +209,14 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Unresolved")
             work = diverged(tenant)
         }
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1")) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.0.1")) }
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).`as`("a refusal is not a success").isEqualTo(422)
             assertThat(response.headers.getFirst("HX-Retarget")).isEqualTo("#catalog-merge-form")
             assertThat(response.body!!).contains("data-testid=\"catalog-merge-refused\"").contains("Choose which one to keep")
                 .contains("name=\"resolution[theme/brand]\"")
-            assertThat(withMediator { PreviewDraftMerge(tenant.id, letters, "1.0.1", work(tenant, work)).query() }.alreadyMerged).isFalse()
+            assertThat(withMediator { PreviewDraftMerge(testCatalog(tenant.id, letters), "1.0.1", work(tenant, work)).query() }.alreadyMerged).isFalse()
         }
     }
 
@@ -230,7 +230,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         }
         whenever {
             postForm(
-                "/tenants/${tenant.id}/catalogs/letters@$work/merge",
+                "/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge",
                 mapOf("release" to "1.0.1", "resolution[theme/brand]" to "THEIRS", "resolution[theme/letterhead]" to "OURS"),
             )
         }
@@ -251,17 +251,17 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             work = diverged(tenant)
         }
         whenever {
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "THEIRS"))
+            postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "THEIRS"))
         }
         then {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(200)
-            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/letters@$work/draft?merged=1.0.1")
+            assertThat(response.headers["HX-Location"]).containsExactly("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft?merged=1.0.1")
             val ref = work(tenant, work)
-            assertThat(withMediator { PreviewDraftMerge(tenant.id, letters, "1.0.1", ref).query() }.alreadyMerged).isTrue()
+            assertThat(withMediator { PreviewDraftMerge(testCatalog(tenant.id, letters), "1.0.1", ref).query() }.alreadyMerged).isTrue()
             assertThat(withMediator { GetTheme(theme(tenant, "brand"), catalogVersion = ref).query() }!!.name).isEqualTo("Brand, fixed")
             assertThat(withMediator { GetTheme(theme(tenant, "letterhead"), catalogVersion = ref).query() }!!.name).isEqualTo("Letterhead, fixed")
-            assertThat(get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!).doesNotContain("data-testid=\"catalog-merge-open\"")
+            assertThat(get("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft").body!!).doesNotContain("data-testid=\"catalog-merge-open\"")
         }
     }
 
@@ -274,7 +274,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             work = diverged(tenant)
         }
         whenever {
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS"))
+            postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.0.1", "resolution[theme/brand]" to "OURS"))
         }
         then {
             assertThat(result<ResponseEntity<String>>().statusCode.value()).isEqualTo(200)
@@ -292,12 +292,12 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Setting")
             work = diverged(tenant, alsoDefaultTheme = true)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.1.0").body!! }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.1.0").body!! }
         then {
             assertThat(result<String>()).contains("data-testid=\"catalog-merge-taken-row\" data-resource=\"catalog/defaultTheme\"")
                 .contains("Default theme").contains("(Catalog setting)")
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.1.0", "resolution[theme/brand]" to "OURS"))
-            assertThat(withMediator { GetCatalogThemeSettings(tenant.id, letters, work(tenant, work)).query() }.defaultTheme?.themeKey).isEqualTo(ThemeKey.of("letterhead"))
+            postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.1.0", "resolution[theme/brand]" to "OURS"))
+            assertThat(withMediator { GetCatalogThemeSettings(testCatalog(tenant.id, letters), work(tenant, work)).query() }.defaultTheme?.themeKey).isEqualTo(ThemeKey.of("letterhead"))
         }
     }
 
@@ -309,7 +309,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Goes With")
             work = diverged(tenant, alsoDefaultTheme = true)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.1.0").body!! }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.1.0").body!! }
         then {
             // 1.1.0's default theme is its letterhead theme, which 1.1.0 changed too.
             val row = Regex("""data-resource="catalog/defaultTheme"[\s\S]*?</tr>""").find(result<String>())!!.value
@@ -325,13 +325,13 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Merge Outdated")
             work = diverged(tenant)
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!!
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.0.1").body!!
             token = Regex("""name="token" value="([0-9a-f]+)"""").find(dialog)!!.groupValues[1]
             // Meanwhile the work changes the letterhead theme too.
             withMediator { UpdateTheme(theme(tenant, "letterhead"), name = "Letterhead redesigned", catalogVersion = work(tenant, work)).execute() }
         }
         whenever {
-            postForm("/tenants/${tenant.id}/catalogs/letters@$work/merge", mapOf("release" to "1.0.1", "token" to token, "resolution[theme/brand]" to "THEIRS"))
+            postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge", mapOf("release" to "1.0.1", "token" to token, "resolution[theme/brand]" to "THEIRS"))
         }
         then {
             val response = result<ResponseEntity<String>>()
@@ -339,7 +339,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(response.body!!).contains("data-testid=\"catalog-merge-refused\"").contains("since you opened this")
                 .contains("name=\"resolution[theme/letterhead]\"")
                 .doesNotContain("value=\"$token\"")
-            assertThat(withMediator { PreviewDraftMerge(tenant.id, letters, "1.0.1", work(tenant, work)).query() }.alreadyMerged).isFalse()
+            assertThat(withMediator { PreviewDraftMerge(testCatalog(tenant.id, letters), "1.0.1", work(tenant, work)).query() }.alreadyMerged).isFalse()
         }
     }
 
@@ -421,11 +421,11 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Compare")
             work = diverged(tenant)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&entry=theme/brand") }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge/sides?release=1.0.1&entry=theme/brand") }
         then {
-            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge?release=1.0.1").body!!
+            val dialog = getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge?release=1.0.1").body!!
             assertThat(dialog).contains("data-testid=\"catalog-merge-compare\"")
-                .contains("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&amp;entry=theme/brand")
+                .contains("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge/sides?release=1.0.1&amp;entry=theme/brand")
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode.value()).isEqualTo(200)
             val sides = response.body!!
@@ -433,7 +433,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             assertThat(sides.substringAfter("catalog-merge-compare-base").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand&quot;")
             assertThat(sides.substringAfter("catalog-merge-compare-draft").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand redesigned&quot;")
             assertThat(sides.substringAfter("catalog-merge-compare-release").substringBefore("</pre>")).contains("&quot;name&quot; : &quot;Brand, fixed&quot;")
-            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/merge/sides?release=1.0.1&entry=theme/nothing").statusCode.value()).isEqualTo(404)
+            assertThat(getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/merge/sides?release=1.0.1&entry=theme/nothing").statusCode.value()).isEqualTo(404)
         }
     }
 
@@ -442,9 +442,9 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
         val work = diverged(tenant)
         withMediator {
             val ref = work(tenant, work)
-            MarkCatalogReady(tenant.id, letters, catalogVersion = ref).execute()
-            val sides = GetDraftMergeSides(tenant.id, letters, "1.0.1", "theme/brand", ref).query()
-            MergeReleaseIntoDraft(tenant.id, letters, "1.0.1", catalogVersion = ref, mergedContent = mapOf("theme/brand" to sides.draft!! + ("name" to "Brand, redesigned and fixed"))).execute()
+            MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = ref).execute()
+            val sides = GetDraftMergeSides(testCatalog(tenant.id, letters), "1.0.1", "theme/brand", ref).query()
+            MergeReleaseIntoDraft(testCatalog(tenant.id, letters), "1.0.1", catalogVersion = ref, mergedContent = mapOf("theme/brand" to sides.draft!! + ("name" to "Brand, redesigned and fixed"))).execute()
         }
         return work
     }
@@ -459,7 +459,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Merged Content")
             work = mergedWithMergedContent(tenant)
         }
-        whenever { get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!! }
+        whenever { get("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft").body!! }
         then {
             val page = result<String>()
             assertThat(row(page, "theme/brand")).contains("Changed").contains("Brand, redesigned and fixed")
@@ -477,12 +477,12 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Merged Reviewed")
             work = mergedWithMergedContent(tenant)
         }
-        whenever { postForm("/tenants/${tenant.id}/catalogs/letters@$work/ready", emptyMap()) }
+        whenever { postForm("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/ready", emptyMap()) }
         then {
             val marked = result<ResponseEntity<String>>()
             assertThat(marked.statusCode.value()).isEqualTo(200)
             assertThat(marked.body!!).doesNotContain("catalog-change-merged")
-            val page = get("/tenants/${tenant.id}/catalogs/letters@$work/draft").body!!
+            val page = get("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/draft").body!!
             assertThat(row(page, "theme/brand")).contains("Brand, redesigned and fixed").doesNotContain("catalog-change-merged")
             assertThat(page).doesNotContain("catalog-not-ready-hint")
         }
@@ -496,7 +496,7 @@ class CatalogMergeHandlerHtmxTest : BaseIntegrationTest() {
             tenant = tenant("Merge Merged Publish")
             work = mergedWithMergedContent(tenant)
         }
-        whenever { getHtmx("/tenants/${tenant.id}/catalogs/letters@$work/release") }
+        whenever { getHtmx("/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/release") }
         then {
             val dialog = result<ResponseEntity<String>>()
             assertThat(dialog.statusCode.value()).isEqualTo(200)

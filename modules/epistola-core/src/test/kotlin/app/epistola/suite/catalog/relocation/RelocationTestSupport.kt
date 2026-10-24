@@ -11,6 +11,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.dependencies.MissingDependencyDeclarer
@@ -53,6 +54,8 @@ import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testAddress
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.template.model.ThemeRefOverride
@@ -94,7 +97,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         return tenant
     }
 
-    protected fun catalogId(tenant: TenantKey, catalog: CatalogKey) = CatalogId(catalog, TenantId(tenant))
+    protected fun catalogId(tenant: TenantKey, catalog: CatalogKey) = testCatalog(TenantId(tenant), catalog)
 
     /** The catalogs [tenantWith] created for [tenant], in the order it created them. */
     protected fun catalogsOf(tenant: TenantKey): List<CatalogKey> = createdCatalogs.getValue(tenant)
@@ -128,7 +131,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         )
             .bind("tenantKey", tenant)
             .bind("resourceType", address.type.wireName)
-            .bind("catalogKey", address.catalogKey)
+            .bindCatalog("catalogKey", testCatalog(tenant, address.catalogKey))
             .bind("resourceKey", address.key)
             .map { rs, _ -> ResourceIdentity.of(rs.getString("resource_id")) }
             .findOne()
@@ -162,18 +165,17 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
             MovableResource.THEME -> CreateTheme(ThemeId(ThemeKey.of(key), catalogId), "Theme $key").execute()
         }
-        ResourceAddress(movable.type, catalog.value, key)
+        testAddress(tenant, movable.type, catalog.value, key)
     }
 
     protected fun uploadPng(tenant: TenantKey, catalog: CatalogKey, key: String? = null, content: ByteArray = PNG_1X1): AssetKey = withMediator {
         UploadAsset(
-            tenantId = tenant,
+            catalog = testCatalog(tenant, catalog),
             name = "${key ?: "image"}.png",
             mediaType = AssetMediaType.PNG,
             content = content,
             width = 1,
             height = 1,
-            catalogKey = catalog,
             id = key?.let(AssetKey::of),
         ).execute().id
     }
@@ -181,17 +183,15 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     /** A one-face font family at [catalog]/[slug], its face backed by an asset in the same catalog. */
     protected fun importFont(tenant: TenantKey, catalog: CatalogKey, slug: String) = withMediator {
         val face = UploadAsset(
-            tenantId = tenant,
+            catalog = testCatalog(tenant, catalog),
             name = "$slug-regular.ttf",
             mediaType = AssetMediaType.TTF,
             content = ttfBytes(),
             width = null,
             height = null,
-            catalogKey = catalog,
         ).execute().id
         ImportFont(
-            tenantId = TenantId(tenant),
-            catalogKey = catalog,
+            catalog = testCatalog(TenantId(tenant), catalog),
             slug = slug,
             name = "Font $slug",
             kind = FontKind.SANS.wire,
@@ -254,8 +254,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
     protected fun assertPreviewRenders(tenant: TenantKey, catalog: CatalogKey, key: String = "invoice") {
         val pdf = withMediator {
             PreviewDocument(
-                tenantId = tenant,
-                catalogKey = catalog,
+                catalog = testCatalog(tenant, catalog),
                 templateId = TemplateKey.of(key),
                 data = objectMapper.createObjectNode(),
                 variantId = VariantKey.INITIAL,
@@ -336,6 +335,6 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
             javax.imageio.ImageIO.write(java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out)
         }.toByteArray()
 
-        fun address(type: CatalogResourceType, catalog: CatalogKey, key: String) = ResourceAddress(type, catalog.value, key)
+        fun address(tenant: app.epistola.suite.common.ids.TenantKey, type: CatalogResourceType, catalog: CatalogKey, key: String) = testAddress(tenant, type, catalog.value, key)
     }
 }

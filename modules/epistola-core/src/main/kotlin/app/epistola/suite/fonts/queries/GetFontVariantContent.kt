@@ -5,9 +5,11 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
@@ -35,8 +37,7 @@ import org.springframework.stereotype.Component
  * Returns null when the variant row, asset, or classpath resource is missing.
  */
 data class GetFontVariantContent(
-    val tenantId: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val slug: FontKey,
     val weight: Int,
     val italic: Boolean,
@@ -45,6 +46,8 @@ data class GetFontVariantContent(
 ) : CatalogReleaseScoped,
     Query<ByteArray?>,
     RequiresPermission {
+    val tenantId: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = tenantId
 }
@@ -71,7 +74,7 @@ class GetFontVariantContentHandler(
                 """,
             )
                 .bind("tenantKey", query.tenantId)
-                .bind("catalogKey", query.catalogKey)
+                .bindCatalog("catalogKey", query.catalog)
                 .bind("slug", query.slug)
                 .bind("weight", query.weight)
                 .bind("italic", query.italic)
@@ -92,7 +95,7 @@ class GetFontVariantContentHandler(
             }
 
             FontVariantSource.ASSET -> pointer.assetKey?.let { assetKey ->
-                GetAssetContent(query.tenantId, assetKey).query()?.content
+                GetAssetContent(query.tenantId, assetId = assetKey).query()?.content
             }
         }
     }

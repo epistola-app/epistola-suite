@@ -7,7 +7,9 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogContent
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -48,10 +50,10 @@ class ReleaseIdentity(
     data class Recorded(val version: String, val fingerprint: String, val contentHash: String?)
 
     /** Release [version] of [catalogKey] as recorded, or null when the catalog has no such release. */
-    fun recorded(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): Recorded? = handle
+    fun recorded(handle: Handle, catalog: CatalogId, version: String): Recorded? = handle
         .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("v", version)
         .map { rs, _ -> Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
         .findOne()
@@ -67,32 +69,32 @@ class ReleaseIdentity(
      * of content that is no longer the release would give it another identity here than it has where
      * it was kept intact, and would let [travelling] hand on what its own check refuses.
      */
-    fun contentHash(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): String? {
-        val recorded = recorded(handle, tenantKey, catalogKey, version) ?: return null
-        return contentHash(handle, tenantKey, catalogKey, recorded)
+    fun contentHash(handle: Handle, catalog: CatalogId, version: String): String? {
+        val recorded = recorded(handle, catalog, version) ?: return null
+        return contentHash(handle, catalog, recorded)
     }
 
     /** [contentHash] of a release already read as [recorded]. */
-    fun contentHash(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, recorded: Recorded): String? {
+    fun contentHash(handle: Handle, catalog: CatalogId, recorded: Recorded): String? {
         recorded.contentHash?.let { return it }
-        if (CatalogCanonicalizer.isContentHash(recorded.fingerprint)) return record(handle, tenantKey, catalogKey, recorded.version, recorded.fingerprint)
+        if (CatalogCanonicalizer.isContentHash(recorded.fingerprint)) return record(handle, catalog, recorded.version, recorded.fingerprint)
         val content = try {
-            assembler.assemble(tenantKey, catalogKey, recorded.version)?.content
+            assembler.assemble(catalog, recorded.version)?.content
         } catch (e: RuntimeException) {
-            logger.warn("Release {}@{} of tenant {} has no readable content to hash: {}", catalogKey.value, recorded.version, tenantKey.value, e.message)
+            logger.warn("Release {}@{} of tenant {} has no readable content to hash: {}", catalog.key.value, recorded.version, catalog.tenantKey.value, e.message)
             null
         } ?: return null
         if (!canonicalizer.matchesFingerprint(content, recorded.fingerprint)) {
             logger.warn(
                 "Release {}@{} of tenant {} no longer holds what its fingerprint {} names, so it gets no content hash: its retained content has been altered",
-                catalogKey.value,
+                catalog.key.value,
                 recorded.version,
-                tenantKey.value,
+                catalog.tenantKey.value,
                 recorded.fingerprint,
             )
             return null
         }
-        return record(handle, tenantKey, catalogKey, recorded.version, contentHashOf(content))
+        return record(handle, catalog, recorded.version, contentHashOf(content))
     }
 
     /**
@@ -101,18 +103,18 @@ class ReleaseIdentity(
      * bare one), what that algorithm computes over its content. False when the catalog has no such
      * release.
      */
-    fun isRelease(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, fingerprint: String): Boolean {
-        val recorded = recorded(handle, tenantKey, catalogKey, version) ?: return false
-        return isRelease(handle, tenantKey, catalogKey, recorded, fingerprint)
+    fun isRelease(handle: Handle, catalog: CatalogId, version: String, fingerprint: String): Boolean {
+        val recorded = recorded(handle, catalog, version) ?: return false
+        return isRelease(handle, catalog, recorded, fingerprint)
     }
 
     /** [isRelease] of a release already read as [recorded]. */
-    fun isRelease(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, recorded: Recorded, fingerprint: String): Boolean {
+    fun isRelease(handle: Handle, catalog: CatalogId, recorded: Recorded, fingerprint: String): Boolean {
         if (recorded.fingerprint == fingerprint || recorded.contentHash == fingerprint) return true
-        if (CatalogCanonicalizer.isContentHash(fingerprint)) return contentHash(handle, tenantKey, catalogKey, recorded) == fingerprint
+        if (CatalogCanonicalizer.isContentHash(fingerprint)) return contentHash(handle, catalog, recorded) == fingerprint
         // Another algorithm's fingerprint of the same content: check the content with the one it names.
         if (QualifiedCatalogFingerprint.parse(fingerprint) == null && !LEGACY.matches(fingerprint)) return false
-        val content = assembler.assemble(tenantKey, catalogKey, recorded.version)?.content ?: return false
+        val content = assembler.assemble(catalog, recorded.version)?.content ?: return false
         return canonicalizer.matchesFingerprint(content, fingerprint)
     }
 
@@ -121,16 +123,16 @@ class ReleaseIdentity(
      * with that fingerprint or content hash, else, for a content hash, the one whose content hashes
      * to it. Null when the tenant has none.
      */
-    fun releaseNamed(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, fingerprint: String): String? {
+    fun releaseNamed(handle: Handle, catalog: CatalogId, fingerprint: String): String? {
         val releases = handle
             .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
             .list()
         releases.firstOrNull { it.fingerprint == fingerprint || it.contentHash == fingerprint }?.let { return it.version }
         if (!CatalogCanonicalizer.isContentHash(fingerprint)) return null
-        return releases.filter { it.contentHash == null }.firstOrNull { contentHash(handle, tenantKey, catalogKey, it) == fingerprint }?.version
+        return releases.filter { it.contentHash == null }.firstOrNull { contentHash(handle, catalog, it) == fingerprint }?.version
     }
 
     /**
@@ -143,29 +145,29 @@ class ReleaseIdentity(
      *   another content hash than the one recorded, or, for a release without one yet, does not
      *   reproduce the fingerprint it was cut with. Handing it on would spread the damage.
      */
-    fun travelling(tenantKey: TenantKey, catalogKey: CatalogKey, version: String): RetainedRelease? {
-        val retained = assembler.assemble(tenantKey, catalogKey, version) ?: return null
+    fun travelling(catalog: CatalogId, version: String): RetainedRelease? {
+        val retained = assembler.assemble(catalog, version) ?: return null
         val hash = contentHashOf(retained.content)
         jdbi.useHandle<Exception> { handle ->
-            val recorded = recorded(handle, tenantKey, catalogKey, version) ?: return@useHandle
+            val recorded = recorded(handle, catalog, version) ?: return@useHandle
             val holds = recorded.contentHash?.let { it == hash }
                 ?: (recorded.fingerprint == hash || canonicalizer.matchesFingerprint(retained.content, recorded.fingerprint))
             check(holds) {
-                "Release $version of catalog '${catalogKey.value}' rebuilds to $hash but was recorded as " +
+                "Release $version of catalog '${catalog.key.value}' rebuilds to $hash but was recorded as " +
                     "${recorded.contentHash ?: recorded.fingerprint}; its retained content has been altered."
             }
-            if (recorded.contentHash == null) record(handle, tenantKey, catalogKey, version, hash)
+            if (recorded.contentHash == null) record(handle, catalog, version, hash)
         }
         return retained.copy(release = retained.release.copy(fingerprint = hash))
     }
 
-    private fun record(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, contentHash: String): String {
+    private fun record(handle: Handle, catalog: CatalogId, version: String, contentHash: String): String {
         handle.createUpdate(
             "UPDATE catalog_releases SET content_hash = :h WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v AND content_hash IS NULL",
         )
             .bind("h", contentHash)
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("v", version)
             .execute()
         return contentHash

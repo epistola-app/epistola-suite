@@ -31,6 +31,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.publishAndRelease
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -49,12 +50,12 @@ class ServedReleasesTest : IntegrationTestBase() {
     fun `an environment serves every release deployed to it, and generation renders the highest`() {
         val (_, letters, production) = released("served-highest", releases = 2)
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
             // Deploying a lower release afterwards adds it; it does not take over.
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
         }
 
-        assertThat(withMediator { ListDeployments(production.tenantKey, letters.key).query() }.map { it.version })
+        assertThat(withMediator { ListDeployments(production.tenantKey, letters).query() }.map { it.version })
             .`as`("both served, highest first")
             .containsExactly("1.0.1", "1.0.0")
         assertThat(generate(letters, production.key, selector = null)).isEqualTo("1.0.1")
@@ -64,8 +65,8 @@ class ServedReleasesTest : IntegrationTestBase() {
     fun `a version selector picks the highest served release satisfying it, even a lower one`() {
         val (_, letters, production) = released("served-selector", releases = 3)
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.2").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.2").execute()
         }
 
         assertThat(generate(letters, production.key, selector = "1.0.0")).`as`("an exact version").isEqualTo("1.0.0")
@@ -76,7 +77,7 @@ class ServedReleasesTest : IntegrationTestBase() {
     @Test
     fun `a selector no served release satisfies is refused, though the catalog has a matching release`() {
         val (_, letters, production) = released("served-nomatch", releases = 2)
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThatThrownBy { generate(letters, production.key, selector = "1.0.1") }
             .isInstanceOf(NoReleaseDeployedException::class.java)
@@ -98,7 +99,7 @@ class ServedReleasesTest : IntegrationTestBase() {
     @Test
     fun `a selector that is not one is a validation failure on the version`() {
         val (_, letters, production) = released("served-invalid", releases = 1)
-        withMediator { DeployCatalogRelease(production, letters.key, "1.0.0").execute() }
+        withMediator { DeployCatalogRelease(production, letters, "1.0.0").execute() }
 
         assertThatThrownBy { generate(letters, production.key, selector = "[1.0,2.0)") }
             .isInstanceOf(ValidationException::class.java)
@@ -109,16 +110,16 @@ class ServedReleasesTest : IntegrationTestBase() {
     fun `a batch item picks its release the same way`() {
         val (tenant, letters, production) = released("served-batch", releases = 2)
         withMediator {
-            DeployCatalogRelease(production, letters.key, "1.0.0").execute()
-            DeployCatalogRelease(production, letters.key, "1.0.1").execute()
+            DeployCatalogRelease(production, letters, "1.0.0").execute()
+            DeployCatalogRelease(production, letters, "1.0.1").execute()
         }
 
         val batch = withMediator {
             GenerateDocumentBatch(
                 tenantId = tenant,
                 items = listOf(
-                    BatchGenerationItem(letters.key, INVOICE, environmentId = production.key, data = data(), filename = "a.pdf"),
-                    BatchGenerationItem(letters.key, INVOICE, releaseVersion = "<1.0.1", environmentId = production.key, data = data(), filename = "b.pdf"),
+                    BatchGenerationItem(letters, INVOICE, environmentId = production.key, data = data(), filename = "a.pdf"),
+                    BatchGenerationItem(letters, INVOICE, releaseVersion = "<1.0.1", environmentId = production.key, data = data(), filename = "b.pdf"),
                 ),
             ).execute()
         }
@@ -132,8 +133,7 @@ class ServedReleasesTest : IntegrationTestBase() {
 
     private fun generate(catalog: CatalogId, environment: EnvironmentKey?, selector: String?): String? = withMediator {
         GenerateDocument(
-            tenantId = catalog.tenantKey,
-            catalogKey = catalog.key,
+            catalog = testCatalog(catalog.tenantKey, catalog.key),
             templateId = INVOICE,
             variantId = VariantKey.INITIAL,
             releaseVersion = selector,
@@ -149,7 +149,7 @@ class ServedReleasesTest : IntegrationTestBase() {
     private fun released(slug: String, releases: Int): Triple<app.epistola.suite.common.ids.TenantKey, CatalogId, EnvironmentId> {
         val tenant = createTenant(slug).id
         val key = CatalogKey.of("letters")
-        val letters = CatalogId(key, TenantId(tenant))
+        val letters = testCatalog(TenantId(tenant), key)
         val production = EnvironmentId(EnvironmentKey.of("production"), TenantId(tenant))
         withMediator {
             CreateCatalog(tenantKey = tenant, id = key, name = "Letters").execute()

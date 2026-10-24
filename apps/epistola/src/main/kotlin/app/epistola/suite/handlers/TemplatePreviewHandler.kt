@@ -9,6 +9,7 @@ import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.htmx.catalog
 import app.epistola.suite.htmx.catalogId
 import app.epistola.suite.htmx.catalogVersion
 import app.epistola.suite.htmx.templateId
@@ -59,7 +60,7 @@ class TemplatePreviewHandler(
 
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalogId = request.catalogId()
+        val catalog = request.catalog(request.tenantId())
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
@@ -77,8 +78,7 @@ class TemplatePreviewHandler(
         val pdfBytes = try {
             if (previewRequest.releaseVersion != null && previewRequest.templateModel == null) {
                 PreviewDocument(
-                    tenantId = tenantId.key,
-                    catalogKey = catalogId,
+                    catalog = catalog,
                     templateId = templateId.key,
                     variantId = variantId.key,
                     data = dataNode,
@@ -90,8 +90,7 @@ class TemplatePreviewHandler(
                     generationService.convertTemplateModel(it)
                 }
                 PreviewVariant(
-                    tenantId = tenantId.key,
-                    catalogKey = catalogId,
+                    catalog = catalog,
                     templateId = templateId.key,
                     variantId = variantId.key,
                     data = dataNode,

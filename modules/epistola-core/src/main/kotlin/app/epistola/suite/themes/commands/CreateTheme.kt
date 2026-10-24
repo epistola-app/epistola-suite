@@ -4,6 +4,7 @@
 
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -61,12 +62,12 @@ class CreateThemeHandler(
     override fun handle(command: CreateTheme): Theme {
         val saved = save(command)
         // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
-        usedCatalogs.declare(command.id.tenantKey, command.id.catalogKey, saved.crossCatalogRefs(objectMapper))
+        usedCatalogs.declare(command.id.catalogId, saved.crossCatalogRefs(objectMapper))
         return saved
     }
 
     private fun save(command: CreateTheme): Theme {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
@@ -74,12 +75,12 @@ class CreateThemeHandler(
                     """
                 INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
                 VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key
+                RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS namespace
                 """,
                 )
                     .bind("id", command.id.key)
                     .bind("tenantId", command.id.tenantKey)
-                    .bind("catalogKey", command.id.catalogKey)
+                    .bindCatalog("catalogKey", command.id.catalogId)
                     .bind("name", command.name)
                     .bind("description", command.description)
                     .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))

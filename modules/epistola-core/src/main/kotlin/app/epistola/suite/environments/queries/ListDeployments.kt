@@ -4,6 +4,8 @@
 
 package app.epistola.suite.environments.queries
 
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
@@ -13,6 +15,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -24,10 +27,15 @@ import org.springframework.stereotype.Component
  */
 data class ListDeployments(
     override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey? = null,
+    val catalog: CatalogId? = null,
     val environmentKey: EnvironmentKey? = null,
 ) : Query<List<CatalogDeployment>>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog == null || catalog.tenantKey == tenantKey) { "The catalog is of the tenant" }
+    }
+
+    val catalogKey: CatalogKey? get() = catalog?.key
     override val permission get() = Permission.TEMPLATE_VIEW
 }
 
@@ -40,13 +48,13 @@ class ListDeploymentsHandler(
             """
             ${DeploymentRows.FROM}
             WHERE d.tenant_key = :t
-              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_id = epistola_catalog_id(:t, :c))
+              AND (CAST(:c AS TEXT) IS NULL OR cat.catalog_id = epistola_catalog_id(:t, :c_ns, :c))
               AND (CAST(:e AS TEXT) IS NULL OR d.environment_key = :e)
             ORDER BY d.environment_key, cat.catalog_key, (d.draft_id IS NULL), ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )
             .bind("t", query.tenantKey)
-            .bind("c", query.catalogKey)
+            .bindCatalog("c", query.catalog)
             .bind("e", query.environmentKey)
             .mapTo<CatalogDeployment>()
             .list()

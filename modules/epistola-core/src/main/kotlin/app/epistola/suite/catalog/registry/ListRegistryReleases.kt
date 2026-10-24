@@ -77,10 +77,11 @@ class ListRegistryReleasesHandler(
         val namespace = query.namespace.trim()
         val catalogKey = CatalogKey.of(query.catalogKey.trim())
         val client = registries.client(registry)
+        val catalog = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(query.tenantKey))
 
-        val local = GetCatalog(query.tenantKey, catalogKey).query()
+        val local = GetCatalog(catalog).query()
         val conflict = RegistryInstallRules.conflict(local, RegistrySourceUri(registry.name, namespace, catalogKey.value))
-        val here = if (local != null && conflict == null) ListCatalogReleaseSummaries(query.tenantKey, catalogKey).query().associate { it.version to it.fingerprint } else emptyMap()
+        val here = if (local != null && conflict == null) ListCatalogReleaseSummaries(catalog).query().associate { it.version to it.fingerprint } else emptyMap()
 
         val releases = releaseVersionsNewestFirst(client.tags(repository)).take(ListRegistryReleases.MAX_LISTED).mapNotNull { version ->
             val pulled = client.manifest(repository, version) ?: return@mapNotNull null

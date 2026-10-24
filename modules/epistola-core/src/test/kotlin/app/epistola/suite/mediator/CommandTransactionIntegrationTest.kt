@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.jdbi.v3.core.Jdbi
@@ -46,7 +47,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
 
             assertThatThrownBy {
                 CreateStencil(
-                    id = StencilId(StencilKey.of("tx-rollback-stencil"), CatalogId(catalogKey, TenantId(tenant.id))),
+                    id = StencilId(StencilKey.of("tx-rollback-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                     name = ROLLBACK_MARKER,
                 ).execute()
             }.hasMessageContaining("Simulated IMMEDIATE event-handler failure")
@@ -81,7 +82,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
             val catalogKey = CatalogKey.of("tx-commit-cat")
             CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = "Tx Commit Catalog").execute()
             CreateStencil(
-                id = StencilId(StencilKey.of("tx-commit-stencil"), CatalogId(catalogKey, TenantId(tenant.id))),
+                id = StencilId(StencilKey.of("tx-commit-stencil"), testCatalog(TenantId(tenant.id), catalogKey)),
                 name = COMMIT_MARKER,
             ).execute()
         }

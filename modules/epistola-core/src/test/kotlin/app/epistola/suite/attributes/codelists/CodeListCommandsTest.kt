@@ -26,6 +26,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -231,8 +233,8 @@ class CodeListCommandsTest : IntegrationTestBase() {
             // Scope to the tenant's default catalog — the bundled `system`
             // catalog also contributes code lists (bcp-47, iso-639-1,
             // iso-3166-1-alpha2) that we don't want to assert on here.
-            val resultA = ListCodeLists(TenantId(a.id), catalogKey = CatalogKey.of("default")).query()
-            val resultB = ListCodeLists(TenantId(b.id), catalogKey = CatalogKey.of("default")).query()
+            val resultA = ListCodeLists(TenantId(a.id), catalog = testCatalog(TenantId(a.id), CatalogKey.of("default"))).query()
+            val resultB = ListCodeLists(TenantId(b.id), catalog = testCatalog(TenantId(b.id), CatalogKey.of("default"))).query()
             assertThat(resultA).extracting<String> { it.slug.value }.containsExactly("list-a")
             assertThat(resultB).extracting<String> { it.slug.value }.containsExactly("list-b")
         }
@@ -267,13 +269,13 @@ class CodeListCommandsTest : IntegrationTestBase() {
 
             // Validation accepts both visible and hidden codes.
             assertThat(
-                CodeListEntryExists(tenant.id, catalogId.key, id.key, "active").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "active").query(),
             ).isTrue()
             assertThat(
-                CodeListEntryExists(tenant.id, catalogId.key, id.key, "legacy").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "legacy").query(),
             ).isTrue()
             assertThat(
-                CodeListEntryExists(tenant.id, catalogId.key, id.key, "unknown").query(),
+                CodeListEntryExists(testCatalog(tenant.id, catalogId.key), id.key, "unknown").query(),
             ).isFalse()
         }
     }

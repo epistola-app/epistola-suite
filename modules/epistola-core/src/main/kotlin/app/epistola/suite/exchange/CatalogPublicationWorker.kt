@@ -119,7 +119,7 @@ class CatalogPublicationWorker(
             // a catalog that never reached Exchange at all. Written before the row is updated, and
             // idempotent, so a crash in between re-marks on the next poll rather than losing it.
             jdbi.useHandle<Exception> { handle ->
-                namespaceBinder.markPublished(handle, publication.tenantKey, publication.catalogKey, publication.namespace)
+                namespaceBinder.markPublished(handle, publication.publishedAs, publication.namespace)
             }
         }
         store.applyRemoteState(

@@ -14,6 +14,8 @@ import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -86,13 +88,12 @@ class LoadTestPollerRecoveryIT : IntegrationTestBase() {
 
         val run = execute(
             StartLoadTest(
-                tenantId = tenant.id,
+                catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                 templateId = template.id,
                 variantId = variant.id,
                 targetCount = 100,
                 concurrencyLevel = 1,
                 testData = objectMapper.createObjectNode() as ObjectNode,
-                catalogKey = CatalogKey.DEFAULT,
             ),
         )
 

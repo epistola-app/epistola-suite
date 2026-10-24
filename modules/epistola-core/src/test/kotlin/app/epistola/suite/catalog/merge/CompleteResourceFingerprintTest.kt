@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.merge
 
 import app.epistola.catalog.archive.CatalogArchiveReader
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.ExportCatalogZip
@@ -28,6 +29,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -61,7 +63,7 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
 
     @Autowired private lateinit var contentBuilder: app.epistola.suite.catalog.CatalogContentBuilder
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey, key: String) = ThemeId(ThemeKey.of(key), testCatalog(TenantId(tenant), catalog))
 
     private fun entries(bytes: ByteArray): LinkedHashMap<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
@@ -118,20 +120,20 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Complete FP").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), CatalogId(catalog, TenantId(a))), "Letter").execute().withRequiredDataExample()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
-            val v100 = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes
-            val fingerprint = ListCatalogReleaseSummaries(a, catalog).query().single().fingerprint
+            CreateDocumentTemplate(TemplateId(TemplateKey.of("letter"), testCatalog(TenantId(a), catalog)), "Letter").execute().withRequiredDataExample()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            val v100 = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes
+            val fingerprint = ListCatalogReleaseSummaries(testCatalog(a, catalog)).query().single().fingerprint
 
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
             UpdateTheme(theme(b, catalog, "brand"), name = "B's brand").execute()
             ImportCatalogZip(tenantKey = b, zipBytes = describedRelease(v100, "letter", fingerprint)).execute()
 
-            val preview = PreviewDraftMerge(b, catalog, "1.0.1").query()
+            val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.base).isEqualTo("1.0.0")
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
-            assertThat(MergeReleaseIntoDraft(b, catalog, "1.0.1").execute().taken).containsExactly("template/letter")
+            assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute().taken).containsExactly("template/letter")
         }
     }
 
@@ -143,20 +145,20 @@ class CompleteResourceFingerprintTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Legacy Baseline").execute()
             CreateTheme(id = theme(a, catalog, "brand"), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
         }
         // What a next version recorded before baselines named their function: V3 values, a plain map.
         // No command writes that form any more, so it is put in place directly.
-        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(b, catalog))) }
+        val legacy = withMediator { objectMapper.writeValueAsString(fingerprints.perResourceFingerprints(contentBuilder.build(testCatalog(b, catalog)))) }
         jdbi.useHandle<Exception> { h ->
             h.createUpdate("UPDATE catalog_versions SET base_fingerprints = CAST(:f AS JSONB) WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND is_next")
-                .bind("f", legacy).bind("t", b).bind("c", catalog).execute()
+                .bind("f", legacy).bind("t", b).bindCatalog("c", testCatalog(b, catalog)).execute()
         }
         withMediator {
-            assertThat(nextVersionChanges.changed(b, catalog)).isEmpty()
-            assertThat(GetCatalogResourceChanges(b, catalog).query().resources.map { it.state }.distinct()).containsExactly(CatalogResourceState.RELEASED)
+            assertThat(nextVersionChanges.changed(testCatalog(b, catalog))).isEmpty()
+            assertThat(GetCatalogResourceChanges(testCatalog(b, catalog)).query().resources.map { it.state }.distinct()).containsExactly(CatalogResourceState.RELEASED)
         }
     }
 }

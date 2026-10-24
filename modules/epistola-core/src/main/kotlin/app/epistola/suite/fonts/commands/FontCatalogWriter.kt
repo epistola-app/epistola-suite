@@ -4,9 +4,11 @@
 
 package app.epistola.suite.fonts.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.ResourceIdentity
@@ -52,14 +54,13 @@ class FontCatalogWriter {
      */
     fun writeFont(
         handle: Handle,
-        tenantId: TenantId,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         slug: String,
         name: String,
         kind: String,
         variants: List<ImportFontVariant>,
         assetBytes: (variant: ImportFontVariant) -> ByteArray? = { null },
-    ): InstallStatus = writeFonts(handle, tenantId, catalogKey, listOf(FontSpec(slug, name, kind, variants)), assetBytes).getValue(slug)
+    ): InstallStatus = writeFonts(handle, catalog, listOf(FontSpec(slug, name, kind, variants)), assetBytes).getValue(slug)
 
     /**
      * Writes several families in three statements — one multi-row upsert of the families, one
@@ -69,13 +70,12 @@ class FontCatalogWriter {
      */
     fun writeFonts(
         handle: Handle,
-        tenantId: TenantId,
-        catalogKey: CatalogKey,
+        catalog: CatalogId,
         fonts: List<FontSpec>,
         assetBytes: (variant: ImportFontVariant) -> ByteArray? = { null },
     ): Map<String, InstallStatus> {
         if (fonts.isEmpty()) return emptyMap()
-        val tenantKey = tenantId.key
+        val tenantKey = catalog.tenantId.key
         val keyed = fonts.map { it to FontKey.of(it.slug) }
         val tuples = keyed.indices.joinToString(",\n") { i ->
             "(:slug$i, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name$i, :kind$i, NOW(), NOW())"
@@ -93,7 +93,7 @@ class FontCatalogWriter {
             """,
         )
             .bind("tenantKey", tenantKey)
-            .bind("catalogKey", catalogKey)
+            .bindCatalog("catalogKey", catalog)
         keyed.forEachIndexed { i, (font, fontSlug) ->
             upsert.bind("slug$i", fontSlug)
                 .bind("name$i", font.name)
@@ -109,7 +109,7 @@ class FontCatalogWriter {
             "DELETE FROM font_variants WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND font_resource_id IN (<families>)",
         )
             .bind("tenantKey", tenantKey)
-            .bind("catalogKey", catalogKey)
+            .bindCatalog("catalogKey", catalog)
             .bindList("families", keyed.map { upserted.getValue(it.second.value).first })
             .execute()
         val batch = handle.prepareBatch(
@@ -127,7 +127,7 @@ class FontCatalogWriter {
                     // A face's asset is written into the same catalog as the family, but only to
                     // find it: the row stores the asset's identity, so either can relocate later
                     // without the other.
-                    .bind("catalogKey", catalogKey)
+                    .bindCatalog("catalogKey", catalog)
                     .bind("fontResourceId", upserted.getValue(fontSlug.value).first)
                     .bind("weight", variant.weight)
                     .bind("italic", variant.italic)

@@ -27,7 +27,7 @@
                     <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);"
                        th:text="'Permanently delete this catalog with all its releases, templates, themes, stencils and other resources. It is refused while another catalog uses it or an environment serves one of its releases.'">
                         Permanently delete this catalog.</p>
-                    <form th:action="@{/tenants/{t}/catalogs/{c}/delete(t=${tenantId},c=${catalog.id})}"
+                    <form th:action="@{/tenants/{t}/catalogs/{c}/delete(t=${tenantId},c=${catalog.address})}"
                           method="post" hx-boost="false" data-testid="catalog-delete-form">
                         <button type="button" class="ep-btn ep-btn-destructive ep-btn-sm" data-testid="catalog-delete"
                                 data-confirm-submit

@@ -65,6 +65,12 @@ data class Catalog(
      */
     val suppliedByEpistola: Boolean get() = sourceUrl?.startsWith(CLASSPATH_SOURCE) == true
 
+    /** This catalog's address in its tenant, namespace and key (ADR 0034, section 9). */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, id, app.epistola.suite.common.ids.TenantId(tenantKey))
+
+    /** Its address, `namespace/key`, as the UI and tools name it (ADR 0034, section 9). */
+    val address: String get() = "$namespace/${id.value}"
+
     /** Its releases come from a source that can be asked for newer ones (ADR 0032, section 7). */
     val hasSource: Boolean get() = sourceUrl != null
 

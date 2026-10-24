@@ -5,7 +5,9 @@
 package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.SemVer
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
@@ -188,23 +190,23 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
         }
 
         /** The lineage of [catalogKey]'s releases. */
-        fun read(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): ReleaseLineage {
+        fun read(handle: Handle, catalog: CatalogId): ReleaseLineage {
             val merges = handle.createQuery(
                 """
                 SELECT version, merged_version, merged_fingerprint FROM catalog_release_merges
                 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version, merged_version
                 """,
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .map { rs, _ -> rs.getString("version") to ReleaseParent(rs.getString("merged_version"), rs.getString("merged_fingerprint")) }
                 .list()
                 .groupBy({ it.first }, { it.second })
             val releases = handle.createQuery(
                 "SELECT version, fingerprint, content_hash, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
             )
-                .bind("t", tenantKey)
-                .bind("c", catalogKey)
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .map { rs, _ ->
                     val version = rs.getString("version")
                     LineageRelease(
@@ -220,15 +222,15 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
         }
 
         /** The merge parents release [version] of [catalogKey] records, lowest first. */
-        fun mergedOf(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): List<ReleaseParent> = handle
+        fun mergedOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseParent> = handle
             .createQuery(
                 """
                 SELECT merged_version, merged_fingerprint FROM catalog_release_merges
                 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
             )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .bind("v", version)
             .map { rs, _ -> ReleaseParent(rs.getString("merged_version"), rs.getString("merged_fingerprint")) }
             .list()
@@ -238,7 +240,7 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
          * Records [merged] as the merge parents of release [version] of [catalogKey]. A parent
          * recorded already stays as it was.
          */
-        fun recordMerged(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, merged: Collection<ReleaseParent>) {
+        fun recordMerged(handle: Handle, catalog: CatalogId, version: String, merged: Collection<ReleaseParent>) {
             if (merged.isEmpty()) return
             val batch = handle.prepareBatch(
                 """
@@ -248,7 +250,7 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
                 """,
             )
             merged.distinctBy { it.version }.forEach { parent ->
-                batch.bind("t", tenantKey).bind("c", catalogKey).bind("version", version)
+                batch.bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("version", version)
                     .bind("merged", parent.version).bind("fingerprint", parent.fingerprint).add()
             }
             batch.execute()

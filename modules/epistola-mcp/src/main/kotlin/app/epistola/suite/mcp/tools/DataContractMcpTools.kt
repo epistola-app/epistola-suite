@@ -12,7 +12,7 @@ import app.epistola.suite.mcp.dto.DataContractInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogVersionRef
-import app.epistola.suite.mcp.support.mcpCatalogKey
+import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
 import app.epistola.suite.mcp.support.notFound
 import app.epistola.suite.mcp.support.parseOptionalArgument
@@ -51,7 +51,7 @@ class DataContractMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): DataContractInfo? {
-        val id = TemplateId(TemplateKey.of(templateId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
+        val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
         return mediator.query(GetDataContract(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { DataContractInfo.from(templateId, catalogId, it) }
     }
 
@@ -86,7 +86,7 @@ class DataContractMcpTools(
         @McpToolParam(description = EXPECTED_REVISION_DESCRIPTION, required = false)
         expectedRevision: Long? = null,
     ): DataContractInfo {
-        val id = TemplateId(TemplateKey.of(templateId), CatalogId(mcpCatalogKey(catalogId), mcpTenantId()))
+        val id = TemplateId(TemplateKey.of(templateId), mcpCatalog(catalogId))
         val command = UpdateDataContract(
             templateId = id,
             dataModel = objectMapper.parseOptionalArgument("dataModel", dataModel, ObjectNode::class.java),

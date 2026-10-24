@@ -27,7 +27,9 @@ import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import io.micrometer.core.instrument.MeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -91,12 +93,11 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
         }.whenever { (tenant, templateId, variant) ->
             val accepted = execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = variant.key,
                     data = objectMapper.createObjectNode().put("name", "Ada"),
                     filename = "letter.pdf",
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
             // 2.0.0 requires a field the accepted request does not carry: a breaking change, so the
@@ -109,7 +110,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             accepted
         }.then { _, accepted ->
             // The premise: the release cut after acceptance really does require the other field.
-            val laterContract = releaseAssembler.readResource(accepted.tenantKey, accepted.catalogKey, "2.0.0", "template", accepted.templateKey.value)
+            val laterContract = releaseAssembler.readResource(testCatalog(accepted.tenantKey, accepted.catalogKey), "2.0.0", "template", accepted.templateKey.value)
                 as app.epistola.catalog.protocol.TemplateResource
             assertThat(laterContract.dataModel?.get("required")).isEqualTo(listOf("reference"))
 
@@ -136,20 +137,19 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
-            execute(app.epistola.suite.environments.commands.DeployCatalogRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.DEFAULT), "1.0.0"))
             // The next version drops the letter; production still serves the release that has it.
             execute(app.epistola.suite.templates.commands.DeleteDocumentTemplate(templateId))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
             execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = variant.key,
                     environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                     data = objectMapper.createObjectNode(),
                     filename = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -172,12 +172,11 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
         }.whenever { (tenant, templateId, variant) ->
             execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = variant.key,
                     data = objectMapper.createObjectNode(),
                     filename = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -194,20 +193,19 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             val production = app.epistola.suite.common.ids.EnvironmentId(app.epistola.suite.common.ids.EnvironmentKey.of("production"), TenantId(tenant.id))
             execute(app.epistola.suite.environments.commands.CreateEnvironment(production, "Production"))
-            execute(app.epistola.suite.environments.commands.DeployCatalogRelease(production, CatalogKey.DEFAULT, "1.0.0"))
+            execute(app.epistola.suite.environments.commands.DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.DEFAULT), "1.0.0"))
             // A newer release exists, but production has not been moved to it.
             released(variant, TestTemplateBuilder.buildMinimal(name = "Letter"))
             Triple(tenant, templateId, variant)
         }.whenever { (tenant, templateId, variant) ->
             execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = variant.key,
                     environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                     data = objectMapper.createObjectNode(),
                     filename = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -228,13 +226,12 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
         }.whenever { (tenant, templateId, variant) ->
             execute(
                 GenerateDocument(
-                    tenantId = tenant.id,
+                    catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                     templateId = templateId.key,
                     variantId = variant.key,
                     releaseVersion = "1.0.0",
                     data = objectMapper.createObjectNode(),
                     filename = null,
-                    catalogKey = CatalogKey.DEFAULT,
                 ),
             )
         }.then { _, accepted ->
@@ -261,13 +258,12 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
                 assertThatThrownBy {
                     execute(
                         GenerateDocument(
-                            tenantId = tenant.id,
+                            catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                             templateId = templateId.key,
                             variantId = variant.key,
                             environmentId = app.epistola.suite.common.ids.EnvironmentKey.of("production"),
                             data = objectMapper.createObjectNode(),
                             filename = null,
-                            catalogKey = CatalogKey.DEFAULT,
                         ),
                     )
                 }.isInstanceOf(NoReleaseDeployedException::class.java)
@@ -286,8 +282,7 @@ class GenerateFromReleaseTest : IntegrationTestBase() {
             .then { (tenant, templateId, variant), _ ->
                 fun preview(workingCopy: Boolean) = query(
                     PreviewDocument(
-                        tenantId = tenant.id,
-                        catalogKey = CatalogKey.DEFAULT,
+                        catalog = testCatalog(tenant.id, CatalogKey.DEFAULT),
                         templateId = templateId.key,
                         data = objectMapper.createObjectNode(),
                         variantId = variant.key,

@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -61,7 +62,7 @@ class UpdateDataExampleHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<UpdateDataExample, UpdateDataExampleResult?> {
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
-        requireCatalogEditable(command.templateId.tenantKey, command.templateId.catalogKey)
+        requireCatalogEditable(command.templateId.catalogId)
 
         return jdbi.inTransaction<UpdateDataExampleResult?, Exception> { handle ->
             // Load and lock the draft contract version
@@ -109,7 +110,7 @@ class UpdateDataExampleHandler(
                 """,
             )
                 .bind("tenantKey", command.templateId.tenantKey)
-                .bind("catalogKey", command.templateId.catalogKey)
+                .bindCatalog("catalogKey", command.templateId.catalogId)
                 .bind("templateKey", command.templateId.key)
                 .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
                 .mapTo(Long::class.java)

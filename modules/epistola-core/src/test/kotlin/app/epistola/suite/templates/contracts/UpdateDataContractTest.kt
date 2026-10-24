@@ -17,6 +17,7 @@ import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.hasValidationCode
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException

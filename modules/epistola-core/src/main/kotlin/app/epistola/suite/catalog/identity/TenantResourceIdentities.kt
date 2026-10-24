@@ -4,7 +4,11 @@
 
 package app.epistola.suite.catalog.identity
 
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.bindCatalogs
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.catalogsAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
@@ -16,6 +20,8 @@ data class ResourceIdentityRecord(
     val catalogKey: String,
     val key: String,
     val resourceId: ResourceIdentity,
+    /** The namespace of its catalog (snapshot schema 4); null in older snapshots. */
+    val namespace: String? = null,
 )
 
 /**
@@ -41,27 +47,28 @@ data class TenantResourceIdentities(
 class TenantResourceIdentityStore(
     private val jdbi: Jdbi,
 ) {
-    /** Every identity in [catalogKeys]. */
-    fun read(tenantKey: TenantKey, catalogKeys: Set<String>): TenantResourceIdentities {
-        if (catalogKeys.isEmpty()) return TenantResourceIdentities()
+    /** Every identity in [catalogs]. */
+    fun read(tenantKey: TenantKey, catalogs: Set<CatalogId>): TenantResourceIdentities {
+        if (catalogs.isEmpty()) return TenantResourceIdentities()
         return jdbi.withHandle<TenantResourceIdentities, Exception> { handle ->
             val resources = handle.createQuery(
                 """
-                SELECT r.resource_type, c.catalog_key::text, r.resource_key, r.resource_id
+                SELECT r.resource_type, c.namespace, c.catalog_key::text, r.resource_key, r.resource_id
                 FROM catalog_resources r
                 JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                WHERE r.tenant_key = :tenantKey AND c.catalog_key IN (<catalogKeys>)
-                ORDER BY r.resource_type, c.catalog_key, r.resource_key
+                WHERE r.tenant_key = :tenantKey AND c.catalog_id IN ${catalogsAt("tenantKey", "catalogs")}
+                ORDER BY r.resource_type, c.catalog_key, c.namespace, r.resource_key
                 """,
             )
                 .bind("tenantKey", tenantKey)
-                .bindList("catalogKeys", catalogKeys.toList())
+                .bindCatalogs("catalogs", catalogs)
                 .map { rs, _ ->
                     ResourceIdentityRecord(
                         type = rs.getString("resource_type"),
                         catalogKey = rs.getString("catalog_key"),
                         key = rs.getString("resource_key"),
                         resourceId = ResourceIdentity.of(rs.getString("resource_id")),
+                        namespace = rs.getString("namespace"),
                     )
                 }
                 .list()
@@ -78,7 +85,7 @@ class TenantResourceIdentityStore(
      * The registry's foreign key to `catalogs` is deferrable for exactly this: the catalogs these
      * rows name are created by the import that follows, inside the same transaction.
      */
-    fun plantIdentities(tenantKey: TenantKey, resources: List<ResourceIdentityRecord>) {
+    fun plantIdentities(tenantKey: TenantKey, resources: List<ResourceIdentityRecord>, catalogOf: (ResourceIdentityRecord) -> CatalogId) {
         if (resources.isEmpty()) return
         jdbi.useHandle<Exception> { handle ->
             handle.execute("SET CONSTRAINTS ALL DEFERRED")
@@ -93,7 +100,7 @@ class TenantResourceIdentityStore(
                 batch.bind("tenantKey", tenantKey)
                     .bind("resourceId", resource.resourceId)
                     .bind("resourceType", resource.type)
-                    .bind("catalogKey", resource.catalogKey)
+                    .bindCatalog("catalogKey", catalogOf(resource))
                     .bind("resourceKey", resource.key)
                     .add()
             }

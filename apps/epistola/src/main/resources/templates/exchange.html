@@ -182,7 +182,7 @@
                     <tbody>
                     <tr th:each="entry : ${activity.recent}">
                         <td>
-                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${entry.catalogKey})}"
+                            <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${entry.namespace != null ? entry.namespace + '/' + entry.catalogKey : entry.catalogKey})}"
                                th:text="${entry.catalogKey}">catalog</a>
                         </td>
                         <td th:text="'v' + ${entry.version}">v1.0.0</td>

@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.releases.ListCatalogReleases
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
+import app.epistola.suite.testing.testCatalog
 
 /**
  * Paths of the contract 2.0 catalog-scoped REST API, which addresses a catalog by its full name
@@ -24,7 +25,7 @@ internal object CatalogApiPaths {
 
     /** `/api/tenants/{tenantKey}/catalogs/~/{namespace}/{catalogKey}`. */
     fun catalog(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String {
-        val catalog = GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query()
+        val catalog = GetCatalog(testCatalog(tenantKey, CatalogKey.of(catalogKey))).query()
             ?: error("Tenant ${tenantKey.value} has no catalog $catalogKey")
         return "/api/tenants/${tenantKey.value}/catalogs/~/${catalog.namespace}/$catalogKey"
     }
@@ -37,13 +38,13 @@ internal object CatalogApiPaths {
 
     /** How an address names the catalog's current version: `next`, or its highest release when it has no next version. */
     fun currentVersion(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String {
-        val versions = ListCatalogReleases(tenantKey, CatalogKey.of(catalogKey)).query()
+        val versions = ListCatalogReleases(testCatalog(tenantKey, CatalogKey.of(catalogKey))).query()
         if (versions.any { it.isNext }) return DraftRef.NEXT
         return versions.firstOrNull { it.status == CatalogReleaseStatus.RELEASED }?.version
             ?: error("Catalog $catalogKey of tenant ${tenantKey.value} has no version: an authored catalog should always have its next version")
     }
 
     /** The catalog's namespace, as a generation or preview request names the catalog. */
-    fun namespace(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String = GetCatalog(tenantKey, CatalogKey.of(catalogKey)).query()?.namespace
+    fun namespace(tenantKey: TenantKey, catalogKey: String = CatalogKey.DEFAULT.value): String = GetCatalog(testCatalog(tenantKey, CatalogKey.of(catalogKey))).query()?.namespace
         ?: error("Tenant ${tenantKey.value} has no catalog $catalogKey")
 }

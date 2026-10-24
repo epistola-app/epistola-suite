@@ -4,6 +4,7 @@
 
 package app.epistola.suite.catalog.merge
 
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -32,8 +33,8 @@ class DraftMergePlanner(
     private val references: MergeReferences,
 ) {
 
-    fun plan(tenantKey: TenantKey, catalogKey: CatalogKey, release: String, draftName: String): MergePlan {
-        val read = inputs.read(tenantKey, catalogKey, release, draftName)
+    fun plan(catalog: CatalogId, release: String, draftName: String): MergePlan {
+        val read = inputs.read(catalog, release, draftName)
         val (base, ours, theirs) = Triple(read.base, read.ours, read.theirs)
         // A resource is called what the draft calls it, else what the release does, else the base.
         val names = base.names + theirs.names + ours.names
@@ -47,7 +48,7 @@ class DraftMergePlanner(
         return MergePlan(
             inputs = read,
             entries = entries,
-            resources = withNeeds(catalogKey, entries, classified),
+            resources = withNeeds(catalog.key, entries, classified),
             token = token(read),
         )
     }

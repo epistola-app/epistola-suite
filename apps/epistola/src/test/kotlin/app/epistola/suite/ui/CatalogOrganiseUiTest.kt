@@ -21,6 +21,7 @@ import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.queries.ListStencils
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.testing.TEST_TENANT_ROLES_HEADER
+import app.epistola.suite.testing.testCatalog
 import com.microsoft.playwright.Locator
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
@@ -50,7 +51,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
     }
 
     private fun stencil(tenant: TenantKey, catalog: CatalogKey, key: String, name: String) = withMediator {
-        CreateStencil(StencilId(StencilKey.of(key), CatalogId(catalog, TenantId(tenant))), name).execute()
+        CreateStencil(StencilId(StencilKey.of(key), testCatalog(TenantId(tenant), catalog)), name).execute()
     }
 
     @Test
@@ -60,13 +61,13 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
 
         gotoAndReady("/tenants/$tenant/catalogs/organise")
         page.getByLabel("Select Header").check()
-        page.getByTestId("organise-shared-destination").selectOption("shared")
+        page.getByTestId("organise-shared-destination").selectOption(testCatalog(TenantId(tenant), shared).address)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Preview")).click()
         assertThat(page.getByText("Ready to move")).isVisible()
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
         assertThat(page.getByTestId("organise-applied")).containsText("Moved 1 resource to Shared")
-        fun stencilKeysIn(catalog: CatalogKey) = withMediator { ListStencils(TenantId(tenant), catalogKey = catalog).query() }.map { it.id.value }
+        fun stencilKeysIn(catalog: CatalogKey) = withMediator { ListStencils(TenantId(tenant), catalog = testCatalog(TenantId(tenant), catalog)).query() }.map { it.id.value }
         assertThatValue(stencilKeysIn(shared)).containsExactly("header")
         assertThatValue(stencilKeysIn(letters)).isEmpty()
     }
@@ -79,7 +80,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
 
         gotoAndReady("/tenants/$tenant/catalogs/organise")
         page.getByLabel("Select Header", Page.GetByLabelOptions().setExact(true)).check()
-        page.getByTestId("organise-shared-destination").selectOption("shared")
+        page.getByTestId("organise-shared-destination").selectOption(testCatalog(TenantId(tenant), shared).address)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Preview")).click()
 
         assertThat(page.getByText("Blocked — nothing will be moved")).isVisible()
@@ -90,15 +91,15 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
     @Test
     fun `moving a template from its settings lands on the settings at its new address`() {
         val tenant = tenant("Organise template dialog")
-        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), CatalogId(letters, TenantId(tenant))), "Invoice").execute() }
+        withMediator { CreateDocumentTemplate(TemplateId(TemplateKey.of("invoice"), testCatalog(TenantId(tenant), letters)), "Invoice").execute() }
 
         gotoAndReady("/tenants/$tenant/catalogs/letters/templates/invoice/settings")
         val dialog = page.openDialogByTrigger(page.getByTestId("template-move-action"), "#move-resource-dialog")
-        dialog.getByTestId("organise-single-destination").selectOption("shared")
+        dialog.getByTestId("organise-single-destination").selectOption(testCatalog(TenantId(tenant), shared).address)
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Preview")).click()
         dialog.getByRole(AriaRole.BUTTON, Locator.GetByRoleOptions().setName("Move 1 resource(s)")).click()
 
-        assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/catalogs/shared/templates/invoice/settings$"))
+        assertThat(page).hasURL(Pattern.compile(".*/tenants/$tenant/catalogs/[^/]+/shared/templates/invoice/settings$"))
     }
 
     @Test
@@ -109,7 +110,7 @@ class CatalogOrganiseUiTest : BasePlaywrightTest() {
 
         gotoAndReady("/tenants/$tenant/catalogs/organise")
         page.getByLabel("Select Header").check()
-        page.getByTestId("organise-shared-destination").selectOption("shared")
+        page.getByTestId("organise-shared-destination").selectOption(testCatalog(TenantId(tenant), shared).address)
         page.getByRole(AriaRole.BUTTON, Page.GetByRoleOptions().setName("Preview")).click()
 
         assertThat(page.getByTestId("organise-cannot-apply")).containsText("catalog management")

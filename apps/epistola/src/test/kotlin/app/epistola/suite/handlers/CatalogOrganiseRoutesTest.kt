@@ -15,6 +15,7 @@ import app.epistola.suite.features.KnownFeatures
 import app.epistola.suite.features.commands.SaveFeatureToggle
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -40,7 +41,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
             SaveFeatureToggle(tenant.id, KnownFeatures.RESOURCE_RELOCATION, enabled = true).execute()
             CreateCatalog(tenant.id, letters, "Letters").execute()
             CreateCatalog(tenant.id, CatalogKey.of("shared"), "Shared").execute()
-            CreateStencil(StencilId(StencilKey.of("header"), CatalogId(letters, TenantId(tenant.id))), "Header").execute()
+            CreateStencil(StencilId(StencilKey.of("header"), testCatalog(TenantId(tenant.id), letters)), "Header").execute()
         }
         return tenant.id.value
     }
@@ -70,11 +71,11 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val tenantId = tenantWithStencil("Organise deep link")
 
         val response = restTemplate.getForEntity(
-            "/tenants/$tenantId/catalogs/organise?resource=stencil:letters/header",
+            "/tenants/$tenantId/catalogs/organise?resource=stencil:$tenantId/letters/header",
             String::class.java,
         )
 
-        assertThat(response.body).contains("data-preselected=\"stencil:letters/header\"")
+        assertThat(response.body).contains("data-preselected=\"stencil:$tenantId/letters/header\"")
     }
 
     @Test
@@ -118,7 +119,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `the single-resource move is a dialog for HTMX and a page for a pasted link`() {
         val tenantId = tenantWithStencil("Organise single")
-        val resource = "stencil:letters/header"
+        val resource = "stencil:$tenantId/letters/header"
         val url = "/tenants/$tenantId/catalogs/organise/move?resource=$resource"
 
         val page = restTemplate.getForEntity(url, String::class.java)
@@ -143,7 +144,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val tenant = createTenant("Organise single off")
 
         val response = restTemplate.getForEntity(
-            "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:letters/header",
+            "/tenants/${tenant.id}/catalogs/organise/move?resource=stencil:${tenant.id}/letters/header",
             String::class.java,
         )
 
@@ -153,7 +154,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
     @Test
     fun `preview then execute moves the selection`() {
         val tenantId = tenantWithStencil("Organise move")
-        val body = """{"relocations":[{"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared"}]}"""
+        val body = """{"relocations":[{"type":"stencil","catalog":"$tenantId/letters","key":"header","targetCatalog":"$tenantId/shared"}]}"""
 
         val preview = post(tenantId, "preview", body)
         assertThat(preview.statusCode).isEqualTo(HttpStatus.OK)
@@ -164,7 +165,7 @@ class CatalogOrganiseRoutesTest : BaseIntegrationTest() {
         val executed = post(
             tenantId,
             "execute",
-            """{"relocations":[{"type":"stencil","catalog":"letters","key":"header","targetCatalog":"shared"}],"planFingerprint":"$fingerprint"}""",
+            """{"relocations":[{"type":"stencil","catalog":"$tenantId/letters","key":"header","targetCatalog":"$tenantId/shared"}],"planFingerprint":"$fingerprint"}""",
         )
 
         assertThat(executed.statusCode).isEqualTo(HttpStatus.OK)

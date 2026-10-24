@@ -4,7 +4,9 @@
 
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.DeploymentAction
@@ -14,6 +16,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -36,12 +39,18 @@ import org.springframework.stereotype.Component
  */
 data class UndeployCatalogRelease(
     val environmentId: EnvironmentId,
-    val catalogKey: CatalogKey,
+    /** The catalog, in [environmentId]'s tenant. */
+    val catalog: CatalogId,
     val version: String,
 ) : Command<Boolean>,
     RequiresPermission {
+    init {
+        validate("catalog", catalog.tenantKey == environmentId.tenantKey) { "The catalog and the environment are of one tenant" }
+    }
+
     override val permission get() = Permission.ENVIRONMENT_DEPLOY
     override val tenantKey get() = environmentId.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
 }
 
 @Component
@@ -57,16 +66,16 @@ class UndeployCatalogReleaseHandler(
             .mapTo(String::class.java)
             .findOne()
         // The draft it serves, by its id.
-        val draft = DraftDeploymentStore.list(handle, command.environmentId.tenantKey, command.environmentId.key, command.catalogKey).singleOrNull()
+        val draft = DraftDeploymentStore.list(handle, command.environmentId.tenantKey, command.environmentId.key, command.catalog).singleOrNull()
         if (draft != null && draft.draftId == command.version) {
-            return@inTransaction DraftDeploymentStore.undeploy(handle, command.environmentId.tenantKey, command.environmentId.key, command.catalogKey) != null
+            return@inTransaction DraftDeploymentStore.undeploy(handle, command.environmentId.key, command.catalog) != null
         }
         // A release, by its number or its id.
         val version = handle.createQuery(
             "SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
         )
             .bind("t", command.environmentId.tenantKey)
-            .bind("c", command.catalogKey)
+            .bindCatalog("c", command.catalog)
             .bind("v", command.version)
             .mapTo(String::class.java)
             .findOne()
@@ -79,15 +88,14 @@ class UndeployCatalogReleaseHandler(
         )
             .bind("t", command.environmentId.tenantKey)
             .bind("e", command.environmentId.key)
-            .bind("c", command.catalogKey)
+            .bindCatalog("c", command.catalog)
             .bind("v", version)
             .execute() > 0
         if (!removed) return@inTransaction false
         DeploymentLog.record(
             handle,
-            command.environmentId.tenantKey,
             command.environmentId.key,
-            command.catalogKey,
+            command.catalog,
             DeploymentAction.UNDEPLOYED,
             version,
         )

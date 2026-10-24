@@ -20,6 +20,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -113,17 +114,15 @@ class EpistolaFontApiTest : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         withMediator {
             val asset = UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
                 name = "acme-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray,
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             ImportFont(
-                tenantId = TenantId(tenantKey),
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(TenantId(tenantKey), CatalogKey.DEFAULT),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,

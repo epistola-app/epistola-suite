@@ -4,6 +4,7 @@
 
 package app.epistola.suite.templates.queries.variants
 
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -52,7 +53,7 @@ class GetVariantHandler(
             .bind("variantId", query.variantId.key)
             .bind("templateId", query.variantId.templateKey)
             .bind("tenantId", query.variantId.tenantKey)
-            .bind("catalogKey", query.variantId.catalogKey)
+            .bindCatalog("catalogKey", query.variantId.catalogId)
             .mapTo<TemplateVariant>()
             .findOne()
             .orElse(null)
@@ -96,7 +97,7 @@ class GetVariantSummariesHandler(
         )
             .bind("templateId", query.templateId.key)
             .bind("tenantId", query.templateId.tenantKey)
-            .bind("catalogKey", query.templateId.catalogKey)
+            .bindCatalog("catalogKey", query.templateId.catalogId)
             .mapTo<VariantSummary>()
             .list()
     }

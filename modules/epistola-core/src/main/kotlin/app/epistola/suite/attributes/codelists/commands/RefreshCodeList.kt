@@ -9,6 +9,7 @@ import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.service.CodeListClient
 import app.epistola.suite.attributes.codelists.service.CodeListFetchException
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
@@ -63,7 +64,7 @@ class RefreshCodeListHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: RefreshCodeList): CodeList? {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
 
         // Self-managed: each of its transactions takes the catalog version the command targets.
         val current = jdbi.inTransaction<CodeList?, Exception> { handle ->
@@ -71,7 +72,8 @@ class RefreshCodeListHandler(
             handle.createQuery(
                 """
                 SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
-                         WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                         WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat
+                         WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS namespace,
                        display_name, description,
                        source_type, source_url, auth_type, credential,
                        last_refreshed_at, last_refresh_error,
@@ -81,7 +83,7 @@ class RefreshCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
                 .mapTo<CodeList>()
                 .findOne()
@@ -125,7 +127,7 @@ class RefreshCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
                 .execute()
             insertEntries(handle, command.id, fetched)
@@ -138,7 +140,8 @@ class RefreshCodeListHandler(
                     updated_at      = NOW()
                 WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
                 RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
-                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat
+                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS namespace,
                           display_name, description,
                           source_type, source_url, auth_type, credential,
                           last_refreshed_at, last_refresh_error,
@@ -146,7 +149,7 @@ class RefreshCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
                 .mapTo<CodeList>()
                 .one()
@@ -164,7 +167,7 @@ class RefreshCodeListHandler(
                 """,
             )
                 .bind("tenantKey", id.tenantKey)
-                .bind("catalogKey", id.catalogKey)
+                .bindCatalog("catalogKey", id.catalogId)
                 .bind("slug", id.key)
                 .bind("error", message)
                 .execute()
@@ -176,7 +179,8 @@ class RefreshCodeListHandler(
         handle.createQuery(
             """
             SELECT slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
-                     WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key,
+                     WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat
+                     WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS namespace,
                    display_name, description,
                    source_type, source_url, auth_type, credential,
                    last_refreshed_at, last_refresh_error,
@@ -186,7 +190,7 @@ class RefreshCodeListHandler(
             """,
         )
             .bind("tenantKey", id.tenantKey)
-            .bind("catalogKey", id.catalogKey)
+            .bindCatalog("catalogKey", id.catalogId)
             .bind("slug", id.key)
             .mapTo<CodeList>()
             .findOne()

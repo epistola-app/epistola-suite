@@ -24,6 +24,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.templates.queries.variants.GetVariantContent
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -66,8 +67,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         val plan = preview(tenant, header.movedTo(shared))
         assertThat(plan.warnings).isEmpty()
 
-        withMediator { MarkCatalogReady(tenant, letters).execute() }
-        withMediator { ReleaseCatalogDraft(tenant, letters, "1.0.0", publication = ReleasePublication.SKIP).execute() }
+        withMediator { MarkCatalogReady(testCatalog(tenant, letters)).execute() }
+        withMediator { ReleaseCatalogDraft(testCatalog(tenant, letters), "1.0.0", publication = ReleasePublication.SKIP).execute() }
 
         assertStale(tenant, listOf(header.movedTo(shared)), plan.planFingerprint)
     }
@@ -113,8 +114,8 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         }
         val draftBefore = withMediator { GetVariantContent(variant).query()!! }
         val batch = listOf(
-            address(CatalogResourceType.STENCIL, letters, "first").movedTo(shared),
-            address(CatalogResourceType.STENCIL, letters, "second").movedTo(shared),
+            address(tenant, CatalogResourceType.STENCIL, letters, "first").movedTo(shared),
+            address(tenant, CatalogResourceType.STENCIL, letters, "second").movedTo(shared),
         )
         val plan = preview(tenant, batch)
         assertThat(plan.executable).isTrue()
@@ -260,7 +261,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
     private fun invoiceVariant(tenant: TenantKey) = VariantId(VariantKey.INITIAL, TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters)))
 
     /** Stencil `letters/header`, published, and inserted by the draft of template `letters/invoice`. */
-    private fun stencilReferencedByDraft(tenant: TenantKey) = address(CatalogResourceType.STENCIL, letters, "header").also {
+    private fun stencilReferencedByDraft(tenant: TenantKey) = address(tenant, CatalogResourceType.STENCIL, letters, "header").also {
         val header = StencilId(StencilKey.of("header"), catalogId(tenant, letters))
         withMediator {
             CreateStencil(header, "Header").execute()

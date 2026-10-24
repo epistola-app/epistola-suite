@@ -20,6 +20,7 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -40,23 +41,23 @@ class ReleaseReceivedBesideBinariesTest : IntegrationTestBase() {
         val a = createTenant("Beside Bytes A").id
         val b = createTenant("Beside Bytes B").id
         val catalog = CatalogKey.of("beside-bytes")
-        val theme = { tenant: app.epistola.suite.common.ids.TenantKey -> ThemeId(ThemeKey.of("tha"), CatalogId(catalog, TenantId(tenant))) }
+        val theme = { tenant: app.epistola.suite.common.ids.TenantKey -> ThemeId(ThemeKey.of("tha"), testCatalog(TenantId(tenant), catalog)) }
         withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Beside bytes").execute()
             CreateTheme(id = theme(a), name = "base").execute()
-            MarkCatalogReady(a, catalog).execute()
-            ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = "1.0.0").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(a, catalog, "1.0.0").execute().zipBytes).execute()
-            UploadAsset(b, "Mark", AssetMediaType.PNG, PNG, 1, 1, catalog).execute()
-            MarkCatalogReady(b, catalog).execute()
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = "1.0.0").execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = ExportCatalogZip(testCatalog(a, catalog), "1.0.0").execute().zipBytes).execute()
+            UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1).execute()
+            MarkCatalogReady(testCatalog(b, catalog)).execute()
             TestNamespaces.share(a, b).execute()
-            ReleaseCatalogDraft(tenantKey = b, catalogKey = catalog, version = "2.0.0").execute()
-            val v2 = ExportCatalogZip(b, catalog, "2.0.0").execute().zipBytes
+            ReleaseCatalogDraft(catalog = testCatalog(b, catalog), version = "2.0.0").execute()
+            val v2 = ExportCatalogZip(testCatalog(b, catalog), "2.0.0").execute().zipBytes
 
             UpdateTheme(theme(a), name = "A's own").execute()
             ImportCatalogZip(tenantKey = a, zipBytes = v2).execute()
 
-            val content = assembler.assemble(a, catalog, "2.0.0")!!.content
+            val content = assembler.assemble(testCatalog(a, catalog), "2.0.0")!!.content
             val image = content.resourceDetails.values.map { it.resource }.filterIsInstance<ImageResource>().single()
             assertThat(content.assetContents[image.contentPath()]).`as`("the image's bytes").isEqualTo(PNG)
         }

@@ -5,6 +5,7 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -49,7 +50,7 @@ class DeleteCodeListHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteCodeList, Boolean> {
     override fun handle(command: DeleteCodeList): Boolean {
-        requireCatalogEditable(command.id.tenantKey, command.id.catalogKey)
+        requireCatalogEditable(command.id.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             val attributeCount = handle.createQuery(
                 """
@@ -60,7 +61,7 @@ class DeleteCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
                 .mapTo(Long::class.java)
                 .one()
@@ -77,7 +78,7 @@ class DeleteCodeListHandler(
                 """,
             )
                 .bind("tenantKey", command.id.tenantKey)
-                .bind("catalogKey", command.id.catalogKey)
+                .bindCatalog("catalogKey", command.id.catalogId)
                 .bind("slug", command.id.key)
                 .execute()
             rowsAffected > 0

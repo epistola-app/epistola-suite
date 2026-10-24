@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.queries.CatalogReadOnlyReason
 import app.epistola.suite.catalog.queries.GetCatalogEditability
 import app.epistola.suite.catalog.revisions.ReleaseEntryStore
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
@@ -42,7 +43,7 @@ class NextVersionChanges(
     private val targeting: CatalogReleaseTargeting,
 ) {
 
-    fun hasChanges(tenantKey: TenantKey, catalogKey: CatalogKey): Boolean = changed(tenantKey, catalogKey).isNotEmpty()
+    fun hasChanges(catalog: CatalogId): Boolean = changed(catalog).isNotEmpty()
 
     /**
      * The entries (`type/key`) the next version changed since its base: added, changed or removed.
@@ -51,12 +52,12 @@ class NextVersionChanges(
      * setting is a change of its own, which a newer
      * release must not be fast-forwarded over.
      */
-    fun changed(tenantKey: TenantKey, catalogKey: CatalogKey): Set<String> {
-        if (GetCatalogEditability(tenantKey, catalogKey).query().reason == CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA) return emptySet()
+    fun changed(catalog: CatalogId): Set<String> {
+        if (GetCatalogEditability(catalog).query().reason == CatalogReadOnlyReason.SUPPLIED_BY_EPISTOLA) return emptySet()
         val (next, recorded, hasEntries) = jdbi.withHandle<Triple<CatalogDraft?, Map<String, String>?, Boolean>, Exception> { handle ->
-            val next = drafts.next(handle, tenantKey, catalogKey)
-            val recorded = next?.let { fingerprints.readBaseline(drafts.baseFingerprints(handle, tenantKey, it.versionId)) }
-            val hasEntries = next?.base?.let { entries.entriesOf(handle, tenantKey, catalogKey, it).isNotEmpty() } ?: false
+            val next = drafts.next(handle, catalog)
+            val recorded = next?.let { fingerprints.readBaseline(drafts.baseFingerprints(handle, catalog.tenantKey, it.versionId)) }
+            val hasEntries = next?.base?.let { entries.entriesOf(handle, catalog, it).isNotEmpty() } ?: false
             Triple(next, recorded, hasEntries)
         }
         val base = when {
@@ -66,7 +67,7 @@ class NextVersionChanges(
             recorded != null -> if (next.base == null || app.epistola.suite.catalog.merge.CatalogSetting.LEGACY_DEPENDENCIES !in recorded) {
                 recorded
             } else {
-                app.epistola.suite.catalog.merge.CatalogSetting.completeBaseline(recorded, assembler.assemble(tenantKey, catalogKey, next.base)?.let { fingerprints.entryFingerprints(catalogKey, it.content) }.orEmpty())
+                app.epistola.suite.catalog.merge.CatalogSetting.completeBaseline(recorded, assembler.assemble(catalog, next.base)?.let { fingerprints.entryFingerprints(catalog.key, it.content) }.orEmpty())
             }
 
             // Nothing under it: what it holds is all its own, and each setting it set.
@@ -75,10 +76,10 @@ class NextVersionChanges(
             // A release from before 2.0 recorded no content to compare with.
             !hasEntries -> null
 
-            else -> assembler.assemble(tenantKey, catalogKey, next.base)?.let { fingerprints.entryFingerprints(catalogKey, it.content) }
+            else -> assembler.assemble(catalog, next.base)?.let { fingerprints.entryFingerprints(catalog.key, it.content) }
         }
         if (next == null || base == null) return emptySet()
-        val ours = current(tenantKey, catalogKey, next)
+        val ours = current(catalog, next)
         return (ours.keys + base.keys).filterTo(sortedSetOf()) { ours[it] != base[it] }
     }
 
@@ -86,12 +87,12 @@ class NextVersionChanges(
      * Records what the next version holds now as what a received release put in place, unless that
      * is recorded already. Called once a received release is in place.
      */
-    fun recordBaseline(tenantKey: TenantKey, catalogKey: CatalogKey) {
-        val next = jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, tenantKey, catalogKey) } ?: return
-        if (fingerprints.readBaseline(jdbi.withHandle<String?, Exception> { drafts.baseFingerprints(it, tenantKey, next.versionId) }) != null) return
-        val json = fingerprints.storeBaseline(current(tenantKey, catalogKey, next))
-        jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, tenantKey, next.versionId, json) }
+    fun recordBaseline(catalog: CatalogId) {
+        val next = jdbi.withHandle<CatalogDraft?, Exception> { drafts.next(it, catalog) } ?: return
+        if (fingerprints.readBaseline(jdbi.withHandle<String?, Exception> { drafts.baseFingerprints(it, catalog.tenantKey, next.versionId) }) != null) return
+        val json = fingerprints.storeBaseline(current(catalog, next))
+        jdbi.useHandle<Exception> { drafts.recordBaseFingerprints(it, catalog.tenantKey, next.versionId, json) }
     }
 
-    private fun current(tenantKey: TenantKey, catalogKey: CatalogKey, next: CatalogDraft): Map<String, String> = targeting.within(next.versionId) { fingerprints.entryFingerprints(catalogKey, contentBuilder.build(tenantKey, catalogKey)) }
+    private fun current(catalog: CatalogId, next: CatalogDraft): Map<String, String> = targeting.within(next.versionId) { fingerprints.entryFingerprints(catalog.key, contentBuilder.build(catalog)) }
 }

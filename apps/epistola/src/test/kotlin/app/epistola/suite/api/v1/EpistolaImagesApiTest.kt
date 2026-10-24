@@ -22,6 +22,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
 import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import app.epistola.suite.testing.testCatalog
 import com.jayway.jsonpath.JsonPath
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -77,28 +78,25 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         withMediator {
             UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
                 name = "Municipality mark",
                 mediaType = AssetMediaType.PNG,
                 content = PNG,
                 width = 1,
                 height = 1,
-                catalogKey = CatalogKey.DEFAULT,
                 id = app.epistola.suite.common.ids.AssetKey.of("municipality-mark"),
             ).execute()
             // A font face is an assets row too. It must not surface here.
             val face = UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
                 name = "acme-regular.ttf",
                 mediaType = AssetMediaType.TTF,
                 content = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray,
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.DEFAULT,
             ).execute()
             ImportFont(
-                tenantId = TenantId(tenantKey),
-                catalogKey = CatalogKey.DEFAULT,
+                catalog = testCatalog(TenantId(tenantKey), CatalogKey.DEFAULT),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
@@ -223,13 +221,12 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>""".toByteArray()
         withMediator {
             UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
                 name = "Mark",
                 mediaType = AssetMediaType.SVG,
                 content = svg,
                 width = null,
                 height = null,
-                catalogKey = CatalogKey.DEFAULT,
                 id = app.epistola.suite.common.ids.AssetKey.of("svg-mark"),
             ).execute()
         }
@@ -253,13 +250,12 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
         val (tenantKey, key) = seedTenantAndKey()
         withMediator {
             UploadAsset(
-                tenantId = tenantKey,
+                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
                 name = "Mark",
                 mediaType = AssetMediaType.PNG,
                 content = PNG,
                 width = 1,
                 height = 1,
-                catalogKey = CatalogKey.DEFAULT,
                 id = app.epistola.suite.common.ids.AssetKey.of("elsewhere-mark"),
             ).execute()
             CreateCatalog(tenantKey, CatalogKey.of("other"), "Other").execute()

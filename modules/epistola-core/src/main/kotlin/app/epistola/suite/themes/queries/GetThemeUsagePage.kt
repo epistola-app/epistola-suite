@@ -4,6 +4,8 @@
 
 package app.epistola.suite.themes.queries
 
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -35,7 +37,12 @@ data class ThemeUsage(
     val variantKey: VariantKey,
     val variantTitle: String,
     val source: ThemeUsageSource,
-)
+    /** The namespace of the template's catalog: with [templateCatalogKey], its address (ADR 0034, section 9). */
+    val templateCatalogNamespace: String = "",
+) {
+    /** The template's catalog's address, `namespace/key`. */
+    val templateCatalogAddress: String get() = "$templateCatalogNamespace/${templateCatalogKey.value}"
+}
 
 data class ThemeUsagePage(
     val items: List<ThemeUsage>,
@@ -79,6 +86,7 @@ class GetThemeUsagePageHandler(
                 SELECT
                     template.id AS template_key,
                     template_catalog.catalog_key AS template_catalog_key,
+                    template_catalog.namespace AS template_catalog_namespace,
                     template.name AS template_name,
                     variant.id AS variant_key,
                     variant.title AS variant_title,
@@ -96,16 +104,33 @@ class GetThemeUsagePageHandler(
                             THEN template_theme.id::text
                         ELSE catalog_theme.id::text
                     END AS effective_theme_key,
+                    -- The theme's catalog by id (ADR 0034, section 9): an override names it by alias,
+                    -- resolved through the template's catalog's dependencies, or, undeclared, the
+                    -- tenant's one catalog with that key.
                     CASE
                         WHEN COALESCE(variant.template_model -> 'themeRef' ->> 'type', 'inherit') = 'override'
-                            THEN COALESCE(
-                                variant.template_model -> 'themeRef' ->> 'catalogKey',
-                                template_theme_catalog.catalog_key::text
-                            )
+                            THEN CASE
+                                WHEN variant.template_model -> 'themeRef' ->> 'catalogKey' IS NULL
+                                    THEN template_theme.catalog_id
+                                WHEN variant.template_model -> 'themeRef' ->> 'catalogKey' = template_catalog.catalog_key
+                                    THEN template.catalog_id
+                                ELSE COALESCE(
+                                    (SELECT epistola_catalog_id(dep.tenant_key, dep.namespace, dep.dependency_key)
+                                     FROM catalog_dependencies dep
+                                     WHERE dep.tenant_key = template.tenant_key
+                                       AND dep.version_id = template.version_id
+                                       AND dep.alias = variant.template_model -> 'themeRef' ->> 'catalogKey'),
+                                    (SELECT MIN(sole.catalog_id::text)::uuid
+                                     FROM catalogs sole
+                                     WHERE sole.tenant_key = template.tenant_key
+                                       AND sole.catalog_key = variant.template_model -> 'themeRef' ->> 'catalogKey'
+                                     HAVING COUNT(*) = 1)
+                                )
+                            END
                         WHEN template.theme_resource_id IS NOT NULL
-                            THEN template_theme_catalog.catalog_key::text
-                        ELSE catalog_theme_catalog.catalog_key::text
-                    END AS effective_theme_catalog_key
+                            THEN template_theme.catalog_id
+                        ELSE catalog_theme.catalog_id
+                    END AS effective_theme_catalog_id
                 FROM template_variants variant
                 JOIN document_templates template
                   ON template.tenant_key = variant.tenant_key
@@ -121,16 +146,10 @@ class GetThemeUsagePageHandler(
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
                  AND ${inCurrentVersion("template_theme")}
-                LEFT JOIN catalogs template_theme_catalog
-                  ON template_theme_catalog.tenant_key = template_theme.tenant_key
-                 AND template_theme_catalog.catalog_id = template_theme.catalog_id
                 LEFT JOIN themes catalog_theme
                   ON catalog_theme.tenant_key = template_version.tenant_key
                  AND catalog_theme.resource_id = template_version.default_theme_resource_id
                  AND ${inCurrentVersion("catalog_theme")}
-                LEFT JOIN catalogs catalog_theme_catalog
-                  ON catalog_theme_catalog.tenant_key = catalog_theme.tenant_key
-                 AND catalog_theme_catalog.catalog_id = catalog_theme.catalog_id
                 WHERE variant.tenant_key = :tenantKey
                   AND ${inCurrentVersion("variant")}
             ),
@@ -139,9 +158,9 @@ class GetThemeUsagePageHandler(
                 FROM resolved_usage usage
                 WHERE usage.effective_theme_key = :themeKey
                   AND (
-                      usage.effective_theme_catalog_key = :themeCatalogKey
+                      usage.effective_theme_catalog_id = ${catalogAt("tenantKey", "themeCatalog")}
                       OR (
-                          usage.effective_theme_catalog_key IS NULL
+                          usage.effective_theme_catalog_id IS NULL
                           AND (
                               SELECT COUNT(*)
                               FROM themes candidate
@@ -161,7 +180,7 @@ class GetThemeUsagePageHandler(
         )
             .bind("tenantKey", query.themeId.tenantKey)
             .bind("themeKey", query.themeId.key)
-            .bind("themeCatalogKey", query.themeId.catalogKey)
+            .bindCatalog("themeCatalog", query.themeId.catalogId)
             .bind("limit", limit)
             .bind("offset", offset)
             .map { rs, _ ->
@@ -169,6 +188,7 @@ class GetThemeUsagePageHandler(
                     usage = ThemeUsage(
                         templateKey = TemplateKey.of(rs.getString("template_key")),
                         templateCatalogKey = CatalogKey.of(rs.getString("template_catalog_key")),
+                        templateCatalogNamespace = rs.getString("template_catalog_namespace"),
                         templateName = rs.getString("template_name"),
                         variantKey = VariantKey.of(rs.getString("variant_key")),
                         variantTitle = rs.getString("variant_title"),

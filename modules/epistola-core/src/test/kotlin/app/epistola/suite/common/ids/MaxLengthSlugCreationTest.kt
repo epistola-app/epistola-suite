@@ -18,6 +18,8 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.Test
@@ -91,8 +93,7 @@ class MaxLengthSlugCreationTest : IntegrationTestBase() {
 
                 // Font — FontKey max 64
                 ImportFont(
-                    tenantId = tenantId,
-                    catalogKey = CatalogKey.DEFAULT,
+                    catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                     slug = "f".repeat(64),
                     name = "Max Font",
                     kind = FontKind.SANS.wire,

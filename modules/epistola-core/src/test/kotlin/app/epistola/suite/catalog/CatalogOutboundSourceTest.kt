@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
 import com.sun.net.httpserver.HttpServer
@@ -114,10 +115,10 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
 
         withMediator {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
-            val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).execute()
+            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
 
             assertThat(results).allMatch { it.status != InstallStatus.FAILED }
-            assertThat(ListAssets(tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).query()).hasSize(1)
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).hasSize(1)
         }
     }
 
@@ -152,10 +153,10 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             RegisterCatalog(tenantKey = tenant.id, sourceUrl = "$baseUrl/catalog.json").execute()
             imageContentUrl = contentUrl
 
-            val results = InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).execute()
+            val results = InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
 
             assertThat(results).anyMatch { it.slug == IMAGE_SLUG && it.status == InstallStatus.FAILED }
-            assertThat(ListAssets(tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).query()).isEmpty()
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
         }
     }
 
@@ -171,11 +172,11 @@ class CatalogOutboundSourceTest : IntegrationTestBase() {
             imageContentUrl = contentUrl
 
             assertThatThrownBy {
-                InstallFromCatalog(tenantKey = tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).execute()
+                InstallFromCatalog(catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).execute()
             }
                 .isInstanceOf(CatalogSchemaUnknownException::class.java)
                 .hasMessageContaining("must be a relative path below the manifest's directory")
-            assertThat(ListAssets(tenant.id, catalogKey = CatalogKey.of(CATALOG_SLUG)).query()).isEmpty()
+            assertThat(ListAssets(tenant.id, catalog = testCatalog(tenant.id, CatalogKey.of(CATALOG_SLUG))).query()).isEmpty()
         }
     }
 

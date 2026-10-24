@@ -15,6 +15,7 @@ import app.epistola.suite.catalog.CatalogContentBuilder
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.dependencies.UseCompatibility
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.stencils.model.StencilInstances
@@ -292,13 +293,19 @@ class DraftChangeKinds(
      * draft uses are declared as it starts using them ([app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer]),
      * so its declarations are what it is released with.
      */
-    fun against(tenantKey: TenantKey, catalogKey: CatalogKey, base: String): ChangeAssessment? {
-        val released = releases.assemble(tenantKey, catalogKey, base)?.content ?: return null
-        val draft = contentBuilder.build(tenantKey, catalogKey)
+    fun against(catalog: CatalogId, base: String): ChangeAssessment? {
+        val released = releases.assemble(catalog, base)?.content ?: return null
+        val draft = contentBuilder.build(catalog)
         // A dependency's newer version counts only for what the draft uses of it.
         val evaluator = ChangeKindEvaluator(objectMapper) { dependency, from, to ->
-            compatibility.breaks(tenantKey, CatalogKey.of(dependency), from, to, UseCompatibility.usedOf(draft.dependencies.orEmpty(), dependency))
-                .map { "${typeName(it.type)} '${it.key}': ${it.reason}" }
+            // The catalog the alias names, by the draft's declaration of it (ADR 0034, section 9).
+            val target = app.epistola.suite.catalog.CatalogReferences.resolve(catalog, dependency, draft.catalogDependencies.orEmpty().map(app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration::of))
+            if (target == null) {
+                emptyList()
+            } else {
+                compatibility.breaks(target, from, to, UseCompatibility.usedOf(draft.dependencies.orEmpty(), dependency))
+                    .map { "${typeName(it.type)} '${it.key}': ${it.reason}" }
+            }
         }
         return evaluator.evaluate(released, draft)
     }

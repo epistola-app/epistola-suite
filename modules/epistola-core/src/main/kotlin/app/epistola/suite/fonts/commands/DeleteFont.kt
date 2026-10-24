@@ -5,6 +5,7 @@
 package app.epistola.suite.fonts.commands
 
 import app.epistola.suite.assets.commands.DeleteAsset
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -64,11 +65,12 @@ class DeleteFontHandler(
 
     override fun handle(command: DeleteFont): Boolean {
         val tenantKey = command.fontId.tenantKey
-        val catalogKey = command.fontId.catalogKey
+        val catalog = command.fontId.catalogId
+        val catalogKey = catalog.key
         val slug = command.fontId.key
 
         // Catalog editability — one Epistola supplies (e.g. `system`) rejects.
-        requireCatalogEditable(tenantKey, catalogKey)
+        requireCatalogEditable(catalog)
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
             handle.createQuery(
@@ -79,7 +81,7 @@ class DeleteFontHandler(
                 """,
             )
                 .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", catalog)
                 .bind("slug", slug)
                 .mapTo(Boolean::class.java)
                 .one()
@@ -103,7 +105,7 @@ class DeleteFontHandler(
                 """,
             )
                 .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", catalog)
                 .bind("slug", slug)
                 .map { rs, _ -> AssetKey.of(rs.getString("asset_key")) }
                 .list()
@@ -121,7 +123,7 @@ class DeleteFontHandler(
                 """,
             )
                 .bind("tenantKey", tenantKey)
-                .bind("catalogKey", catalogKey)
+                .bindCatalog("catalogKey", catalog)
                 .bind("slug", slug)
                 .execute()
         }

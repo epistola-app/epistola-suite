@@ -14,6 +14,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -64,7 +65,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             testTenant = tenant("Upgrade Preview Tenant")
             withMediator {
                 RegisterCatalog(tenantKey = testTenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("epistola-demo"))).execute()
             }
         }
 
@@ -105,7 +106,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             testTenant = tenant("Upgrade Diff Tenant")
             withMediator {
                 RegisterCatalog(tenantKey = testTenant.id, sourceUrl = sourceUrl, authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("diff-test")).execute()
+                InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("diff-test"))).execute()
             }
 
             // Move the source on: the template is published under a new slug (so the installed one
@@ -189,7 +190,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             testTenant = tenant("Upgrade Apply Tenant")
             withMediator {
                 RegisterCatalog(tenantKey = testTenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("epistola-demo"))).execute()
             }
         }
 
@@ -198,7 +199,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
                 "/tenants/${testTenant.id}/catalogs/epistola-demo/upgrade",
                 HttpEntity(
                     org.springframework.util.LinkedMultiValueMap<String, String>().apply {
-                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries(testTenant.id, CatalogKey.of("epistola-demo")).query().single().version })
+                        add("releaseVersion", withMediator { app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries(testCatalog(testTenant.id, CatalogKey.of("epistola-demo"))).query().single().version })
                     },
                     htmxForm(),
                 ),
@@ -283,7 +284,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             testTenant = tenant("Upgrade Check Current")
             withMediator {
                 RegisterCatalog(testTenant.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
+                InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("epistola-demo"))).execute()
             }
         }
 
@@ -320,7 +321,7 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             )
             withMediator {
                 RegisterCatalog(testTenant.id, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = testTenant.id, catalogKey = CatalogKey.of("moving-source")).execute()
+                InstallFromCatalog(catalog = testCatalog(testTenant.id, CatalogKey.of("moving-source"))).execute()
             }
             Files.writeString(
                 manifest,
@@ -408,8 +409,8 @@ class CatalogUpgradeHandlerTest : BaseIntegrationTest() {
             lateinit var zip: ByteArray
             withMediator {
                 RegisterCatalog(publisher.id, sourceUrl = DEMO_CATALOG_URL, authType = AuthType.NONE).execute()
-                InstallFromCatalog(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute()
-                zip = ExportCatalogZip(tenantKey = publisher.id, catalogKey = CatalogKey.of("epistola-demo")).execute().zipBytes
+                InstallFromCatalog(catalog = testCatalog(publisher.id, CatalogKey.of("epistola-demo"))).execute()
+                zip = ExportCatalogZip(catalog = testCatalog(publisher.id, CatalogKey.of("epistola-demo"))).execute().zipBytes
             }
             // …then import it into a fresh tenant → a received catalog with no source URL.
             consumer = tenant("Zip Mirror Consumer")

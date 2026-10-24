@@ -36,6 +36,7 @@ import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -70,8 +71,8 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("th2"), catalog), name = "T2").execute()
 
             assertThat(revisionCount(catalog.tenantKey)).isZero()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         assertThat(revisionKinds(catalog.tenantKey)).containsExactly("theme", "theme")
@@ -84,23 +85,23 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         withMediator {
             CreateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited").execute()
             CreateTheme(id = ThemeId(ThemeKey.of("untouched"), catalog), name = "Untouched").execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
         val afterFirst = revisionCount(catalog.tenantKey)
         assertThat(afterFirst).isEqualTo(2)
 
         withMediator {
             // Identical content: content-addressed, so there is nothing new to store.
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.1").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.1").execute()
         }
         assertThat(revisionCount(catalog.tenantKey)).isEqualTo(afterFirst)
 
         withMediator {
             UpdateTheme(id = ThemeId(ThemeKey.of("edited"), catalog), name = "Edited again").execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.1.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.1.0").execute()
         }
         assertThat(revisionCount(catalog.tenantKey))
             .`as`("the edited theme is one new payload; the untouched one is reused")
@@ -115,8 +116,8 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         for (catalog in listOf(first, second)) {
             withMediator {
                 CreateTheme(id = ThemeId(ThemeKey.of("shared"), catalog), name = "Shared").execute()
-                MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-                ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+                MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+                ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
             }
         }
 
@@ -135,8 +136,8 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
             UpdateVariantContent(variant, emptyTemplate()).execute()
             MarkVariantReady(variant).execute()
 
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         assertThat(revisionKinds(catalog.tenantKey)).contains(TEMPLATE_MODEL_KIND, "template")
@@ -153,16 +154,15 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
 
         val assetId = withMediator {
             val id = UploadAsset(
-                tenantId = catalog.tenantKey,
+                catalog = testCatalog(catalog.tenantKey, catalog.key),
                 name = "held.png",
                 mediaType = AssetMediaType.PNG,
                 content = content,
                 width = 1,
                 height = 1,
-                catalogKey = catalog.key,
             ).execute().id
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
             id
         }
 
@@ -187,16 +187,15 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
 
         withMediator {
             UploadAsset(
-                tenantId = catalog.tenantKey,
+                catalog = testCatalog(catalog.tenantKey, catalog.key),
                 name = "held.png",
                 mediaType = AssetMediaType.PNG,
                 content = content,
                 width = 1,
                 height = 1,
-                catalogKey = catalog.key,
             ).execute()
-            MarkCatalogReady(catalog.tenantKey, catalog.key).execute()
-            ReleaseCatalogDraft(tenantKey = catalog.tenantKey, catalogKey = catalog.key, version = "1.0.0").execute()
+            MarkCatalogReady(testCatalog(catalog.tenantKey, catalog.key)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
         // The reaper's reachability rule is one thing that keeps these bytes; the foreign key is
@@ -224,7 +223,7 @@ class ResourceRevisionStoreTest : IntegrationTestBase() {
         val tenant = createTenant(slug)
         val catalogKey = CatalogKey.of(slug)
         withMediator { CreateCatalog(tenantKey = tenant.id, id = catalogKey, name = slug).execute() }
-        return CatalogId(catalogKey, TenantId(tenant.id))
+        return testCatalog(TenantId(tenant.id), catalogKey)
     }
 
     // Every tenant installs the bundled system catalog, and installing records its release, so

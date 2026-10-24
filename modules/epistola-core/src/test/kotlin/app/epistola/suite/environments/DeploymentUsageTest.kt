@@ -28,7 +28,9 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariantContent
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTemplateBuilder
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.publishAndRelease
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -59,13 +61,13 @@ class DeploymentUsageTest : IntegrationTestBase() {
             mediator.publishAndRelease(variant)
             val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
             CreateEnvironment(test, "Test").execute()
-            DeployCatalogRelease(test, CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployCatalogRelease(test, CatalogKey.DEFAULT, "1.0.1").execute()
+            DeployCatalogRelease(test, testCatalog(test.tenantKey, CatalogKey.DEFAULT), "1.0.0").execute()
+            DeployCatalogRelease(test, testCatalog(test.tenantKey, CatalogKey.DEFAULT), "1.0.1").execute()
             tenant to variant
         }
         val test = EnvironmentKey.of("test")
         fun generate(environment: EnvironmentKey?, version: String? = null) = withMediator {
-            GenerateDocument(tenantId = tenant, templateId = variant.templateId.key, variantId = variant.key, environmentId = environment, releaseVersion = version, data = objectMapper.createObjectNode(), filename = null, catalogKey = CatalogKey.DEFAULT).execute()
+            GenerateDocument(catalog = testCatalog(tenant, CatalogKey.DEFAULT), templateId = variant.templateId.key, variantId = variant.key, environmentId = environment, releaseVersion = version, data = objectMapper.createObjectNode(), filename = null).execute()
         }
         fun deployments(): Map<String, CatalogDeployment> = withMediator { ListDeployments(tenant, environmentKey = test).query() }.filter { !it.isDraft }.associateBy { it.version!! }
 
@@ -75,7 +77,7 @@ class DeploymentUsageTest : IntegrationTestBase() {
         withMediator {
             GenerateDocumentBatch(
                 tenant,
-                List(2) { BatchGenerationItem(templateId = variant.templateId.key, variantId = variant.key, data = objectMapper.createObjectNode(), filename = null, environmentId = test, catalogKey = CatalogKey.DEFAULT) },
+                List(2) { BatchGenerationItem(templateId = variant.templateId.key, variantId = variant.key, data = objectMapper.createObjectNode(), filename = null, environmentId = test, catalog = variant.templateId.catalogId) },
             ).execute()
         }
         usage.flush()
@@ -85,8 +87,8 @@ class DeploymentUsageTest : IntegrationTestBase() {
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("the request naming it exactly").isEqualTo(1)
 
         withMediator {
-            UndeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
-            DeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), CatalogKey.DEFAULT, "1.0.0").execute()
+            UndeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), testCatalog(EnvironmentId(test, TenantId(tenant)).tenantKey, CatalogKey.DEFAULT), "1.0.0").execute()
+            DeployCatalogRelease(EnvironmentId(test, TenantId(tenant)), testCatalog(EnvironmentId(test, TenantId(tenant)).tenantKey, CatalogKey.DEFAULT), "1.0.0").execute()
         }
         assertThat(deployments().getValue("1.0.0").documentsRequested).`as`("a new deployment starts again").isZero()
         assertThat(deployments().getValue("1.0.0").lastUsedAt).isNull()

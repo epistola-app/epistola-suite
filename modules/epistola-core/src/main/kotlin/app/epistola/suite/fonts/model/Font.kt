@@ -39,7 +39,12 @@ data class Font(
     val kind: FontKind,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-)
+    /** The namespace of its catalog: with the catalog key, its address (ADR 0034, section 9). */
+    val namespace: String = "",
+) {
+    /** Its catalog, by its address. */
+    val catalogId: app.epistola.suite.common.ids.CatalogId get() = app.epistola.suite.common.ids.CatalogId(namespace, catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+}
 
 /**
  * Coarse classification of a font family. Stored and read as the lowercase

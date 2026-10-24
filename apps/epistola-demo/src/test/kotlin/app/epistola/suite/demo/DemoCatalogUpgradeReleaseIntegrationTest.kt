@@ -17,6 +17,7 @@ import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.jdbi.v3.core.Jdbi
@@ -61,7 +62,7 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
         val tenant = createTenant("Demo installed release").id
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = DEMO_CATALOG, authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = demo).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, demo)).execute()
         }
 
         assertKeepsItsArchive(tenant)
@@ -73,14 +74,14 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
         val manifest = copyOfDemoCatalog(source)
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = demo).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, demo)).execute()
         }
 
-        assertThat(withMediator { nextVersionChanges.changed(tenant, demo) })
+        assertThat(withMediator { nextVersionChanges.changed(testCatalog(tenant, demo)) })
             .`as`("its default theme and presets are the release's, not changes of the next version")
             .isEmpty()
         val next = nextReleaseIn(manifest)
-        val upgraded = withMediator { UpgradeCatalog(tenantKey = tenant, catalogKey = demo).execute() }
+        val upgraded = withMediator { UpgradeCatalog(catalog = testCatalog(tenant, demo)).execute() }
         assertThat(upgraded.newVersion).isEqualTo(next)
     }
 
@@ -90,11 +91,11 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
         val manifest = copyOfDemoCatalog(source)
         withMediator {
             RegisterCatalog(tenantKey = tenant, sourceUrl = manifest.toUri().toString(), authType = AuthType.NONE).execute()
-            InstallFromCatalog(tenantKey = tenant, catalogKey = demo).execute()
+            InstallFromCatalog(catalog = testCatalog(tenant, demo)).execute()
         }
         val next = nextReleaseIn(manifest)
 
-        withMediator { UpgradeCatalog(tenantKey = tenant, catalogKey = demo).execute() }
+        withMediator { UpgradeCatalog(catalog = testCatalog(tenant, demo)).execute() }
 
         assertKeepsItsArchive(tenant, next)
     }
@@ -133,12 +134,12 @@ class DemoCatalogUpgradeReleaseIntegrationTest : IntegrationTestBase() {
                 """,
             ).bind("t", tenant).bind("c", demo).bind("v", number).map { rs, _ -> rs.getString(1) to rs.getString(2) }.one()
         }
-        val retained = requireNotNull(assembler.assemble(tenant, demo, version)).content
+        val retained = requireNotNull(assembler.assemble(testCatalog(tenant, demo), version)).content
 
         assertThat(CatalogCanonicalizer(objectMapper).contentHash(retained))
             .`as`("what release $version keeps hashes to the content hash it is named by")
             .isEqualTo(contentHash)
-        assertThatCode { withMediator { ExportCatalogZip(tenantKey = tenant, catalogKey = demo, version = version).execute() } }
+        assertThatCode { withMediator { ExportCatalogZip(catalog = testCatalog(tenant, demo), version = version).execute() } }
             .`as`("and it is handed on")
             .doesNotThrowAnyException()
     }

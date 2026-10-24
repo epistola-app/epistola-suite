@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestTenantCounter
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.validation.ValidationCode
 import app.epistola.suite.validation.ValidationException
@@ -55,9 +56,9 @@ class CatalogNamingTest : IntegrationTestBase() {
 
     /** A theme in [catalog] of [tenant], marked ready and released as [version]. */
     private fun release(tenant: TenantKey, catalog: CatalogKey, version: String, theme: String = "brand") {
-        CreateTheme(ThemeId(ThemeKey.of(theme), CatalogId(catalog, TenantId(tenant))), "Theme $theme").execute()
-        MarkCatalogReady(tenant, catalog).execute()
-        ReleaseCatalogDraft(tenantKey = tenant, catalogKey = catalog, version = version).execute()
+        CreateTheme(ThemeId(ThemeKey.of(theme), testCatalog(TenantId(tenant), catalog)), "Theme $theme").execute()
+        MarkCatalogReady(testCatalog(tenant, catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(tenant, catalog), version = version).execute()
     }
 
     @Test
@@ -128,20 +129,20 @@ class CatalogNamingTest : IntegrationTestBase() {
             CreateCatalog(author, letters, "Letters").execute()
             release(author, letters, "1.0.0")
             // Receiving needs no grant.
-            ImportCatalogZip(receiver, ExportCatalogZip(author, letters, "1.0.0").execute().zipBytes).execute()
+            ImportCatalogZip(receiver, ExportCatalogZip(testCatalog(author, letters), "1.0.0").execute().zipBytes).execute()
 
-            CreateTheme(ThemeId(ThemeKey.of("fix"), CatalogId(letters, TenantId(receiver))), "Fix").execute()
-            MarkCatalogReady(receiver, letters).execute()
-            val refused = refusal { ReleaseCatalogDraft(tenantKey = receiver, catalogKey = letters, version = "1.1.0").execute() }
+            CreateTheme(ThemeId(ThemeKey.of("fix"), testCatalog(TenantId(receiver), letters)), "Fix").execute()
+            MarkCatalogReady(testCatalog(receiver, letters)).execute()
+            val refused = refusal { ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0").execute() }
             assertThat(refused.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_NOT_HELD)
             assertThat(refused.message).isEqualTo("This tenant does not hold the namespace acme (gemeente-x.nl); an administrator can grant it.")
-            assertThat(GetCatalogNamespaceHolding(receiver, letters).query())
+            assertThat(GetCatalogNamespaceHolding(testCatalog(receiver, letters)).query())
                 .isEqualTo(CatalogNamespaceHolding(acme, held = false))
 
             GrantTenantNamespace(receiver, "gemeente-x.nl", "acme").execute()
-            assertThat(GetCatalogNamespaceHolding(receiver, letters).query().refusal).isNull()
-            ReleaseCatalogDraft(tenantKey = receiver, catalogKey = letters, version = "1.1.0").execute()
-            assertThat(ListCatalogReleaseSummaries(receiver, letters).query().map { it.version }).containsExactly("1.1.0", "1.0.0")
+            assertThat(GetCatalogNamespaceHolding(testCatalog(receiver, letters)).query().refusal).isNull()
+            ReleaseCatalogDraft(catalog = testCatalog(receiver, letters), version = "1.1.0").execute()
+            assertThat(ListCatalogReleaseSummaries(testCatalog(receiver, letters)).query().map { it.version }).containsExactly("1.1.0", "1.0.0")
         }
     }
 
@@ -153,16 +154,16 @@ class CatalogNamingTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters, "Letters", registry = LocalAuthority.NAME, namespace = "personnel").execute()
             release(tenant, letters, "1.0.0")
-            assertThat(ListCatalogReleaseSummaries(tenant, letters).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(tenant, letters)).query().map { it.version }).containsExactly("1.0.0")
 
             // The catalog format carries local (contract feature/v2 0fe54cc): the archive names it.
-            val archive = ExportCatalogZip(tenant, letters, "1.0.0").execute().zipBytes
+            val archive = ExportCatalogZip(testCatalog(tenant, letters), "1.0.0").execute().zipBytes
             ImportCatalogZip(elsewhere, archive).execute()
-            val received = GetCatalog(elsewhere, letters).query()!!
+            val received = GetCatalog(testCatalog(elsewhere, letters)).query()!!
             assertThat(received.registry to received.namespace).isEqualTo("local" to "personnel")
 
-            CreateCatalogDraft(tenant, letters, "Fix", from = "1.0.0").execute()
-            assertThat(ListCatalogReleases(tenant, letters).query().map { it.name }).contains("Fix")
+            CreateCatalogDraft(testCatalog(tenant, letters), "Fix", from = "1.0.0").execute()
+            assertThat(ListCatalogReleases(testCatalog(tenant, letters)).query().map { it.name }).contains("Fix")
             assertThat(BuildTenantSnapshot(tenant).execute().catalogCount).`as`("its default and letters, both local").isEqualTo(2)
         }
     }
@@ -173,15 +174,15 @@ class CatalogNamingTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenant, letters, "Letters").execute()
-            assertThat(refusal { ChangeCatalogNamespace(tenant, letters, "acme-hr").execute() }.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_NOT_HELD)
+            assertThat(refusal { ChangeCatalogNamespace(testCatalog(tenant, letters), "acme-hr").execute() }.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_NOT_HELD)
 
             GrantTenantNamespace(tenant, "gemeente-x.nl", "acme-hr").execute()
-            assertThat(ChangeCatalogNamespace(tenant, letters, "acme-hr").execute().namespace).isEqualTo("acme-hr")
+            assertThat(ChangeCatalogNamespace(testCatalog(tenant, letters), "acme-hr").execute().namespace).isEqualTo("acme-hr")
 
             val local = CatalogKey.of("notes")
             CreateCatalog(tenant, local, "Notes", registry = LocalAuthority.NAME, namespace = "personnel").execute()
-            assertThat(ChangeCatalogNamespace(tenant, local, "finance").execute().let { it.registry to it.namespace }).isEqualTo("local" to "finance")
-            assertThat(refusal { ChangeCatalogNamespace(tenant, local, "acme").execute() }.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_TAKEN)
+            assertThat(ChangeCatalogNamespace(testCatalog(tenant, local), "finance").execute().let { it.registry to it.namespace }).isEqualTo("local" to "finance")
+            assertThat(refusal { ChangeCatalogNamespace(testCatalog(tenant, local), "acme").execute() }.code).isEqualTo(ValidationCode.CATALOG_NAMESPACE_TAKEN)
         }
     }
 }

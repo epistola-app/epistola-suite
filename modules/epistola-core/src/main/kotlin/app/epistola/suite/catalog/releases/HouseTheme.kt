@@ -4,10 +4,10 @@
 
 package app.epistola.suite.catalog.releases
 
-import app.epistola.suite.catalog.CatalogAddress
-import app.epistola.suite.catalog.CatalogNamesApplier
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
@@ -26,23 +26,23 @@ import org.springframework.stereotype.Component
  */
 object HouseTheme {
     /**
-     * Makes the house theme the default theme of [catalogKey]'s next version, when the tenant has one.
-     * The caller decides that [catalogKey] can be changed (ADR 0032).
+     * Makes the house theme the default theme of [catalog]'s next version, when the tenant has one.
+     * The caller decides that [catalog] can be changed (ADR 0032).
      *
-     * @return the catalog the house theme lives in, which [catalogKey] now uses; null when the tenant
-     *   has no house theme or [catalogKey] has no next version.
+     * @return the catalog the house theme lives in, which [catalog] now uses; null when the tenant
+     *   has no house theme or [catalog] has no next version.
      */
-    fun applyTo(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): CatalogKey? {
+    fun applyTo(handle: Handle, catalog: CatalogId): CatalogId? {
         val themeCatalog = handle.createQuery(
             """
-            SELECT tc.catalog_key FROM tenants t
+            SELECT tc.namespace, tc.catalog_key FROM tenants t
             JOIN catalog_resources r ON r.tenant_key = t.id AND r.resource_id = t.default_theme_resource_id
             JOIN catalogs tc ON tc.tenant_key = r.tenant_key AND tc.catalog_id = r.catalog_id
             WHERE t.id = :t
             """,
         )
-            .bind("t", tenantKey)
-            .mapTo(String::class.java)
+            .bind("t", catalog.tenantKey)
+            .map { rs, _ -> CatalogId(rs.getString("namespace"), CatalogKey.of(rs.getString("catalog_key")), catalog.tenantId) }
             .findOne()
             .orElse(null) ?: return null
         val updated = handle.createUpdate(
@@ -50,18 +50,18 @@ object HouseTheme {
             UPDATE catalog_versions v SET default_theme_resource_id = (SELECT default_theme_resource_id FROM tenants WHERE id = :t)
             FROM catalogs c
             WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
-              AND v.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c) AND v.is_next
+              AND v.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND v.is_next
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .execute()
-        return CatalogKey.of(themeCatalog).takeIf { updated > 0 }
+        return themeCatalog.takeIf { updated > 0 }
     }
 }
 
 /** Which catalogs [ApplyHouseTheme] gave the house theme, and which it could not (no next version). */
-data class ApplyHouseThemeResult(val applied: List<CatalogAddress>, val skipped: List<CatalogAddress>)
+data class ApplyHouseThemeResult(val applied: List<CatalogId>, val skipped: List<CatalogId>)
 
 /**
  * Makes the house theme the default theme of every catalog of the tenant that can be changed here
@@ -79,18 +79,14 @@ data class ApplyHouseTheme(
 class ApplyHouseThemeHandler(
     private val jdbi: Jdbi,
     private val usedCatalogs: UsedCatalogDeclarer,
-    private val catalogNames: CatalogNamesApplier,
 ) : CommandHandler<ApplyHouseTheme, ApplyHouseThemeResult> {
     override fun handle(command: ApplyHouseTheme): ApplyHouseThemeResult {
         val editable = ListCatalogEditability(command.tenantKey).query().editableCatalogs.sortedWith(compareBy({ it.key.value }, { it.namespace }))
-        // Each catalog in its namespace, since two can share a key (ADR 0034, phase 4).
         val outcome = editable.map { catalog ->
-            catalogNames.named(catalog.key, catalog.namespace) {
-                val themeCatalog = jdbi.inTransaction<CatalogKey?, Exception> { handle -> HouseTheme.applyTo(handle, command.tenantKey, catalog.key) }
-                // A house theme of another catalog is a use of that catalog, declared as any reference is.
-                themeCatalog?.takeIf { it != catalog.key }?.let { usedCatalogs.declare(command.tenantKey, catalog.key, it) }
-                catalog to themeCatalog
-            }
+            val themeCatalog = jdbi.inTransaction<CatalogId?, Exception> { handle -> HouseTheme.applyTo(handle, catalog) }
+            // A house theme of another catalog is a use of that catalog, declared as any reference is.
+            themeCatalog?.takeIf { it != catalog }?.let { usedCatalogs.declare(catalog, it) }
+            catalog to themeCatalog
         }
         return ApplyHouseThemeResult(
             applied = outcome.filter { it.second != null }.map { it.first },

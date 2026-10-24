@@ -10,6 +10,7 @@ import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogFingerprintService
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.migrations.CatalogSchemaTooOldException
@@ -36,6 +37,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -114,7 +116,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
     private fun themeName(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey, slug: String): String? = jdbi.withHandle<String?, Exception> { h ->
         h.createQuery("SELECT name FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :s")
-            .bind("t", tenantKey).bind("c", catalogKey).bind("s", slug)
+            .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("s", slug)
             .mapTo(String::class.java).findOne().orElse(null)
     }
 
@@ -126,13 +128,13 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = src.id, id = catalogKey, name = "Zip FP").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(src.id))), name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(src.id), catalogKey)), name = "Brand").execute()
 
-            val zip1 = mediator.exportReleased(CatalogId(catalogKey, TenantId(src.id))).zipBytes
+            val zip1 = mediator.exportReleased(testCatalog(TenantId(src.id), catalogKey)).zipBytes
             val published = manifestOf(zip1).release
 
             ImportCatalogZip(tenantKey = dst.id, zipBytes = zip1).execute()
-            val zip2 = ExportCatalogZip(tenantKey = dst.id, catalogKey = catalogKey, version = published.version).execute().zipBytes
+            val zip2 = ExportCatalogZip(catalog = testCatalog(dst.id, catalogKey), version = published.version).execute().zipBytes
 
             // Same release ⇒ the same fingerprint, end to end and tenant-independent.
             assertThat(manifestOf(zip2).release.fingerprint).isEqualTo(published.fingerprint)
@@ -147,23 +149,23 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
         withMediator {
             val src = createTenant("Zip Source")
             CreateCatalog(tenantKey = src.id, id = catalogKey, name = "Zip Authored").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("tee"), CatalogId(catalogKey, TenantId(src.id))), name = "T").execute()
-            val zip = mediator.exportReleased(CatalogId(catalogKey, TenantId(src.id))).zipBytes
+            CreateTheme(id = ThemeId(ThemeKey.of("tee"), testCatalog(TenantId(src.id), catalogKey)), name = "T").execute()
+            val zip = mediator.exportReleased(testCatalog(TenantId(src.id), catalogKey)).zipBytes
 
             val imported = ImportCatalogZip(tenantKey = tenant.id, zipBytes = zip).execute()
 
             assertThat(imported.releaseVersion to imported.newlyInstalled).isEqualTo("1.0.0" to true)
-            val catalog = GetCatalog(tenant.id, catalogKey).query()!!
+            val catalog = GetCatalog(testCatalog(tenant.id, catalogKey)).query()!!
             assertThat(catalog.installedReleaseVersion).`as`("received, not released here").isEqualTo("1.0.0")
             assertThat(catalog.releasedVersion).isNull()
             assertThat(catalog.sourceUrl).isNull()
-            assertThat(ListCatalogReleases(tenant.id, catalogKey, CatalogReleaseStatus.DRAFT).query().map { it.isNext to it.base })
+            assertThat(ListCatalogReleases(testCatalog(tenant.id, catalogKey), CatalogReleaseStatus.DRAFT).query().map { it.isNext to it.base })
                 .`as`("its next version continues on the release")
                 .containsExactly(true to "1.0.0")
 
-            assertThatThrownBy { PreviewCatalogUpgrade(tenant.id, catalogKey).query() }
+            assertThatThrownBy { PreviewCatalogUpgrade(testCatalog(tenant.id, catalogKey)).query() }
                 .hasMessageContaining("only a catalog with a source can be upgraded")
-            assertThatThrownBy { CheckCatalogUpgrade(tenant.id, catalogKey).query() }
+            assertThatThrownBy { CheckCatalogUpgrade(testCatalog(tenant.id, catalogKey)).query() }
                 .hasMessageContaining("only a catalog with a source can be upgraded")
         }
     }
@@ -176,8 +178,8 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "Zip Old Schema").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(pub.id))), name = "Th").execute()
-            val zip = mediator.exportReleased(CatalogId(catalogKey, TenantId(pub.id))).zipBytes
+            CreateTheme(id = ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(pub.id), catalogKey)), name = "Th").execute()
+            val zip = mediator.exportReleased(testCatalog(TenantId(pub.id), catalogKey)).zipBytes
 
             // Rewrite the manifest to an older catalog schema version (a publisher
             // on an older Epistola). A source-less ZIP can't be re-fetched and we
@@ -194,7 +196,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
                 .hasMessageContaining("predates the oldest supported version")
 
             // Nothing was created.
-            assertThat(GetCatalog(consumer.id, catalogKey).query()).isNull()
+            assertThat(GetCatalog(testCatalog(consumer.id, catalogKey)).query()).isNull()
         }
     }
 
@@ -222,7 +224,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             assertThatThrownBy { ImportCatalogZip(consumer.id, conflicting).execute() }
                 .isInstanceOf(CatalogImportConflictException::class.java)
                 .hasMessageContaining("one number names one release")
-            assertThat(ListCatalogReleaseSummaries(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(consumer.id, catalogKey)).query().map { it.version }).containsExactly("1.0.0")
         }
     }
 
@@ -234,17 +236,17 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             val v1 = publishZip(publisher.id, "zipver-exist", "1.0.0", mapOf("thm" to "Pub Th"))
-            UpdateTheme(ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(publisher.id))), name = "Pub Th 2").execute()
-            val v2 = mediator.exportReleased(CatalogId(catalogKey, TenantId(publisher.id))).zipBytes
+            UpdateTheme(ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(publisher.id), catalogKey)), name = "Pub Th 2").execute()
+            val v2 = mediator.exportReleased(testCatalog(TenantId(publisher.id), catalogKey)).zipBytes
 
             ImportCatalogZip(tenantKey = consumer.id, zipBytes = v1).execute()
-            UpdateTheme(ThemeId(ThemeKey.of("thm"), CatalogId(catalogKey, TenantId(consumer.id))), name = "Our edit").execute()
+            UpdateTheme(ThemeId(ThemeKey.of("thm"), testCatalog(TenantId(consumer.id), catalogKey)), name = "Our edit").execute()
 
             ImportCatalogZip(tenantKey = consumer.id, zipBytes = v2).execute()
 
-            assertThat(ListCatalogReleaseSummaries(consumer.id, catalogKey).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
+            assertThat(ListCatalogReleaseSummaries(testCatalog(consumer.id, catalogKey)).query().map { it.version }).containsExactly("1.0.1", "1.0.0")
             assertThat(themeName(consumer.id, catalogKey, "thm")).`as`("the draft is not filled").isEqualTo("Our edit")
-            assertThat(GetReleasedResource(consumer.id, catalogKey, "1.0.1", "theme", "thm").query()?.name).isEqualTo("Pub Th 2")
+            assertThat(GetReleasedResource(testCatalog(consumer.id, catalogKey), "1.0.1", "theme", "thm").query()?.name).isEqualTo("Pub Th 2")
         }
     }
 
@@ -254,10 +256,10 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     private fun publishZip(publisherTenant: app.epistola.suite.common.ids.TenantKey, slug: String, version: String, themes: Map<String, String>): ByteArray {
         val catalogKey = CatalogKey.of(slug)
         CreateCatalog(tenantKey = publisherTenant, id = catalogKey, name = slug).execute()
-        themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), CatalogId(catalogKey, TenantId(publisherTenant))), name = n).execute() }
-        MarkCatalogReady(publisherTenant, catalogKey).execute()
-        ReleaseCatalogDraft(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute()
-        return ExportCatalogZip(tenantKey = publisherTenant, catalogKey = catalogKey, version = version).execute().zipBytes
+        themes.forEach { (s, n) -> CreateTheme(id = ThemeId(ThemeKey.of(s), testCatalog(TenantId(publisherTenant), catalogKey)), name = n).execute() }
+        MarkCatalogReady(testCatalog(publisherTenant, catalogKey)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(publisherTenant, catalogKey), version = version).execute()
+        return ExportCatalogZip(catalog = testCatalog(publisherTenant, catalogKey), version = version).execute().zipBytes
     }
 
     @Test
@@ -272,7 +274,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()
 
-            val catalog = GetCatalog(sub.id, catalogKey).query()!!
+            val catalog = GetCatalog(testCatalog(sub.id, catalogKey)).query()!!
             assertThat(catalog.sourceUrl).isNull() // ZIP-sourced, no URL
             assertThat(catalog.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(catalog.installedFingerprint).isEqualTo(manifestFp)
@@ -309,7 +311,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             // fast-forward, UpgradeCatalog parity): stale pruned, installed version advanced.
             assertThat(themeName(sub.id, catalogKey, "drop")).isNull()
             assertThat(themeName(sub.id, catalogKey, "keep")).isEqualTo("Keep")
-            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("2.0.0")
         }
     }
 
@@ -324,9 +326,9 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = sub.id, zipBytes = v1).execute()
 
             // A template in another catalog pins the received theme.
-            val tplId = TemplateId(TestIdHelpers.nextTemplateId(), CatalogId(CatalogKey.DEFAULT, TenantId(sub.id)))
+            val tplId = TemplateId(TestIdHelpers.nextTemplateId(), testCatalog(TenantId(sub.id), CatalogKey.DEFAULT))
             CreateDocumentTemplate(id = tplId, name = "Cross-Ref Template").execute()
-            UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalogKey = catalogKey).execute()
+            UpdateDocumentTemplate(id = tplId, themeId = ThemeKey.of("pinned"), themeCatalog = testCatalog(tplId.tenantKey, catalogKey)).execute()
 
             // Publisher drops the still-referenced theme in the next release.
             val entries = unzip(v1)
@@ -341,7 +343,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             }.isInstanceOf(CatalogUpgradeConflictException::class.java).hasMessageContaining("pinned")
 
             // Conflict thrown before any mutation: version + theme unchanged.
-            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(themeName(sub.id, catalogKey, "pinned")).isEqualTo("Pinned")
         }
     }
@@ -379,7 +381,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
             // Whole-catalog validation fails before mutation: version is not
             // advanced and stale `drop` is not pruned.
-            assertThat(GetCatalog(sub.id, catalogKey).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
+            assertThat(GetCatalog(testCatalog(sub.id, catalogKey)).query()!!.installedReleaseVersion).isEqualTo("1.0.0")
             assertThat(themeName(sub.id, catalogKey, "drop")).isEqualTo("Drop")
         }
     }
@@ -397,7 +399,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
             // Regression: a catalog imported from a ZIP has no source URL — browsing
             // must NOT throw "Subscribed catalog has no source URL"; it lists
             // the locally-installed resources.
-            val result = BrowseCatalog(sub.id, catalogKey).query()
+            val result = BrowseCatalog(testCatalog(sub.id, catalogKey)).query()
 
             assertThat(result.catalog.hasSource).isFalse()
             assertThat(result.resources).extracting<String> { it.slug }
@@ -414,23 +416,23 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenantKey = pub.id, id = catalogKey, name = "CL Browse").execute()
-            CreateTheme(id = ThemeId(ThemeKey.of("brand"), CatalogId(catalogKey, TenantId(pub.id))), name = "Brand").execute()
+            CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(pub.id), catalogKey)), name = "Brand").execute()
             CreateCodeList(
-                id = CodeListId(CodeListKey.of("bcp-47"), CatalogId(catalogKey, TenantId(pub.id))),
+                id = CodeListId(CodeListKey.of("bcp-47"), testCatalog(TenantId(pub.id), catalogKey)),
                 displayName = "BCP-47 Language Tags",
                 sourceType = CodeListSource.INLINE,
                 entries = listOf(CodeListEntry("en", "English"), CodeListEntry("nl", "Dutch")),
             ).execute()
-            MarkCatalogReady(pub.id, catalogKey).execute()
-            ReleaseCatalogDraft(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute()
-            val zip = ExportCatalogZip(tenantKey = pub.id, catalogKey = catalogKey, version = "1.0.0").execute().zipBytes
+            MarkCatalogReady(testCatalog(pub.id, catalogKey)).execute()
+            ReleaseCatalogDraft(catalog = testCatalog(pub.id, catalogKey), version = "1.0.0").execute()
+            val zip = ExportCatalogZip(catalog = testCatalog(pub.id, catalogKey), version = "1.0.0").execute().zipBytes
 
             ImportCatalogZip(tenantKey = sub.id, zipBytes = zip).execute()
 
             // Regression: BrowseCatalog's installed-detection union omitted
             // code_lists (and fonts), so an installed code list showed as
             // "Available" (the BCP-47-in-system bug).
-            val codeList = BrowseCatalog(sub.id, catalogKey).query().resources
+            val codeList = BrowseCatalog(testCatalog(sub.id, catalogKey)).query().resources
                 .single { it.type == "codeList" && it.slug == "bcp-47" }
             assertThat(codeList.status.name).isEqualTo("INSTALLED")
             assertThat(codeList.name).isEqualTo("BCP-47 Language Tags")

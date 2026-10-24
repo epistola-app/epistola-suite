@@ -32,7 +32,7 @@ class AttributeDialogUiTest : BasePlaywrightTest() {
     // the create dialog's catalog <select> is never empty.
     private fun createTestTenant(): Tenant = createTenant("Attribute Dialog Test")
 
-    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/default/attributes/new$")
+    private val newFormUrlPattern: Pattern = Pattern.compile(".*/tenants/[^/]+/catalogs/[^/]+/default/attributes/new$")
 
     /**
      * Opens the create dialog off the always-present page-header action via keyboard

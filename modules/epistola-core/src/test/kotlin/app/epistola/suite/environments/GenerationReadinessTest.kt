@@ -15,7 +15,9 @@ import app.epistola.suite.environments.queries.GetGenerationReadiness
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.default
 import app.epistola.suite.testing.releaseNext
+import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -38,8 +40,8 @@ class GenerationReadinessTest : IntegrationTestBase() {
 
         withMediator {
             val version = mediator.releaseNext(app.epistola.suite.common.ids.CatalogId.default(TenantId(tenant)))
-            DeployCatalogRelease(production, CatalogKey.DEFAULT, version).execute()
-            DeployCatalogRelease(test, CatalogKey.DEFAULT, app.epistola.suite.catalog.releases.GetCatalogDraft(tenant, CatalogKey.DEFAULT).query()!!.versionId).execute()
+            DeployCatalogRelease(production, testCatalog(production.tenantKey, CatalogKey.DEFAULT), version).execute()
+            DeployCatalogRelease(test, testCatalog(test.tenantKey, CatalogKey.DEFAULT), app.epistola.suite.catalog.releases.GetCatalogDraft(testCatalog(tenant, CatalogKey.DEFAULT)).query()!!.versionId).execute()
         }
         assertThat(withMediator { GetGenerationReadiness(tenant).query() }.ready).isTrue()
     }

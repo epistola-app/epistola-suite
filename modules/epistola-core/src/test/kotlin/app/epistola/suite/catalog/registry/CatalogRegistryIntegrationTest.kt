@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
+import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.sources.CatalogSourceUnavailableException
 import app.epistola.suite.catalog.sources.InstallCatalogRelease
 import app.epistola.suite.catalog.sources.ListAvailableCatalogReleases
@@ -25,6 +26,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.SharedRegistries
 import app.epistola.suite.testing.TestNamespaces
+import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.validation.ValidationCode
@@ -85,18 +87,18 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         return withMediator {
             CreateCatalog(tenantKey = a, id = catalog, name = "Registry $key").execute()
             CreateTheme(id = theme(a, catalog), name = "Brand").execute()
-            MarkCatalogReady(a, catalog).execute()
-            val release = ReleaseCatalogDraft(tenantKey = a, catalogKey = catalog, version = version).execute()
-            Released(a, b, catalog, GetCatalog(a, catalog).query()!!.namespace, release.fingerprint)
+            MarkCatalogReady(testCatalog(a, catalog)).execute()
+            val release = ReleaseCatalogDraft(catalog = testCatalog(a, catalog), version = version).execute()
+            Released(a, b, catalog, GetCatalog(testCatalog(a, catalog)).query()!!.namespace, release.fingerprint)
         }
     }
 
-    private fun theme(tenant: TenantKey, catalog: CatalogKey) = ThemeId(ThemeKey.of("brand"), CatalogId(catalog, TenantId(tenant)))
+    private fun theme(tenant: TenantKey, catalog: CatalogKey) = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), catalog))
 
     private fun releaseNext(r: Released, version: String, themeName: String): String = withMediator {
         UpdateTheme(theme(r.a, r.catalog), name = themeName).execute()
-        MarkCatalogReady(r.a, r.catalog).execute()
-        ReleaseCatalogDraft(tenantKey = r.a, catalogKey = r.catalog, version = version).execute().fingerprint
+        MarkCatalogReady(testCatalog(r.a, r.catalog)).execute()
+        ReleaseCatalogDraft(catalog = testCatalog(r.a, r.catalog), version = version).execute().fingerprint
     }
 
     /** Pushes [archive] as `version` of [r]'s catalog, labelled with [fingerprint], as anyone with push rights could. */
@@ -110,13 +112,13 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         return client.pushManifest(repository, version, ReleaseArtifact.manifest(mapper, labels, config, layer))
     }
 
-    private fun export(r: Released, version: String = "1.0.0"): ByteArray = withMediator { ExportCatalogZip(r.a, r.catalog, version).execute().zipBytes }
+    private fun export(r: Released, version: String = "1.0.0"): ByteArray = withMediator { ExportCatalogZip(testCatalog(r.a, r.catalog), version).execute().zipBytes }
 
     @Test
     fun `a release published from one installation installs in another with the same fingerprint`() {
         val r = released("reg-roundtrip")
         withMediator {
-            val published = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
+            val published = PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
             assertThat(published.alreadyPublished).isFalse()
             assertThat(published.repository).`as`("the catalog's full name").isEqualTo("${TestNamespaces.DEFAULT_AUTHORITY}/${r.namespace}/reg-roundtrip")
             assertThat(published.digest).startsWith("sha256:")
@@ -131,10 +133,10 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
             assertThat(installed.newlyInstalled).isTrue()
             assertThat(installed.digest).isEqualTo(published.digest)
 
-            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single { it.version == "1.0.0" }.fingerprint)
+            assertThat(ListCatalogReleaseSummaries(testCatalog(r.b, r.catalog)).query().single { it.version == "1.0.0" }.fingerprint)
                 .`as`("the receiver has the release the publisher released")
                 .isEqualTo(r.fingerprint)
-            val catalog = GetCatalog(r.b, r.catalog).query()!!
+            val catalog = GetCatalog(testCatalog(r.b, r.catalog)).query()!!
             assertThat(catalog.hasSource).isTrue()
             assertThat(catalog.sourceUrl).isEqualTo("oci:local/${r.namespace}/reg-roundtrip")
             assertThat(catalog.namespace).isEqualTo(r.namespace)
@@ -150,8 +152,8 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     fun `publishing a release the registry has already is a no-op`() {
         val r = released("reg-twice")
         withMediator {
-            val first = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
-            val second = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
+            val first = PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
+            val second = PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
 
             assertThat(second.alreadyPublished).isTrue()
             assertThat(second.digest).isEqualTo(first.digest)
@@ -166,7 +168,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         val theirs = pushRaw(r, "1.0.0", export(r, "1.1.0"), other)
 
         withMediator {
-            assertThatThrownBy { PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute() }
+            assertThatThrownBy { PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.REGISTRY_TAG_TAKEN) }
                 .hasMessageContaining("One number names one release")
         }
@@ -185,21 +187,21 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy { InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-tampered", "1.0.0").execute() }
                 .isInstanceOf(CatalogImportValidationException::class.java)
-            assertThat(GetCatalog(r.b, r.catalog).query()).isNull()
+            assertThat(GetCatalog(testCatalog(r.b, r.catalog)).query()).isNull()
         }
     }
 
     @Test
     fun `a blob that does not match its digest is refused before anything is installed`() {
         val r = released("reg-altered")
-        withMediator { PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute() }
+        withMediator { PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute() }
 
         withMediator {
             // The same registry, through a proxy that alters every blob it serves by one byte.
             assertThatThrownBy { InstallReleaseFromRegistry(r.b, "tampering", r.namespace, "reg-altered", "1.0.0").execute() }
                 .isInstanceOf(CatalogSourceUnavailableException::class.java)
                 .hasMessageContaining("digest")
-            assertThat(GetCatalog(r.b, r.catalog).query()).isNull()
+            assertThat(GetCatalog(testCatalog(r.b, r.catalog)).query()).isNull()
         }
     }
 
@@ -211,21 +213,23 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
         withMediator {
             assertThatThrownBy { InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-impostor", "1.0.0").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.REGISTRY_ARCHIVE_REJECTED) }
-            assertThat(GetCatalog(r.b, CatalogKey.of("reg-named")).query()).isNull()
-            assertThat(GetCatalog(r.b, CatalogKey.of("reg-impostor")).query()).isNull()
+            assertThat(GetCatalog(testCatalog(r.b, CatalogKey.of("reg-named"))).query()).isNull()
+            assertThat(GetCatalog(testCatalog(r.b, CatalogKey.of("reg-impostor"))).query()).isNull()
         }
     }
 
     @Test
-    fun `a catalog key the receiver uses for another catalog is refused before downloading`() {
+    fun `a catalog key the receiver uses in another namespace is installed beside it`() {
         val r = released("reg-clash")
         withMediator {
-            PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
+            PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
             CreateCatalog(tenantKey = r.b, id = r.catalog, name = "B's own").execute()
 
-            assertThat(ListRegistryReleases(r.b, "local", r.namespace, "reg-clash").query().conflict).contains("another catalog")
-            assertThatThrownBy { InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-clash", "1.0.0").execute() }
-                .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.REGISTRY_CATALOG_KEY_TAKEN) }
+            // Within a tenant a catalog is named by namespace and key (ADR 0034, section 9): B's own is another catalog.
+            assertThat(ListRegistryReleases(r.b, "local", r.namespace, "reg-clash").query().conflict).isNull()
+            InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-clash", "1.0.0").execute()
+            assertThat(ListCatalogs(r.b).query().filter { it.id == r.catalog }.map { it.name to it.namespace })
+                .containsExactlyInAnyOrder("B's own" to app.epistola.suite.testing.TestNamespaces.of(r.b).namespace, ListCatalogs(r.a).query().single { it.id == r.catalog }.name to r.namespace)
         }
     }
 
@@ -233,21 +237,21 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     fun `a catalog installed from a registry is offered its later releases by that registry`() {
         val r = released("reg-later")
         withMediator {
-            PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "local").execute()
+            PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "local").execute()
             InstallReleaseFromRegistry(r.b, "local", r.namespace, "reg-later", "1.0.0").execute()
         }
         val later = releaseNext(r, "1.1.0", "Brand 1.1")
         withMediator {
-            PublishReleaseToRegistry(r.a, r.catalog, "1.1.0", "local").execute()
+            PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.1.0", "local").execute()
 
-            val catalog = GetCatalog(r.b, r.catalog).query()!!
+            val catalog = GetCatalog(testCatalog(r.b, r.catalog)).query()!!
             val state = probe.probe(catalog)
             assertThat(state.availableVersion).isEqualTo("1.1.0")
             assertThat(state.availableFingerprint).isEqualTo(later)
 
-            assertThat(ListAvailableCatalogReleases(r.b, r.catalog).query().available.map { it.releaseVersion }).containsExactly("1.1.0")
-            InstallCatalogRelease(r.b, r.catalog, "1.1.0").execute()
-            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single { it.version == "1.1.0" }.fingerprint).isEqualTo(later)
+            assertThat(ListAvailableCatalogReleases(testCatalog(r.b, r.catalog)).query().available.map { it.releaseVersion }).containsExactly("1.1.0")
+            InstallCatalogRelease(testCatalog(r.b, r.catalog), "1.1.0").execute()
+            assertThat(ListCatalogReleaseSummaries(testCatalog(r.b, r.catalog)).query().single { it.version == "1.1.0" }.fingerprint).isEqualTo(later)
         }
     }
 
@@ -255,11 +259,11 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     fun `a registry behind Basic authentication is used with its credentials, and refuses without them`() {
         val r = released("reg-secured")
         withMediator {
-            val published = PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "secured").execute()
+            val published = PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "secured").execute()
             assertThat(published.repository).isEqualTo("${SharedRegistries.SECURED_PREFIX}/${TestNamespaces.DEFAULT_AUTHORITY}/${r.namespace}/reg-secured")
 
             InstallReleaseFromRegistry(r.b, "secured", r.namespace, "reg-secured", "1.0.0").execute()
-            assertThat(ListCatalogReleaseSummaries(r.b, r.catalog).query().single().fingerprint).isEqualTo(r.fingerprint)
+            assertThat(ListCatalogReleaseSummaries(testCatalog(r.b, r.catalog)).query().single().fingerprint).isEqualTo(r.fingerprint)
         }
 
         val anonymous = OciRegistryClient(
@@ -278,7 +282,7 @@ class CatalogRegistryIntegrationTest : IntegrationTestBase() {
     fun `an unknown registry is refused by name`() {
         val r = released("reg-unknown")
         withMediator {
-            assertThatThrownBy { PublishReleaseToRegistry(r.a, r.catalog, "1.0.0", "nowhere").execute() }
+            assertThatThrownBy { PublishReleaseToRegistry(testCatalog(r.a, r.catalog), "1.0.0", "nowhere").execute() }
                 .isInstanceOfSatisfying(ValidationException::class.java) { assertThat(it.code).isEqualTo(ValidationCode.REGISTRY_UNKNOWN) }
             assertThat(ListCatalogRegistries(r.a).query().registries.map { it.name }).containsExactly("local", "secured", "tampering")
         }

@@ -6,9 +6,11 @@ package app.epistola.suite.catalog.dependencies
 
 import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.validation.ValidationCode
@@ -50,6 +52,9 @@ data class CatalogDependencyDeclaration(
     /** A release never pins a draft, so the wire form of a declaration naming one pins nothing. */
     fun toWire(): CatalogDependency = CatalogDependency(registry, namespace, catalogKey, releaseVersion, releaseFingerprint, alias)
 
+    /** The catalog this names, as [tenantKey]'s address of it (ADR 0034, section 9). */
+    fun catalogIn(tenantKey: TenantKey): CatalogId = CatalogId(namespace, CatalogKey.of(catalogKey), app.epistola.suite.common.ids.TenantId(tenantKey))
+
     override fun toString(): String = "$registry~$namespace/$catalogKey@${releaseVersion ?: draftName?.let { "draft '$it'" } ?: "unpinned"}"
 
     companion object {
@@ -77,7 +82,7 @@ data class CatalogDependencyRelease(val version: String, val fingerprint: String
 @Component
 class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity) {
 
-    fun declarations(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey): List<CatalogDependencyDeclaration> = handle
+    fun declarations(handle: Handle, catalog: CatalogId): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
             SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
@@ -88,8 +93,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             ORDER BY d.position
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .map { rs, _ -> declarationOf(rs) }
         .list()
 
@@ -128,15 +133,15 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      *   [catalogKey]: catalogs never use each other. Every write that starts using another catalog
      *   declares it here, in its own transaction, so the write is refused with it.
      */
-    fun replace(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, declarations: List<CatalogDependencyDeclaration>) {
+    fun replace(handle: Handle, catalog: CatalogId, declarations: List<CatalogDependencyDeclaration>) {
         // Only a change counts: the same declarations again leave the version's revision as it is.
         fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, alias, releaseVersion, releaseFingerprint, draftId)
-        val current = declarations(handle, tenantKey, catalogKey)
+        val current = declarations(handle, catalog)
         if (current.map { it.what() } == declarations.map { it.what() }) return
-        requireNoCycle(handle, tenantKey, catalogKey, declarations.filter { new -> current.none { it.identity == new.identity } })
+        requireNoCycle(handle, catalog, declarations.filter { new -> current.none { it.identity == new.identity } })
         handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .execute()
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
@@ -151,8 +156,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """,
         )
         declarations.forEachIndexed { position, declaration ->
-            batch.bind("t", tenantKey)
-                .bind("c", catalogKey)
+            batch.bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("registry", declaration.registry)
                 .bind("namespace", declaration.namespace)
                 .bind("key", declaration.catalogKey)
@@ -173,8 +178,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      * what they use. Judged by what every other version declares (each draft of each catalog, and each
      * subscribed catalog's installed version), so a parallel draft cannot close the loop either.
      */
-    private fun requireNoCycle(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, added: List<CatalogDependencyDeclaration>) {
-        val targets = added.map { it.catalogKey }.filter { it != catalogKey.value }.toSet()
+    private fun requireNoCycle(handle: Handle, catalog: CatalogId, added: List<CatalogDependencyDeclaration>) {
+        val targets = added.map { it.catalogKey }.filter { it != catalog.key.value }.toSet()
         if (targets.isEmpty()) return
         val uses = handle.createQuery(
             """
@@ -186,16 +191,16 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             WHERE d.tenant_key = :t AND d.version_id <> ${versionAt("t", "c")}
             """,
         )
-            .bind("t", tenantKey)
-            .bind("c", catalogKey)
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> rs.getString("user_key") to rs.getString("used_key") }
             .list()
             .groupBy({ it.first }, { it.second })
         for (target in targets.sorted()) {
-            val path = pathBetween(target, catalogKey.value, uses) ?: continue
+            val path = pathBetween(target, catalog.key.value, uses) ?: continue
             throw ValidationException(
                 "dependencies",
-                "Catalog '${catalogKey.value}' cannot use '$target': '$target' already uses '${catalogKey.value}' " +
+                "Catalog '${catalog.key.value}' cannot use '$target': '$target' already uses '${catalog.key.value}' " +
                     "(${(path).joinToString(" uses ") { "'$it'" }}), and catalogs never use each other. " +
                     "Move what they share into one of them, or into a catalog they both use.",
                 ValidationCode.CATALOG_DEPENDENCY_INVALID,
@@ -219,7 +224,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     }
 
     /** Records the declarations release [version] of [catalogKey] was cut with, each with its pin. */
-    fun recordRelease(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String, pins: List<CatalogDependencyDeclaration>) {
+    fun recordRelease(handle: Handle, catalog: CatalogId, version: String, pins: List<CatalogDependencyDeclaration>) {
         if (pins.isEmpty()) return
         val batch = handle.prepareBatch(
             """
@@ -229,8 +234,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """,
         )
         pins.forEachIndexed { position, pin ->
-            batch.bind("t", tenantKey)
-                .bind("c", catalogKey)
+            batch.bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
                 .bind("version", version)
                 .bind("registry", pin.registry)
                 .bind("namespace", pin.namespace)
@@ -245,7 +250,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     }
 
     /** The declarations release [version] of [catalogKey] was cut with, each with its pin. */
-    fun releasePins(handle: Handle, tenantKey: TenantKey, catalogKey: CatalogKey, version: String): List<CatalogDependencyDeclaration> = handle
+    fun releasePins(handle: Handle, catalog: CatalogId, version: String): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
             SELECT registry, namespace, dependency_key, alias, release_version, release_fingerprint
@@ -254,8 +259,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             ORDER BY position
             """,
         )
-        .bind("t", tenantKey)
-        .bind("c", catalogKey)
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
         .bind("version", version)
         .map { rs, _ ->
             CatalogDependencyDeclaration(
@@ -273,7 +278,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      * The tenant's catalog that [declaration] names, by registry, namespace and key, or null when
      * the tenant has none: a catalog with the same key in another namespace is another catalog.
      */
-    fun catalogNamed(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogKey? = handle
+    fun catalogNamed(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogId? = handle
         .createQuery("SELECT catalog_key FROM catalogs WHERE tenant_key = :t AND registry = :registry AND namespace = :namespace AND catalog_key = :key")
         .bind("t", tenantKey)
         .bind("registry", declaration.registry)
@@ -281,7 +286,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         .bind("key", declaration.catalogKey)
         .mapTo(String::class.java)
         .findOne()
-        .map(CatalogKey::of)
+        .map { CatalogId(declaration.namespace, CatalogKey.of(it), app.epistola.suite.common.ids.TenantId(tenantKey)) }
         .orElse(null)
 
     /**
@@ -297,7 +302,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         return handle
             .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
-            .bind("c", catalog)
+            .bindCatalog("c", catalog)
             .map { rs, _ -> app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
             .list()
             .filter { QualifiedCatalogFingerprint.parse(it.fingerprint) != null }
@@ -305,7 +310,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
 
     /** [recorded] as a pin takes it: by its content hash, computed now when it has none yet. */
     private fun pinOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, recorded: app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded): CatalogDependencyRelease {
-        val hash = recorded.contentHash ?: catalogNamed(handle, tenantKey, declaration)?.let { identity.contentHash(handle, tenantKey, it, recorded) }
+        val hash = recorded.contentHash ?: catalogNamed(handle, tenantKey, declaration)?.let { identity.contentHash(handle, it, recorded) }
         return CatalogDependencyRelease(recorded.version, hash ?: recorded.fingerprint)
     }
 
@@ -407,7 +412,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         val pin = declaration.releaseFingerprint ?: return false
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return false
         val recorded = recordedCandidates(handle, tenantKey, declaration).firstOrNull { it.version == version } ?: return false
-        return identity.isRelease(handle, tenantKey, catalog, recorded, pin)
+        return identity.isRelease(handle, catalog, recorded, pin)
     }
 
     private companion object {

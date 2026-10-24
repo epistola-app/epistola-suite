@@ -6,6 +6,7 @@ package app.epistola.suite.exchange
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.queries.GetCatalog
+import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -60,12 +61,13 @@ class InstallExchangeCatalogHandler(
  * withdrawn, going back to the newest one still offered is the only way forward.
  */
 data class UpgradeExchangeCatalog(
-    override val tenantKey: TenantKey,
-    val catalogKey: CatalogKey,
+    val catalog: CatalogId,
     val version: String? = null,
 ) : Command<ExchangeInstallResult>,
     RequiresPermission,
     SelfManagedTransaction {
+    override val tenantKey: TenantKey get() = catalog.tenantKey
+    val catalogKey: CatalogKey get() = catalog.key
     override val permission get() = Permission.CATALOG_MANAGE
 }
 
@@ -74,7 +76,7 @@ class UpgradeExchangeCatalogHandler(
     private val installer: ExchangeCatalogInstaller,
 ) : CommandHandler<UpgradeExchangeCatalog, ExchangeInstallResult> {
     override fun handle(command: UpgradeExchangeCatalog): ExchangeInstallResult {
-        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+        val catalog = GetCatalog(command.catalog).query()
             ?: throw ValidationException(
                 "catalogKey",
                 "No catalog '${command.catalogKey.value}' in this tenant.",
