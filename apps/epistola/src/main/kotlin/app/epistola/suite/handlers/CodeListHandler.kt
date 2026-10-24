@@ -139,7 +139,6 @@ class CodeListHandler(
         // Safe !!: asCodeListId already rejected an invalid non-blank slug, and
         // required() rejected a blank one, so a valid key is guaranteed here.
         val slug = CodeListKey.validateOrNull(form["slug"])!!
-        val catalogKey = catalogSegment.key
         val catalog = catalogSegment.catalogIn(request.tenantId())
         val sourceType = runCatching { CodeListSource.valueOf(form["sourceType"]) }.getOrNull()
             ?: return renderCreateError(request, FormData(form.formData, mapOf("sourceType" to "Unknown source type")), tenantId)

@@ -105,7 +105,6 @@ class CatalogRegistryHandler {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_PUBLISH)
         val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
         return fragmentOrPage(
             request,
             "catalogs/registry",
@@ -123,7 +122,6 @@ class CatalogRegistryHandler {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_PUBLISH)
         val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
         val version = request.param("version").orElse("").trim()
         val registry = request.param("registry").orElse("")
         return try {

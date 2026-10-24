@@ -61,7 +61,6 @@ class TemplatePreviewHandler(
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val catalog = request.catalog(request.tenantId())
-        val catalogId = catalog.key
         val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)

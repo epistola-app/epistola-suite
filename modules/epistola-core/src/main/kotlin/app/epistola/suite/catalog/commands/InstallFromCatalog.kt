@@ -285,36 +285,29 @@ class InstallFromCatalogHandler(
         return if (result.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED
     }
 
-    private fun installTheme(command: InstallFromCatalog, resource: ThemeResource): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
-        return ImportTheme(
-            catalog = command.catalog,
-            slug = resource.key,
-            name = resource.name,
-            description = resource.description,
-            documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
-            pageSettings = resource.pageSettings,
-            blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
-            spacingUnit = resource.spacingUnit,
-        ).execute()
-    }
+    private fun installTheme(command: InstallFromCatalog, resource: ThemeResource): InstallStatus = ImportTheme(
+        catalog = command.catalog,
+        slug = resource.key,
+        name = resource.name,
+        description = resource.description,
+        documentStyles = protocolMapper.mapToDocumentStyles(resource.documentStyles),
+        pageSettings = resource.pageSettings,
+        blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
+        spacingUnit = resource.spacingUnit,
+    ).execute()
 
-    private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
-        return ImportStencil(
-            catalog = command.catalog,
-            slug = resource.key,
-            name = resource.name,
-            description = resource.description,
-            tags = resource.tags,
-            content = resource.content,
-            parameterSchema = resource.parameterSchema,
-            readsTemplateData = resource.readsTemplateData,
-        ).execute()
-    }
+    private fun installStencil(command: InstallFromCatalog, resource: StencilResource): InstallStatus = ImportStencil(
+        catalog = command.catalog,
+        slug = resource.key,
+        name = resource.name,
+        description = resource.description,
+        tags = resource.tags,
+        content = resource.content,
+        parameterSchema = resource.parameterSchema,
+        readsTemplateData = resource.readsTemplateData,
+    ).execute()
 
     private fun installAttribute(command: InstallFromCatalog, resource: AttributeResource, declarations: List<app.epistola.suite.catalog.dependencies.CatalogDependencyDeclaration>): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
         // A binding's `catalogKey` defaults to the attribute's own catalog —
         // the typical case is a catalog that authors both the attribute and
         // the list it binds to. Cross-catalog bindings (e.g. an attribute in
@@ -332,30 +325,26 @@ class InstallFromCatalogHandler(
         ).execute()
     }
 
-    private fun installCodeList(command: InstallFromCatalog, resource: CodeListResource): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
-        return ImportCodeList(
-            catalog = command.catalog,
-            slug = resource.key,
-            displayName = resource.name,
-            description = resource.description,
-            entries = resource.entries.map { wire ->
-                CodeListEntry(
-                    code = wire.code,
-                    label = wire.label,
-                    sortOrder = wire.sortOrder,
-                    hidden = wire.hidden,
-                )
-            },
-        ).execute()
-    }
+    private fun installCodeList(command: InstallFromCatalog, resource: CodeListResource): InstallStatus = ImportCodeList(
+        catalog = command.catalog,
+        slug = resource.key,
+        displayName = resource.name,
+        description = resource.description,
+        entries = resource.entries.map { wire ->
+            CodeListEntry(
+                code = wire.code,
+                label = wire.label,
+                sortOrder = wire.sortOrder,
+                hidden = wire.hidden,
+            )
+        },
+    ).execute()
 
     private fun installFont(
         command: InstallFromCatalog,
         resource: FontResource,
         binaries: Map<String, ByteArray>,
     ): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
         // A face carries its own binary from wire v7 rather than naming a separate asset, so each
         // one is materialised here, keyed by its content hash so a re-install reuses the row.
         // System (CLASSPATH) fonts are never exported and so never arrive over the wire.
@@ -385,19 +374,15 @@ class InstallFromCatalogHandler(
         command: InstallFromCatalog,
         resource: ImageResource,
         content: ByteArray,
-    ): InstallStatus {
-        val tenantId = TenantId(command.tenantKey)
-
-        return ImportAsset(
-            catalog = command.catalog,
-            id = app.epistola.suite.common.ids.AssetKey.of(resource.key),
-            name = resource.name,
-            mediaType = AssetMediaType.fromMimeType(resource.mediaType),
-            content = content,
-            width = resource.width,
-            height = resource.height,
-        ).execute()
-    }
+    ): InstallStatus = ImportAsset(
+        catalog = command.catalog,
+        id = app.epistola.suite.common.ids.AssetKey.of(resource.key),
+        name = resource.name,
+        mediaType = AssetMediaType.fromMimeType(resource.mediaType),
+        content = content,
+        width = resource.width,
+        height = resource.height,
+    ).execute()
 }
 
 /**

@@ -354,8 +354,7 @@ class CatalogHandler {
 
     fun deleteCatalog(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
 
         return try {
             val force = request.param("force").orElse("false").toBoolean()
@@ -399,7 +398,7 @@ class CatalogHandler {
      */
     fun releaseDetail(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
+        val catalog = request.catalog(tenantId)
         val catalogKey = catalog.key
         val version = request.pathVariable("version")
 
@@ -642,7 +641,7 @@ class CatalogHandler {
     /** Withdraws a queued publication; rejections stay on the Settings page, where Exchange is, like the publish action. */
     fun cancelPublication(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
+        val catalog = request.catalog(tenantId)
         val catalogKey = catalog.key
         return try {
             CancelCatalogPublication(tenantId.key, UUID.fromString(request.pathVariable("publicationId"))).execute()
@@ -661,8 +660,7 @@ class CatalogHandler {
      */
     fun deploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         val environment = request.param("environmentId").orElse("").trim()
         val version = request.param("version").orElse("").trim()
         if (environment.isEmpty() || version.isEmpty()) return deployments(request, error = "Choose an environment and a release to deploy.")
@@ -697,8 +695,7 @@ class CatalogHandler {
     /** Stops an environment serving one release of this catalog, given as the `version` field. */
     fun undeploy(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         val version = request.param("version").orElse("").trim()
         if (version.isEmpty()) return deployments(request, error = "Choose a release to undeploy.")
         UndeployCatalogRelease(EnvironmentId(EnvironmentKey.of(request.pathVariable("environmentId")), tenantId), catalog, version).execute()
@@ -710,7 +707,6 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         requirePermission(tenantId.key, Permission.ENVIRONMENT_DEPLOY)
         val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
         val environment = EnvironmentKey.of(request.pathVariable("environmentId"))
         ListDraftDeployments(tenantId.key, catalog, environment).query().singleOrNull()?.let { deployed ->
             UndeployCatalogRelease(EnvironmentId(environment, tenantId), catalog, deployed.draftId).execute()
@@ -746,7 +742,7 @@ class CatalogHandler {
     /** Removes a release from the history, landing on Releases. Refusals -- a send in flight -- land there too, with the reason. */
     fun deleteRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
+        val catalog = request.catalog(tenantId)
         val catalogKey = catalog.key
         return try {
             DeleteCatalogRelease(catalog, request.pathVariable("version")).execute()
@@ -767,7 +763,7 @@ class CatalogHandler {
      */
     fun publishCurrentRelease(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
+        val catalog = request.catalog(tenantId)
         val catalogKey = catalog.key
         return try {
             chooseNamespaceIfOffered(request, catalog)
@@ -854,15 +850,13 @@ class CatalogHandler {
 
     fun upgradePreview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         return upgradeDialog(request, catalog)
     }
 
     fun upgrade(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
 
         val releaseVersion = request.param("releaseVersion").orElse("").trim().ifEmpty { null }
             ?: return upgradeDialog(request, catalog, "Choose a release to install.", refused = true)
@@ -1183,8 +1177,7 @@ class CatalogHandler {
 
     fun metadataForm(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
         val section = CatalogMetadataSection.from(request.param("section").orElse(CatalogMetadataSection.DETAILS.value))
         return fragmentOrPage(request, "catalogs/metadata", "dialog", catalogMetadataModel(catalog, section))
@@ -1192,8 +1185,7 @@ class CatalogHandler {
 
     fun updateMetadata(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         requirePermission(tenantId.key, Permission.CATALOG_MANAGE)
         val section = CatalogMetadataSection.from(request.servletRequest().getParameter("section").orEmpty())
         val params = request.servletRequest().parameterMap
@@ -1378,8 +1370,7 @@ class CatalogHandler {
 
     fun resourceUsages(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         val resourceType = request.param("type").orElse("")
         val resourceSlug = request.param("slug").orElse("")
         val key = "$resourceType:$resourceSlug"
@@ -1401,7 +1392,7 @@ class CatalogHandler {
 
     fun installPreview(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
+        val catalog = request.catalog(tenantId)
         val catalogKey = catalog.key
 
         return try {
@@ -1427,8 +1418,7 @@ class CatalogHandler {
 
     fun install(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
 
         return try {
             val results = InstallFromCatalog(
@@ -1463,7 +1453,6 @@ class CatalogHandler {
     ): ServerResponse {
         val tenantId = request.tenantId()
         val result = BrowseCatalog(catalog = catalog).query()
-        val catalogKey = catalog.key
         val images = catalogImages(catalog)
         val imagesBySlug = images.associateBy { it.id.value }
 
@@ -1515,8 +1504,7 @@ class CatalogHandler {
     /** The export dialog: the working copy, or a release that kept its content, as it was released. */
     fun exportCheck(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
         return fragmentOrPage(
             request,
             "catalogs/list",
@@ -1532,8 +1520,7 @@ class CatalogHandler {
 
     fun export(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        val catalog = request.catalog(request.tenantId())
-        val catalogKey = catalog.key
+        val catalog = request.catalog(tenantId)
 
         return try {
             val result = ExportCatalogZip(

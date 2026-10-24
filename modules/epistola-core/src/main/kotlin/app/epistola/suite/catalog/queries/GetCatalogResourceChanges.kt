@@ -139,8 +139,7 @@ class GetCatalogResourceChangesHandler(
 ) : QueryHandler<GetCatalogResourceChanges, CatalogResourceChanges> {
 
     override fun handle(query: GetCatalogResourceChanges): CatalogResourceChanges {
-        val catalog = GetCatalog(query.catalog).query()
-            ?: throw CatalogNotFoundException(query.catalogKey)
+        GetCatalog(query.catalog).query() ?: throw CatalogNotFoundException(query.catalogKey)
         // Only a catalog that can be changed here has a next release to describe (ADR 0032): one the
         // suite supplies, or any in a run-only installation, only receives releases.
         val editability = GetCatalogEditability(query.catalog).query()

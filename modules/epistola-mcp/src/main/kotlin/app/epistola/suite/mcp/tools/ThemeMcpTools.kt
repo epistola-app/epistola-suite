@@ -269,9 +269,7 @@ class ThemeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CatalogThemeSettingsInfo {
-        val tenantKey = mcpTenantId().key
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         val version = catalogVersionRef(catalogId, catalogVersion)
         if (defaultThemeKey != null || clearDefaultTheme == true) {
             val theme = defaultThemeKey?.let { CatalogDefaultTheme(ThemeKey.of(it), defaultThemeCatalogId?.takeIf { c -> c.isNotBlank() }?.let(::mcpCatalog) ?: catalog) }
@@ -301,9 +299,7 @@ class ThemeMcpTools(
         .let { result -> HouseThemeApplied(result.applied.map { it.toString() }, result.skipped.map { it.toString() }) }
 
     private fun settingsInfo(catalogId: String, catalogVersion: String?): CatalogThemeSettingsInfo {
-        val tenantKey = mcpTenantId().key
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         val version = catalogVersionRef(catalogId, catalogVersion)
         val settings = GetCatalogThemeSettings(catalog, version).query()
         return CatalogThemeSettingsInfo(

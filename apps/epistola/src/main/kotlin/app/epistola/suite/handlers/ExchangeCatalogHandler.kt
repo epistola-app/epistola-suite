@@ -163,7 +163,6 @@ class ExchangeCatalogHandler {
         val tenantKey = request.tenantId().key
         requirePermission(tenantKey, Permission.CATALOG_VIEW)
         val catalogId = request.catalog(tenantKey)
-        val catalogKey = catalogId.key
         val catalog = GetCatalog(catalogId).query()
         val coordinates = ExchangeSourceUri.parse(catalog?.sourceUrl)
             ?: return installError(request, "This catalog was not installed from Epistola Exchange.")

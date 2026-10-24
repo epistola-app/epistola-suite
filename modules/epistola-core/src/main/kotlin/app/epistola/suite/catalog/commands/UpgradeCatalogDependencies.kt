@@ -47,8 +47,7 @@ class UpgradeCatalogDependenciesHandler(
 ) : CommandHandler<UpgradeCatalogDependencies, List<CatalogDependencyDeclaration>> {
 
     override fun handle(command: UpgradeCatalogDependencies): List<CatalogDependencyDeclaration> = jdbi.inTransaction<List<CatalogDependencyDeclaration>, Exception> { handle ->
-        val catalog = handle.findCatalog(command.catalog)
-            ?: throw CatalogNotFoundException(command.catalogKey)
+        handle.findCatalog(command.catalog) ?: throw CatalogNotFoundException(command.catalogKey)
         requireCatalogEditable(command.catalog)
         val resolved = store.declarations(handle, command.catalog).map { declaration ->
             // A declaration naming a draft builds on that draft, live; there is no pin to move.

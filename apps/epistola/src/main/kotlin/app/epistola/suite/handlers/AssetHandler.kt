@@ -196,7 +196,6 @@ class AssetHandler(
 
         // The catalog the dialog was opened in, or one of its drafts (`letters@<draft>`), from the path.
         val catalogSegment = request.catalogSegment()
-        val catalogKey = catalogSegment.key
         val catalog = catalogSegment.catalogIn(request.tenantId())
 
         val filePart: Part? = multipartData["file"]?.firstOrNull()
@@ -309,7 +308,6 @@ class AssetHandler(
     fun content(request: ServerRequest): ServerResponse {
         val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val segment = request.catalogSegment()
-        val catalogId = segment.key
         val catalog = segment.catalogIn(tenantId)
         // An image key is text, not a UUID: a catalog may name its images readably, and parsing
         // the path variable as a UUID made every such image unviewable and undeletable here.

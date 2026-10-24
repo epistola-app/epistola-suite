@@ -165,7 +165,6 @@ class CatalogMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<CatalogDependencyInfo> {
-        val tenant = mcpTenantKey()
         val declared = dependencies.map { dependency ->
             val dependencyCatalog = mcpCatalog(dependency.catalogId)
             val key = dependencyCatalog.key

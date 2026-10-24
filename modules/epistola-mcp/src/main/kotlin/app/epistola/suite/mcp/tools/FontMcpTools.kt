@@ -115,7 +115,6 @@ class FontMcpTools(
     ): FontInfo {
         val tenantId = TenantId(mcpTenantKey())
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         val slug = FontKey.of(fontId)
         val version = catalogVersionRef(catalogId, catalogVersion)
         val fontKind = try {

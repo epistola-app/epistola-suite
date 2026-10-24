@@ -70,7 +70,6 @@ class AttributeMcpTools(
         @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): AttributeInfo? {
-        val tenantId = TenantId(mcpTenantKey())
         val id = AttributeId(AttributeKey.of(attributeKey), mcpCatalog(catalogId))
         return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
     }

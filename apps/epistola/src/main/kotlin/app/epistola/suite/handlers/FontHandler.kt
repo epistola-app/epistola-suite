@@ -342,7 +342,6 @@ class FontHandler(
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val tenantId = TenantId(tenantKey)
         val segment = request.catalogSegment()
-        val catalogKey = segment.key
         val catalog = segment.catalogIn(request.tenantId())
         val version = segment.ref(tenantKey)
         val slug = FontKey.of(request.pathVariable("slug"))
@@ -465,7 +464,6 @@ class FontHandler(
     fun content(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
         val segment = request.catalogSegment()
-        val catalogKey = segment.key
         val catalog = segment.catalogIn(request.tenantId())
         val slug = FontKey.of(request.pathVariable("slug"))
         val weight = request.pathVariable("weight").toIntOrNull()

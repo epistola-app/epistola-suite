@@ -254,7 +254,6 @@ class LoadTestHandler(
      */
     fun detail(request: ServerRequest): ServerResponse {
         val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
         val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         val run = GetLoadTestRun(tenantId = tenantKey, runId = runId).query()

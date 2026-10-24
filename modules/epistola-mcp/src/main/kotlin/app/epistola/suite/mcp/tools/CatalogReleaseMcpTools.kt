@@ -137,7 +137,6 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         draft: String,
     ): List<CatalogReleaseInfo> {
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         DeleteCatalogDraft(catalog, draftRefOf(draft)).execute()
         return ListCatalogReleases(catalog).query().map(CatalogReleaseInfo::from)
     }
@@ -195,7 +194,6 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         keepPreviousAs: String? = null,
     ): ReleasedDraftInfo {
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         val ref = draft?.takeIf { it.isNotBlank() }?.let(::draftRefOf)
         return ReleasedDraftInfo.from(
             ReleaseCatalogDraft(
@@ -236,7 +234,6 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         draft: String?,
     ): DraftMergeInfo {
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         return DraftMergeInfo.from(PreviewDraftMerge(catalog, release.trim(), draftScope(catalog, draft)).query())
     }
 
@@ -264,7 +261,6 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         draft: String?,
     ): MergeSidesInfo {
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         return MergeSidesInfo.from(GetDraftMergeSides(catalog, release.trim(), entry.trim(), draftScope(catalog, draft)).query())
     }
 
@@ -302,7 +298,6 @@ class CatalogReleaseMcpTools(private val objectMapper: ObjectMapper) {
         mergedContent: Map<String, Any?>? = null,
     ): MergedReleaseInfo {
         val catalog = mcpCatalog(catalogId)
-        val catalogKey = catalog.key
         val sides = resolutions.orEmpty().mapValues { (resource, side) ->
             MergeResolution.ofWire(side)
                 ?: throw ValidationException("resolutions", "The resolution of `$resource` is `OURS` or `THEIRS`")
