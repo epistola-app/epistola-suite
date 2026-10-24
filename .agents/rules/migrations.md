@@ -24,6 +24,9 @@ forward, data-preserving migration. This is not negotiable for any feature matur
 - **A code migration** (Kotlin, `src/main/kotlin/db/migration/<module>/`) uses JDBC, a JSON tree
   and frozen code only, and pins its checksum (`getChecksum` = `CHECKSUM`): `CodeMigrationGuardTest`
   (ADR 0035, [`docs/migrations.md`](../../docs/migrations.md#code-migrations)).
+- **A table moved to JSON storage** (ADR 0033, `themes` so far) is never named in SQL again outside
+  code migrations and their tests: read the type's view, write through `DraftResources`
+  (`DroppedContentTableSqlTest`).
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 
