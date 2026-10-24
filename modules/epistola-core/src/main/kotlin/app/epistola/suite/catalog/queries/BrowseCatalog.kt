@@ -89,7 +89,7 @@ class BrowseCatalogHandler(
             UNION ALL
             SELECT 'image', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'codeList', slug::text, display_name, description FROM code_lists WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'codeList', id, display_name, description FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
             SELECT 'font', slug::text, name, NULL FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             """,
@@ -144,7 +144,7 @@ class BrowseCatalogHandler(
                 UNION ALL
                 SELECT 'image:' || id FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'codeList:' || slug FROM code_lists WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'codeList:' || id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
                 SELECT 'font:' || slug FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,

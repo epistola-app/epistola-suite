@@ -302,8 +302,8 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT list.slug FROM variant_attribute_definitions attribute
-                    JOIN code_lists list ON list.tenant_key = attribute.tenant_key
+                    SELECT list.id FROM variant_attribute_definitions attribute
+                    JOIN current_code_lists list ON list.tenant_key = attribute.tenant_key
                                         AND list.resource_id = attribute.code_list_resource_id
                     WHERE attribute.tenant_key = '$TENANT' AND attribute.id = 'country'
                     """,
@@ -314,15 +314,26 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT count(*)::text FROM code_list_entries entries
-                    JOIN code_lists list ON list.tenant_key = entries.tenant_key
-                                        AND list.resource_id = entries.code_list_resource_id
-                    WHERE list.tenant_key = '$TENANT' AND list.catalog_id = ${catalogId("shared")} AND list.slug = 'countries'
+                    SELECT count(*)::text FROM current_code_lists list
+                    CROSS JOIN LATERAL jsonb_array_elements(list.entries) entries
+                    WHERE list.tenant_key = '$TENANT' AND list.catalog_id = ${catalogId("shared")} AND list.id = 'countries'
                     """,
                 ),
             )
                 .describedAs("code-list entries must have followed their list onto its identity")
                 .isEqualTo("2")
+            // Code lists are stored as JSON (ADR 0033, V20261024174143): the 1.x list as its wire form.
+            assertThat(one("SELECT payload::text FROM current_code_lists WHERE tenant_key = '$TENANT' AND id = 'countries'"))
+                .describedAs("the 1.x code list, as its wire form; an INLINE list has no source")
+                .isEqualTo(
+                    one(
+                        """SELECT '{"resource": {"key": "countries", "name": "Countries", "type": "codeList", "entries": [
+                        {"code": "nl", "label": "Netherlands", "hidden": false, "sortOrder": 0},
+                        {"code": "be", "label": "Belgium", "hidden": false, "sortOrder": 1}], "description": null}}'::jsonb::text""",
+                    ),
+                )
+            assertThat(one("SELECT CAST(to_regclass('code_lists') IS NULL AND to_regclass('code_list_entries') IS NULL AS TEXT)"))
+                .describedAs("the code list tables are gone").isEqualTo("true")
             assertThat(
                 one(
                     """

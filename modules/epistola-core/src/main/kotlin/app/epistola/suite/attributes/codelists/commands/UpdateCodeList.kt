@@ -5,6 +5,8 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.attributes.codelists.CodeListFields
+import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -15,6 +17,7 @@ import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CodeListId
@@ -23,6 +26,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -73,88 +77,31 @@ data class UpdateCodeList(
 class UpdateCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
+    private val codeLists: CodeListStore,
 ) : CommandHandler<UpdateCodeList, CodeList?> {
     override fun handle(command: UpdateCodeList): CodeList? {
         requireCatalogEditable(command.id.catalogId)
-        command.sourceUrl?.let { newUrl ->
-            // Only a changed URL is checked: a PATCH that replays the stored one (the REST API does)
-            // must not fail because of an unrelated field. The stored URL is checked again on refresh.
-            if (newUrl != currentSourceUrl(command)) codeListClient.requireAllowedSourceUrl(newUrl)
-        }
-        return jdbi.inTransaction<CodeList?, Exception> { handle ->
-            val updated = handle.createQuery(
-                """
-                UPDATE code_lists
-                SET display_name  = :displayName,
-                    description   = :description,
-                    source_url    = COALESCE(:sourceUrl, source_url),
-                    auth_type     = :authType,
-                    credential    = :credential,
-                    updated_at = NOW(),
-                    -- Replacing an inline list's entries changes the list, which its own columns do not show.
-                    revision      = CASE WHEN :replacesEntries AND source_type = 'INLINE' THEN revision + 1 ELSE revision END
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
-                  AND ${Revisions.MATCHES}
-                RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
-                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat
-                            WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS namespace,
-                          display_name, description,
-                          source_type, source_url, auth_type, credential,
-                          last_refreshed_at, last_refresh_error,
-                          created_at, updated_at, revision
-                """,
-            )
-                .bind("slug", command.id.key)
-                .bind("tenantKey", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("displayName", command.displayName)
-                .bind("description", command.description)
-                .bind("sourceUrl", command.sourceUrl)
-                .bind("authType", command.authType.name)
-                .bind("credential", command.credential?.let(::Secret))
-                .bind("replacesEntries", command.entries != null)
-                .bind("expectedRevision", command.expectedRevision)
-                .mapTo<CodeList>()
-                .findOne()
-                .orElse(null)
-                ?: run {
-                    Revisions.refuse("Code list '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("code_lists", "slug", command.id.catalogId, command.id.key))
-                    return@inTransaction null
-                }
-
-            // Entry replacement is only allowed for INLINE lists; URL/CLASSPATH
-            // entries flow through RefreshCodeList. Silently ignore entries on
-            // non-INLINE updates (the UI should not present an entry editor in
-            // those cases anyway).
-            if (command.entries != null && updated.sourceType == CodeListSource.INLINE) {
-                handle.createUpdate(
-                    """
-                    DELETE FROM code_list_entries
-                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
-                    """,
-                )
-                    .bind("tenantKey", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("slug", command.id.key)
-                    .execute()
-                insertEntries(handle, command.id, command.entries)
+        return jdbi.withHandle<CodeList?, Exception> { handle ->
+            // Locked, so the change is applied to what is there, and two writers do not race.
+            val revision = DraftResources.lockRevision(handle, command.id.catalogId, CodeListStore.CODE_LIST, command.id.key.value) ?: return@withHandle null
+            Revisions.refuse("Code list '${command.id.key.value}'", command.expectedRevision, revision)
+            val current = checkNotNull(codeLists.fields(handle, command.id)) { "Code list ${command.id.key.value} is locked, so it is there" }
+            command.sourceUrl?.let { newUrl ->
+                // Only a changed URL is checked: a PATCH that replays the stored one (the REST API does)
+                // must not fail because of an unrelated field. The stored URL is checked again on refresh.
+                if (newUrl != current.source?.url) codeListClient.requireAllowedSourceUrl(newUrl)
             }
-            updated
+            val source = current.source?.let {
+                it.copy(
+                    url = command.sourceUrl ?: it.url,
+                    auth = command.authType,
+                    // A credential given is a new one; none given clears it, as the column did.
+                    credentialId = command.credential?.let { secret -> codeLists.storeCredential(handle, command.id.catalogId, secret) },
+                )
+            }
+            // Entries are replaced only for an INLINE list; a sourced list's come from RefreshCodeList.
+            val entries = if (command.entries != null && current.source == null) command.entries else current.entries
+            codeLists.save(handle, command.id, CodeListFields(command.displayName, command.description, entries, source), currentUserIdOrNull()?.value)
         }
-    }
-
-    private fun currentSourceUrl(command: UpdateCodeList): String? = jdbi.withHandle<String?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT source_url FROM code_lists
-            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
-            """,
-        )
-            .bind("tenantKey", command.id.tenantKey)
-            .bindCatalog("catalogKey", command.id.catalogId)
-            .bind("slug", command.id.key)
-            .mapTo(String::class.java)
-            .findOne()
-            .orElse(null)
     }
 }

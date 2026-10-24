@@ -27,7 +27,12 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
 
 /** What a collection took: contents (with their binaries and references), and blobs. */
-data class ContentCollection(val contents: Int, val blobs: Int)
+data class ContentCollection(
+    val contents: Int,
+    val blobs: Int,
+    /** Credentials no content names any more (`resource_credentials`, ADR 0033). */
+    val credentials: Int = 0,
+)
 
 /**
  * Collects content nothing points at (ADR 0033): `resource_contents` that no `release_resources`
@@ -67,18 +72,41 @@ class ResourceContentCollector(
     /** Collects every tenant's orphaned content, then the blobs nothing holds. */
     fun collectAll(): ContentCollection = meterRegistry.recordScheduledTask("resource-content-collector") {
         val contents = tenantsWithCandidates().sumOf { collectContents(it) }
+        val credentials = collectCredentials(null)
         val blobs = collectBlobs()
         orphans.set(countOrphans(null))
-        if (contents + blobs > 0) logger.info("Collected {} resource content(s) and {} blob(s) nothing points at", contents, blobs)
-        ContentCollection(contents, blobs)
+        if (contents + blobs + credentials > 0) logger.info("Collected {} resource content(s), {} credential(s) and {} blob(s) nothing points at", contents, credentials, blobs)
+        ContentCollection(contents, blobs, credentials)
     }
 
     /** Collects one tenant's orphaned content, then the blobs nothing holds. */
     fun collect(tenantKey: TenantKey): ContentCollection {
         val contents = collectContents(tenantKey)
+        val credentials = collectCredentials(tenantKey)
         val blobs = collectBlobs()
         orphans.set(countOrphans(null))
-        return ContentCollection(contents, blobs)
+        return ContentCollection(contents, blobs, credentials)
+    }
+
+    /**
+     * Deletes the credentials of [tenantKey] (null: every tenant) that no content names any more
+     * (`source.credential`), stored longer ago than the grace period, so one a save is about to name
+     * is never taken from under it.
+     */
+    private fun collectCredentials(tenantKey: TenantKey?): Int = jdbi.withHandle<Int, Exception> { handle ->
+        handle.createUpdate(
+            """
+            DELETE FROM resource_credentials rc
+            WHERE (CAST(:t AS TEXT) IS NULL OR rc.tenant_key = :t)
+              AND rc.created_at < NOW() - CAST(:grace AS INTERVAL)
+              AND NOT EXISTS (
+                  SELECT 1 FROM resource_contents c
+                  WHERE c.tenant_key = rc.tenant_key AND c.payload -> 'source' ->> 'credential' = CAST(rc.credential_id AS TEXT))
+            """,
+        )
+            .bind("t", tenantKey?.value)
+            .bind("grace", interval())
+            .execute()
     }
 
     /** What is left to collect: orphaned content past the grace period, of [tenantKey] or of every tenant. */

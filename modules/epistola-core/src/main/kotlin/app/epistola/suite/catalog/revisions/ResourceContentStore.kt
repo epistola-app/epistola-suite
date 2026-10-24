@@ -67,15 +67,18 @@ class ResourceContentStore(
      * Writes a revision for every resource in [content], and the binary references that keep its
      * bytes from being collected.
      *
+     * @param settings what the suite keeps beside a resource's released form, keyed `"type/slug"`:
+     *   an object whose fields go next to `resource` (a code list's `source`, ADR 0033). A release cut
+     *   here passes its draft's; a received one has none.
      * @return each resource's revision digest, keyed `"type/slug"` as the catalog content keys it.
      */
-    fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent): Map<String, String> {
+    fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent, settings: Map<String, ObjectNode> = emptyMap()): Map<String, String> {
         val hashes = content.resourceDetails.values.flatMap { binaryHashes(it.resource) }
         val scopes = resolveBinaryScopes(handle, tenantKey, hashes) + storeCarried(content, hashes)
 
         return content.resourceDetails.mapValues { (_, detail) ->
             val resource = detail.resource
-            val payload = payloadOf(handle, tenantKey, resource)
+            val payload = payloadOf(handle, tenantKey, resource, settings["${resource.type}/${resource.key}"])
             val digest = write(handle, tenantKey, resource.type, payload)
             for (hash in binaryHashes(resource)) {
                 val scope = scopes[hash] ?: continue
@@ -90,8 +93,16 @@ class ResourceContentStore(
      * their own and replaced by references. Writing the children here is what makes the parent
      * digest cover them.
      */
-    private fun payloadOf(handle: Handle, tenantKey: TenantKey, resource: CatalogResource): JsonNode {
+    private fun payloadOf(handle: Handle, tenantKey: TenantKey, resource: CatalogResource, settings: ObjectNode?): JsonNode {
         val node = objectMapper.valueToTree<JsonNode>(resource)
+        // A type whose suite keeps settings beside its released form is stored in the envelope, as
+        // its draft stores it, so a draft and the release cut from it share one content.
+        if (resource.type in ENVELOPED_TYPES) {
+            return objectMapper.createObjectNode().also { envelope ->
+                envelope.set("resource", node)
+                settings?.properties()?.forEach { (name, value) -> envelope.set(name, value) }
+            }
+        }
         if (resource.type != "template" || node !is ObjectNode) return node
 
         liftModel(handle, tenantKey, node)
@@ -305,5 +316,10 @@ class ResourceContentStore(
         }
 
         else -> node
+    }
+
+    companion object {
+        /** The resource types stored as `{ "resource": <released form>, ... }` (StoredContent). */
+        val ENVELOPED_TYPES: Set<String> = setOf("codeList")
     }
 }

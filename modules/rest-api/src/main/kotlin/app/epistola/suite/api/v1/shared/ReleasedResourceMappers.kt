@@ -6,7 +6,6 @@ package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.AttributeDtoCodeListBinding
-import app.epistola.api.model.CodeListDto
 import app.epistola.api.model.CodeListEntryDto
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.FontDto
@@ -24,7 +23,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogKeys
-import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.catalog.protocol.StencilResource
@@ -152,26 +150,6 @@ internal fun AttributeResource.toDto(at: ResolvedCatalogRelease) = AttributeDto(
 )
 
 /** A release holds a code list's entries as they were, whatever its source: it reads as inline. */
-internal fun CodeListResource.toDto(at: ResolvedCatalogRelease) = CodeListDto(
-    key = key,
-    tenantKey = at.tenantKey.value,
-    registry = at.catalog.registry,
-    namespace = at.catalog.namespace,
-    catalogKey = at.catalogKey.value,
-    displayName = name,
-    sourceType = CodeListDto.SourceType.INLINE,
-    authType = CodeListDto.AuthType.NONE,
-    readOnly = true,
-    createdAt = at.releasedAt,
-    lastModified = at.releasedAt,
-    description = description,
-)
-
-internal fun CodeListResource.entryDtos(includeHidden: Boolean) = entries
-    .filter { includeHidden || !it.hidden }
-    .sortedWith(compareBy({ it.sortOrder }, { it.code }))
-    .map { CodeListEntryDto(code = it.code, label = it.label, sortOrder = it.sortOrder, hidden = it.hidden) }
-
 internal fun FontResource.toDto(at: ResolvedCatalogRelease) = FontDto(
     key = key,
     name = name,

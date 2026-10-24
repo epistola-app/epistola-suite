@@ -219,7 +219,8 @@ class ReleaseContentAssembler(
      * what makes `type` select the right class instead of duplicating the mapping here.
      */
     private fun detailOf(handle: Handle, tenantKey: TenantKey, payload: JsonNode): ResourceDetail {
-        val resolved = resolveRefs(handle, tenantKey, payload)
+        // The released form: a content may keep the suite's own settings beside it (ADR 0033).
+        val resolved = resolveRefs(handle, tenantKey, StoredContent.resourceOf(payload))
         // Typed references drop the qualifiers when bound; those in free-form JSON (a stencil's
         // props, a fontFamily in styles) are dropped here.
         ResourceReferenceSites.dropNameQualifiers(resolved)

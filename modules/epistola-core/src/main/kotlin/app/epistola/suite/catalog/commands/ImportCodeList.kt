@@ -4,8 +4,6 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
-import app.epistola.suite.attributes.codelists.commands.insertEntries
 import app.epistola.suite.attributes.codelists.commands.validateCodeListEntries
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.catalog.bindCatalog
@@ -61,51 +59,16 @@ data class ImportCodeList(
 @Component
 class ImportCodeListHandler(
     private val jdbi: Jdbi,
+    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
 ) : CommandHandler<ImportCodeList, InstallStatus> {
 
     override fun handle(command: ImportCodeList): InstallStatus {
         val codeListSlug = CodeListKey.of(command.slug)
-
-        return jdbi.inTransaction<InstallStatus, Exception> { handle ->
-            // `xmax = 0` is true only for the freshly INSERTed row and false when
-            // the ON CONFLICT branch UPDATEd an existing one — so the upsert reports
-            // INSTALLED vs UPDATED itself, without a preceding existence SELECT.
-            val inserted = handle.createQuery(
-                """
-                INSERT INTO code_lists (slug, tenant_key, catalog_id, version_id, display_name, description, source_type, source_url, auth_type, created_at, updated_at)
-                VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :description, 'INLINE', NULL, 'NONE', NOW(), NOW())
-                ON CONFLICT (tenant_key, version_id, slug) DO UPDATE
-                SET display_name  = :displayName,
-                    description   = :description,
-                    updated_at = NOW()
-                RETURNING (xmax = 0) AS inserted
-                """,
-            )
-                .bind("slug", codeListSlug)
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("displayName", command.displayName)
-                .bind("description", command.description)
-                .mapTo(Boolean::class.java)
-                .one()
-
-            // Replace entries atomically. Hidden flags and sort order land
-            // straight from the catalog file — the importing tenant doesn't
-            // have its own copy to preserve.
-            handle.createUpdate(
-                """
-                DELETE FROM code_list_entries
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("slug", codeListSlug)
-                .execute()
-
-            insertEntries(handle, CodeListId(codeListSlug, command.catalog), command.entries)
-
-            if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
+        // Hidden flags and sort order land straight from the catalog file: the importing tenant has no
+        // copy of its own to preserve. A list already there keeps its source (ADR 0033).
+        val existed = jdbi.withHandle<Boolean, Exception> { handle ->
+            codeLists.put(handle, CodeListId(codeListSlug, command.catalog), command.displayName, command.description, command.entries, app.epistola.suite.security.currentUserIdOrNull()?.value)
         }
+        return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }
 }

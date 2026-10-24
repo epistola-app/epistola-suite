@@ -100,7 +100,7 @@ class UiExceptionFilterTest {
         val truncation = RuntimeException(
             "Unable to execute statement",
             BatchUpdateException(
-                "Batch entry 0 INSERT INTO code_list_entries ... was aborted",
+                "Batch entry 0 INSERT INTO stencils ... was aborted",
                 "22001",
                 intArrayOf(),
                 SQLException("ERROR: value too long for type character varying(64)", "22001"),

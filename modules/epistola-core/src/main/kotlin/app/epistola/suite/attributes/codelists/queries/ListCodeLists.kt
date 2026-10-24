@@ -4,11 +4,14 @@
 
 package app.epistola.suite.attributes.codelists.queries
 
+import app.epistola.suite.attributes.codelists.CODE_LIST_COLUMNS
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -34,7 +37,7 @@ data class ListCodeLists(
     val catalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<CodeList>>,
     RequiresPermission {
     init {
@@ -51,29 +54,14 @@ class ListCodeListsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListCodeLists, List<CodeList>> {
     override fun handle(query: ListCodeLists): List<CodeList> = jdbi.withHandle<List<CodeList>, Exception> { handle ->
+        // A draft or a release, read the same way (ADR 0033).
         val sql = buildString {
-            append(
-                """
-                SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, cl.display_name, cl.description,
-                       cl.source_type, cl.source_url, cl.auth_type, cl.credential,
-                       cl.last_refreshed_at, cl.last_refresh_error,
-                       cl.created_at, cl.updated_at, cl.revision
-                FROM code_lists cl
-                JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
-                WHERE cl.tenant_key = :tenantId
-                  AND ${inCurrentVersion("cl")}
-                """,
-            )
-            if (query.catalogKey != null) {
-                append(" AND cl.version_id = ${versionAt("tenantId", "catalogKey")}")
-            }
-            append(" ORDER BY cl.display_name ASC")
+            append("SELECT $CODE_LIST_COLUMNS FROM current_code_lists t WHERE t.tenant_key = :t")
+            if (query.catalogKey != null) append(" AND t.catalog_id = ${catalogAt("t", "c")}")
+            append(" ORDER BY t.display_name ASC")
         }
-
-        val q = handle.createQuery(sql).bind("tenantId", query.tenantId.key)
-        if (query.catalogKey != null) {
-            q.bindCatalog("catalogKey", query.catalog)
-        }
+        val q = handle.createQuery(sql).bind("t", query.tenantId.key)
+        if (query.catalogKey != null) q.bindCatalog("c", query.catalog)
         q.mapTo<CodeList>().list()
     }
 }

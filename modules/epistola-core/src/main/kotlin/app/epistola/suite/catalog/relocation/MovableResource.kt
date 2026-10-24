@@ -114,7 +114,8 @@ enum class MovableResource(
      */
     CODE_LIST(
         CatalogResourceType.CODE_LIST,
-        "code_lists",
+        // A draft row naming its content (ADR 0033): moved by CodeListStore, not by this table.
+        "release_resources",
         "slug",
         emptySet(),
         { runCatching { CodeListKey.of(it) }.exceptionOrNull()?.message },
@@ -169,7 +170,8 @@ enum class MovableResource(
      */
     THEME(
         CatalogResourceType.THEME,
-        "themes",
+        // A draft row naming its content (ADR 0033): moved by ThemeStore, not by this table.
+        "release_resources",
         "id",
         setOf(ReferenceSiteKind.THEME_OVERRIDE),
         { runCatching { ThemeKey.of(it) }.exceptionOrNull()?.message },

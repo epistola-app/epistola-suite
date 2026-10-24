@@ -106,11 +106,11 @@ class ExportAttributesHandler(
             append(
                 """
                 SELECT a.id, ac.catalog_key AS catalog_key, a.display_name, a.allowed_values::text,
-                       clc.catalog_key AS code_list_catalog_key, cl.slug AS code_list_slug
+                       clc.catalog_key AS code_list_catalog_key, cl.id AS code_list_slug
                 FROM variant_attribute_definitions a
                 JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
-                LEFT JOIN code_lists cl
-                  ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id AND ${inCurrentVersion("cl")}
+                LEFT JOIN current_code_lists cl
+                  ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
                 LEFT JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
                 WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
                 """,
@@ -170,81 +170,30 @@ data class ExportCodeLists(
 @Component
 class ExportCodeListsHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
 ) : QueryHandler<ExportCodeLists, List<CodeListResource>> {
 
+    // The released form of each, as its content holds it (ADR 0033): its source stays here.
     override fun handle(query: ExportCodeLists): List<CodeListResource> = jdbi.withHandle<List<CodeListResource>, Exception> { handle ->
-        // Two-query load: list the matching code lists first, then load all
-        // their entries in a single batched fetch. Avoids the per-list query
-        // an in-loop fetch would do and keeps row count predictable.
-        val codeListSql = buildString {
+        val sql = buildString {
             append(
                 """
-                SELECT c.catalog_id::text AS catalog_ref, l.slug, l.display_name, l.description
-                FROM code_lists l
-                JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id
-                WHERE l.tenant_key = :tenantKey AND ${inCurrentVersion("l")}
+                SELECT t.resource::text AS resource
+                FROM current_code_lists t
+                JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                WHERE t.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND l.version_id = ${versionAt("tenantKey", "catalogKey")}")
-            if (query.slugs != null) append(" AND l.slug IN (<slugs>)")
-            append(" ORDER BY c.catalog_key, l.slug")
+            if (query.catalogKey != null) append(" AND t.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.slugs != null) append(" AND t.id IN (<slugs>)")
+            append(" ORDER BY c.catalog_key, t.id")
         }
-        val codeLists = handle.createQuery(codeListSql).bind("tenantKey", query.tenantKey).apply {
+        handle.createQuery(sql).bind("tenantKey", query.tenantKey).apply {
             if (query.catalogKey != null) bindCatalog("catalogKey", query.catalog)
             if (query.slugs != null) bindList("slugs", query.slugs)
-        }.map { rs, _ ->
-            // Each list by its catalog's id: two catalogs may share a key (ADR 0034, section 9).
-            Triple(rs.getString("catalog_ref"), rs.getString("slug"), rs.getString("display_name") to rs.getString("description"))
-        }.list()
-
-        if (codeLists.isEmpty()) return@withHandle emptyList()
-
-        // Load all candidate entries in one query — filter the result set
-        // against the actual list of code lists in Kotlin. JDBI doesn't have
-        // a native tuple-IN binder, and the entry set is small (a few
-        // hundred rows max for the typical catalog), so a Kotlin post-filter
-        // is cleaner than reaching for raw SQL templating.
-        val wantedKeys = codeLists.map { (cat, slug, _) -> cat to slug }.toSet()
-        val entriesByList = handle.createQuery(
-            """
-            SELECT list_catalog.catalog_id::text AS catalog_ref, lists.slug AS code_list_slug, entries.code, entries.label,
-                   entries.sort_order, entries.hidden
-            FROM code_list_entries entries
-            JOIN code_lists lists
-              ON lists.tenant_key = entries.tenant_key AND lists.version_id = entries.version_id
-             AND lists.resource_id = entries.code_list_resource_id
-            JOIN catalogs list_catalog
-              ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
-            WHERE entries.tenant_key = :tenantKey
-              AND ${inCurrentVersion("lists")}
-              AND list_catalog.catalog_id::text IN (<catalogs>)
-              AND lists.slug IN (<slugs>)
-            ORDER BY list_catalog.catalog_id, lists.slug, entries.sort_order, entries.code
-            """,
-        )
-            .bind("tenantKey", query.tenantKey)
-            .bindList("catalogs", codeLists.map { it.first }.distinct())
-            .bindList("slugs", codeLists.map { it.second }.distinct())
-            .map { rs, _ ->
-                (rs.getString("catalog_ref") to rs.getString("code_list_slug")) to CodeListEntryEntry(
-                    code = rs.getString("code"),
-                    label = rs.getString("label"),
-                    sortOrder = rs.getInt("sort_order"),
-                    hidden = rs.getBoolean("hidden"),
-                )
-            }
-            .list()
-            .filter { it.first in wantedKeys }
-            .groupBy({ it.first }, { it.second })
-
-        codeLists.map { (catalogKey, slug, names) ->
-            CodeListResource(
-                key = slug,
-                name = names.first,
-                description = names.second,
-                entries = entriesByList[catalogKey to slug] ?: emptyList(),
-            )
         }
+            .map { rs, _ -> objectMapper.readValue(rs.getString("resource"), CodeListResource::class.java) }
+            .list()
     }
 }
 

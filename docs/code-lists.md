@@ -82,13 +82,13 @@ Variant validation has two phases on every write:
 2. The attribute's value must satisfy the constraint:
    - free format — any value is accepted,
    - inline values — value must be in `allowedValues`,
-   - code-list binding — a single SQL existence check against
-     `code_list_entries` confirms the code is present. **Hidden entries are
-     accepted** so variants that referenced now-hidden codes keep working.
+   - code-list binding — a single SQL existence check over the list's content
+     (`entries @> [{"code": …}]` on `current_code_lists`) confirms the code is
+     present. **Hidden entries are accepted** so variants that referenced
+     now-hidden codes keep working.
 
-The existence check is a primary-key lookup on `(tenant_key, catalog_key,
-code_list_slug, code)`, so the hot path is cheap regardless of how many
-entries the code list has.
+The check reads one content by its key and scans its entries in the database:
+about 0.8 ms at 1,000 entries and 1.6 ms at 10,000 (`CodeListStoragePerfTest`).
 
 ## Refreshing a URL-sourced list
 
@@ -101,15 +101,12 @@ The expected payload at the URL is a JSON array of entries:
 ]
 ```
 
-`sortOrder` and `hidden` are optional. The refresh transaction:
-
-```sql
-BEGIN;
-  DELETE FROM code_list_entries WHERE …;
-  INSERT INTO code_list_entries (…) VALUES (…);
-  UPDATE code_lists SET last_refreshed_at = NOW(), last_refresh_error = NULL …;
-COMMIT;
-```
+`sortOrder` and `hidden` are optional. A refresh stores the fetched entries as
+the list's new content and points the draft's row at it, in one transaction;
+entries that hash the same as the stored content write nothing new, so the
+revision and a ready mark stay. Either way the refresh is recorded in
+`code_list_refreshes` (`last_refreshed_at`, `last_refresh_error`), which is the
+draft's state, not content.
 
 Atomic from any reader's perspective. If the HTTP fetch fails the existing
 entries are kept and `last_refresh_error` is recorded — the picker keeps
@@ -140,30 +137,32 @@ on `sourceUrl`), and again on every refresh. A failed refresh stores a generic
   with free format / inline / bound to code list. The code-list `<select>` is
   grouped by catalog so users see _which_ catalog supplies each list.
 - **Variant create/edit dialogs and filter bar** — when an attribute is bound
-  to a code list, the dropdown options come from `code_list_entries` (visible
+  to a code list, the dropdown options come from the list's entries (visible
   only) and render as `<code> — <label>` for codes that differ from their
   label, `<code>` alone otherwise.
 
-## Architecture diagram
+## Storage
+
+A code list is stored as JSON (ADR 0033): one content per version, draft and
+release alike, by hash in `resource_contents`, named by a `release_resources`
+row of the draft or release.
 
 ```text
-       ┌───────────────────────┐         ┌──────────────────────┐
-       │     code_lists        │  PK     │   code_list_entries  │
-       │ (tenant, catalog,     │◄────────┤ (tenant, catalog,    │
-       │  slug)                │  FK     │  slug, code)         │
-       └─────────────▲─────────┘         └──────────────────────┘
-                     │
-                     │ FK (tenant_key, code_list_catalog_key,
-                     │     code_list_slug) ON DELETE RESTRICT
-                     │
-       ┌─────────────┴────────────────────┐
-       │ variant_attribute_definitions    │
-       │ (tenant, catalog, id)            │
-       │   + allowed_values JSONB         │
-       │   + code_list_catalog_key        │
-       │   + code_list_slug               │
-       └──────────────────────────────────┘
+{ "resource": { "key", "name", "description", "entries": [{ "code", "label", "sortOrder", "hidden" }], "type": "codeList" },
+  "source":   { "type": "URL", "url": "https://…", "auth": "BEARER", "credential": "<id>" } }
 ```
+
+- `resource` is the wire form (`CodeListResource`): what a release holds, what
+  export writes and what the contract fingerprint covers. Entries are kept in
+  list order (sort order, then code).
+- `source` is this suite's own setting, left out for an INLINE list and absent
+  from anything received or exported.
+- `credential` names a row of `resource_credentials` by id; the secret is
+  encrypted there (`docs/encryption.md`) and never part of the content.
+- Lists, existence checks and hiding run in SQL over the content
+  (`current_code_lists`); nothing pages in memory.
+- An attribute binds a code list by its identity (`code_list_resource_id`, a
+  foreign key to `catalog_resources`).
 
 ## API reference
 
@@ -191,8 +190,8 @@ building this feature:
   cross-variant API ships alongside that protocol work so the new
   call site uses the right shape from day one.
 - **[#397](https://github.com/epistola-app/epistola-suite/issues/397)** —
-  encrypt `code_lists.credential` (and `catalogs.source_auth_credential`,
-  which follows the same pattern) at rest.
+  encrypt code list credentials (now `resource_credentials.credential`) and
+  `catalogs.source_auth_credential` at rest.
 
 Larger follow-ups requiring coordination with `epistola-contract`:
 

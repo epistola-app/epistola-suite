@@ -32,11 +32,10 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
 
     /**
      * The types of catalog resource still stored in a table of their own, each keyed by its identity.
-     * Themes are draft rows of `release_resources` (ADR 0033), keyed by version and address there.
+     * Themes and code lists are draft rows of `release_resources` (ADR 0033), keyed by version and address there.
      */
     private val resourceTables = listOf(
         "assets",
-        "code_lists",
         "document_templates",
         "fonts",
         "stencils",
@@ -228,7 +227,6 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     fun `owned rows name their parent's identity and no longer copy its address`() {
         val ownership = mapOf(
             "template_variants" to "template_resource_id",
-            "code_list_entries" to "code_list_resource_id",
             "font_variants" to "font_resource_id",
             "quality_findings" to "template_resource_id",
             "load_test_runs" to "template_resource_id",

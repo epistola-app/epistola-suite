@@ -146,6 +146,7 @@ class MoveCatalogResourcesHandler(
     private val planner: CatalogResourceMovePlanner,
     private val declarer: MissingDependencyDeclarer,
     private val themes: app.epistola.suite.themes.ThemeStore,
+    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
@@ -214,6 +215,13 @@ class MoveCatalogResourcesHandler(
                 // A theme is a draft row naming its content (ADR 0033); its content names its key.
                 val source = relocation.source.catalogIn(command.tenantKey)
                 if (!themes.move(handle, source, relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
+            if (movable == MovableResource.CODE_LIST) {
+                // So is a code list (ADR 0033); its content names its key.
+                if (!codeLists.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
                     throw StaleCatalogResourceMovePlanException()
                 }
                 continue

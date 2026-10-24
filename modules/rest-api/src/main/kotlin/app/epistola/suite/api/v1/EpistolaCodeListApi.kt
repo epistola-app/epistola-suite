@@ -12,7 +12,6 @@ import app.epistola.api.model.CodeListListResponse
 import app.epistola.api.model.CreateCodeListRequest
 import app.epistola.api.model.UpdateCodeListEntryHiddenRequest
 import app.epistola.api.model.UpdateCodeListRequest
-import app.epistola.catalog.protocol.CodeListResource
 import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
@@ -20,12 +19,10 @@ import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
-import app.epistola.suite.api.v1.shared.entryDtos
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readOnlyHere
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toModel
 import app.epistola.suite.attributes.codelists.CodeListNotFoundException
@@ -70,12 +67,9 @@ class EpistolaCodeListApi : CodeListsApi {
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        val items = if (at.isDraft) {
-            at.catalog.readOnlyHere().let { readOnly -> ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query().map { it.toDto(at.catalog, readOnly) } }
-        } else {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            at.releasedResources<CodeListResource>("codeList").map { it.toDto(at) }
-        }
+        // A draft or a release, read the same way (ADR 0033); a release is read-only.
+        val readOnly = !at.isDraft || at.catalog.readOnlyHere()
+        val items = ListCodeLists(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef).query().map { it.toDto(at.catalog, readOnly) }
         val slice = Pagination.paginate(items, page, size)
         return ResponseEntity.ok(CodeListListResponse(items = slice.items, page = slice.page))
     }
@@ -115,11 +109,8 @@ class EpistolaCodeListApi : CodeListsApi {
         codeListKey: String,
     ): ResponseEntity<CodeListDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            return ResponseEntity.ok(at.releasedResource<CodeListResource>("codeList", codeListKey)?.toDto(at) ?: throw at.codeListNotFound(codeListKey))
-        }
-        val codeList = GetCodeList(id = at.codeListId(codeListKey), catalogVersion = at.ref).query() ?: throw at.codeListNotFound(codeListKey)
-        return okWithETag(codeList.revision, codeList.toDto(at.catalog))
+        val codeList = GetCodeList(id = at.codeListId(codeListKey), catalogVersion = at.readRef).query() ?: throw at.codeListNotFound(codeListKey)
+        return okWithETag(codeList.revision, codeList.toDto(at.catalog, readOnly = !at.isDraft || at.catalog.readOnlyHere()))
     }
 
     override fun updateCodeList(
@@ -189,12 +180,9 @@ class EpistolaCodeListApi : CodeListsApi {
         includeHidden: Boolean,
     ): ResponseEntity<CodeListEntriesResponse> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        val entries = if (at.isDraft) {
-            ListCodeListEntries(codeListId = at.codeListId(codeListKey), includeHidden = includeHidden, catalogVersion = at.ref).query().map { it.toDto() }
-        } else {
-            at.releasedResource<CodeListResource>("codeList", codeListKey)?.entryDtos(includeHidden)
-                ?: throw at.codeListNotFound(codeListKey)
-        }
+        val id = at.codeListId(codeListKey)
+        GetCodeList(id = id, catalogVersion = at.readRef).query() ?: throw at.codeListNotFound(codeListKey)
+        val entries = ListCodeListEntries(codeListId = id, includeHidden = includeHidden, catalogVersion = at.readRef).query().map { it.toDto() }
         return ResponseEntity.ok(CodeListEntriesResponse(items = entries))
     }
 

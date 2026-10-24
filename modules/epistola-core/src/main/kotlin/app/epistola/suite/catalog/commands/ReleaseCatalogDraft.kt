@@ -200,6 +200,7 @@ class ReleaseCatalogDraftHandler(
     private val installation: app.epistola.suite.installation.InstallationService,
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
     private val grants: NamespaceGrantStore,
+    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -482,7 +483,12 @@ class ReleaseCatalogDraftHandler(
             // what it contained commit together, so there is no state where one exists without the
             // others.
             dependencyStore.recordRelease(handle, command.catalog, newVersion.toString(), pins)
-            val contentHashes = revisionStore.retain(handle, command.tenantKey, content)
+            // A code list's source goes with it, beside its released form (ADR 0033): the release
+            // stores the content its draft does.
+            val settings = codeLists.sources(handle, command.catalog)
+                .map { (key, source) -> "${app.epistola.suite.attributes.codelists.CodeListStore.CODE_LIST}/$key" to objectMapper.createObjectNode().set("source", source) }
+                .toMap()
+            val contentHashes = revisionStore.retain(handle, command.tenantKey, content, settings)
             releaseResourceStore.record(
                 handle,
                 command.catalog,
