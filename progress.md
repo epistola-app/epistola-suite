@@ -77,11 +77,17 @@ only before). The demo parity test now also compares the content hashes of draft
   stencils and leaves empty tags out only on the types that had none, so no stored content hash
   and no fingerprint moves and the switch commit needs no code migration.
 - Follow-up: tags for the other types in UI, REST and MCP.
-- Rendering a release reads a stencil through the release assembler, relative as stored, and does
-  not qualify it; a template that inlines a stencil of another catalog whose own-catalog references
-  are relative resolves them in the template's context. A draft render qualifies them. Not proven
-  wrong in a test yet; looked at when templates move (step 7), which have the same divergence
-  (`TemplateDocumentPreparation` qualifies, the release relativizes).
+- Templates have the same draft/release divergence as stencils had (`TemplateDocumentPreparation`
+  qualifies, the release relativizes): step 7.
+
+**Follow-up 3 (25 October): a stencil of another catalog, rendered from a release.** Proven wrong:
+`CrossCatalogStencilFontRenderTest` (a template of A inlines a stencil of B whose text uses B's own
+font, relatively) drew the text in Liberation Sans from A's release, Inter from the draft. Release
+content is relative, and the release render (`ReleaseRenderSource.expandStencils`) and the
+dependency-release path of `StencilResolvers` inlined it unqualified, so B's font was looked up in A.
+Both now qualify the stencil's document against its catalog (`qualifiedIn`), as the draft path does;
+the test passes for the release and the draft. A bug since releases relativized, not from step 4.
+
 - `ContentReferences.of` reads an attribute's `codeListBinding` at the payload's top level, which an
   enveloped attribute does not have; the `CODE_LIST_BINDING` site finds it instead, so the branch is
   dead code.

@@ -70,9 +70,19 @@ internal fun Stencil.withAbsentSchemaAsNull(): Stencil = if (parameterSchema?.is
  * (the editor, rendering, relocation, an import's comparison) has always had them qualified.
  */
 internal fun Stencil.asRead(objectMapper: tools.jackson.databind.ObjectMapper): Stencil = withAbsentSchemaAsNull().let { stencil ->
-    val document = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stencil.content)
-    if (!app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(document, stencil.catalogKey.value)) return@let stencil
-    stencil.copy(content = objectMapper.treeToValue(document, app.epistola.template.model.TemplateDocument::class.java))
+    stencil.copy(content = stencil.content.qualifiedIn(stencil.catalogKey.value, objectMapper))
+}
+
+/**
+ * [this] stencil document, of catalog [catalogKey], with its references into that catalog named
+ * with it. A stencil is stored and released with them relative; inlined into a template of
+ * another catalog, a relative reference would resolve in the template's catalog, so whatever
+ * expands or edits one qualifies it first.
+ */
+fun app.epistola.template.model.TemplateDocument.qualifiedIn(catalogKey: String, objectMapper: tools.jackson.databind.ObjectMapper): app.epistola.template.model.TemplateDocument {
+    val document = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(this)
+    if (!app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(document, catalogKey)) return this
+    return objectMapper.treeToValue(document, app.epistola.template.model.TemplateDocument::class.java)
 }
 
 /**

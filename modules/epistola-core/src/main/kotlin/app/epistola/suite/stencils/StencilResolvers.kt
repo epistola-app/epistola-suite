@@ -58,7 +58,8 @@ class StencilResolvers(
     private fun load(catalog: CatalogId, stencilKey: String, dependencies: DraftDependencyView): StencilInstances.Content? {
         dependencies.releaseOf(catalog)?.let {
             return (dependencies.released(catalog, "stencil", stencilKey) as? StencilResource)
-                ?.let { stencil -> StencilInstances.Content(stencil.content, stencil.parameterSchema, stencil.readsTemplateData, catalog.address) }
+                // Released with its own-catalog references relative: qualified, so they keep meaning its catalog when inlined.
+                ?.let { stencil -> StencilInstances.Content(stencil.content.qualifiedIn(catalog.key.value, objectMapper), stencil.parameterSchema, stencil.readsTemplateData, catalog.address) }
         }
         val draft = dependencies.draftOf(catalog)
         return jdbi.withHandle<StencilInstances.Content?, Exception> { handle -> load(handle, catalog, stencilKey, draft?.versionId) }
