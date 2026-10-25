@@ -21,6 +21,45 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 3: variant attributes (25 October; branch `feat/storage-attributes`, on `feat/storage-code-lists`, not pushed)
+
+| Change                                                                                                                                                                                 | Where                                                                                                 | Coverage                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Content `{ resource: <AttributeResource> }`; the binding is the wire form's alias and key, indexed in `resource_references`, no foreign key (option A); a write refuses a missing list | `AttributeStore`, `V20261025072712`, `V20261025072800`                                                | ✅ `AttributeStorageTest`                                                             |
+| One alias resolver `resolve_catalog_alias` and `catalog_version_references(type)`; in use (`DeleteCodeList`), discard holders, upgrade analyzer and graph read through it              | `V20261025072800`, `CatalogDraftCommands.holders`, `CatalogUpgradeAnalyzer`, `GetTenantResourceGraph` | ✅ `AttributeStorageTest`, `SeveralDraftsTest`, relocation and graph suites           |
+| A binding to another catalog reads it at the declared version (a pinned release), for validation and pickers                                                                           | `BoundCodeListVersion`, `CodeListEntryExists`, `ListCodeListEntries`, `AttributeOption`               | ✅ `AttributeStorageTest` (pinned case; fails before: the draft's entry was accepted) |
+| Relocation: `CODE_LIST_BINDING` reference site; a moved or renamed code list rewrites draft attributes; a moving attribute pins its own-catalog binding; attributes move as draft rows | `ResourceReferenceSites`, `CatalogResourceMovePlanner`, `CatalogResourceRelocation`                   | ✅ `CatalogResourceRelocationIntegrationTest` (now one rewrite)                       |
+| Golden vectors for the reference walker; the theme conversion's frozen walker agrees                                                                                                   | `fixtures/references/v1.json`                                                                         | ✅ `ReferenceWalkerGoldenVectorsTest`                                                 |
+| Reads are release-readable: REST drops its release branch, MCP takes a release number                                                                                                  | `EpistolaTenantApi`, `AttributeMcpTools`                                                              | ✅ REST/MCP suites                                                                    |
+
+**Measured** (`AttributeStoragePerfTest`, `--rerun`, M1 Pro, Postgres 17 on tmpfs; one tenant, 20
+catalogs of 5 code lists (50 entries) and 15 attributes (a third bound in-catalog, a third bound to
+the first catalog's lists, a third inline), each released; median / p95 of 200 runs; ms):
+
+| Operation                          | before        | after         |
+| ---------------------------------- | ------------- | ------------- |
+| list a tenant's attributes         | 53.55 / 58.63 | 9.30 / 11.67  |
+| list a catalog's attributes        | 3.36 / 4.00   | 1.58 / 2.23   |
+| read one attribute                 | 0.83 / 1.03   | 1.02 / 1.19   |
+| save an attribute                  | 9.27 / 12.64  | 5.65 / 8.37   |
+| validate variant attributes (3)    | 54.72 / 59.24 | 13.19 / 17.93 |
+| delete a bound code list (refused) | 1.64 / 2.36   | 13.33 / 14.68 |
+
+The tenant-wide list (and every variant validation, which reads it) got faster because catalog names
+come from one read per statement instead of joins. The in-use check on deleting a code list costs
+13 ms (was 1.6): it walks the current attributes' references and resolves aliases, where a foreign key
+answered by identity; it runs only on delete.
+
+**Noticed, left alone:**
+
+- Renaming a dependency's alias is not possible today: every dependency is declared under its key
+  (`UpdateCatalogDependencies` takes no alias). When it comes, it goes through the relocation
+  rewrite, not a mechanism of its own (ADR 0033).
+- Concurrency of the in-use check: a code list deleted while an attribute binding it is saved in
+  another transaction is not prevented (no lock); a general approach to several people working on
+  one catalog is a later decision.
+- A relocation rewrite of an attribute's binding writes it with no `updated_by` (themes keep it).
+
 ### ADR 0033: one content shape for every type (24 October; branch `feat/storage-code-lists`, on #1134, not pushed)
 
 | Change                                                                                                                                                                                                                                               | Where                                                                                                  | Coverage                                                                       |

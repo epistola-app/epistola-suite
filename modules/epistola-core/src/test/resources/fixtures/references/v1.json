@@ -1,0 +1,136 @@
+{
+  "description": "Golden vectors of the reference walker (ContentReferences, ResourceReferenceSites; ADR 0033, ADR 0035). Each case is a stored content of a kind and the references the walker finds in it. A changed output for an existing input fails these, and needs a code migration that walks the existing content again; a new kind of reference only new content can contain adds a case.",
+  "cases": [
+    {
+      "name": "a theme without references",
+      "kind": "theme",
+      "content": {
+        "resource": {
+          "key": "brand",
+          "name": "Brand",
+          "documentStyles": { "fontSize": "11pt" },
+          "type": "theme"
+        }
+      },
+      "references": []
+    },
+    {
+      "name": "a theme's font of its own catalog and of another",
+      "kind": "theme",
+      "content": {
+        "resource": {
+          "key": "brand",
+          "name": "Brand",
+          "documentStyles": { "fontFamily": { "key": "inter" } },
+          "blockStylePresets": {
+            "quote": {
+              "label": "Quote",
+              "styles": { "fontFamily": { "catalogKey": "shared", "key": "serif" } }
+            }
+          },
+          "type": "theme"
+        }
+      },
+      "references": [
+        { "alias": null, "type": "font", "key": "inter" },
+        { "alias": "shared", "type": "font", "key": "serif" }
+      ]
+    },
+    {
+      "name": "an unbound attribute",
+      "kind": "attribute",
+      "content": {
+        "resource": {
+          "key": "tone",
+          "name": "Tone",
+          "allowedValues": ["formal", "casual"],
+          "codeListBinding": null,
+          "type": "attribute"
+        }
+      },
+      "references": []
+    },
+    {
+      "name": "an attribute bound to a code list of its own catalog",
+      "kind": "attribute",
+      "content": {
+        "resource": {
+          "key": "region",
+          "name": "Region",
+          "allowedValues": [],
+          "codeListBinding": { "catalogKey": null, "key": "regions" },
+          "type": "attribute"
+        }
+      },
+      "references": [{ "alias": null, "type": "codeList", "key": "regions" }]
+    },
+    {
+      "name": "an attribute bound to a code list of another catalog",
+      "kind": "attribute",
+      "content": {
+        "resource": {
+          "key": "language",
+          "name": "Language",
+          "allowedValues": [],
+          "codeListBinding": { "catalogKey": "system", "key": "iso-639-1" },
+          "type": "attribute"
+        }
+      },
+      "references": [{ "alias": "system", "type": "codeList", "key": "iso-639-1" }]
+    },
+    {
+      "name": "a code list, which names nothing",
+      "kind": "codeList",
+      "content": {
+        "resource": {
+          "key": "regions",
+          "name": "Regions",
+          "description": null,
+          "entries": [{ "code": "eu", "label": "Europe", "sortOrder": 0, "hidden": false }],
+          "type": "codeList"
+        },
+        "source": {
+          "type": "URL",
+          "url": "https://example.com/r.json",
+          "auth": "NONE",
+          "credential": null
+        }
+      },
+      "references": []
+    },
+    {
+      "name": "a template's theme",
+      "kind": "template",
+      "content": {
+        "key": "invoice",
+        "name": "Invoice",
+        "themeKey": "brand",
+        "themeCatalogKey": "shared",
+        "type": "template"
+      },
+      "references": [{ "alias": "shared", "type": "theme", "key": "brand" }]
+    },
+    {
+      "name": "a template model's stencil, image and theme override",
+      "kind": "templateModel",
+      "content": {
+        "root": "r",
+        "themeRef": { "type": "override", "themeKey": "dark" },
+        "nodes": {
+          "r": { "id": "r", "type": "root" },
+          "s": {
+            "id": "s",
+            "type": "stencil",
+            "props": { "stencilKey": "header", "catalogKey": "shared" }
+          },
+          "i": { "id": "i", "type": "image", "props": { "imageKey": "logo" } }
+        }
+      },
+      "references": [
+        { "alias": null, "type": "theme", "key": "dark" },
+        { "alias": "shared", "type": "stencil", "key": "header" },
+        { "alias": null, "type": "image", "key": "logo" }
+      ]
+    }
+  ]
+}

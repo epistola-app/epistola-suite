@@ -712,14 +712,13 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
-        // Nothing in versioned content names a code list, so there is nothing to rewrite.
-        assertThat(preview.mutableRewriteCount).isZero()
+        // The attribute's content names the list by alias and key (ADR 0033, step 3): one rewrite.
+        assertThat(preview.mutableRewriteCount).isEqualTo(1)
 
         withMediator { MoveCatalogResources(tenant.id, listOf(address.movedTo(targetCatalog)), preview.planFingerprint).execute() }
 
         assertThat(identityAt(tenant.id, address.copy(catalogKey = targetCatalog.value))).isNotNull()
-        // Nothing cascaded, because nothing stored the address: the entries and the binding name
-        // the code list itself, so they follow it by construction rather than by being rewritten.
+        // The entries are the list's content and move with it; the binding was rewritten to the new address.
         assertThat(entriesOwnedBy(tenant.id, targetCatalog, codeListId.key.value)).containsExactly("en", "nl")
         assertThat(boundCodeListCatalog(tenant.id, attributeId)).isEqualTo(targetCatalog.value)
     }
@@ -746,9 +745,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         handle.createQuery(
             """
             SELECT list_catalog.catalog_key::text
-            FROM variant_attribute_definitions a
-            JOIN current_code_lists lists ON lists.tenant_key = a.tenant_key AND lists.resource_id = a.code_list_resource_id
-            JOIN catalogs list_catalog ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
+            FROM current_attributes a
+            JOIN catalogs list_catalog ON list_catalog.tenant_key = a.tenant_key AND list_catalog.catalog_id = a.code_list_catalog_id
             WHERE a.tenant_key = :tenantKey AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id = :id
             """,
         )

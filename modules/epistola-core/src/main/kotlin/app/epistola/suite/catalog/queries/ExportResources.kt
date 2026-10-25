@@ -101,53 +101,17 @@ class ExportAttributesHandler(
     private val objectMapper: ObjectMapper,
 ) : QueryHandler<ExportAttributes, List<AttributeResource>> {
 
+    // The released form of each, as its content holds it (ADR 0033): the binding by alias and key.
     override fun handle(query: ExportAttributes): List<AttributeResource> = jdbi.withHandle<List<AttributeResource>, Exception> { handle ->
         val sql = buildString {
-            append(
-                """
-                SELECT a.id, ac.catalog_key AS catalog_key, a.display_name, a.allowed_values::text,
-                       clc.catalog_key AS code_list_catalog_key, cl.id AS code_list_slug
-                FROM variant_attribute_definitions a
-                JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
-                LEFT JOIN current_code_lists cl
-                  ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
-                LEFT JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
-                WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
-                """,
-            )
-            if (query.catalogKey != null) append(" AND a.version_id = ${versionAt("tenantKey", "catalogKey")}")
-            if (query.slugs != null) append(" AND a.id IN (<slugs>)")
+            append("SELECT (t.payload -> 'resource')::text AS resource FROM current_attributes t WHERE t.tenant_key = :tenantKey")
+            if (query.catalogKey != null) append(" AND t.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.slugs != null) append(" AND t.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
         if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
         if (query.slugs != null) q.bindList("slugs", query.slugs)
-        q.map { rs, _ ->
-            val allowedValues: List<String> = rs.getString("allowed_values")?.let {
-                objectMapper.readValue(it, objectMapper.typeFactory.constructCollectionType(List::class.java, String::class.java))
-            } ?: emptyList()
-            val bindingSlug = rs.getString("code_list_slug")
-            val bindingCatalogKey = rs.getString("code_list_catalog_key")
-            val ownCatalogKey = rs.getString("catalog_key")
-            val binding = if (bindingSlug != null && bindingCatalogKey != null) {
-                // Emit `catalogKey = null` when the binding points at the same
-                // catalog as the attribute — keeps the wire format compact and
-                // makes the manifest portable across renames of the attribute's
-                // own catalog. Cross-catalog bindings keep the explicit
-                // catalogKey so `DependencyRef.CodeList` can be matched.
-                CodeListBindingRef(
-                    catalogKey = if (bindingCatalogKey == ownCatalogKey) null else bindingCatalogKey,
-                    key = bindingSlug,
-                )
-            } else {
-                null
-            }
-            AttributeResource(
-                key = rs.getString("id"),
-                name = rs.getString("display_name"),
-                allowedValues = allowedValues,
-                codeListBinding = binding,
-            )
-        }.list()
+        q.map { rs, _ -> objectMapper.readValue(rs.getString("resource"), AttributeResource::class.java) }.list()
     }
 }
 

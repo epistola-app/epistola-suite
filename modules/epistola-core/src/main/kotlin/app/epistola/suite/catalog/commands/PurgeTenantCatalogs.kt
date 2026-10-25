@@ -23,9 +23,8 @@ import org.springframework.stereotype.Component
  *     tenant pointing its default theme at a catalog theme would block the cascade. (MATCH SIMPLE:
  *     nulling the key disables the composite FK.) The prior value is returned so the caller can
  *     re-point it after re-importing.
- *  2. Delete `variant_attribute_definitions` — the attribute→code-list cross-catalog FK is
- *     `ON DELETE RESTRICT`.
- *  3. `DELETE FROM catalogs` — every other tenant resource cascades.
+ *  2. `DELETE FROM catalogs` — every other tenant resource cascades. (An attribute's code list
+ *     binding is content, alias and key, since ADR 0033 step 3: no foreign key to trip.)
  *
  * Runs in the caller's transaction (JDBI joins the ambient Spring transaction), so a destructive
  * restore can wrap this + the re-import in one atomic unit.
@@ -69,10 +68,6 @@ class PurgeTenantCatalogsHandler(
 
         handle
             .createUpdate("UPDATE tenants SET default_theme_resource_id = NULL WHERE id = :tenantKey")
-            .bind("tenantKey", command.tenantKey)
-            .execute()
-        handle
-            .createUpdate("DELETE FROM variant_attribute_definitions WHERE tenant_key = :tenantKey")
             .bind("tenantKey", command.tenantKey)
             .execute()
         handle

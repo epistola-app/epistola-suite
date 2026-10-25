@@ -45,6 +45,7 @@ data class DeleteAttributeDefinition(
 @Component
 class DeleteAttributeDefinitionHandler(
     private val jdbi: Jdbi,
+    private val attributes: app.epistola.suite.attributes.AttributeStore,
 ) : CommandHandler<DeleteAttributeDefinition, Boolean> {
     override fun handle(command: DeleteAttributeDefinition): Boolean {
         requireCatalogEditable(command.id.catalogId)
@@ -69,17 +70,7 @@ class DeleteAttributeDefinitionHandler(
                 throw AttributeInUseException(command.id, variantCount)
             }
 
-            val rowsAffected = handle.createUpdate(
-                """
-                DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .execute()
-            rowsAffected > 0
+            attributes.delete(handle, command.id)
         }
     }
 }

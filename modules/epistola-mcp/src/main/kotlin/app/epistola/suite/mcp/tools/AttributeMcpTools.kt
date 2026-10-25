@@ -12,9 +12,9 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mcp.dto.AttributeInfo
-import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
-import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -44,12 +44,12 @@ class AttributeMcpTools(
     fun listAttributes(
         @McpToolParam(description = "Catalog slug to filter by. Omit to list all.", required = false)
         catalogId: String?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<AttributeInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
-        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+        return mediator.query(ListAttributeDefinitions(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
             .let { definitions ->
                 val editability = catalogEditability()
                 definitions.map { AttributeInfo.from(it, editability.editable(it.catalogId)) }
@@ -67,10 +67,10 @@ class AttributeMcpTools(
         catalogId: String,
         @McpToolParam(description = "Attribute slug (e.g. `locale`).")
         attributeKey: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): AttributeInfo? {
         val id = AttributeId(AttributeKey.of(attributeKey), mcpCatalog(catalogId))
-        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
+        return mediator.query(GetAttributeDefinition(id = id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { AttributeInfo.from(it, catalogEditability().editable(it.catalogId)) }
     }
 }

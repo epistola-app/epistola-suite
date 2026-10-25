@@ -4,6 +4,8 @@
 
 package app.epistola.suite.attributes.commands
 
+import app.epistola.suite.attributes.AttributeFields
+import app.epistola.suite.attributes.AttributeStore
 import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.catalog.bindCatalog
@@ -20,6 +22,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -78,6 +81,7 @@ class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val attributes: AttributeStore,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
         val saved = save(command)
@@ -90,45 +94,8 @@ class CreateAttributeDefinitionHandler(
         requireCatalogEditable(command.id.catalogId)
         return executeOrThrowDuplicate("attribute", command.id.key.value) {
             jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
-                val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
-
-                handle.createQuery(
-                    """
-                INSERT INTO variant_attribute_definitions (id, tenant_key, catalog_id, version_id, display_name, allowed_values,
-                                                           code_list_resource_id,
-                                                           created_at, updated_at)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :displayName, :allowedValues::jsonb,
-                        ${boundCodeListAtAddress("tenantId")},
-                        NOW(), NOW())
-                RETURNING id, tenant_key, display_name, allowed_values, created_at, updated_at,
-                          (SELECT cat.catalog_key FROM catalogs cat
-                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS catalog_key,
-                          (SELECT cat.namespace FROM catalogs cat
-                            WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS namespace,
-                          (SELECT cl_cat.catalog_key FROM current_code_lists cl
-                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
-                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
-                          (SELECT cl_cat.namespace FROM current_code_lists cl
-                             JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
-                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_namespace,
-                          (SELECT cl.id FROM current_code_lists cl
-                            WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
-                """,
-                )
-                    .bind("id", command.id.key)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bind("displayName", command.displayName)
-                    .bind("allowedValues", allowedValuesJson)
-                    .bindCatalog("codeListCatalogKey", command.codeListId?.catalogId)
-                    .bind("codeListSlug", command.codeListId?.key)
-                    .mapTo<VariantAttributeDefinition>()
-                    .one()
+                val binding = command.codeListId?.let { attributes.bindingOf(handle, command.id.catalogId, it) }
+                attributes.create(handle, command.id, AttributeFields(command.displayName, command.allowedValues, binding), currentUserIdOrNull()?.value)
             }
         }
     }

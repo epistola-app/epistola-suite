@@ -12,7 +12,7 @@ private const val NAMESPACE = "namespace"
 private const val REGISTRY = "registry"
 
 /**
- * The catalog-resource reference shapes that can appear inside template, stencil, and theme JSON.
+ * The catalog-resource reference shapes that can appear inside template, stencil, theme and attribute JSON.
  *
  * This enum plus [ResourceReferenceSites] is the single authority for "what is a reference" in
  * embedded content. Every consumer that reads or rewrites embedded references — the resource
@@ -41,6 +41,9 @@ enum class ReferenceSiteKind(
     IMAGE_ASSET(CatalogResourceType.IMAGE, "image-asset", ReferenceSemantics.RUNTIME, "imageKey", false, nodeType = "image"),
     THEME_OVERRIDE(CatalogResourceType.THEME, "theme-override", ReferenceSemantics.RUNTIME, "themeKey", true, containerField = "themeRef"),
     FONT_FAMILY(CatalogResourceType.FONT, "font-family", ReferenceSemantics.RUNTIME, "key", true, containerField = "fontFamily"),
+
+    /** An attribute's code list (`AttributeResource.codeListBinding`, ADR 0033 step 3). */
+    CODE_LIST_BINDING(CatalogResourceType.CODE_LIST, "code-list-binding", ReferenceSemantics.RUNTIME, "key", true, containerField = "codeListBinding"),
     ;
 
     internal fun locationIn(path: String) = if (nodeType != null) "$path.props.$keyField" else "$path.$containerField"

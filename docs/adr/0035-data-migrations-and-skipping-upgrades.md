@@ -84,6 +84,11 @@ first to become a code migration, in 2.0: it calls the contract's canonicalizer 
 retained content with JDBC, in batches outside Flyway's single transaction, and leaves a release
 whose content no longer reproduces its fingerprint without a hash.
 
+The reference walker (what content refers to, the `resource_references` index) is frozen the same
+way, by `fixtures/references/v1.json` in the suite. A change to what it finds in content that already
+exists fails those vectors and comes with a code migration that walks the existing content again; a
+new kind of reference only new content can contain adds a vector and needs no migration.
+
 ### Stops, when they cannot be avoided
 
 When a conversion cannot be self-contained, or a later change cannot keep an old migration runnable,

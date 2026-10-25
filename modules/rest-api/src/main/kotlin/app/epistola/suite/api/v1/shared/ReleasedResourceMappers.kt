@@ -4,8 +4,6 @@
 
 package app.epistola.suite.api.v1.shared
 
-import app.epistola.api.model.AttributeDto
-import app.epistola.api.model.AttributeDtoCodeListBinding
 import app.epistola.api.model.CodeListEntryDto
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.FontDto
@@ -21,7 +19,6 @@ import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.VariantContentDto
 import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
-import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.catalog.protocol.CatalogKeys
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
@@ -126,27 +123,6 @@ internal fun StencilResource.toContentDto(at: ResolvedCatalogRelease, objectMapp
     lastModified = at.releasedAt,
     parameterSchema = parameterSchema?.let { objectMapper.valueToTree<ObjectNode>(it) },
     readyAt = null,
-)
-
-/**
- * A binding names the code list's catalog by the alias the release declares it under (contract ADR
- * 0003), as the release's content does; null for the attribute's own catalog.
- */
-internal fun AttributeResource.toDto(at: ResolvedCatalogRelease) = AttributeDto(
-    key = key,
-    tenantKey = at.tenantKey.value,
-    registry = at.catalog.registry,
-    namespace = at.catalog.namespace,
-    catalogKey = at.catalogKey.value,
-    displayName = name,
-    allowedValues = allowedValues,
-    readOnly = true,
-    createdAt = at.releasedAt,
-    lastModified = at.releasedAt,
-    description = null,
-    codeListBinding = codeListBinding?.let { binding ->
-        AttributeDtoCodeListBinding(catalogKey = binding.catalogKey?.takeUnless { it == at.catalogKey.value }, key = binding.key)
-    },
 )
 
 /** A release holds a code list's entries as they were, whatever its source: it reads as inline. */

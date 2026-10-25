@@ -107,7 +107,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `create attribute fails on FK violation when bound code list does not exist`() {
+    fun `create attribute is refused when the bound code list does not exist`() {
         val tenant = createTenant("Bind4")
         val tenantId = TenantId(tenant.id)
         val catalogId = CatalogId.default(tenantId)
@@ -119,7 +119,7 @@ class AttributeCodeListBindingTest : IntegrationTestBase() {
                     displayName = "Region",
                     codeListId = CodeListId(CodeListKey.of("does-not-exist"), catalogId),
                 ).execute()
-            }.hasMessageContaining("foreign key")
+            }.isInstanceOf(app.epistola.suite.attributes.codelists.CodeListNotFoundException::class.java)
         }
     }
 

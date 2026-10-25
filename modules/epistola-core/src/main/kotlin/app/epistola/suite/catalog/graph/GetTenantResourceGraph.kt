@@ -69,7 +69,7 @@ class TenantResourceGraphBuilder(
                 SELECT a.resource_id, 'image' resource_type, c.namespace, c.catalog_key::text AS catalog_key, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
                 UNION ALL SELECT l.resource_id, 'codeList', c.namespace, c.catalog_key::text AS catalog_key, l.id, l.display_name, c.name FROM current_code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey
                 UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
-                UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id::text, a.display_name, c.name FROM variant_attribute_definitions a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id, a.display_name, c.name FROM current_attributes a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
                 UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id::text, s.name, c.name FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
                 UNION ALL SELECT t.resource_id, 'template', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
@@ -130,13 +130,13 @@ class TenantResourceGraphBuilder(
 
         handle.createQuery(
             """
-                SELECT ac.namespace AS namespace, ac.catalog_key::text AS catalog_key, a.id::text,
-                       clc.namespace AS code_list_namespace, clc.catalog_key::text AS code_list_catalog_key, cl.id AS code_list_slug
-                FROM variant_attribute_definitions a
+                -- Resolved through the one alias resolver (catalog_version_references, ADR 0033).
+                SELECT ac.namespace AS namespace, ac.catalog_key::text AS catalog_key, a.resource_key AS id,
+                       clc.namespace AS code_list_namespace, clc.catalog_key::text AS code_list_catalog_key, a.ref_key AS code_list_slug
+                FROM catalog_version_references('attribute') a
                 JOIN catalogs ac ON ac.tenant_key = a.tenant_key AND ac.catalog_id = a.catalog_id
-                JOIN current_code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
-                JOIN catalogs clc ON clc.tenant_key = cl.tenant_key AND clc.catalog_id = cl.catalog_id
-                WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                JOIN catalogs clc ON clc.tenant_key = a.tenant_key AND clc.catalog_id = a.ref_catalog_id
+                WHERE a.tenant_key = :tenantKey AND a.ref_type = 'codeList'
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(

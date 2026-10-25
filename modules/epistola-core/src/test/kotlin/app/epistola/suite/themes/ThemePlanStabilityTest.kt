@@ -7,8 +7,11 @@ package app.epistola.suite.themes
 import app.epistola.suite.attributes.codelists.commands.CreateCodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.ThemeId
@@ -49,7 +52,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `releasing stays flat as themes and code lists accumulate on tables without statistics`() {
+    fun `releasing stays flat as themes, code lists and attributes accumulate on tables without statistics`() {
         autoanalyze(false)
         try {
             val releases = withMediator {
@@ -67,6 +70,10 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                             sourceType = CodeListSource.INLINE,
                             entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) },
                         ).execute()
+                    }
+                    // Attributes bound to them: their references resolve through the same functions (step 3).
+                    repeat(CODE_LISTS) { l ->
+                        CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$l"), catalog), "Attribute $c/$l", codeListId = CodeListId(CodeListKey.of("list-$l"), catalog)).execute()
                     }
                     val start = System.nanoTime()
                     mediator.releaseNext(catalog)

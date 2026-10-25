@@ -4,7 +4,6 @@
 
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.attributes.codelists.boundCodeListAtAddress
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
@@ -58,50 +57,15 @@ data class ImportAttribute(
 @Component
 class ImportAttributeHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
+    private val attributes: app.epistola.suite.attributes.AttributeStore,
 ) : CommandHandler<ImportAttribute, InstallStatus> {
 
     override fun handle(command: ImportAttribute): InstallStatus {
-        val attributeKey = AttributeKey.of(command.slug)
-        val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
-
-        // Single round-trip on one connection: the upsert reports INSTALLED vs
-        // UPDATED via `xmax = 0` (true only for the freshly inserted row), so we
-        // no longer need a separate existence SELECT on its own connection.
-        val inserted = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery(
-                """
-                INSERT INTO variant_attribute_definitions (
-                    id, tenant_key, catalog_id, version_id, display_name, allowed_values,
-                    code_list_resource_id,
-                    created_at, updated_at
-                )
-                VALUES (
-                    :id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :allowedValues::jsonb,
-                    ${boundCodeListAtAddress("tenantKey")},
-                    NOW(), NOW()
-                )
-                -- The address is a unique constraint rather than the key now, but still a valid
-                -- conflict target, so re-importing an attribute keeps updating in place.
-                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
-                SET display_name           = :displayName,
-                    allowed_values         = :allowedValues::jsonb,
-                    code_list_resource_id  = ${boundCodeListAtAddress("tenantKey")},
-                    updated_at          = NOW()
-                RETURNING (xmax = 0) AS inserted
-                """,
-            )
-                .bind("id", attributeKey)
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("displayName", command.displayName)
-                .bind("allowedValues", allowedValuesJson)
-                .bindCatalog("codeListCatalogKey", command.codeListCatalog)
-                .bind("codeListSlug", command.codeListSlug)
-                .mapTo(Boolean::class.java)
-                .one()
+        val id = app.epistola.suite.common.ids.AttributeId(AttributeKey.of(command.slug), command.catalog)
+        val existed = jdbi.withHandle<Boolean, Exception> { handle ->
+            val binding = command.codeListSlug?.let { slug -> attributes.bindingOf(handle, command.catalog, app.epistola.suite.common.ids.CodeListId(slug, command.codeListCatalog ?: command.catalog)) }
+            attributes.put(handle, id, app.epistola.suite.attributes.AttributeFields(command.displayName, command.allowedValues, binding), app.epistola.suite.security.currentUserIdOrNull()?.value)
         }
-
-        return if (inserted) InstallStatus.INSTALLED else InstallStatus.UPDATED
+        return if (existed) InstallStatus.UPDATED else InstallStatus.INSTALLED
     }
 }

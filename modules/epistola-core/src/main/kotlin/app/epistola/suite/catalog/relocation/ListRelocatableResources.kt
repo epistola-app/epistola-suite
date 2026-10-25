@@ -84,7 +84,7 @@ class ListRelocatableResourcesHandler(
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'attribute', c.namespace, c.catalog_key::text, a.id::text, a.display_name, c.name, c.released
-                FROM variant_attribute_definitions a JOIN editable c ON c.version_id = a.version_id
+                FROM current_attributes a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'template', c.namespace, c.catalog_key::text, t.id::text, t.name, c.name, c.released
