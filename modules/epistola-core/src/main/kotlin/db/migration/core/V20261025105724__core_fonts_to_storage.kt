@@ -27,8 +27,10 @@ import java.sql.Connection
  * changes: how the font columns of this time map to the wire form of this time (`FontResource` of
  * contract 2.0: key, name, kind, variants of weight, italic, mediaType and contentHash, ordered by
  * italic, then weight; type), and the content hash (SHA-256 of the JSON with every object's keys
- * sorted). A face whose hash is unknown, from its row and its asset alike, has no bytes anyone
- * could find and is left out, logged. `FontStorageConversion` proves the suite stores every
+ * sorted). A 1.x face whose row and asset name no hash, because its bytes are still in the 1.x
+ * `content_store`, has those bytes stored in `asset_content` and its asset stamped first (SHA-256 of
+ * the bytes, as the suite stores assets), so it joins its font. A face whose hash is unknown and
+ * whose bytes are nowhere is left out, logged. `FontStorageConversion` proves the suite stores every
  * system font exactly as this converts it.
  */
 @Suppress("ClassName")
@@ -41,6 +43,7 @@ class V20261025105724__core_fonts_to_storage : BaseJavaMigration() {
 
     override fun migrate(context: Context) {
         val connection = context.connection
+        stampLegacyFaceAssets(connection)
         var converted = 0
         connection.prepareStatement(
             """
@@ -82,6 +85,45 @@ class V20261025105724__core_fonts_to_storage : BaseJavaMigration() {
             }
         }
         log.info("Moved {} font families to JSON storage", converted)
+    }
+
+    /**
+     * Stores the bytes of every asset a face names that has no hash yet, because 1.x left them in
+     * `content_store`, and stamps the asset: what `V20261025110000` does for every other asset, done
+     * here for faces so they join their fonts. An asset whose legacy bytes are missing stays as it is.
+     */
+    private fun stampLegacyFaceAssets(connection: Connection) {
+        val pending = connection.prepareStatement(
+            """
+            SELECT DISTINCT a.tenant_key, a.id, a.media_type, a.sensitive
+            FROM font_variants fv
+            JOIN assets a ON a.tenant_key = fv.tenant_key AND a.resource_id = fv.asset_resource_id
+            WHERE fv.content_hash IS NULL AND a.content_hash IS NULL
+            """,
+        ).use { st -> st.executeQuery().use { rs -> buildList { while (rs.next()) add(listOf(rs.getString(1), rs.getString(2), rs.getString(3), rs.getBoolean(4).toString())) } } }
+        for ((tenant, id, mediaType, sensitive) in pending) {
+            val bytes = connection.prepareStatement("SELECT content FROM content_store WHERE key = ?").use { st ->
+                st.setString(1, "assets/$tenant/$id")
+                st.executeQuery().use { rs -> if (rs.next()) rs.getBytes(1) else null }
+            } ?: continue
+            val hash = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+            connection.prepareStatement(
+                "INSERT INTO asset_content (scope, content_hash, content, content_type, size_bytes) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            ).use {
+                it.setString(1, if (sensitive.toBoolean()) tenant else "global")
+                it.setString(2, hash)
+                it.setBytes(3, bytes)
+                it.setString(4, mediaType)
+                it.setLong(5, bytes.size.toLong())
+                it.executeUpdate()
+            }
+            connection.prepareStatement("UPDATE assets SET content_hash = ? WHERE tenant_key = ? AND id = ? AND content_hash IS NULL").use {
+                it.setString(1, hash)
+                it.setString(2, tenant)
+                it.setString(3, id)
+                it.executeUpdate()
+            }
+        }
     }
 
     /** One face of a family as the wire form says it. */
@@ -157,7 +199,7 @@ class V20261025105724__core_fonts_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 1894462964
+        const val CHECKSUM: Int = 381601423
 
         private val mapper = JsonMapper.builder().build()
 

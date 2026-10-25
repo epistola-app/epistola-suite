@@ -21,9 +21,9 @@ import java.sql.Connection
  *    stored in `asset_content`, under the shared scope, or its tenant's when it is sensitive, and the
  *    hash stamped. An asset whose legacy bytes are missing is logged and left as it is: never refused.
  *
- * It runs before the fonts are converted (`V20261025105724`): a 1.x face that names no hash of its own
- * takes its asset's, which only this stamps, so a face whose bytes were still in `content_store`
- * joins its font, and the fonts step removes the asset row that only held its file.
+ * It runs after the fonts are converted (`V20261025105724`), which hashes the legacy bytes of a 1.x face
+ * that names no hash itself, so such a face has already joined its font; what is left here is every
+ * other asset and document.
  *
  * Self-contained (ADR 0035): JDBC only. The content hash is SHA-256 of the bytes, lowercase hex
  * ([sha256Hex], pinned by a golden vector in `LegacyContentMigrationTest`), the one the suite stores
@@ -34,7 +34,7 @@ import java.sql.Connection
  * record.
  */
 @Suppress("ClassName")
-class V20261025105700__core_legacy_content : BaseJavaMigration() {
+class V20261025110000__core_legacy_content : BaseJavaMigration() {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -144,7 +144,7 @@ class V20261025105700__core_legacy_content : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -1247349225
+        const val CHECKSUM: Int = 1805446445
 
         private const val BATCH = 100
 

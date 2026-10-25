@@ -123,8 +123,8 @@ a code list source's secret) that no content names any more, past the same grace
 
 Blobs used to share a single `content_store` table (1.x). 1.x moved them to the two stores above in
 the background (`ContentBackfillRunner`, #738); an installation that upgrades to 2.0 before that job
-finished has the rest moved in the migration step instead (`V20261025105700`, ADR 0035), before the
-fonts are converted, and the table is dropped (`V20261025133400`, #742):
+finished has the rest moved in the migration step instead (`V20261025110000`, ADR 0035; the fonts
+conversion before it hashes a face's legacy bytes itself), and the table is dropped (`V20261025133400`, #742):
 
 - **Documents** → `document_content`, into the monthly partition of the owning document's
   `created_at`, one month at a time.

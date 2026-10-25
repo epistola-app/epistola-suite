@@ -93,8 +93,8 @@ new kind of reference only new content can contain adds a vector and needs no mi
 
 A backfill that 1.x ran after startup, and an installation may skip past, moves into the migration
 step when it can be self-contained. The content backfill (#738, `ContentBackfillRunner`) did:
-`V20261025105700` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256, before the
-fonts are converted so a face whose bytes were still there joins its font, and the job, its fallback
+`V20261025110000` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256 (the fonts
+conversion before it hashes a face's still-legacy bytes itself, so the face joins its font), and the job, its fallback
 reads and the table are gone. It runs outside Flyway's transaction, a batch per transaction, and is
 idempotent, so what committed before a failure is kept; but Flyway records a failed
 non-transactional migration as failed, and it runs again only after `flyway repair`. `ReleaseContentHashBackfill` still runs after startup, as a

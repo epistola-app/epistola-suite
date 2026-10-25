@@ -15,8 +15,8 @@ internal const val BEFORE_THEME_STORAGE = "20261024110723"
 internal const val BEFORE_FONT_STORAGE = "20261025083200"
 
 /**
- * The last migration before the 1.x content store's remaining blobs moved (`V20261025105700`): before
- * the fonts are converted, so a face whose bytes were still there joins its font.
+ * The last migration before the 1.x content store's remaining blobs moved (`V20261025110000`), and
+ * before the fonts are converted (`V20261025105724`), which hashes a face's still-legacy bytes itself.
  */
 internal const val BEFORE_LEGACY_CONTENT = "20261025083200"
 

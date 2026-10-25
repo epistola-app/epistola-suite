@@ -1,4 +1,4 @@
--- #742: the 1.x shared content store is gone. V20261025105700 moved every document and asset blob
+-- #742: the 1.x shared content store is gone. V20261025110000 moved every document and asset blob
 -- whose owner exists into document_content and asset_content; what is left names nothing that
 -- exists (a document deleted before 1.x moved its blob, an asset removed since) and goes with it.
 DO $$

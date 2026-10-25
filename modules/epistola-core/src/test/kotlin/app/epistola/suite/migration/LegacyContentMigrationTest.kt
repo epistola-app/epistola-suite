@@ -5,7 +5,7 @@
 package app.epistola.suite.migration
 
 import app.epistola.suite.testing.TestRuntimeLifecycle
-import db.migration.core.V20261025105700__core_legacy_content
+import db.migration.core.V20261025110000__core_legacy_content
 import org.assertj.core.api.Assertions.assertThat
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Tag
@@ -29,7 +29,7 @@ class LegacyContentMigrationTest {
     @Test
     fun `the content hash is SHA-256, lowercase hex`() {
         // FIPS 180-2 test vector.
-        assertThat(V20261025105700__core_legacy_content.sha256Hex("abc".toByteArray())).isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        assertThat(V20261025110000__core_legacy_content.sha256Hex("abc".toByteArray())).isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
     }
 
     @Test
