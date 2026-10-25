@@ -235,7 +235,8 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   reference walker when content is stored. Relocation rewrites the content that names a moved
   resource, and renaming a dependency's alias would go through the same rewrite. An alias is
   resolved in one place, the SQL function `resolve_catalog_alias` (a draft's declarations, a release's
-  pins, else the tenant's one catalog of that key), and "used by", "in use?" and the graph read
+  pins; an alias nothing declares means nothing, and a write refuses it, since catalogs use each other
+  only through declared dependencies), and "used by", "in use?" and the graph read
   through it (`catalog_version_references(type)`), never with an alias join of their own. A binding
   reads the target at the version its catalog declares: a draft that pins a dependency's release reads
   that release (variant attributes, step 3).

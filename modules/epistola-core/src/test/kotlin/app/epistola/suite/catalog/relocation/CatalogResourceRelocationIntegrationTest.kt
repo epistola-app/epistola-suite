@@ -710,6 +710,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             CreateAttributeDefinition(attributeId, "Language", codeListId = codeListId).execute()
         }
 
+        val authorBefore = attributeAuthor(tenant.id, sourceCatalog)
+        assertThat(authorBefore).`as`("the attribute was saved by someone").isNotNull()
+
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
         // The attribute's content names the list by alias and key (ADR 0033, step 3): one rewrite.
@@ -721,6 +724,13 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         // The entries are the list's content and move with it; the binding was rewritten to the new address.
         assertThat(entriesOwnedBy(tenant.id, targetCatalog, codeListId.key.value)).containsExactly("en", "nl")
         assertThat(boundCodeListCatalog(tenant.id, attributeId)).isEqualTo(targetCatalog.value)
+        assertThat(attributeAuthor(tenant.id, sourceCatalog)).`as`("a rewrite is not an edit: whoever edited it last stays").isEqualTo(authorBefore)
+    }
+
+    private fun attributeAuthor(tenantKey: TenantKey, catalogKey: CatalogKey): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
+        handle.createQuery("SELECT updated_by FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = 'language'")
+            .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey))
+            .mapTo(java.util.UUID::class.java).findOne().orElse(null)
     }
 
     /** The codes owned by the code list now at this address, reached through its identity. */

@@ -84,8 +84,8 @@ FROM assets i;
 -- 4. The one place an alias in content is resolved (ADR 0034 section 9, ADR 0033): the catalog a
 --    reference by [p_alias] means in content of catalog [p_catalog], of its draft [p_version_id] or
 --    else its release [p_version]. Its own catalog without an alias (or by its own key), else what
---    the version declares under the alias (a draft's catalog_dependencies, a release's pins), else,
---    as a catalog read live does, the tenant's one catalog with that key. NULL when none.
+--    the version declares under the alias (a draft's catalog_dependencies, a release's pins). NULL
+--    when it declares none: catalogs use each other only through declared dependencies (#1116, #1130).
 --    "Used by", "in use?" and the graph resolve through this, never with an alias join of their own.
 CREATE FUNCTION resolve_catalog_alias(p_tenant TEXT, p_catalog UUID, p_version_id UUID, p_version TEXT, p_alias TEXT)
     RETURNS UUID
@@ -99,14 +99,12 @@ SELECT CASE
         (SELECT epistola_catalog_id(p_tenant, d.namespace, d.dependency_key) FROM catalog_dependencies d
           WHERE p_version_id IS NOT NULL AND d.tenant_key = p_tenant AND d.version_id = p_version_id AND d.alias = p_alias),
         (SELECT epistola_catalog_id(p_tenant, d.namespace, d.dependency_key) FROM catalog_release_dependencies d
-          WHERE p_version_id IS NULL AND d.tenant_key = p_tenant AND d.catalog_id = p_catalog AND d.version = p_version AND d.alias = p_alias),
-        (SELECT CAST(min(CAST(c.catalog_id AS TEXT)) AS UUID) FROM catalogs c
-          WHERE c.tenant_key = p_tenant AND c.catalog_key = p_alias HAVING count(*) = 1))
+          WHERE p_version_id IS NULL AND d.tenant_key = p_tenant AND d.catalog_id = p_catalog AND d.version = p_version AND d.alias = p_alias))
 END
 $$;
 
 COMMENT ON FUNCTION resolve_catalog_alias(TEXT, UUID, UUID, TEXT, TEXT) IS
-    'The catalog an alias in content means, from a catalog''s draft or release (ADR 0033, ADR 0034 section 9); the one place aliases are resolved.';
+    'The catalog an alias in content means, from a catalog''s draft or release, by its declarations (ADR 0033, ADR 0034 section 9); NULL when none declares it. The one place aliases are resolved.';
 
 -- 5. What the resources of one type of the versions a caller means refer to, resolved: each row of
 --    catalog_version_resources(type) with the references its content holds, and the catalog each

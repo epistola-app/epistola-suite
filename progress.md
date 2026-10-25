@@ -50,6 +50,14 @@ come from one read per statement instead of joins. The in-use check on deleting 
 13 ms (was 1.6): it walks the current attributes' references and resolves aliases, where a foreign key
 answered by identity; it runs only on delete.
 
+**Follow-up (25 October):** the resolver's third fallback, "the tenant's one catalog of that key",
+is gone: an alias nothing declares resolves to nothing. The only case that needed it was 1.x data
+between the migration and the 2.0 upgrade, which declares a 1.x catalog's dependencies when it runs
+(`DataPreservationMigrationIT` failed without it). The attribute conversion now declares the catalog
+of a list an attribute of another catalog binds, unpinned and under its key as the upgrade would, so
+the alias means what the identity meant from the first moment. A relocation rewrite of an attribute
+keeps its previous `updated_by` (`CatalogResourceRelocationIntegrationTest`).
+
 **Noticed, left alone:**
 
 - Renaming a dependency's alias is not possible today: every dependency is declared under its key
@@ -58,7 +66,6 @@ answered by identity; it runs only on delete.
 - Concurrency of the in-use check: a code list deleted while an attribute binding it is saved in
   another transaction is not prevented (no lock); a general approach to several people working on
   one catalog is a later decision.
-- A relocation rewrite of an attribute's binding writes it with no `updated_by` (themes keep it).
 
 ### ADR 0033: one content shape for every type (24 October; branch `feat/storage-code-lists`, on #1134, not pushed)
 
