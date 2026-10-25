@@ -180,7 +180,11 @@
                 }
                 const result = await response.json();
                 track(result);
-                return { success: true, warnings: result.warnings };
+                return {
+                  success: true,
+                  warnings: result.warnings,
+                  dataExamples: result.dataExamples,
+                };
               } catch (e) {
                 return { success: false, error: e.message };
               }
@@ -204,7 +208,11 @@
                 }
                 const result = await response.json();
                 track(result);
-                return { success: true, warnings: result.warnings };
+                return {
+                  success: true,
+                  warnings: result.warnings,
+                  dataExamples: result.dataExamples,
+                };
               } catch (e) {
                 return { success: false };
               }

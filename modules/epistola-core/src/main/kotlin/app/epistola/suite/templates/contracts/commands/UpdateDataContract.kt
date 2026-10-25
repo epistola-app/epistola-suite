@@ -17,11 +17,11 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TemplateNotFoundException
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.commands.templateRevision
 import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.model.DataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
@@ -67,6 +67,7 @@ class UpdateDataContractHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val templates: TemplateStore,
 ) : CommandHandler<UpdateDataContract, UpdateDataContractResult> {
     override fun handle(command: UpdateDataContract): UpdateDataContractResult {
         val template = command.templateId
@@ -95,23 +96,31 @@ class UpdateDataContractHandler(
                 }
             }
 
-            val revision = handle.createQuery(
-                """
-                UPDATE document_templates
-                SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB), updated_at = NOW()
-                WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
-                RETURNING revision
-                """,
-            )
-                .bind("t", template.tenantKey)
-                .bindCatalog("c", template.catalogId)
-                .bind("k", template.key)
-                .bind("dataModel", dataModel?.let(objectMapper::writeValueAsString))
-                .bind("dataExamples", objectMapper.writeValueAsString(examples))
-                .mapTo(Long::class.java)
-                .one()
+            val revision = writeContract(handle, templates, objectMapper, template, dataModel, examples)
 
-            UpdateDataContractResult(DataContract(dataModel, examples, revision), warnings, revision)
+            // As stored: each example by its key, which is its id from now on.
+            val stored = TemplateStore.examplesOf(TemplateStore.entriesOf(examples, objectMapper), objectMapper)
+            UpdateDataContractResult(DataContract(dataModel, stored, revision), warnings, revision)
         }
     }
 }
+
+/**
+ * Saves [template]'s data contract: [dataModel] and [examples], each example by its key (derived
+ * when it has none) as the wire form keeps it. The template's revision after the write.
+ */
+internal fun writeContract(
+    handle: org.jdbi.v3.core.Handle,
+    templates: TemplateStore,
+    objectMapper: ObjectMapper,
+    template: app.epistola.suite.common.ids.TemplateId,
+    dataModel: tools.jackson.databind.node.ObjectNode?,
+    examples: List<app.epistola.suite.templates.model.DataExample>,
+): Long = checkNotNull(
+    templates.modify(handle, template, app.epistola.suite.security.currentUserIdOrNull()?.value, null, "Template '${template.key.value}'") { stored ->
+        stored.copy(
+            dataModel = dataModel?.let { objectMapper.convertValue(it, object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}) },
+            dataExamples = TemplateStore.entriesOf(examples, objectMapper),
+        )
+    },
+) { "Template ${template.key.value} was locked" }.second.revision

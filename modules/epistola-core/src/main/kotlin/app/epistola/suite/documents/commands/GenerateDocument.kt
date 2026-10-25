@@ -30,7 +30,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
-import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory

@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper
  * Before:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO template_variants (template_model) VALUES (:model::jsonb)"
+ *     "INSERT INTO resource_contents (payload) VALUES (:model::jsonb)"
  * )
  *     .bind("model", objectMapper.writeValueAsString(model))
  *     .execute()
@@ -26,7 +26,7 @@ import tools.jackson.databind.ObjectMapper
  * After:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO template_variants (template_model) VALUES (:model::jsonb)"
+ *     "INSERT INTO resource_contents (payload) VALUES (:model::jsonb)"
  * )
  *     .bindJsonb("model", model, objectMapper)
  *     .execute()

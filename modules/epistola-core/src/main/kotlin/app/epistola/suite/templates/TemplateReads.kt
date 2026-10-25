@@ -5,6 +5,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.catalog.CatalogContentBuilder
+import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.stencils.qualifiedIn
 import app.epistola.template.model.TemplateDocument
@@ -53,8 +54,8 @@ const val VARIANT_COLUMNS: String =
         "CAST(:templateId AS TEXT) AS template_key, tv.title, tv.description, tv.attributes, tv.is_default, " +
         "tv.created_at, tv.updated_at, tv.created_by, tv.updated_by, tv.revision"
 
-/** The order a template's variants are listed in: its default first, then as they were added. */
-const val VARIANT_ORDER: String = "ORDER BY tv.is_default DESC, tv.created_at ASC, tv.id ASC"
+/** The order a template's variants are listed in: its default first, then as its content lists them (as they were added). */
+const val VARIANT_ORDER: String = "ORDER BY tv.is_default DESC, tv.position ASC"
 
 /**
  * Template models as they are stored and as they are read (ADR 0033).
@@ -79,3 +80,30 @@ object TemplateModels {
     /** A stored [json] model of a template of [catalogKey], as it is read. */
     fun read(json: String, catalogKey: String, objectMapper: ObjectMapper): TemplateDocument = read(objectMapper.readValue(json, TemplateDocument::class.java), catalogKey, objectMapper)
 }
+
+/** Template [id] in the version the handle means, a draft's or a release's; null when there is none. */
+fun documentTemplate(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.TemplateId): DocumentTemplate? = handle
+    .createQuery("SELECT $TEMPLATE_COLUMNS FROM current_templates dt WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.id = :id")
+    .bind("id", id.key.value)
+    .bind("tenantId", id.tenantKey)
+    .bindCatalog("catalogKey", id.catalogId)
+    .mapTo(DocumentTemplate::class.java)
+    .findOne()
+    .orElse(null)
+
+/** Variant [id] in the version the handle means, a draft's or a release's; null when there is none. */
+fun templateVariant(handle: org.jdbi.v3.core.Handle, id: app.epistola.suite.common.ids.VariantId): app.epistola.suite.templates.model.TemplateVariant? = handle
+    .createQuery(
+        """
+        SELECT $VARIANT_COLUMNS FROM current_template_variants tv
+        WHERE tv.id = :variantId AND tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+          AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
+        """,
+    )
+    .bind("variantId", id.key.value)
+    .bind("templateId", id.templateKey.value)
+    .bind("tenantId", id.tenantKey)
+    .bindCatalog("catalogKey", id.catalogId)
+    .mapTo(app.epistola.suite.templates.model.TemplateVariant::class.java)
+    .findOne()
+    .orElse(null)

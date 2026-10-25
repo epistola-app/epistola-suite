@@ -923,6 +923,12 @@ export class EpistolaDataContractEditor extends LitElement {
         this._syncExampleUndoRedoState();
       }
 
+      // The server addresses examples by key: the one being edited follows its new id.
+      const storedId = this._editingExampleId
+        ? state.storedIds.get(this._editingExampleId)
+        : undefined;
+      if (storedId) this._editingExampleId = storedId;
+
       this._saveSuccess = true;
       this._scheduleSuccessClear(() => {
         this._saveSuccess = false;

@@ -90,21 +90,18 @@ class ResourceContentStore(
      */
     private fun payloadOf(handle: Handle, tenantKey: TenantKey, resource: CatalogResource, settings: ObjectNode?): JsonNode {
         val node = objectMapper.valueToTree<JsonNode>(resource)
-        // A type whose suite keeps settings beside its released form is stored in the envelope, as
-        // its draft stores it, so a draft and the release cut from it share one content.
-        if (resource.type in StoredContent.ENVELOPED_TYPES) {
-            return objectMapper.createObjectNode().also { envelope ->
-                envelope.set("resource", node)
-                settings?.properties()?.forEach { (name, value) -> envelope.set(name, value) }
+        if (resource.type == "template" && node is ObjectNode) {
+            liftModel(handle, tenantKey, node)
+            (node.get("variants") as? ArrayNode)?.forEach { variant ->
+                if (variant is ObjectNode) liftModel(handle, tenantKey, variant)
             }
         }
-        if (resource.type != "template" || node !is ObjectNode) return node
-
-        liftModel(handle, tenantKey, node)
-        (node.get("variants") as? ArrayNode)?.forEach { variant ->
-            if (variant is ObjectNode) liftModel(handle, tenantKey, variant)
+        // Every type is stored in the envelope, as its draft stores it, so a draft and the release cut
+        // from it share one content; beside the resource go the settings only this suite keeps.
+        return objectMapper.createObjectNode().also { envelope ->
+            envelope.set("resource", node)
+            settings?.properties()?.forEach { (name, value) -> envelope.set(name, value) }
         }
-        return node
     }
 
     /**

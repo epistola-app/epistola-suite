@@ -18,7 +18,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.model.assignDataExampleKeys
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -50,32 +50,27 @@ class GetDataContractHandler(
 
 /**
  * Reads [template]'s data contract on [handle], a draft's or a release's. With [forUpdate] it is
- * about to be written, so it reads the draft's row and locks it.
+ * about to be written, so its draft row is locked first.
  */
-internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, template: TemplateId, forUpdate: Boolean = false): DataContract? = handle
-    .createQuery(
-        if (forUpdate) {
-            """
-            SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM document_templates
-            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${templateAtAddress("t", "c", "k")}
-            FOR UPDATE
-            """
-        } else {
+internal fun readDataContract(handle: Handle, objectMapper: ObjectMapper, template: TemplateId, forUpdate: Boolean = false): DataContract? {
+    if (forUpdate) app.epistola.suite.catalog.revisions.DraftResources.lockRevision(handle, template.catalogId, app.epistola.suite.templates.TemplateStore.TEMPLATE, template.key.value) ?: return null
+    return handle
+        .createQuery(
             """
             SELECT data_model::text AS data_model, data_examples::text AS data_examples, revision FROM current_templates
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k
-            """
-        },
-    )
-    .bind("t", template.tenantKey)
-    .bindCatalog("c", template.catalogId)
-    .bind("k", template.key)
-    .map { rs, _ ->
-        DataContract(
-            dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, ObjectNode::class.java) },
-            dataExamples = objectMapper.readValue<List<DataExample>>(rs.getString("data_examples")),
-            revision = rs.getLong("revision"),
+            """,
         )
-    }
-    .findOne()
-    .orElse(null)
+        .bind("t", template.tenantKey)
+        .bindCatalog("c", template.catalogId)
+        .bind("k", template.key)
+        .map { rs, _ ->
+            DataContract(
+                dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, ObjectNode::class.java) },
+                dataExamples = assignDataExampleKeys(objectMapper.readValue<List<DataExample>>(rs.getString("data_examples"))),
+                revision = rs.getLong("revision"),
+            )
+        }
+        .findOne()
+        .orElse(null)
+}

@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
@@ -19,8 +20,9 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilFitCheck
 import app.epistola.suite.templates.TemplateModels
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.TemplateDocument
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -56,13 +58,15 @@ class MarkVariantReadyHandler(
         val variant = command.variantId
         requireCatalogEditable(variant.catalogId)
         jdbi.useTransaction<Exception> { handle ->
+            // Locked, so what is marked is what was checked.
+            app.epistola.suite.catalog.revisions.DraftResources.lockRevision(handle, variant.catalogId, TemplateStore.TEMPLATE, variant.templateKey.value)
+                ?: throw TemplateVariantNotFoundException(variant.tenantKey, variant.templateKey, variant.key)
             val row = handle.createQuery(
                 """
                 SELECT tv.template_resource_id, tv.template_model::text AS template_model, dt.data_model::text AS data_model
-                FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
-                WHERE tv.tenant_key = :t AND tv.id = :v AND tv.version_id = ${versionAt("t", "c")} AND tv.template_resource_id = ${templateAtAddress("t", "c", "k")}
-                FOR UPDATE OF tv
+                FROM current_template_variants tv
+                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :t AND tv.id = :v AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.template_resource_id = ${templateIn("t", "c", "k")}
                 """,
             )
                 .bind("t", variant.tenantKey)

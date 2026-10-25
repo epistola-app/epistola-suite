@@ -23,7 +23,6 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.SelfManagedTransaction
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo

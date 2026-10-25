@@ -108,14 +108,14 @@ class RevisionCollectionTest : IntegrationTestBase() {
             MarkCatalogReady(testCatalog(tenant.id, key)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.1.0").execute()
 
-            val models = revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND)
-            assertThat(models).`as`("a template's model is a revision of its own").isGreaterThan(0)
+            val models = modelsOf(tenant.id, "1.1.0")
+            assertThat(models).`as`("a template's model is a revision of its own").isNotEmpty()
 
             DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()
 
-            assertThat(revisionCount(tenant.id, kind = TEMPLATE_MODEL_KIND))
+            assertThat(storedOf(tenant.id, models))
                 .`as`("1.1.0 still holds the invoice, so its model is still reachable")
-                .isEqualTo(models)
+                .containsExactlyInAnyOrderElementsOf(models)
         }
 
         // And 1.1.0 is still readable as released, which is what those models are for.
@@ -314,6 +314,24 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     // Every tenant installs the bundled system catalog, and installing records its release, so
     // its revisions are in every tenant. The counts below are about this test's catalog.
+
+    /** The models release [version] of this test's catalog names, by hash. */
+    private fun modelsOf(tenantKey: TenantKey, version: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery(
+            """
+            SELECT DISTINCT jsonb_path_query(c.payload, '${'$'}.**.revisionDigest') #>> '{}'
+            FROM release_resources r JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+            WHERE r.tenant_key = :t AND r.version = :v AND r.resource_type = 'template'
+            """,
+        ).bind("t", tenantKey).bind("v", version).mapTo(String::class.java).list()
+    }
+
+    /** Which of [hashes] are still stored. */
+    private fun storedOf(tenantKey: TenantKey, hashes: List<String>): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
+        handle.createQuery("SELECT content_hash FROM resource_contents WHERE tenant_key = :t AND content_hash IN (<h>)")
+            .bind("t", tenantKey).bindList("h", hashes).mapTo(String::class.java).list()
+    }
+
     private fun revisionCount(tenantKey: TenantKey, kind: String? = null): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
             "SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND (:kind IS NULL OR kind = :kind)",

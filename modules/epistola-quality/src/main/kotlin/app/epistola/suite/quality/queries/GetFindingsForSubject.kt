@@ -23,7 +23,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
 import app.epistola.suite.templates.currentTemplateJoin
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component

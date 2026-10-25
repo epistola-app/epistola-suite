@@ -36,6 +36,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.exportReleased
+import app.epistola.suite.testing.rewriteStoredModel
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.validation.ValidationCode
@@ -71,6 +72,9 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var templates: app.epistola.suite.templates.TemplateStore
 
     @Autowired
     private lateinit var generationService: GenerationService
@@ -201,14 +205,8 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
 
         // Raw SQL on purpose: every command now refuses a JavaScript expression, and this is the
         // state a database written by an older release can still hold.
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE template_variants
-                SET template_model = jsonb_set(template_model, '{nodes,cond,props,condition,language}', '"javascript"')
-                WHERE tenant_key = :tenantKey AND template_model #> '{nodes,cond}' IS NOT NULL
-                """,
-            ).bind("tenantKey", tenant.id).execute()
+        templates.rewriteStoredModel(jdbi, objectMapper, variantId) { model ->
+            ((model.get("nodes").get("cond").get("props") as tools.jackson.databind.node.ObjectNode).get("condition") as tools.jackson.databind.node.ObjectNode).put("language", "javascript")
         }
 
         // The query the operator guide (docs/generation.md) gives finds it…
@@ -272,9 +270,9 @@ class JavaScriptExpressionRejectionIntegrationTest : IntegrationTestBase() {
         /** Verbatim from the operator note in docs/generation.md — keep the two in step. */
         private const val OPERATOR_TEMPLATE_QUERY = """
             SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
-            FROM template_variants v
-            JOIN document_templates t
-              ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+            FROM current_template_variants v
+            JOIN current_templates t
+              ON t.tenant_key = v.tenant_key AND t.catalog_id = v.catalog_id AND t.resource_id = v.template_resource_id
             JOIN catalogs c
               ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
             WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')

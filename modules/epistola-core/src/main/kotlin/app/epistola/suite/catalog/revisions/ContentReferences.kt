@@ -29,7 +29,9 @@ object ContentReferences {
             if (key.isNotBlank()) add(ContentReference(site.catalogKey?.takeIf { it.isNotBlank() }, site.kind.type.wireName, key))
         }
         // An attribute's code list is a reference site (CODE_LIST_BINDING) inside its envelope.
-        if (kind == "template") payload.text("themeKey")?.let { add(ContentReference(payload.text("themeCatalogKey"), "theme", it)) }
+        // A template names its theme beside its models; content retained before templates were
+        // stored in the envelope (ADR 0033) holds the resource bare.
+        if (kind == "template") (payload.get("resource")?.takeIf { it.isObject } ?: payload).let { resource -> resource.text("themeKey")?.let { add(ContentReference(resource.text("themeCatalogKey"), "theme", it)) } }
     }
 
     private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotBlank() }

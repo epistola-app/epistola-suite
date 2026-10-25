@@ -194,9 +194,9 @@ release its catalog:
 ```sql
 -- Template variants
 SELECT t.tenant_key, c.catalog_key, t.id AS template, v.id AS variant
-FROM template_variants v
-JOIN document_templates t
-  ON t.tenant_key = v.tenant_key AND t.resource_id = v.template_resource_id
+FROM current_template_variants v
+JOIN current_templates t
+  ON t.tenant_key = v.tenant_key AND t.catalog_id = v.catalog_id AND t.resource_id = v.template_resource_id
 JOIN catalogs c
   ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
 WHERE jsonb_path_exists(v.template_model, '$.** ? (@.language like_regex "^\\s*javascript\\s*$" flag "i")')

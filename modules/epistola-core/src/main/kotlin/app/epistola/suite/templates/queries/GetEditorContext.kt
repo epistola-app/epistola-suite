@@ -22,7 +22,6 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilResolvers
 import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi

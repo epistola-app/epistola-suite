@@ -270,7 +270,8 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
 
                 // Add data examples via contract version
                 val exampleData = objectMapper.createObjectNode().put("title", "Test Invoice")
-                val example = DataExample(id = "example-1", name = "Sample Invoice", data = exampleData)
+                // An example is addressed by its key (ADR 0033).
+                val example = DataExample(id = "example-1", name = "Sample Invoice", data = exampleData, key = "example-1")
                 exampleId = example.id
                 insertDraftContractWithExamples(
                     testTenant.id.value,

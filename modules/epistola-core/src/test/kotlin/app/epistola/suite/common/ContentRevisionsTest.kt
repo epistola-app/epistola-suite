@@ -111,7 +111,7 @@ class ContentRevisionsTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `saving unchanged content or making another variant the default keeps the revision`() {
+    fun `saving unchanged content keeps the revision, and a variant's revision is its template's`() {
         val variant = template(catalog("rev-unchanged"))
         withMediator {
             val saved = UpdateVariantContent(variant, document("same")).execute()
@@ -121,7 +121,11 @@ class ContentRevisionsTest : IntegrationTestBase() {
             val other = VariantId(VariantKey.of("other"), variant.templateId)
             CreateVariant(other, "Other", null).execute()
             SetDefaultVariant(other).execute()
-            assertThat(GetVariant(variant).query()!!.revision).`as`("losing the default is not an edit of its content").isEqualTo(saved.revision)
+            // A template holds its variants in one content (ADR 0033): adding one and moving the default
+            // are edits of it, and each variant reads its template's revision.
+            val template = app.epistola.suite.templates.queries.GetDocumentTemplate(variant.templateId).query()!!
+            assertThat(template.revision).isEqualTo(saved.revision + 2)
+            assertThat(GetVariant(variant).query()!!.revision).isEqualTo(template.revision)
         }
     }
 

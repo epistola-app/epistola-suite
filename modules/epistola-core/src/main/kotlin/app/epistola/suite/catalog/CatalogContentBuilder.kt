@@ -36,9 +36,11 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.StoredTemplate
+import app.epistola.suite.templates.StoredVariant
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.DataExamples
 import app.epistola.suite.templates.model.TemplateDocument
-import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -104,6 +106,7 @@ class CatalogContentBuilder(
     private val jdbi: Jdbi,
     private val dependencyStore: CatalogDependencyStore,
     private val fontStore: app.epistola.suite.fonts.FontStore,
+    private val templateStore: app.epistola.suite.templates.TemplateStore,
 ) {
 
     fun build(catalog: CatalogId, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
@@ -230,120 +233,71 @@ class CatalogContentBuilder(
         outbound: Outbound,
     ): List<TemplateResource> {
         val published = source == ContentSource.PUBLISHED_BEFORE_2_0
-        data class TemplateRow(
-            val id: String,
-            val name: String,
-            val themeKey: String?,
-            val themeCatalogKey: String?,
-            val pdfaEnabled: Boolean,
-            val dataModel: String?,
-            val dataExamples: String?,
-            val description: String?,
-        )
-        data class VariantRow(val id: String, val title: String?, val attributes: String?, val templateModel: String?, val isDefault: Boolean, val metadata: String?)
+        data class Row(val template: StoredTemplate, val contract: String?, val publishedModels: Map<String, String>)
 
-        val templates = jdbi.withHandle<List<TemplateRow>, Exception> { handle ->
+        // A draft holds each template as its content (ADR 0033); what was last published before 2.0
+        // the upgrade migration kept beside it in catalog_upgrade_published.
+        val rows = jdbi.withHandle<List<Row>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT dt.id, dt.name, dt.description, th.id AS theme_key, thc.catalog_key AS theme_catalog_key, dt.pdfa_enabled,
-                       ${if (published) PUBLISHED_CONTRACT_COLUMNS else "dt.data_model::text, dt.data_examples::text"}
-                FROM document_templates dt
-                ${if (published) PUBLISHED_CONTRACT_JOIN else ""}
-                LEFT JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-                LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
-                WHERE dt.tenant_key = :tenantKey AND dt.version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT t.payload::text AS payload,
+                       ${if (published) "(SELECT pc.payload::text FROM catalog_upgrade_published pc WHERE pc.tenant_key = t.tenant_key AND pc.resource_id = t.resource_id AND pc.kind = 'contract')" else "NULL"} AS contract,
+                       ${if (published) "(SELECT jsonb_object_agg(pv.part, pv.payload -> 'templateModel')::text FROM catalog_upgrade_published pv WHERE pv.tenant_key = t.tenant_key AND pv.resource_id = t.resource_id AND pv.kind = 'variant')" else "NULL"} AS published_models
+                FROM current_templates t
+                WHERE t.tenant_key = :tenantKey AND t.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                ORDER BY t.id
                 """,
             )
                 .bind("tenantKey", catalog.tenantKey)
                 .bindCatalog("catalogKey", catalog)
                 .map { rs, _ ->
-                    TemplateRow(
-                        id = rs.getString("id"),
-                        name = rs.getString("name"),
-                        themeKey = rs.getString("theme_key"),
-                        themeCatalogKey = rs.getString("theme_catalog_key"),
-                        pdfaEnabled = rs.getBoolean("pdfa_enabled"),
-                        dataModel = rs.getString("data_model"),
-                        dataExamples = rs.getString("data_examples"),
-                        description = rs.getString("description"),
+                    Row(
+                        template = templateStore.of(objectMapper.readTree(rs.getString("payload"))),
+                        contract = rs.getString("contract"),
+                        publishedModels = rs.getString("published_models")?.let { objectMapper.readTree(it).properties().associate { (k, v) -> k to v.toString() } }.orEmpty(),
                     )
                 }
                 .list()
         }
 
-        return templates.mapNotNull { template ->
-            val variants = jdbi.withHandle<List<VariantRow>, Exception> { handle ->
-                handle.createQuery(
-                    """
-                    SELECT v.id, v.title, v.attributes::text, v.is_default, v.metadata::text,
-                           ${if (published) "(pv.payload -> 'templateModel')::text" else "v.template_model::text"} AS template_model
-                    FROM template_variants v
-                    ${if (published) PUBLISHED_VARIANT_JOIN else ""}
-                    WHERE v.tenant_key = :tenantKey AND v.version_id = ${versionAt("tenantKey", "catalogKey")}
-                      AND v.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
-                    """,
-                )
-                    .bind("tenantKey", catalog.tenantKey)
-                    .bindCatalog("catalogKey", catalog)
-                    .bind("templateKey", template.id)
-                    .map { rs, _ ->
-                        VariantRow(
-                            id = rs.getString("id"),
-                            title = rs.getString("title"),
-                            attributes = rs.getString("attributes"),
-                            templateModel = rs.getString("template_model"),
-                            isDefault = rs.getBoolean("is_default"),
-                            metadata = rs.getString("metadata"),
-                        )
+        return rows.mapNotNull { row ->
+            val template = row.template
+            // Before 2.0 a template rendered through its default variant, so one whose default was never
+            // published is left out of its published content, and so is a variant never published.
+            val variants = if (published) template.variants.filter { it.key in row.publishedModels } else template.variants
+            val default = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()?.takeUnless { published } ?: return@mapNotNull null
+            fun modelOf(variant: StoredVariant): TemplateDocument {
+                val json = row.publishedModels[variant.key]?.let { objectMapper.readTree(it) }
+                    ?: jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
+                        checkNotNull(handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND content_hash = :h").bind("t", catalog.tenantKey).bind("h", variant.modelHash).mapTo(String::class.java).findOne().orElse(null)) {
+                            "Template ${template.key} names a model that is not stored"
+                        }.let(objectMapper::readTree)
                     }
-                    .list()
+                // Stored relative already; a model published before 2.0 named its own catalog.
+                return objectMapper.treeToValue(outbound.content(json), TemplateDocument::class.java)
             }
-
-            val defaultVariant = variants.firstOrNull { it.isDefault }
-                // Before 2.0 a template rendered through its default variant, so one whose default was never
-                // published is left out of its published content.
-                ?: variants.firstOrNull()?.takeUnless { published }
-                ?: return@mapNotNull null // Skip templates without variants
-
-            val defaultModel = defaultVariant.templateModel
-                ?.let(objectMapper::readTree)
-                ?.let(outbound::content)
-                ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
-                ?: return@mapNotNull null
-
+            val contract = row.contract?.let(objectMapper::readTree)
             TemplateResource(
-                key = template.id,
+                key = template.key,
                 name = template.name,
                 themeKey = template.themeKey,
-                themeCatalogKey = template.themeCatalogKey,
+                themeCatalogKey = template.themeCatalogKey.takeIf { template.themeKey != null },
                 pdfaEnabled = template.pdfaEnabled,
-                dataModel = template.dataModel?.let {
-                    objectMapper.readValue<Map<String, Any?>>(
-                        it,
-                        objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, Any::class.java),
-                    )
+                dataModel = if (contract == null) template.dataModel else contract.get("dataModel")?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, PLAIN_MAP) },
+                dataExamples = if (contract == null) {
+                    template.dataExamples
+                } else {
+                    TemplateStore.entriesOf(contract.get("dataExamples")?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, DataExamples::class.java) }.orEmpty(), objectMapper)
                 },
-                dataExamples = template.dataExamples?.let {
-                    objectMapper.readValue(it, DataExamples::class.java).map { example ->
-                        DataExampleEntry(name = example.name, data = objectMapper.convertValue(example.data, Map::class.java).mapKeys { (k, _) -> k as String }, key = example.key)
-                    }
-                },
-                templateModel = defaultModel,
+                templateModel = modelOf(default),
                 variants = variants.map { v ->
                     VariantEntry(
-                        key = v.id,
+                        key = v.key,
                         title = v.title,
-                        attributes = v.attributes?.let { objectMapper.readValue(it, objectMapper.typeFactory.constructMapType(Map::class.java, String::class.java, String::class.java)) },
-                        templateModel = if (v.id == defaultVariant.id) {
-                            null
-                        } else {
-                            v.templateModel
-                                ?.let(objectMapper::readTree)
-                                ?.let(outbound::content)
-                                ?.let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
-                        },
+                        attributes = v.attributes,
+                        templateModel = if (v.key == default.key) null else modelOf(v),
                         isDefault = v.isDefault,
-                        metadata = v.metadata?.let { objectMapper.readValue(it, VARIANT_METADATA) },
+                        metadata = v.metadata?.takeIf { it.isNotEmpty() },
                     )
                 },
                 description = template.description,
@@ -434,19 +388,6 @@ class CatalogContentBuilder(
     }
 }
 
-/** The template's latest published data contract before 2.0, or its working one when it published none. */
-private const val PUBLISHED_CONTRACT_COLUMNS =
-    "CASE WHEN pc.payload IS NULL THEN dt.data_model ELSE NULLIF(pc.payload -> 'dataModel', 'null'::jsonb) END::text AS data_model, " +
-        "CASE WHEN pc.payload IS NULL THEN dt.data_examples ELSE pc.payload -> 'dataExamples' END::text AS data_examples"
-
-private const val PUBLISHED_CONTRACT_JOIN =
-    "LEFT JOIN catalog_upgrade_published pc ON pc.tenant_key = dt.tenant_key AND pc.resource_id = dt.resource_id AND pc.kind = 'contract'"
-
-/** A variant's latest published model before 2.0; a variant that never published one is left out. */
-private const val PUBLISHED_VARIANT_JOIN =
-    "JOIN catalog_upgrade_published pv ON pv.tenant_key = v.tenant_key AND pv.resource_id = v.template_resource_id " +
-        "AND pv.kind = 'variant' AND pv.part = v.id"
-
 /**
  * The catalog details with the version's theme settings (contract ADR 0007): its default theme,
  * named by the alias of its catalog when it lives in another one (that catalog's key, see
@@ -470,4 +411,4 @@ private fun CatalogInfo.withThemeSettings(catalog: CatalogId): CatalogInfo {
 }
 
 /** A variant's stored `metadata` as the protocol models it ([VariantEntry.metadata]). */
-private val VARIANT_METADATA = object : tools.jackson.core.type.TypeReference<Map<String, Map<String, Any?>>>() {}
+private val PLAIN_MAP = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}

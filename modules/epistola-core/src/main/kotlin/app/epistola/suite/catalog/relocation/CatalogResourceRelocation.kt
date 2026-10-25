@@ -21,7 +21,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.fields
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.themes.ThemeReads
 import app.epistola.suite.themes.fields
 import org.jdbi.v3.core.Jdbi
@@ -153,6 +152,7 @@ class MoveCatalogResourcesHandler(
     private val stencils: app.epistola.suite.stencils.StencilStore,
     private val fonts: app.epistola.suite.fonts.FontStore,
     private val images: app.epistola.suite.assets.ImageStore,
+    private val templates: app.epistola.suite.templates.TemplateStore,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
@@ -170,20 +170,15 @@ class MoveCatalogResourcesHandler(
         // The expected-bytes guard makes every rewrite safe against a concurrent edit.
         for (rewrite in plan.rewrites) {
             val changed = when (rewrite) {
-                is JsonRewrite.VariantModel -> handle.createUpdate(
-                    """
-                    UPDATE template_variants SET template_model = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
-                      AND template_model = :expected::jsonb
-                    """,
-                )
-                    .bind("templateKey", rewrite.ownerKey)
-                    .bind("variantKey", rewrite.variantKey)
-                    .bindRewrite(command.tenantKey, rewrite)
+                is JsonRewrite.VariantModel -> rewriteVariant(handle, command.tenantKey, rewrite.catalogKey, rewrite.ownerKey) { template, catalog ->
+                    val variant = template.variant(rewrite.variantKey) ?: return@rewriteVariant null
+                    val stored = templates.model(handle, command.tenantKey, variant.modelHash) ?: return@rewriteVariant null
+                    // The plan saw the stored model.
+                    if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stored) != objectMapper.readTree(rewrite.expected)) return@rewriteVariant null
+                    val replacement = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
                     // Stored in its released form (ADR 0033), as every model is.
-                    .bind("replacement", storedModel(rewrite.replacement, CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(command.tenantKey)).key.value))
-                    .execute()
+                    template.withVariant(rewrite.variantKey) { it.copy(modelHash = templates.storeModel(handle, command.tenantKey, replacement, catalog.key.value)) }
+                }
 
                 is JsonRewrite.StencilContent -> rewriteStencil(handle, command.tenantKey, rewrite)
 
@@ -191,18 +186,11 @@ class MoveCatalogResourcesHandler(
 
                 is JsonRewrite.AttributeContent -> rewriteAttribute(handle, command.tenantKey, rewrite)
 
-                is JsonRewrite.VariantAttributes -> handle.createUpdate(
-                    """
-                    UPDATE template_variants SET attributes = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                      AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
-                      AND attributes = :expected::jsonb
-                    """,
-                )
-                    .bind("templateKey", rewrite.ownerKey)
-                    .bind("variantKey", rewrite.variantKey)
-                    .bindRewrite(command.tenantKey, rewrite)
-                    .execute()
+                is JsonRewrite.VariantAttributes -> rewriteVariant(handle, command.tenantKey, rewrite.catalogKey, rewrite.ownerKey) { template, _ ->
+                    val variant = template.variant(rewrite.variantKey) ?: return@rewriteVariant null
+                    if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(variant.attributes) != objectMapper.readTree(rewrite.expected)) return@rewriteVariant null
+                    template.withVariant(rewrite.variantKey) { it.copy(attributes = objectMapper.readValue(rewrite.replacement, STRINGS)) }
+                }
             }
             if (changed != 1) throw StaleCatalogResourceMovePlanException()
         }
@@ -214,6 +202,8 @@ class MoveCatalogResourcesHandler(
             if (movable == MovableResource.THEME) {
                 // A theme is a draft row naming its content (ADR 0033); its content names its key.
                 val source = relocation.source.catalogIn(command.tenantKey)
+                // Its templates name it by alias and key: they follow it first, while they still find it.
+                followTheme(handle, command.tenantKey, resourceId.value, relocation)
                 if (!themes.move(handle, source, relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
                     throw StaleCatalogResourceMovePlanException()
                 }
@@ -247,6 +237,13 @@ class MoveCatalogResourcesHandler(
                 }
                 continue
             }
+            if (movable == MovableResource.TEMPLATE) {
+                // So is a template (ADR 0033); its models are stored again in the destination's form.
+                if (!templates.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
             if (movable == MovableResource.CODE_LIST) {
                 // So is a code list (ADR 0033); its content names its key.
                 if (!codeLists.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
@@ -271,9 +268,6 @@ class MoveCatalogResourcesHandler(
                 .bind("targetKey", relocation.target.key)
                 .execute()
             if (moved != 1) throw StaleCatalogResourceMovePlanException()
-            if (movable == MovableResource.TEMPLATE) {
-                restoreModels(handle, command.tenantKey, resourceId.value, relocation.source.catalogIn(command.tenantKey), relocation.target.catalogIn(command.tenantKey))
-            }
             // This one row is the whole relational move. Every type is keyed by its resource_id and
             // every dependant names that, so nothing else refers to the address being changed --
             // owned hierarchies included, and a rename no differently from a move.
@@ -287,32 +281,52 @@ class MoveCatalogResourcesHandler(
         plan.preview
     }
 
-    /** [json], a model of a template of [catalogKey], in the form it is stored. */
-    private fun storedModel(json: String, catalogKey: String): String = objectMapper.writeValueAsString(
-        app.epistola.suite.templates.TemplateModels.stored(objectMapper.readValue(json, app.epistola.template.model.TemplateDocument::class.java), catalogKey, objectMapper),
-    )
+    /**
+     * Template [ownerKey] of the catalog at [catalogAddress] changed by [change], when the change still
+     * applies to what the plan saw; 1 when it did, else 0. A rewrite follows a move; it is not the
+     * user's edit, so whoever edited it last stays.
+     */
+    private fun rewriteVariant(
+        handle: org.jdbi.v3.core.Handle,
+        tenantKey: TenantKey,
+        catalogAddress: String,
+        ownerKey: String,
+        change: (app.epistola.suite.templates.StoredTemplate, CatalogId) -> app.epistola.suite.templates.StoredTemplate?,
+    ): Int {
+        val catalog = CatalogId.of(catalogAddress, app.epistola.suite.common.ids.TenantId(tenantKey))
+        val id = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(ownerKey), catalog)
+        val loaded = templates.get(handle, id) ?: return 0
+        val changed = change(loaded.template, catalog) ?: return 0
+        val author = handle.createQuery("SELECT updated_by FROM current_templates WHERE tenant_key = :t AND resource_id = :id")
+            .bind("t", tenantKey).bind("id", loaded.resourceId)
+            .mapTo(java.util.UUID::class.java).findOne().orElse(null)
+        return if (templates.write(handle, catalog, changed, author, loaded.revision) != null) 1 else 0
+    }
 
     /**
-     * The moved template's models, read as they meant in [source] and stored in [target]'s form: a
-     * model is stored with its own-catalog references relative (ADR 0033), so left as it was, one into
-     * the catalog it left would come to mean the catalog it joined.
+     * The templates of every draft that use theme [themeId], which is about to move: a template names
+     * its theme by alias and key (ADR 0033), where it used to name its identity and so followed it. Each
+     * is pointed at the theme's destination, the alias relative to the template's own catalog.
      */
-    private fun restoreModels(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, templateResourceId: java.util.UUID, source: CatalogId, target: CatalogId) {
-        val models = handle.createQuery(
-            "SELECT id, template_model::text AS model FROM template_variants WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = :id",
+    private fun followTheme(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, themeId: java.util.UUID, relocation: ResourceRelocationPlan) {
+        val users = handle.createQuery(
+            """
+            SELECT t.id, c.namespace || '/' || c.catalog_key AS catalog_address, t.updated_by, t.revision
+            FROM current_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+            WHERE t.tenant_key = :t AND t.theme_resource_id = :theme AND t.version_id IS NOT NULL
+            """,
         )
-            .bind("t", tenantKey).bindCatalog("c", target).bind("id", templateResourceId)
-            .map { rs, _ -> rs.getString("id") to rs.getString("model") }
+            .bind("t", tenantKey)
+            .bind("theme", themeId)
+            .map { rs, _ -> listOf(rs.getString("id"), rs.getString("catalog_address")) to rs.getObject("updated_by", java.util.UUID::class.java) }
             .list()
-        for ((variant, json) in models) {
-            val read = app.epistola.suite.templates.TemplateModels.read(json, source.key.value, objectMapper)
-            val stored = objectMapper.writeValueAsString(app.epistola.suite.templates.TemplateModels.stored(read, target.key.value, objectMapper))
-            if (objectMapper.readTree(stored) == objectMapper.readTree(json)) continue
-            handle.createUpdate(
-                "UPDATE template_variants SET template_model = :model::jsonb WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = :id AND id = :variant",
-            )
-                .bind("t", tenantKey).bindCatalog("c", target).bind("id", templateResourceId).bind("variant", variant).bind("model", stored)
-                .execute()
+        val target = relocation.target.catalogIn(tenantKey)
+        for ((address, author) in users) {
+            val catalog = CatalogId.of(address[1], app.epistola.suite.common.ids.TenantId(tenantKey))
+            val id = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(address[0]), catalog)
+            val loaded = templates.get(handle, id) ?: continue
+            val moved = loaded.template.copy(themeKey = relocation.target.key, themeCatalogKey = target.key.value.takeUnless { target == catalog })
+            templates.write(handle, catalog, moved, author)
         }
     }
 
@@ -375,9 +389,6 @@ class MoveCatalogResourcesHandler(
         // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
         return if (stencils.write(handle, id, stencil.fields().copy(content = content), stencil.updatedBy?.value)) 1 else 0
     }
-
-    private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)
-        .bindCatalog("catalogKey", app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey)))
-        .bind("replacement", rewrite.replacement)
-        .bind("expected", rewrite.expected)
 }
+
+private val STRINGS = object : tools.jackson.core.type.TypeReference<Map<String, String>>() {}

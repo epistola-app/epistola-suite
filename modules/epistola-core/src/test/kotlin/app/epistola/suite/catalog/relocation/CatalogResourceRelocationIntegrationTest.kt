@@ -58,7 +58,6 @@ import app.epistola.suite.templates.model.Slot
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.ThemeRef
 import app.epistola.suite.templates.queries.variants.GetVariantContent
-import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testAddress
 import app.epistola.suite.testing.testCatalog
@@ -355,10 +354,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             UpdateVariantContent(variantId, templateEmbedding(stencilId.key.value)).execute()
             MarkVariantReady(variantId).execute()
         }
-        // Content written before references were qualified on write stored this relatively, and the
-        // 2.0 upgrade carried it into the variant's working model. No command writes that shape any
-        // more, so the qualification is stripped from the row.
-        stripQualification("template_variants", "template_model", "{nodes,stencil-instance,props,catalogKey}", tenant.id, sourceCatalog, templateOwner, templateId.key.value)
+        // A model is stored with its own-catalog references relative (ADR 0033), as a release holds it.
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(address.movedTo(targetCatalog))).query() }
         assertThat(preview.blockers).isEmpty()
@@ -371,29 +367,6 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         val moved = withMediator { GetVariantContent(movedVariant).query()!! }
         assertThat(moved.nodes.getValue("stencil-instance").props?.get("catalogKey")).isEqualTo(sourceCatalog.value)
         withMediator { MarkVariantReady(movedVariant).execute() }
-    }
-
-    /**
-     * How a versions table names the template that owns it, as a bindable predicate on
-     * `(:tenantKey, :catalogKey, :ownerKey)`.
-     */
-    private val templateOwner =
-        "template_resource_id = (SELECT resource_id FROM document_templates " +
-            "WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = :ownerKey)"
-
-    /** Removes a qualification the write path added, to plant content in its pre-qualification shape. */
-    private fun stripQualification(table: String, column: String, path: String, tenantKey: TenantKey, catalogKey: CatalogKey, owner: String, ownerKey: String) {
-        jdbi.useHandle<Exception> { handle ->
-            val stripped = handle.createUpdate(
-                "UPDATE $table SET $column = $column #- :path::text[] WHERE tenant_key = :tenantKey AND $owner",
-            )
-                .bind("path", path)
-                .bind("tenantKey", tenantKey)
-                .bindCatalog("catalogKey", testCatalog(tenantKey, catalogKey))
-                .bind("ownerKey", ownerKey)
-                .execute()
-            assertThat(stripped).isEqualTo(1)
-        }
     }
 
     private fun dependsOnThemeRelatively(): TemplateDocument = TemplateDocument(
@@ -483,7 +456,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         assertThat(identityAt(tenant.id, address.copy(catalogKey = targetCatalog.value))).isNotNull()
         // The hierarchy no longer stores a catalog of its own: it follows the template's, which is
         // the point of the re-key, so reading it back through the template is the real assertion.
-        assertThat(catalogKeysOfTemplatesOwning("template_variants", tenant.id)).containsExactly(targetCatalog.value)
+        assertThat(catalogKeysOfTemplatesOwning("current_template_variants", tenant.id)).containsExactly(targetCatalog.value)
 
         // Generation history did not: it records where the template lived at the time.
         assertThat(catalogKeysIn("documents", tenant.id)).containsExactly(sourceCatalog.value)
@@ -539,7 +512,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """
             SELECT DISTINCT template_catalog.catalog_key::text
             FROM $table owned
-            ${templateJoin("owned")}
+            ${app.epistola.suite.templates.currentTemplateViewJoin("owned")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
             WHERE owned.tenant_key = :tenantKey
@@ -897,8 +870,8 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun variantAttributes(tenantKey: TenantKey, templateId: TemplateId, variantId: VariantId): Map<String, String> = jdbi.withHandle<Map<String, String>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT variants.attributes::text FROM template_variants variants
-                ${templateJoin("variants")}
+                SELECT variants.attributes::text FROM current_template_variants variants
+                ${app.epistola.suite.templates.currentTemplateViewJoin("variants")}
                 WHERE variants.tenant_key = :tenantKey AND template.id = :templateKey AND variants.id = :variantKey
                 """,
         )

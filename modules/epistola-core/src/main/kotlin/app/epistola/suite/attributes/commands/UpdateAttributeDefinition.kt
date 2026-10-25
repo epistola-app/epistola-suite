@@ -27,7 +27,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.currentTemplateViewJoin
-import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi

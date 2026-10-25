@@ -281,7 +281,8 @@ class MergedContentTest : IntegrationTestBase() {
             val cases = mapOf(
                 good + ("key" to "Invoice!") to "mergedContent.template/invoice/key",
                 good + ("type" to "theme") to "mergedContent.template/invoice/type",
-                good + ("variants" to variantsOf(good) + variantsOf(good).first()) to "mergedContent.template/invoice/variants[2]/key",
+                // A second entry of a variant that is not the default: the key is what clashes.
+                good + ("variants" to variantsOf(good) + variantsOf(good).first { it["isDefault"] != true }) to "mergedContent.template/invoice/variants[2]/key",
                 good + ("name" to 42) + ("variants" to "none") to "mergedContent.template/invoice",
             )
             cases.forEach { (content, field) ->

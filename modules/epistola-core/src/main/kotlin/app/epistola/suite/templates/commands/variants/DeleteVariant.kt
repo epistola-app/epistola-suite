@@ -15,7 +15,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.TemplateStore
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -34,43 +35,19 @@ data class DeleteVariant(
 @Component
 class DeleteVariantHandler(
     private val jdbi: Jdbi,
+    private val templates: TemplateStore,
 ) : CommandHandler<DeleteVariant, Boolean> {
     override fun handle(command: DeleteVariant): Boolean {
         requireCatalogEditable(command.variantId.catalogId)
 
         return jdbi.inTransaction<Boolean, Exception> { handle ->
-            // Check if this variant is the default — block deletion if so
-            val isDefault = handle.createQuery(
-                """
-                SELECT is_default FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bindCatalog("catalogKey", command.variantId.catalogId)
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .mapTo<Boolean>()
-                .findOne()
-                .orElse(null) ?: return@inTransaction false
-
-            if (isDefault) {
-                throw DefaultVariantDeletionException(command.variantId.key)
-            }
-
-            val rowsAffected = handle.createUpdate(
-                """
-                DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bindCatalog("catalogKey", command.variantId.catalogId)
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .execute()
-
-            rowsAffected > 0
+            val key = command.variantId.key.value
+            templates.modify(handle, command.variantId.templateId, currentUserIdOrNull()?.value, null, "Variant '$key'") { template ->
+                val variant = template.variant(key) ?: return@modify null
+                // The default variant cannot go.
+                if (variant.isDefault) throw DefaultVariantDeletionException(command.variantId.key)
+                template.copy(variants = template.variants - variant)
+            } != null
         }
     }
 }

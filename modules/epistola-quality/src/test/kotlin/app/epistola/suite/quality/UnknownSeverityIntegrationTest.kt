@@ -16,7 +16,7 @@ import app.epistola.suite.quality.queries.GetQualityFinding
 import app.epistola.suite.quality.queries.ListQualityFindings
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
@@ -71,7 +71,7 @@ class UnknownSeverityIntegrationTest : IntegrationTestBase() {
                     message, fingerprint, context, status, first_seen_at, last_seen_at
                 ) VALUES (
                     :tenantKey, :id, 'remote-checker', 'remote.rule', :severity, :subjectUrn, :subjectType,
-                    :ignoreScopeUrn, ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :variantKey, '{}',
+                    :ignoreScopeUrn, ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, '{}',
                     'A remote checker used its own vocabulary', :fingerprint, '{}'::jsonb, 'OPEN', NOW(), NOW()
                 )
                 """,

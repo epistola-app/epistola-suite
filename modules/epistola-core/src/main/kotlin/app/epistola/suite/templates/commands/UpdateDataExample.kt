@@ -16,9 +16,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TemplateStore
+import app.epistola.suite.templates.contracts.commands.writeContract
 import app.epistola.suite.templates.contracts.queries.readDataContract
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
@@ -60,6 +61,7 @@ class UpdateDataExampleHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
+    private val templates: TemplateStore,
 ) : CommandHandler<UpdateDataExample, UpdateDataExampleResult?> {
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
         requireCatalogEditable(command.templateId.catalogId)
@@ -100,21 +102,7 @@ class UpdateDataExampleHandler(
                 if (example.id == command.exampleId) updatedExample else example
             }
 
-            val revision = handle.createQuery(
-                """
-                UPDATE document_templates
-                SET data_examples = :dataExamples::jsonb, updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                  AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
-                RETURNING revision
-                """,
-            )
-                .bind("tenantKey", command.templateId.tenantKey)
-                .bindCatalog("catalogKey", command.templateId.catalogId)
-                .bind("templateKey", command.templateId.key)
-                .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
-                .mapTo(Long::class.java)
-                .one()
+            val revision = writeContract(handle, templates, objectMapper, command.templateId, schema, updatedExamples)
 
             UpdateDataExampleResult(example = updatedExample, warnings = warnings, revision = revision)
         }

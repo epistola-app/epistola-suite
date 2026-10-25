@@ -43,8 +43,24 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
     /** The variant's model as stored: its `themeRef` as the row holds it. */
     private fun storedThemeRef(tenant: app.epistola.suite.common.ids.TenantKey, templateResource: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
+            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM current_template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
         ).bind("t", tenant).bind("k", templateResource).mapTo(String::class.java).findOne().orElse("<relative>")
+    }
+
+    @Test
+    fun `a template that follows its theme to another catalog names it there`() {
+        val tenant = tenantWith("Template theme relocation")
+        val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
+            CreateDocumentTemplate(invoice, "Invoice").execute()
+            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
+        }
+
+        move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "house").movedTo(shared, "brand"))
+
+        val template = withMediator { app.epistola.suite.templates.queries.GetDocumentTemplate(invoice).query()!! }
+        assertThat(listOf(template.themeKey?.value, template.themeCatalogKey?.value)).`as`("named by alias and key, it follows").containsExactly("brand", "shared")
     }
 
     @Test

@@ -351,7 +351,7 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
                 FROM release_resources e
                 JOIN resource_contents t ON t.tenant_key = e.tenant_key AND t.content_hash = e.content_hash
                 WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter'
-                  AND m.tenant_key = t.tenant_key AND m.content_hash = t.payload -> 'templateModel' ->> 'revisionDigest'
+                  AND m.tenant_key = t.tenant_key AND m.content_hash = t.payload -> 'resource' -> 'templateModel' ->> 'revisionDigest'
                 """,
             ).bind("t", a).execute()
             assertThat(handle.createQuery("SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND payload::text LIKE '%registry.example.com%'").bind("t", a).mapTo(Int::class.java).one())

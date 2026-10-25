@@ -17,7 +17,6 @@ import app.epistola.suite.quality.SubmitFindingsResult
 import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi

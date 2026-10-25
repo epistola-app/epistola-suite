@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.StencilKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -23,11 +24,13 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.StencilNodeKeys
+import app.epistola.suite.templates.StoredTemplate
+import app.epistola.suite.templates.StoredVariant
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.suite.templates.validation.requireValidDataContractSchema
@@ -56,7 +59,7 @@ data class ImportTemplates(
     override val tenantKey: TenantKey get() = tenantId.key
 
     init {
-        // Column ceilings (#692): document_templates.name and template_variants.title are
+        // Column ceilings (#692): a template's name and a variant's title were
         // VARCHAR(255). Validate the RESOLVED title (a blank import falls back to the variant
         // id), so what actually gets written is bounded. One template per command in the
         // catalog fan-out, so a rejection isolates to that resource.
@@ -132,6 +135,7 @@ class ImportTemplatesHandler(
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
     private val readyMarks: ReadyMarks,
+    private val templates: TemplateStore,
 ) : CommandHandler<ImportTemplates, List<ImportTemplateResult>> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -157,10 +161,8 @@ class ImportTemplatesHandler(
     }
 
     private fun importSingleTemplate(catalog: CatalogId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
-        val templateId = TemplateKey.of(input.slug)
+        val templateId = TemplateId(TemplateKey.of(input.slug), catalog)
         val auditUser = currentUserIdOrNull()?.value
-        val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
-        val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
 
         // Validate property names in the schema
         if (input.dataModel != null) {
@@ -176,149 +178,45 @@ class ImportTemplatesHandler(
         require(input.variants.isNotEmpty()) { "Template '${input.slug}': at least one variant is required" }
         require(defaultCount == 1) { "Template '${input.slug}': exactly one variant must have isDefault=true, found $defaultCount" }
 
-        // 1. Check if template exists
-        val templateExists = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
+        val existing = templates.get(handle, templateId)?.template
+        // Import supersedes local edits; a variant's description, which the wire form does not carry
+        // yet, stays with the variant that keeps its key.
+        val template = StoredTemplate(
+            key = input.slug,
+            name = input.name,
+            description = input.description,
+            themeKey = input.themeId,
+            // By alias (ADR 0034): a theme of the template's own catalog is named without one.
+            themeCatalogKey = input.themeCatalog?.takeUnless { it == catalog }?.key?.value.takeIf { input.themeId != null },
+            pdfaEnabled = input.pdfaEnabled,
+            dataModel = input.dataModel?.let { objectMapper.convertValue(it, MAP) },
+            dataExamples = TemplateStore.entriesOf(input.dataExamples, objectMapper),
+            variants = input.variants.map { variantInput ->
+                // The variant's own model, else the template's.
+                val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalog.key)
+                StoredVariant(
+                    key = variantInput.id,
+                    // Title is required (#631); default a title-less import to the variant slug.
+                    title = variantInput.resolvedTitle(),
+                    description = existing?.variant(variantInput.id)?.description,
+                    attributes = variantInput.attributes,
+                    isDefault = variantInput.isDefault,
+                    // Empty metadata is no metadata: the wire forbids `{}`.
+                    metadata = variantInput.metadata?.takeIf { it.isNotEmpty() },
+                    modelHash = templates.storeModel(handle, catalog.tenantKey, prepared.templateModelJson),
+                )
+            },
         )
-            .bind("id", templateId)
-            .bind("tenantId", catalog.tenantId.key)
-            .bindCatalog("catalogKey", catalog)
-            .mapTo<Boolean>()
-            .one()
-
-        // 2. Upsert template
-        val status: ImportStatus = if (!templateExists) {
-            handle.createUpdate(
-                """
-                    INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, description, theme_resource_id, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")}, :pdfaEnabled, NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, version_id, id) DO UPDATE
-                    SET name = :name, description = :description, theme_resource_id = EXCLUDED.theme_resource_id,
-                        pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
-                    """,
-            )
-                .bind("id", templateId)
-                .bind("tenantId", catalog.tenantId.key)
-                .bindCatalog("catalogKey", catalog)
-                .bind("name", input.name)
-                .bind("description", input.description)
-                .bind("themeKey", input.themeId)
-                .bindCatalog("themeCatalogKey", input.themeCatalog)
-                .bind("pdfaEnabled", input.pdfaEnabled)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
+        val status = if (existing == null) {
+            templates.create(handle, catalog, template, auditUser)
             ImportStatus.CREATED
         } else {
-            handle.createUpdate(
-                """
-                    UPDATE document_templates
-                    SET name = :name, description = :description, theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeKey")},
-                        pdfa_enabled = :pdfaEnabled, updated_at = NOW(), updated_by = :updatedBy
-                    WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                    """,
-            )
-                .bind("id", templateId)
-                .bind("tenantId", catalog.tenantId.key)
-                .bindCatalog("catalogKey", catalog)
-                .bind("name", input.name)
-                .bind("description", input.description)
-                .bind("themeKey", input.themeId)
-                .bindCatalog("themeCatalogKey", input.themeCatalog)
-                .bind("pdfaEnabled", input.pdfaEnabled)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
+            checkNotNull(templates.write(handle, catalog, template, auditUser)) { "Template ${input.slug} went while it was imported" }
             ImportStatus.UPDATED
         }
 
-        // 2b. The data contract: import supersedes local edits.
-        handle.createUpdate(
-            """
-                UPDATE document_templates SET data_model = CAST(:dataModel AS JSONB), data_examples = CAST(:dataExamples AS JSONB)
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                """,
-        )
-            .bind("tenantId", catalog.tenantId.key)
-            .bindCatalog("catalogKey", catalog)
-            .bind("templateId", templateId)
-            .bind("dataModel", dataModelJson)
-            .bind("dataExamples", dataExamplesJson)
-            .execute()
-
-        // 3. Clear existing default flag to avoid unique partial index conflict during upserts
-        handle.createUpdate(
-            """
-                UPDATE template_variants SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
-                """,
-        )
-            .bind("tenantId", catalog.tenantId.key)
-            .bindCatalog("catalogKey", catalog)
-            .bind("templateId", templateId)
-            .execute()
-
-        // 4. Upsert each variant with caller's is_default value
-        val importedVariantIds = mutableSetOf<VariantKey>()
-        for (variantInput in input.variants) {
-            val variantId = VariantKey.of(variantInput.id)
-            importedVariantIds.add(variantId)
-
-            val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
-            // The variant's own model, else the template's; import supersedes local edits.
-            val prepared = templateDocumentPreparation.prepare(variantInput.templateModel ?: input.templateModel, catalog.key)
-
-            handle.createUpdate(
-                """
-                    INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
-                                                   metadata, created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :attributes::jsonb, :isDefault,
-                            :templateModel::jsonb, :referencedPaths::jsonb, CAST(:metadata AS JSONB), NOW(), NOW(), :createdBy, :updatedBy)
-                    ON CONFLICT (tenant_key, version_id, template_resource_id, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, metadata = CAST(:metadata AS JSONB),
-                        template_model = :templateModel::jsonb, referenced_paths = :referencedPaths::jsonb, updated_at = NOW(), updated_by = :updatedBy
-                    """,
-            )
-                .bind("templateModel", prepared.templateModelJson)
-                .bind("referencedPaths", prepared.referencedPathsJson)
-                .bind("id", variantId)
-                .bind("tenantId", catalog.tenantId.key)
-                .bindCatalog("catalogKey", catalog)
-                .bind("templateId", templateId)
-                // Title is required (#631); default a title-less import to the variant slug.
-                .bind("title", variantInput.resolvedTitle())
-                .bind("attributes", attributesJson)
-                .bind("isDefault", variantInput.isDefault)
-                // Empty metadata is no metadata: the wire forbids `{}`.
-                .bind("metadata", variantInput.metadata?.takeIf { it.isNotEmpty() }?.let(objectMapper::writeValueAsString))
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
-        }
-
-        // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
-        handle.createUpdate(
-            """
-                DELETE FROM template_variants
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                  AND id NOT IN (<variantIds>)
-                """,
-        )
-            .bind("tenantId", catalog.tenantId.key)
-            .bindCatalog("catalogKey", catalog)
-            .bind("templateId", templateId)
-            .bindList("variantIds", importedVariantIds.toList())
-            .execute()
-
         // What a catalog brings is released content: imported, it is ready as it is.
-        handle.createQuery("SELECT ${templateAtAddress("tenantId", "catalogKey", "templateId")}")
-            .bind("tenantId", catalog.tenantId.key)
-            .bindCatalog("catalogKey", catalog)
-            .bind("templateId", templateId)
-            .mapTo(java.util.UUID::class.java)
-            .one()
-            .let { readyMarks.mark(handle, catalog.tenantId.key, it) }
+        readyMarks.mark(handle, catalog.tenantId.key, checkNotNull(templates.get(handle, templateId)).resourceId)
 
         ImportTemplateResult(
             slug = input.slug,
@@ -326,5 +224,9 @@ class ImportTemplatesHandler(
             version = input.version,
             errorMessage = null,
         )
+    }
+
+    private companion object {
+        val MAP = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}
     }
 }

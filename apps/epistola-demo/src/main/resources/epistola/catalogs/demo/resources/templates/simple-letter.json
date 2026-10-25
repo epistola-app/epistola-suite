@@ -732,7 +732,6 @@
         "key": "default",
         "title": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true
       },
       {
@@ -741,7 +740,543 @@
         "attributes": {
           "system.locale": "en-US"
         },
-        "templateModel": null,
+        "templateModel": {
+          "modelVersion": 1,
+          "root": "n-root",
+          "nodes": {
+            "n-body": {
+              "id": "n-body",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "body"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-root": {
+              "id": "n-root",
+              "type": "root",
+              "slots": [
+                "s-root-children"
+              ]
+            },
+            "n-notes": {
+              "id": "n-notes",
+              "type": "richTextVariable",
+              "slots": [],
+              "styles": {
+                "marginTop": "1sp",
+                "listItemSpacing": "0.5sp"
+              },
+              "props": {
+                "binding": "notes"
+              }
+            },
+            "n-footer": {
+              "id": "n-footer",
+              "type": "pagefooter",
+              "slots": [
+                "s-footer-children"
+              ],
+              "props": {
+                "height": "30pt",
+                "hideOnFirstPage": true
+              }
+            },
+            "n-subject": {
+              "id": "n-subject",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginBottom": "4sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "heading",
+                      "attrs": {
+                        "level": 2
+                      },
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "subject"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-summary": {
+              "id": "n-summary",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp",
+                "listItemSpacing": "0sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Key points:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "bullet_list",
+                      "attrs": {
+                        "listStyle": "disc"
+                      },
+                      "content": [
+                        {
+                          "type": "list_item",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "text": "Project scope",
+                                  "type": "text"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "bullet_list",
+                              "attrs": {
+                                "listStyle": "circle"
+                              },
+                              "content": [
+                                {
+                                  "type": "list_item",
+                                  "content": [
+                                    {
+                                      "type": "paragraph",
+                                      "content": [
+                                        {
+                                          "text": "Phase 1 delivered",
+                                          "type": "text"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "list_item",
+                                  "content": [
+                                    {
+                                      "type": "paragraph",
+                                      "content": [
+                                        {
+                                          "text": "Phase 2 in progress",
+                                          "type": "text"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "list_item",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "text": "Budget on track",
+                                  "type": "text"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-separator": {
+              "id": "n-separator",
+              "type": "separator",
+              "slots": [],
+              "props": {
+                "color": "#d1d5db",
+                "style": "solid",
+                "width": "100%",
+                "thickness": "1pt"
+              }
+            },
+            "n-aside-text": {
+              "id": "n-aside-text",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.name"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.address"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.city"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Date: ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "date"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-letterhead": {
+              "id": "n-letterhead",
+              "type": "image",
+              "slots": [],
+              "styles": {
+                "marginBottom": "4sp"
+              },
+              "props": {
+                "alt": "System badge",
+                "width": "24pt",
+                "height": "24pt",
+                "imageKey": "01966a00-0000-7000-8000-000000000010",
+                "catalogKey": "system",
+                "aspectRatioLocked": true
+              }
+            },
+            "n-attachments": {
+              "id": "n-attachments",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp",
+                "keepWithNext": true
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Attachments:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-footer-text": {
+              "id": "n-footer-text",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "color": "#999999",
+                "fontSize": "9pt",
+                "textAlign": "center"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Confidential — Page ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sys.pages.current"
+                          }
+                        },
+                        {
+                          "text": " of ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sys.pages.total"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-notes-label": {
+              "id": "n-notes-label",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Notes:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-address-text": {
+              "id": "n-address-text",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.name"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.address"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.city"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-addressblock": {
+              "id": "n-addressblock",
+              "type": "addressblock",
+              "slots": [
+                "s-address",
+                "s-aside"
+              ],
+              "props": {
+                "top": 45,
+                "align": "left",
+                "height": 45,
+                "addressWidth": 85,
+                "sideDistance": 20
+              }
+            },
+            "n-attachments-item": {
+              "id": "n-attachments-item",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "attachment"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-attachments-list": {
+              "id": "n-attachments-list",
+              "type": "datalist",
+              "slots": [
+                "s-attachments-list-template"
+              ],
+              "styles": {
+                "listItemSpacing": "1sp"
+              },
+              "props": {
+                "listType": "bullet",
+                "itemAlias": "attachment",
+                "expression": {
+                  "raw": "attachments",
+                  "language": "jsonata"
+                },
+                "bulletStyle": "square"
+              }
+            }
+          },
+          "slots": {
+            "s-aside": {
+              "id": "s-aside",
+              "nodeId": "n-addressblock",
+              "name": "aside",
+              "children": [
+                "n-aside-text"
+              ]
+            },
+            "s-address": {
+              "id": "s-address",
+              "nodeId": "n-addressblock",
+              "name": "address",
+              "children": [
+                "n-address-text"
+              ]
+            },
+            "s-root-children": {
+              "id": "s-root-children",
+              "nodeId": "n-root",
+              "name": "children",
+              "children": [
+                "n-footer",
+                "n-addressblock",
+                "n-letterhead",
+                "n-separator",
+                "n-subject",
+                "n-body",
+                "n-summary",
+                "n-attachments",
+                "n-attachments-list",
+                "n-notes-label",
+                "n-notes"
+              ]
+            },
+            "s-footer-children": {
+              "id": "s-footer-children",
+              "nodeId": "n-footer",
+              "name": "children",
+              "children": [
+                "n-footer-text"
+              ]
+            },
+            "s-attachments-list-template": {
+              "id": "s-attachments-list-template",
+              "nodeId": "n-attachments-list",
+              "name": "item-template",
+              "children": [
+                "n-attachments-item"
+              ]
+            }
+          },
+          "themeRef": {
+            "type": "inherit"
+          },
+          "pageSettingsOverride": {
+            "format": "A4",
+            "orientation": "portrait",
+            "margins": {
+              "top": 50,
+              "right": 40,
+              "bottom": 40,
+              "left": 40
+            }
+          }
+        },
         "isDefault": false
       },
       {
@@ -750,9 +1285,546 @@
         "attributes": {
           "system.locale": "nl-NL"
         },
-        "templateModel": null,
+        "templateModel": {
+          "modelVersion": 1,
+          "root": "n-root",
+          "nodes": {
+            "n-body": {
+              "id": "n-body",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "body"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-root": {
+              "id": "n-root",
+              "type": "root",
+              "slots": [
+                "s-root-children"
+              ]
+            },
+            "n-notes": {
+              "id": "n-notes",
+              "type": "richTextVariable",
+              "slots": [],
+              "styles": {
+                "marginTop": "1sp",
+                "listItemSpacing": "0.5sp"
+              },
+              "props": {
+                "binding": "notes"
+              }
+            },
+            "n-footer": {
+              "id": "n-footer",
+              "type": "pagefooter",
+              "slots": [
+                "s-footer-children"
+              ],
+              "props": {
+                "height": "30pt",
+                "hideOnFirstPage": true
+              }
+            },
+            "n-subject": {
+              "id": "n-subject",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginBottom": "4sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "heading",
+                      "attrs": {
+                        "level": 2
+                      },
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "subject"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-summary": {
+              "id": "n-summary",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp",
+                "listItemSpacing": "0sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Key points:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "bullet_list",
+                      "attrs": {
+                        "listStyle": "disc"
+                      },
+                      "content": [
+                        {
+                          "type": "list_item",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "text": "Project scope",
+                                  "type": "text"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "bullet_list",
+                              "attrs": {
+                                "listStyle": "circle"
+                              },
+                              "content": [
+                                {
+                                  "type": "list_item",
+                                  "content": [
+                                    {
+                                      "type": "paragraph",
+                                      "content": [
+                                        {
+                                          "text": "Phase 1 delivered",
+                                          "type": "text"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "list_item",
+                                  "content": [
+                                    {
+                                      "type": "paragraph",
+                                      "content": [
+                                        {
+                                          "text": "Phase 2 in progress",
+                                          "type": "text"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "list_item",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "text": "Budget on track",
+                                  "type": "text"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-separator": {
+              "id": "n-separator",
+              "type": "separator",
+              "slots": [],
+              "props": {
+                "color": "#d1d5db",
+                "style": "solid",
+                "width": "100%",
+                "thickness": "1pt"
+              }
+            },
+            "n-aside-text": {
+              "id": "n-aside-text",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.name"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.address"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sender.city"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Date: ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "date"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-letterhead": {
+              "id": "n-letterhead",
+              "type": "image",
+              "slots": [],
+              "styles": {
+                "marginBottom": "4sp"
+              },
+              "props": {
+                "alt": "System badge",
+                "width": "24pt",
+                "height": "24pt",
+                "imageKey": "01966a00-0000-7000-8000-000000000010",
+                "catalogKey": "system",
+                "aspectRatioLocked": true
+              }
+            },
+            "n-attachments": {
+              "id": "n-attachments",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp",
+                "keepWithNext": true
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Attachments:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-footer-text": {
+              "id": "n-footer-text",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "color": "#999999",
+                "fontSize": "9pt",
+                "textAlign": "center"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Confidential — Page ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sys.pages.current"
+                          }
+                        },
+                        {
+                          "text": " of ",
+                          "type": "text"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "sys.pages.total"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-notes-label": {
+              "id": "n-notes-label",
+              "type": "text",
+              "slots": [],
+              "styles": {
+                "marginTop": "4sp"
+              },
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "text": "Notes:",
+                          "type": "text",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-address-text": {
+              "id": "n-address-text",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.name"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.address"
+                          }
+                        },
+                        {
+                          "type": "hard_break"
+                        },
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "recipient.city"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-addressblock": {
+              "id": "n-addressblock",
+              "type": "addressblock",
+              "slots": [
+                "s-address",
+                "s-aside"
+              ],
+              "props": {
+                "top": 45,
+                "align": "left",
+                "height": 45,
+                "addressWidth": 85,
+                "sideDistance": 20
+              }
+            },
+            "n-attachments-item": {
+              "id": "n-attachments-item",
+              "type": "text",
+              "slots": [],
+              "props": {
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "attachment"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "n-attachments-list": {
+              "id": "n-attachments-list",
+              "type": "datalist",
+              "slots": [
+                "s-attachments-list-template"
+              ],
+              "styles": {
+                "listItemSpacing": "1sp"
+              },
+              "props": {
+                "listType": "bullet",
+                "itemAlias": "attachment",
+                "expression": {
+                  "raw": "attachments",
+                  "language": "jsonata"
+                },
+                "bulletStyle": "square"
+              }
+            }
+          },
+          "slots": {
+            "s-aside": {
+              "id": "s-aside",
+              "nodeId": "n-addressblock",
+              "name": "aside",
+              "children": [
+                "n-aside-text"
+              ]
+            },
+            "s-address": {
+              "id": "s-address",
+              "nodeId": "n-addressblock",
+              "name": "address",
+              "children": [
+                "n-address-text"
+              ]
+            },
+            "s-root-children": {
+              "id": "s-root-children",
+              "nodeId": "n-root",
+              "name": "children",
+              "children": [
+                "n-footer",
+                "n-addressblock",
+                "n-letterhead",
+                "n-separator",
+                "n-subject",
+                "n-body",
+                "n-summary",
+                "n-attachments",
+                "n-attachments-list",
+                "n-notes-label",
+                "n-notes"
+              ]
+            },
+            "s-footer-children": {
+              "id": "s-footer-children",
+              "nodeId": "n-footer",
+              "name": "children",
+              "children": [
+                "n-footer-text"
+              ]
+            },
+            "s-attachments-list-template": {
+              "id": "s-attachments-list-template",
+              "nodeId": "n-attachments-list",
+              "name": "item-template",
+              "children": [
+                "n-attachments-item"
+              ]
+            }
+          },
+          "themeRef": {
+            "type": "inherit"
+          },
+          "pageSettingsOverride": {
+            "format": "A4",
+            "orientation": "portrait",
+            "margins": {
+              "top": 50,
+              "right": 40,
+              "bottom": 40,
+              "left": 40
+            }
+          }
+        },
         "isDefault": false
       }
-    ]
+    ],
+    "pdfaEnabled": true
   }
 }

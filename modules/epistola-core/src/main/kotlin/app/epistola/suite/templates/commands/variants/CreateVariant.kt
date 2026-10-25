@@ -16,10 +16,13 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.StoredVariant
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateVariant
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -50,9 +53,9 @@ data class CreateVariant(
 @Component
 class CreateVariantHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
     private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
+    private val templates: TemplateStore,
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         requireCatalogEditable(command.id.catalogId)
@@ -65,68 +68,26 @@ class CreateVariantHandler(
         // as every write that starts using another catalog declares it (contract ADR 0003).
         usedCatalogs.declareAttributes(command.id.catalogId, command.attributes.keys)
 
-        return executeOrThrowDuplicate("variant", command.id.key.value) {
-            jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-                // Verify the template belongs to the tenant.
-                val templateExists = handle.createQuery(
-                    """
-                SELECT 1
-                FROM document_templates
-                WHERE id = :templateId AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
+        return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
+            // A new variant starts with the empty document.
+            val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
+            val modelHash = templates.storeModel(handle, command.id.tenantKey, prepared.templateModelJson)
+            templates.modify(handle, command.id.templateId, auditUser, null, "Template '${command.id.templateKey.value}'") { template ->
+                if (template.variant(command.id.key.value) != null) throw DuplicateIdException("variant", command.id.key.value)
+                requireDistinctAttributeSet(template, command.id.key.value, command.attributes)
+                template.copy(
+                    variants = template.variants + StoredVariant(
+                        key = command.id.key.value,
+                        title = command.title,
+                        description = command.description?.takeIf { it.isNotBlank() },
+                        attributes = command.attributes,
+                        // The first variant of a template becomes its default.
+                        isDefault = template.variants.isEmpty(),
+                        modelHash = modelHash,
+                    ),
                 )
-                    .bind("templateId", command.id.templateKey)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .mapTo(Int::class.java)
-                    .findOne()
-                    .isPresent
-                if (!templateExists) return@inTransaction null
-
-                val attributesJson = objectMapper.writeValueAsString(command.attributes)
-                requireDistinctAttributeSet(handle, command.id, command.attributes, attributesJson)
-
-                // Auto-default: first variant for a template becomes the default
-                val existingCount = handle.createQuery(
-                    """
-                SELECT COUNT(*) FROM template_variants
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                """,
-                )
-                    .bind("tenantId", command.id.tenantKey)
-                    .bind("templateId", command.id.templateKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .mapTo<Long>()
-                    .one()
-                val isDefault = existingCount == 0L
-
-                // A new variant starts with the empty document.
-                val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
-                val variant = handle.createQuery(
-                    """
-                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, description, attributes, is_default, template_model, referenced_paths,
-                                               created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, :description, :attributes::jsonb, :isDefault,
-                        :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
-                """,
-                )
-                    .bind("id", command.id.key)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("templateId", command.id.templateKey)
-                    .bind("title", command.title)
-                    .bind("description", command.description)
-                    .bind("attributes", attributesJson)
-                    .bind("isDefault", isDefault)
-                    .bind("templateModel", prepared.templateModelJson)
-                    .bind("referencedPaths", prepared.referencedPathsJson)
-                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                    .mapTo<TemplateVariant>()
-                    .one()
-
-                variant
-            }
+            } ?: return@inTransaction null
+            templateVariant(handle, command.id)
         }
     }
 }

@@ -271,27 +271,13 @@
           "id": "n-letterhead",
           "type": "stencil",
           "slots": [
-            "s-letterhead-children"
+            "n-letterhead:children"
           ],
           "props": {
             "stencilKey": "letterhead",
-            "catalogKey": "epistola-demo",
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"
-            },
-            "parameterSchemaSnapshot": {
-              "type": "object",
-              "properties": {
-                "companyName": {
-                  "type": "string",
-                  "description": "Company name shown in the letterhead and footer",
-                  "default": "Acme Corporation"
-                }
-              },
-              "required": [
-                "companyName"
-              ]
             }
           }
         },
@@ -623,125 +609,6 @@
             "textAlign": "right"
           }
         },
-        "n-lh-header": {
-          "id": "n-lh-header",
-          "type": "pageheader",
-          "slots": [
-            "s-lh-header-children"
-          ],
-          "props": {
-            "height": "40pt"
-          }
-        },
-        "n-lh-header-name": {
-          "id": "n-lh-header-name",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "params.companyName"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "styles": {
-            "fontWeight": "bold",
-            "fontSize": "14pt"
-          }
-        },
-        "n-lh-header-tagline": {
-          "id": "n-lh-header-tagline",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "Letterhead from the Letterhead stencil: it applies from the page the stencil starts on."
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "styles": {
-            "fontSize": "8pt",
-            "color": "#64748b"
-          }
-        },
-        "n-lh-footer": {
-          "id": "n-lh-footer",
-          "type": "pagefooter",
-          "slots": [
-            "s-lh-footer-children"
-          ],
-          "props": {
-            "height": "30pt"
-          }
-        },
-        "n-lh-footer-text": {
-          "id": "n-lh-footer-text",
-          "type": "text",
-          "slots": [],
-          "props": {
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "params.companyName"
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "text": " · page "
-                    },
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "sys.pages.current"
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "text": " of "
-                    },
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "sys.pages.total"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          },
-          "styles": {
-            "fontSize": "8pt",
-            "textAlign": "center"
-          }
-        },
         "n-cover-if-confidential": {
           "id": "n-cover-if-confidential",
           "type": "conditional",
@@ -873,32 +740,6 @@
             "n-appendix-loop"
           ]
         },
-        "s-lh-header-children": {
-          "id": "s-lh-header-children",
-          "nodeId": "n-lh-header",
-          "name": "children",
-          "children": [
-            "n-lh-header-name",
-            "n-lh-header-tagline"
-          ]
-        },
-        "s-lh-footer-children": {
-          "id": "s-lh-footer-children",
-          "nodeId": "n-lh-footer",
-          "name": "children",
-          "children": [
-            "n-lh-footer-text"
-          ]
-        },
-        "s-letterhead-children": {
-          "id": "s-letterhead-children",
-          "nodeId": "n-letterhead",
-          "name": "children",
-          "children": [
-            "n-lh-header",
-            "n-lh-footer"
-          ]
-        },
         "s-cover-if-confidential-body": {
           "id": "s-cover-if-confidential-body",
           "nodeId": "n-cover-if-confidential",
@@ -914,6 +755,12 @@
           "children": [
             "n-cover-header-text"
           ]
+        },
+        "n-letterhead:children": {
+          "id": "n-letterhead:children",
+          "nodeId": "n-letterhead",
+          "name": "children",
+          "children": []
         }
       }
     },
@@ -922,7 +769,6 @@
         "key": "default",
         "title": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true
       }
     ]

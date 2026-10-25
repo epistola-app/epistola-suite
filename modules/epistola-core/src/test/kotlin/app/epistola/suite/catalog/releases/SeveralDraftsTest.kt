@@ -149,8 +149,6 @@ class SeveralDraftsTest : IntegrationTestBase() {
         handle.createQuery(
             """
             SELECT (SELECT count(*) FROM release_resources WHERE tenant_key = :t AND version_id = :v)
-                 + (SELECT count(*) FROM document_templates WHERE tenant_key = :t AND version_id = :v)
-                 + (SELECT count(*) FROM template_variants WHERE tenant_key = :t AND version_id = :v)
             """,
         ).bind("t", tenant).bind("v", versionId(tenant, draft)).mapTo(Int::class.java).one()
     }

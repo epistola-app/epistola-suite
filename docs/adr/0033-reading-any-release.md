@@ -253,17 +253,19 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   the same content row (`DraftReleaseSameContentTest`). A stencil's references into its own catalog
   are relative there, as a release says them; the reads that have always seen them qualified (the
   editor, rendering a draft, an import's comparison) qualify them against the stencil's catalog when
-  they read it. A template model is stored the same way from step 7a, while templates are still in
-  their tables (`TemplateModels`): every read qualifies it against the template's catalog, and a move
-  stores it again in the destination's form.
-- **Templates read through one interface before they move** (step 7a): `current_templates` and
-  `current_template_variants` answer a draft's rows or a targeted release's content, a variant's
-  model from the content it was lifted into (the default variant's from the template's), so the
-  template queries, REST and MCP read a release as they read a draft and every reader of the tables
-  reads the views. A template names its theme by catalog and key, resolved through
-  `resolve_catalog_alias` for a release. What a draft keeps and the wire form does not (a variant's
-  description, a data example's id, per-variant timestamps and revisions) a release cannot give back;
-  step 7b keeps it beside the released form.
+  they read it. A template model is stored the same way (`TemplateModels`): every read qualifies it
+  against the template's catalog, and a move stores it again in the destination's form.
+- **Templates are stored as JSON** (step 7b): `{ "resource": <TemplateResource> }` with each
+  variant's model a content of its own (`templateModel`, named by `revisionDigest`; the default
+  variant's on the template, as the wire form has it). Saving a model writes its content and the
+  template's small one. What only this suite keeps sits beside the resource: each variant's
+  description (`variantDescriptions`) until the contract carries it on the variant (contract
+  `feature/common-tags`, after `2.0.0-alpha.1`), when a code migration moves it in. A data example is
+  addressed by its key, derived as a release derives one; the id it had is gone. A template names its
+  theme by alias and key (relative for its own catalog), so a moved theme rewrites the templates that
+  use it. The variants share the template row's revision and timestamps. A stencil instance is
+  stored in the canonical form of contract ADR 0006 in draft and release alike; a received archive in
+  another form keeps it in its release.
 - **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,
   `ReferenceWalkerGoldenVectorsTest`; ADR 0035). The index needs rebuilding only when the walker
   changes its output for content that already exists (a bug fix, an existing field that starts to

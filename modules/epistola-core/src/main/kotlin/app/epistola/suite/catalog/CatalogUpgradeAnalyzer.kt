@@ -10,7 +10,6 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.templates.templateAtAddress
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -282,28 +281,18 @@ class CatalogUpgradeAnalyzer(
     ): List<RemovedResource> {
         if (staleResources.isEmpty()) return emptyList()
 
-        data class ResourceTable(val table: String, val keyColumn: String)
-
-        val tableByType = mapOf(
-            "template" to ResourceTable("document_templates", "id"),
-        )
         val ordered = staleResources.sortedByDescending { RESOURCE_INSTALL_ORDER[it.type] ?: Int.MIN_VALUE }
 
         val removed = mutableListOf<RemovedResource>()
         jdbi.useHandle<Exception> { handle ->
             for (resource in ordered) {
                 if (resource.type in app.epistola.suite.catalog.revisions.StoredContent.ENVELOPED_TYPES) {
-                    // A theme is a draft row naming its content (ADR 0033).
+                    // Every type is a draft row naming its content (ADR 0033).
                     app.epistola.suite.catalog.revisions.DraftResources.delete(handle, catalog, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))
                     logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
                     continue
                 }
-                val target = tableByType[resource.type] ?: continue
-                handle.createUpdate("DELETE FROM ${target.table} WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND ${target.keyColumn} = :id")
-                    .bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("id", resource.slug).execute()
-                removed.add(RemovedResource(resource.type, resource.slug))
-                logger.info("Removed stale {} '{}' from catalog '{}'", resource.type, resource.slug, catalog.key)
             }
         }
         return removed

@@ -21,9 +21,7 @@ import app.epistola.suite.templates.VARIANT_COLUMNS
 import app.epistola.suite.templates.VARIANT_ORDER
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VariantSummary
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
-import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component

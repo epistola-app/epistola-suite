@@ -105,9 +105,7 @@ class DeletionDriftTest : IntegrationTestBase() {
     @Test
     fun `every catalog-scoped resource table bumps the catalog when a row is deleted`() {
         val expected = setOf(
-            "document_templates",
-            "template_variants",
-            // Themes are draft rows here (ADR 0033); so will every type stored as JSON be.
+            // Every type is draft rows here (ADR 0033).
             "release_resources",
         )
 

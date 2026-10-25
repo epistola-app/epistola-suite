@@ -19,7 +19,6 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.queries.variants.GetVariantContent
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
@@ -71,7 +70,7 @@ class ImportTemplatesTest : IntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT pdfa_enabled
-                FROM document_templates
+                FROM current_templates
                 WHERE tenant_key = :tenantKey AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default') AND id = :templateKey
                 """,
             )
@@ -372,52 +371,6 @@ class ImportTemplatesTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `import stores referenced paths for the imported model`() {
-        val tenant = createTenant("Import Paths Test")
-        val tenantId = TenantId(tenant.id)
-        val slug = TestIdHelpers.nextTemplateId().value
-
-        withMediator {
-            val results = ImportTemplates(
-                catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
-                templates = listOf(
-                    ImportTemplateInput(
-                        slug = slug,
-                        name = "Import Paths",
-                        version = "1.0.0",
-                        dataModel = null,
-                        dataExamples = emptyList(),
-                        templateModel = templateModelWithPath("invoice.number"),
-                        variants = listOf(
-                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
-                        ),
-                    ),
-                ),
-            ).execute()
-            assertThat(results.single().status).isEqualTo(ImportStatus.CREATED)
-        }
-
-        // Read from storage: no query projects referenced_paths, so reading it back is the only
-        // way to see what the import stored.
-        val referencedPaths = jdbi.withHandle<String, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT variant.referenced_paths::text
-                FROM template_variants variant
-                ${templateJoin("variant")}
-                WHERE variant.tenant_key = :tenantKey AND template.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :tenantKey AND catalog_key = 'default')
-                  AND template.id = :templateKey AND variant.id = 'default'
-                """,
-            )
-                .bind("tenantKey", tenant.id)
-                .bind("templateKey", slug)
-                .mapTo(String::class.java)
-                .one()
-        }
-        assertThat(referencedPaths).isEqualTo("""["invoice.number"]""")
-    }
-
-    @Test
     fun `import over a newly created empty template replaces its content instead of failing`() {
         val tenant = createTenant("Shell Import Test")
         val tenantId = TenantId(tenant.id)
@@ -455,33 +408,4 @@ class ImportTemplatesTest : IntegrationTestBase() {
         val content = withMediator { GetVariantContent(VariantId(VariantKey.INITIAL, templateId)).query() }
         assertThat(content!!.nodes.keys).isEqualTo(templateModel.nodes.keys)
     }
-
-    private fun templateModelWithPath(path: String): TemplateDocument = TemplateDocument(
-        modelVersion = 1,
-        root = "root",
-        nodes = mapOf(
-            "root" to Node(id = "root", type = "root", slots = listOf("root-slot")),
-            "text" to Node(
-                id = "text",
-                type = "text",
-                props = mapOf(
-                    "content" to mapOf(
-                        "type" to "doc",
-                        "content" to listOf(
-                            mapOf(
-                                "type" to "paragraph",
-                                "content" to listOf(
-                                    mapOf("type" to "expression", "attrs" to mapOf("expression" to path)),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        slots = mapOf(
-            "root-slot" to Slot(id = "root-slot", nodeId = "root", name = "children", children = listOf("text")),
-        ),
-        themeRef = ThemeRef.Inherit,
-    )
 }

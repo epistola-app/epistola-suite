@@ -261,13 +261,13 @@ class DataPreservationMigrationIT {
                 rs.getString(1)
             }
 
-            // Hierarchy rows name the template's identity now, so every lookup resolves the
-            // seeded address through document_templates rather than filtering on a copy of it.
+            // Hierarchy rows name the template's identity now, so every lookup resolves the seeded
+            // address through current_templates (templates are stored as JSON, ADR 0033 step 7b).
             // A catalog is named by its key until 2.0 identities it (V20261018200100): resources
             // name the catalog's opaque catalog_id, so lookups resolve the seeded key to it.
             fun catalogId(key: String) = "(SELECT catalog_id FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = '$key')"
             val ofInvoice =
-                "template_resource_id = (SELECT resource_id FROM document_templates " +
+                "template_resource_id = (SELECT resource_id FROM current_templates " +
                     "WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice')"
 
             assertThat(one("SELECT name FROM tenants WHERE id = '$TENANT'"))
@@ -295,7 +295,7 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT theme.id FROM document_templates template
+                    SELECT theme.id FROM current_templates template
                     JOIN current_themes theme ON theme.tenant_key = template.tenant_key
                                      AND theme.resource_id = template.theme_resource_id
                     WHERE template.tenant_key = '$TENANT' AND template.id = 'invoice'
@@ -397,19 +397,19 @@ class DataPreservationMigrationIT {
             )
                 .describedAs("generation history survives the template re-key, keeping its recorded address")
                 .isEqualTo("COMPLETED")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
+            assertThat(one("SELECT title FROM current_template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
                 .isEqualTo("Main Variant")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
+            assertThat(one("SELECT title FROM current_template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
                 .describedAs("legacy NULL-title variant must be backfilled with its own slug")
                 .isEqualTo("legacy")
-            assertThat(one("SELECT title FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'blanktitle'"))
+            assertThat(one("SELECT title FROM current_template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'blanktitle'"))
                 .describedAs("blank-title variant must be backfilled with its own slug")
                 .isEqualTo("blanktitle")
             assertThat(
                 one(
                     """
                     SELECT (p.payload->'templateModel')::text FROM catalog_upgrade_published p
-                    JOIN document_templates dt ON dt.tenant_key = p.tenant_key AND dt.resource_id = p.resource_id
+                    JOIN current_templates dt ON dt.tenant_key = p.tenant_key AND dt.resource_id = p.resource_id
                     WHERE dt.tenant_key = '$TENANT' AND dt.id = 'invoice' AND p.kind = 'variant' AND p.part = 'main'
                     """,
                 ),
@@ -436,7 +436,7 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT count(*) FROM documents WHERE tenant_key = '$TENANT' AND template_key = 'invoice' AND template_resource_id IS NULL"))
                 .describedAs("generation history is filled forward, never backfilled: rewriting every partition at upgrade time is the one cost this migration refuses to pay")
                 .isEqualTo("1")
-            assertThat(one("SELECT count(*) FROM template_variants WHERE tenant_key = '$TENANT' AND template_resource_id IS NULL"))
+            assertThat(one("SELECT count(*) FROM current_template_variants WHERE tenant_key = '$TENANT' AND template_resource_id IS NULL"))
                 .describedAs("the hierarchy IS backfilled -- it is bounded, and its foreign keys require it")
                 .isEqualTo("0")
 
@@ -447,15 +447,13 @@ class DataPreservationMigrationIT {
 
             // 2.0 keeps one working copy (V20261018200400, V20261018200600): what each author was
             // working on, the draft where there is one, else the published version.
-            assertThat(one("SELECT template_model::text FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
+            assertThat(one("SELECT template_model::text FROM current_template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
                 .describedAs("a variant's working model is its draft")
                 .isEqualTo(one("SELECT '$MIGRATED_DRAFT_TEMPLATE_MODEL'::jsonb::text"))
-            assertThat(one("SELECT referenced_paths::text FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'main'"))
-                .isEqualTo(one("""SELECT '["customer.name","total"]'::jsonb::text"""))
-            assertThat(one("SELECT template_model->>'root' FROM template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
+            assertThat(one("SELECT template_model->>'root' FROM current_template_variants WHERE tenant_key = '$TENANT' AND $ofInvoice AND id = 'legacy'"))
                 .describedAs("a variant that never had a version starts from the empty document")
                 .isEqualTo("root")
-            assertThat(one("SELECT data_model::text FROM document_templates WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice'"))
+            assertThat(one("SELECT data_model::text FROM current_templates WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice'"))
                 .describedAs("the template's data contract is its published one")
                 .isEqualTo(one("""SELECT '{"type":"object"}'::jsonb::text"""))
             assertThat(one("SELECT content::text FROM current_stencils WHERE tenant_key = '$TENANT' AND id = 'header'"))
@@ -471,7 +469,9 @@ class DataPreservationMigrationIT {
                 WHERE d.tenant_key = '$TENANT' AND d.resource_id = ($resource) AND d.part = '$part'
                 """,
             )
-            val invoice = "SELECT resource_id FROM document_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"
+            val invoice = "SELECT resource_id FROM current_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"
+            assertThat(one("SELECT CAST(to_regclass('document_templates') IS NULL AND to_regclass('template_variants') IS NULL AS TEXT)"))
+                .describedAs("the template tables are gone (ADR 0033, V20261025170800)").isEqualTo("true")
             assertThat(ready(invoice, "main")).describedAs("a variant with a draft that differs from its published version").isEqualTo("false")
             assertThat(ready(invoice, "legacy")).describedAs("a variant without a draft").isEqualTo("true")
             assertThat(ready("SELECT resource_id FROM current_stencils WHERE tenant_key = '$TENANT' AND id = 'header'", ""))

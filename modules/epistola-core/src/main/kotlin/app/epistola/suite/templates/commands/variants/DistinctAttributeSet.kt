@@ -7,7 +7,7 @@ package app.epistola.suite.templates.commands.variants
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.StoredTemplate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 
@@ -25,32 +25,13 @@ import org.jdbi.v3.core.Handle
  * and they stay as they are until someone edits them.
  */
 internal fun requireDistinctAttributeSet(
-    handle: Handle,
-    variantId: VariantId,
+    template: StoredTemplate,
+    variantKey: String,
     attributes: Map<String, String>,
-    attributesJson: String,
 ) {
     if (attributes.isEmpty()) return
 
-    val clash = handle.createQuery(
-        """
-        SELECT id FROM template_variants
-        WHERE tenant_key = :tenantId
-          AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-          AND id <> :variantId
-          AND attributes = :attributes::jsonb
-        ORDER BY id
-        LIMIT 1
-        """,
-    )
-        .bind("tenantId", variantId.tenantKey)
-        .bindCatalog("catalogKey", variantId.catalogId)
-        .bind("templateId", variantId.templateKey)
-        .bind("variantId", variantId.key)
-        .bind("attributes", attributesJson)
-        .mapTo(String::class.java)
-        .findOne()
-        .orElse(null)
+    val clash = template.variants.filter { it.key != variantKey && it.attributes == attributes }.map { it.key }.minOrNull()
 
     validate("attributes", clash == null) {
         "Variant '$clash' already has these attributes. Attribute selection could not tell the two apart; change at least one value."
