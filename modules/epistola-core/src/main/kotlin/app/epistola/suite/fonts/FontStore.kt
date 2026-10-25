@@ -6,7 +6,6 @@ package app.epistola.suite.fonts
 
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.FontVariantEntry
-import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
@@ -41,7 +40,7 @@ internal const val FONT_COLUMNS: String =
 /**
  * The fonts of a draft, stored as JSON (ADR 0033, step 5): `{ "resource": <FontResource> }` in
  * `resource_contents`, named by the draft's row ([DraftResources]). A face's file is a binary of the
- * font: its bytes are in `asset_content` under its hash, in the shared scope, and the content links
+ * font: its bytes are in `asset_content` under its hash, and the content links
  * to them (`resource_binaries`, written when the content is stored), so they are kept while any
  * content names them. No asset row stands for a face.
  */
@@ -94,13 +93,13 @@ class FontStore(
         }
     }
 
-    /** The faces' bytes, in the shared scope, those not stored yet: the lookup sends no bytes. */
+    /** The faces' bytes, those not stored yet: the lookup sends no bytes. */
     private fun storeBytes(variants: List<ImportFontVariant>) {
         val byHash = variants.associateBy { it.contentHash }
-        val missing = byHash.keys.filterNot { binaries.exists(GLOBAL_ASSET_SCOPE, it) }
+        val missing = byHash.keys.filterNot { binaries.exists(it) }
         for (hash in missing) {
             val variant = byHash.getValue(hash)
-            binaries.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, variant.content, variant.mediaType, variant.content.size.toLong())
+            binaries.putIfAbsent(hash, variant.content, variant.mediaType, variant.content.size.toLong())
         }
     }
 
@@ -122,12 +121,12 @@ class FontStore(
         if (hashes.isEmpty()) return
         handle.createUpdate(
             """
-            INSERT INTO resource_binaries (tenant_key, content_hash, scope, binary_hash)
-            SELECT rc.tenant_key, rc.content_hash, '$GLOBAL_ASSET_SCOPE', face ->> 'contentHash'
+            INSERT INTO resource_binaries (tenant_key, content_hash, binary_hash)
+            SELECT rc.tenant_key, rc.content_hash, face ->> 'contentHash'
             FROM resource_contents rc
             CROSS JOIN LATERAL jsonb_array_elements(COALESCE(rc.payload -> 'resource' -> 'variants', rc.payload -> 'variants')) face
             WHERE rc.tenant_key = :t AND rc.kind = 'font' AND face ->> 'contentHash' IN (<hashes>)
-              AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.scope = '$GLOBAL_ASSET_SCOPE' AND ac.content_hash = face ->> 'contentHash')
+              AND EXISTS (SELECT 1 FROM asset_content ac WHERE ac.content_hash = face ->> 'contentHash')
             ON CONFLICT DO NOTHING
             """,
         ).bind("t", tenant).bindList("hashes", hashes.distinct()).execute()
@@ -164,7 +163,7 @@ class FontStore(
     fun bytes(handle: Handle, tenant: app.epistola.suite.common.ids.TenantKey, contentHash: String): ByteArray? = handle.createQuery(
         """
         SELECT c.content FROM resource_binaries b
-        JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+        JOIN asset_content c ON c.content_hash = b.binary_hash
         WHERE b.tenant_key = :t AND b.binary_hash = :hash
         LIMIT 1
         """,

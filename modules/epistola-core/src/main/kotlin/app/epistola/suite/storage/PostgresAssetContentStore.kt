@@ -19,19 +19,18 @@ class PostgresAssetContentStore(
     private val jdbi: Jdbi,
 ) : AssetContentStore {
 
-    override fun putIfAbsent(scope: String, sha256: String, content: ByteArray, contentType: String, sizeBytes: Long) {
+    override fun putIfAbsent(sha256: String, content: ByteArray, contentType: String, sizeBytes: Long) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO asset_content (scope, content_hash, content, content_type, size_bytes, created_at)
-                VALUES (:scope, :hash, :content, :contentType, :sizeBytes, :createdAt)
+                INSERT INTO asset_content (content_hash, content, content_type, size_bytes, created_at)
+                VALUES (:hash, :content, :contentType, :sizeBytes, :createdAt)
                 -- Writing bytes that are there already touches them: the sweeps' grace period counts
                 -- from the last write, and the row is locked until this commits, so a blob an upload
                 -- is about to point at again is never collected from under it (ADR 0033).
-                ON CONFLICT (scope, content_hash) DO UPDATE SET created_at = GREATEST(asset_content.created_at, EXCLUDED.created_at)
+                ON CONFLICT (content_hash) DO UPDATE SET created_at = GREATEST(asset_content.created_at, EXCLUDED.created_at)
                 """,
             )
-                .bind("scope", scope)
                 .bind("hash", sha256)
                 .bind("content", content)
                 .bind("contentType", contentType)
@@ -41,15 +40,14 @@ class PostgresAssetContentStore(
         }
     }
 
-    override fun get(scope: String, sha256: String): StoredContent? = jdbi.withHandle<StoredContent?, Exception> { handle ->
+    override fun get(sha256: String): StoredContent? = jdbi.withHandle<StoredContent?, Exception> { handle ->
         handle.createQuery(
             """
             SELECT content, content_type, size_bytes
             FROM asset_content
-            WHERE scope = :scope AND content_hash = :hash
+            WHERE content_hash = :hash
             """,
         )
-            .bind("scope", scope)
             .bind("hash", sha256)
             .map { rs, _ ->
                 StoredContent(
@@ -62,9 +60,8 @@ class PostgresAssetContentStore(
             .orElse(null)
     }
 
-    override fun exists(scope: String, sha256: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createQuery("SELECT 1 FROM asset_content WHERE scope = :scope AND content_hash = :hash")
-            .bind("scope", scope)
+    override fun exists(sha256: String): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        handle.createQuery("SELECT 1 FROM asset_content WHERE content_hash = :hash")
             .bind("hash", sha256)
             .mapTo(Int::class.java)
             .findOne()

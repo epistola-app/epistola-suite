@@ -150,7 +150,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         // An image only an orphaned content needs: its bytes are held by that content alone.
         val loose = png(0x654321)
         val looseHash = app.epistola.suite.fonts.model.sha256Hex(loose)
-        blobs.putIfAbsent("global", looseHash, loose, "image/png", loose.size.toLong())
+        blobs.putIfAbsent(looseHash, loose, "image/png", loose.size.toLong())
         val content = requireNotNull(assembler.assemble(catalog, "1.0.0")).content
         val orphanHash = jdbi.inTransaction<String, Exception> { handle ->
             store.retain(
@@ -168,8 +168,8 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val collected = collector().collect(tenant)
 
         assertThat(collected.contents).isEqualTo(1)
-        assertThat(blobs.get("global", looseHash)).`as`("nothing holds it once its content went").isNull()
-        assertThat(blobs.get("global", logo.contentHash) ?: blobs.get(tenant.value, logo.contentHash)).`as`("an asset and the release hold it").isNotNull()
+        assertThat(blobs.get(looseHash)).`as`("nothing holds it once its content went").isNull()
+        assertThat(blobs.get(logo.contentHash)).`as`("an asset and the release hold it").isNotNull()
     }
 
     private fun orphanIn(handle: org.jdbi.v3.core.Handle, catalog: CatalogId, themeName: String): String {

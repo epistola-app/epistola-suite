@@ -96,7 +96,7 @@ class ListRelocatableResourcesHandler(
                 WHERE l.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'image', c.namespace, c.catalog_key::text, a.id::text, a.name, c.name, c.released
-                FROM assets a JOIN editable c ON c.version_id = a.version_id
+                FROM current_images a JOIN editable c ON c.version_id = a.version_id
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'font', c.namespace, c.catalog_key::text, f.slug::text, f.name, c.name, c.released

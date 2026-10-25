@@ -109,7 +109,6 @@ class DeletionDriftTest : IntegrationTestBase() {
             "template_variants",
             // Themes are draft rows here (ADR 0033); so will every type stored as JSON be.
             "release_resources",
-            "assets",
         )
 
         val covered = jdbi.withHandle<Set<String>, Exception> { handle ->

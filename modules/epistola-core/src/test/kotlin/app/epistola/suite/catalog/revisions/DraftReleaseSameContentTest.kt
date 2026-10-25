@@ -59,6 +59,15 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 "House Sans",
                 mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/fonts/lato/lato-Regular.ttf")!!.readBytes()),
             )
+            app.epistola.suite.assets.commands.UploadAsset(
+                letters,
+                "Mark",
+                app.epistola.suite.assets.AssetMediaType.SVG,
+                """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""".toByteArray(),
+                null,
+                null,
+                id = app.epistola.suite.common.ids.AssetKey.of("mark"),
+            ).execute()
             // Names a theme of its own catalog: a release says that relatively.
             CreateStencil(
                 StencilId(StencilKey.of("footer"), letters),
@@ -89,7 +98,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 .map { rs, _ -> Triple(rs.getString("resource"), rs.getString("drafted"), rs.getString("released")) }
                 .list()
         }
-        assertThat(pairs.map { it.first }).containsExactly("attribute/region", "codeList/regions", "font/house-sans", "stencil/footer", "theme/brand")
+        assertThat(pairs.map { it.first }).containsExactly("attribute/region", "codeList/regions", "font/house-sans", "image/mark", "stencil/footer", "theme/brand")
         assertThat(pairs).allSatisfy { (resource, drafted, released) -> assertThat(drafted).`as`(resource).isEqualTo(released) }
     }
 }

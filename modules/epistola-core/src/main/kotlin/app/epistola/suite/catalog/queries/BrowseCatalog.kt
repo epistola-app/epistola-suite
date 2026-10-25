@@ -87,7 +87,7 @@ class BrowseCatalogHandler(
             UNION ALL
             SELECT 'attribute', id, display_name, NULL FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'image', id::text, name, NULL FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'image', id::text, name, NULL FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
             SELECT 'codeList', id, display_name, description FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
@@ -142,7 +142,7 @@ class BrowseCatalogHandler(
                 UNION ALL
                 SELECT 'attribute:' || id FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'image:' || id FROM assets WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'image:' || id FROM current_images WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
                 SELECT 'codeList:' || id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL

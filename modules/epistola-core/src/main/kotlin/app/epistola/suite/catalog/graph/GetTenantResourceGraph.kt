@@ -66,7 +66,7 @@ class TenantResourceGraphBuilder(
         """
             SELECT resource_id, resource_type, namespace, catalog_key, resource_key, resource_name, catalog_name
             FROM (
-                SELECT a.resource_id, 'image' resource_type, c.namespace, c.catalog_key::text AS catalog_key, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
+                SELECT a.resource_id, 'image' resource_type, c.namespace, c.catalog_key::text AS catalog_key, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM current_images a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT l.resource_id, 'codeList', c.namespace, c.catalog_key::text AS catalog_key, l.id, l.display_name, c.name FROM current_code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey
                 UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM current_fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey
                 UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id, a.display_name, c.name FROM current_attributes a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey

@@ -151,6 +151,7 @@ class MoveCatalogResourcesHandler(
     private val attributes: app.epistola.suite.attributes.AttributeStore,
     private val stencils: app.epistola.suite.stencils.StencilStore,
     private val fonts: app.epistola.suite.fonts.FontStore,
+    private val images: app.epistola.suite.assets.ImageStore,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
@@ -218,6 +219,13 @@ class MoveCatalogResourcesHandler(
             if (movable == MovableResource.ATTRIBUTE) {
                 // So is an attribute (ADR 0033).
                 if (!attributes.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
+            if (movable == MovableResource.ASSET) {
+                // So is an image (ADR 0033); its content names its key.
+                if (!images.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
                     throw StaleCatalogResourceMovePlanException()
                 }
                 continue

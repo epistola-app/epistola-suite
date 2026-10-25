@@ -26,23 +26,12 @@ import java.util.concurrent.atomic.AtomicLong
  * One definition for the sweep and for the gauge: two copies of a reachability rule is how a blob
  * comes to be deleted by one and counted as present by the other.
  *
- * Two kinds of holder. A **live asset row** — scope derived from its `sensitive` flag exactly as at
- * write time, so a global blob survives while any asset references it and a sensitive one only
- * while its own tenant does. And a **revision**, which is the content a release retained:
- * `resource_binaries` names the bytes a released resource needs, and dropping that resource from
- * the working copy must not take them with it (ADR 0026). The foreign key from `resource_binaries`
- * says the same thing, so a miss here fails loudly rather than losing bytes.
+ * One kind of holder: a stored content that links to the blob (`resource_binaries`), an image's
+ * bytes or a font face's file, of a draft or a release (ADR 0033). The foreign key from
+ * `resource_binaries` says the same thing, so a miss here fails loudly rather than losing bytes.
  */
 internal const val BLOB_IS_HELD = """
-    EXISTS (
-        SELECT 1 FROM assets a
-        WHERE a.content_hash = ac.content_hash
-          AND (CASE WHEN a.sensitive THEN a.tenant_key::text ELSE 'global' END) = ac.scope
-    )
-    OR EXISTS (
-        SELECT 1 FROM resource_binaries rb
-        WHERE rb.binary_hash = ac.content_hash AND rb.scope = ac.scope
-    )
+    EXISTS (SELECT 1 FROM resource_binaries rb WHERE rb.binary_hash = ac.content_hash)
 """
 
 /**
@@ -50,10 +39,10 @@ internal const val BLOB_IS_HELD = """
  * (issue #738). A single-owner, daily cluster task that:
  *
  *  1. **Mark-and-sweeps asset blobs** — deletes `asset_content` rows that nothing holds
- *     ([BLOB_IS_HELD]: no live `assets` row and no retained revision). This is how a
+ *     ([BLOB_IS_HELD]: no stored content links to it). This is how a
  *     deleted or re-pointed asset's bytes are actually reclaimed, since `DeleteAsset` no
  *     longer deletes blobs. A grace window skips very recently written blobs so an
- *     in-flight upload (blob written, `assets` row not yet inserted) is never swept.
+ *     in-flight upload (blob written, its content not yet stored) is never swept.
  *  2. **Drives [ContentRetentionMaintainer]s** — the filesystem document backend's age
  *     sweep (PostgreSQL reclaims via partition drops, S3 via its lifecycle rule, so both
  *     contribute a no-op maintainer).
@@ -145,7 +134,7 @@ class ContentReaper(
     /**
      * How many blobs the sweep should have taken and did not.
      *
-     * Same cutoff, so a blob still inside the grace window — an upload whose `assets` row is not
+     * Same cutoff, so a blob still inside the grace window — an upload whose content is not
      * written yet — is not counted as orphaned. Those are the normal case, not a leak, and counting
      * them made the gauge noisy enough that its own test could only assert a non-negative number.
      */

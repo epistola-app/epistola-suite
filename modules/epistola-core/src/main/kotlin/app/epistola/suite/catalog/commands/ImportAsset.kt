@@ -5,23 +5,22 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.ImageFields
+import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.SvgContentPolicy
-import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.storage.AssetContentStore
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -39,9 +38,6 @@ data class ImportAsset(
     val content: ByteArray,
     val width: Int? = null,
     val height: Int? = null,
-    // The catalog exchange format does not carry sensitivity yet (contract issue); catalog
-    // imports are non-sensitive/global until #751 wires it through.
-    val sensitive: Boolean = false,
 ) : Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
@@ -50,8 +46,8 @@ data class ImportAsset(
     override val tenantKey: TenantKey get() = tenantId.key
 
     init {
-        // Column ceiling (#692): assets.name is VARCHAR(255). Covers the re-import
-        // UPDATE path; the insert path additionally validates via UploadAsset.
+        // Column ceiling (#692): an image's name is at most 255 characters. Covers the re-import
+        // path; the insert path additionally validates via UploadAsset.
         validate("name", name.length <= MAX_NAME_COLUMN_LENGTH) { "Name must be $MAX_NAME_COLUMN_LENGTH characters or less" }
         // The re-import UPDATE path never reaches UploadAsset, so the SVG policy is checked here too.
         SvgContentPolicy.requireSafe(mediaType, content)
@@ -69,68 +65,29 @@ data class ImportAsset(
 @Component
 class ImportAssetHandler(
     private val jdbi: Jdbi,
-    private val assetContentStore: AssetContentStore,
+    private val images: ImageStore,
 ) : CommandHandler<ImportAsset, InstallStatus> {
 
     override fun handle(command: ImportAsset): InstallStatus {
-        val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT COUNT(*) > 0 FROM assets
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("id", command.id.value)
-                .mapTo(Boolean::class.java)
-                .one()
+        val exists = jdbi.withHandle<Boolean, Exception> { images.get(it, command.catalog, command.id.value) != null }
+        if (!exists) {
+            // Upload with the original key, so the image nodes naming it keep resolving.
+            UploadAsset(
+                catalog = command.catalog,
+                name = command.name,
+                mediaType = command.mediaType,
+                content = command.content,
+                width = command.width,
+                height = command.height,
+                id = command.id,
+            ).execute()
+            return InstallStatus.INSTALLED
         }
-
-        if (exists) {
-            // Re-import replaces the bytes: hash + put-if-absent into the CAS store,
-            // then repoint the asset row's content_hash. The previous hash's blob is
-            // left for the reaper to mark-and-sweep if nothing else references it.
-            val contentHash = sha256Hex(command.content)
-            val scope = assetContentScope(command.sensitive, command.tenantKey)
-            assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, command.content.size.toLong())
-
-            jdbi.useHandle<Exception> { handle ->
-                handle.createUpdate(
-                    """
-                    UPDATE assets
-                    SET name = :name, media_type = :mediaType, width = :width, height = :height, size_bytes = :sizeBytes, content_hash = :contentHash, sensitive = :sensitive
-                    WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
-                    """,
-                )
-                    .bind("tenantKey", command.tenantKey)
-                    .bindCatalog("catalogKey", command.catalog)
-                    .bind("id", command.id.value)
-                    .bind("name", command.name)
-                    .bind("mediaType", command.mediaType.mimeType)
-                    .bind("width", command.width)
-                    .bind("height", command.height)
-                    .bind("sizeBytes", command.content.size.toLong())
-                    .bind("contentHash", contentHash)
-                    .bind("sensitive", command.sensitive)
-                    .execute()
-            }
-
-            return InstallStatus.UPDATED
+        // Re-import replaces the content; the previous bytes go when nothing names them any more.
+        val contentHash = images.storeBytes(command.content, command.mediaType)
+        jdbi.inTransaction<Unit, Exception> { handle ->
+            images.put(handle, command.catalog, command.id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash), currentUserIdOrNull()?.value)
         }
-
-        // Upload with the original ID to preserve template image node references
-        UploadAsset(
-            catalog = command.catalog,
-            name = command.name,
-            mediaType = command.mediaType,
-            content = command.content,
-            width = command.width,
-            height = command.height,
-            id = command.id,
-            sensitive = command.sensitive,
-        ).execute()
-
-        return InstallStatus.INSTALLED
+        return InstallStatus.UPDATED
     }
 }

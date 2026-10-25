@@ -125,17 +125,14 @@ enum class MovableResource(
      *
      * References are not rewritten: `IMAGE_ASSET` resolves tenant-globally rather than relative to
      * the containing catalog, so a stored reference means the same thing wherever its owner lives.
-     * Keyed by identity (`V20260905090100`), so a font face pointing at one is undisturbed by a
-     * move.
+     * A draft row naming its content (ADR 0033): moved by ImageStore, not by this table.
      */
     ASSET(
         CatalogResourceType.IMAGE,
-        "assets",
+        "release_resources",
         "id",
         emptySet(),
         { runCatching { AssetKey.of(it) }.exceptionOrNull()?.message },
-        // Harmless since V20260911103003 made ASSET_KEY varchar-backed; it was a UUID domain before.
-        keyColumnType = "ASSET_KEY",
         renameable = false,
     ),
 

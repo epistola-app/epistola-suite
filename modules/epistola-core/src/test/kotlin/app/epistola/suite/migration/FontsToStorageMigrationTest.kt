@@ -101,14 +101,14 @@ class FontsToStorageMigrationTest {
             assertThat(
                 connection.rows(
                     """
-                    SELECT b.scope || '/' || left(b.binary_hash, 1) FROM release_resources r
+                    SELECT left(b.binary_hash, 1) FROM release_resources r
                     JOIN resource_binaries b ON b.tenant_key = r.tenant_key AND b.content_hash = r.content_hash
                     WHERE r.resource_type = 'font' ORDER BY 1
                     """,
                 ).map { it.single() },
-            ).`as`("each face links to its bytes where they are, the tenant-isolated one too")
-                .containsExactly("acme/b", "global/a", "global/c", "global/d")
-            assertThat(connection.rows("SELECT id FROM assets ORDER BY id").map { it.single() })
+            ).`as`("each face links to its bytes, the tenant-isolated one too (one store since step 6)")
+                .containsExactly("a", "b", "c", "d")
+            assertThat(connection.rows("SELECT id FROM current_images ORDER BY id").map { it.single() })
                 .`as`("the face-only files go; the image a face used, and the file an image node names, stay")
                 .containsExactly("mark", "named-ttf")
             assertThat(connection.rows("SELECT count(*) FROM asset_content").single().single()).`as`("no bytes are lost").isEqualTo("4")

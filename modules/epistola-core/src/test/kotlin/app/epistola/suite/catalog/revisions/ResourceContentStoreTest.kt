@@ -5,7 +5,6 @@
 package app.epistola.suite.catalog.revisions
 
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.commands.CreateCatalog
@@ -172,10 +171,10 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             .contains(hash)
 
         withMediator { DeleteAsset(catalog.tenantKey, assetId).execute() }
-        jdbi.backdateAssetBlob(GLOBAL_ASSET_SCOPE, hash)
+        jdbi.backdateAssetBlob(hash)
         reaper.reap()
 
-        assertThat(assetContentStore.exists(GLOBAL_ASSET_SCOPE, hash))
+        assertThat(assetContentStore.exists(hash))
             .`as`("no live asset points at these bytes, but a release still names them")
             .isTrue()
     }
@@ -204,8 +203,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
         // to ask the schema the question, since no command will.
         assertThatThrownBy {
             jdbi.useHandle<Exception> { handle ->
-                handle.createUpdate("DELETE FROM asset_content WHERE scope = :s AND content_hash = :h")
-                    .bind("s", GLOBAL_ASSET_SCOPE)
+                handle.createUpdate("DELETE FROM asset_content WHERE content_hash = :h")
                     .bind("h", hash)
                     .execute()
             }

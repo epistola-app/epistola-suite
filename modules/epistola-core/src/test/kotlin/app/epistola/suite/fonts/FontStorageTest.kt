@@ -66,11 +66,11 @@ class FontStorageTest : IntegrationTestBase() {
             one(
                 """
                 SELECT count(*) FROM release_resources r JOIN resource_binaries b ON b.tenant_key = r.tenant_key AND b.content_hash = r.content_hash
-                WHERE r.tenant_key = '${tenant.value}' AND r.resource_type = 'font' AND r.version_id IS NOT NULL AND r.resource_key = 'house-sans' AND b.scope = 'global'
+                WHERE r.tenant_key = '${tenant.value}' AND r.resource_type = 'font' AND r.version_id IS NOT NULL AND r.resource_key = 'house-sans'
                 """,
             ),
-        ).`as`("each face linked to its bytes, in the shared store").isEqualTo("2")
-        assertThat(one("SELECT count(*) FROM assets WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no asset row for a face").isEqualTo("0")
+        ).`as`("each face linked to its bytes").isEqualTo("2")
+        assertThat(one("SELECT count(*) FROM current_images WHERE tenant_key = '${tenant.value}' AND media_type LIKE 'font/%'")).`as`("no image for a face").isEqualTo("0")
         assertThat(withMediator { ListImagePage(letters, limit = 50, offset = 0).query() }.items).isEmpty()
         assertThat(one("SELECT CAST(to_regclass('fonts') IS NULL AND to_regclass('font_variants') IS NULL AS TEXT)")).isEqualTo("true")
 

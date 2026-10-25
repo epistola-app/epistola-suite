@@ -59,41 +59,6 @@ class StorageConfiguration {
     }
 
     /**
-     * The pre-split shared content store. Retained through the #738 transition: the
-     * one-time `ContentBackfillRunner` and `LegacyBlobFallback` read 1.x blobs through it,
-     * which an installation upgrading from 1.x may not have backfilled yet. Removed once
-     * `content_store` is dropped (#742).
-     */
-    @Bean
-    fun contentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): ContentStore {
-        val backendName = properties.backend.name.lowercase()
-        val store = when (properties.backend) {
-            StorageBackend.POSTGRES -> {
-                logger.info("Using PostgreSQL content store")
-                PostgresContentStore(jdbi)
-            }
-
-            StorageBackend.S3 -> {
-                require(properties.s3.bucket.isNotBlank()) { "epistola.storage.s3.bucket must be set when using S3 backend" }
-                logger.info("Using S3 content store (bucket={})", properties.s3.bucket)
-                S3ContentStore(buildS3Client(properties), properties.s3.bucket)
-            }
-
-            StorageBackend.FILESYSTEM -> {
-                val basePath = Path.of(properties.filesystem.basePath)
-                logger.info("Using filesystem content store (basePath={})", basePath.toAbsolutePath())
-                FilesystemContentStore(basePath)
-            }
-
-            StorageBackend.MEMORY -> {
-                logger.info("Using in-memory content store")
-                InMemoryContentStore()
-            }
-        }
-        return InstrumentedContentStore(store, meterRegistry, backendName)
-    }
-
-    /**
      * On the S3 backend, ensure a bucket lifecycle rule expires the `documents/` prefix
      * (#738), unless the operator opts out via `manage-document-lifecycle=false`. A
      * no-op singleton for every other backend, which reclaim differently (PostgreSQL

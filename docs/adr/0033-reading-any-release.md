@@ -244,10 +244,11 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   reads the target at the version its catalog declares: a draft that pins a dependency's release reads
   that release (variant attributes, step 3). A stencil's document names other stencils, images,
   fonts and a theme the same way (step 4), indexed when stored.
-- **A binary belongs to its resource.** A font's faces are binaries of the font (step 5): the
-  content lists each face by its hash, and `resource_binaries` links the content, a draft's as a
-  release's, to the bytes in `asset_content`. No other row stands for a face. The bundled system
-  faces are stored once per installation, in the shared scope, so every face is found the same way.
+- **A binary belongs to its resource.** A font's faces are binaries of the font (step 5), an
+  image's bytes of the image (step 6): the content names each by its hash, and `resource_binaries`
+  links the content, a draft's as a release's, to the bytes in `asset_content`. No other row stands
+  for them. Bytes are stored once per installation: the bundled system faces too, and there is no
+  per-tenant scope (the `sensitive` flag, #751, is gone).
 - **A draft stores what its release stores**: the released form, so a draft released unchanged names
   the same content row (`DraftReleaseSameContentTest`). A stencil's references into its own catalog
   are relative there, as a release says them; the reads that have always seen them qualified (the

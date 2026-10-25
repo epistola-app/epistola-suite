@@ -181,8 +181,8 @@ class ResourceContentCollector(
                 handle.createUpdate(
                     """
                     DELETE FROM asset_content
-                    WHERE (scope, content_hash) IN (
-                        SELECT ac.scope, ac.content_hash FROM asset_content ac
+                    WHERE content_hash IN (
+                        SELECT ac.content_hash FROM asset_content ac
                         WHERE ac.created_at < NOW() - CAST(:grace AS INTERVAL)
                           AND NOT ($BLOB_IS_HELD)
                         LIMIT :limit
