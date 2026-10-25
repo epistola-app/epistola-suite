@@ -7,8 +7,8 @@ package app.epistola.suite.fonts.commands
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.fonts.FontStore
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.SystemInternal
@@ -20,14 +20,13 @@ import org.springframework.stereotype.Component
  * Seeds the nine bundled open-source font families into a tenant's `system`
  * catalog. Each family ships four static TTF faces on the classpath, by default
  * under `epistola/fonts/<slug>/<slug>-<Token>.ttf`, registered as the canonical CSS
- * faces `(400,false)` / `(700,false)` / `(400,true)` / `(700,true)`; the rows
- * just point at those resources (`FontVariantSource.CLASSPATH`) — no
- * per-tenant binary copy.
+ * faces `(400,false)` / `(700,false)` / `(400,true)` / `(700,true)`. Their files are
+ * written once per installation into `asset_content`, under the shared scope, and each
+ * family's faces are its binaries like any font's (ADR 0033): no per-tenant copy.
  *
- * Idempotent: delegates to [ImportFont], which UPSERTs the `fonts` row and
- * delete-and-reinserts its `font_variants`. Re-running on every boot (via
- * `SystemCatalogBootstrap` → `InstallSystemCatalog`) is a cheap no-op-shaped
- * rewrite.
+ * Idempotent: a family whose content is already its row's writes nothing, and bytes
+ * already stored are not sent again. Re-running on every boot (via
+ * `SystemCatalogBootstrap` → `InstallSystemCatalog`) reads the files once per JVM.
  *
  * Marked [SystemInternal] like `InstallSystemCatalog`: the caller is framework
  * code, not a user request. The fan-out [ImportFont] commands require
@@ -37,7 +36,7 @@ import org.springframework.stereotype.Component
  */
 data class EnsureSystemFonts(
     val tenantKey: TenantKey,
-) : Command<Unit>,
+) : Command<Boolean>,
     SystemInternal
 
 /**
@@ -92,8 +91,8 @@ internal data class DeclaredSystemFace(
 @Component
 class EnsureSystemFontsHandler(
     private val jdbi: Jdbi,
-    private val fontCatalogWriter: FontCatalogWriter,
-) : CommandHandler<EnsureSystemFonts, Unit> {
+    private val fonts: FontStore,
+) : CommandHandler<EnsureSystemFonts, Boolean> {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -118,36 +117,36 @@ class EnsureSystemFontsHandler(
         internal val DECLARED_CLASSPATH_LOCATIONS: List<String> = DECLARED_FACES.map { it.classpathLocation }
     }
 
-    override fun handle(command: EnsureSystemFonts) {
+    /** @return whether any family changed: a new or changed bundled font. */
+    override fun handle(command: EnsureSystemFonts): Boolean {
         val tenantId = TenantId(command.tenantKey)
-        // All bundled families in ONE transaction and three statements via the
-        // shared writer. The faces are all classpath, hashed from the writer's per-JVM cache.
-        val fonts = SYSTEM_FONTS.map { font ->
-            FontCatalogWriter.FontSpec(
+        val specs = SYSTEM_FONTS.map { font ->
+            FontStore.FontSpec(
                 slug = font.slug,
                 name = font.name,
                 kind = font.kind.wire,
-                variants = BUNDLED_FACES.map { face ->
-                    ImportFontVariant(
-                        weight = face.weight,
-                        italic = face.italic,
-                        source = FontVariantSource.CLASSPATH,
-                        classpathLocation = classpathLocation(font, face.token),
-                    )
-                },
+                variants = BUNDLED_FACES.map { face -> bundled(classpathLocation(font, face.token), face.weight, face.italic) },
             )
         }
-        jdbi.inTransaction<Unit, Exception> { handle ->
-            fontCatalogWriter.writeFonts(
-                handle = handle,
-                catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key),
-                fonts = fonts,
-            )
+        val catalog = app.epistola.suite.catalog.system.systemCatalog(tenantId.key)
+        val changed = jdbi.inTransaction<Boolean, Exception> { handle ->
+            val statuses = fonts.putAll(handle, catalog, specs, actor = null)
+            // A family stored before its files were (the 2.0 upgrade's conversion) links to them now.
+            fonts.linkStoredFaces(handle, command.tenantKey, specs.flatMap { it.variants }.map { it.contentHash })
+            statuses.values.any { it != app.epistola.suite.catalog.commands.InstallStatus.SKIPPED }
         }
-        log.debug(
-            "Ensured {} system font families for tenant {}",
-            SYSTEM_FONTS.size,
-            command.tenantKey.value,
-        )
+        log.debug("Ensured {} system font families for tenant {}", SYSTEM_FONTS.size, command.tenantKey.value)
+        return changed
+    }
+
+    /** A bundled face with its file, read and hashed once per JVM: the files never change while it runs. */
+    private fun bundled(location: String, weight: Int, italic: Boolean): ImportFontVariant = BUNDLED.computeIfAbsent(location) {
+        val bytes = checkNotNull(javaClass.classLoader.getResourceAsStream(location)) { "Bundled font face $location is not on the classpath" }.use { it.readBytes() }
+        bytes to FontStore.hashOf(bytes)
+    }.let { (bytes, hash) ->
+        ImportFontVariant(weight, italic, if (location.endsWith(".otf", ignoreCase = true)) "font/otf" else "font/ttf", bytes, hash)
     }
 }
+
+/** location -> (bytes, SHA-256 hex) of a bundled face, read once per JVM. */
+private val BUNDLED = java.util.concurrent.ConcurrentHashMap<String, Pair<ByteArray, String>>()

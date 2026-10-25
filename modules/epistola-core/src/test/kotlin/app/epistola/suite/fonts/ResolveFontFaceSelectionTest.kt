@@ -4,8 +4,7 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.suite.fonts.model.FontVariantSource
-import app.epistola.suite.fonts.queries.FaceRow
+import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.fonts.queries.pickBestFace
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -18,13 +17,7 @@ import org.junit.jupiter.api.Test
  */
 class ResolveFontFaceSelectionTest {
 
-    private fun face(weight: Int, italic: Boolean) = FaceRow(
-        weight = weight,
-        italic = italic,
-        source = FontVariantSource.CLASSPATH,
-        assetKey = null,
-        classpathLocation = "epistola/fonts/x/x-$weight${if (italic) "i" else ""}.ttf",
-    )
+    private fun face(weight: Int, italic: Boolean) = FontFace(weight = weight, italic = italic, mediaType = "font/ttf", contentHash = "x-$weight-$italic")
 
     @Test
     fun `empty rows return null`() {

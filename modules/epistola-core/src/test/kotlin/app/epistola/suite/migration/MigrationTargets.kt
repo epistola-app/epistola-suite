@@ -10,3 +10,6 @@ package app.epistola.suite.migration
  * table migrates up to here; `ThemeStorageTest` and `DataPreservationMigrationIT` cover what follows.
  */
 internal const val BEFORE_THEME_STORAGE = "20261024110723"
+
+/** The last migration before fonts moved to JSON storage and their tables went (ADR 0033, `V20261025105724`). */
+internal const val BEFORE_FONT_STORAGE = "20261025083200"

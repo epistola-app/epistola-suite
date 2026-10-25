@@ -159,12 +159,10 @@ class RecordInstalledReleaseHandler(
         val received = command.received?.takeIf { it.version == version }
         val renderingDefaults = received?.let { receivedReleases.renderingDefaultsVersion(command.catalogKey, it) } ?: RenderingDefaults.CURRENT.version
 
-        // What the release keeps, with the bundled faces of its fonts, and so what everything recorded of
-        // it is computed over: each entry's fingerprint, and a fingerprint or content hash computed here.
-        // Computed over the content without them, those named fonts without faces that the release holds.
-        val content = jdbi.withHandle<CatalogContent, Exception> { handle ->
-            withBundledFaces(handle, command.catalog, command.published ?: contentBuilder.build(command.catalog))
-        }
+        // What the release keeps, and so what everything recorded of it is computed over: each entry's
+        // fingerprint, and a fingerprint or content hash computed here. A font's faces are its own,
+        // bundled ones included (ADR 0033).
+        val content = command.published ?: contentBuilder.build(command.catalog)
         // The publisher's fingerprint when it names its algorithm. A legacy one (a catalog from wire v7
         // or earlier, or installed under 1.x) cannot be checked against this wire-v8 content, and a
         // release whose fingerprint names no algorithm cannot be locked to or pinned by a dependent
@@ -239,46 +237,6 @@ class RecordInstalledReleaseHandler(
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)
         return version
     }
-}
-
-/**
- * [content] with the bundled faces of its fonts, for recording it as a release.
- *
- * The wire form carries only asset-backed faces, so content built from the installed rows lists a
- * seeded font (the system catalog's) without any. A release keeps them by hash instead: rendering
- * reads the face from the retained revision and its bytes from the classpath, checked against that
- * hash (`ReleaseContentAssembler.readBinary`). Without them a release renders the font as Helvetica.
- */
-internal fun withBundledFaces(handle: Handle, catalog: CatalogId, content: CatalogContent): CatalogContent {
-    data class BundledFace(val slug: String, val weight: Int, val italic: Boolean, val location: String, val contentHash: String)
-    val faces = handle.createQuery(
-        """
-        SELECT f.slug, v.weight, v.italic, v.classpath_location, v.content_hash
-        FROM font_variants v
-        JOIN fonts f ON f.tenant_key = v.tenant_key AND f.version_id = v.version_id AND f.resource_id = v.font_resource_id
-        WHERE v.tenant_key = :t AND v.version_id = ${versionAt("t", "c")}
-          AND v.source = 'CLASSPATH' AND v.content_hash IS NOT NULL
-        ORDER BY f.slug, v.italic, v.weight
-        """,
-    )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .map { rs, _ -> BundledFace(rs.getString("slug"), rs.getInt("weight"), rs.getBoolean("italic"), rs.getString("classpath_location"), rs.getString("content_hash")) }
-        .list()
-        .groupBy { it.slug }
-    if (faces.isEmpty()) return content
-
-    val details = content.resourceDetails.mapValues { (_, detail) ->
-        val font = detail.resource as? FontResource ?: return@mapValues detail
-        val bundled = faces[font.key].orEmpty().filter { face -> font.variants.none { it.weight == face.weight && it.italic == face.italic } }
-        if (bundled.isEmpty()) return@mapValues detail
-        val added = bundled.map { face ->
-            val mediaType = if (face.location.endsWith(".otf", ignoreCase = true)) AssetMediaType.OTF else AssetMediaType.TTF
-            FontVariantEntry(weight = face.weight, italic = face.italic, mediaType = mediaType.mimeType, contentHash = face.contentHash)
-        }
-        detail.copy(resource = font.copy(variants = font.variants + added))
-    }
-    return content.copy(resourceDetails = details)
 }
 
 /**

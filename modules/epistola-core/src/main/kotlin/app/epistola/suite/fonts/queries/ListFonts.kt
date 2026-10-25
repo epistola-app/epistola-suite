@@ -5,13 +5,13 @@
 package app.epistola.suite.fonts.queries
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.fonts.FONT_COLUMNS
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -35,7 +35,7 @@ data class ListFonts(
     val catalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<Font>>,
     RequiresPermission {
     init {
@@ -53,19 +53,8 @@ class ListFontsHandler(
 ) : QueryHandler<ListFonts, List<Font>> {
     override fun handle(query: ListFonts): List<Font> = jdbi.withHandle<List<Font>, Exception> { handle ->
         val sql = buildString {
-            append(
-                """
-                SELECT f.slug, f.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, f.name, f.kind,
-                       f.created_at, f.updated_at
-                FROM fonts f
-                JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
-                WHERE f.tenant_key = :tenantId
-                  AND ${inCurrentVersion("f")}
-                """,
-            )
-            if (query.catalogKey != null) {
-                append(" AND f.version_id = ${versionAt("tenantId", "catalogKey")}")
-            }
+            append("SELECT $FONT_COLUMNS FROM current_fonts f WHERE f.tenant_key = :tenantId")
+            if (query.catalogKey != null) append(" AND f.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             append(" ORDER BY f.name ASC")
         }
 

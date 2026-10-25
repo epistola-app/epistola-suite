@@ -31,8 +31,8 @@ const val CATALOG_BASELINE_SCHEMA_VERSION: Int = CatalogWireSchema.BASELINE_VERS
  * before dependents. `codeList` precedes `attribute` because an attribute can
  * bind to a code list (`AttributeResource.codeListBinding`), and the bound
  * list's row must exist when the FK is enforced by `attr_code_list_fk`.
- * `font` follows `asset` because every asset-backed font face FKs the identity
- * of an `assets` row (`font_variants.asset_resource_id`), which must exist by then.
+ * `font` follows `image` only by habit: a font's faces are binaries of the font itself (ADR 0033),
+ * not images, so nothing a font holds needs an image installed first.
  */
 val RESOURCE_INSTALL_ORDER: Map<String, Int> = mapOf(
     "image" to 0,

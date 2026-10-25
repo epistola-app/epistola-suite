@@ -345,27 +345,14 @@ class InstallFromCatalogHandler(
         resource: FontResource,
         binaries: Map<String, ByteArray>,
     ): InstallStatus {
-        // A face carries its own binary from wire v7 rather than naming a separate asset, so each
-        // one is materialised here, keyed by its content hash so a re-install reuses the row.
-        // System (CLASSPATH) fonts are never exported and so never arrive over the wire.
+        // A face carries its own file from wire v7, and it is the font's own binary (ADR 0033).
         return ImportFont(
             catalog = command.catalog,
             slug = resource.key,
             name = resource.name,
             kind = resource.kind,
             variants = resource.variants.map { entry ->
-                val faceKey = materialiseFontFace(
-                    command.catalog,
-                    resource.key,
-                    entry,
-                    requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" },
-                )
-                ImportFontVariant(
-                    weight = entry.weight,
-                    italic = entry.italic,
-                    source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
-                    assetKey = faceKey,
-                )
+                ImportFontVariant(entry.weight, entry.italic, entry.mediaType, requireNotNull(binaries[entry.contentPath()]) { "font face was not staged" })
             },
         ).execute()
     }

@@ -219,7 +219,7 @@ class CatalogImportRows(
             // as themes/stencils/code lists.
             val fontDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Font>()
             if (fontDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND ${inCurrentVersion("fo")} AND fo.slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, fo.slug FROM current_fonts fo JOIN catalogs rc ON rc.tenant_key = fo.tenant_key AND rc.catalog_id = fo.catalog_id WHERE fo.tenant_key = :tenantKey AND fo.slug IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", fontDeps.map { it.key })
                     .map { rs, _ -> "font:${rs.getString("catalog_key")}:${rs.getString("slug")}" }

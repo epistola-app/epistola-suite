@@ -24,7 +24,6 @@ import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.Font
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
@@ -255,27 +254,12 @@ class FontHandler(
         }
         if (faceError != null) errors["faces"] = faceError
 
-        // Persist only when everything validated. UploadAsset/ImportFont can still
+        // Persist only when everything validated. ImportFont can still
         // reject a catalog that cannot be changed here — fold that onto the catalog field.
         if (errors.isEmpty()) {
             try {
-                val importVariants = rows.map { row ->
-                    val asset = UploadAsset(
-                        catalog = catalog,
-                        name = row.filename,
-                        mediaType = row.mediaType,
-                        content = row.bytes,
-                        width = null,
-                        height = null,
-                        catalogVersion = version,
-                    ).execute()
-                    ImportFontVariant(
-                        weight = row.weight,
-                        italic = row.italic,
-                        source = FontVariantSource.ASSET,
-                        assetKey = asset.id,
-                    )
-                }
+                // A face's file is the font's own binary (ADR 0033), not an asset.
+                val importVariants = rows.map { row -> ImportFontVariant(row.weight, row.italic, row.mediaType.mimeType, row.bytes) }
                 ImportFont(
                     catalog = catalog,
                     slug = slug!!.value,

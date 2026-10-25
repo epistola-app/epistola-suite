@@ -14,7 +14,6 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestNamespaces
@@ -113,20 +112,12 @@ class EpistolaFontApiTest : IntegrationTestBase() {
     fun `list AUTHORED catalog fonts after an upload`() {
         val (tenantKey, key) = seedTenantAndKey()
         withMediator {
-            val asset = UploadAsset(
-                catalog = testCatalog(tenantKey, CatalogKey.DEFAULT),
-                name = "acme-regular.ttf",
-                mediaType = AssetMediaType.TTF,
-                content = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray,
-                width = null,
-                height = null,
-            ).execute()
             ImportFont(
                 catalog = testCatalog(TenantId(tenantKey), CatalogKey.DEFAULT),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset.id)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray)),
             ).execute()
         }
 

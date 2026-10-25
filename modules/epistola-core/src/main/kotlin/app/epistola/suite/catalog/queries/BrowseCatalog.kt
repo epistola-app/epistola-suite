@@ -91,7 +91,7 @@ class BrowseCatalogHandler(
             UNION ALL
             SELECT 'codeList', id, display_name, description FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'font', slug::text, name, NULL FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'font', slug::text, name, NULL FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -146,7 +146,7 @@ class BrowseCatalogHandler(
                 UNION ALL
                 SELECT 'codeList:' || id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'font:' || slug FROM fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'font:' || slug FROM current_fonts WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 """,
             )
                 .bind("tenantKey", query.tenantKey)

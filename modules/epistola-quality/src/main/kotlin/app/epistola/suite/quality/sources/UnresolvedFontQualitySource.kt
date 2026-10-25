@@ -25,7 +25,7 @@ import java.util.HexFormat
  * told. That is a real defect an author wants to know about, and one they cannot see from the editor
  * preview, which falls back the same silent way.
  *
- * The source stays pure: whether a family resolves is a database question (it reads `font_variants`),
+ * The source stays pure: whether a family resolves is a database question (it reads the fonts' content),
  * so the caller resolves every referenced font once and hands the answers in via
  * [QualityCheckInput.dependencies]. This source only reads the node graph and looks the answer up —
  * which is exactly the "caller pre-resolves, source stays pure" seam the next DB-backed sources

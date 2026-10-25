@@ -31,7 +31,6 @@ import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -354,20 +353,12 @@ class ReleaseRenderSourceTest : IntegrationTestBase() {
     )
 
     private fun importFont(catalog: CatalogId, slug: String, bytes: ByteArray) {
-        val asset = UploadAsset(
-            catalog = testCatalog(catalog.tenantKey, catalog.key),
-            name = "$slug-${bytes.size}.ttf",
-            mediaType = AssetMediaType.TTF,
-            content = bytes,
-            width = null,
-            height = null,
-        ).execute().id
         ImportFont(
             catalog = testCatalog(TenantId(catalog.tenantKey), catalog.key),
             slug = slug,
             name = slug,
             kind = FontKind.SANS.wire,
-            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset)),
+            variants = listOf(ImportFontVariant(400, false, "font/ttf", bytes)),
         ).execute()
     }
 

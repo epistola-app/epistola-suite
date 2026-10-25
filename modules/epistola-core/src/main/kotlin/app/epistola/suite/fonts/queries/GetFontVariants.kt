@@ -4,18 +4,16 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.FontId
-import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
-import app.epistola.suite.fonts.model.FontVariantRow
+import app.epistola.suite.fonts.FontStore
+import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
@@ -26,8 +24,8 @@ data class GetFontVariants(
     val fontId: FontId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
-    Query<List<FontVariantRow>>,
+) : ReleaseReadable,
+    Query<List<FontFace>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
     override val tenantKey get() = fontId.tenantKey
@@ -36,20 +34,7 @@ data class GetFontVariants(
 @Component
 class GetFontVariantsHandler(
     private val jdbi: Jdbi,
-) : QueryHandler<GetFontVariants, List<FontVariantRow>> {
-    override fun handle(query: GetFontVariants): List<FontVariantRow> = jdbi.withHandle<List<FontVariantRow>, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT faces.weight, faces.italic, faces.source,
-                   binary_asset.id AS asset_key, faces.classpath_location
-            $FACES_OF_FAMILY_AT_ADDRESS
-            ORDER BY faces.italic ASC, faces.weight ASC
-            """,
-        )
-            .bind("tenantKey", query.fontId.tenantKey)
-            .bindCatalog("catalogKey", query.fontId.catalogId)
-            .bind("slug", query.fontId.key)
-            .mapTo<FontVariantRow>()
-            .list()
-    }
+    private val fonts: FontStore,
+) : QueryHandler<GetFontVariants, List<FontFace>> {
+    override fun handle(query: GetFontVariants): List<FontFace> = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, query.fontId) }
 }

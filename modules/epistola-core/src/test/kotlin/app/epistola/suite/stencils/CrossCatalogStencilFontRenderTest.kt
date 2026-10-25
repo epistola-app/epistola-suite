@@ -18,7 +18,6 @@ import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -86,8 +85,7 @@ class CrossCatalogStencilFontRenderTest : IntegrationTestBase() {
         withMediator {
             CreateCatalog(tenant, letters.key, "Letters").execute()
             CreateCatalog(tenant, parts.key, "Parts").execute()
-            val asset = UploadAsset(catalog = parts, name = "acme-sans-regular.ttf", mediaType = AssetMediaType.TTF, content = bytes, width = null, height = null).execute().id
-            ImportFont(parts, slug = "acme-sans", name = "Acme Sans", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset))).execute()
+            ImportFont(parts, slug = "acme-sans", name = "Acme Sans", kind = FontKind.SANS.wire, variants = listOf(ImportFontVariant(400, false, "font/ttf", bytes))).execute()
             CreateStencil(
                 StencilId(StencilKey.of("header"), parts),
                 "Header",

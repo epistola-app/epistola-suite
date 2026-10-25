@@ -4,24 +4,21 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
 import app.epistola.suite.fonts.FontByteCache
-import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.FontStore
+import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import kotlin.math.abs
@@ -45,12 +42,11 @@ import kotlin.math.abs
  * 3. **Nearest weight** within the chosen italic set: an exact weight match
  *    wins; otherwise the row with the minimal absolute weight distance; ties
  *    (equal distance) break toward the **heavier** weight.
- * 4. Fetch that row's bytes by source (CLASSPATH → classloader resource;
- *    ASSET → [GetAssetContent]). Returns `null` when the resolved face's
- *    binary is missing.
+ * 4. Fetch that face's file: the font's binary stored under its hash (ADR 0033).
+ *    Returns `null` when its bytes are missing.
  *
- * The result carries the row's stored `content_hash` (null when not yet hashed),
- * so the renderer's parsed-font cache need not hash the bytes again.
+ * The result carries the face's content hash, so the renderer's parsed-font cache need not hash
+ * the bytes again.
  */
 data class ResolveFontFace(
     val catalog: CatalogId,
@@ -59,7 +55,7 @@ data class ResolveFontFace(
     val italic: Boolean,
     /** The catalog version a render reads; null for each catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : app.epistola.suite.catalog.releases.ReleaseReadable,
     Query<ResolvedFontFace?>,
     RequiresPermission {
     val tenantId: TenantKey get() = catalog.tenantKey
@@ -69,22 +65,12 @@ data class ResolveFontFace(
 }
 
 /**
- * A face's binary and the lowercase hex SHA-256 stored for it (`font_variants.content_hash`); the
- * hash is null when the face is not yet hashed.
+ * A face's binary and the lowercase hex SHA-256 its font names it by (the face's `contentHash` in
+ * the font's content, ADR 0033); null only when nothing recorded one.
  */
 class ResolvedFontFace(
     val content: ByteArray,
     val contentHash: String?,
-)
-
-internal data class FaceRow(
-    val weight: Int,
-    val italic: Boolean,
-    val source: FontVariantSource,
-    val assetKey: AssetKey?,
-    val classpathLocation: String?,
-    /** Lowercase hex SHA-256 of the face binary; null when not yet hashed. */
-    val contentHash: String? = null,
 )
 
 /**
@@ -99,7 +85,7 @@ internal data class FaceRow(
  *
  * @return the best-matching row, or `null` when [rows] is empty.
  */
-internal fun pickBestFace(rows: List<FaceRow>, weight: Int, italic: Boolean): FaceRow? = pickNearestFace(rows, { it.weight }, { it.italic }, weight, italic)
+internal fun pickBestFace(rows: List<FontFace>, weight: Int, italic: Boolean): FontFace? = pickNearestFace(rows, { it.weight }, { it.italic }, weight, italic)
 
 /**
  * The selection rule behind [pickBestFace], for any face shape: a family stored in the database and
@@ -122,49 +108,15 @@ fun <T> pickNearestFace(faces: List<T>, weightOf: (T) -> Int, italicOf: (T) -> B
 @Component
 class ResolveFontFaceHandler(
     private val jdbi: Jdbi,
+    private val fonts: FontStore,
     private val bytes: FontByteCache,
 ) : QueryHandler<ResolveFontFace, ResolvedFontFace?> {
 
-    override fun handle(query: ResolveFontFace): ResolvedFontFace? {
-        val rows = jdbi.withHandle<List<FaceRow>, Exception> { handle ->
-            handle.loadFaces(query.catalog, query.slug)
-        }
-
-        val best = pickBestFace(rows, query.weight, query.italic) ?: return null
-
-        fun load(): ByteArray? = when (best.source) {
-            FontVariantSource.CLASSPATH -> best.classpathLocation?.let { location ->
-                this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
-            }
-
-            FontVariantSource.ASSET -> best.assetKey?.let { assetKey ->
-                GetAssetContent(query.tenantId, assetId = assetKey).query()?.content
-            }
-        }
-        // Bytes are the same wherever a hash is; a face not yet hashed is read each time.
-        val content = best.contentHash?.let { hash -> bytes.getOrLoad("${query.tenantId.value}|$hash", ::load) } ?: load() ?: return null
-        return ResolvedFontFace(content, best.contentHash)
+    override fun handle(query: ResolveFontFace): ResolvedFontFace? = jdbi.withHandle<ResolvedFontFace?, Exception> { handle ->
+        val best = pickBestFace(fonts.faces(handle, FontId(query.slug, query.catalog)), query.weight, query.italic) ?: return@withHandle null
+        // Bytes are the same wherever a hash is.
+        val content = bytes.getOrLoad("${query.tenantId.value}|${best.contentHash}") { fonts.bytes(handle, query.tenantId, best.contentHash) }
+            ?: return@withHandle null
+        ResolvedFontFace(content, best.contentHash)
     }
 }
-
-private fun Handle.loadFaces(catalog: CatalogId, slug: FontKey): List<FaceRow> = createQuery(
-    """
-    SELECT faces.weight, faces.italic, faces.source,
-           binary_asset.id AS asset_key, faces.classpath_location, faces.content_hash
-    $FACES_OF_FAMILY_AT_ADDRESS
-    """,
-)
-    .bind("tenantKey", catalog.tenantKey)
-    .bindCatalog("catalogKey", catalog)
-    .bind("slug", slug)
-    .map { rs, _ ->
-        FaceRow(
-            weight = rs.getInt("weight"),
-            italic = rs.getBoolean("italic"),
-            source = FontVariantSource.valueOf(rs.getString("source")),
-            assetKey = rs.getString("asset_key")?.let(::AssetKey),
-            classpathLocation = rs.getString("classpath_location"),
-            contentHash = rs.getString("content_hash"),
-        )
-    }
-    .list()

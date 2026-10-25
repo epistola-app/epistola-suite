@@ -53,6 +53,12 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
             CreateTheme(ThemeId(ThemeKey.of("brand"), letters), "Brand", documentStyles = mapOf("fontFamily" to mapOf("key" to "inter", "catalogKey" to "system"))).execute()
             CreateCodeList(CodeListId(CodeListKey.of("regions"), letters), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), letters), "Region", codeListId = CodeListId(CodeListKey.of("regions"), letters)).execute()
+            app.epistola.suite.testing.FontFixtures.importFont(
+                letters,
+                "house-sans",
+                "House Sans",
+                mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/fonts/lato/lato-Regular.ttf")!!.readBytes()),
+            )
             // Names a theme of its own catalog: a release says that relatively.
             CreateStencil(
                 StencilId(StencilKey.of("footer"), letters),
@@ -83,7 +89,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 .map { rs, _ -> Triple(rs.getString("resource"), rs.getString("drafted"), rs.getString("released")) }
                 .list()
         }
-        assertThat(pairs.map { it.first }).containsExactly("attribute/region", "codeList/regions", "stencil/footer", "theme/brand")
+        assertThat(pairs.map { it.first }).containsExactly("attribute/region", "codeList/regions", "font/house-sans", "stencil/footer", "theme/brand")
         assertThat(pairs).allSatisfy { (resource, drafted, released) -> assertThat(drafted).`as`(resource).isEqualTo(released) }
     }
 }

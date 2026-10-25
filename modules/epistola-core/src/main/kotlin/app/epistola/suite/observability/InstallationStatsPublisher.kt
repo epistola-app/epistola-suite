@@ -117,7 +117,7 @@ class InstallationStatsPublisher(
         THEMES("themes", "current_themes"),
         CATALOGS("catalogs", "catalogs"),
         STENCILS("stencils", "current_stencils"),
-        FONTS("fonts", "fonts", versioned = true),
+        FONTS("fonts", "current_fonts"),
         ENVIRONMENTS("environments", "environments"),
     }
 

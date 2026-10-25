@@ -74,17 +74,13 @@ class ResourceContentStore(
      */
     fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent, settings: Map<String, ObjectNode> = emptyMap()): Map<String, String> {
         val hashes = content.resourceDetails.values.flatMap { binaryHashes(it.resource) }
-        val scopes = resolveBinaryScopes(handle, tenantKey, hashes) + storeCarried(content, hashes)
+        // The bytes a received release carries go in first, so the contents can link to them.
+        storeCarried(content, hashes)
 
         return content.resourceDetails.mapValues { (_, detail) ->
             val resource = detail.resource
             val payload = payloadOf(handle, tenantKey, resource, settings["${resource.type}/${resource.key}"])
-            val digest = write(handle, tenantKey, resource.type, payload)
-            for (hash in binaryHashes(resource)) {
-                val scope = scopes[hash] ?: continue
-                writeBinary(handle, tenantKey, digest, scope, hash)
-            }
-            digest
+            write(handle, tenantKey, resource.type, payload)
         }
     }
 
@@ -155,7 +151,47 @@ class ResourceContentStore(
             .bind("payload", canonical)
             .execute()
         writeReferences(handle, tenantKey, digest, ContentReferences.of(kind, payload))
+        linkBinaries(handle, tenantKey, digest, binaryHashes(kind, payload))
         return digest
+    }
+
+    /** The content hash [payload] of [kind] is stored under, without storing it. */
+    fun hashOf(payload: JsonNode): String = sha256Hex(objectMapper.writeValueAsString(sortKeys(payload)).toByteArray())
+
+    /**
+     * Every binary a stored content needs, from its JSON: an image's own, each of a font's faces.
+     * Read from the content, not the resource, so a draft and a release link alike (ADR 0033).
+     */
+    private fun binaryHashes(kind: String, payload: JsonNode): List<String> {
+        val resource = StoredContent.releasedForm(kind, payload)
+        return when (kind) {
+            "image" -> listOfNotNull(resource.get("contentHash")?.takeIf { it.isString }?.asString())
+            "font" -> resource.path("variants").mapNotNull { it.get("contentHash")?.takeIf { hash -> hash.isString }?.asString() }
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * Links [digest] to the bytes it needs (`resource_binaries`), so they are kept while it is: in the
+     * tenant's own scope where it has them there, else the shared one. A hash whose bytes are not
+     * stored yet is not linked; the bundled faces are linked when the system fonts are seeded.
+     */
+    private fun linkBinaries(handle: Handle, tenantKey: TenantKey, digest: String, hashes: List<String>) {
+        if (hashes.isEmpty()) return
+        handle.createUpdate(
+            """
+            INSERT INTO resource_binaries (tenant_key, content_hash, scope, binary_hash)
+            SELECT DISTINCT ON (ac.content_hash) :t, :digest, ac.scope, ac.content_hash
+            FROM asset_content ac
+            WHERE ac.content_hash IN (<hashes>) AND ac.scope IN (:t, '$GLOBAL_ASSET_SCOPE')
+            ORDER BY ac.content_hash, ac.scope = '$GLOBAL_ASSET_SCOPE'
+            ON CONFLICT DO NOTHING
+            """,
+        )
+            .bind("t", tenantKey)
+            .bind("digest", digest)
+            .bindList("hashes", hashes.distinct())
+            .execute()
     }
 
     private fun writeReferences(handle: Handle, tenantKey: TenantKey, contentHash: String, references: Set<ContentReference>) {
@@ -239,21 +275,6 @@ class ResourceContentStore(
         .mapTo(String::class.java)
         .set()
 
-    private fun writeBinary(handle: Handle, tenantKey: TenantKey, digest: String, scope: String, contentHash: String) {
-        handle.createUpdate(
-            """
-            INSERT INTO resource_binaries (tenant_key, content_hash, scope, binary_hash)
-            VALUES (:t, :digest, :scope, :hash)
-            ON CONFLICT DO NOTHING
-            """,
-        )
-            .bind("t", tenantKey)
-            .bind("digest", digest)
-            .bind("scope", scope)
-            .bind("hash", contentHash)
-            .execute()
-    }
-
     /**
      * The bytes [content] carries that no asset of the tenant holds: a release received beside the
      * others (ADR 0032) brings resources no version has, so nothing stored their bytes. Stored in
@@ -270,6 +291,8 @@ class ResourceContentStore(
             }
         }
         return carried.filter { it.first in hashes }.mapNotNull { (hash, path, mediaType) ->
+            // Already stored: neither hashed nor sent again (a system catalog's faces, on every tenant).
+            if (contentStore.exists(GLOBAL_ASSET_SCOPE, hash)) return@mapNotNull hash to GLOBAL_ASSET_SCOPE
             val bytes = content.assetContents[path]?.takeIf { sha256Hex(it) == hash } ?: return@mapNotNull null
             contentStore.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, bytes, mediaType, bytes.size.toLong())
             hash to GLOBAL_ASSET_SCOPE
@@ -281,28 +304,6 @@ class ResourceContentStore(
         is ImageResource -> listOf(resource.contentHash)
         is FontResource -> resource.variants.map { it.contentHash }
         else -> emptyList()
-    }
-
-    /**
-     * Which dedup scope each hash's bytes live under, derived from the owning asset's `sensitive`
-     * flag exactly as at write time — the one rule `assetContentScope` and the content reaper use.
-     * A hash with no asset row resolves to nothing and is skipped: there are no bytes to hold.
-     */
-    private fun resolveBinaryScopes(handle: Handle, tenantKey: TenantKey, hashes: List<String>): Map<String, String> {
-        if (hashes.isEmpty()) return emptyMap()
-        return handle.createQuery(
-            """
-            SELECT DISTINCT content_hash,
-                   CASE WHEN sensitive THEN tenant_key::text ELSE 'global' END AS scope
-            FROM assets
-            WHERE tenant_key = :t AND content_hash IN (<hashes>)
-            """,
-        )
-            .bind("t", tenantKey)
-            .bindList("hashes", hashes.distinct())
-            .map { rs, _ -> rs.getString("content_hash") to rs.getString("scope") }
-            .list()
-            .toMap()
     }
 
     /** Recursively sorted object keys — the same canonical rule the contract's canonicaliser uses. */

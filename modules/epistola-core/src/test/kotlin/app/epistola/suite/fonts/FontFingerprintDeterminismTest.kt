@@ -22,7 +22,6 @@ import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontIntegrityException
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -71,22 +70,17 @@ class FontFingerprintDeterminismTest : IntegrationTestBase() {
         .getResource("classpath:$resource")
         .contentAsByteArray
 
-    private fun upload(tenant: TenantId, name: String, resource: String): AssetKey = UploadAsset(
-        catalog = testCatalog(tenant.key, CatalogKey.DEFAULT),
-        name = name,
-        mediaType = AssetMediaType.TTF,
-        content = bytesOf(resource),
-        width = null,
-        height = null,
-    ).execute().id
+    /** A face's file: the font's own binary (ADR 0033), not an uploaded asset. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun upload(tenant: TenantId, name: String, resource: String): ByteArray = bytesOf(resource)
 
-    private fun importBrandFont(tenant: TenantId, asset: AssetKey) {
+    private fun importBrandFont(tenant: TenantId, asset: ByteArray) {
         ImportFont(
             catalog = testCatalog(tenant, CatalogKey.DEFAULT),
             slug = "brand-sans",
             name = "Brand Sans",
             kind = FontKind.SANS.wire,
-            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset)),
+            variants = listOf(ImportFontVariant(400, false, "font/ttf", asset)),
         ).execute()
     }
 

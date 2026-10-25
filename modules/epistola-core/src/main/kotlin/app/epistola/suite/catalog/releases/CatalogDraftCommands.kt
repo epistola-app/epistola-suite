@@ -308,8 +308,7 @@ class DeleteCatalogDraftHandler(
      * Discarding the draft deletes the identity of every resource no other version and no release
      * holds (`sync_catalog_resource_identity`), and the references into `catalog_resources` would
      * then fail (the tenant's default theme, an attribute's code list) or be cleared silently (a
-     * template's theme). A reference from inside the draft goes with it. A font face's image
-     * (`font_variants_asset_fkey`) is always in the family's own version, so it is not looked for.
+     * template's theme). A reference from inside the draft goes with it.
      */
     fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
         $$"""
@@ -317,12 +316,10 @@ class DeleteCatalogDraftHandler(
             SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
-            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id = :v
         ),
         elsewhere AS (
             SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             -- Every other draft's rows and every release's (ADR 0033): not this draft's own.
             UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IS DISTINCT FROM :v
         ),

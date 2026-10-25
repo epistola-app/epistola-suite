@@ -40,7 +40,6 @@ import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
@@ -182,20 +181,12 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
 
     /** A one-face font family at [catalog]/[slug], its face backed by an asset in the same catalog. */
     protected fun importFont(tenant: TenantKey, catalog: CatalogKey, slug: String) = withMediator {
-        val face = UploadAsset(
-            catalog = testCatalog(tenant, catalog),
-            name = "$slug-regular.ttf",
-            mediaType = AssetMediaType.TTF,
-            content = ttfBytes(),
-            width = null,
-            height = null,
-        ).execute().id
         ImportFont(
             catalog = testCatalog(TenantId(tenant), catalog),
             slug = slug,
             name = "Font $slug",
             kind = FontKind.SANS.wire,
-            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face)),
+            variants = listOf(ImportFontVariant(400, false, "font/ttf", ttfBytes())),
         ).execute()
     }
 

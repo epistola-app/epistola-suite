@@ -34,7 +34,6 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
@@ -90,8 +89,7 @@ class MergeContentKindsTest : IntegrationTestBase() {
         val (a, catalog) = received("Merge Kinds", inB = { b, catalog ->
             val id = testCatalog(TenantId(b), catalog)
             UploadAsset(testCatalog(b, catalog), "Mark", AssetMediaType.PNG, PNG, 1, 1).execute()
-            val face = UploadAsset(testCatalog(b, catalog), "Sans Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null).execute().id
-            ImportFont(testCatalog(TenantId(b), catalog), "house-sans", "House Sans", FontKind.SANS.wire, listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = face))).execute()
+            ImportFont(testCatalog(TenantId(b), catalog), "house-sans", "House Sans", FontKind.SANS.wire, listOf(ImportFontVariant(400, false, "font/ttf", TTF))).execute()
             CreateCodeList(CodeListId(CodeListKey.of("regions"), id), "Regions", sourceType = CodeListSource.INLINE, entries = listOf(CodeListEntry("eu", "Europe"))).execute()
             CreateAttributeDefinition(AttributeId(AttributeKey.of("region"), id), "Region", codeListId = CodeListId(CodeListKey.of("regions"), id)).execute()
         })

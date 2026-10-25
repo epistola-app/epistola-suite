@@ -4,49 +4,55 @@
 
 package app.epistola.suite.fonts.commands
 
-import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.FontStore
+import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * A single font-face pointer carried by [ImportFont], keyed by CSS numeric
- * [weight] (1–1000; 400 = regular, 700 = bold) + [italic]. Exactly one of
- * [assetKey] / [classpathLocation] is non-null, matching the SQL CHECK.
- * Every face is a static binary (variable fonts are instanced at upload).
+ * One face carried by [ImportFont], keyed by CSS numeric [weight] (1–1000; 400 = regular,
+ * 700 = bold) and [italic], with its file: [content], a static TTF or OTF ([mediaType]). The file is
+ * the font's own binary (ADR 0033); [contentHash] is what it is stored under.
  */
-data class ImportFontVariant(
+class ImportFontVariant(
     val weight: Int,
     val italic: Boolean,
-    val source: FontVariantSource,
-    val assetKey: AssetKey? = null,
-    val classpathLocation: String? = null,
-)
+    val mediaType: String,
+    val content: ByteArray,
+    val contentHash: String = FontStore.hashOf(content),
+) {
+    /** The face as the font's content names it. */
+    fun face(): FontFace = FontFace(weight, italic, mediaType, contentHash)
+
+    override fun equals(other: Any?): Boolean = other is ImportFontVariant && other.face() == face()
+
+    override fun hashCode(): Int = face().hashCode()
+
+    override fun toString(): String = "ImportFontVariant(${face()})"
+}
 
 /**
- * Catalog-import counterpart for font families — UPSERTs a `fonts` row and
- * (delete-and-reinsert) its `font_variants`. Matches the `ImportCodeList`
- * shape used by `InstallFromCatalog` / `ImportCatalogZip`.
+ * Creates or replaces a font family of a draft, with its faces' files ([FontStore]): what an
+ * upload, a catalog install and the system font seeding all do. Matches the `ImportCodeList` shape
+ * used by `InstallFromCatalog` / `ImportCatalogZip`.
  *
- * `kind` arrives as the lowercase wire string (`sans` / `serif` / …) and is
- * persisted as-is to satisfy the `chk_fonts_kind` SQL CHECK. Re-running this
- * command (e.g. a catalog upgrade) replaces the variant set atomically.
+ * `kind` arrives as the lowercase wire string (`sans` / `serif` / …). Re-running it replaces the
+ * faces at once; with the same faces it writes nothing.
  */
 data class ImportFont(
     val catalog: CatalogId,
@@ -67,35 +73,34 @@ data class ImportFont(
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= MAX_NAME_LENGTH) { "Name must be $MAX_NAME_LENGTH characters or less" }
+        variants.forEach { face ->
+            val label = "Face ${face.weight}${if (face.italic) " italic" else ""}"
+            validate("variants", face.weight in 1..1000) { "$label: weight must be between 1 and 1000" }
+            validate("variants", face.mediaType in FONT_MEDIA_TYPES) { "$label: a face is a TTF or OTF file" }
+            // As large as an uploaded asset may be; a face used to be one.
+            validate("variants", face.content.size <= app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES) { "$label: a face is at most 5 MB" }
+        }
+        validate("variants", variants.map { it.weight to it.italic }.toSet().size == variants.size) { "Each weight/italic face may appear only once" }
+    }
+
+    companion object {
+        /** The files a face may be. */
+        val FONT_MEDIA_TYPES: Set<String> = setOf("font/ttf", "font/otf")
     }
 }
 
 @Component
 class ImportFontHandler(
     private val jdbi: Jdbi,
-    private val fontCatalogWriter: FontCatalogWriter,
+    private val fonts: FontStore,
 ) : CommandHandler<ImportFont, InstallStatus> {
 
     override fun handle(command: ImportFont): InstallStatus {
         // Catalog install and upgrade write fonts into catalogs that cannot be changed inside
         // CatalogImportContext, which the guard lets through; a user upload must not.
         requireCatalogEditable(command.catalog)
-        return import(command)
-    }
-
-    private fun import(command: ImportFont): InstallStatus = jdbi.inTransaction<InstallStatus, Exception> { handle ->
-        fontCatalogWriter.writeFont(
-            handle = handle,
-            catalog = command.catalog,
-            slug = command.slug,
-            name = command.name,
-            kind = command.kind,
-            variants = command.variants,
-            assetBytes = { variant ->
-                variant.assetKey?.let { assetKey ->
-                    GetAssetContent(command.tenantKey, assetId = assetKey).query()?.content
-                }
-            },
-        )
+        return jdbi.inTransaction<InstallStatus, Exception> { handle ->
+            fonts.put(handle, command.catalog, command.slug, command.name, command.kind, command.variants, currentUserIdOrNull()?.value)
+        }
     }
 }

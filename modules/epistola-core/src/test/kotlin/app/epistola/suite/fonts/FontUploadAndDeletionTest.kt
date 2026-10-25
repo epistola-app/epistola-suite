@@ -4,12 +4,8 @@
 
 package app.epistola.suite.fonts
 
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.catalog.CatalogReadOnlyException
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontId
@@ -22,8 +18,8 @@ import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.FindFontUsages
+import app.epistola.suite.fonts.queries.GetFontVariantContent
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mediator.execute
@@ -39,8 +35,8 @@ import org.springframework.core.io.ResourceLoader
 
 /**
  * Mediator-level coverage for the customer font lifecycle: register a family
- * from uploaded asset binaries via [ImportFont], guard SUBSCRIBED catalogs,
- * and delete the family + its backing assets ([DeleteFont]) with the
+ * with its faces' files via [ImportFont], guard SUBSCRIBED catalogs,
+ * and delete the family with its faces ([DeleteFont]) with the
  * [FindFontUsages] in-use guard.
  *
  * Mirrors `app.epistola.suite.assets.AssetIntegrationTest` (asset machinery
@@ -60,14 +56,9 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
         .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
-    private fun uploadFace(tenant: TenantId, catalog: CatalogKey, name: String): AssetKey = UploadAsset(
-        catalog = testCatalog(tenant.key, catalog),
-        name = name,
-        mediaType = AssetMediaType.TTF,
-        content = ttfBytes(),
-        width = null,
-        height = null,
-    ).execute().id
+    /** A face's file: since ADR 0033 step 5 the font's own binary, not an uploaded asset. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun uploadFace(tenant: TenantId, catalog: CatalogKey, name: String): ByteArray = ttfBytes()
 
     @Test
     fun `register a font family from uploaded faces into an AUTHORED catalog`() {
@@ -84,8 +75,8 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
                 variants = listOf(
-                    ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular),
-                    ImportFontVariant(700, false, FontVariantSource.ASSET, assetKey = bold),
+                    ImportFontVariant(400, false, "font/ttf", regular),
+                    ImportFontVariant(700, false, "font/ttf", bold),
                 ),
             ).execute()
 
@@ -104,22 +95,21 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
     fun `register a font into the system SUBSCRIBED catalog is rejected`() {
         withMediator {
             createTenant("Font System Reject Tenant")
-            // The asset upload itself targets system → CatalogReadOnlyException.
+            // A face's file is the font's own; the font itself targets system → CatalogReadOnlyException.
             assertThatThrownBy {
-                UploadAsset(
+                ImportFont(
                     catalog = testCatalog(createTenant("Font System Reject Tenant 2").id, SYSTEM_CATALOG_KEY),
-                    name = "rogue.ttf",
-                    mediaType = AssetMediaType.TTF,
-                    content = ttfBytes(),
-                    width = null,
-                    height = null,
+                    slug = "rogue",
+                    name = "Rogue",
+                    kind = FontKind.SANS.wire,
+                    variants = listOf(ImportFontVariant(400, false, "font/ttf", ttfBytes())),
                 ).execute()
             }.isInstanceOf(CatalogReadOnlyException::class.java)
         }
     }
 
     @Test
-    fun `delete font removes the family and its backing assets`() {
+    fun `delete font removes the family and its faces`() {
         withMediator {
             val tenant = createTenant("Font Delete Tenant")
             val tenantId = TenantId(tenant.id)
@@ -130,7 +120,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "delete-me",
                 name = "Delete Me",
                 kind = FontKind.SERIF.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
 
             val deleted = DeleteFont(FontId(FontKey.of("delete-me"), testCatalog(tenantId, CatalogKey.DEFAULT))).execute()
@@ -139,7 +129,8 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
             assertThat(ListFonts(tenantId = tenantId, catalog = testCatalog(tenantId, CatalogKey.DEFAULT)).query().map { it.slug.value })
                 .doesNotContain("delete-me")
             // The backing ASSET binary is gone too.
-            assertThat(GetAsset(tenantId = tenant.id, assetId = regular).query()).isNull()
+            // Its face's file goes with it: nothing of the draft names it any more.
+            assertThat(GetFontVariantContent(testCatalog(tenantId, CatalogKey.DEFAULT), FontKey.of("delete-me"), 400, false).query()).isNull()
         }
     }
 
@@ -167,7 +158,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "used-font",
                 name = "Used Font",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
 
             CreateTheme(
@@ -205,7 +196,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "slug-font",
                 name = "Slug Font",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
             // The wire-v7 member name, as 1.x stored it.
             CreateTheme(
@@ -232,7 +223,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "lonely-font",
                 name = "Lonely Font",
                 kind = FontKind.MONO.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
 
             val usages = FindFontUsages(
@@ -253,7 +244,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
 
             // Simulate catalog import into a second tenant: re-import the same
@@ -266,7 +257,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
                 slug = "round-trip",
                 name = "Round Trip",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = importedAsset)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", importedAsset)),
             ).execute()
 
             val imported = ListFonts(tenantId = targetId, catalog = testCatalog(targetId, CatalogKey.DEFAULT)).query()

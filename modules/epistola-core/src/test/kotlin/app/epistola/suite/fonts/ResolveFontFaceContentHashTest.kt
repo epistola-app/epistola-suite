@@ -15,7 +15,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -54,20 +53,12 @@ class ResolveFontFaceContentHashTest : IntegrationTestBase() {
 
         withMediator {
             CreateCatalog(tenant.id, letters, "Letters").execute()
-            val asset = UploadAsset(
-                catalog = testCatalog(tenant.id, letters),
-                name = "house-sans-bold.ttf",
-                mediaType = AssetMediaType.TTF,
-                content = upload,
-                width = null,
-                height = null,
-            ).execute().id
             ImportFont(
                 catalog = testCatalog(TenantId(tenant.id), letters),
                 slug = "house-sans",
                 name = "House Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(700, false, FontVariantSource.ASSET, assetKey = asset)),
+                variants = listOf(ImportFontVariant(700, false, "font/ttf", upload)),
             ).execute()
         }
 

@@ -4,20 +4,15 @@
 
 package app.epistola.suite.fonts.commands
 
-import app.epistola.suite.assets.commands.DeleteAsset
-import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FontId
-import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
+import app.epistola.suite.fonts.FontStore
 import app.epistola.suite.fonts.model.FontInUseException
 import app.epistola.suite.fonts.queries.FindFontUsages
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
@@ -35,12 +30,9 @@ import org.springframework.stereotype.Component
  *  - Usage guard — unless [force], a font referenced by a theme or template
  *    version refuses with [FontInUseException] (mirrors `AssetInUseException`).
  *
- * Deletion order matters: `font_variants.asset_key → assets` is
- * `ON DELETE RESTRICT`. We (1) collect the ASSET-sourced asset keys, (2) delete
- * the `fonts` row (cascading `font_variants` away), then (3) delete each backing
- * asset via [DeleteAsset] (`force = true`) so the shared asset machinery removes
- * both the row and the content-store blob. CLASSPATH variants own no asset and
- * are left untouched.
+ * A font is a draft row naming its content (ADR 0033), and its faces' files are binaries of that
+ * content, not assets: deleting the row is the whole delete, and the files go once no content names
+ * them any more (the content collector).
  *
  * @property force If true, skip the usage check and delete even if in use.
  */
@@ -59,83 +51,25 @@ data class DeleteFont(
 @Component
 class DeleteFontHandler(
     private val jdbi: Jdbi,
+    private val fonts: FontStore,
 ) : CommandHandler<DeleteFont, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteFont): Boolean {
-        val tenantKey = command.fontId.tenantKey
         val catalog = command.fontId.catalogId
-        val catalogKey = catalog.key
-        val slug = command.fontId.key
-
         // Catalog editability — one Epistola supplies (e.g. `system`) rejects.
         requireCatalogEditable(catalog)
 
-        val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT COUNT(*) > 0
-                FROM fonts
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bindCatalog("catalogKey", catalog)
-                .bind("slug", slug)
-                .mapTo(Boolean::class.java)
-                .one()
-        }
-        if (!exists) return false
-
+        if (jdbi.withHandle<Boolean, Exception> { fonts.get(it, command.fontId) == null }) return false
         if (!command.force) {
             val usages = FindFontUsages(command.fontId).query()
-            if (usages.isNotEmpty()) {
-                throw FontInUseException(slug, usages)
-            }
+            if (usages.isNotEmpty()) throw FontInUseException(command.fontId.key, usages)
         }
 
-        // Collect ASSET-sourced backing binaries before removing the rows.
-        val assetKeys = jdbi.withHandle<List<AssetKey>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT binary_asset.id AS asset_key
-                $FACES_OF_FAMILY_AT_ADDRESS
-                  AND faces.source = 'ASSET' AND faces.asset_resource_id IS NOT NULL
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bindCatalog("catalogKey", catalog)
-                .bind("slug", slug)
-                .map { rs, _ -> AssetKey.of(rs.getString("asset_key")) }
-                .list()
-        }
-
-        logger.info("Deleting font {} ({}/{}) for tenant {}", slug, catalogKey, slug, tenantKey)
-
-        // Delete the family row — font_variants cascade away, releasing the
-        // ON DELETE RESTRICT FK so the backing assets can now be removed.
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                DELETE FROM fonts
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bindCatalog("catalogKey", catalog)
-                .bind("slug", slug)
-                .execute()
-        }
-
-        // Reuse the asset machinery to drop the row + content-store blob.
-        // force = true: the variant rows are already gone, so the asset is no
-        // longer referenced; the usage check ran at the font level above.
-        for (assetKey in assetKeys) {
-            DeleteAsset(tenantId = tenantKey, assetId = assetKey, force = true).execute()
-        }
-
-        logger.info("Deleted font {} and {} backing asset(s)", slug, assetKeys.size)
-        return true
+        // Its faces' files are its binaries: they go when nothing names them any more (the content collector).
+        val deleted = jdbi.withHandle<Boolean, Exception> { fonts.delete(it, command.fontId) }
+        logger.info("Deleted font {} ({}) for tenant {}", command.fontId.key, catalog.key, command.fontId.tenantKey)
+        return deleted
     }
 }

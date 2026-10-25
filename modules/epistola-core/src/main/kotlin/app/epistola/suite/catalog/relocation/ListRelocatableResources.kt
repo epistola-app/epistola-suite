@@ -100,7 +100,7 @@ class ListRelocatableResourcesHandler(
                 WHERE a.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'font', c.namespace, c.catalog_key::text, f.slug::text, f.name, c.name, c.released
-                FROM fonts f JOIN editable c ON c.version_id = f.version_id
+                FROM current_fonts f JOIN editable c ON c.version_id = f.version_id
                 WHERE f.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'theme', c.namespace, c.catalog_key::text, th.id::text, th.name, c.name, c.released

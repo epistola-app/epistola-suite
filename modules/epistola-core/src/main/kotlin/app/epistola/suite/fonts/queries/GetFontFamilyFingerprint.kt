@@ -4,18 +4,18 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
+import app.epistola.suite.fonts.FontStore
+import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -47,39 +47,17 @@ data class GetFontFamilyFingerprint(
 @Component
 class GetFontFamilyFingerprintHandler(
     private val jdbi: Jdbi,
+    private val fonts: FontStore,
 ) : QueryHandler<GetFontFamilyFingerprint, String?> {
 
-    private data class FaceHash(val weight: Int, val italic: Boolean, val contentHash: String?)
-
     override fun handle(query: GetFontFamilyFingerprint): String? {
-        val faces = jdbi.withHandle<List<FaceHash>, Exception> { handle ->
-            handle.loadFaceHashes(query.catalog, query.slug)
-        }
-
+        val faces = jdbi.withHandle<List<FontFace>, Exception> { handle -> fonts.faces(handle, FontId(query.slug, query.catalog)) }
         if (faces.isEmpty()) return null
 
         val canonical = faces
             .sortedWith(compareBy({ it.weight }, { it.italic }))
-            .joinToString("\n") { "${it.weight}|${it.italic}|${it.contentHash ?: "MISSING"}" }
+            .joinToString("\n") { "${it.weight}|${it.italic}|${it.contentHash}" }
 
         return sha256Hex(canonical.toByteArray(Charsets.UTF_8))
     }
-
-    private fun Handle.loadFaceHashes(catalog: CatalogId, slug: FontKey): List<FaceHash> = createQuery(
-        """
-        SELECT faces.weight, faces.italic, faces.content_hash
-        $FACES_OF_FAMILY_AT_ADDRESS
-        """,
-    )
-        .bind("tenantKey", catalog.tenantKey)
-        .bindCatalog("catalogKey", catalog)
-        .bind("slug", slug)
-        .map { rs, _ ->
-            FaceHash(
-                weight = rs.getInt("weight"),
-                italic = rs.getBoolean("italic"),
-                contentHash = rs.getString("content_hash"),
-            )
-        }
-        .list()
 }

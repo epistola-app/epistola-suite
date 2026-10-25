@@ -17,7 +17,6 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
@@ -46,13 +45,12 @@ class FontBytesPerVersionTest : IntegrationTestBase() {
     private fun font(name: String) = resourceLoader.getResource("classpath:fonts/$name").contentAsByteArray
 
     private fun houseSans(tenant: TenantKey, file: String, version: CatalogReleaseRef?) = withMediator {
-        val asset = UploadAsset(testCatalog(tenant, letters), "$file", AssetMediaType.TTF, font(file), null, null, catalogVersion = version).execute().id
         ImportFont(
             catalog = testCatalog(TenantId(tenant), letters),
             slug = "house-sans",
             name = "House Sans",
             kind = FontKind.SANS.wire,
-            variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = asset)),
+            variants = listOf(ImportFontVariant(400, false, "font/ttf", font(file))),
             catalogVersion = version,
         ).execute()
     }

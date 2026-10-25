@@ -68,7 +68,7 @@ class TenantResourceGraphBuilder(
             FROM (
                 SELECT a.resource_id, 'image' resource_type, c.namespace, c.catalog_key::text AS catalog_key, a.id::text resource_key, a.name resource_name, c.name catalog_name FROM assets a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")}
                 UNION ALL SELECT l.resource_id, 'codeList', c.namespace, c.catalog_key::text AS catalog_key, l.id, l.display_name, c.name FROM current_code_lists l JOIN catalogs c ON c.tenant_key = l.tenant_key AND c.catalog_id = l.catalog_id WHERE l.tenant_key = :tenantKey
-                UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
+                UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM current_fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey
                 UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id, a.display_name, c.name FROM current_attributes a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
                 UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id, s.name, c.name FROM current_stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey
@@ -151,37 +151,7 @@ class TenantResourceGraphBuilder(
             )
         }.list().let(result::addAll)
 
-        handle.createQuery(
-            """
-                SELECT family_catalog.namespace AS namespace, family_catalog.catalog_key::text AS catalog_key, family.slug::text AS font_slug,
-                       asset_catalog.namespace AS asset_namespace, asset_catalog.catalog_key::text AS asset_catalog_key,
-                       binary_asset.id::text AS asset_key,
-                       faces.weight, faces.italic
-                FROM font_variants faces
-                JOIN fonts family
-                  ON family.tenant_key = faces.tenant_key AND family.version_id = faces.version_id AND family.resource_id = faces.font_resource_id
-                JOIN catalogs family_catalog
-                  ON family_catalog.tenant_key = family.tenant_key AND family_catalog.catalog_id = family.catalog_id
-                JOIN assets binary_asset
-                  ON binary_asset.tenant_key = faces.tenant_key
-                 AND binary_asset.resource_id = faces.asset_resource_id
-                 AND ${inCurrentVersion("binary_asset")}
-                JOIN catalogs asset_catalog
-                  ON asset_catalog.tenant_key = binary_asset.tenant_key AND asset_catalog.catalog_id = binary_asset.catalog_id
-                WHERE faces.tenant_key = :tenantKey AND faces.source = 'ASSET' AND ${inCurrentVersion("faces")}
-            """,
-        ).bind("tenantKey", tenantKey).map { rs, _ ->
-            Occurrence(
-                source = ResourceAddress(CatalogResourceType.FONT, rs.getString("namespace"), rs.getString("catalog_key"), rs.getString("font_slug")),
-                selector = ReferenceSelector(CatalogResourceType.IMAGE, rs.getString("asset_catalog_key"), rs.getString("asset_key")),
-                // Joined by identity: the catalog it is in, not an alias to resolve.
-                targetCatalog = rs.getString("asset_namespace") + "/" + rs.getString("asset_catalog_key"),
-                kind = "font-face-asset",
-                semantics = ReferenceSemantics.RUNTIME,
-                qualification = ReferenceQualification.EXPLICIT,
-                evidence = ReferenceEvidence("Font face", ReferenceLifecycle.LIVE, location = "faces[${rs.getInt("weight")},${if (rs.getBoolean("italic")) "italic" else "normal"}]"),
-            )
-        }.list().let(result::addAll)
+        // A font face's file is a binary of its font, not an image (ADR 0033): no edge.
 
         handle.createQuery(
             """

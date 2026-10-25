@@ -23,7 +23,6 @@ import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.catalog.protocol.VariantEntry
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.assets.queries.ResolveAssetKeysByContentHash
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.queries.ExportAssets
@@ -104,6 +103,7 @@ class CatalogContentBuilder(
     private val objectMapper: ObjectMapper,
     private val jdbi: Jdbi,
     private val dependencyStore: CatalogDependencyStore,
+    private val fontStore: app.epistola.suite.fonts.FontStore,
 ) {
 
     fun build(catalog: CatalogId, source: ContentSource = ContentSource.WORKING_COPY): CatalogContent {
@@ -167,19 +167,7 @@ class CatalogContentBuilder(
                     assetContents[resource.contentPath()] = content.content
                 }
 
-                is FontResource -> {
-                    // A face carries its own binary from wire v7, so the family's bytes no longer
-                    // arrive as separate image resources -- and the face has no wire key to look
-                    // its content up by. Resolve by hash: a face uploaded here has the key its
-                    // upload generated, one installed from a catalog has a key derived from the
-                    // hash, and only the hash names the same bytes in both.
-                    val keys = ResolveAssetKeysByContentHash(catalog.tenantKey, resource.variants.map { it.contentHash }).query()
-                    for (face in resource.variants) {
-                        val key = keys[face.contentHash] ?: continue
-                        val content = GetAssetContent(tenantId = catalog.tenantKey, assetId = key).query() ?: continue
-                        assetContents[face.contentPath()] = content.content
-                    }
-                }
+                is FontResource -> Unit
 
                 else -> Unit
             }
@@ -202,8 +190,38 @@ class CatalogContentBuilder(
             catalogDependencies = jdbi.withHandle<List<CatalogDependency>, Exception> { handle ->
                 dependencyStore.declarations(handle, catalog).map { it.toWire() }
             }.ifEmpty { null },
-            assetContents = assetContents,
+            assetContents = withFaceBinaries(assetContents, catalog, fonts),
         )
+    }
+
+    /**
+     * [eager] with the files of [fonts]' faces, each the font's own binary (ADR 0033), by archive path. Read when
+     * asked for: a font's faces can be megabytes (the system fonts are 14 MB), and most builds (a
+     * fingerprint, the next version's changes) never read them; an archive does.
+     */
+    private fun withFaceBinaries(eager: Map<String, ByteArray>, catalog: CatalogId, fonts: List<FontResource>): Map<String, ByteArray> {
+        val faces = fonts.flatMap { it.variants }.associateBy { it.contentPath() }
+        if (faces.isEmpty()) return eager
+        val stored = jdbi.withHandle<Set<String>, Exception> { handle ->
+            handle.createQuery("SELECT DISTINCT binary_hash FROM resource_binaries WHERE tenant_key = :t AND binary_hash IN (<hashes>)")
+                .bind("t", catalog.tenantKey).bindList("hashes", faces.values.map { it.contentHash }.distinct())
+                .mapTo(String::class.java).set()
+        }
+        val lazy: Map<String, () -> ByteArray?> = faces.filterValues { it.contentHash in stored }
+            .mapValues { (_, face) -> { jdbi.withHandle<ByteArray?, Exception> { fontStore.bytes(it, catalog.tenantKey, face.contentHash) } } }
+        return LazyBinaries(eager.mapValues { (_, bytes) -> { bytes } } + lazy)
+    }
+
+    /** Bytes by path, each read the first time it is asked for. */
+    private class LazyBinaries(private val loaders: Map<String, () -> ByteArray?>) : AbstractMap<String, ByteArray>() {
+        private val loaded = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+
+        override fun get(key: String): ByteArray? = loaders[key]?.let { loader -> loaded[key] ?: loader()?.also { loaded[key] = it } }
+
+        override fun containsKey(key: String): Boolean = key in loaders
+
+        override val entries: Set<Map.Entry<String, ByteArray>>
+            get() = loaders.keys.mapNotNull { key -> get(key)?.let { java.util.AbstractMap.SimpleImmutableEntry(key, it) } }.toSet()
     }
 
     private fun loadTemplates(
