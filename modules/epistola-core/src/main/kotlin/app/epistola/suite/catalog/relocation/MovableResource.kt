@@ -62,12 +62,11 @@ enum class MovableResource(
      * address and stop resolving; the only published bytes a move touches are the relative
      * references inside the moving stencil's own versions, pinned to the catalog it leaves.
      *
-     * Keyed by identity (`V20260905090100`), as are its versions: they name the stencil rather
-     * than carrying a copy of its address, so a move updates one row.
+     * A draft row naming its content (ADR 0033): moved by StencilStore, not by this table.
      */
     STENCIL(
         CatalogResourceType.STENCIL,
-        "stencils",
+        "release_resources",
         "id",
         setOf(ReferenceSiteKind.STENCIL_INSERTION),
         { runCatching { StencilKey.of(it) }.exceptionOrNull()?.message },

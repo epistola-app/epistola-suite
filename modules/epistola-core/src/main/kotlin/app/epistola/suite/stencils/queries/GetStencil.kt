@@ -7,7 +7,7 @@ package app.epistola.suite.stencils.queries
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
@@ -17,7 +17,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
-import app.epistola.suite.stencils.withAbsentSchemaAsNull
+import app.epistola.suite.stencils.asRead
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -26,7 +26,7 @@ data class GetStencil(
     val id: StencilId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<Stencil?>,
     RequiresPermission {
     override val permission = Permission.STENCIL_VIEW
@@ -36,6 +36,7 @@ data class GetStencil(
 @Component
 class GetStencilHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<GetStencil, Stencil?> {
     override fun handle(query: GetStencil): Stencil? = jdbi.withHandle<Stencil?, Exception> { handle ->
         handle.createQuery(
@@ -49,7 +50,7 @@ class GetStencilHandler(
             .bind("tenantId", query.id.tenantKey)
             .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<Stencil>()
-            .map(Stencil::withAbsentSchemaAsNull)
+            .map { it.asRead(objectMapper) }
             .findOne()
             .orElse(null)
     }

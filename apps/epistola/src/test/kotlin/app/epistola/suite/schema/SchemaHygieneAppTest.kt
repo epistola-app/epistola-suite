@@ -32,13 +32,12 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
 
     /**
      * The types of catalog resource still stored in a table of their own, each keyed by its identity.
-     * Themes, code lists and attributes are draft rows of `release_resources` (ADR 0033), keyed by version and address there.
+     * Themes, code lists, attributes and stencils are draft rows of `release_resources` (ADR 0033), keyed by version and address there.
      */
     private val resourceTables = listOf(
         "assets",
         "document_templates",
         "fonts",
-        "stencils",
     )
 
     // ---------------------------------------------------------------- hygiene

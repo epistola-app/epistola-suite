@@ -336,6 +336,7 @@ class DataPreservationMigrationIT {
                 .describedAs("the 1.x binding, as the wire form names it")
                 .isEqualTo(one("""SELECT '{"key": "countries", "catalogKey": "shared"}'::jsonb::text"""))
             assertThat(one("SELECT CAST(to_regclass('variant_attribute_definitions') IS NULL AS TEXT)")).describedAs("the attribute table is gone").isEqualTo("true")
+            assertThat(one("SELECT CAST(to_regclass('stencils') IS NULL AS TEXT)")).describedAs("the stencil table is gone").isEqualTo("true")
             assertThat(one("SELECT CAST(to_regclass('code_lists') IS NULL AND to_regclass('code_list_entries') IS NULL AS TEXT)"))
                 .describedAs("the code list tables are gone").isEqualTo("true")
             assertThat(
@@ -381,7 +382,7 @@ class DataPreservationMigrationIT {
                 one(
                     """
                     SELECT count(*)::text FROM catalog_upgrade_published p
-                    JOIN stencils stencil ON stencil.tenant_key = p.tenant_key AND stencil.resource_id = p.resource_id
+                    JOIN current_stencils stencil ON stencil.tenant_key = p.tenant_key AND stencil.resource_id = p.resource_id
                     WHERE stencil.tenant_key = '$TENANT' AND stencil.id IN ('header', 'draft-only') AND p.kind = 'stencil'
                     """,
                 ),
@@ -459,7 +460,7 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT data_model::text FROM document_templates WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'invoice'"))
                 .describedAs("the template's data contract is its published one")
                 .isEqualTo(one("""SELECT '{"type":"object"}'::jsonb::text"""))
-            assertThat(one("SELECT content::text FROM stencils WHERE tenant_key = '$TENANT' AND id = 'header'"))
+            assertThat(one("SELECT content::text FROM current_stencils WHERE tenant_key = '$TENANT' AND id = 'header'"))
                 .describedAs("a stencil's working copy is its draft")
                 .isEqualTo(one("SELECT '$STENCIL_CONTENT'::jsonb::text"))
 
@@ -475,7 +476,7 @@ class DataPreservationMigrationIT {
             val invoice = "SELECT resource_id FROM document_templates WHERE tenant_key = '$TENANT' AND id = 'invoice'"
             assertThat(ready(invoice, "main")).describedAs("a variant with a draft that differs from its published version").isEqualTo("false")
             assertThat(ready(invoice, "legacy")).describedAs("a variant without a draft").isEqualTo("true")
-            assertThat(ready("SELECT resource_id FROM stencils WHERE tenant_key = '$TENANT' AND id = 'header'", ""))
+            assertThat(ready("SELECT resource_id FROM current_stencils WHERE tenant_key = '$TENANT' AND id = 'header'", ""))
                 .describedAs("a stencil with a draft").isEqualTo("false")
             assertThat(ready("SELECT resource_id FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
                 .describedAs("a resource that had no drafts").isEqualTo("true")

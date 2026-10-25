@@ -339,9 +339,9 @@ class CatalogContentBuilder(
             """
             SELECT s.id, (p.payload -> 'content')::text AS content,
                    NULLIF(p.payload -> 'parameterSchema', 'null'::jsonb)::text AS parameter_schema
-            FROM stencils s
+            FROM current_stencils s
             JOIN catalog_upgrade_published p ON p.tenant_key = s.tenant_key AND p.resource_id = s.resource_id AND p.kind = 'stencil'
-            WHERE s.tenant_key = :t AND s.version_id = ${versionAt("t", "c")}
+            WHERE s.tenant_key = :t AND s.catalog_id = ${catalogAt("t", "c")}
             """,
         )
             .bind("t", catalog.tenantKey)

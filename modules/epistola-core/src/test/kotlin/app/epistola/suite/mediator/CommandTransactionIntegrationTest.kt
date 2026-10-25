@@ -54,7 +54,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
                 .bind("name", ROLLBACK_MARKER)
                 .mapTo(Int::class.java)
                 .one()
@@ -88,7 +88,7 @@ class CommandTransactionIntegrationTest : IntegrationTestBase() {
         }
 
         val stencilCount = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM stencils WHERE name = :name")
+            handle.createQuery("SELECT COUNT(*) FROM current_stencils WHERE name = :name")
                 .bind("name", COMMIT_MARKER)
                 .mapTo(Int::class.java)
                 .one()

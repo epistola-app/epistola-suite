@@ -16,7 +16,7 @@ import tools.jackson.databind.JsonNode
  */
 object StoredContent {
     /** The resource types stored as JSON, and so in the envelope. Types still in tables are stored bare. */
-    val ENVELOPED_TYPES: Set<String> = setOf("theme", "codeList", "attribute")
+    val ENVELOPED_TYPES: Set<String> = setOf("theme", "codeList", "attribute", "stencil")
 
     /** The released form a stored content holds; a content without a `resource` object is refused. */
     fun resourceOf(payload: JsonNode): JsonNode = payload.get("resource")?.takeIf { it.isObject }

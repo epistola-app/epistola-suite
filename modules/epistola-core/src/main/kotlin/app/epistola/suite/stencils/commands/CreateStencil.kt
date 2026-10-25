@@ -25,6 +25,8 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.StencilFields
+import app.epistola.suite.stencils.StencilStore
 import app.epistola.suite.stencils.declaresNoParameters
 import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.stencils.withAbsentSchemaAsNull
@@ -90,6 +92,7 @@ class CreateStencilHandler(
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val stencils: StencilStore,
 ) : CommandHandler<CreateStencil, Stencil> {
     override fun handle(command: CreateStencil): Stencil {
         val saved = save(command)
@@ -108,43 +111,15 @@ class CreateStencilHandler(
         parameterSchemaValidator.validate(parameterSchema)
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("stencil", command.id.key.value) {
-            jdbi.inTransaction<Stencil, Exception> { handle ->
-                val tagsJson = objectMapper.writeValueAsString(command.tags)
-
-                val content = command.content ?: emptyTemplateDocument()
+            jdbi.withHandle<Stencil, Exception> { handle ->
                 // Stored references name the catalog they resolve against, so relocation cannot
                 // change their meaning (ResourceReferenceSites).
-                val contentJson = objectMapper.valueToTree<JsonNode>(content)
-                    .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
-                    .let(objectMapper::writeValueAsString)
-                handle.createUpdate(
-                    """
-                    INSERT INTO stencils (id, tenant_key, catalog_id, version_id, name, description, tags, content, parameter_schema, reads_template_data,
-                                          created_at, updated_at, created_by, updated_by)
-                    VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
-                            :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
-                    """,
-                )
-                    .bind("id", command.id.key)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("name", command.name)
-                    .bind("description", command.description)
-                    .bind("tags", tagsJson)
-                    .bind("content", contentJson)
-                    .bind("parameterSchema", parameterSchema?.let { objectMapper.writeValueAsString(it) })
-                    .bind("readsTemplateData", command.readsTemplateData)
-                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                    .execute()
-                val stencil = handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
-                    .bind("id", command.id.key)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .mapTo<Stencil>()
-                    .map(Stencil::withAbsentSchemaAsNull)
-                    .one()
-
-                stencil
+                val content = (command.content ?: emptyTemplateDocument()).let { document ->
+                    objectMapper.valueToTree<JsonNode>(document)
+                        .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
+                        .let { objectMapper.treeToValue(it, TemplateDocument::class.java) }
+                }
+                stencils.create(handle, command.id, StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData), auditUser)
             }
         }
     }

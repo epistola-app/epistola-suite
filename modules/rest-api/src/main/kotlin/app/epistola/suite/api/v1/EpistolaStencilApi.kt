@@ -13,7 +13,6 @@ import app.epistola.api.model.StencilListResponse
 import app.epistola.api.model.StencilUsageListResponse
 import app.epistola.api.model.UpdateStencilContentRequest
 import app.epistola.api.model.UpdateStencilRequest
-import app.epistola.catalog.protocol.StencilResource
 import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
@@ -23,9 +22,8 @@ import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -82,15 +80,7 @@ class EpistolaStencilApi(
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            val stencils = at.releasedResources<StencilResource>("stencil").filter { stencil ->
-                (q.isNullOrBlank() || stencil.name.contains(q, ignoreCase = true) || stencil.description?.contains(q, ignoreCase = true) == true) &&
-                    (tag.isNullOrBlank() || tag in stencil.tags)
-            }
-            val slice = Pagination.pageOfRelease(stencils, page, size)
-            return ResponseEntity.ok(StencilListResponse(items = slice.items.map { it.toSummaryDto(at) }, page = slice.page))
-        }
+        // A draft or a release, read and paged the same way, in SQL (ADR 0033).
         val tenantId = TenantId(at.catalog.tenantKey)
         val stencils = ListStencils(
             tenantId = tenantId,
@@ -99,9 +89,9 @@ class EpistolaStencilApi(
             catalog = at.catalogId,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
-            catalogVersion = at.ref,
+            catalogVersion = at.readRef,
         ).query()
-        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalog = at.catalogId, catalogVersion = at.ref).query()
+        val total = CountStencils(tenantId = tenantId, searchTerm = q, tag = tag, catalog = at.catalogId, catalogVersion = at.readRef).query()
         val statuses = ResourceStatuses.of(at)
         return ResponseEntity.ok(
             StencilListResponse(
@@ -142,7 +132,6 @@ class EpistolaStencilApi(
         stencilKey: String,
     ): ResponseEntity<StencilDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toDto(at))
         val stencil = workingCopy(at, stencilKey)
         return okWithETag(stencil.revision, stencil.toDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
@@ -196,7 +185,6 @@ class EpistolaStencilApi(
         stencilKey: String,
     ): ResponseEntity<StencilContentDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) return ResponseEntity.ok(released(at, stencilKey).toContentDto(at, objectMapper))
         val stencil = workingCopy(at, stencilKey)
         return okWithETag(stencil.revision, stencil.toContentDto(ResourceStatuses.of(at).of(STENCIL, stencil.id.value)))
     }
@@ -294,13 +282,11 @@ class EpistolaStencilApi(
 
     private fun ResolvedCatalogRelease.stencilId(key: String) = StencilId(StencilKey.of(key), catalogId)
 
+    /** The stencil as the draft or release [at] holds it. */
     private fun workingCopy(at: ResolvedCatalogRelease, key: String): Stencil {
         val id = at.stencilId(key)
-        return GetStencil(id = id, catalogVersion = at.ref).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
+        return GetStencil(id = id, catalogVersion = at.readRef).query() ?: throw StencilNotFoundException(id.tenantKey, id.key)
     }
-
-    private fun released(at: ResolvedCatalogRelease, key: String): StencilResource = at.releasedResource<StencilResource>(STENCIL, key)
-        ?: throw StencilNotFoundException(at.catalog.tenantKey, StencilKey.of(key))
 
     private fun <T> Sequence<T>.takeWhileInclusive(predicate: (T) -> Boolean): Sequence<T> = sequence {
         for (item in this@takeWhileInclusive) {

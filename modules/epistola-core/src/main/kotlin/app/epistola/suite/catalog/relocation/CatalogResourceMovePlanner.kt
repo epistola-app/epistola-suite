@@ -604,12 +604,12 @@ class CatalogResourceMovePlanner(
         if (owners != null && owners.isEmpty()) return emptyList()
         return handle.createQuery(
             """
-            SELECT stencil_catalog.namespace || '/' || stencil_catalog.catalog_key AS catalog_key, stencil.id::text owner_key,
+            SELECT stencil_catalog.namespace || '/' || stencil_catalog.catalog_key AS catalog_key, stencil.id owner_key,
                    0 AS id, 'draft' AS status, stencil.content::text json
-            FROM stencils stencil
+            FROM current_stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")} ${ownerFilter(owners, "stencil.id", "(stencil_catalog.namespace || '/' || stencil_catalog.catalog_key)")}
+            WHERE stencil.tenant_key = :tenantKey ${ownerFilter(owners, "stencil.id", "(stencil_catalog.namespace || '/' || stencil_catalog.catalog_key)")}
             ORDER BY stencil_catalog.catalog_key, stencil.id
             """,
         )

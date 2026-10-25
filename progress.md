@@ -21,6 +21,86 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 4: stencils (25 October; branch `feat/storage-stencils`, on `feat/storage-attributes`, not pushed)
+
+Built against contract `2.0.0-alpha.1`: stencil tags stay `StencilResource.tags`. The move to a
+common `tags` on every resource is its own commit, after the next alpha.
+
+| Change                                                                                                                                                                                                                    | Where                                                        | Coverage                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Content `{ resource: <StencilResource> }` named by a draft row; what its document uses (stencils, images, fonts, a theme) is the wire form's alias and key, indexed in `resource_references` when stored                  | `StencilStore`, `V20261025083103`, `V20261025083200`         | ✅ `StencilStorageTest`                                              |
+| Reads through `current_stencils` (`catalog_version_resources('stencil')`, fenced lateral payload); list, get and count are `ReleaseReadable`; render reads (`StencilResolvers`) read another draft through `VersionReads` | `Stencil.kt`, `StencilResolvers`, queries                    | ✅ `StencilStorageTest`, `DemoStencilReadParityTest`, stencil suites |
+| Tags filtered in SQL over the JSON (`tags @> jsonb_build_array(:tag)`), no GIN index; a tag is bound as a value, so a quote no longer breaks the query                                                                    | `ListStencils`, `CountStencils`                              | ✅ `StencilStorageTest` (quote case was a SQL error before)          |
+| A release's stencil description is the content's, not the row's                                                                                                                                                           | `current_stencils`                                           | ✅ `DemoStencilReadParityTest` (failed before: see noticed)          |
+| Writes: create, update (locked, merged onto what is there), delete, import (put), ready mark (content hash)                                                                                                               | commands, `ImportStencil`, `MarkStencilReady`                | ✅ stencil suites, `DataPreservationMigrationIT`                     |
+| Relocation: a stencil rewrite and move go through the store; a rewrite keeps `updated_by`                                                                                                                                 | `CatalogResourceRelocation`, `MovableResource`               | ✅ `CatalogResourceRelocationIntegrationTest`                        |
+| "Used by" (dangling instance check), discard holders, upgrade analyzer, graph, export, browse, management, relocatable, purge on the view or the rows                                                                     | `StencilReferences`, `CatalogDraftCommands`, catalog queries | ✅ catalog, graph and relocation suites                              |
+| REST: the release branch of list/get/content is gone, a release reads and pages in SQL; MCP `list_stencils`/`get_stencil` take a release number                                                                           | `EpistolaStencilApi`, `StencilMcpTools`                      | ✅ REST/MCP suites                                                   |
+| Conversion parity: the frozen migration converts each stencil to the hash and references the suite stores                                                                                                                 | `StencilStorageConversion`                                   | ✅ `StencilStorageTest`, `DemoStencilReadParityTest`                 |
+| Plan stability with stencils accumulating                                                                                                                                                                                 | `ThemePlanStabilityTest`                                     | ✅                                                                   |
+
+**Measured** (`StencilStoragePerfTest`, `--rerun`, M1 Pro, Postgres 17; one tenant, 20 catalogs of
+25 stencils (30 text nodes, two of five tags each), each released; median / p95 of 200 runs; ms):
+
+| Operation                              | before       | after         |
+| -------------------------------------- | ------------ | ------------- |
+| list a catalog's stencils (page of 50) | 7.56 / 8.48  | 4.71 / 5.76   |
+| list a tenant's stencils (page of 50)  | 9.34 / 16.15 | 12.87 / 15.28 |
+| search a tenant's stencils by name     | 4.39 / 10.86 | 4.30 / 4.79   |
+| filter a tenant's stencils by tag      | 8.12 / 12.51 | 11.52 / 12.36 |
+| read one stencil                       | 1.04 / 1.56  | 0.84 / 1.05   |
+| save a stencil                         | 3.71 / 4.56  | 6.51 / 11.17  |
+
+The tenant-wide list and the tag filter read every current stencil's payload before sorting (the
+fenced lateral cannot be deferred past the `ORDER BY`): +3.5 ms at 500 stencils. A tag filter at 12 ms
+does not yet justify a GIN index. A save stores content, references and the row: +2.8 ms.
+
+**Follow-up 1 (25 October): a draft stores what its release stores.** A stencil referring to its
+own catalog's resources was stored qualified in the draft and relative in the release, so the two
+named different content. The store now writes the released form (`CatalogContentBuilder.Outbound`:
+own-catalog references relative, no name qualifiers), and the conversion does the same; the stencil
+reads (`Stencil.asRead`) and the draft render read (`StencilResolvers`) qualify them against the
+stencil's catalog, so the editor, rendering, relocation and imports see what they always saw, and no
+editor or rendering code changed. A relocation rewrite compares the stored document; a move reads
+qualified and stores in the target's form. Checked the other JSON types: themes, code lists and
+attributes already named one content (`DraftReleaseSameContentTest`, which failed for the stencil
+only before). The demo parity test now also compares the content hashes of draft and release.
+
+**Follow-up 4 (25 October): `ThemePlanStabilityTest` holds a plan shape, not a time.** It failed
+once under full-suite load (448 to 968 ms). It now prepares each read of the four JSON types (a
+catalog's, and one by key) and takes its generic plan (`plan_cache_mode = force_generic_plan`) on a
+never-analyzed database, once while only the system catalog is stored and once after 5 catalogs have
+grown, and requires no nested loop with `resource_contents` outside and `release_resources` inside
+(the plan that went wrong: the tenant's rows rescanned per stored content). A copy of the theme read
+before the fix (the two-union view joined to content and catalog) shows that plan, so the check
+fails on the old shape. Timing stays in the perf tests.
+
+**Noticed, left alone:**
+
+- The demo catalog's index (`catalog.json`) describes `company-header` differently from the
+  stencil's own file ("with logo placeholder and company name" against "with company name and
+  separator"). A release row carried the index's wording; reads now take the content's. Fixing the
+  catalog means a `release.version` bump and fingerprint, outside this step.
+- `StencilResource.tags` is serialized when empty (`[]`), unlike `readsTemplateData`. The common
+  `tags` on the contract branch (`feature/common-tags`, `75aba71`, not pushed) keeps that for
+  stencils and leaves empty tags out only on the types that had none, so no stored content hash
+  and no fingerprint moves and the switch commit needs no code migration.
+- Follow-up: tags for the other types in UI, REST and MCP.
+- Templates have the same draft/release divergence as stencils had (`TemplateDocumentPreparation`
+  qualifies, the release relativizes): step 7.
+
+**Follow-up 3 (25 October): a stencil of another catalog, rendered from a release.** Proven wrong:
+`CrossCatalogStencilFontRenderTest` (a template of A inlines a stencil of B whose text uses B's own
+font, relatively) drew the text in Liberation Sans from A's release, Inter from the draft. Release
+content is relative, and the release render (`ReleaseRenderSource.expandStencils`) and the
+dependency-release path of `StencilResolvers` inlined it unqualified, so B's font was looked up in A.
+Both now qualify the stencil's document against its catalog (`qualifiedIn`), as the draft path does;
+the test passes for the release and the draft. A bug since releases relativized, not from step 4.
+
+- `ContentReferences.of` reads an attribute's `codeListBinding` at the payload's top level, which an
+  enveloped attribute does not have; the `CODE_LIST_BINDING` site finds it instead, so the branch is
+  dead code.
+
 ### ADR 0033 storage, step 3: variant attributes (25 October; branch `feat/storage-attributes`, on `feat/storage-code-lists`, not pushed)
 
 | Change                                                                                                                                                                                 | Where                                                                                                 | Coverage                                                                              |
@@ -50,6 +130,14 @@ come from one read per statement instead of joins. The in-use check on deleting 
 13 ms (was 1.6): it walks the current attributes' references and resolves aliases, where a foreign key
 answered by identity; it runs only on delete.
 
+**Follow-up (25 October):** the resolver's third fallback, "the tenant's one catalog of that key",
+is gone: an alias nothing declares resolves to nothing. The only case that needed it was 1.x data
+between the migration and the 2.0 upgrade, which declares a 1.x catalog's dependencies when it runs
+(`DataPreservationMigrationIT` failed without it). The attribute conversion now declares the catalog
+of a list an attribute of another catalog binds, unpinned and under its key as the upgrade would, so
+the alias means what the identity meant from the first moment. A relocation rewrite of an attribute
+keeps its previous `updated_by` (`CatalogResourceRelocationIntegrationTest`).
+
 **Noticed, left alone:**
 
 - Renaming a dependency's alias is not possible today: every dependency is declared under its key
@@ -58,7 +146,6 @@ answered by identity; it runs only on delete.
 - Concurrency of the in-use check: a code list deleted while an attribute binding it is saved in
   another transaction is not prevented (no lock); a general approach to several people working on
   one catalog is a later decision.
-- A relocation rewrite of an attribute's binding writes it with no `updated_by` (themes keep it).
 
 ### ADR 0033: one content shape for every type (24 October; branch `feat/storage-code-lists`, on #1134, not pushed)
 

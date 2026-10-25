@@ -231,7 +231,7 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
         throw AssertionError("the contender never blocked behind the held transaction")
     }
 
-    /** Makes updating stencil [key] in [tenant] fail for the duration of [block]. */
+    /** Makes updating stencil [key] in [tenant] (its draft row, ADR 0033) fail for the duration of [block]. */
     private fun withFailingStencilUpdate(tenant: TenantKey, key: String, block: () -> Unit) {
         val name = "fail_" + UUID.randomUUID().toString().replace("-", "")
         jdbi.useHandle<Exception> { handle ->
@@ -239,20 +239,20 @@ class RelocationPlanSafetyTest : RelocationTestSupport() {
                 """
                 CREATE FUNCTION $name() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}
                 BEGIN
-                    IF OLD.tenant_key = '${tenant.value}' AND OLD.id = '$key' THEN
+                    IF OLD.tenant_key = '${tenant.value}' AND OLD.resource_type = 'stencil' AND OLD.resource_key = '$key' THEN
                         RAISE EXCEPTION 'injected failure';
                     END IF;
                     RETURN NEW;
                 END ${'$'}${'$'}
                 """,
             )
-            handle.execute("CREATE TRIGGER $name BEFORE UPDATE ON stencils FOR EACH ROW EXECUTE FUNCTION $name()")
+            handle.execute("CREATE TRIGGER $name BEFORE UPDATE ON release_resources FOR EACH ROW EXECUTE FUNCTION $name()")
         }
         try {
             block()
         } finally {
             jdbi.useHandle<Exception> { handle ->
-                handle.execute("DROP TRIGGER $name ON stencils")
+                handle.execute("DROP TRIGGER $name ON release_resources")
                 handle.execute("DROP FUNCTION $name()")
             }
         }

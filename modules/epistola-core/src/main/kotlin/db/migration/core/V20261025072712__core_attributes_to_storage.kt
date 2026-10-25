@@ -25,6 +25,8 @@ import java.sql.Connection
  * code list by alias and key (ADR 0033: references are not foreign keys). The alias is the one the
  * attribute's draft declares for the list's catalog, its key where none does (this installation
  * declares every dependency under its key), and none for a list of the attribute's own catalog.
+ * Where the draft does not declare the list's catalog yet (a 1.x catalog), it declares it here, as
+ * the 2.0 upgrade would, so the alias means what the identity meant from the first moment.
  *
  * Self-contained (ADR 0035): JDBC and a JSON tree only. What it knows is written into it and never
  * changes: how the attribute columns of this time map to the wire form of this time
@@ -56,7 +58,12 @@ class V20261025072712__core_attributes_to_storage : BaseJavaMigration() {
                                AND d.namespace = bound_catalog.namespace AND d.dependency_key = bound_catalog.catalog_key
                              ORDER BY d.position LIMIT 1),
                             bound_catalog.catalog_key)
-                   END AS bound_alias
+                   END AS bound_alias,
+                   bound.catalog_id <> a.catalog_id AND NOT EXISTS (
+                       SELECT 1 FROM catalog_dependencies d
+                       WHERE d.tenant_key = a.tenant_key AND d.version_id = a.version_id
+                         AND d.namespace = bound_catalog.namespace AND d.dependency_key = bound_catalog.catalog_key) AS undeclared,
+                   bound_catalog.registry AS bound_registry, bound_catalog.namespace AS bound_namespace
             FROM variant_attribute_definitions a
             LEFT JOIN catalog_resources bound ON bound.tenant_key = a.tenant_key AND bound.resource_id = a.code_list_resource_id
             LEFT JOIN catalogs bound_catalog ON bound_catalog.tenant_key = bound.tenant_key AND bound_catalog.catalog_id = bound.catalog_id
@@ -79,6 +86,9 @@ class V20261025072712__core_attributes_to_storage : BaseJavaMigration() {
                     val hash = contentHash(canonical)
                     storeContent(connection, tenant, hash, canonical)
                     if (boundKey != null) storeReference(connection, tenant, hash, boundAlias, boundKey)
+                    if (rows.getBoolean("undeclared")) {
+                        declare(connection, tenant, rows.getString("catalog_id"), rows.getString("version_id"), rows.getString("bound_registry"), rows.getString("bound_namespace"), boundAlias!!)
+                    }
                     connection.prepareStatement(
                         """
                         INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id,
@@ -103,6 +113,37 @@ class V20261025072712__core_attributes_to_storage : BaseJavaMigration() {
             }
         }
         log.info("Moved {} variant attribute rows to JSON storage", converted)
+    }
+
+    /**
+     * Declares the catalog of a code list an attribute of another catalog binds, where its draft does
+     * not declare it yet (a 1.x catalog, whose declarations the 2.0 upgrade adds once it runs): the
+     * binding is by alias now, and an alias means only what a declaration says (ADR 0033). Declared
+     * as the upgrade would, under its key and unpinned, so the upgrade pins it. Not an edit of the
+     * draft: its revision is left alone.
+     */
+    private fun declare(connection: Connection, tenant: String, catalogId: String, versionId: String, registry: String, namespace: String, alias: String) {
+        connection.createStatement().use { it.execute("ALTER TABLE catalog_dependencies DISABLE TRIGGER trg_catalog_dependencies_version_revision") }
+        connection.prepareStatement(
+            """
+            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position)
+            VALUES (?, ?::uuid, ?::uuid, ?, ?, ?, ?,
+                    (SELECT COALESCE(max(position) + 1, 0) FROM catalog_dependencies WHERE tenant_key = ? AND version_id = ?::uuid))
+            ON CONFLICT DO NOTHING
+            """,
+        ).use {
+            it.setString(1, tenant)
+            it.setString(2, catalogId)
+            it.setString(3, versionId)
+            it.setString(4, registry)
+            it.setString(5, namespace)
+            it.setString(6, alias)
+            it.setString(7, alias)
+            it.setString(8, tenant)
+            it.setString(9, versionId)
+            it.executeUpdate()
+        }
+        connection.createStatement().use { it.execute("ALTER TABLE catalog_dependencies ENABLE TRIGGER trg_catalog_dependencies_version_revision") }
     }
 
     private fun storeContent(connection: Connection, tenant: String, hash: String, canonical: String) {
@@ -136,7 +177,7 @@ class V20261025072712__core_attributes_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 1863491831
+        const val CHECKSUM: Int = 2140591550
 
         private val mapper = JsonMapper.builder().build()
 

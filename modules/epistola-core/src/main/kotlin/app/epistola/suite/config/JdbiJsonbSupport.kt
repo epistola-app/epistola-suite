@@ -17,18 +17,18 @@ import tools.jackson.databind.ObjectMapper
  * Before:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO stencils (content) VALUES (:styles::jsonb)"
+ *     "INSERT INTO template_variants (template_model) VALUES (:model::jsonb)"
  * )
- *     .bind("styles", objectMapper.writeValueAsString(documentStyles))
+ *     .bind("model", objectMapper.writeValueAsString(model))
  *     .execute()
  * ```
  *
  * After:
  * ```kotlin
  * handle.createUpdate(
- *     "INSERT INTO stencils (content) VALUES (:styles::jsonb)"
+ *     "INSERT INTO template_variants (template_model) VALUES (:model::jsonb)"
  * )
- *     .bindJsonb("styles", documentStyles, objectMapper)
+ *     .bindJsonb("model", model, objectMapper)
  *     .execute()
  * ```
  */

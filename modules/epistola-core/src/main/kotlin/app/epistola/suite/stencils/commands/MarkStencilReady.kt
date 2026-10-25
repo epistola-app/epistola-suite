@@ -5,10 +5,12 @@
 package app.epistola.suite.stencils.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.ready.ReadyMarks
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.StencilId
 import app.epistola.suite.common.ids.TenantKey
@@ -18,6 +20,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilFitCheck
 import app.epistola.suite.stencils.StencilNotFoundException
+import app.epistola.suite.stencils.StencilStore
 import app.epistola.suite.stencils.stencilAtAddress
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -53,12 +56,13 @@ class MarkStencilReadyHandler(
         val stencil = command.stencilId
         requireCatalogEditable(stencil.catalogId)
         jdbi.useTransaction<Exception> { handle ->
+            DraftResources.lockRevision(handle, stencil.catalogId, StencilStore.STENCIL, stencil.key.value)
             val row = handle.createQuery(
-                "SELECT resource_id, content::text AS content FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND resource_id = ${stencilAtAddress("t", "c", "k")} FOR UPDATE",
+                "SELECT resource_id, content::text AS content FROM current_stencils WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
             )
                 .bind("t", stencil.tenantKey)
                 .bindCatalog("c", stencil.catalogId)
-                .bind("k", stencil.key)
+                .bind("k", stencil.key.value)
                 .map { rs, _ -> rs.getObject("resource_id", UUID::class.java) to rs.getString("content") }
                 .findOne()
                 .orElseThrow { StencilNotFoundException(stencil.tenantKey, stencil.key) }

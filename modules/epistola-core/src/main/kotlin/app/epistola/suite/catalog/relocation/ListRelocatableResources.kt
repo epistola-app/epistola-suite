@@ -78,9 +78,9 @@ class ListRelocatableResourcesHandler(
             )
             SELECT resource_type, namespace, catalog_key, resource_key, resource_name, catalog_name, released
             FROM (
-                SELECT 'stencil' resource_type, c.namespace, c.catalog_key::text, s.id::text resource_key, s.name resource_name,
+                SELECT 'stencil' resource_type, c.namespace, c.catalog_key::text, s.id resource_key, s.name resource_name,
                        c.name catalog_name, c.released
-                FROM stencils s JOIN editable c ON c.version_id = s.version_id
+                FROM current_stencils s JOIN editable c ON c.version_id = s.version_id
                 WHERE s.tenant_key = :tenantKey
                 UNION ALL
                 SELECT 'attribute', c.namespace, c.catalog_key::text, a.id::text, a.display_name, c.name, c.released

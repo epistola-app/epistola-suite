@@ -61,6 +61,7 @@ class ImportStencilHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val templateDocumentValidator: TemplateDocumentValidator,
+    private val stencils: app.epistola.suite.stencils.StencilStore,
 ) : CommandHandler<ImportStencil, InstallStatus> {
 
     override fun handle(command: ImportStencil): InstallStatus {
@@ -73,51 +74,17 @@ class ImportStencilHandler(
         val parameterSchemaJson = command.parameterSchema?.let { objectMapper.writeValueAsString(it) }
         val auditUser = currentUserIdOrNull()?.value
 
-        return jdbi.inTransaction<InstallStatus, Exception> { handle ->
-            // Compared by value: Postgres normalises JSONB whitespace and key order.
-            val unchanged = handle.createQuery(
-                """
-                SELECT content = :content::jsonb
-                       AND parameter_schema IS NOT DISTINCT FROM :parameterSchema::jsonb
-                       AND reads_template_data = :readsTemplateData
-                FROM stencils
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :id
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("id", StencilKey.of(command.slug))
-                .bind("content", contentJson)
-                .bind("parameterSchema", parameterSchemaJson)
-                .bind("readsTemplateData", command.readsTemplateData)
-                .mapTo(Boolean::class.java)
-                .findOne()
-                .orElse(null)
-
-            handle.createUpdate(
-                """
-                INSERT INTO stencils (id, tenant_key, catalog_id, version_id, name, description, tags, content, parameter_schema, reads_template_data,
-                                      created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name, :description, :tags::jsonb, :content::jsonb,
-                        :parameterSchema::jsonb, :readsTemplateData, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
-                SET name = :name, description = :description, tags = :tags::jsonb, content = :content::jsonb,
-                    parameter_schema = :parameterSchema::jsonb, reads_template_data = :readsTemplateData,
-                    updated_at = NOW(), updated_by = :updatedBy
-                """,
-            )
-                .bind("id", StencilKey.of(command.slug))
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("name", command.name)
-                .bind("description", command.description)
-                .bind("tags", objectMapper.writeValueAsString(command.tags))
-                .bind("content", contentJson)
-                .bind("parameterSchema", parameterSchemaJson)
-                .bind("readsTemplateData", command.readsTemplateData)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
-
+        val id = app.epistola.suite.common.ids.StencilId(StencilKey.of(command.slug), command.catalog)
+        val content = objectMapper.readValue(contentJson, app.epistola.template.model.TemplateDocument::class.java)
+        val parameterSchema = parameterSchemaJson?.let(objectMapper::readTree)
+        return jdbi.withHandle<InstallStatus, Exception> { handle ->
+            val current = stencils.get(handle, id)
+            // Compared by value, as the stored content would be.
+            val unchanged = current?.let {
+                objectMapper.valueToTree<JsonNode>(it.content) == objectMapper.valueToTree<JsonNode>(content) &&
+                    it.parameterSchema == parameterSchema && it.readsTemplateData == command.readsTemplateData
+            }
+            stencils.put(handle, id, app.epistola.suite.stencils.StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData), auditUser)
             when (unchanged) {
                 null -> InstallStatus.INSTALLED
                 true -> InstallStatus.SKIPPED

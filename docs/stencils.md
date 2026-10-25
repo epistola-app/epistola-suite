@@ -25,6 +25,12 @@ editable working copy**:
 A stencil has no versions of its own. It is versioned with its catalog: releasing the catalog
 captures every stencil's working copy, and a render from that release uses the stencils held by it.
 
+A stencil is stored as JSON, the way a release keeps it (ADR 0033): its working copy is a draft row
+naming the content `{ "resource": <StencilResource> }`, and what its document uses (other stencils,
+images, fonts, a theme) is the wire form's catalog alias and key, indexed when it is saved. Lists,
+search and the tag filter read a draft and a release the same way, so the REST and MCP stencil
+reads take a release number as well as a draft.
+
 ### Stencil instance
 
 A template uses a stencil through a `stencil` node that **names** it and holds only what the template

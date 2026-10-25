@@ -84,10 +84,10 @@ class CreateAttributeDefinitionHandler(
     private val attributes: AttributeStore,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
     override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition {
-        val saved = save(command)
-        // What the saved resource uses of other catalogs is declared now, so the draft renders and releases with it.
+        // The code list's catalog is declared first: the binding names it by alias, and an alias means
+        // only what a declaration says (ADR 0033), so the attribute saved reads its list at once.
         usedCatalogs.declare(command.id.catalogId, command.codeListId?.catalogId)
-        return saved
+        return save(command)
     }
 
     private fun save(command: CreateAttributeDefinition): VariantAttributeDefinition {

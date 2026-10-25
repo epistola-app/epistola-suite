@@ -12,8 +12,10 @@ import app.epistola.suite.mcp.dto.StencilDetailInfo
 import app.epistola.suite.mcp.dto.StencilInfo
 import app.epistola.suite.mcp.dto.StencilUsageInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -68,7 +70,7 @@ class StencilMcpTools(
             required = false,
         )
         tag: String?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<StencilInfo> = mediator.query(
         ListStencils(
@@ -76,7 +78,7 @@ class StencilMcpTools(
             catalog = catalogFilter(catalogId),
             searchTerm = search,
             tag = tag,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
         ),
     ).map { StencilInfo.from(it) }
 
@@ -91,9 +93,9 @@ class StencilMcpTools(
         catalogId: String,
         @McpToolParam(description = "Stencil key.")
         stencilId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { StencilDetailInfo.from(it) }
+    ): StencilDetailInfo? = mediator.query(GetStencil(stencilId(catalogId, stencilId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { StencilDetailInfo.from(it) }
 
     @McpTool(
         name = "list_stencil_usages",

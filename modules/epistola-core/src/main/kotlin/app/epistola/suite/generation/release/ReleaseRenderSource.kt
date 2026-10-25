@@ -29,6 +29,7 @@ import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.queries.pickNearestFace
 import app.epistola.suite.stencils.model.StencilInstances
+import app.epistola.suite.stencils.qualifiedIn
 import app.epistola.suite.tenants.Tenant
 import app.epistola.template.model.TemplateDocument
 import app.epistola.template.model.ThemeRefOverride
@@ -171,7 +172,9 @@ class ReleaseRenderSource(
             val release = scope.releaseFor(byAddress.getValue(from), alias)
             byAddress.putIfAbsent(release.catalog.address, release)
             (read(release, "stencil", stencilKey) as? StencilResource)?.let {
-                StencilInstances.Content(it.content, it.parameterSchema, it.readsTemplateData, release.catalog.address)
+                // Released with its own-catalog references relative; qualified with its catalog, so a
+                // font or theme it names is its catalog's wherever it is inlined.
+                StencilInstances.Content(it.content.qualifiedIn(release.catalog.key.value, objectMapper), it.parameterSchema, it.readsTemplateData, release.catalog.address)
             }
         }
         val expanded = StencilInstances.expand(model, scope.release.catalog.address, resolver)
