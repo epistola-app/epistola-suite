@@ -4,6 +4,9 @@
 
 package app.epistola.suite.attributes.codelists.commands
 
+import app.epistola.suite.attributes.codelists.CodeListFields
+import app.epistola.suite.attributes.codelists.CodeListSourceSettings
+import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.attributes.codelists.model.CodeListSource
@@ -21,6 +24,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -76,6 +80,7 @@ data class CreateCodeList(
 class CreateCodeListHandler(
     private val jdbi: Jdbi,
     private val codeListClient: CodeListClient,
+    private val codeLists: CodeListStore,
 ) : CommandHandler<CreateCodeList, CodeList> {
     override fun handle(command: CreateCodeList): CodeList {
         requireCatalogEditable(command.id.catalogId)
@@ -83,40 +88,13 @@ class CreateCodeListHandler(
             command.sourceUrl?.let { codeListClient.requireAllowedSourceUrl(it) }
         }
         return executeOrThrowDuplicate("code-list", command.id.key.value) {
-            jdbi.inTransaction<CodeList, Exception> { handle ->
-                val inserted = handle.createQuery(
-                    """
-                    INSERT INTO code_lists (slug, tenant_key, catalog_id, version_id, display_name, description,
-                                            source_type, source_url, auth_type, credential,
-                                            created_at, updated_at)
-                    VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :description,
-                            :sourceType, :sourceUrl, :authType, :credential,
-                            NOW(), NOW())
-                    RETURNING slug, tenant_key, (SELECT cat.catalog_key FROM catalogs cat
-                                WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat
-                                WHERE cat.tenant_key = code_lists.tenant_key AND cat.catalog_id = code_lists.catalog_id) AS namespace,
-                              display_name, description,
-                              source_type, source_url, auth_type, credential,
-                              last_refreshed_at, last_refresh_error,
-                              created_at, updated_at
-                    """,
-                )
-                    .bind("slug", command.id.key)
-                    .bind("tenantKey", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("displayName", command.displayName)
-                    .bind("description", command.description)
-                    .bind("sourceType", command.sourceType.name)
-                    .bind("sourceUrl", command.sourceUrl)
-                    .bind("authType", command.authType.name)
-                    .bind("credential", command.credential?.let(::Secret))
-                    .mapTo<CodeList>()
-                    .one()
-
-                if (command.entries.isNotEmpty()) {
-                    insertEntries(handle, command.id, command.entries)
+            jdbi.withHandle<CodeList, Exception> { handle ->
+                val source = if (command.sourceType == CodeListSource.INLINE) {
+                    null
+                } else {
+                    CodeListSourceSettings(command.sourceType, command.sourceUrl, command.authType, command.credential?.let { codeLists.storeCredential(handle, command.id.catalogId, it) })
                 }
-                inserted
+                codeLists.create(handle, command.id, CodeListFields(command.displayName, command.description, command.entries, source), currentUserIdOrNull()?.value)
             }
         }
     }

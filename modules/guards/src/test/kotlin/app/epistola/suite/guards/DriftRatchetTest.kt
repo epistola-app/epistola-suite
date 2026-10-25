@@ -52,7 +52,7 @@ class DriftRatchetTest {
         },
         // Migration tests are left out: they seed the schema as it was before the migration under
         // test, which no command of today can write.
-        Counter("INSERT INTO in test sources outside migration tests", 44, "commands or the fixture DSL") {
+        Counter("INSERT INTO in test sources outside migration tests", 42, "commands or the fixture DSL") {
             RepoSources.testKotlinFiles().filterNot { "/migration/" in RepoSources.relativize(it) }.sumOf { path ->
                 Files.readString(path).lineSequence().count { "INSERT INTO" in it }
             }

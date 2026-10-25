@@ -187,11 +187,12 @@ FROM assets i;
 -- 5. The themes of a draft or a release, from their rows alone.
 CREATE OR REPLACE VIEW current_themes AS
 SELECT u.*,
-       u.payload ->> 'description' AS description,
-       COALESCE(u.payload -> 'documentStyles', '{}'::jsonb) AS document_styles,
-       NULLIF(u.payload -> 'pageSettings', 'null'::jsonb) AS page_settings,
-       NULLIF(u.payload -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
-       CAST(u.payload ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
+       -- The released form is the content's `resource` (ADR 0033: one shape for every type).
+       u.payload -> 'resource' ->> 'description' AS description,
+       COALESCE(u.payload -> 'resource' -> 'documentStyles', '{}'::jsonb) AS document_styles,
+       NULLIF(u.payload -> 'resource' -> 'pageSettings', 'null'::jsonb) AS page_settings,
+       NULLIF(u.payload -> 'resource' -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
+       CAST(u.payload -> 'resource' ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
 FROM (
     -- The content by its key, row by row, rather than a join: a join's order is the planner's to
     -- choose, and a plan made before the tables have statistics put every stored content of the

@@ -21,6 +21,58 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033: one content shape for every type (24 October; branch `feat/storage-code-lists`, on #1134, not pushed)
+
+| Change                                                                                                                                                                                                                                               | Where                                                                                                  | Coverage                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Themes are stored as `{ "resource": <ThemeResource> }` too (save, draft start, release cut and received); `current_themes` reads through `resource`; the theme code migration (unreleased) edited in place to write the envelope, checksum re-pinned | `ThemeStore`, `StoredContent.ENVELOPED_TYPES`, `V20261024110723`, `V20261024114440`, `V20261024114500` | ✅ `ThemeStorageTest`, `ThemeStorageConversion`, `DataPreservationMigrationIT` |
+| `StoredContent.resourceOf` refuses a content without a `resource` object; the release assembler unwraps by the row's type; `current_code_lists` no longer falls back to a bare content                                                               | `StoredContent`, `ReleaseContentAssembler`, `V20261024174200`                                          | ✅ `StoredContentShapeTest` (2)                                                |
+
+**Noticed, left alone:** a `release/2.0` development database with releases cut before these commits
+holds bare theme and code list contents, which `resourceOf` now refuses; 2.0 is unreleased, so no
+installation has them, and no migration rewraps them.
+
+### ADR 0033 storage, step 2: code lists (24 October; branch `feat/storage-code-lists`, stacked on #1133, not pushed)
+
+| Change                                                                                                                                                                                                                                                                                                                                                   | Where                                                                                                                               | Coverage                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Content `{ resource, source }` per version, draft and release alike; export and the fingerprint use `resource`; every reader takes the released form through `StoredContent.resourceOf` (themes too, so moving them to the envelope changes their writer only)                                                                                           | `CodeListStore`, `StoredContent`, `ResourceContentStore.retain` (settings beside), `ReleaseCatalogDraft`, `ReleaseContentAssembler` | ✅ `CodeListStorageTest`, `CodeListReadParityTest`                                                                       |
+| Reads through `catalog_version_resources('codeList')` and `current_code_lists`; `GetCodeList`/`ListCodeLists`/`ListCodeListEntries` read a release; REST loses its release branch, MCP takes a release number, `…@1.2.0/code-lists/{key}` opens read-only; every other reader (attributes, export, graph, browse, relocation, upgrade analyzer) switched | 20 readers                                                                                                                          | ✅ `ReleasedCodeListPageHtmxTest`, core/app/MCP/REST suites                                                              |
+| Entries only in the content: list, exists and hide in SQL over the jsonb (hide rewrites the content)                                                                                                                                                                                                                                                     | `ListCodeListEntries`, `CodeListEntryExists`, `UpdateCodeListEntryHidden`                                                           | ✅ `CodeListStorageTest`                                                                                                 |
+| `resource_credentials` (named by id, encrypted, rotation in place, collector removes unnamed ones); `code_list_refreshes` (per draft, copied with the draft)                                                                                                                                                                                             | `V20261024174100`, `CoreEncryptedCredentialColumns`, `ResourceContentCollector`                                                     | ✅ `CodeListCredentialRotationTest`, `CodeListStorageTest`                                                               |
+| Refresh writes only the refresh when the entries hash the same                                                                                                                                                                                                                                                                                           | `RefreshCodeList`                                                                                                                   | ✅ `RefreshCodeListTest` (+1)                                                                                            |
+| Code migration `V20261024174143` (pinned checksum); ready marks to content hash; tables dropped                                                                                                                                                                                                                                                          | `db/migration/core`, `V20261024174200`                                                                                              | ✅ `CodeListStorageConversion` both ways (system lists, a sourced list with a credential), `DataPreservationMigrationIT` |
+| Plan stability covers code lists; guards refuse SQL on the old tables                                                                                                                                                                                                                                                                                    | `ThemePlanStabilityTest`, `DroppedContentTableSqlTest`                                                                              | ✅                                                                                                                       |
+
+**Measured** (`CodeListStoragePerfTest`, `--rerun`, M1 Pro, Postgres 17 on tmpfs; one tenant with 20
+catalogs of 10 lists of 20 entries, released, plus a list of 1,000 and one of 10,000 entries; median /
+p95 of 200 runs, hide 100; ms; before = the tables, after = JSON):
+
+| Operation                    | before        | after         |
+| ---------------------------- | ------------- | ------------- |
+| list a tenant's code lists   | 5.75 / 6.32   | 8.30 / 11.02  |
+| 1000: read the code list     | 0.77 / 0.94   | 0.90 / 1.08   |
+| 1000: list visible entries   | 2.42 / 3.09   | 2.55 / 2.78   |
+| 1000: list all entries       | 2.32 / 2.73   | 2.43 / 2.77   |
+| 1000: entry exists           | 0.86 / 1.14   | 0.75 / 0.84   |
+| 1000: entry does not exist   | 0.76 / 0.96   | 0.74 / 0.84   |
+| 1000: hide or show an entry  | 4.29 / 5.77   | 8.81 / 10.26  |
+| 10000: read the code list    | 0.82 / 1.26   | 1.71 / 1.92   |
+| 10000: list visible entries  | 12.95 / 15.98 | 17.74 / 19.30 |
+| 10000: list all entries      | 13.94 / 14.85 | 16.30 / 17.30 |
+| 10000: entry exists          | 0.79 / 0.98   | 1.57 / 1.73   |
+| 10000: entry does not exist  | 0.83 / 1.12   | 1.84 / 2.26   |
+| 10000: hide or show an entry | 4.05 / 4.67   | 44.90 / 49.41 |
+
+There is no search or paging API for entries; the list reads every entry, as before. Reading one list
+reads its whole content (its source is in it), so it grows with the entries (1.7 ms at 10,000). **Hiding
+one entry of a 10,000-entry list takes 45 ms (was 4 ms)**: it rewrites and hashes the whole content
+(about 500 KB); at 1,000 entries 8.8 ms (was 4.3). Not indexed, as decided; lists are typically
+hundreds of entries.
+
+**Noticed, left alone:** the REST read of a released code list now reports its real source type
+(it said INLINE for every release). `UpdateCodeList` with no credential clears it, as the column did.
+
 ### ADR 0033 storage, step 1: themes (24 October; branch `feat/storage-themes`, not pushed)
 
 | Change                                                                                                                                                                                                                                                                                                  | Where                                                                | Coverage                                                                                                                                                      |

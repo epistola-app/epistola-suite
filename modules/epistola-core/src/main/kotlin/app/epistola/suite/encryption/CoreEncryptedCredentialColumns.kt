@@ -10,6 +10,6 @@ import org.springframework.stereotype.Component
 class CoreEncryptedCredentialColumns : EncryptedCredentialContributor {
     override fun columns(): Set<EncryptedCredentialColumn> = setOf(
         EncryptedCredentialColumn("catalogs", "source_auth_credential", listOf("tenant_key", "catalog_id")),
-        EncryptedCredentialColumn("code_lists", "credential", listOf("tenant_key", "resource_id")),
+        EncryptedCredentialColumn("resource_credentials", "credential", listOf("tenant_key", "credential_id")),
     )
 }

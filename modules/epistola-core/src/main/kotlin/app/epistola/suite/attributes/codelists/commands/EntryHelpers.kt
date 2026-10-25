@@ -21,30 +21,3 @@ internal fun validateCodeListEntries(entries: List<CodeListEntry>) {
     validate("entries", entries.all { it.label.length <= MAX_CODE_LIST_ENTRY_LABEL_LENGTH }) { "Entry labels must be $MAX_CODE_LIST_ENTRY_LABEL_LENGTH characters or less" }
     validate("entries", entries.map { it.code }.toSet().size == entries.size) { "Entry codes must be unique within a code list" }
 }
-
-/**
- * Bulk insert of entries for a code list. Caller is responsible for transaction
- * scope and for ensuring no rows already exist (callers either insert into a
- * freshly-created code list, or DELETE rows first inside the same transaction).
- */
-internal fun insertEntries(handle: Handle, id: CodeListId, entries: List<CodeListEntry>) {
-    if (entries.isEmpty()) return
-    validateCodeListEntries(entries)
-    val batch = handle.prepareBatch(
-        """
-        INSERT INTO code_list_entries (tenant_key, version_id, code_list_resource_id, code, label, sort_order, hidden)
-        VALUES (:tenantKey, ${versionAt("tenantKey", "catalogKey")}, $CODE_LIST_AT_ADDRESS, :code, :label, :sortOrder, :hidden)
-        """,
-    )
-    for (entry in entries) {
-        batch.bind("tenantKey", id.tenantKey)
-            .bindCatalog("catalogKey", id.catalogId)
-            .bind("slug", id.key)
-            .bind("code", entry.code)
-            .bind("label", entry.label)
-            .bind("sortOrder", entry.sortOrder)
-            .bind("hidden", entry.hidden)
-            .add()
-    }
-    batch.execute()
-}

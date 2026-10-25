@@ -39,6 +39,9 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var codeLists: CodeListStore
+
     @Test
     fun `CreateCodeList is rejected on a catalog the suite supplies`() {
         val (tenantId, suppliedCatalog) = suppliedFixture()
@@ -146,6 +149,11 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         return tenantId to suppliedCatalog
     }
 
+    /**
+     * Seeded through the store rather than a command, which is the exception the seeding rule allows:
+     * the commands refuse to write into a catalog the suite supplies, and that refusal is the
+     * behaviour under test. The store writes what a command would, without the refusal.
+     */
     private fun seedCodeList(
         tenantId: TenantId,
         catalog: CatalogKey,
@@ -153,49 +161,17 @@ class SuppliedCatalogCodeListsReadOnlyTest : IntegrationTestBase() {
         display: String,
         sourceUrl: String? = null,
     ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO code_lists (slug, tenant_key, catalog_id, version_id, display_name, source_type, source_url, auth_type, created_at, updated_at)
-                VALUES (:slug, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :displayName, :sourceType, :sourceUrl, 'NONE', NOW(), NOW())
-                """,
-            )
-                .bind("slug", slug)
-                .bind("tenantKey", tenantId.key)
-                .bindCatalog("catalogKey", testCatalog(tenantId.key, catalog))
-                .bind("displayName", display)
-                .bind("sourceType", if (sourceUrl == null) "INLINE" else "URL")
-                .bind("sourceUrl", sourceUrl)
-                .execute()
+        val source = sourceUrl?.let { CodeListSourceSettings(CodeListSource.URL, it, app.epistola.suite.catalog.AuthType.NONE, null) }
+        jdbi.useTransaction<Exception> { handle ->
+            codeLists.create(handle, CodeListId(CodeListKey.of(slug), testCatalog(tenantId.key, catalog)), CodeListFields(display, null, emptyList(), source), null)
         }
     }
 
-    /**
-     * Seeded with SQL rather than a command, which is the exception the seeding rule allows: the
-     * commands refuse to write into a catalog the suite supplies, and that refusal is the behaviour under
-     * test. There is no command that can produce this state, so producing it another way is the
-     * only way to test that the refusal holds.
-     */
     private fun seedEntry(tenantId: TenantId, catalog: CatalogKey, slug: String, code: String, label: String) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO code_list_entries (tenant_key, version_id, code_list_resource_id, code, label, sort_order, hidden)
-                VALUES (
-                    :tenantKey,
-                    ${versionAt("tenantKey", "catalogKey")},
-                    (SELECT resource_id FROM code_lists
-                      WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug),
-                    :code, :label, 0, FALSE
-                )
-                """,
-            )
-                .bind("tenantKey", tenantId.key)
-                .bindCatalog("catalogKey", testCatalog(tenantId.key, catalog))
-                .bind("slug", slug)
-                .bind("code", code)
-                .bind("label", label)
-                .execute()
+        val id = CodeListId(CodeListKey.of(slug), testCatalog(tenantId.key, catalog))
+        jdbi.useTransaction<Exception> { handle ->
+            val fields = requireNotNull(codeLists.fields(handle, id))
+            codeLists.save(handle, id, fields.copy(entries = fields.entries + CodeListEntry(code, label)), null)
         }
     }
 }

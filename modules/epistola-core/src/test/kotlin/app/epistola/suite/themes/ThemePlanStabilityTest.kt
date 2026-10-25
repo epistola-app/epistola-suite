@@ -4,8 +4,13 @@
 
 package app.epistola.suite.themes
 
+import app.epistola.suite.attributes.codelists.commands.CreateCodeList
+import app.epistola.suite.attributes.codelists.model.CodeListEntry
+import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.common.ids.CodeListId
+import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
@@ -37,14 +42,14 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
-    private val storage = listOf("release_resources", "resource_contents", "resource_references", "catalog_resources")
+    private val storage = listOf("release_resources", "resource_contents", "resource_references", "catalog_resources", "resource_credentials", "code_list_refreshes")
 
     private fun autoanalyze(on: Boolean) = jdbi.useHandle<Exception> { h ->
         storage.forEach { h.execute("ALTER TABLE $it SET (autovacuum_enabled = $on)") }
     }
 
     @Test
-    fun `releasing stays flat as themes accumulate on tables without statistics`() {
+    fun `releasing stays flat as themes and code lists accumulate on tables without statistics`() {
         autoanalyze(false)
         try {
             val releases = withMediator {
@@ -54,6 +59,15 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                     CreateCatalog(tenantKey = tenant, id = key, name = "Catalog $c").execute()
                     val catalog = testCatalog(tenant, key)
                     repeat(THEMES) { t -> CreateTheme(ThemeId(ThemeKey.of("theme-$t"), catalog), "Theme $c/$t").execute() }
+                    // Code lists read through the same function and views (ADR 0033, step 2).
+                    repeat(CODE_LISTS) { l ->
+                        CreateCodeList(
+                            CodeListId(CodeListKey.of("list-$l"), catalog),
+                            "List $c/$l",
+                            sourceType = CodeListSource.INLINE,
+                            entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) },
+                        ).execute()
+                    }
                     val start = System.nanoTime()
                     mediator.releaseNext(catalog)
                     (System.nanoTime() - start) / 1_000_000
@@ -72,6 +86,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     private companion object {
         const val CATALOGS = 20
         const val THEMES = 25
+        const val CODE_LISTS = 5
         const val BUDGET_MS = 300L
     }
 }

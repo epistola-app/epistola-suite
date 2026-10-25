@@ -56,7 +56,7 @@ class CatalogUpgradeAnalyzer(
             UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'codeList', slug::text FROM code_lists WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'codeList', id FROM current_code_lists WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             """,
         )
@@ -186,8 +186,8 @@ class CatalogUpgradeAnalyzer(
             WHERE vad.tenant_key = :t
               AND vad.catalog_id != ${catalogAt("t", "c")}
               AND ${inCurrentVersion("vad")}
-              AND vad.code_list_resource_id = (SELECT resource_id FROM code_lists
-                                            WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND slug = :slug)
+              AND vad.code_list_resource_id = (SELECT resource_id FROM current_code_lists
+                                            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = CAST(:slug AS TEXT))
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .map { rs, _ ->
@@ -291,7 +291,6 @@ class CatalogUpgradeAnalyzer(
             "stencil" to ResourceTable("stencils", "id"),
             "attribute" to ResourceTable("variant_attribute_definitions", "id"),
             "image" to ResourceTable("assets", "id"),
-            "codeList" to ResourceTable("code_lists", "slug"),
             "font" to ResourceTable("fonts", "slug"),
         )
         val ordered = staleResources.sortedByDescending { RESOURCE_INSTALL_ORDER[it.type] ?: Int.MIN_VALUE }
@@ -299,7 +298,7 @@ class CatalogUpgradeAnalyzer(
         val removed = mutableListOf<RemovedResource>()
         jdbi.useHandle<Exception> { handle ->
             for (resource in ordered) {
-                if (resource.type == "theme") {
+                if (resource.type == "theme" || resource.type == "codeList") {
                     // A theme is a draft row naming its content (ADR 0033).
                     app.epistola.suite.catalog.revisions.DraftResources.delete(handle, catalog, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))

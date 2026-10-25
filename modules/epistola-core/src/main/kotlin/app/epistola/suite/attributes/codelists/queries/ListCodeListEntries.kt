@@ -4,11 +4,12 @@
 
 package app.epistola.suite.attributes.codelists.queries
 
-import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.attributes.codelists.codeListAt
 import app.epistola.suite.attributes.codelists.model.CodeListEntry
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
@@ -30,7 +31,7 @@ data class ListCodeListEntries(
     val includeHidden: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<CodeListEntry>>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
@@ -42,26 +43,24 @@ class ListCodeListEntriesHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListCodeListEntries, List<CodeListEntry>> {
     override fun handle(query: ListCodeListEntries): List<CodeListEntry> = jdbi.withHandle<List<CodeListEntry>, Exception> { handle ->
+        // The entries of the content, in SQL: filtered and ordered there, never in memory (ADR 0033).
         val sql = buildString {
             append(
                 """
-                SELECT code, label, sort_order, hidden
-                FROM code_list_entries
-                WHERE tenant_key = :tenantKey
-                  AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                  AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
+                SELECT e ->> 'code' AS code, e ->> 'label' AS label,
+                       CAST(e ->> 'sortOrder' AS INTEGER) AS sort_order, CAST(e ->> 'hidden' AS BOOLEAN) AS hidden
+                FROM current_code_lists t
+                CROSS JOIN LATERAL jsonb_array_elements(t.entries) e
+                WHERE ${codeListAt()}
                 """,
             )
-            if (!query.includeHidden) {
-                append(" AND NOT hidden")
-            }
+            if (!query.includeHidden) append(" AND NOT CAST(e ->> 'hidden' AS BOOLEAN)")
             append(" ORDER BY sort_order ASC, code ASC")
         }
-
         handle.createQuery(sql)
-            .bind("tenantKey", query.codeListId.tenantKey)
-            .bindCatalog("catalogKey", query.codeListId.catalogId)
-            .bind("slug", query.codeListId.key)
+            .bind("t", query.codeListId.tenantKey)
+            .bindCatalog("c", query.codeListId.catalogId)
+            .bind("key", query.codeListId.key.value)
             .mapTo<CodeListEntry>()
             .list()
     }

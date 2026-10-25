@@ -4,10 +4,12 @@
 
 package app.epistola.suite.attributes.codelists.queries
 
+import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.attributes.codelists.model.CodeList
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.mediator.Query
@@ -22,7 +24,7 @@ data class GetCodeList(
     val id: CodeListId,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<CodeList?>,
     RequiresPermission {
     override val permission get() = Permission.REFERENCE_VIEW
@@ -31,25 +33,9 @@ data class GetCodeList(
 
 @Component
 class GetCodeListHandler(
+    private val codeLists: CodeListStore,
     private val jdbi: Jdbi,
 ) : QueryHandler<GetCodeList, CodeList?> {
-    override fun handle(query: GetCodeList): CodeList? = jdbi.withHandle<CodeList?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT cl.slug, cl.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, cl.display_name, cl.description,
-                   cl.source_type, cl.source_url, cl.auth_type, cl.credential,
-                   cl.last_refreshed_at, cl.last_refresh_error,
-                   cl.created_at, cl.updated_at, cl.revision
-            FROM code_lists cl
-            JOIN catalogs c ON c.tenant_key = cl.tenant_key AND c.catalog_id = cl.catalog_id
-            WHERE cl.tenant_key = :tenantKey AND cl.version_id = ${versionAt("tenantKey", "catalogKey")} AND cl.slug = :slug
-            """,
-        )
-            .bind("tenantKey", query.id.tenantKey)
-            .bindCatalog("catalogKey", query.id.catalogId)
-            .bind("slug", query.id.key)
-            .mapTo<CodeList>()
-            .findOne()
-            .orElse(null)
-    }
+    // A draft or a release, read the same way (ADR 0033).
+    override fun handle(query: GetCodeList): CodeList? = jdbi.withHandle<CodeList?, Exception> { codeLists.get(it, query.id) }
 }

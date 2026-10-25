@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.attributes.codelists.queries.GetCodeList
 import app.epistola.suite.attributes.codelists.queries.ListCodeListEntries
 import app.epistola.suite.catalog.AuthType
+import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
@@ -28,6 +29,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
@@ -43,6 +45,12 @@ import java.util.concurrent.atomic.AtomicReference
  * (`https` only).
  */
 class RefreshCodeListTest : IntegrationTestBase() {
+
+    @Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
+    @Autowired
+    private lateinit var readyMarks: app.epistola.suite.catalog.ready.ReadyMarks
 
     private lateinit var server: HttpServer
     private var port: Int = 0
@@ -97,6 +105,41 @@ class RefreshCodeListTest : IntegrationTestBase() {
             assertThat(refreshed.lastRefreshedAt).isNotNull()
             assertThat(refreshed.lastRefreshError).isNull()
         }
+    }
+
+    /**
+     * A refresh that fetches what the list already holds is the same content (ADR 0033): it records
+     * the refresh and nothing else, so the content, the revision and a ready mark stay.
+     */
+    @Test
+    fun `a refresh with no change keeps the content, the revision and the ready state`() {
+        installJsonHandler("""[{ "code": "eu", "label": "Europe", "sortOrder": 1 }]""")
+        val tenant = createTenant("Refresh unchanged")
+        val tenantId = TenantId(tenant.id)
+        val catalog = CatalogId.default(tenantId)
+        val id = CodeListId(CodeListKey.of("regions"), catalog)
+        fun hash(): String = jdbi.withHandle<String, Exception> { h ->
+            h.createQuery("SELECT r.content_hash FROM release_resources r JOIN catalog_current_versions v ON v.tenant_key = r.tenant_key AND v.version_id = r.version_id WHERE r.tenant_key = :t AND r.resource_type = 'codeList' AND r.resource_key = 'regions'")
+                .bind("t", tenant.id).mapTo(String::class.java).one()
+        }
+        fun ready(): Boolean? = jdbi.withHandle<Boolean?, Exception> { readyMarks.readiness(it, catalog)["codeList/regions"] }
+
+        val first = withMediator {
+            CreateCodeList(id, "Regions", sourceType = CodeListSource.URL, sourceUrl = "http://127.0.0.1:$port/regions.json", authType = AuthType.NONE).execute()
+            RefreshCodeList(id).execute()
+            MarkCatalogReady(catalog).execute()
+            GetCodeList(id).query()!!
+        }
+        val hashBefore = hash()
+        assertThat(ready()).isTrue()
+
+        val second = withMediator { RefreshCodeList(id).execute()!! }
+
+        assertThat(hash()).`as`("no new content").isEqualTo(hashBefore)
+        assertThat(second.revision).isEqualTo(first.revision)
+        assertThat(ready()).`as`("still ready").isTrue()
+        assertThat(second.lastRefreshedAt).`as`("the refresh is recorded").isAfterOrEqualTo(first.lastRefreshedAt)
+        assertThat(second.updatedAt).`as`("the list itself did not change").isEqualTo(first.updatedAt)
     }
 
     @Test

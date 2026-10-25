@@ -38,7 +38,7 @@ class DroppedContentTableSqlTest {
     }
 
     private companion object {
-        val DROPPED = Regex("""\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+themes\b""", RegexOption.IGNORE_CASE)
+        val DROPPED = Regex("""\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(themes|code_lists|code_list_entries)\b""", RegexOption.IGNORE_CASE)
 
         val EXEMPT = listOf(
             "/src/main/kotlin/db/migration/",

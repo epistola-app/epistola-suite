@@ -728,12 +728,11 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
     private fun entriesOwnedBy(tenantKey: TenantKey, catalogKey: CatalogKey, slug: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT entries.code
-            FROM code_list_entries entries
-            JOIN code_lists lists
-              ON lists.tenant_key = entries.tenant_key AND lists.resource_id = entries.code_list_resource_id
-            WHERE entries.tenant_key = :tenantKey AND lists.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND lists.slug = :slug
-            ORDER BY entries.code
+            SELECT e ->> 'code'
+            FROM current_code_lists lists
+            CROSS JOIN LATERAL jsonb_array_elements(lists.entries) e
+            WHERE lists.tenant_key = :tenantKey AND lists.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND lists.id = :slug
+            ORDER BY 1
             """,
         )
             .bind("tenantKey", tenantKey)
@@ -748,7 +747,7 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
             """
             SELECT list_catalog.catalog_key::text
             FROM variant_attribute_definitions a
-            JOIN code_lists lists ON lists.tenant_key = a.tenant_key AND lists.resource_id = a.code_list_resource_id
+            JOIN current_code_lists lists ON lists.tenant_key = a.tenant_key AND lists.resource_id = a.code_list_resource_id
             JOIN catalogs list_catalog ON list_catalog.tenant_key = lists.tenant_key AND list_catalog.catalog_id = lists.catalog_id
             WHERE a.tenant_key = :tenantKey AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id = :id
             """,

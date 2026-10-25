@@ -35,13 +35,13 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
-  through the draft queries switch to releases a resource type at a time; themes do
+  through the draft queries switch to releases a resource type at a time; themes and code lists do
   ([below](#one-storage-for-drafts-and-releases)), the other types still read a release through
   `ListReleasedResources`.
 - <a id="one-storage-for-drafts-and-releases"></a>**One storage for drafts and releases** (ADR 0033,
   a type at a time; themes first). A theme of a draft is a `release_resources` row keyed by the
   draft (`version_id`) where a release's row is keyed by its number (`version`), naming its content
-  in `resource_contents`: the theme's wire form, the same row a release of it shares. Writes go
+  in `resource_contents`: `{ "resource": <the theme's wire form> }`, the shape every type's content has (ADR 0033), the same row a release of it shares. Writes go
   through `ThemeStore` and `DraftResources`; the database keeps identity, revision, `updated_at`
   and the catalog's `content_updated_at` on those rows as it does for a content table. Every read
   goes through one place: the SQL function `catalog_version_resources(type)`, the rows of the version a caller
@@ -53,6 +53,10 @@ still in the table, defaulted and unused, and goes in a later major release.
   before the planner has statistics, as on a fresh installation (`ThemePlanStabilityTest`). So
   `GetTheme`/`ListThemes`, the REST and MCP theme reads and the theme page read a release as they
   read a draft (`…/catalogs/{namespace}/{key}@1.2.0/themes/{theme}` opens read-only).
+  Code lists follow (step 2): their content is `{ resource, source }` (the released form and its
+  source), their entries live only in it and are listed, found and hidden in SQL over it
+  (`current_code_lists`); a credential is a `resource_credentials` row named by id, and the last
+  refresh is kept per draft in `code_list_refreshes`.
 - **Released here** — cutting a release advances `catalogs.released_version` /
   `released_fingerprint` / `released_at`.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
@@ -222,10 +226,11 @@ until it is released**; only releases are numbered.
   older line, work tried by deploying it to an environment. A version is identified by its
   **version id** (`version_key`, eight characters such as `k7m2x9qa`, from `epistola_version_key()`),
   which a release keeps from the draft it was released from; `next` names the next release.
-- **Content belongs to a version.** Every content row (`themes`, `document_templates`,
-  `template_variants`, `variant_attribute_definitions`, `code_lists`, `code_list_entries`, `assets`,
-  `fonts`, `font_variants`, `stencils`) is keyed `(tenant_key, version_id, resource_id)`; its address
-  is unique per version. Ready marks (`resource_ready_marks`) and dependency declarations
+- **Content belongs to a version.** Every content row (`document_templates`, `template_variants`,
+  `variant_attribute_definitions`, `assets`, `fonts`, `font_variants`, `stencils`) is keyed
+  `(tenant_key, version_id, resource_id)`; its address is unique per version. Themes and code lists
+  are `release_resources` rows keyed by the draft instead
+  ([above](#one-storage-for-drafts-and-releases)). Ready marks (`resource_ready_marks`) and dependency declarations
   (`catalog_dependencies`) are per version too.
 - **Identity is shared.** `catalog_resources` holds one identity per resource, used by every version
   that holds a row of it, and every reference to a resource (a template's theme, an attribute's code

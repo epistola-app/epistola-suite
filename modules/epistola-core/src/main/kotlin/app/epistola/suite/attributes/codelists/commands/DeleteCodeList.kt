@@ -48,6 +48,7 @@ data class DeleteCodeList(
 @Component
 class DeleteCodeListHandler(
     private val jdbi: Jdbi,
+    private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
 ) : CommandHandler<DeleteCodeList, Boolean> {
     override fun handle(command: DeleteCodeList): Boolean {
         requireCatalogEditable(command.id.catalogId)
@@ -70,18 +71,7 @@ class DeleteCodeListHandler(
                 throw CodeListInUseException(command.id, attributeCount)
             }
 
-            // Entries cascade-delete via FK ON DELETE CASCADE.
-            val rowsAffected = handle.createUpdate(
-                """
-                DELETE FROM code_lists
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug
-                """,
-            )
-                .bind("tenantKey", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("slug", command.id.key)
-                .execute()
-            rowsAffected > 0
+            codeLists.delete(handle, command.id)
         }
     }
 }

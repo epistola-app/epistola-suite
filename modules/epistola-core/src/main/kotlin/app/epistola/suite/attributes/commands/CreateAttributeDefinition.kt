@@ -107,20 +107,17 @@ class CreateAttributeDefinitionHandler(
                           (SELECT cat.namespace FROM catalogs cat
                             WHERE cat.tenant_key = variant_attribute_definitions.tenant_key
                               AND cat.catalog_id = variant_attribute_definitions.catalog_id) AS namespace,
-                          (SELECT cl_cat.catalog_key FROM code_lists cl
+                          (SELECT cl_cat.catalog_key FROM current_code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
-                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_key,
-                          (SELECT cl_cat.namespace FROM code_lists cl
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_key,
+                          (SELECT cl_cat.namespace FROM current_code_lists cl
                              JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
-                              AND ${inCurrentVersion("cl")}) AS code_list_catalog_namespace,
-                          (SELECT slug FROM code_lists cl
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_catalog_namespace,
+                          (SELECT cl.id FROM current_code_lists cl
                             WHERE cl.tenant_key = variant_attribute_definitions.tenant_key
-                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id
-                              AND ${inCurrentVersion("cl")}) AS code_list_slug
+                              AND cl.resource_id = variant_attribute_definitions.code_list_resource_id) AS code_list_slug
                 """,
                 )
                     .bind("id", command.id.key)

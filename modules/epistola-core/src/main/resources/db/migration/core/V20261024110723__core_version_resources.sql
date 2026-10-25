@@ -104,18 +104,19 @@ COMMENT ON FUNCTION catalog_version_resources(TEXT) IS
 -- the wire form a release keeps; a targeted release's come from its rows. One mapper reads both.
 CREATE VIEW current_themes AS
 SELECT u.*,
-       u.payload ->> 'description' AS description,
-       COALESCE(u.payload -> 'documentStyles', '{}'::jsonb) AS document_styles,
-       NULLIF(u.payload -> 'pageSettings', 'null'::jsonb) AS page_settings,
-       NULLIF(u.payload -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
-       CAST(u.payload ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
+       -- The released form is the content's `resource` (ADR 0033: one shape for every type).
+       u.payload -> 'resource' ->> 'description' AS description,
+       COALESCE(u.payload -> 'resource' -> 'documentStyles', '{}'::jsonb) AS document_styles,
+       NULLIF(u.payload -> 'resource' -> 'pageSettings', 'null'::jsonb) AS page_settings,
+       NULLIF(u.payload -> 'resource' -> 'blockStylePresets', 'null'::jsonb) AS block_style_presets,
+       CAST(u.payload -> 'resource' ->> 'spacingUnit' AS NUMERIC(6, 2)) AS spacing_unit
 FROM (
     SELECT t.tenant_key, t.catalog_id, t.version_id, CAST(NULL AS VARCHAR(128)) AS version, t.resource_id, t.id::text AS id, t.name::text AS name,
-           jsonb_build_object(
+           jsonb_build_object('resource', jsonb_build_object(
                'key', t.id, 'name', t.name, 'description', t.description, 'documentStyles', t.document_styles,
                'pageSettings', t.page_settings, 'blockStylePresets', t.block_style_presets,
                'spacingUnit', t.spacing_unit, 'type', 'theme'
-           ) AS payload,
+           )) AS payload,
            t.created_at, t.updated_at, t.created_by, t.updated_by, t.revision
     FROM themes t
     WHERE t.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = t.tenant_key)

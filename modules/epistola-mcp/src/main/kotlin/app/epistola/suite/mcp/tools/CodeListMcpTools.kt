@@ -14,9 +14,9 @@ import app.epistola.suite.common.ids.CodeListKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mcp.dto.CodeListEntryInfo
 import app.epistola.suite.mcp.dto.CodeListInfo
-import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogEditability
-import app.epistola.suite.mcp.support.catalogVersionRef
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantKey
 import app.epistola.suite.mediator.Mediator
@@ -47,12 +47,12 @@ class CodeListMcpTools(
     fun listCodeLists(
         @McpToolParam(description = "Catalog slug to filter by. Omit to list all.", required = false)
         catalogId: String?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<CodeListInfo> {
         val tenantId = TenantId(mcpTenantKey())
         val filter = catalogId?.takeIf { it.isNotBlank() }?.let { mcpCatalog(it) }
-        return mediator.query(ListCodeLists(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+        return mediator.query(ListCodeLists(tenantId = tenantId, catalog = filter, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
             .let { codeLists ->
                 val editability = catalogEditability()
                 codeLists.map { CodeListInfo.from(it, editability.editable(it.catalogId)) }
@@ -71,11 +71,11 @@ class CodeListMcpTools(
         catalogId: String,
         @McpToolParam(description = "Slug of the code list (e.g. `iso-639-1`).")
         codeListSlug: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): CodeListInfo? {
         val id = buildId(catalogId, codeListSlug)
-        return mediator.query(GetCodeList(id = id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { CodeListInfo.from(it, catalogEditability().editable(it.catalogId)) }
+        return mediator.query(GetCodeList(id = id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { CodeListInfo.from(it, catalogEditability().editable(it.catalogId)) }
     }
 
     @McpTool(
@@ -91,11 +91,11 @@ class CodeListMcpTools(
         codeListSlug: String,
         @McpToolParam(description = "Include hidden entries (default false).", required = false)
         includeHidden: Boolean?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<CodeListEntryInfo> {
         val id = buildId(catalogId, codeListSlug)
-        return mediator.query(ListCodeListEntries(codeListId = id, includeHidden = includeHidden ?: false, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+        return mediator.query(ListCodeListEntries(codeListId = id, includeHidden = includeHidden ?: false, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
             .map { CodeListEntryInfo.from(it) }
     }
 

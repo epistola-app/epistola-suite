@@ -83,7 +83,7 @@ class ThemeRows(private val objectMapper: ObjectMapper, private val catalogOf: (
         val catalog = catalogOf(rs.getObject("catalog_id", UUID::class.java))
         return ThemeContent.theme(
             objectMapper,
-            objectMapper.readTree(rs.getString("payload")),
+            app.epistola.suite.catalog.revisions.StoredContent.resourceOf(objectMapper.readTree(rs.getString("payload"))),
             TenantKey.of(rs.getString("tenant_key")),
             catalog.key,
             catalog.namespace,

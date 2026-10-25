@@ -4,7 +4,7 @@
 
 package app.epistola.suite.attributes.codelists.queries
 
-import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.attributes.codelists.codeListAt
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -41,19 +41,17 @@ class CodeListEntryExistsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<CodeListEntryExists, Boolean> {
     override fun handle(query: CodeListEntryExists): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+        // Containment on the content's entries, in SQL (ADR 0033).
         handle.createQuery(
             """
-            SELECT 1
-            FROM code_list_entries
-            WHERE tenant_key = :tenantKey
-              AND version_id = ${versionAt("tenantKey", "catalogKey")}
-              AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
-              AND code = :code
+            SELECT 1 FROM current_code_lists t
+            WHERE ${codeListAt()}
+              AND t.entries @> jsonb_build_array(jsonb_build_object('code', CAST(:code AS TEXT)))
             """,
         )
-            .bind("tenantKey", query.tenantKey)
-            .bindCatalog("catalogKey", query.catalog)
-            .bind("slug", query.codeListSlug)
+            .bind("t", query.tenantKey)
+            .bindCatalog("c", query.catalog)
+            .bind("key", query.codeListSlug.value)
             .bind("code", query.code)
             .mapTo(Int::class.java)
             .findOne()

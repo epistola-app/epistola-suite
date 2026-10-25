@@ -4,7 +4,7 @@
 
 package app.epistola.suite.attributes.codelists
 
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.catalogAt
 
 /**
  * The identity of the code list at a `(catalogKey, slug)` address.
@@ -17,7 +17,7 @@ import app.epistola.suite.catalog.versionAt
  * Expects `:tenantKey`, `:catalogKey` and `:slug` to be bound by the surrounding statement.
  */
 internal val CODE_LIST_AT_ADDRESS: String =
-    "(SELECT resource_id FROM code_lists WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug)"
+    "(SELECT resource_id FROM current_code_lists WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND id = CAST(:slug AS TEXT))"
 
 /**
  * The identity of the code list a caller named by address, for writing a binding.
@@ -35,10 +35,10 @@ internal fun boundCodeListAtAddress(tenantParam: String): String =
     -- Cast so the parameter has a type here; the comparison below infers one from the column.
     CASE WHEN CAST(:codeListSlug AS TEXT) IS NULL THEN NULL
          ELSE COALESCE(
-             (SELECT resource_id FROM code_lists
+             (SELECT resource_id FROM current_code_lists
                WHERE tenant_key = :$tenantParam
-                 AND version_id = ${versionAt(tenantParam, "codeListCatalogKey")}
-                 AND slug = :codeListSlug),
+                 AND catalog_id = ${catalogAt(tenantParam, "codeListCatalogKey")}
+                 AND id = CAST(:codeListSlug AS TEXT)),
              '00000000-0000-0000-0000-000000000000'::uuid)
     END
     """

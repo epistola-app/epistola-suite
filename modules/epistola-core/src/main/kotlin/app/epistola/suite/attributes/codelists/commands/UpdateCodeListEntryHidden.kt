@@ -5,11 +5,13 @@
 package app.epistola.suite.attributes.codelists.commands
 
 import app.epistola.suite.attributes.codelists.CODE_LIST_AT_ADDRESS
+import app.epistola.suite.attributes.codelists.CodeListStore
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.contentRevision
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CodeListId
@@ -17,6 +19,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -45,46 +48,22 @@ data class UpdateCodeListEntryHidden(
 @Component
 class UpdateCodeListEntryHiddenHandler(
     private val jdbi: Jdbi,
+    private val codeLists: CodeListStore,
 ) : CommandHandler<UpdateCodeListEntryHidden, Boolean> {
     override fun handle(command: UpdateCodeListEntryHidden): Boolean {
         requireCatalogEditable(command.codeListId.catalogId)
         return jdbi.withHandle<Boolean, Exception> { handle ->
             // An entry is part of its code list: the caller names the list's revision, and a change to
-            // an entry is a change to the list, so its revision moves on.
-            Revisions.refuse(
-                "Code list '${command.codeListId.key.value}'",
-                command.expectedRevision,
-                handle.contentRevision("code_lists", "slug", command.codeListId.catalogId, command.codeListId.key),
-            )
-            fun entries(set: String, where: String = "") = handle.createUpdate(
-                """
-                UPDATE code_list_entries
-                SET $set
-                WHERE tenant_key = :tenantKey
-                  AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                  AND code_list_resource_id = $CODE_LIST_AT_ADDRESS
-                  AND code = :code $where
-                """,
-            )
-                .bind("tenantKey", command.codeListId.tenantKey)
-                .bindCatalog("catalogKey", command.codeListId.catalogId)
-                .bind("slug", command.codeListId.key)
-                .bind("code", command.code)
-                .bind("hidden", command.hidden)
-                .execute()
-            val changed = entries("hidden = :hidden", "AND hidden IS DISTINCT FROM :hidden")
-            if (changed > 0) {
-                // bump_content_revision keeps a raise by one the update makes itself.
-                handle.createUpdate("UPDATE code_lists SET revision = revision + 1 WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")} AND slug = :slug")
-                    .bind("tenantKey", command.codeListId.tenantKey)
-                    .bindCatalog("catalogKey", command.codeListId.catalogId)
-                    .bind("slug", command.codeListId.key)
-                    .execute()
-                true
-            } else {
-                // Unchanged, or not there: an entry already as asked counts as found.
-                entries("hidden = hidden") > 0
-            }
+            // an entry is a change to the list, so its revision moves on (a new content).
+            val revision = DraftResources.lockRevision(handle, command.codeListId.catalogId, CodeListStore.CODE_LIST, command.codeListId.key.value)
+            Revisions.refuse("Code list '${command.codeListId.key.value}'", command.expectedRevision, revision)
+            revision ?: return@withHandle false
+            val current = checkNotNull(codeLists.fields(handle, command.codeListId)) { "Code list ${command.codeListId.key.value} is locked, so it is there" }
+            val entry = current.entries.firstOrNull { it.code == command.code } ?: return@withHandle false
+            // An entry already as asked counts as found, and writes nothing.
+            if (entry.hidden == command.hidden) return@withHandle true
+            val entries = current.entries.map { if (it.code == command.code) it.copy(hidden = command.hidden) else it }
+            codeLists.write(handle, command.codeListId, current.copy(entries = entries), currentUserIdOrNull()?.value)
         }
     }
 }

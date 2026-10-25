@@ -17,7 +17,7 @@ import java.sql.Connection
 
 /**
  * Every draft's themes move to JSON storage (ADR 0033, step 1): each `themes` row becomes its
- * content in `resource_contents`, the theme's wire form, and a draft row in `release_resources`
+ * content in `resource_contents`, `{ "resource": <the theme's wire form> }`, and a draft row in `release_resources`
  * naming it, with the references the content holds in `resource_references`. The next migration
  * drops the table.
  *
@@ -130,16 +130,27 @@ class V20261024114440__core_themes_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -258835513
+        const val CHECKSUM: Int = 476212729
 
         private val mapper = JsonMapper.builder().build()
 
         /**
-         * The theme's wire form (`ThemeResource` of contract 2.0) from its columns: every field
-         * present, null where the column is; the spacing unit a JSON float, as the protocol's
-         * `Float` writes it.
+         * The theme's content from its columns: `{ "resource": <its wire form> }` (ADR 0033, one shape
+         * for every type), the wire form being `ThemeResource` of contract 2.0 with every field present,
+         * null where the column is, and the spacing unit a JSON float, as the protocol's `Float` writes
+         * it. A theme has no setting beside its released form yet.
          */
         fun payload(
+            key: String,
+            name: String,
+            description: String?,
+            documentStyles: String?,
+            pageSettings: String?,
+            blockStylePresets: String?,
+            spacingUnit: BigDecimal?,
+        ): ObjectNode = mapper.createObjectNode().set("resource", resource(key, name, description, documentStyles, pageSettings, blockStylePresets, spacingUnit))
+
+        private fun resource(
             key: String,
             name: String,
             description: String?,

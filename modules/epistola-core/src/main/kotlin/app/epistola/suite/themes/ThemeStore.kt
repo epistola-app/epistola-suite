@@ -47,16 +47,20 @@ class ThemeStore(
      * The content of theme [key]: its wire form, as a release stores it too. The spacing unit keeps
      * the two decimals it always had (the `NUMERIC(6, 2)` it was stored in before).
      */
-    fun payload(key: String, fields: ThemeFields): JsonNode = objectMapper.valueToTree(
-        ThemeResource(
-            key = key,
-            name = fields.name,
-            description = fields.description,
-            documentStyles = fields.documentStyles,
-            pageSettings = fields.pageSettings,
-            blockStylePresets = fields.blockStylePresets?.toMap(),
-            spacingUnit = fields.spacingUnit?.let(::stored),
-        ),
+    fun payload(key: String, fields: ThemeFields): JsonNode = objectMapper.createObjectNode().set(
+        "resource",
+        objectMapper.valueToTree<JsonNode>(resource(key, fields)),
+    )
+
+    /** Theme [key] as it is released: its wire form, `resource` in its content. */
+    fun resource(key: String, fields: ThemeFields): ThemeResource = ThemeResource(
+        key = key,
+        name = fields.name,
+        description = fields.description,
+        documentStyles = fields.documentStyles,
+        pageSettings = fields.pageSettings,
+        blockStylePresets = fields.blockStylePresets?.toMap(),
+        spacingUnit = fields.spacingUnit?.let(::stored),
     )
 
     /** The spacing unit as stored: two decimals. */

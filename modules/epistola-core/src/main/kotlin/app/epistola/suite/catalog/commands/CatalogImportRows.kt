@@ -207,7 +207,7 @@ class CatalogImportRows(
             // shape as themes/stencils so the look-up cost is one PK probe.
             val codeListDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.CodeList>()
             if (codeListDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, cl.slug FROM code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND ${inCurrentVersion("cl")} AND cl.slug IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, cl.id AS slug FROM current_code_lists cl JOIN catalogs rc ON rc.tenant_key = cl.tenant_key AND rc.catalog_id = cl.catalog_id WHERE cl.tenant_key = :tenantKey AND cl.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", codeListDeps.map { it.key })
                     .map { rs, _ -> "codeList:${rs.getString("catalog_key")}:${rs.getString("slug")}" }

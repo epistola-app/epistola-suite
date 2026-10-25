@@ -5,7 +5,7 @@ alone never exposes a usable secret. This covers:
 
 - **Catalog credentials** — `catalogs.source_auth_credential` (auth used to reach
   a remote catalog).
-- **Code-list credentials** — `code_lists.credential` (auth used to fetch a
+- **Code-list credentials** — `resource_credentials.credential` (auth used to fetch a
   remote code list).
 - **Hub credentials** — the support tier's `app_metadata` entry
   (`support.hub.credentials`).

@@ -317,7 +317,6 @@ class DeleteCatalogDraftHandler(
             SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = :v
-            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id = :v
@@ -325,7 +324,6 @@ class DeleteCatalogDraftHandler(
         elsewhere AS (
             SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v

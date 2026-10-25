@@ -48,11 +48,11 @@ class ListAttributeDefinitionsHandler(
             append(
                 """
                 SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, a.display_name, a.allowed_values,
-                       cl_cat.catalog_key AS code_list_catalog_key, cl_cat.namespace AS code_list_catalog_namespace, cl.slug AS code_list_slug,
+                       cl_cat.catalog_key AS code_list_catalog_key, cl_cat.namespace AS code_list_catalog_namespace, cl.id AS code_list_slug,
                        a.created_at, a.updated_at, a.revision
                 FROM variant_attribute_definitions a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
-                LEFT JOIN code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id AND ${inCurrentVersion("cl")}
+                LEFT JOIN current_code_lists cl ON cl.tenant_key = a.tenant_key AND cl.resource_id = a.code_list_resource_id
                 LEFT JOIN catalogs cl_cat ON cl_cat.tenant_key = cl.tenant_key AND cl_cat.catalog_id = cl.catalog_id
                 WHERE a.tenant_key = :tenantId
                   AND ${inCurrentVersion("a")}
