@@ -22,6 +22,8 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.themes.ThemeFields
+import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.themes.crossCatalogRefs
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
@@ -58,6 +60,7 @@ class CreateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val themes: ThemeStore,
 ) : CommandHandler<CreateTheme, Theme> {
     override fun handle(command: CreateTheme): Theme {
         val saved = save(command)
@@ -71,25 +74,12 @@ class CreateThemeHandler(
         val auditUser = currentUserIdOrNull()?.value
         return executeOrThrowDuplicate("theme", command.id.key.value) {
             jdbi.withHandle<Theme, Exception> { handle ->
-                handle.createQuery(
-                    """
-                INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING *, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS catalog_key, (SELECT cat.namespace FROM catalogs cat WHERE cat.tenant_key = themes.tenant_key AND cat.catalog_id = themes.catalog_id) AS namespace
-                """,
+                themes.create(
+                    handle,
+                    command.id,
+                    ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit),
+                    auditUser,
                 )
-                    .bind("id", command.id.key)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("name", command.name)
-                    .bind("description", command.description)
-                    .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
-                    .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
-                    .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
-                    .bind("spacingUnit", command.spacingUnit)
-                    .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                    .mapTo<Theme>()
-                    .one()
             }
         }
     }

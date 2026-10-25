@@ -112,7 +112,9 @@ class InstallationStatsPublisher(
     internal enum class Entity(val metric: String, val table: String, val versioned: Boolean = false) {
         TENANTS("tenants", "tenants"),
         TEMPLATES("templates", "document_templates", versioned = true),
-        THEMES("themes", "themes", versioned = true),
+
+        // Its view holds each catalog's current version only (ADR 0033).
+        THEMES("themes", "current_themes"),
         CATALOGS("catalogs", "catalogs"),
         STENCILS("stencils", "stencils", versioned = true),
         FONTS("fonts", "fonts", versioned = true),

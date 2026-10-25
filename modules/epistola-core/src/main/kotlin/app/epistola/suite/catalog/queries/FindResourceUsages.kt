@@ -56,9 +56,9 @@ class FindResourceUsagesHandler(
                 SELECT th.id AS resource_slug, dt.name AS ref_name, dc.catalog_key AS ref_catalog
                 FROM document_templates dt
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
-                JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
+                JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 WHERE dt.tenant_key = :tenantKey
-                  AND th.version_id = ${versionAt("tenantKey", "catalogKey")}
+                  AND th.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                   AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
                   AND ${inCurrentVersion("dt")}
                 """,

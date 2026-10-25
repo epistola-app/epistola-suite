@@ -148,7 +148,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
     private fun rowsIn(tenant: TenantKey, draft: DraftRef): Int = jdbi.withHandle<Int, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT (SELECT count(*) FROM themes WHERE tenant_key = :t AND version_id = :v)
+            SELECT (SELECT count(*) FROM release_resources WHERE tenant_key = :t AND version_id = :v)
                  + (SELECT count(*) FROM document_templates WHERE tenant_key = :t AND version_id = :v)
                  + (SELECT count(*) FROM template_variants WHERE tenant_key = :t AND version_id = :v)
                  + (SELECT count(*) FROM code_lists WHERE tenant_key = :t AND version_id = :v)
@@ -390,7 +390,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         val redesign = work(tenant, "Redesign")
         withMediator { CreateTheme(seasonal, "Seasonal", catalogVersion = at(tenant, redesign)).execute() }
         val recreated = jdbi.withHandle<UUID, Exception> { handle ->
-            handle.createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v AND id = 'seasonal'")
+            handle.createQuery("SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v AND resource_type = 'theme' AND resource_key = 'seasonal'")
                 .bind("t", tenant).bind("v", versionId(tenant, redesign)).mapTo(UUID::class.java).one()
         }
         assertThat(recreated).`as`("the same resource as the release's, so its history and findings stay with it").isEqualTo(released())

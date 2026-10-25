@@ -55,9 +55,9 @@ class FindFontUsagesHandler(
         val themeUsages = handle.createQuery(
             """
             SELECT t.name AS name
-            FROM themes t
+            FROM current_themes t
             WHERE t.tenant_key = :tenantKey
-              AND ${inCurrentVersion("t")}
+             
               AND (
                 jsonb_path_exists(t.document_styles, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
                 OR jsonb_path_exists(COALESCE(t.block_style_presets, '{}'::jsonb), CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))

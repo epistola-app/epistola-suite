@@ -41,8 +41,7 @@ class GetDocumentTemplateHandler(
                 SELECT dt.id, dt.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, dt.name, th.id AS theme_key, th_cat.catalog_key AS theme_catalog_key, th_cat.namespace AS theme_catalog_namespace, dt.pdfa_enabled, dt.description, dt.created_at, dt.updated_at, dt.created_by, dt.updated_by, dt.revision
                 FROM document_templates dt
                 JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
-                LEFT JOIN themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-                    AND (th.version_id = dt.version_id OR (th.catalog_id <> dt.catalog_id AND ${inCurrentVersion("th")}))
+                LEFT JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
                 WHERE dt.id = :id AND dt.tenant_key = :tenantId AND dt.version_id = ${versionAt("tenantId", "catalogKey")}
                 """,

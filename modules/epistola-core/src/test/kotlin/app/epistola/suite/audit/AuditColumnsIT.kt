@@ -60,7 +60,7 @@ class AuditColumnsIT : IntegrationTestBase() {
         handle.createQuery(
             """
                 SELECT created_by, updated_by
-                FROM themes
+                FROM current_themes
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )

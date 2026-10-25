@@ -73,6 +73,22 @@ internal fun catalogEditability(): CatalogEditabilities = ListCatalogEditability
 internal const val CATALOG_VERSION_DESCRIPTION = "Draft of the catalog to work in: `next`, or parallel work by its " +
     "`draftId` from `list_catalog_releases`. Omit for the next release, where everyday work goes."
 
+/** [CATALOG_VERSION_DESCRIPTION] for a read that can read a release too (ADR 0033). */
+internal const val CATALOG_VERSION_READ_DESCRIPTION = "Version of the catalog to read: `next`, parallel work by its " +
+    "`draftId`, or a release by its number (`1.2.0`), all from `list_catalog_releases`. Omit for the next release."
+
+/**
+ * The version a read tool's `catalogVersion` argument names (ADR 0033): a draft, as
+ * [catalogVersionRef] reads it, or a release by its number; null for the current version.
+ */
+internal fun catalogVersionReadRef(catalogId: String?, catalogVersion: String?): CatalogReleaseRef? {
+    val version = catalogVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val released = DraftRef.parse(version) as? DraftRef.Released ?: return catalogVersionRef(catalogId, catalogVersion)
+    val catalog = catalogId?.takeIf { it.isNotBlank() }
+        ?: throw ValidationException("catalogVersion", "`catalogVersion` is a draft or release of one catalog; give `catalogId` too")
+    return CatalogReleaseRef(mcpCatalog(catalog), released)
+}
+
 /**
  * The draft a tool's `catalogVersion` argument names, of catalog [catalogId], or null for its current
  * version. A version belongs to one catalog, so naming one without a catalog is refused.

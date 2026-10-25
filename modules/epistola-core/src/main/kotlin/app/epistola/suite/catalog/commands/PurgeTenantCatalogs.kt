@@ -56,8 +56,7 @@ class PurgeTenantCatalogsHandler(
                     """
                     SELECT thc.catalog_key AS default_theme_catalog_key, th.id AS default_theme_key, thc.namespace AS default_theme_namespace
                     FROM tenants t
-                    LEFT JOIN themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
-                        AND ${inCurrentVersion("th")}
+                    LEFT JOIN current_themes th ON th.tenant_key = t.id AND th.resource_id = t.default_theme_resource_id
                     LEFT JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
                     WHERE t.id = :tenantKey
                     """,

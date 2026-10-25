@@ -38,6 +38,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.DeleteTheme
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -70,6 +71,9 @@ class RevisionCollectionTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
             MarkCatalogReady(testCatalog(tenant.id, key)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0", notes = "first").execute()
+            // The next version holds the same content as a draft row (ADR 0033); without it, only the
+            // release reaches it.
+            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key))).execute()
 
             assertThat(revisionCount(tenant.id)).`as`("released content is retained").isGreaterThan(0)
 
@@ -247,6 +251,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
             CreateTheme(id = ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key)), name = "Brand").execute()
             MarkCatalogReady(testCatalog(tenant.id, key)).execute()
             ReleaseCatalogDraft(catalog = testCatalog(tenant.id, key), version = "1.0.0").execute()
+            // Only the release reaches the theme's content once the next version holds it no more.
+            DeleteTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant.id), key))).execute()
 
             DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()
 

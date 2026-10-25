@@ -294,7 +294,13 @@ data class CatalogDraftBar(
             }
             val chosen = when (val draft = segment.draft) {
                 null -> drafts.firstOrNull { it.isNext }
-                else -> drafts.firstOrNull { it.versionId == draft } ?: throw CatalogReleaseNotFoundException(segment.key, draft)
+
+                // A release, read-only (ADR 0033): its page shows it, and nothing on it changes it.
+                else -> if (segment.released) {
+                    releases.firstOrNull { it.version == draft } ?: throw CatalogReleaseNotFoundException(segment.key, draft)
+                } else {
+                    drafts.firstOrNull { it.versionId == draft } ?: throw CatalogReleaseNotFoundException(segment.key, draft)
+                }
             }
             val auth = AuthContext.from(SecurityContext.current(), tenantKey)
             val followedBy = chosen?.versionId?.takeIf { editable && chosen.status == CatalogReleaseStatus.DRAFT }?.let { draftId ->
@@ -310,7 +316,7 @@ data class CatalogDraftBar(
                 tenantKey = tenantKey,
                 catalogKey = segment.key,
                 catalogName = catalog?.name ?: segment.key.value,
-                editable = editable,
+                editable = editable && !segment.released,
                 segment = segment,
                 drafts = drafts,
                 releases = releases,

@@ -271,13 +271,27 @@ class DataPreservationMigrationIT {
                 .isEqualTo("nl-NL")
             assertThat(one("SELECT type FROM catalogs WHERE tenant_key = '$TENANT' AND catalog_key = 'default'"))
                 .isEqualTo("AUTHORED")
-            assertThat(one("SELECT document_styles::text FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
+            // Themes are stored as JSON (ADR 0033, V20261024114440): the theme's content says what its
+            // 1.x row said, and its draft row keeps the row's bookkeeping.
+            assertThat(one("SELECT document_styles::text FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
                 .isEqualTo(one("SELECT '$THEME_STYLES'::jsonb::text"))
+            assertThat(one("SELECT payload::text FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
+                .describedAs("the 1.x theme, as its wire form")
+                .isEqualTo(
+                    one(
+                        """SELECT '{"key": "brand", "name": "Brand Theme", "type": "theme", "description": null, "spacingUnit": null,
+                        "pageSettings": null, "documentStyles": $THEME_STYLES, "blockStylePresets": null}'::jsonb::text""",
+                    ),
+                )
+            assertThat(one("SELECT revision || '/' || (created_by IS NULL) || '/' || (created_at <= updated_at) FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'"))
+                .describedAs("its revision and authorship, as its 1.x row had them")
+                .isEqualTo("1/true/true")
+            assertThat(one("SELECT CAST(to_regclass('themes') IS NULL AS TEXT)")).describedAs("the themes table is gone").isEqualTo("true")
             assertThat(
                 one(
                     """
                     SELECT theme.id FROM document_templates template
-                    JOIN themes theme ON theme.tenant_key = template.tenant_key
+                    JOIN current_themes theme ON theme.tenant_key = template.tenant_key
                                      AND theme.resource_id = template.theme_resource_id
                     WHERE template.tenant_key = '$TENANT' AND template.id = 'invoice'
                     """,
@@ -448,7 +462,7 @@ class DataPreservationMigrationIT {
             assertThat(ready(invoice, "legacy")).describedAs("a variant without a draft").isEqualTo("true")
             assertThat(ready("SELECT resource_id FROM stencils WHERE tenant_key = '$TENANT' AND id = 'header'", ""))
                 .describedAs("a stencil with a draft").isEqualTo("false")
-            assertThat(ready("SELECT resource_id FROM themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
+            assertThat(ready("SELECT resource_id FROM current_themes WHERE tenant_key = '$TENANT' AND id = 'brand'", ""))
                 .describedAs("a resource that had no drafts").isEqualTo("true")
 
             // Every authored catalog has the draft it works in, its next version, which has no number

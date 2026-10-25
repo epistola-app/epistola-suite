@@ -42,7 +42,8 @@ class CatalogIdentityMigrationTest {
 
         flyway(BEFORE_IDENTITY).migrate()
         DriverManager.getConnection(url, postgres.username, postgres.password).use(::seed)
-        flyway(null).migrate()
+        // Up to the themes table's last schema: what follows moves themes to JSON storage.
+        flyway(BEFORE_THEME_STORAGE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(rows(connection, "SELECT tenant_key, catalog_key, registry, namespace FROM catalogs ORDER BY 1, 2"))

@@ -370,7 +370,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
 
     private fun themeIdentity(tenantKey: String, catalogKey: String, key: String): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         handle
-            .createQuery("SELECT resource_id FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
+            .createQuery("SELECT resource_id FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
             .bind("t", tenantKey)
             .bindCatalog("c", testCatalog(tenantKey, catalogKey))
             .bind("k", key)

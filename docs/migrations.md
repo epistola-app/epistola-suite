@@ -144,6 +144,26 @@ integration-test coverage — `InstallationServiceIT` and
 5. Ensure the normal integration suite passes — a new migration is just appended
    to the history; there is no special gate to satisfy.
 
+## Code migrations
+
+A conversion SQL cannot say well is a Kotlin migration (ADR 0035): a Flyway `BaseJavaMigration` in
+`<module>/src/main/kotlin/db/migration/<module>/`, named and ordered like an SQL one, run in the
+migration step and recorded in `flyway_schema_history`. The first is
+`V20261024114440__core_themes_to_storage`, which moves themes to JSON storage.
+
+- **Self-contained.** It uses JDBC, a JSON tree (Jackson `ObjectNode`) and frozen code only: no
+  suite classes, no mediator, no protocol model that moves on. What it knows (how the columns of its
+  time map to the wire form of its time, the content hash) is written into it.
+  `CodeMigrationGuardTest` refuses any other import, and any `app.epistola.suite` name.
+- **Frozen.** Never edited once merged, like SQL (`checkMigrationVersions`). From
+  `V20261024114440` on, each declares `override fun getChecksum(): Int = CHECKSUM`, the CRC32 of its
+  file with that number written as `0`; Flyway records it, and `CodeMigrationGuardTest` checks it
+  matches. Recompute it after a change that has not merged yet (the guard prints the expected value).
+- **Proven both ways.** A conversion that must equal what the suite writes gets a test that runs
+  the suite's writer and the migration's conversion over the same data and compares them, as
+  `ThemeStorageConversion` does for every bundled and demo theme; `DataPreservationMigrationIT`
+  upgrades a 1.x database through it.
+
 ## Running migrations: embedded vs separated
 
 A single knob — `epistola.migration.mode` (env `EPISTOLA_MIGRATION_MODE`),

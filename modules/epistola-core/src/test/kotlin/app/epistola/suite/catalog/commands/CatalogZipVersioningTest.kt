@@ -115,7 +115,7 @@ class CatalogZipVersioningTest : IntegrationTestBase() {
     private fun manifestOf(zipBytes: ByteArray): CatalogManifest = objectMapper.readValue(unzip(zipBytes)["catalog.json"]!!, CatalogManifest::class.java)
 
     private fun themeName(tenantKey: app.epistola.suite.common.ids.TenantKey, catalogKey: CatalogKey, slug: String): String? = jdbi.withHandle<String?, Exception> { h ->
-        h.createQuery("SELECT name FROM themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :s")
+        h.createQuery("SELECT name FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :s")
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("s", slug)
             .mapTo(String::class.java).findOne().orElse(null)
     }

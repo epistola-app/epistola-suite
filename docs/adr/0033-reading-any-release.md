@@ -242,6 +242,13 @@ type, given a version that is a draft or a release (`CatalogVersionRef`, the UI'
 `/catalogs/{namespace}/{key}[@{version}]/…`). REST's `isDraft` branches go. Nothing above the
 interface may know how a type is stored.
 
+In SQL, too, a type is read in one place: the function `catalog_version_resources(type)` gives every
+version's rows of that type, a draft's and a release's alike, and each type's reads (`current_themes`
+and its successors) build on it. Its shape is fixed (current versions first, then each version's rows
+by key) so it plans well on tables the planner has no statistics for yet, which a regression test
+holds (`ThemePlanStabilityTest`). A new type adds a mapper and its reads on this function, not a
+query of its own over the storage tables.
+
 ### How it is built
 
 **0. Groundwork** (one change): the renames above (the tables are not on `main`, so their

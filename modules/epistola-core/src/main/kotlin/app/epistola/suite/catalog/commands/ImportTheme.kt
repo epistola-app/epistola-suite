@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -21,6 +22,8 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
+import app.epistola.suite.themes.ThemeFields
+import app.epistola.suite.themes.ThemeStore
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -53,46 +56,28 @@ data class ImportTheme(
 @Component
 class ImportThemeHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
+    private val themes: ThemeStore,
 ) : CommandHandler<ImportTheme, InstallStatus> {
 
     override fun handle(command: ImportTheme): InstallStatus {
         val themeKey = ThemeKey.of(command.slug)
-        val documentStylesJson = objectMapper.writeValueAsString(command.documentStyles)
-        val pageSettingsJson = command.pageSettings?.let { objectMapper.writeValueAsString(it) }
-        val blockStylePresetsJson = command.blockStylePresets?.let { objectMapper.writeValueAsString(it) }
         val auditUser = currentUserIdOrNull()?.value
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) > 0 FROM themes WHERE id = :id AND tenant_key = :tenantKey AND ${inCurrentVersion("themes")}")
-                .bind("id", themeKey)
+            handle.createQuery("SELECT COUNT(*) > 0 FROM current_themes WHERE id = :id AND tenant_key = :tenantKey")
+                .bind("id", themeKey.value)
                 .bind("tenantKey", command.tenantKey)
                 .mapTo(Boolean::class.java)
                 .one()
         }
 
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO themes (id, tenant_key, catalog_id, version_id, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantKey, ${catalogAt("tenantKey", "catalogKey")}, ${versionAt("tenantKey", "catalogKey")}, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW(), :createdBy, :updatedBy)
-                ON CONFLICT (tenant_key, version_id, id) DO UPDATE
-                SET name = :name, description = :description, document_styles = :documentStyles::jsonb,
-                    page_settings = :pageSettings::jsonb, block_style_presets = :blockStylePresets::jsonb,
-                    spacing_unit = :spacingUnit, updated_at = NOW(), updated_by = :updatedBy
-                """,
+            themes.put(
+                handle,
+                ThemeId(themeKey, command.catalog),
+                ThemeFields(command.name, command.description, command.documentStyles, command.pageSettings, command.blockStylePresets, command.spacingUnit),
+                auditUser,
             )
-                .bind("id", themeKey)
-                .bind("tenantKey", command.tenantKey)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("name", command.name)
-                .bind("description", command.description)
-                .bind("documentStyles", documentStylesJson)
-                .bind("pageSettings", pageSettingsJson)
-                .bind("blockStylePresets", blockStylePresetsJson)
-                .bind("spacingUnit", command.spacingUnit)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .execute()
         }
 
         return if (exists) InstallStatus.UPDATED else InstallStatus.INSTALLED

@@ -5,6 +5,7 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
@@ -78,8 +79,8 @@ class SetTenantDefaultThemeHandler(
 
         val themeExists = handle.createQuery(
             """
-            SELECT COUNT(*) FROM themes
-            WHERE id = :themeId AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
+            SELECT COUNT(*) FROM current_themes
+            WHERE id = :themeId AND tenant_key = :tenantId AND catalog_id = ${catalogAt("tenantId", "catalogKey")}
             """,
         )
             .bind("themeId", command.themeId)

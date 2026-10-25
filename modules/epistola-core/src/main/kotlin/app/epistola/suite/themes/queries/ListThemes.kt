@@ -5,10 +5,9 @@
 package app.epistola.suite.themes.queries
 
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantId
@@ -16,19 +15,22 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.themes.THEMES_WITH_CATALOG
+import app.epistola.suite.themes.THEME_COLUMNS
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.themes.ThemeRows
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 data class ListThemes(
     val tenantId: TenantId,
     val catalog: CatalogId? = null,
     val searchTerm: String? = null,
-    /** The catalog version this addresses; null for its catalog's current version. */
+    /** The catalog version this addresses: a draft or a release (ADR 0033); null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<List<Theme>>,
     RequiresPermission {
     init {
@@ -43,17 +45,18 @@ data class ListThemes(
 @Component
 class ListThemesHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT t.*, c.catalog_key AS catalog_key, c.namespace AS namespace FROM themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantId AND ${inCurrentVersion("t")}")
+            append("SELECT $THEME_COLUMNS FROM $THEMES_WITH_CATALOG WHERE t.tenant_key = :tenantId")
             if (query.catalogKey != null) {
-                append(" AND t.version_id = ${versionAt("tenantId", "catalogKey")}")
+                append(" AND t.catalog_id = ${catalogAt("tenantId", "catalogKey")}")
             }
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND t.name ILIKE :searchTerm")
             }
-            append(" ORDER BY t.updated_at DESC")
+            append(" ORDER BY t.updated_at DESC, t.id")
         }
 
         val jdbiQuery = handle.createQuery(sql)
@@ -65,7 +68,7 @@ class ListThemesHandler(
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }
         jdbiQuery
-            .mapTo<Theme>()
+            .map(query.catalog?.let { ThemeRows.of(objectMapper, it) } ?: ThemeRows.ofTenant(handle, objectMapper, query.tenantId.key))
             .list()
     }
 }

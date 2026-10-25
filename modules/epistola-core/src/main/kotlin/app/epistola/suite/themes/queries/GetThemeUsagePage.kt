@@ -142,14 +142,12 @@ class GetThemeUsagePageHandler(
                 JOIN catalog_versions template_version
                   ON template_version.tenant_key = template.tenant_key
                  AND template_version.version_id = template.version_id
-                LEFT JOIN themes template_theme
+                LEFT JOIN current_themes template_theme
                   ON template_theme.tenant_key = template.tenant_key
                  AND template_theme.resource_id = template.theme_resource_id
-                 AND ${inCurrentVersion("template_theme")}
-                LEFT JOIN themes catalog_theme
+                LEFT JOIN current_themes catalog_theme
                   ON catalog_theme.tenant_key = template_version.tenant_key
                  AND catalog_theme.resource_id = template_version.default_theme_resource_id
-                 AND ${inCurrentVersion("catalog_theme")}
                 WHERE variant.tenant_key = :tenantKey
                   AND ${inCurrentVersion("variant")}
             ),
@@ -163,10 +161,10 @@ class GetThemeUsagePageHandler(
                           usage.effective_theme_catalog_id IS NULL
                           AND (
                               SELECT COUNT(*)
-                              FROM themes candidate
+                              FROM current_themes candidate
                               WHERE candidate.tenant_key = :tenantKey
                                 AND candidate.id = :themeKey
-                                AND ${inCurrentVersion("candidate")}
+                               
                           ) = 1
                       )
                   )

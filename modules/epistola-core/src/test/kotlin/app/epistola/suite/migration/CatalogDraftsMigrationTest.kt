@@ -60,7 +60,8 @@ class CatalogDraftsMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the themes table's last schema: what follows moves themes to JSON storage.
+        flyway(BEFORE_THEME_STORAGE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val drafts = connection.rows(

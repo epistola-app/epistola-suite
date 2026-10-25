@@ -66,7 +66,8 @@ class ContentPerVersionMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the themes table's last schema: what follows moves themes to JSON storage.
+        flyway(BEFORE_THEME_STORAGE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun one(sql: String): String? = connection.createStatement().use { st -> st.executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null } }

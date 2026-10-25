@@ -75,7 +75,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
 
     private fun themeName(tenant: TenantKey, catalog: CatalogKey): String? = jdbi.withHandle<String?, Exception> { h ->
         h.createQuery(
-            "SELECT t.name FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id " +
+            "SELECT t.name FROM current_themes t " +
                 "WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'brand'",
         ).bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).mapTo(String::class.java).findOne().orElse(null)
     }
@@ -262,7 +262,7 @@ class ReceivedCatalogTest : IntegrationTestBase() {
             assertThat(nextVersionChanges.changed(testCatalog(receiver, catalog))).`as`("everything a next version without a base holds is its own").containsExactly("theme/ours")
             assertThat(
                 jdbi.withHandle<Int, Exception> { h ->
-                    h.createQuery("SELECT count(*) FROM themes t JOIN catalog_current_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'ours'")
+                    h.createQuery("SELECT count(*) FROM current_themes t WHERE t.tenant_key = :t AND t.catalog_id = ${catalogAt("t", "c")} AND t.id = 'ours'")
                         .bind("t", receiver).bindCatalog("c", testCatalog(receiver, catalog)).mapTo(Int::class.java).one()
                 },
             ).`as`("its work is not pruned").isEqualTo(1)

@@ -370,9 +370,9 @@ class CatalogResourceMovePlanner(
         handle.createQuery(
             """
             SELECT c.namespace || '/' || c.catalog_key AS catalog_key, th.id::text theme_key, th.document_styles::text, th.block_style_presets::text presets
-            FROM themes th
+            FROM current_themes th
             JOIN catalogs c ON c.tenant_key = th.tenant_key AND c.catalog_id = th.catalog_id
-            WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")}
+            WHERE th.tenant_key = :tenantKey
             ORDER BY c.catalog_key, th.id
             """,
         )

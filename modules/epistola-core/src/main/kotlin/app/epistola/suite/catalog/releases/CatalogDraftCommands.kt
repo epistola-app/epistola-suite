@@ -314,7 +314,7 @@ class DeleteCatalogDraftHandler(
     fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
         $$"""
         WITH own AS (
-            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id = :v
+            SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id = :v
@@ -323,14 +323,14 @@ class DeleteCatalogDraftHandler(
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id = :v
         ),
         elsewhere AS (
-            SELECT resource_id FROM themes WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
+            SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM code_lists WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t
+            -- Every other draft's rows and every release's (ADR 0033): not this draft's own.
+            UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IS DISTINCT FROM :v
         ),
         alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
         refs (holder, holder_resource_id, held_resource_id, ordinal) AS (

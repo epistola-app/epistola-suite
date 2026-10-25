@@ -118,6 +118,12 @@ by hand for one tenant from **Operations → Cluster → Stored content → Coll
 `CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog
 still removes the content only it held at once, as before.
 
+A draft's resources of the types stored as JSON (themes, so far) are `release_resources` rows too,
+keyed by the draft (`version_id`) instead of a release number, and their content is stored the same
+way when they are saved ([catalog versioning](catalog-versioning.md#one-storage-for-drafts-and-releases)).
+A draft row holds its content as a release row does; content a save left behind is an orphan the
+collector takes after the grace period.
+
 ## Migration from the legacy `content_store`
 
 Blobs used to share a single `content_store` table. Moving them to the two new stores is

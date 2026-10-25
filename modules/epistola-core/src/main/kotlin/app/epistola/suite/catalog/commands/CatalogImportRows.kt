@@ -5,6 +5,7 @@
 package app.epistola.suite.catalog.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -34,8 +35,8 @@ class CatalogImportRows(
                 """
                 UPDATE catalog_versions SET
                     default_theme_resource_id = (
-                        SELECT resource_id FROM themes
-                        WHERE tenant_key = :t AND version_id = ${versionAt("t", "themeCatalog")} AND id = CAST(:theme AS TEXT)
+                        SELECT resource_id FROM current_themes
+                        WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "themeCatalog")} AND id = CAST(:theme AS TEXT)
                     ),
                     presets = CAST(:presets AS JSONB)
                 WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
@@ -167,7 +168,7 @@ class CatalogImportRows(
             // Catalog-scoped: themes
             val themeDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Theme>()
             if (themeDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, th.id FROM themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND ${inCurrentVersion("th")} AND th.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, th.id FROM current_themes th JOIN catalogs rc ON rc.tenant_key = th.tenant_key AND rc.catalog_id = th.catalog_id WHERE th.tenant_key = :tenantKey AND th.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", themeDeps.map { it.key })
                     .map { rs, _ -> "theme:${rs.getString("catalog_key")}:${rs.getString("id")}" }

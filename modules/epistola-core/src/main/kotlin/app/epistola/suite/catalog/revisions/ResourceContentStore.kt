@@ -101,6 +101,13 @@ class ResourceContentStore(
         return node
     }
 
+    /**
+     * Stores one resource's content as a draft holds it (ADR 0033), and returns its content hash:
+     * the same content a release of it would store, so a draft and the release cut from it share one
+     * row. Draft rows (`release_resources` with a `version_id`) name it.
+     */
+    fun store(handle: Handle, tenantKey: TenantKey, kind: String, payload: JsonNode): String = write(handle, tenantKey, kind, payload)
+
     /** Replaces one `templateModel` in place with a reference to the revision holding it. */
     private fun liftModel(handle: Handle, tenantKey: TenantKey, owner: ObjectNode) {
         val model = owner.get("templateModel")?.takeUnless { it.isNull } ?: return
