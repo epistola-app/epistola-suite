@@ -64,18 +64,22 @@ class StencilResolvers(
         return jdbi.withHandle<StencilInstances.Content?, Exception> { handle -> load(handle, catalog, stencilKey, draft?.versionId) }
     }
 
-    private fun load(handle: Handle, catalog: CatalogId, stencilKey: String, versionId: UUID?): StencilInstances.Content? = handle.createQuery(
+    // A draft other than the current one is read through the views as that draft (ADR 0033).
+    private fun load(handle: Handle, catalog: CatalogId, stencilKey: String, versionId: UUID?): StencilInstances.Content? = app.epistola.suite.catalog.releases.VersionReads.at(
+        handle,
+        versionId?.let { app.epistola.suite.catalog.releases.VersionSelection.Draft(it) },
+    ) { at -> read(at, catalog, stencilKey) }
+
+    private fun read(handle: Handle, catalog: CatalogId, stencilKey: String): StencilInstances.Content? = handle.createQuery(
         """
             SELECT s.content::text, s.parameter_schema::text, s.reads_template_data
-            FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
-            WHERE s.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey) AND s.id = :stencilKey
-              AND s.version_id = ${if (versionId != null) ":versionId" else versionAt("tenantKey", "catalogKey")}
+            FROM current_stencils s
+            WHERE s.tenant_key = :tenantKey AND s.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey) AND s.id = :stencilKey
             """,
     )
         .bind("tenantKey", catalog.tenantKey)
         .bindCatalog("catalogKey", catalog)
         .bind("stencilKey", stencilKey)
-        .also { query -> versionId?.let { query.bind("versionId", it) } }
         .map { rs, _ ->
             @Suppress("UNCHECKED_CAST")
             StencilInstances.Content(

@@ -46,6 +46,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.stencils.commands.DeleteStencil
 import app.epistola.suite.stencils.commands.UpdateStencil
+import app.epistola.suite.stencils.fields
 import app.epistola.suite.stencils.queries.GetStencil
 import app.epistola.suite.stencils.queries.GetStencilUsagePage
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -81,6 +82,9 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
+
+    @Autowired
+    private lateinit var stencilStore: app.epistola.suite.stencils.StencilStore
 
     @Test
     fun `moves a stencil atomically, re-pointing the variant content that names it`() {
@@ -306,15 +310,13 @@ class CatalogResourceRelocationIntegrationTest : IntegrationTestBase() {
         }
         // Content written before references were qualified on write stored this relatively, and the
         // 2.0 upgrade carried it into the working copy. No command writes that shape any more, so the
-        // qualification is stripped from the row.
+        // qualification is stripped from the stored content.
         jdbi.useHandle<Exception> { handle ->
-            val stripped = handle.createUpdate(
-                "UPDATE stencils SET content = content #- '{themeRef,catalogKey}' WHERE tenant_key = :t AND id = :ownerKey" +
-                    " AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = :catalogKey)",
-            )
-                .bind("t", tenant.id).bind("catalogKey", sourceCatalog).bind("ownerKey", header.key.value)
-                .execute()
-            assertThat(stripped).isEqualTo(1)
+            val stencil = requireNotNull(stencilStore.get(handle, header))
+            val relative = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stencil.content)
+                .also { (it.get("themeRef") as tools.jackson.databind.node.ObjectNode).remove("catalogKey") }
+                .let { objectMapper.treeToValue(it, app.epistola.template.model.TemplateDocument::class.java) }
+            assertThat(stencilStore.write(handle, header, stencil.fields().copy(content = relative), stencil.updatedBy?.value)).isTrue()
         }
 
         val preview = withMediator { PreviewCatalogResourceMove(tenant.id, listOf(headerAddress.movedTo(targetCatalog))).query() }

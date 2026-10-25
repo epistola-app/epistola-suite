@@ -41,6 +41,7 @@ data class DeleteStencil(
 @Component
 class DeleteStencilHandler(
     private val jdbi: Jdbi,
+    private val stencils: app.epistola.suite.stencils.StencilStore,
 ) : CommandHandler<DeleteStencil, Boolean> {
     override fun handle(command: DeleteStencil): Boolean {
         requireCatalogEditable(command.id.catalogId)
@@ -52,19 +53,6 @@ class DeleteStencilHandler(
             }
         }
 
-        return jdbi.withHandle<Boolean, Exception> { handle ->
-            val rowsDeleted = handle.createUpdate(
-                """
-            DELETE FROM stencils
-            WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
-            """,
-            )
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("id", command.id.key)
-                .execute()
-
-            rowsDeleted > 0
-        }
+        return jdbi.withHandle<Boolean, Exception> { handle -> stencils.delete(handle, command.id) }
     }
 }

@@ -227,7 +227,10 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   `StoredContentShapeTest` holds that every stored content of a converted type is in the envelope.
 - **Starting a draft** copies rows, not content. **Releasing** freezes the draft's rows under the
   released row. **What changed, behind, fast-forward and merge** compare hashes per resource.
-- **Lists and searches** read the summary columns, never the JSON. **Usages and the graph** join
+- **Lists and searches** read the summary columns, never the JSON, with one exception: a stencil's
+  tags are filtered in SQL over its content (`current_stencils.tags`), with no index on the JSON;
+  at 500 stencils in a tenant a tag filter takes 12 ms (`StencilStoragePerfTest`), so an index waits
+  until a tenant shows it needs one. **Usages and the graph** join
   rows to `resource_references`.
 - **References between resources** are not foreign keys: a write checks that what the content refers
   to resolves, as the merge already does. Content holds only what the wire form holds, the alias and
@@ -239,7 +242,8 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   only through declared dependencies), and "used by", "in use?" and the graph read
   through it (`catalog_version_references(type)`), never with an alias join of their own. A binding
   reads the target at the version its catalog declares: a draft that pins a dependency's release reads
-  that release (variant attributes, step 3).
+  that release (variant attributes, step 3). A stencil's document names other stencils, images,
+  fonts and a theme the same way (step 4), indexed when stored.
 - **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,
   `ReferenceWalkerGoldenVectorsTest`; ADR 0035). The index needs rebuilding only when the walker
   changes its output for content that already exists (a bug fix, an existing field that starts to

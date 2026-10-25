@@ -19,6 +19,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.stencils.fields
 import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.themes.ThemeReads
 import app.epistola.suite.themes.fields
@@ -148,6 +149,7 @@ class MoveCatalogResourcesHandler(
     private val themes: app.epistola.suite.themes.ThemeStore,
     private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
     private val attributes: app.epistola.suite.attributes.AttributeStore,
+    private val stencils: app.epistola.suite.stencils.StencilStore,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
@@ -178,17 +180,7 @@ class MoveCatalogResourcesHandler(
                     .bindRewrite(command.tenantKey, rewrite)
                     .execute()
 
-                is JsonRewrite.StencilContent -> handle.createUpdate(
-                    """
-                    UPDATE stencils SET content = :replacement::jsonb
-                    WHERE tenant_key = :tenantKey
-                      AND version_id = ${versionAt("tenantKey", "catalogKey")} AND id = :stencilKey
-                      AND content = :expected::jsonb
-                    """,
-                )
-                    .bind("stencilKey", rewrite.ownerKey)
-                    .bindRewrite(command.tenantKey, rewrite)
-                    .execute()
+                is JsonRewrite.StencilContent -> rewriteStencil(handle, command.tenantKey, rewrite)
 
                 is JsonRewrite.ThemeStyles -> rewriteThemeStyles(handle, command.tenantKey, rewrite)
 
@@ -225,6 +217,13 @@ class MoveCatalogResourcesHandler(
             if (movable == MovableResource.ATTRIBUTE) {
                 // So is an attribute (ADR 0033).
                 if (!attributes.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
+            if (movable == MovableResource.STENCIL) {
+                // So is a stencil (ADR 0033); its content names its key.
+                if (!stencils.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
                     throw StaleCatalogResourceMovePlanException()
                 }
                 continue
@@ -309,6 +308,17 @@ class MoveCatalogResourcesHandler(
         val fields = app.epistola.suite.attributes.AttributeFields(replacement.name, replacement.allowedValues, replacement.codeListBinding)
         // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
         return if (attributes.write(handle, id, fields, updatedBy)) 1 else 0
+    }
+
+    /** The stencil's document replaced, when it is still what the plan saw; 1 when it was, else 0. */
+    private fun rewriteStencil(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.StencilContent): Int {
+        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+        val id = app.epistola.suite.common.ids.StencilId(app.epistola.suite.common.ids.StencilKey.of(rewrite.ownerKey), catalog)
+        val stencil = stencils.get(handle, id) ?: return 0
+        if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stencil.content) != objectMapper.readTree(rewrite.expected)) return 0
+        val content = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
+        // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
+        return if (stencils.write(handle, id, stencil.fields().copy(content = content), stencil.updatedBy?.value)) 1 else 0
     }
 
     private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)

@@ -64,12 +64,15 @@ fun declaresNoParameters(schema: JsonNode?): Boolean {
 internal fun Stencil.withAbsentSchemaAsNull(): Stencil = if (parameterSchema?.isNull == true) copy(parameterSchema = null) else this
 
 /**
- * The columns [Stencil] maps from, for a query over `stencils s JOIN catalogs c` ([STENCIL_FROM]).
+ * The columns [Stencil] maps from, for a query over `current_stencils s` ([STENCIL_FROM]): the
+ * stencils of the version a caller means, a draft's or a release's (ADR 0033). The catalog's name is
+ * looked up by key, row by row, rather than joined (ThemePlanStabilityTest).
  */
 internal const val STENCIL_COLUMNS: String =
-    "s.id, s.tenant_key, c.catalog_key AS catalog_key, c.namespace AS namespace, s.name, s.description, s.tags, " +
-        "s.content, s.parameter_schema, s.reads_template_data, s.created_at, s.updated_at, s.created_by, s.updated_by, s.revision"
+    "s.id, s.tenant_key, " +
+        "(SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id) AS catalog_key, " +
+        "(SELECT c.namespace FROM catalogs c WHERE c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id) AS namespace, " +
+        "s.name, s.description, s.tags, s.content, s.parameter_schema, s.reads_template_data, s.created_at, s.updated_at, s.created_by, s.updated_by, s.revision"
 
-/** Stencils with their catalog, each in its catalog's current version (`catalog_current_versions`). */
-internal const val STENCIL_FROM: String = """FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
-    JOIN catalog_current_versions scv ON scv.tenant_key = s.tenant_key AND scv.version_id = s.version_id"""
+/** The stencils of the versions callers mean (`current_stencils`, ADR 0033). */
+internal const val STENCIL_FROM: String = "FROM current_stencils s"

@@ -68,14 +68,13 @@ object StencilReferences {
         AND (
             ${referencedCatalog(nodeAlias, templateAlias)} = ${catalogAt(TENANT_PARAM, CATALOG_PARAM)}
             OR NOT EXISTS (
-                SELECT 1 FROM stencils referenced
+                SELECT 1 FROM release_resources referenced
+                JOIN catalog_current_versions referenced_version
+                  ON referenced_version.tenant_key = referenced.tenant_key AND referenced_version.version_id = referenced.version_id
                 WHERE referenced.tenant_key = $templateAlias.tenant_key
-                  AND referenced.version_id = (
-                      SELECT referenced_version.version_id FROM catalog_current_versions referenced_version
-                      WHERE referenced_version.tenant_key = referenced.tenant_key
-                        AND referenced_version.catalog_id = ${referencedCatalog(nodeAlias, templateAlias)}
-                  )
-                  AND referenced.id = :$KEY_PARAM
+                  AND referenced_version.catalog_id = ${referencedCatalog(nodeAlias, templateAlias)}
+                  AND referenced.resource_type = 'stencil'
+                  AND referenced.resource_key = :$KEY_PARAM
             )
         )
     )"""

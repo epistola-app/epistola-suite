@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.releases.PresetUse
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.StencilId
@@ -25,7 +26,9 @@ import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
+import app.epistola.suite.stencils.StencilStore
 import app.epistola.suite.stencils.declaresNoParameters
+import app.epistola.suite.stencils.fields
 import app.epistola.suite.stencils.withAbsentSchemaAsNull
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.ParameterSchemaValidator
@@ -95,6 +98,7 @@ class UpdateStencilHandler(
     private val templateDocumentValidator: TemplateDocumentValidator,
     private val parameterSchemaValidator: ParameterSchemaValidator,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val stencils: StencilStore,
 ) : CommandHandler<UpdateStencil, Stencil?> {
     override fun handle(command: UpdateStencil): Stencil? {
         val saved = save(command)
@@ -109,93 +113,34 @@ class UpdateStencilHandler(
         command.content?.let { PresetUse.requireAvailable(command.id.catalogId, it) }
         val clearsParameterSchema = command.clearParameterSchema || declaresNoParameters(command.parameterSchema)
         if (!clearsParameterSchema) parameterSchemaValidator.validate(command.parameterSchema)
-        return jdbi.inTransaction<Stencil?, Exception> { handle ->
-            val setClauses = mutableListOf<String>()
-            val bindings = mutableMapOf<String, Any?>()
-
-            command.name?.let {
-                setClauses.add("name = :name")
-                bindings["name"] = it
-            }
-
-            // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
-            if (command.clearDescription || command.description?.isBlank() == true) {
-                setClauses.add("description = NULL")
-            } else {
-                command.description?.let {
-                    setClauses.add("description = :description")
-                    bindings["description"] = it
-                }
-            }
-
-            command.tags?.let {
-                setClauses.add("tags = :tags::jsonb")
-                bindings["tags"] = objectMapper.writeValueAsString(it)
-            }
-            command.content?.let { content ->
+        return jdbi.withHandle<Stencil?, Exception> { handle ->
+            // Locked, so the change is applied to what is there, and two writers do not race.
+            val revision = DraftResources.lockRevision(handle, command.id.catalogId, StencilStore.STENCIL, command.id.key.value) ?: return@withHandle null
+            Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, revision)
+            val current = checkNotNull(stencils.get(handle, command.id)) { "Stencil ${command.id.key.value} is locked, so it is there" }
+            val changes = command.name != null || command.clearDescription || command.description != null || command.tags != null ||
+                command.content != null || clearsParameterSchema || command.parameterSchema != null || command.readsTemplateData != null
+            if (!changes) return@withHandle current
+            val fields = current.fields().copy(
+                name = command.name ?: current.name,
+                // Blank removes it, as clearDescription does (as UpdateDocumentTemplate's description).
+                description = when {
+                    command.clearDescription || command.description?.isBlank() == true -> null
+                    command.description != null -> command.description
+                    else -> current.description
+                },
+                tags = command.tags ?: current.tags,
                 // Stored references name the catalog they resolve against (ResourceReferenceSites).
-                setClauses.add("content = :content::jsonb")
-                bindings["content"] = objectMapper.valueToTree<JsonNode>(content)
-                    .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
-                    .let(objectMapper::writeValueAsString)
-            }
-            if (clearsParameterSchema) {
-                setClauses.add("parameter_schema = NULL")
-            } else {
-                command.parameterSchema?.let {
-                    setClauses.add("parameter_schema = :parameterSchema::jsonb")
-                    bindings["parameterSchema"] = objectMapper.writeValueAsString(it)
-                }
-            }
-            command.readsTemplateData?.let {
-                setClauses.add("reads_template_data = :readsTemplateData")
-                bindings["readsTemplateData"] = it
-            }
-
-            if (setClauses.isEmpty()) {
-                // Nothing to update, just return current state
-                return@inTransaction handle.createQuery(
-                    "SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id",
-                )
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("id", command.id.key)
-                    .mapTo<Stencil>()
-                    .map(Stencil::withAbsentSchemaAsNull)
-                    .findOne()
-                    .orElse(null)
-                    ?.also { Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, it.revision) }
-            }
-
-            setClauses.add("updated_at = NOW()")
-            setClauses.add("updated_by = :updatedBy")
-            bindings["updatedBy"] = currentUserIdOrNull()?.value
-
-            val update = handle.createUpdate(
-                """
-                UPDATE stencils SET ${setClauses.joinToString(", ")}
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND id = :id
-                  AND ${Revisions.MATCHES}
-                """,
+                content = command.content?.let { content ->
+                    objectMapper.valueToTree<JsonNode>(content)
+                        .also { ResourceReferenceSites.qualifyRelative(it, command.id.catalogKey.value) }
+                        .let { objectMapper.treeToValue(it, app.epistola.template.model.TemplateDocument::class.java) }
+                } ?: current.content,
+                parameterSchema = if (clearsParameterSchema) null else command.parameterSchema ?: current.parameterSchema,
+                readsTemplateData = command.readsTemplateData ?: current.readsTemplateData,
             )
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("id", command.id.key)
-                .bind("expectedRevision", command.expectedRevision)
-            bindings.forEach { (key, value) -> update.bind(key, value) }
-            if (update.execute() == 0) {
-                Revisions.refuse("Stencil '${command.id.key.value}'", command.expectedRevision, handle.contentRevision("stencils", "id", command.id.catalogId, command.id.key))
-                return@inTransaction null
-            }
-
-            handle.createQuery("SELECT $STENCIL_COLUMNS $STENCIL_FROM WHERE s.tenant_key = :tenantId AND s.version_id = ${versionAt("tenantId", "catalogKey")} AND s.id = :id")
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("id", command.id.key)
-                .mapTo<Stencil>()
-                .map(Stencil::withAbsentSchemaAsNull)
-                .findOne()
-                .orElse(null)
+            if (!stencils.write(handle, command.id, fields, currentUserIdOrNull()?.value)) return@withHandle null
+            stencils.get(handle, command.id)
         }
     }
 }

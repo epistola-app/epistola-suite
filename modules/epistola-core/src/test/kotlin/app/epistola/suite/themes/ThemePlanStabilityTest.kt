@@ -14,13 +14,20 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.CodeListId
 import app.epistola.suite.common.ids.CodeListKey
+import app.epistola.suite.common.ids.StencilId
+import app.epistola.suite.common.ids.StencilKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.template.model.Node
+import app.epistola.template.model.Slot
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRefOverride
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -52,7 +59,7 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `releasing stays flat as themes, code lists and attributes accumulate on tables without statistics`() {
+    fun `releasing stays flat as themes, code lists, attributes and stencils accumulate on tables without statistics`() {
         autoanalyze(false)
         try {
             val releases = withMediator {
@@ -75,6 +82,10 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
                     repeat(CODE_LISTS) { l ->
                         CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$l"), catalog), "Attribute $c/$l", codeListId = CodeListId(CodeListKey.of("list-$l"), catalog)).execute()
                     }
+                    // Stencils naming one of the themes: read and indexed through the same function (step 4).
+                    repeat(STENCILS) { s ->
+                        CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf("tag-${s % 3}"), content = themed("theme-${s % THEMES}")).execute()
+                    }
                     val start = System.nanoTime()
                     mediator.releaseNext(catalog)
                     (System.nanoTime() - start) / 1_000_000
@@ -94,6 +105,15 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         const val CATALOGS = 20
         const val THEMES = 25
         const val CODE_LISTS = 5
+        const val STENCILS = 10
+
+        fun themed(theme: String) = TemplateDocument(
+            modelVersion = 1,
+            root = "root",
+            nodes = mapOf("root" to Node(id = "root", type = "root", slots = listOf("children"))),
+            slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
+            themeRef = ThemeRefOverride(themeKey = theme),
+        )
         const val BUDGET_MS = 300L
     }
 }

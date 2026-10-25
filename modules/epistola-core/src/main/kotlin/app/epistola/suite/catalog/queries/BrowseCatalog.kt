@@ -83,7 +83,7 @@ class BrowseCatalogHandler(
             UNION ALL
             SELECT 'theme', id, name, description FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
-            SELECT 'stencil', id, name, description FROM stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+            SELECT 'stencil', id, name, description FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
             UNION ALL
             SELECT 'attribute', id, display_name, NULL FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
             UNION ALL
@@ -138,7 +138,7 @@ class BrowseCatalogHandler(
                 UNION ALL
                 SELECT 'theme:' || id FROM current_themes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL
-                SELECT 'stencil:' || id FROM stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
+                SELECT 'stencil:' || id FROM current_stencils WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
                 UNION ALL
                 SELECT 'attribute:' || id FROM current_attributes WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
                 UNION ALL

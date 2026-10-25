@@ -116,7 +116,7 @@ class InstallationStatsPublisher(
         // Its view holds each catalog's current version only (ADR 0033).
         THEMES("themes", "current_themes"),
         CATALOGS("catalogs", "catalogs"),
-        STENCILS("stencils", "stencils", versioned = true),
+        STENCILS("stencils", "current_stencils"),
         FONTS("fonts", "fonts", versioned = true),
         ENVIRONMENTS("environments", "environments"),
     }

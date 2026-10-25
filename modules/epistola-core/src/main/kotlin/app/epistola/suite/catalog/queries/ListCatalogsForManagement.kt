@@ -52,7 +52,7 @@ internal val CATALOG_ACTIVITY_CTE = """
                                  FROM template_variants variants ${templateJoin("variants")}
                                  WHERE variants.tenant_key = :t AND ${inCurrentVersion("variants")} GROUP BY template.catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_themes       WHERE tenant_key = :t GROUP BY catalog_id
-                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM stencils             WHERE tenant_key = :t AND ${inCurrentVersion("stencils")} GROUP BY catalog_id
+                UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_stencils             WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_attributes WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM current_code_lists   WHERE tenant_key = :t GROUP BY catalog_id
                 UNION ALL SELECT catalog_id, MAX(updated_at)   FROM fonts                WHERE tenant_key = :t AND ${inCurrentVersion("fonts")} GROUP BY catalog_id

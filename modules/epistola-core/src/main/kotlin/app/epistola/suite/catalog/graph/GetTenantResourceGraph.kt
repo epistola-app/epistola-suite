@@ -71,7 +71,7 @@ class TenantResourceGraphBuilder(
                 UNION ALL SELECT f.resource_id, 'font', c.namespace, c.catalog_key::text AS catalog_key, f.slug::text, f.name, c.name FROM fonts f JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
                 UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id, a.display_name, c.name FROM current_attributes a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
-                UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id::text, s.name, c.name FROM stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
+                UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id, s.name, c.name FROM current_stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey
                 UNION ALL SELECT t.resource_id, 'template', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
@@ -246,11 +246,11 @@ class TenantResourceGraphBuilder(
 
     private fun loadStencilReferences(handle: Handle, tenantKey: TenantKey, includeHistory: Boolean): List<Occurrence> = handle.createQuery(
         """
-            SELECT stencil_catalog.namespace AS namespace, stencil_catalog.catalog_key::text AS catalog_key, stencil.id::text AS stencil_key, stencil.content::text
-            FROM stencils stencil
+            SELECT stencil_catalog.namespace AS namespace, stencil_catalog.catalog_key::text AS catalog_key, stencil.id AS stencil_key, stencil.content::text
+            FROM current_stencils stencil
             JOIN catalogs stencil_catalog
               ON stencil_catalog.tenant_key = stencil.tenant_key AND stencil_catalog.catalog_id = stencil.catalog_id
-            WHERE stencil.tenant_key = :tenantKey AND ${inCurrentVersion("stencil")}
+            WHERE stencil.tenant_key = :tenantKey
         """,
     ).bind("tenantKey", tenantKey).map { rs, _ ->
         // A stencil has one working copy, so its references are live; there is no history to include.

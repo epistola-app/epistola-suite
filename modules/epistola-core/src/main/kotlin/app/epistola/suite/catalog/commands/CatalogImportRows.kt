@@ -179,7 +179,7 @@ class CatalogImportRows(
             // Catalog-scoped: stencils
             val stencilDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Stencil>()
             if (stencilDeps.isNotEmpty()) {
-                handle.createQuery("SELECT rc.catalog_key, st.id FROM stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND ${inCurrentVersion("st")} AND st.id IN (<slugs>)")
+                handle.createQuery("SELECT rc.catalog_key, st.id FROM current_stencils st JOIN catalogs rc ON rc.tenant_key = st.tenant_key AND rc.catalog_id = st.catalog_id WHERE st.tenant_key = :tenantKey AND st.id IN (<slugs>)")
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", stencilDeps.map { it.key })
                     .map { rs, _ -> "stencil:${rs.getString("catalog_key")}:${rs.getString("id")}" }

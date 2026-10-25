@@ -21,6 +21,58 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 4: stencils (25 October; branch `feat/storage-stencils`, on `feat/storage-attributes`, not pushed)
+
+Built against contract `2.0.0-alpha.1`: stencil tags stay `StencilResource.tags`. The move to a
+common `tags` on every resource is its own commit, after the next alpha.
+
+| Change                                                                                                                                                                                                                    | Where                                                        | Coverage                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Content `{ resource: <StencilResource> }` named by a draft row; what its document uses (stencils, images, fonts, a theme) is the wire form's alias and key, indexed in `resource_references` when stored                  | `StencilStore`, `V20261025083103`, `V20261025083200`         | ✅ `StencilStorageTest`                                              |
+| Reads through `current_stencils` (`catalog_version_resources('stencil')`, fenced lateral payload); list, get and count are `ReleaseReadable`; render reads (`StencilResolvers`) read another draft through `VersionReads` | `Stencil.kt`, `StencilResolvers`, queries                    | ✅ `StencilStorageTest`, `DemoStencilReadParityTest`, stencil suites |
+| Tags filtered in SQL over the JSON (`tags @> jsonb_build_array(:tag)`), no GIN index; a tag is bound as a value, so a quote no longer breaks the query                                                                    | `ListStencils`, `CountStencils`                              | ✅ `StencilStorageTest` (quote case was a SQL error before)          |
+| A release's stencil description is the content's, not the row's                                                                                                                                                           | `current_stencils`                                           | ✅ `DemoStencilReadParityTest` (failed before: see noticed)          |
+| Writes: create, update (locked, merged onto what is there), delete, import (put), ready mark (content hash)                                                                                                               | commands, `ImportStencil`, `MarkStencilReady`                | ✅ stencil suites, `DataPreservationMigrationIT`                     |
+| Relocation: a stencil rewrite and move go through the store; a rewrite keeps `updated_by`                                                                                                                                 | `CatalogResourceRelocation`, `MovableResource`               | ✅ `CatalogResourceRelocationIntegrationTest`                        |
+| "Used by" (dangling instance check), discard holders, upgrade analyzer, graph, export, browse, management, relocatable, purge on the view or the rows                                                                     | `StencilReferences`, `CatalogDraftCommands`, catalog queries | ✅ catalog, graph and relocation suites                              |
+| REST: the release branch of list/get/content is gone, a release reads and pages in SQL; MCP `list_stencils`/`get_stencil` take a release number                                                                           | `EpistolaStencilApi`, `StencilMcpTools`                      | ✅ REST/MCP suites                                                   |
+| Conversion parity: the frozen migration converts each stencil to the hash and references the suite stores                                                                                                                 | `StencilStorageConversion`                                   | ✅ `StencilStorageTest`, `DemoStencilReadParityTest`                 |
+| Plan stability with stencils accumulating                                                                                                                                                                                 | `ThemePlanStabilityTest`                                     | ✅                                                                   |
+
+**Measured** (`StencilStoragePerfTest`, `--rerun`, M1 Pro, Postgres 17; one tenant, 20 catalogs of
+25 stencils (30 text nodes, two of five tags each), each released; median / p95 of 200 runs; ms):
+
+| Operation                              | before       | after         |
+| -------------------------------------- | ------------ | ------------- |
+| list a catalog's stencils (page of 50) | 7.56 / 8.48  | 4.71 / 5.76   |
+| list a tenant's stencils (page of 50)  | 9.34 / 16.15 | 12.87 / 15.28 |
+| search a tenant's stencils by name     | 4.39 / 10.86 | 4.30 / 4.79   |
+| filter a tenant's stencils by tag      | 8.12 / 12.51 | 11.52 / 12.36 |
+| read one stencil                       | 1.04 / 1.56  | 0.84 / 1.05   |
+| save a stencil                         | 3.71 / 4.56  | 6.51 / 11.17  |
+
+The tenant-wide list and the tag filter read every current stencil's payload before sorting (the
+fenced lateral cannot be deferred past the `ORDER BY`): +3.5 ms at 500 stencils. A tag filter at 12 ms
+does not yet justify a GIN index. A save stores content, references and the row: +2.8 ms.
+
+**Noticed, left alone:**
+
+- The demo catalog's index (`catalog.json`) describes `company-header` differently from the
+  stencil's own file ("with logo placeholder and company name" against "with company name and
+  separator"). A release row carried the index's wording; reads now take the content's. Fixing the
+  catalog means a `release.version` bump and fingerprint, outside this step.
+- A release names its own catalog's resources relatively, the draft names its catalog, so a stencil
+  that refers to its own catalog's resources has a different content in the draft and the release
+  (no shared row). Both mean the same; parity tests compare them qualified.
+- `StencilResource.tags` is serialized when empty (`[]`), unlike `readsTemplateData`. The common
+  `tags` on the contract branch (`feature/common-tags`, `75aba71`, not pushed) keeps that for
+  stencils and leaves empty tags out only on the types that had none, so no stored content hash
+  and no fingerprint moves and the switch commit needs no code migration.
+- Follow-up: tags for the other types in UI, REST and MCP.
+- `ContentReferences.of` reads an attribute's `codeListBinding` at the payload's top level, which an
+  enveloped attribute does not have; the `CODE_LIST_BINDING` site finds it instead, so the branch is
+  dead code.
+
 ### ADR 0033 storage, step 3: variant attributes (25 October; branch `feat/storage-attributes`, on `feat/storage-code-lists`, not pushed)
 
 | Change                                                                                                                                                                                 | Where                                                                                                 | Coverage                                                                              |

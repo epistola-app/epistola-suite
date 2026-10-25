@@ -189,11 +189,11 @@ class ExportStencilsHandler(
                 """
                 SELECT s.id, s.name, s.description, s.tags::text,
                        s.content::text, s.parameter_schema::text, s.reads_template_data
-                FROM stencils s
-                WHERE s.tenant_key = :tenantKey AND ${inCurrentVersion("s")}
+                FROM current_stencils s
+                WHERE s.tenant_key = :tenantKey
                 """,
             )
-            if (query.catalogKey != null) append(" AND s.version_id = ${versionAt("tenantKey", "catalogKey")}")
+            if (query.catalogKey != null) append(" AND s.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND s.id IN (<slugs>)")
         }
         val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
