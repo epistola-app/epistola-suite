@@ -63,12 +63,12 @@ class NamespaceGrantsMigrationTest {
                     ('subscribed', 'acme', 'exchange.epistola.app', 'sub-org', 'Subscribed', NULL, 'SUBSCRIBED'),
                     ('filed', 'acme', 'exchange.epistola.app', 'other-org', 'Filed', NULL, 'AUTHORED');
 
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot, released_by_installation)
-                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"0".repeat(64)}', '{}'::jsonb, '$here'::uuid FROM catalogs WHERE catalog_key = 'letters';
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot, released_by_installation)
-                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"1".repeat(64)}', '{}'::jsonb, NULL FROM catalogs WHERE catalog_key = 'older';
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot, released_by_installation)
-                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"2".repeat(64)}', '{}'::jsonb, '0198c0de-0000-7000-8000-000000000001'::uuid FROM catalogs WHERE catalog_key = 'filed';
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, manifest_snapshot, released_by_installation)
+                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"0".repeat(64)}', 'v6:${"0".repeat(64)}', '{}'::jsonb, '$here'::uuid FROM catalogs WHERE catalog_key = 'letters';
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, manifest_snapshot, released_by_installation)
+                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"1".repeat(64)}', 'v6:${"1".repeat(64)}', '{}'::jsonb, NULL FROM catalogs WHERE catalog_key = 'older';
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, manifest_snapshot, released_by_installation)
+                SELECT tenant_key, catalog_id, '1.0.0', 'v5:${"2".repeat(64)}', 'v6:${"2".repeat(64)}', '{}'::jsonb, '0198c0de-0000-7000-8000-000000000001'::uuid FROM catalogs WHERE catalog_key = 'filed';
 
                 -- acme's Exchange connection grants public-services, and a value that is no namespace;
                 -- beta's grants acme, which beta also authors a catalog in: one grant, the connection's.

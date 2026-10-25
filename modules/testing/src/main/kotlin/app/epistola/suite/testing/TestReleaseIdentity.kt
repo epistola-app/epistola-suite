@@ -17,11 +17,10 @@ import org.jdbi.v3.core.Jdbi
 import java.io.ByteArrayInputStream
 
 /**
- * Plays release [version] of [catalogKey] in [tenantKey] as one recorded before releases had a
- * content hash (ADR 0034): its fingerprint the V5 its content had, its content hash not computed
- * yet, as a release cut before V6 is until `ReleaseContentHashBackfill` reaches it. SQL, because no
- * command records a V5 fingerprint or leaves a release without its content hash any more. Returns
- * the V5 fingerprint.
+ * Plays release [version] of [catalogKey] in [tenantKey] as one received with a V5 fingerprint (an
+ * archive cut before V6, ADR 0034): its fingerprint the V5 its content had, its content hash recorded
+ * as receiving records it. SQL, because no command here cuts a V5 release any more. Returns the V5
+ * fingerprint.
  */
 fun Mediator.recordBeforeContentHashes(jdbi: Jdbi, catalog: CatalogId, version: String): String {
     val zip = send(ExportCatalogZip(catalog, version)).zipBytes
@@ -31,7 +30,7 @@ fun Mediator.recordBeforeContentHashes(jdbi: Jdbi, catalog: CatalogId, version: 
     jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
-            UPDATE catalog_releases r SET fingerprint = :f, content_hash = NULL,
+            UPDATE catalog_releases r SET fingerprint = :f,
                    manifest_snapshot = jsonb_set(r.manifest_snapshot, '{release,fingerprint}', to_jsonb(CAST(:f AS TEXT)))
             FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.version = :v
             """,

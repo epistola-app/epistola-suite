@@ -17,10 +17,9 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 /**
- * The content hash (ADR 0034, `catalog_releases.content_hash`) of every release of the tenant that has
- * one, by catalog and number, in one read: for naming the releases a page lists (a catalog's highest
- * release, a dependency's pinned one) by their content without a query each. A release without one
- * yet (recorded before content hashes, until the backfill reaches it) is not in it.
+ * The content hash (ADR 0034, `catalog_releases.content_hash`) of every release of the tenant, by
+ * catalog and number, in one read: for naming the releases a page lists (a catalog's highest release,
+ * a dependency's pinned one) by their content without a query each.
  */
 data class ListReleaseContentHashes(
     override val tenantKey: TenantKey,
@@ -36,7 +35,7 @@ data class ReleaseContentHashes(val byRelease: Map<Pair<CatalogId, String>, Stri
 
     /**
      * The content hash of the release [dependency] pins: its pin when that is a content hash, else the
-     * release's here. Null for a declaration that pins none, or a release without one yet.
+     * release's here. Null for a declaration that pins none.
      */
     fun pinnedBy(dependency: CatalogDependencyDeclaration): String? = dependency.releaseFingerprint?.takeIf(CatalogCanonicalizer::isContentHash)
         ?: of(dependency.catalogIn(tenantKey), dependency.releaseVersion)
@@ -52,7 +51,7 @@ class ListReleaseContentHashesHandler(
                 """
                 SELECT c.namespace, c.catalog_key, r.version, r.content_hash FROM catalog_releases r
                 JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-                WHERE r.tenant_key = :t AND r.content_hash IS NOT NULL
+                WHERE r.tenant_key = :t
                 """,
             )
                 .bind("t", query.tenantKey)

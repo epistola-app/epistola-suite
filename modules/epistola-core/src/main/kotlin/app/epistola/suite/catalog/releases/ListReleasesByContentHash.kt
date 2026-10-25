@@ -22,8 +22,8 @@ import java.time.OffsetDateTime
  * The releases of a catalog with content hash [contentHash] (ADR 0034; contract
  * `listCatalogReleases?contentHash=`), highest first: several numbers can name one content (a
  * release re-released with only new notes, one received under another number). Filtered, ordered
- * and paged in the database (`idx_catalog_releases_content_hash`). A release whose content hash is
- * not computed yet is no match, nor is a draft, which has none.
+ * and paged in the database (`idx_catalog_releases_content_hash`). A draft, which has none, is no
+ * match.
  *
  * [limit] null returns every match; [offset] skips that many.
  */

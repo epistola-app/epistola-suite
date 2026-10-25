@@ -295,7 +295,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      * and is not a candidate.
      */
     fun candidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<CatalogDependencyRelease> = recordedCandidates(handle, tenantKey, declaration)
-        .map { CatalogDependencyRelease(it.version, it.contentHash ?: it.fingerprint) }
+        .map { CatalogDependencyRelease(it.version, it.contentHash) }
 
     private fun recordedCandidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
@@ -308,11 +308,9 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             .filter { QualifiedCatalogFingerprint.parse(it.fingerprint) != null }
     }
 
-    /** [recorded] as a pin takes it: by its content hash, computed now when it has none yet. */
-    private fun pinOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, recorded: app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded): CatalogDependencyRelease {
-        val hash = recorded.contentHash ?: catalogNamed(handle, tenantKey, declaration)?.let { identity.contentHash(handle, it, recorded) }
-        return CatalogDependencyRelease(recorded.version, hash ?: recorded.fingerprint)
-    }
+    /** [recorded] as a pin takes it: by its content hash. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun pinOf(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration, recorded: app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded): CatalogDependencyRelease = CatalogDependencyRelease(recorded.version, recorded.contentHash)
 
     /** The highest release of the catalog [declaration] names that can be pinned, or null when there is none. */
     fun highest(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): CatalogDependencyRelease? = recordedCandidates(handle, tenantKey, declaration)

@@ -20,7 +20,6 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.recordBeforeContentHashes
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import org.assertj.core.api.Assertions.assertThat
@@ -69,17 +68,6 @@ class ListReleaseContentHashesTest : IntegrationTestBase() {
         assertThat(hashes.of(testCatalog(tenant, letters), "1.1.0")).startsWith("v6:").isEqualTo(ownHashes["1.1.0"])
         assertThat(hashes.of(testCatalog(tenant, letters), "9.0.0")).`as`("another tenant's").isNull()
         assertThat(hashes.of(testCatalog(tenant, letters), null)).`as`("no release").isNull()
-    }
-
-    @Test
-    fun `a release without its content hash yet is not in it`() {
-        val tenant = createTenant("Content hashes pending").id
-        released(tenant, letters, "1.0.0", "1.1.0")
-        withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.0") }
-
-        val hashes = withMediator { ListReleaseContentHashes(tenant).query() }
-
-        assertThat(hashes.authored()).containsExactly(letters to "1.1.0")
     }
 
     @Test

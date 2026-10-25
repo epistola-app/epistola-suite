@@ -15,7 +15,6 @@ import app.epistola.suite.catalog.declareDependency
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
 import app.epistola.suite.catalog.merge.PreviewDraftMerge
 import app.epistola.suite.catalog.queries.ListReleaseDependencies
-import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TemplateId
@@ -70,8 +69,6 @@ class ReleaseIdentityTest : IntegrationTestBase() {
 
     @Autowired private lateinit var renderSource: ReleaseRenderSource
 
-    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
-
     private val lines = CatalogKey.of("lines")
 
     /** The V5 fingerprint of the release [zip] carries, as a producer from before V6 recorded it. */
@@ -85,7 +82,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
     private fun recordedBeforeV6(tenant: TenantKey, catalog: CatalogKey, version: String, fingerprint: String) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
-            UPDATE catalog_releases r SET fingerprint = :f, content_hash = NULL,
+            UPDATE catalog_releases r SET fingerprint = :f,
                    manifest_snapshot = jsonb_set(r.manifest_snapshot, '{release,fingerprint}', to_jsonb(CAST(:f AS TEXT)))
             FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
             """,
@@ -244,26 +241,12 @@ class ReleaseIdentityTest : IntegrationTestBase() {
         assertThat(jdbi.withHandle<Boolean, Exception> { store.pinHolds(it, a, v6Pin) }).`as`("a V6 pin on the release recorded as V5").isTrue()
     }
 
-    /** A release with no content hash (one recorded before V6) gets it from what it retained. */
-    @Test
-    fun `the backfill gives a release without a content hash the hash of what it retained`() {
-        val a = createTenant("Identity backfill").id
-        val released = withMediator { mediator.parallelReleaseLines(a, lines) }
-        recordedBeforeV6(a, lines, "1.1.0", v5Of(released.v110))
-
-        assertThat(backfill.run()).isGreaterThanOrEqualTo(1)
-
-        assertThat(recorded(a, lines, "1.1.0").second).isEqualTo(fingerprintIn(released.v110))
-        assertThat(backfill.run()).`as`("nothing left").isZero()
-    }
-
     /**
-     * A release whose retained content is no longer what its fingerprint names gets no content hash:
-     * the hash of what is left would make it another release here than where it was kept intact, and
-     * the export's own check, which refuses to hand it on, would then pass it.
+     * A release whose retained content is no longer what its content hash names is not handed on:
+     * the export rebuilds it and checks it against the hash it was recorded with.
      */
     @Test
-    fun `the backfill gives no content hash to a release that no longer holds what its fingerprint names`() {
+    fun `a release that no longer holds what it was recorded with is not handed on`() {
         val a = createTenant("Identity altered").id
         val released = withMediator { mediator.parallelReleaseLines(a, lines) }
         recordedBeforeV6(a, lines, "1.1.0", v5Of(released.v110))
@@ -278,11 +261,8 @@ class ReleaseIdentityTest : IntegrationTestBase() {
             ).bind("t", a).bind("c", lines).execute()
         }
 
-        backfill.run()
-
-        assertThat(recorded(a, lines, "1.1.0").second).`as`("no content hash for what is no longer the release").isNull()
         assertThatThrownBy { withMediator { ExportCatalogZip(testCatalog(a, lines), "1.1.0").execute() } }
-            .`as`("nor is it handed on")
+            .`as`("not handed on")
             .hasMessageContaining("has been altered")
     }
 
