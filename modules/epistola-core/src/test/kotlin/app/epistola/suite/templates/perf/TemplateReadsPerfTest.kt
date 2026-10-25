@@ -97,6 +97,8 @@ class TemplateReadsPerfTest : IntegrationTestBase() {
         }
         val churn = contents() - before
         println("Template autosave churn: $churn new content rows for 20 saves of one variant")
+        // A variant is a row of its own (ADR 0033): a save writes its content and nothing of its template's.
+        org.assertj.core.api.Assertions.assertThat(churn).`as`("content rows per 20 variant saves").isEqualTo(20L)
         val report = buildString {
             appendLine("operation,cold_ms,median_ms,p95_ms")
             appendLine("autosave churn (content rows per 20 saves),$churn,,")

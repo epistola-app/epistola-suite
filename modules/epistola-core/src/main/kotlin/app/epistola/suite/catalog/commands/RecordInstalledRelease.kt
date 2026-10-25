@@ -229,9 +229,9 @@ class RecordInstalledReleaseHandler(
                 version,
                 content.catalogDependencies.orEmpty().map(CatalogDependencyDeclaration::of),
             )
-            val contentHashes = revisionStore.retain(handle, command.tenantKey, content)
+            val retained = revisionStore.retain(handle, command.tenantKey, content)
             // A release beside the installed one may hold resources no version of the catalog has.
-            releaseResourceStore.record(handle, command.catalog, version, content, contentHashes, resourceFingerprints, registerNew = command.release != null)
+            releaseResourceStore.record(handle, command.catalog, version, content, retained.contents, resourceFingerprints, registerNew = command.release != null, variants = retained.variants)
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)

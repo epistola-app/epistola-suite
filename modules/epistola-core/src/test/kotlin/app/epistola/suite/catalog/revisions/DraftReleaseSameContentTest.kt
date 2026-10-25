@@ -104,7 +104,8 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 SELECT d.resource_type || '/' || d.resource_key AS resource, d.content_hash AS drafted, r.content_hash AS released
                 FROM release_resources d
                 JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id
-                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.version = :v
+                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.parent_id IS NOT DISTINCT FROM d.parent_id
+                  AND r.version = :v
                 WHERE d.tenant_key = :t AND d.version_id IS NOT NULL
                   AND d.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')
                 ORDER BY 1
@@ -113,7 +114,11 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 .map { rs, _ -> Triple(rs.getString("resource"), rs.getString("drafted"), rs.getString("released")) }
                 .list()
         }
-        assertThat(pairs.map { it.first }).containsExactly("attribute/region", "codeList/regions", "font/house-sans", "image/mark", "stencil/footer", "template/invoice", "theme/brand")
+        assertThat(pairs.map { it.first }).containsExactly(
+            "attribute/region", "codeList/regions", "font/house-sans", "image/mark", "stencil/footer", "template/invoice", "theme/brand",
+            // A template's variants are rows of their own, each the same content in draft and release.
+            "variant/initial", "variant/second",
+        )
         assertThat(pairs).allSatisfy { (resource, drafted, released) -> assertThat(drafted).`as`(resource).isEqualTo(released) }
     }
 }

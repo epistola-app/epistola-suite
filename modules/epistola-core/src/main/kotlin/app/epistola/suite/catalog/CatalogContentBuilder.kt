@@ -240,7 +240,7 @@ class CatalogContentBuilder(
         val rows = jdbi.withHandle<List<Row>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT t.payload::text AS payload,
+                SELECT t.id,
                        ${if (published) "(SELECT pc.payload::text FROM catalog_upgrade_published pc WHERE pc.tenant_key = t.tenant_key AND pc.resource_id = t.resource_id AND pc.kind = 'contract')" else "NULL"} AS contract,
                        ${if (published) "(SELECT jsonb_object_agg(pv.part, pv.payload -> 'templateModel')::text FROM catalog_upgrade_published pv WHERE pv.tenant_key = t.tenant_key AND pv.resource_id = t.resource_id AND pv.kind = 'variant')" else "NULL"} AS published_models
                 FROM current_templates t
@@ -252,7 +252,7 @@ class CatalogContentBuilder(
                 .bindCatalog("catalogKey", catalog)
                 .map { rs, _ ->
                     Row(
-                        template = templateStore.of(objectMapper.readTree(rs.getString("payload"))),
+                        template = checkNotNull(templateStore.get(handle, app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(rs.getString("id")), catalog))).template,
                         contract = rs.getString("contract"),
                         publishedModels = rs.getString("published_models")?.let { objectMapper.readTree(it).properties().associate { (k, v) -> k to v.toString() } }.orEmpty(),
                     )
@@ -269,9 +269,7 @@ class CatalogContentBuilder(
             fun modelOf(variant: StoredVariant): TemplateDocument {
                 val json = row.publishedModels[variant.key]?.let { objectMapper.readTree(it) }
                     ?: jdbi.withHandle<tools.jackson.databind.JsonNode, Exception> { handle ->
-                        checkNotNull(handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND content_hash = :h").bind("t", catalog.tenantKey).bind("h", variant.modelHash).mapTo(String::class.java).findOne().orElse(null)) {
-                            "Template ${template.key} names a model that is not stored"
-                        }.let(objectMapper::readTree)
+                        objectMapper.valueToTree(checkNotNull(templateStore.model(handle, catalog.tenantKey, variant)) { "Template ${template.key} names a model that is not stored" })
                     }
                 // Stored relative already; a model published before 2.0 named its own catalog.
                 return objectMapper.treeToValue(outbound.content(json), TemplateDocument::class.java)

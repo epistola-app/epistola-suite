@@ -140,10 +140,10 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
-        assertThat(revisionKinds(catalog.tenantKey)).contains(TEMPLATE_MODEL_KIND, "template")
-        // The model lives in its own row, and the template payload points at it rather than
-        // carrying it — which is what stops one variant's edit rewriting all of them.
-        assertThat(templatePayload(catalog.tenantKey)).contains(REVISION_REF_FIELD)
+        assertThat(revisionKinds(catalog.tenantKey)).contains(app.epistola.suite.catalog.revisions.VariantRows.TYPE, "template")
+        // The model lives in its variant's content, and the template's does not carry it — which is
+        // what stops one variant's edit rewriting all of them.
+        assertThat(templatePayload(catalog.tenantKey)).doesNotContain("templateModel")
     }
 
     @Test

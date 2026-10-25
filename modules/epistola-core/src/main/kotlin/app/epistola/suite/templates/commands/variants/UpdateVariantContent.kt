@@ -78,12 +78,12 @@ class UpdateVariantContentHandler(
         val prepared = templateDocumentPreparation.prepareDraft(command.templateModel, command.variantId.catalogKey)
         val key = command.variantId.key.value
         val revision = jdbi.inTransaction<Long?, Exception> { handle ->
-            // Its model is a content of its own; the template's small content names it (ADR 0026 §3a).
-            val modelHash = templates.storeModel(handle, command.variantId.tenantKey, prepared.templateModelJson)
-            templates.modify(handle, command.variantId.templateId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
-                template.variant(key) ?: return@modify null
-                template.withVariant(key) { it.copy(modelHash = modelHash) }
-            }?.second?.revision
+            // Its own content and revision (a row of its own, ADR 0033): the template and
+            // its other variants are not written.
+            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'", headChange = false) { template ->
+                template.variant(key) ?: return@modifyVariant null
+                template.withVariant(key) { it.copy(model = templates.storedModel(prepared.templateModelJson)) }
+            }?.second
         } ?: throw TemplateVariantNotFoundException(command.variantId.tenantKey, command.variantId.templateKey, command.variantId.key)
         return SavedVariantContent(TemplateModels.read(prepared.templateModelJson, command.variantId.catalogKey.value, objectMapper), revision)
     }
@@ -92,7 +92,7 @@ class UpdateVariantContentHandler(
 /** A variant's working model as it reads after the write, and the variant's revision. */
 data class SavedVariantContent(val templateModel: TemplateDocument, val revision: Long)
 
-/** The revision of [variantId] in the version the caller means: its template's row's; null when there is no such variant. */
+/** The revision of [variantId] in the version the caller means: its own row's; null when there is no such variant. */
 internal fun variantRevision(handle: Handle, variantId: VariantId): Long? = handle.createQuery(
     """
     SELECT revision FROM current_template_variants

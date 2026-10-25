@@ -491,14 +491,15 @@ class ReleaseCatalogDraftHandler(
                 .toMap() +
                 // So do a template's variant descriptions, until the contract carries them.
                 templates.settings(handle, command.catalog)
-            val contentHashes = revisionStore.retain(handle, command.tenantKey, content, settings)
+            val retained = revisionStore.retain(handle, command.tenantKey, content, settings)
             releaseResourceStore.record(
                 handle,
                 command.catalog,
                 newVersion.toString(),
                 content,
-                contentHashes,
+                retained.contents,
                 resourceFingerprints,
+                variants = retained.variants,
             )
 
             // Declarations in other drafts that named this draft now pin the release it became.

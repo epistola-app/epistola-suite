@@ -2,36 +2,28 @@
 -- release_resources draft rows naming their content; this keeps what the tables did, on those rows,
 -- and drops them.
 
--- 1. A variant's digest, for its ready mark: what its template says of every variant alike (but its
---    description and tags) and the variant's own entry, model and description. Templates hold their
---    variants in one content, so a variant is ready apart from the others.
-CREATE FUNCTION template_variant_digest(p_payload JSONB, p_variant JSONB) RETURNS TEXT
+-- 1. A variant's digest, for its ready mark: its template's content and its own (its row, of
+--    storage type `variant`). A variant is ready apart from the others, and stops
+--    being ready when it, or what its template says of every variant, changes.
+CREATE FUNCTION template_variant_digest(p_template_hash TEXT, p_variant_hash TEXT) RETURNS TEXT
     LANGUAGE sql
     IMMUTABLE
 AS $$
-SELECT encode(sha256(convert_to(jsonb_build_array(
-    (p_payload -> 'resource') - 'variants' - 'templateModel' - 'description' - 'tags',
-    (SELECT jsonb_agg(e ->> 'key' ORDER BY e ->> 'key') FROM jsonb_array_elements(p_payload -> 'resource' -> 'variants') e),
-    p_variant - 'templateModel',
-    COALESCE(NULLIF(p_variant -> 'templateModel', 'null'::jsonb), p_payload -> 'resource' -> 'templateModel'),
-    p_payload -> 'variantDescriptions' -> (p_variant ->> 'key')
-)::text, 'UTF8')), 'hex')
+SELECT encode(sha256(convert_to(p_template_hash || ':' || p_variant_hash, 'UTF8')), 'hex')
 $$;
 
-COMMENT ON FUNCTION template_variant_digest(JSONB, JSONB) IS
-    'The digest a ready mark records for one variant of a template stored as JSON (ADR 0033).';
+COMMENT ON FUNCTION template_variant_digest(TEXT, TEXT) IS
+    'The digest a ready mark records for one variant of a template stored as JSON (ADR 0033): of its template''s content hash and its own.';
 
 -- 2. A mark recorded the digest of the template's and the variant's columns; it now records the
---    variant's digest of its content, where it still matched.
+--    variant's digest of its contents, where it still matched.
 UPDATE resource_ready_marks m
-SET digest = template_variant_digest(c.payload, e.variant)
+SET digest = template_variant_digest(r.content_hash, p.content_hash)
 FROM document_templates t
 JOIN template_variants v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id AND v.template_resource_id = t.resource_id
 JOIN release_resources r ON r.tenant_key = t.tenant_key AND r.version_id = t.version_id AND r.resource_type = 'template' AND r.resource_key = t.id
-JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-CROSS JOIN LATERAL jsonb_array_elements(c.payload -> 'resource' -> 'variants') AS e(variant)
-WHERE e.variant ->> 'key' = v.id
-  AND m.tenant_key = t.tenant_key AND m.version_id = t.version_id AND m.resource_id = t.resource_id AND m.part = v.id
+JOIN release_resources p ON p.tenant_key = r.tenant_key AND p.version_id = r.version_id AND p.resource_type = 'variant' AND p.parent_id = r.resource_id AND p.resource_key = v.id
+WHERE m.tenant_key = t.tenant_key AND m.version_id = t.version_id AND m.resource_id = t.resource_id AND m.part = v.id
   AND m.digest = encode(sha256(convert_to(jsonb_build_array(
           t.name, t.pdfa_enabled, t.theme_resource_id, t.data_model, t.data_examples,
           (SELECT jsonb_agg(o.id ORDER BY o.id) FROM template_variants o
@@ -58,14 +50,15 @@ BEGIN
 END;
 $$;
 
--- 4. Every digest comes from a draft row now: a template's per variant, the rest the row's content hash.
+-- 4. Every digest comes from a draft row now: a template's per variant (its variant row), the rest
+--    the row's content hash.
 CREATE OR REPLACE VIEW resource_content_digests AS
-SELECT r.tenant_key, r.resource_id, CAST(e.variant ->> 'key' AS TEXT) AS part,
-       template_variant_digest(c.payload, e.variant) AS digest,
+SELECT r.tenant_key, r.resource_id, CAST(p.resource_key AS TEXT) AS part,
+       template_variant_digest(r.content_hash, p.content_hash) AS digest,
        r.version_id
 FROM release_resources r
-JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-CROSS JOIN LATERAL jsonb_array_elements(c.payload -> 'resource' -> 'variants') AS e(variant)
+JOIN release_resources p ON p.tenant_key = r.tenant_key AND p.catalog_id = r.catalog_id AND p.version_id = r.version_id
+ AND p.resource_type = 'variant' AND p.parent_id = r.resource_id
 WHERE r.version_id IS NOT NULL AND r.resource_type = 'template'
 UNION ALL
 -- A resource type stored as JSON (ADR 0033): its draft row's content hash is its digest.
@@ -73,7 +66,7 @@ SELECT r.tenant_key, r.resource_id, '',
        CAST(r.content_hash AS TEXT),
        r.version_id
 FROM release_resources r
-WHERE r.version_id IS NOT NULL AND r.resource_type <> 'template';
+WHERE r.version_id IS NOT NULL AND r.resource_type NOT IN ('template', 'variant');
 
 -- 5. A document or a generation request that names its template by address finds its identity in
 --    the registry, which holds every template's, whichever version holds it.
@@ -134,20 +127,24 @@ CROSS JOIN LATERAL (
 ) theme;
 
 COMMENT ON VIEW current_templates IS
-    'The templates of the version a caller means, each as its JSON content (payload: resource, the wire form; variantDescriptions beside it).';
+    'The templates of the version a caller means, each as its JSON content (payload: resource, the wire form without its variants, which are rows of their own).';
 
 CREATE VIEW current_template_variants AS
 SELECT t.tenant_key, t.catalog_id, t.version_id, t.version, t.resource_id AS template_resource_id,
-       e.variant ->> 'key' AS id,
-       COALESCE(e.variant ->> 'title', e.variant ->> 'key') AS title,
-       t.payload -> 'variantDescriptions' ->> (e.variant ->> 'key') AS description,
-       COALESCE(NULLIF(e.variant -> 'attributes', 'null'::jsonb), '{}'::jsonb) AS attributes,
-       COALESCE(CAST(e.variant ->> 'isDefault' AS BOOLEAN), FALSE) AS is_default,
-       NULLIF(e.variant -> 'metadata', 'null'::jsonb) AS metadata,
-       m.model_hash,
-       m.model AS template_model,
+       e.slot ->> 'key' AS id,
+       COALESCE(v.payload -> 'resource' ->> 'title', e.slot ->> 'title', e.slot ->> 'key') AS title,
+       COALESCE(v.payload ->> 'description', t.payload -> 'variantDescriptions' ->> (e.slot ->> 'key')) AS description,
+       COALESCE(NULLIF(e.slot -> 'attributes', 'null'::jsonb), '{}'::jsonb) AS attributes,
+       COALESCE(CAST(e.slot ->> 'isDefault' AS BOOLEAN), FALSE) AS is_default,
+       NULLIF(COALESCE(v.payload -> 'resource' -> 'metadata', e.slot -> 'metadata'), 'null'::jsonb) AS metadata,
+       COALESCE(v.content_hash, m.model_hash) AS model_hash,
+       -- Its model; the default variant's for one that has none of its own (as a received release may
+       -- say). A release retained before variants had rows names its models by revision (m).
+       COALESCE(v.payload -> 'resource' -> 'templateModel', d.payload -> 'resource' -> 'templateModel', m.model) AS template_model,
        e.position,
-       t.created_at, t.updated_at, t.created_by, t.updated_by, t.revision
+       COALESCE(v.created_at, t.created_at) AS created_at, COALESCE(v.updated_at, t.updated_at) AS updated_at,
+       COALESCE(v.created_by, t.created_by) AS created_by, COALESCE(v.updated_by, t.updated_by) AS updated_by,
+       COALESCE(v.revision, t.revision) AS revision
 FROM (
     SELECT r.tenant_key, r.catalog_id, r.version_id, r.version, r.resource_id, c.payload,
            r.created_at, r.updated_at, r.created_by, r.updated_by, r.revision
@@ -156,16 +153,36 @@ FROM (
         SELECT c.payload FROM resource_contents c WHERE c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash OFFSET 0
     ) c
 ) t
-CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.payload -> 'resource' -> 'variants', '[]'::jsonb)) WITH ORDINALITY AS e(variant, position)
--- Its model: the content it was lifted into, the template's for a variant without one of its own.
-CROSS JOIN LATERAL (
-    SELECT x.model_hash, (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = t.tenant_key AND c.content_hash = x.model_hash) AS model
-    FROM (SELECT COALESCE(e.variant -> 'templateModel' ->> 'revisionDigest', t.payload -> 'resource' -> 'templateModel' ->> 'revisionDigest') AS model_hash) x
+CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.payload -> 'resource' -> 'variants', '[]'::jsonb)) WITH ORDINALITY AS e(slot, position)
+-- Each variant is a row of its own, naming its template's row: its content and revision.
+LEFT JOIN LATERAL (
+    SELECT p.content_hash, c.payload, p.created_at, p.updated_at, p.created_by, p.updated_by, p.revision
+    FROM release_resources p
+    JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
+    WHERE p.tenant_key = t.tenant_key AND p.parent_id = t.resource_id AND p.resource_key = e.slot ->> 'key'
+      AND p.catalog_id = t.catalog_id AND p.resource_type = 'variant'
+      AND p.version_id IS NOT DISTINCT FROM t.version_id AND p.version IS NOT DISTINCT FROM t.version
     OFFSET 0
-) m;
+) v ON TRUE
+LEFT JOIN LATERAL (
+    SELECT c.payload
+    FROM jsonb_array_elements(t.payload -> 'resource' -> 'variants') x(slot)
+    JOIN release_resources p ON p.tenant_key = t.tenant_key AND p.parent_id = t.resource_id AND p.resource_key = x.slot ->> 'key'
+      AND p.catalog_id = t.catalog_id AND p.resource_type = 'variant'
+      AND p.version_id IS NOT DISTINCT FROM t.version_id AND p.version IS NOT DISTINCT FROM t.version
+    JOIN resource_contents c ON c.tenant_key = p.tenant_key AND c.content_hash = p.content_hash
+    WHERE CAST(x.slot ->> 'isDefault' AS BOOLEAN) AND v.content_hash IS NOT NULL AND v.payload -> 'resource' -> 'templateModel' IS NULL
+    OFFSET 0
+) d ON TRUE
+LEFT JOIN LATERAL (
+    SELECT x.model_hash, (SELECT c.payload FROM resource_contents c WHERE c.tenant_key = t.tenant_key AND c.content_hash = x.model_hash) AS model
+    FROM (SELECT COALESCE(e.slot -> 'templateModel' ->> 'revisionDigest', t.payload -> 'resource' -> 'templateModel' ->> 'revisionDigest') AS model_hash) x
+    WHERE v.content_hash IS NULL
+    OFFSET 0
+) m ON TRUE;
 
 COMMENT ON VIEW current_template_variants IS
-    'The variants of the templates of the version a caller means, each with its model, read from the content it was lifted into.';
+    'The variants of the templates of the version a caller means, each its own row (storage type variant) with its own content and revision.';
 
 -- 7. Nothing reads or writes the tables any more; their triggers go with them. Quality findings and
 --    load-test runs follow a variant through release_resources now (their modules' migrations).

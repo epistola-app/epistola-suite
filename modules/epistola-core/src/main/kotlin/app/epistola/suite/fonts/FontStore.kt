@@ -105,7 +105,7 @@ class FontStore(
 
     private fun currentHashes(handle: Handle, catalog: CatalogId): Map<String, String> = handle.createQuery(
         """
-        SELECT r.resource_key, r.content_hash FROM release_resources r
+        SELECT r.resource_key, r.content_hash FROM release_wire_resources r
         WHERE r.tenant_key = :t AND r.resource_type = 'font'
           AND r.version_id = (SELECT v.version_id FROM catalog_current_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")})
         """,

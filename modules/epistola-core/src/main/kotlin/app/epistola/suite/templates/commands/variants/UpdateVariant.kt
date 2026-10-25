@@ -64,8 +64,8 @@ class UpdateVariantHandler(
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val key = command.variantId.key.value
-            templates.modify(handle, command.variantId.templateId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
-                template.variant(key) ?: return@modify null
+            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
+                template.variant(key) ?: return@modifyVariant null
                 requireDistinctAttributeSet(template, key, command.attributes)
                 template.withVariant(key) { it.copy(title = command.title, attributes = command.attributes) }
             } ?: return@inTransaction null

@@ -89,13 +89,23 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         plan.get("Plans")?.forEach { addAll(relations(it)) }
     }
 
+    /**
+     * The relations [plan] scans, but for the lookup of one template's variant rows by its identity
+     * (`idx_release_resources_parent`, ADR 0033): that reads a template's few rows, not the tenant's.
+     */
+    private fun scanned(plan: JsonNode): Set<String> = buildSet {
+        val variantLookup = plan.get("Index Name")?.asString() == "idx_release_resources_parent"
+        plan.get("Relation Name")?.asString()?.takeUnless { variantLookup }?.let(::add)
+        plan.get("Plans")?.forEach { addAll(scanned(it)) }
+    }
+
     /** Every nested loop that rescans `release_resources` once per row of `resource_contents`. */
     private fun rescans(plan: JsonNode): List<String> = buildList {
         val children = plan.get("Plans")?.toList().orEmpty()
         if (plan.get("Node Type")?.asString() == "Nested Loop") {
             val outer = children.firstOrNull { it.get("Parent Relationship")?.asString() == "Outer" }
             val inner = children.firstOrNull { it.get("Parent Relationship")?.asString() == "Inner" }
-            if (outer != null && inner != null && "resource_contents" in relations(outer) && "release_resources" in relations(inner)) {
+            if (outer != null && inner != null && "resource_contents" in relations(outer) && "release_resources" in scanned(inner)) {
                 add("Nested Loop: outer ${relations(outer)}, inner ${relations(inner)}")
             }
         }

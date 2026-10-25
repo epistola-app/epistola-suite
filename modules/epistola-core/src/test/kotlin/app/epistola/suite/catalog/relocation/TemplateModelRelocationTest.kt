@@ -81,6 +81,18 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, letters.value, "leaving").movedTo(shared))
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, shared.value, "joining").movedTo(letters))
 
+        // Its variant rows moved with it, by the move itself (ADR 0014): each with its template's row.
+        val variantRows = jdbi.withHandle<List<String>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT c.catalog_key FROM release_resources v
+                JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
+                JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.parent_id
+                WHERE v.tenant_key = :t AND v.resource_type = 'variant' AND v.version_id IS NOT NULL AND r.resource_key = 'leaving'
+                """,
+            ).bind("t", tenant).mapTo(String::class.java).list()
+        }
+        assertThat(variantRows).containsExactly(shared.value)
         // Leaving letters, its theme is named with letters; joining it, its theme is its own.
         assertThat(storedThemeRef(tenant, "leaving")).isEqualTo("letters")
         assertThat(storedThemeRef(tenant, "joining")).isEqualTo("<relative>")

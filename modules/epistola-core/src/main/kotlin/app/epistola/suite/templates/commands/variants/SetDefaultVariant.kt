@@ -51,8 +51,8 @@ class SetDefaultVariantHandler(
         requireCatalogEditable(command.variantId.catalogId)
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val key = command.variantId.key.value
-            templates.modify(handle, command.variantId.templateId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
-                template.variant(key) ?: return@modify null
+            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
+                template.variant(key) ?: return@modifyVariant null
                 template.copy(variants = template.variants.map { it.copy(isDefault = it.key == key) })
             } ?: return@inTransaction null
             templateVariant(handle, command.variantId)

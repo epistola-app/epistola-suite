@@ -181,7 +181,7 @@ class CatalogUpgradeAnalyzer(
             -- Resolved through the one alias resolver (catalog_version_references, ADR 0033).
             SELECT vad.name AS display_name, vc.catalog_key AS catalog_key
             FROM catalog_version_references('attribute') x
-            JOIN release_resources vad ON vad.tenant_key = x.tenant_key AND vad.version_id = x.version_id AND vad.resource_type = 'attribute' AND vad.resource_key = x.resource_key
+            JOIN release_wire_resources vad ON vad.tenant_key = x.tenant_key AND vad.version_id = x.version_id AND vad.resource_type = 'attribute' AND vad.resource_key = x.resource_key
             JOIN catalogs vc ON vc.tenant_key = x.tenant_key AND vc.catalog_id = x.catalog_id
             WHERE x.tenant_key = :t
               AND x.catalog_id != ${catalogAt("t", "c")}

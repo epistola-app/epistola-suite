@@ -31,7 +31,7 @@ import java.sql.SQLException
 import javax.imageio.ImageIO
 
 /**
- * A release read loads only what it shows (ADR 0033): its resource list reads `release_resources`
+ * A release read loads only what it shows (ADR 0033): its resource list reads `release_wire_resources`
  * alone, a type's resources read that type's contents, and neither reads a binary or the manifest.
  */
 class ReleaseListReadsTest : IntegrationTestBase() {
@@ -51,7 +51,7 @@ class ReleaseListReadsTest : IntegrationTestBase() {
 
         val listed = reads { withMediator { ListReleaseResources(testCatalog(tenant, letters), "1.0.0").query() } }
         assertThat(listed.result.map { "${it.type}/${it.key} ${it.name}" }).contains("theme/brand Brand", "image/logo Logo")
-        assertThat(listed.statements).anyMatch { "FROM release_resources" in it }
+        assertThat(listed.statements).anyMatch { "FROM release_wire_resources" in it }
             .noneMatch { "resource_contents" in it || "asset_content" in it || "manifest_snapshot" in it }
 
         val themes = reads { withMediator { ListReleasedResources(testCatalog(tenant, letters), "1.0.0", "theme").query() } }

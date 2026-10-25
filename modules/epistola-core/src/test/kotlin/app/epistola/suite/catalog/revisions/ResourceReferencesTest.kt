@@ -83,7 +83,7 @@ class ResourceReferencesTest : IntegrationTestBase() {
         assertThat(references).contains(
             // A template names a theme of its own catalog relatively, as its models do (ADR 0033).
             "template -> (own) theme/brand",
-            "templateModel -> (own) stencil/letterhead",
+            "variant -> (own) stencil/letterhead",
             "attribute -> (own) codeList/regions",
         )
     }

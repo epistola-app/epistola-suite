@@ -255,15 +255,28 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   editor, rendering a draft, an import's comparison) qualify them against the stencil's catalog when
   they read it. A template model is stored the same way (`TemplateModels`): every read qualifies it
   against the template's catalog, and a move stores it again in the destination's form.
-- **Templates are stored as JSON** (step 7b): `{ "resource": <TemplateResource> }` with each
-  variant's model a content of its own (`templateModel`, named by `revisionDigest`; the default
-  variant's on the template, as the wire form has it). Saving a model writes its content and the
-  template's small one. What only this suite keeps sits beside the resource: each variant's
-  description (`variantDescriptions`) until the contract carries it on the variant (contract
-  `feature/common-tags`, after `2.0.0-alpha.1`), when a code migration moves it in. A data example is
+- **Templates are stored as JSON** (step 7b), a row per template and a row per variant: the
+  template's row names its content (`{ "resource": … }`, its wire form without models, each variant
+  there by key, attributes and default), and each variant is a `release_resources` row of its own
+  (storage type `variant`, `parent_id` naming its template's identity) naming its content (`{
+  "resource": { title, templateModel, metadata }, "description": … }`), in a draft and a release
+  alike. A variant row has its own revision and timestamps, so saving a variant writes its one
+  content under its own guard, leaves the template's row and the other variants alone, and two
+  people editing different variants do not conflict. Storage types are decoupled from wire types
+  (`release_resource_types`; `catalog_resource_types` stays the wire list): a variant is no catalog
+  resource (the contract has it a member of its `TemplateResource`, with no address or
+  fingerprint), so the identity registry skips its rows and every reader of entries reads
+  `release_wire_resources`, wire resources only (`ReleaseResourceSqlTest`). Export, release building and
+  the fingerprint assemble the wire form from the template's row and its variant rows
+  (`TemplateContents.assemble`), and the template's release row keeps that fingerprint, so the
+  golden vectors hold. A variant row needs its template's row in its version (checked at commit),
+  goes with it, and moves with it by the relocation's own update, not by cascade (ADR 0014). A ready
+  mark is per variant (the digest of the template's and the variant's content). The variant's description stays
+  in its content until the contract carries it on the variant (contract `feature/common-tags`,
+  after `2.0.0-alpha.1`), when a code migration moves it into the resource. A data example is
   addressed by its key, derived as a release derives one; the id it had is gone. A template names its
   theme by alias and key (relative for its own catalog), so a moved theme rewrites the templates that
-  use it. The variants share the template row's revision and timestamps. A stencil instance is
+  use it. A stencil instance is
   stored in the canonical form of contract ADR 0006 in draft and release alike; a received archive in
   another form keeps it in its release.
 - **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,

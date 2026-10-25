@@ -19,9 +19,8 @@ fun TemplateStore.rewriteStoredModel(jdbi: Jdbi, objectMapper: ObjectMapper, var
     jdbi.useTransaction<Exception> { handle ->
         val loaded = checkNotNull(get(handle, variant.templateId)) { "No template ${variant.templateKey.value}" }
         val stored = checkNotNull(loaded.template.variant(variant.key.value)) { "No variant ${variant.key.value}" }
-        val model = objectMapper.valueToTree<ObjectNode>(checkNotNull(model(handle, variant.tenantKey, stored.modelHash)))
+        val model = objectMapper.valueToTree<ObjectNode>(checkNotNull(model(handle, variant.tenantKey, stored)))
         change(model)
-        val hash = storeModel(handle, variant.tenantKey, objectMapper.writeValueAsString(model))
-        checkNotNull(write(handle, variant.catalogId, loaded.template.withVariant(variant.key.value) { it.copy(modelHash = hash) }, null))
+        checkNotNull(save(handle, variant.catalogId, loaded, loaded.template.withVariant(variant.key.value) { it.copy(model = model) }, null))
     }
 }

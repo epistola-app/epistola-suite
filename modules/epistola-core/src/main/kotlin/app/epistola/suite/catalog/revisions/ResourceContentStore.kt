@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
+import app.epistola.catalog.protocol.TemplateResource
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -47,10 +48,11 @@ const val TEMPLATE_MODEL_KIND = "templateModel"
  * template writes one payload and reuses the rest; releasing content byte-identical to a previous
  * release writes nothing at all.
  *
- * **A template is a tree** (ADR 0026 §3a): the template payload carries a [REVISION_REF_FIELD]
- * reference in place of each variant's model, and each model is its own revision. A bundled
- * template is 20–70 KB of JSON, so keeping every variant in one payload would rewrite all of them
- * whenever one changed, defeat deduplication, and load the lot to render one variant.
+ * **A template is a content and one per variant** ([TemplateContents], ADR 0033): each variant is
+ * a row of its own ([VariantRows]) naming its content, with its model. A
+ * bundled template is 20–70 KB of JSON, so keeping every variant in one payload would rewrite all of
+ * them whenever one changed, defeat deduplication, and load the lot to render one variant. Content
+ * retained before this names its models by [REVISION_REF_FIELD], which the collector still follows.
  *
  * The digest is **not** the catalog fingerprint. It is internal storage identity, computed over the
  * stored payload; the fingerprint is computed by the contract over the wire form and is what
@@ -71,33 +73,43 @@ class ResourceContentStore(
      *   here passes its draft's; a received one has none.
      * @return each resource's revision digest, keyed `"type/slug"` as the catalog content keys it.
      */
-    fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent, settings: Map<String, ObjectNode> = emptyMap()): Map<String, String> {
+    fun retain(handle: Handle, tenantKey: TenantKey, content: CatalogContent, settings: Map<String, ObjectNode> = emptyMap()): Retained {
         val hashes = content.resourceDetails.values.flatMap { binaryHashes(it.resource) }
         // The bytes a received release carries go in first, so the contents can link to them.
         storeCarried(content, hashes)
 
-        return content.resourceDetails.mapValues { (_, detail) ->
+        val variants = mutableMapOf<String, List<VariantRows.Released>>()
+        val contents = content.resourceDetails.mapValues { (key, detail) ->
             val resource = detail.resource
-            val payload = payloadOf(handle, tenantKey, resource, settings["${resource.type}/${resource.key}"])
-            write(handle, tenantKey, resource.type, payload)
+            val own = settings["${resource.type}/${resource.key}"]
+            if (resource is TemplateResource) {
+                // A template is its content and one per variant (TemplateContents), as its draft stores it.
+                val descriptions = TemplateContents.descriptions(own)
+                val default = resource.variants.firstOrNull { it.isDefault } ?: resource.variants.firstOrNull()
+                variants[key] = resource.variants.map { variant ->
+                    val model = if (variant.key == default?.key) resource.templateModel else variant.templateModel
+                    val description = descriptions[variant.key]
+                    val hash = write(handle, tenantKey, TemplateContents.VARIANT_KIND, TemplateContents.part(variant, model, description, objectMapper))
+                    VariantRows.Released(variant.key, hash, variant.title ?: variant.key, description)
+                }
+                return@mapValues write(handle, tenantKey, resource.type, TemplateContents.head(resource, objectMapper))
+            }
+            write(handle, tenantKey, resource.type, payloadOf(resource, own))
         }
+        return Retained(contents, variants)
     }
 
     /**
-     * The resource as stored: its protocol form, with a template's models lifted into revisions of
-     * their own and replaced by references. Writing the children here is what makes the parent
-     * digest cover them.
+     * What a release retained: each resource's content hash, keyed `"type/slug"` as the catalog
+     * content keys it, and each template's variants, keyed the same way (their rows, [VariantRows]).
      */
-    private fun payloadOf(handle: Handle, tenantKey: TenantKey, resource: CatalogResource, settings: ObjectNode?): JsonNode {
+    data class Retained(val contents: Map<String, String>, val variants: Map<String, List<VariantRows.Released>>)
+
+    /** The resource as stored: its released form in the envelope, beside it the settings only this suite keeps. */
+    private fun payloadOf(resource: CatalogResource, settings: ObjectNode?): JsonNode {
         val node = objectMapper.valueToTree<JsonNode>(resource)
-        if (resource.type == "template" && node is ObjectNode) {
-            liftModel(handle, tenantKey, node)
-            (node.get("variants") as? ArrayNode)?.forEach { variant ->
-                if (variant is ObjectNode) liftModel(handle, tenantKey, variant)
-            }
-        }
         // Every type is stored in the envelope, as its draft stores it, so a draft and the release cut
-        // from it share one content; beside the resource go the settings only this suite keeps.
+        // from it share one content.
         return objectMapper.createObjectNode().also { envelope ->
             envelope.set("resource", node)
             settings?.properties()?.forEach { (name, value) -> envelope.set(name, value) }
@@ -110,13 +122,6 @@ class ResourceContentStore(
      * row. Draft rows (`release_resources` with a `version_id`) name it.
      */
     fun store(handle: Handle, tenantKey: TenantKey, kind: String, payload: JsonNode): String = write(handle, tenantKey, kind, payload)
-
-    /** Replaces one `templateModel` in place with a reference to the revision holding it. */
-    private fun liftModel(handle: Handle, tenantKey: TenantKey, owner: ObjectNode) {
-        val model = owner.get("templateModel")?.takeUnless { it.isNull } ?: return
-        val digest = write(handle, tenantKey, TEMPLATE_MODEL_KIND, model)
-        owner.set("templateModel", objectMapper.createObjectNode().put(REVISION_REF_FIELD, digest))
-    }
 
     /**
      * Writes one content and returns its content hash, with what it refers to

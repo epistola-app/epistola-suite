@@ -74,7 +74,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         val changed: CatalogContent = content.copy(
             resourceDetails = content.resourceDetails.filterKeys { it == "theme/brand" }.mapValues { (_, detail) -> detail.copy(resource = (detail.resource as ThemeResource).copy(name = themeName)) },
         )
-        return jdbi.inTransaction<String, Exception> { store.retain(it, catalog.tenantKey, changed).getValue("theme/brand") }
+        return jdbi.inTransaction<String, Exception> { store.retain(it, catalog.tenantKey, changed).contents.getValue("theme/brand") }
     }
 
     private fun age(tenant: TenantKey, hash: String, days: Long) = jdbi.useHandle<Exception> {
@@ -160,7 +160,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
                     resourceDetails = mapOf("image/loose" to content.resourceDetails.getValue("image/logo").let { it.copy(resource = logo.copy(key = "loose", contentHash = looseHash)) }),
                     assetContents = mapOf(logo.copy(contentHash = looseHash).contentPath() to loose),
                 ),
-            ).getValue("image/loose")
+            ).contents.getValue("image/loose")
         }
         age(tenant, orphanHash, 3)
         jdbi.useHandle<Exception> { it.createUpdate("UPDATE asset_content SET created_at = NOW() - INTERVAL '3 days' WHERE content_hash IN (:a, :b)").bind("a", looseHash).bind("b", logo.contentHash).execute() }
@@ -175,7 +175,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
     private fun orphanIn(handle: org.jdbi.v3.core.Handle, catalog: CatalogId, themeName: String): String {
         val content = requireNotNull(assembler.assemble(catalog, "1.0.0")).content
         val changed = content.copy(resourceDetails = content.resourceDetails.filterKeys { it == "theme/brand" }.mapValues { (_, detail) -> detail.copy(resource = (detail.resource as ThemeResource).copy(name = themeName)) })
-        return store.retain(handle, catalog.tenantKey, changed).getValue("theme/brand")
+        return store.retain(handle, catalog.tenantKey, changed).contents.getValue("theme/brand")
     }
 
     private fun png(rgb: Int): ByteArray = ByteArrayOutputStream().use { out ->

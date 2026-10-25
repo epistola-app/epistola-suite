@@ -86,10 +86,10 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     /**
-     * The reason this is a graph walk. A template revision names its models through
-     * `revisionDigest`; no release resource names a model directly. Collecting by "nothing in
-     * release_resources names it" would delete every model and leave each template unassemblable —
-     * and a round-trip test of the *other* release would still pass, because it has its own.
+     * A template's models are its variants' contents, which their own rows name (ADR 0033).
+     * Collecting by "nothing in release_resources names it" would delete every model and leave each
+     * template unassemblable — and a round-trip test of the *other* release would still pass, because
+     * it has its own.
      */
     @Test
     fun `a release that is kept keeps the models its templates reference`() {
@@ -319,9 +319,9 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun modelsOf(tenantKey: TenantKey, version: String): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT DISTINCT jsonb_path_query(c.payload, '${'$'}.**.revisionDigest') #>> '{}'
-            FROM release_resources r JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-            WHERE r.tenant_key = :t AND r.version = :v AND r.resource_type = 'template'
+            SELECT DISTINCT p.content_hash
+            FROM release_resources p JOIN catalogs c ON c.tenant_key = p.tenant_key AND c.catalog_id = p.catalog_id
+            WHERE p.tenant_key = :t AND p.version = :v AND p.resource_type = 'variant' AND c.catalog_key = 'shared-cat'
             """,
         ).bind("t", tenantKey).bind("v", version).mapTo(String::class.java).list()
     }

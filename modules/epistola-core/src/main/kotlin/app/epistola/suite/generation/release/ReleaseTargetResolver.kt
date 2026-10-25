@@ -140,7 +140,7 @@ class ReleaseTargetResolver(
             templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
                 handle.createQuery(
                     """
-                    SELECT t.resource_id FROM release_resources t
+                    SELECT t.resource_id FROM release_wire_resources t
                     JOIN catalog_versions v ON v.tenant_key = t.tenant_key AND v.version_id = t.version_id
                     WHERE t.tenant_key = :t AND v.version_key = :v AND v.catalog_id = ${catalogAt("t", "c")}
                       AND t.resource_type = 'template' AND t.resource_key = :template

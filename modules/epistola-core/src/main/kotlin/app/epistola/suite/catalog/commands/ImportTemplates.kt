@@ -178,7 +178,8 @@ class ImportTemplatesHandler(
         require(input.variants.isNotEmpty()) { "Template '${input.slug}': at least one variant is required" }
         require(defaultCount == 1) { "Template '${input.slug}': exactly one variant must have isDefault=true, found $defaultCount" }
 
-        val existing = templates.get(handle, templateId)?.template
+        val loaded = templates.get(handle, templateId)
+        val existing = loaded?.template
         // Import supersedes local edits; a variant's description, which the wire form does not carry
         // yet, stays with the variant that keeps its key.
         val template = StoredTemplate(
@@ -203,7 +204,7 @@ class ImportTemplatesHandler(
                     isDefault = variantInput.isDefault,
                     // Empty metadata is no metadata: the wire forbids `{}`.
                     metadata = variantInput.metadata?.takeIf { it.isNotEmpty() },
-                    modelHash = templates.storeModel(handle, catalog.tenantKey, prepared.templateModelJson),
+                    model = templates.storedModel(prepared.templateModelJson),
                 )
             },
         )
@@ -211,7 +212,7 @@ class ImportTemplatesHandler(
             templates.create(handle, catalog, template, auditUser)
             ImportStatus.CREATED
         } else {
-            checkNotNull(templates.write(handle, catalog, template, auditUser)) { "Template ${input.slug} went while it was imported" }
+            checkNotNull(templates.save(handle, catalog, checkNotNull(loaded), template, auditUser)) { "Template ${input.slug} went while it was imported" }
             ImportStatus.UPDATED
         }
 

@@ -89,10 +89,12 @@ class DemoTemplateReadParityTest : IntegrationTestBase() {
         val divergent = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT d.resource_key FROM release_resources d
+                -- Per row: each template's, and each of its variants' (rows of their own).
+                SELECT d.resource_type || '/' || d.resource_key FROM release_resources d
                 JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id
-                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.version = :v
-                WHERE d.tenant_key = :t AND d.version_id IS NOT NULL AND d.resource_type = 'template' AND d.content_hash <> r.content_hash
+                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.parent_id IS NOT DISTINCT FROM d.parent_id
+                  AND r.version = :v
+                WHERE d.tenant_key = :t AND d.version_id IS NOT NULL AND d.resource_type IN ('template', 'variant') AND d.content_hash <> r.content_hash
                 """,
             ).bind("t", tenant).bind("v", release.version).mapTo(String::class.java).list()
         }

@@ -313,11 +313,11 @@ class DeleteCatalogDraftHandler(
     fun holders(handle: Handle, tenantKey: TenantKey, versionId: UUID): List<String> = handle.createQuery(
         $$"""
         WITH own AS (
-            SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
+            SELECT resource_id FROM release_wire_resources WHERE tenant_key = :t AND version_id = :v
         ),
         elsewhere AS (
             -- Every other draft's rows and every release's (ADR 0033): not this draft's own.
-            SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IS DISTINCT FROM :v
+            SELECT resource_id FROM release_wire_resources WHERE tenant_key = :t AND version_id IS DISTINCT FROM :v
         ),
         alone AS (SELECT resource_id FROM own EXCEPT SELECT resource_id FROM elsewhere),
         refs (holder, holder_resource_id, held_resource_id, ordinal) AS (
@@ -327,7 +327,7 @@ class DeleteCatalogDraftHandler(
             -- another draft styled by a theme only this draft holds: resolved through the one alias
             -- resolver (resolve_catalog_alias, ADR 0033).
             UNION SELECT r.resource_type, r.resource_id, target.resource_id, CASE r.resource_type WHEN 'attribute' THEN 2 ELSE 3 END
-            FROM release_resources r
+            FROM release_wire_resources r
             JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
              AND ((r.resource_type = 'attribute' AND x.resource_type = 'codeList') OR (r.resource_type = 'template' AND x.resource_type = 'theme'))
             JOIN catalog_resources target ON target.tenant_key = r.tenant_key AND target.resource_type = x.resource_type

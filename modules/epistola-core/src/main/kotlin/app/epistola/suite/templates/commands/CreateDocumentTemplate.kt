@@ -92,7 +92,7 @@ class CreateDocumentTemplateHandler(
                             key = variantId.value,
                             title = DEFAULT_VARIANT_TITLE,
                             isDefault = true,
-                            modelHash = templates.storeModel(handle, command.id.tenantKey, prepared.templateModelJson),
+                            model = templates.storedModel(prepared.templateModelJson),
                         ),
                     ),
                 )

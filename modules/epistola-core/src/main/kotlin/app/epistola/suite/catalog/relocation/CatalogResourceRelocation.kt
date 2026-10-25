@@ -172,12 +172,12 @@ class MoveCatalogResourcesHandler(
             val changed = when (rewrite) {
                 is JsonRewrite.VariantModel -> rewriteVariant(handle, command.tenantKey, rewrite.catalogKey, rewrite.ownerKey) { template, catalog ->
                     val variant = template.variant(rewrite.variantKey) ?: return@rewriteVariant null
-                    val stored = templates.model(handle, command.tenantKey, variant.modelHash) ?: return@rewriteVariant null
+                    val stored = templates.model(handle, command.tenantKey, variant) ?: return@rewriteVariant null
                     // The plan saw the stored model.
                     if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stored) != objectMapper.readTree(rewrite.expected)) return@rewriteVariant null
                     val replacement = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
                     // Stored in its released form (ADR 0033), as every model is.
-                    template.withVariant(rewrite.variantKey) { it.copy(modelHash = templates.storeModel(handle, command.tenantKey, replacement, catalog.key.value)) }
+                    template.withVariant(rewrite.variantKey) { it.copy(model = templates.storedModel(replacement, catalog.key.value)) }
                 }
 
                 is JsonRewrite.StencilContent -> rewriteStencil(handle, command.tenantKey, rewrite)
@@ -300,7 +300,7 @@ class MoveCatalogResourcesHandler(
         val author = handle.createQuery("SELECT updated_by FROM current_templates WHERE tenant_key = :t AND resource_id = :id")
             .bind("t", tenantKey).bind("id", loaded.resourceId)
             .mapTo(java.util.UUID::class.java).findOne().orElse(null)
-        return if (templates.write(handle, catalog, changed, author, loaded.revision) != null) 1 else 0
+        return if (templates.save(handle, catalog, loaded, changed, author) != null) 1 else 0
     }
 
     /**
@@ -326,7 +326,7 @@ class MoveCatalogResourcesHandler(
             val id = app.epistola.suite.common.ids.TemplateId(app.epistola.suite.common.ids.TemplateKey.of(address[0]), catalog)
             val loaded = templates.get(handle, id) ?: continue
             val moved = loaded.template.copy(themeKey = relocation.target.key, themeCatalogKey = target.key.value.takeUnless { target == catalog })
-            templates.write(handle, catalog, moved, author)
+            templates.save(handle, catalog, loaded, moved, author)
         }
     }
 

@@ -18,9 +18,9 @@ import java.text.Normalizer
 /**
  * Every draft's templates move to JSON storage (ADR 0033, step 7b): each `document_templates` row
  * and its `template_variants` become the template's content in `resource_contents`,
- * `{ "resource": <the template's wire form> }`, each variant's model a content of its own
- * (`templateModel`, named by `revisionDigest`), a draft row in `release_resources` naming the
- * template's, and the references each content holds in `resource_references`. The next migration
+ * the template's content and one per variant (`TemplateContents` of this time), a draft row in
+ * `release_resources` naming the template's and a part of it per variant, each with its own
+ * revision, and the references each content holds in `resource_references`. The next migration
  * drops the tables.
  *
  * Self-contained (ADR 0035): JDBC and a JSON tree only. What it knows is written into it and never
@@ -36,8 +36,9 @@ import java.text.Normalizer
  * - each data example by its key, without the id the suite kept beside it; a key an example lacks is
  *   derived from its name as a release derives one ([dataExampleKey], `CatalogKeys` of this time,
  *   pinned by golden vectors in `TemplatesToStorageMigrationTest`);
- * - each variant's description, which the wire form of this time does not carry, beside the
- *   resource (`variantDescriptions`);
+ * - each variant its own content on a row of its own (storage type `variant`, naming the template's): its
+ *   title, model and metadata, and beside them its description, which the wire form of this time
+ *   does not carry; the template's content holds each variant by key, attributes and default;
  * - the content hash (SHA-256 of the JSON with every object's keys sorted, as `ResourceContentStore`
  *   takes it) and where a content names another resource (`ResourceReferenceSites` of this time).
  *
@@ -77,12 +78,13 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                     if (variants.isEmpty()) {
                         log.warn("Template {} of tenant {} has no variant; it is kept with an empty one", rows.getString("id"), tenant)
                     }
-                    val modelHashes = variants.associate { variant ->
-                        val model = releasedModel(mapper.readTree(variant.model), catalogKey)
-                        val canonical = canonical(model)
+                    // Each variant its own content: its model whole, beside it its description.
+                    val partHashes = variants.associate { variant ->
+                        val part = part(variant, releasedModel(mapper.readTree(variant.model), catalogKey))
+                        val canonical = canonical(part)
                         val hash = contentHash(canonical)
-                        storeContent(connection, tenant, hash, "templateModel", canonical)
-                        references(model).forEach { storeReference(connection, tenant, hash, it) }
+                        storeContent(connection, tenant, hash, "variant", canonical)
+                        references(part).forEach { storeReference(connection, tenant, hash, it) }
                         variant.key to hash
                     }
                     val themeKey = rows.getString("theme_key")
@@ -96,7 +98,6 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                         dataModel = rows.getString("data_model"),
                         dataExamples = rows.getString("data_examples"),
                         variants = variants,
-                        modelHashes = modelHashes,
                     )
                     val canonical = canonical(payload)
                     val hash = contentHash(canonical)
@@ -125,6 +126,30 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                         insert.setString(12, rows.getString("created_by"))
                         insert.setString(13, rows.getString("updated_by"))
                         insert.executeUpdate()
+                    }
+                    // Its variants are rows of their own naming its row, each with its bookkeeping of this time.
+                    for (variant in variants) {
+                        connection.prepareStatement(
+                            """
+                            INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, parent_id,
+                                content_hash, name, description, revision, created_at, updated_at, created_by, updated_by)
+                            SELECT ?, ?::uuid, ?::uuid, 'variant', v.id, variant_resource_id(?::uuid, v.id), v.template_resource_id,
+                                ?, v.title, NULLIF(v.description, ''), v.revision, v.created_at, v.updated_at, v.created_by, v.updated_by
+                            FROM template_variants v
+                            WHERE v.tenant_key = ? AND v.version_id = ?::uuid AND v.template_resource_id = ?::uuid AND v.id = ?
+                            """,
+                        ).use { insert ->
+                            insert.setString(1, tenant)
+                            insert.setString(2, rows.getString("catalog_id"))
+                            insert.setString(3, rows.getString("version_id"))
+                            insert.setString(4, rows.getString("resource_id"))
+                            insert.setString(5, partHashes.getValue(variant.key))
+                            insert.setString(6, tenant)
+                            insert.setString(7, rows.getString("version_id"))
+                            insert.setString(8, rows.getString("resource_id"))
+                            insert.setString(9, variant.key)
+                            insert.executeUpdate()
+                        }
                     }
                     converted++
                 }
@@ -201,11 +226,14 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
         )
 
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = 839426554
+        const val CHECKSUM: Int = -443875554
 
         private val mapper = JsonMapper.builder().build()
 
-        /** The template's content: `{ "resource": <TemplateResource>, "variantDescriptions": … }`. */
+        /**
+         * The template's content (`TemplateContents.head` of this time): its wire form without its
+         * models, each variant there by its key, attributes and whether it is the default.
+         */
         fun payload(
             key: String,
             name: String,
@@ -216,9 +244,7 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
             dataModel: String?,
             dataExamples: String?,
             variants: List<Variant>,
-            modelHashes: Map<String, String>,
         ): ObjectNode {
-            val default = variants.firstOrNull { it.isDefault } ?: variants.firstOrNull()
             val resource = mapper.createObjectNode().apply {
                 put("key", key)
                 put("name", name)
@@ -227,7 +253,6 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                 put("pdfaEnabled", pdfaEnabled)
                 set("dataModel", dataModel?.let(mapper::readTree)?.takeUnless { it.isNull } ?: nullNode())
                 set("dataExamples", examples(dataExamples))
-                set("templateModel", default?.let { ref(modelHashes.getValue(it.key)) } ?: emptyModel())
                 set(
                     "variants",
                     mapper.createArrayNode().also { entries ->
@@ -235,12 +260,8 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                             entries.add(
                                 mapper.createObjectNode().apply {
                                     put("key", variant.key)
-                                    put("title", variant.title)
                                     set("attributes", variant.attributes?.let(mapper::readTree)?.takeUnless { it.isNull } ?: mapper.createObjectNode())
-                                    set("templateModel", if (variant.key == default?.key) nullNode() else ref(modelHashes.getValue(variant.key)))
                                     put("isDefault", variant.isDefault)
-                                    // Left out when empty, as the wire form leaves it out.
-                                    variant.metadata?.let(mapper::readTree)?.takeIf { it is ObjectNode && !it.isEmpty }?.let { set("metadata", it) }
                                 },
                             )
                         }
@@ -249,21 +270,25 @@ class V20261025170700__core_templates_to_storage : BaseJavaMigration() {
                 if (description != null) put("description", description)
                 put("type", "template")
             }
-            return mapper.createObjectNode().also { envelope ->
-                envelope.set("resource", resource)
-                val described = variants.filter { !it.description.isNullOrBlank() }
-                if (described.isNotEmpty()) {
-                    envelope.putObject("variantDescriptions").also { map -> described.forEach { map.put(it.key, it.description) } }
-                }
-            }
+            return mapper.createObjectNode().set("resource", resource)
         }
 
-        private fun ref(hash: String): ObjectNode = mapper.createObjectNode().put("revisionDigest", hash)
-
-        /** A template 1.x left without a variant renders an empty document. */
-        private fun emptyModel(): ObjectNode = mapper.readTree(
-            """{"modelVersion":1,"root":"root","nodes":{"root":{"id":"root","type":"root","slots":[],"styles":null,"stylePreset":null,"props":null}},"slots":{},"themeRef":{"type":"inherit"},"pageSettingsOverride":null,"documentStylesOverride":null}""",
-        ) as ObjectNode
+        /**
+         * A variant's content (`TemplateContents.part` of this time): its title, its [model] in its
+         * released form, its metadata when it has some, and its description beside them.
+         */
+        fun part(variant: Variant, model: JsonNode): ObjectNode = mapper.createObjectNode().also { content ->
+            content.set(
+                "resource",
+                mapper.createObjectNode().apply {
+                    put("title", variant.title)
+                    set("templateModel", model)
+                    // Left out when empty, as the wire form leaves it out.
+                    variant.metadata?.let(mapper::readTree)?.takeIf { it is ObjectNode && !it.isEmpty }?.let { set("metadata", it) }
+                },
+            )
+            variant.description?.takeIf { it.isNotBlank() }?.let { content.put("description", it) }
+        }
 
         /** The examples as the wire form keeps them: `name`, `data` and `key`, each with a key. */
         private fun examples(json: String?): ArrayNode {

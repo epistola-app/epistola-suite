@@ -56,9 +56,11 @@ still in the table, defaulted and unused, and goes in a later major release.
   source), their entries live only in it and are listed, found and hidden in SQL over it
   (`current_code_lists`); a credential is a `resource_credentials` row named by id, and the last
   refresh is kept per draft in `code_list_refreshes`.
-  Templates are last (step 7b): `{ resource, variantDescriptions }`, each variant's model a content
-  of its own named by `revisionDigest`, read through `current_templates` and
-  `current_template_variants`; a template's variants share its row's revision.
+  Templates are last (step 7b): the template's content (its wire form without models) on its row,
+  and each variant a row of its own (storage type `variant`, naming its template's) with its own
+  content (title, model, metadata, description) and its own revision; manifests read
+  `release_wire_resources`, which leaves the variant rows out; read through `current_templates` and
+  `current_template_variants`, and assembled into the wire form for export and the fingerprint.
 - **Released here** — cutting a release advances `catalogs.released_version` /
   `released_fingerprint` / `released_at`.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a

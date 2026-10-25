@@ -101,9 +101,14 @@ class TemplatesToStorageMigrationTest {
             assertThat(resource.path("dataExamples").toList().map { it.path("key").asString() }).containsExactly("standaard-brief", "standaard-brief-2", "kept-key")
             assertThat(resource.path("dataExamples").toList().none { it.has("id") }).`as`("no example keeps the id").isTrue()
             assertThat(resource.path("variants").toList().map { it.path("key").asString() }).`as`("the default first").containsExactly("default", "second")
-            assertThat(resource.path("variants")[0].path("templateModel").isNull).`as`("the default's model is the template's").isTrue()
-            assertThat(payload.path("variantDescriptions").path("second").asString()).isEqualTo("For courts")
-            assertThat(resource.path("variants")[1].path("metadata").path("app.epistola.suite").path("a").asInt()).isEqualTo(1)
+            assertThat(resource.has("templateModel") || resource.path("variants").any { it.has("templateModel") || it.has("title") })
+                .`as`("the template's content holds no variant's own fields").isFalse()
+            // Each variant a row of its own, with its title, description, metadata and model.
+            val second = connection.rows("SELECT title, description, metadata::text FROM current_template_variants WHERE id = 'second'").single()
+            assertThat(second.take(2)).containsExactly("Second", "For courts")
+            assertThat(mapper.readTree(second[2]).path("app.epistola.suite").path("a").asInt()).isEqualTo(1)
+            assertThat(connection.rows("SELECT resource_key FROM release_resources WHERE resource_type = 'variant' ORDER BY 1").map { it.single() })
+                .containsExactly("default", "second")
 
             val stored = mapper.readTree(connection.rows("SELECT template_model::text FROM current_template_variants WHERE id = 'second'").single().single())
             assertThat(stored.path("themeRef").path("catalogKey").isNull).`as`("its own theme, relative").isTrue()
@@ -111,7 +116,8 @@ class TemplatesToStorageMigrationTest {
             assertThat(stored.path("nodes").path("s1").path("props").has("namespace")).`as`("no name qualifier").isFalse()
             assertThat(stored.path("documentStylesOverride").path("fontFamily").path("catalogKey").asString()).`as`("another catalog's font, by alias").isEqualTo("system")
             assertThat(connection.rows("SELECT resource_type || '/' || COALESCE(alias, '') || '/' || resource_key FROM resource_references ORDER BY 1").map { it.single() })
-                .containsExactlyInAnyOrder("font/system/serif", "stencil//header", "theme//brand", "theme//brand")
+                // The template's content names its theme; each variant's (one model, two titles) its own.
+                .containsExactlyInAnyOrder("font/system/serif", "font/system/serif", "stencil//header", "stencil//header", "theme//brand", "theme//brand", "theme//brand")
             assertThat(connection.rows("SELECT revision FROM current_templates").single().single()).`as`("its revision stays").isEqualTo("7")
             assertThat(connection.rows("SELECT count(*) FROM resource_ready_marks m JOIN resource_content_digests d USING (tenant_key, version_id, resource_id, part) WHERE d.digest = m.digest").single().single())
                 .`as`("both marks hold against the content").isEqualTo("2")

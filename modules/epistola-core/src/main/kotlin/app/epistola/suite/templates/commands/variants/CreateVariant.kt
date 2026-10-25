@@ -71,7 +71,7 @@ class CreateVariantHandler(
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             // A new variant starts with the empty document.
             val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(command.id.key), command.id.catalogKey)
-            val modelHash = templates.storeModel(handle, command.id.tenantKey, prepared.templateModelJson)
+            val model = templates.storedModel(prepared.templateModelJson)
             templates.modify(handle, command.id.templateId, auditUser, null, "Template '${command.id.templateKey.value}'") { template ->
                 if (template.variant(command.id.key.value) != null) throw DuplicateIdException("variant", command.id.key.value)
                 requireDistinctAttributeSet(template, command.id.key.value, command.attributes)
@@ -83,7 +83,7 @@ class CreateVariantHandler(
                         attributes = command.attributes,
                         // The first variant of a template becomes its default.
                         isDefault = template.variants.isEmpty(),
-                        modelHash = modelHash,
+                        model = model,
                     ),
                 )
             } ?: return@inTransaction null
