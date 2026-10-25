@@ -55,20 +55,33 @@ The tenant-wide list and the tag filter read every current stencil's payload bef
 fenced lateral cannot be deferred past the `ORDER BY`): +3.5 ms at 500 stencils. A tag filter at 12 ms
 does not yet justify a GIN index. A save stores content, references and the row: +2.8 ms.
 
+**Follow-up 1 (25 October): a draft stores what its release stores.** A stencil referring to its
+own catalog's resources was stored qualified in the draft and relative in the release, so the two
+named different content. The store now writes the released form (`CatalogContentBuilder.Outbound`:
+own-catalog references relative, no name qualifiers), and the conversion does the same; the stencil
+reads (`Stencil.asRead`) and the draft render read (`StencilResolvers`) qualify them against the
+stencil's catalog, so the editor, rendering, relocation and imports see what they always saw, and no
+editor or rendering code changed. A relocation rewrite compares the stored document; a move reads
+qualified and stores in the target's form. Checked the other JSON types: themes, code lists and
+attributes already named one content (`DraftReleaseSameContentTest`, which failed for the stencil
+only before). The demo parity test now also compares the content hashes of draft and release.
+
 **Noticed, left alone:**
 
 - The demo catalog's index (`catalog.json`) describes `company-header` differently from the
   stencil's own file ("with logo placeholder and company name" against "with company name and
   separator"). A release row carried the index's wording; reads now take the content's. Fixing the
   catalog means a `release.version` bump and fingerprint, outside this step.
-- A release names its own catalog's resources relatively, the draft names its catalog, so a stencil
-  that refers to its own catalog's resources has a different content in the draft and the release
-  (no shared row). Both mean the same; parity tests compare them qualified.
 - `StencilResource.tags` is serialized when empty (`[]`), unlike `readsTemplateData`. The common
   `tags` on the contract branch (`feature/common-tags`, `75aba71`, not pushed) keeps that for
   stencils and leaves empty tags out only on the types that had none, so no stored content hash
   and no fingerprint moves and the switch commit needs no code migration.
 - Follow-up: tags for the other types in UI, REST and MCP.
+- Rendering a release reads a stencil through the release assembler, relative as stored, and does
+  not qualify it; a template that inlines a stencil of another catalog whose own-catalog references
+  are relative resolves them in the template's context. A draft render qualifies them. Not proven
+  wrong in a test yet; looked at when templates move (step 7), which have the same divergence
+  (`TemplateDocumentPreparation` qualifies, the release relativizes).
 - `ContentReferences.of` reads an attribute's `codeListBinding` at the payload's top level, which an
   enveloped attribute does not have; the `CODE_LIST_BINDING` site finds it instead, so the branch is
   dead code.

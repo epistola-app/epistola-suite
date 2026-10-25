@@ -17,7 +17,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
-import app.epistola.suite.stencils.withAbsentSchemaAsNull
+import app.epistola.suite.stencils.asRead
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -36,6 +36,7 @@ data class GetStencil(
 @Component
 class GetStencilHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<GetStencil, Stencil?> {
     override fun handle(query: GetStencil): Stencil? = jdbi.withHandle<Stencil?, Exception> { handle ->
         handle.createQuery(
@@ -49,7 +50,7 @@ class GetStencilHandler(
             .bind("tenantId", query.id.tenantKey)
             .bindCatalog("catalogKey", query.id.catalogId)
             .mapTo<Stencil>()
-            .map(Stencil::withAbsentSchemaAsNull)
+            .map { it.asRead(objectMapper) }
             .findOne()
             .orElse(null)
     }

@@ -19,7 +19,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.STENCIL_COLUMNS
 import app.epistola.suite.stencils.STENCIL_FROM
 import app.epistola.suite.stencils.Stencil
-import app.epistola.suite.stencils.withAbsentSchemaAsNull
+import app.epistola.suite.stencils.asRead
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -49,6 +49,7 @@ data class ListStencils(
 @Component
 class ListStencilsHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<ListStencils, List<Stencil>> {
     override fun handle(query: ListStencils): List<Stencil> = jdbi.withHandle<List<Stencil>, Exception> { handle ->
         val sql = buildString {
@@ -82,7 +83,7 @@ class ListStencilsHandler(
             .bind("limit", query.limit)
             .bind("offset", query.offset)
             .mapTo<Stencil>()
-            .map(Stencil::withAbsentSchemaAsNull)
+            .map { it.asRead(objectMapper) }
             .list()
     }
 }

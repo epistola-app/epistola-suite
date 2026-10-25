@@ -244,6 +244,11 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   reads the target at the version its catalog declares: a draft that pins a dependency's release reads
   that release (variant attributes, step 3). A stencil's document names other stencils, images,
   fonts and a theme the same way (step 4), indexed when stored.
+- **A draft stores what its release stores**: the released form, so a draft released unchanged names
+  the same content row (`DraftReleaseSameContentTest`). A stencil's references into its own catalog
+  are relative there, as a release says them; the reads that have always seen them qualified (the
+  editor, rendering a draft, an import's comparison) qualify them against the stencil's catalog when
+  they read it.
 - **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,
   `ReferenceWalkerGoldenVectorsTest`; ADR 0035). The index needs rebuilding only when the walker
   changes its output for content that already exists (a bug fix, an existing field that starts to

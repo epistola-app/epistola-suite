@@ -83,7 +83,11 @@ class StencilResolvers(
         .map { rs, _ ->
             @Suppress("UNCHECKED_CAST")
             StencilInstances.Content(
-                document = objectMapper.readValue(rs.getString(1), TemplateDocument::class.java),
+                // Stored in its released form; a draft renders with its own-catalog references
+                // qualified, as it always has.
+                document = objectMapper.readTree(rs.getString(1))
+                    .also { app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(it, catalog.key.value) }
+                    .let { objectMapper.treeToValue(it, TemplateDocument::class.java) },
                 parameterSchema = rs.getString(2)?.let { objectMapper.readValue(it, Map::class.java) as Map<String, Any?> },
                 readsTemplateData = rs.getBoolean(3),
                 catalog = catalog.address,

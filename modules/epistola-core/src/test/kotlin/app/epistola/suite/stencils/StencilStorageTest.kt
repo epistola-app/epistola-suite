@@ -89,13 +89,16 @@ class StencilStorageTest : IntegrationTestBase() {
         assertThat(
             one(
                 """
-                SELECT string_agg(x.alias || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type) FROM current_stencils s
+                SELECT string_agg(COALESCE(x.alias, '') || '/' || x.resource_type || '/' || x.resource_key, ',' ORDER BY x.resource_type DESC) FROM current_stencils s
                 JOIN release_resources r ON r.tenant_key = s.tenant_key AND r.version_id = s.version_id AND r.resource_type = 'stencil' AND r.resource_key = s.id
                 JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash
                 WHERE s.tenant_key = '${tenant.value}' AND s.id = 'footer'
                 """,
             ),
-        ).`as`("the theme qualified with its own catalog on write, the nested stencil as written").isEqualTo("parts/stencil/header,letters/theme/brand")
+        ).`as`("the nested stencil by its catalog's alias; the theme of its own catalog relative, as a release says it").isEqualTo("/theme/brand,parts/stencil/header")
+        assertThat(payload.path("resource").path("content").path("themeRef").path("catalogKey").isString).`as`("stored relative").isFalse()
+        assertThat(withMediator { GetStencil(footer).query() }!!.content.themeRef).`as`("read qualified")
+            .isEqualTo(ThemeRefOverride(themeKey = "brand", catalogKey = "letters"))
         assertThat(one("SELECT CAST(to_regclass('stencils') IS NULL AS TEXT)")).isEqualTo("true")
 
         val saved = withMediator { UpdateStencil(footer, name = "Footer, renamed").execute() }
@@ -137,11 +140,7 @@ class StencilStorageTest : IntegrationTestBase() {
         val version = withMediator { mediator.releaseNext(letters) }
         val released = CatalogReleaseRef(letters, DraftRef.Released(version))
 
-        // A release names its own catalog's resources relatively, as it is exported; the draft names
-        // the catalog. Both mean the same, so both are compared qualified.
-        fun qualified(document: TemplateDocument) = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(document)
-            .also { app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(it, letters.key.value) }
-        fun content(list: List<Stencil>) = list.map { listOf(it.id, it.name, it.description, it.tags, qualified(it.content), it.parameterSchema, it.readsTemplateData) }
+        fun content(list: List<Stencil>) = list.map { listOf(it.id, it.name, it.description, it.tags, it.content, it.parameterSchema, it.readsTemplateData) }
         withMediator {
             val drafted = ListStencils(TenantId(tenant), catalog = letters).query()
             assertThat(drafted).isNotEmpty()

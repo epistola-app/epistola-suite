@@ -6,7 +6,6 @@ package app.epistola.suite.demo
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.EnsureSubscribedCatalog
-import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.DraftRef
@@ -24,7 +23,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -51,22 +49,25 @@ class DemoStencilReadParityTest : IntegrationTestBase() {
         val catalog = testCatalog(TenantId(tenant), CatalogKey.of("epistola-demo"))
         val release = withMediator { ListCatalogReleases(catalog).query() }.first { it.status == CatalogReleaseStatus.RELEASED }
 
-        // A release names its own catalog's resources relatively; compared qualified, as the draft holds them.
-        fun Stencil.content() = listOf(
-            id,
-            name,
-            description,
-            tags,
-            objectMapper.valueToTree<JsonNode>(content).also { ResourceReferenceSites.qualifyRelative(it, catalog.key.value) },
-            parameterSchema,
-            readsTemplateData,
-        )
+        fun Stencil.content() = listOf(id, name, description, tags, content, parameterSchema, readsTemplateData)
 
         val drafted = withMediator { ListStencils(TenantId(tenant), catalog = catalog).query() }.sortedBy { it.id.value }
         val released = withMediator { ListStencils(TenantId(tenant), catalog = catalog, catalogVersion = CatalogReleaseRef(catalog, DraftRef.Released(requireNotNull(release.version)))).query() }.sortedBy { it.id.value }
 
         assertThat(drafted).isNotEmpty()
         assertThat(released.map { it.content() }).isEqualTo(drafted.map { it.content() })
+        // Installed from one archive, the draft and the release name the same content.
+        val divergent = jdbi.withHandle<List<String>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT d.resource_key FROM release_resources d
+                JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id
+                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.version = :v
+                WHERE d.tenant_key = :t AND d.version_id IS NOT NULL AND d.resource_type = 'stencil' AND d.content_hash <> r.content_hash
+                """,
+            ).bind("t", tenant).bind("v", release.version).mapTo(String::class.java).list()
+        }
+        assertThat(divergent).isEmpty()
         StencilStorageConversion.verify(jdbi, objectMapper, stencils, catalog)
     }
 }

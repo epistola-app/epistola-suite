@@ -64,6 +64,18 @@ fun declaresNoParameters(schema: JsonNode?): Boolean {
 internal fun Stencil.withAbsentSchemaAsNull(): Stencil = if (parameterSchema?.isNull == true) copy(parameterSchema = null) else this
 
 /**
+ * This stencil as it is read: an absent schema as null, and its document's references into its
+ * own catalog named with that catalog. A stencil is stored in its released form, where those are
+ * relative (ADR 0033), so a draft and its release store one content; everything that reads one
+ * (the editor, rendering, relocation, an import's comparison) has always had them qualified.
+ */
+internal fun Stencil.asRead(objectMapper: tools.jackson.databind.ObjectMapper): Stencil = withAbsentSchemaAsNull().let { stencil ->
+    val document = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stencil.content)
+    if (!app.epistola.suite.catalog.graph.ResourceReferenceSites.qualifyRelative(document, stencil.catalogKey.value)) return@let stencil
+    stencil.copy(content = objectMapper.treeToValue(document, app.epistola.template.model.TemplateDocument::class.java))
+}
+
+/**
  * The columns [Stencil] maps from, for a query over `current_stencils s` ([STENCIL_FROM]): the
  * stencils of the version a caller means, a draft's or a release's (ADR 0033). The catalog's name is
  * looked up by key, row by row, rather than joined (ThemePlanStabilityTest).

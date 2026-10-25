@@ -45,6 +45,7 @@ object StencilStorageConversion {
                 // The columns as the suite kept them: tags, content and schema as JSONB.
                 val converted = migration.payload(
                     key = key,
+                    catalogKey = catalog.key.value,
                     name = fields.name,
                     description = fields.description,
                     tags = objectMapper.writeValueAsString(fields.tags),

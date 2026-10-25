@@ -45,8 +45,12 @@ class StencilStore(
     private val contents: ResourceContentStore,
 ) {
 
-    /** The content of stencil [key]. */
-    fun payload(key: String, fields: StencilFields): JsonNode = objectMapper.createObjectNode().set(
+    /**
+     * The content of stencil [key] of catalog [catalogKey], in its released form: references into
+     * its own catalog relative, without the name qualifiers no reference carries, as a release of it
+     * stores it (`CatalogContentBuilder.Outbound`), so the draft and its release name one content.
+     */
+    fun payload(key: String, catalogKey: String, fields: StencilFields): JsonNode = objectMapper.createObjectNode().set(
         "resource",
         objectMapper.valueToTree<JsonNode>(
             StencilResource(
@@ -54,7 +58,10 @@ class StencilStore(
                 name = fields.name,
                 description = fields.description,
                 tags = fields.tags,
-                content = fields.content,
+                content = objectMapper.treeToValue(
+                    app.epistola.suite.catalog.CatalogContentBuilder.Outbound(catalogKey).content(objectMapper.valueToTree(fields.content)),
+                    TemplateDocument::class.java,
+                ),
                 parameterSchema = fields.parameterSchema?.takeUnless { it.isNull }?.let { objectMapper.treeToValue(it, Map::class.java) }?.let {
                     @Suppress("UNCHECKED_CAST")
                     it as Map<String, Any?>
@@ -64,7 +71,7 @@ class StencilStore(
         ),
     )
 
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: StencilFields): String = contents.store(handle, catalog.tenantKey, STENCIL, payload(key, fields))
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: StencilFields): String = contents.store(handle, catalog.tenantKey, STENCIL, payload(key, catalog.key.value, fields))
 
     /** Adds stencil [id] to the targeted draft; one already there is a unique violation. */
     fun create(handle: Handle, id: StencilId, fields: StencilFields, actor: UUID?): Stencil {
@@ -87,7 +94,8 @@ class StencilStore(
     /** Moves stencil [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val stencil = get(handle, StencilId(StencilKey.of(key), source)) ?: return false
-        return DraftResources.move(handle, source, STENCIL, key, target, targetKey, store(handle, source, targetKey, stencil.fields()))
+        // Read qualified, stored in the target's released form: what named the catalog it leaves still does.
+        return DraftResources.move(handle, source, STENCIL, key, target, targetKey, store(handle, target, targetKey, stencil.fields()))
     }
 
     /** Stencil [id] as the version the handle means holds it, or null. */
@@ -97,11 +105,11 @@ class StencilStore(
         .bindCatalog("c", id.catalogId)
         .bind("k", id.key.value)
         .mapTo<Stencil>()
-        .map(Stencil::withAbsentSchemaAsNull)
+        .map { it.asRead(objectMapper) }
         .findOne()
         .orElse(null)
 
-    /** What a stored content says. */
+    /** What a stored content says, as stored: its own-catalog references relative. */
     fun fieldsOf(payload: JsonNode): StencilFields {
         val resource = StoredContent.resourceOf(payload)
         return StencilFields(

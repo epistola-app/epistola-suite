@@ -41,11 +41,12 @@ class V20261025083103__core_stencils_to_storage : BaseJavaMigration() {
         var converted = 0
         connection.prepareStatement(
             """
-            SELECT tenant_key, catalog_id::text, version_id::text, resource_id::text, id, name, description,
-                   tags::text, content::text, parameter_schema::text, reads_template_data,
-                   revision, created_at, updated_at, created_by::text, updated_by::text
-            FROM stencils
-            ORDER BY tenant_key, version_id, id
+            SELECT s.tenant_key, s.catalog_id::text, s.version_id::text, s.resource_id::text, s.id, s.name, s.description,
+                   s.tags::text, s.content::text, s.parameter_schema::text, s.reads_template_data,
+                   s.revision, s.created_at, s.updated_at, s.created_by::text, s.updated_by::text, c.catalog_key::text AS catalog_key
+            FROM stencils s
+            JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id
+            ORDER BY s.tenant_key, s.version_id, s.id
             """,
         ).use { select ->
             select.executeQuery().use { rows ->
@@ -53,6 +54,7 @@ class V20261025083103__core_stencils_to_storage : BaseJavaMigration() {
                     val tenant = rows.getString("tenant_key")
                     val payload = payload(
                         key = rows.getString("id"),
+                        catalogKey = rows.getString("catalog_key"),
                         name = rows.getString("name"),
                         description = rows.getString("description"),
                         tags = rows.getString("tags"),
@@ -128,17 +130,19 @@ class V20261025083103__core_stencils_to_storage : BaseJavaMigration() {
 
     companion object {
         /** CRC32 of this file with this number written as 0; `CodeMigrationGuardTest` checks it. */
-        const val CHECKSUM: Int = -1650524129
+        const val CHECKSUM: Int = -2057408839
 
         private val mapper = JsonMapper.builder().build()
 
         /**
-         * The stencil's content from its columns: `{ "resource": <StencilResource> }`, every field
+         * The stencil's content from its columns: `{ "resource": <StencilResource> }`, its document in
+         * the released form a release of it stores ([releasedForm]), every field
          * present but `readsTemplateData`, which is there only when true; `description` and
          * `parameterSchema` null where the column is.
          */
         fun payload(
             key: String,
+            catalogKey: String,
             name: String,
             description: String?,
             tags: String?,
@@ -152,7 +156,7 @@ class V20261025083103__core_stencils_to_storage : BaseJavaMigration() {
                 put("name", name)
                 put("description", description)
                 set("tags", tags?.let(mapper::readTree) ?: mapper.createArrayNode())
-                set("content", mapper.readTree(content))
+                set("content", releasedForm(mapper.readTree(content), catalogKey))
                 set("parameterSchema", parameterSchema?.let(mapper::readTree) ?: nullNode())
                 // Left out when false, as the wire form leaves it out.
                 if (readsTemplateData) put("readsTemplateData", true)
@@ -200,6 +204,36 @@ class V20261025083103__core_stencils_to_storage : BaseJavaMigration() {
         }
 
         private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotBlank() }
+
+        /**
+         * [document] as a release of the stencil holds it (`CatalogContentBuilder.Outbound` of this
+         * time): a reference into [catalogKey], its own catalog, relative, and no reference with the
+         * `namespace` or `registry` an earlier draft of wire v8 allowed. Images are never qualified,
+         * so they are left alone.
+         */
+        fun releasedForm(document: JsonNode, catalogKey: String): JsonNode = document.deepCopy().also { relativize(it, catalogKey) }
+
+        private val relative = listOf(
+            Site("stencil", "stencilKey", nodeType = "stencil"),
+            Site("theme", "themeKey", container = "themeRef"),
+            Site("font", "key", container = "fontFamily"),
+        )
+
+        private fun relativize(node: JsonNode, catalogKey: String) {
+            if (node is ObjectNode) {
+                val nodeType = node.get("type")?.takeIf { it.isString }?.asString()
+                for (site in sites) {
+                    val holder = if (site.nodeType != null) node.get("props").takeIf { nodeType == site.nodeType } else node.get(site.container!!)
+                    if (holder !is ObjectNode || holder.text(site.keyField) == null) continue
+                    holder.remove("namespace")
+                    holder.remove("registry")
+                    if (site in relative && holder.text("catalogKey") == catalogKey) holder.remove("catalogKey")
+                }
+                node.properties().forEach { (_, child) -> relativize(child, catalogKey) }
+            } else if (node is ArrayNode) {
+                node.forEach { relativize(it, catalogKey) }
+            }
+        }
 
         private fun sortKeys(node: JsonNode): JsonNode = when (node) {
             is ObjectNode -> mapper.createObjectNode().also { sorted ->

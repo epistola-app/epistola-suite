@@ -315,7 +315,11 @@ class MoveCatalogResourcesHandler(
         val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
         val id = app.epistola.suite.common.ids.StencilId(app.epistola.suite.common.ids.StencilKey.of(rewrite.ownerKey), catalog)
         val stencil = stencils.get(handle, id) ?: return 0
-        if (objectMapper.valueToTree<tools.jackson.databind.JsonNode>(stencil.content) != objectMapper.readTree(rewrite.expected)) return 0
+        // The plan saw the stored document, its own-catalog references relative.
+        val stored = handle.createQuery("SELECT content::text FROM current_stencils WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k")
+            .bind("t", tenantKey).bindCatalog("c", catalog).bind("k", rewrite.ownerKey)
+            .mapTo(String::class.java).findOne().orElse(null) ?: return 0
+        if (objectMapper.readTree(stored) != objectMapper.readTree(rewrite.expected)) return 0
         val content = objectMapper.readValue(rewrite.replacement, app.epistola.template.model.TemplateDocument::class.java)
         // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
         return if (stencils.write(handle, id, stencil.fields().copy(content = content), stencil.updatedBy?.value)) 1 else 0
