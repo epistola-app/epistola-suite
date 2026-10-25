@@ -194,7 +194,7 @@ class CatalogImportRows(
             val imageDeps = deps.filterIsInstance<app.epistola.catalog.protocol.DependencyRef.Image>()
             if (imageDeps.isNotEmpty()) {
                 handle.createQuery(
-                    "SELECT rc.catalog_key, a.id::text AS id FROM assets a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND ${inCurrentVersion("a")} AND a.id::text IN (<slugs>)",
+                    "SELECT rc.catalog_key, a.id::text AS id FROM current_images a JOIN catalogs rc ON rc.tenant_key = a.tenant_key AND rc.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey AND a.id::text IN (<slugs>)",
                 )
                     .bind("tenantKey", tenantKey)
                     .bindList("slugs", imageDeps.map { it.key })

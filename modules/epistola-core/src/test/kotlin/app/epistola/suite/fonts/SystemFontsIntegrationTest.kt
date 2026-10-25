@@ -139,7 +139,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
                   AND EXISTS (
                       SELECT 1 FROM release_resources r
                       JOIN resource_binaries b ON b.tenant_key = r.tenant_key AND b.content_hash = r.content_hash
-                      JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+                      JOIN asset_content c ON c.content_hash = b.binary_hash
                       WHERE r.tenant_key = f.tenant_key AND r.version_id = f.version_id AND r.resource_type = 'font'
                         AND r.resource_key = f.slug AND b.binary_hash = face ->> 'contentHash'
                   )

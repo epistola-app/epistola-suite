@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.queries
 
 import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -44,59 +45,24 @@ data class ExportAssets(
 @Component
 class ExportAssetsHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<ExportAssets, List<ImageResource>> {
 
-    override fun handle(query: ExportAssets): List<ImageResource> {
-        data class AssetRow(
-            val id: String,
-            val name: String,
-            val mediaType: String,
-            val width: Int?,
-            val height: Int?,
-            val contentHash: String?,
-        )
-
-        val rows = jdbi.withHandle<List<AssetRow>, Exception> { handle ->
-            val sql = buildString {
-                // Images only. From wire v7 an image is a catalog resource and a binary is not, so
-                // the font-face binaries sharing this table are not exported as resources -- a face
-                // carries its own bytes inside its font. Matches `ListImagePage`, which the
-                // `/images` surface uses for the same reason.
-                // Each catalog's current version; the named catalog's when one is given.
-                append("SELECT id::text, name, media_type, width, height, content_hash FROM assets WHERE tenant_key = :tenantKey AND ${inCurrentVersion("assets")}")
-                append(" AND media_type LIKE 'image/%'")
-                if (query.catalogKey != null) append(" AND version_id = ${versionAt("tenantKey", "catalogKey")}")
-                if (query.assetIds != null) append(" AND id::text IN (<assetIds>)")
-            }
-            val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
-            if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
-            if (query.assetIds != null) q.bindList("assetIds", query.assetIds)
-            q.map { rs, _ ->
-                AssetRow(
-                    id = rs.getString("id"),
-                    name = rs.getString("name"),
-                    mediaType = rs.getString("media_type"),
-                    width = rs.getObject("width") as? Int,
-                    height = rs.getObject("height") as? Int,
-                    contentHash = rs.getString("content_hash"),
-                )
-            }.list()
+    override fun handle(query: ExportAssets): List<ImageResource> = jdbi.withHandle<List<ImageResource>, Exception> { handle ->
+        // Images only: an image is stored in its released form (ADR 0033); a file kept from a font
+        // face is not exported as an image. Each catalog's current version; the named catalog's when given.
+        val sql = buildString {
+            append("SELECT a.id, (a.payload -> 'resource')::text AS resource FROM current_images a WHERE a.tenant_key = :tenantKey AND a.media_type LIKE 'image/%'")
+            if (query.catalogKey != null) append(" AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
+            if (query.assetIds != null) append(" AND a.id IN (<assetIds>)")
         }
-
-        return rows.map { row ->
-            ImageResource(
-                key = row.id,
-                name = row.name,
-                mediaType = row.mediaType,
-                width = row.width,
-                height = row.height,
-                // No contentUrl: a catalog written at wire v7 files every binary where its hash
-                // says, so identical bytes are one file and there is no path convention to get
-                // wrong. The digest is already stored -- the asset store is keyed by it.
-                contentHash = requireNotNull(row.contentHash) {
-                    "asset ${row.id} has no content hash; the content backfill has not run for it"
-                },
-            )
-        }
+        val q = handle.createQuery(sql).bind("tenantKey", query.tenantKey)
+        if (query.catalogKey != null) q.bindCatalog("catalogKey", query.catalog)
+        if (query.assetIds != null) q.bindList("assetIds", query.assetIds)
+        q.map { rs, _ ->
+            val resource = objectMapper.readTree(rs.getString("resource"))
+            requireNotNull(resource.get("contentHash")?.takeIf { it.isString }) { "image ${rs.getString("id")} has no bytes" }
+            objectMapper.treeToValue(resource, ImageResource::class.java)
+        }.list()
     }
 }

@@ -47,22 +47,6 @@ class CatalogDependencyCyclesTest {
         )
     }
 
-    /**
-     * A font's face binaries travel inside the font when exported, so the catalog storing a face's
-     * binary is not something a restore has to install first.
-     */
-    @Test
-    fun `where a font face's binary is stored is not a catalog dependency`() {
-        val theme = address("letters", "brand", CatalogResourceType.THEME)
-        val font = address("letters", "acme", CatalogResourceType.FONT)
-        val graph = graphOfKinds(
-            Triple(theme, font, "theme-font"),
-            Triple(font, address("letters", "acme-regular", CatalogResourceType.IMAGE), "font-face-asset"),
-        )
-
-        assertThat(CatalogDependencyCycles.introducedBy(graph, listOf(font.movedTo(CatalogKey.of("shared"))))).isNull()
-    }
-
     @Test
     fun `a move that leaves catalogs independent is allowed`() {
         // letters/header uses shared/base. Moving header to shared removes the cross-catalog edge.

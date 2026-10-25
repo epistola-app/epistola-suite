@@ -55,7 +55,7 @@ class CatalogUpgradeAnalyzer(
             UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'stencil', id::text FROM current_stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'attribute', id FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
-            UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'image', id::text FROM current_images WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'codeList', id FROM current_code_lists WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'font', slug::text FROM current_fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             """,
@@ -288,7 +288,6 @@ class CatalogUpgradeAnalyzer(
 
         val tableByType = mapOf(
             "template" to ResourceTable("document_templates", "id"),
-            "image" to ResourceTable("assets", "id"),
         )
         val ordered = staleResources.sortedByDescending { RESOURCE_INSTALL_ORDER[it.type] ?: Int.MIN_VALUE }
 

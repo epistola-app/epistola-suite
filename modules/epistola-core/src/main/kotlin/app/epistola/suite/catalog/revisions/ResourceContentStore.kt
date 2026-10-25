@@ -7,7 +7,6 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.catalog.protocol.CatalogResource
 import app.epistola.catalog.protocol.FontResource
 import app.epistola.catalog.protocol.ImageResource
-import app.epistola.suite.assets.GLOBAL_ASSET_SCOPE
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.fonts.model.sha256Hex
@@ -172,19 +171,16 @@ class ResourceContentStore(
     }
 
     /**
-     * Links [digest] to the bytes it needs (`resource_binaries`), so they are kept while it is: in the
-     * tenant's own scope where it has them there, else the shared one. A hash whose bytes are not
-     * stored yet is not linked; the bundled faces are linked when the system fonts are seeded.
+     * Links [digest] to the bytes it needs (`resource_binaries`), so they are kept while it is. A hash
+     * whose bytes are not stored yet is not linked; the bundled faces are linked when the system
+     * fonts are seeded.
      */
     private fun linkBinaries(handle: Handle, tenantKey: TenantKey, digest: String, hashes: List<String>) {
         if (hashes.isEmpty()) return
         handle.createUpdate(
             """
-            INSERT INTO resource_binaries (tenant_key, content_hash, scope, binary_hash)
-            SELECT DISTINCT ON (ac.content_hash) :t, :digest, ac.scope, ac.content_hash
-            FROM asset_content ac
-            WHERE ac.content_hash IN (<hashes>) AND ac.scope IN (:t, '$GLOBAL_ASSET_SCOPE')
-            ORDER BY ac.content_hash, ac.scope = '$GLOBAL_ASSET_SCOPE'
+            INSERT INTO resource_binaries (tenant_key, content_hash, binary_hash)
+            SELECT :t, :digest, ac.content_hash FROM asset_content ac WHERE ac.content_hash IN (<hashes>)
             ON CONFLICT DO NOTHING
             """,
         )
@@ -282,7 +278,7 @@ class ResourceContentStore(
      * binary reference is what keeps them from being collected. Bytes that do not hash to what their
      * resource names are not stored.
      */
-    private fun storeCarried(content: CatalogContent, hashes: List<String>): Map<String, String> {
+    private fun storeCarried(content: CatalogContent, hashes: List<String>): List<String> {
         val carried = content.resourceDetails.values.flatMap { detail ->
             when (val resource = detail.resource) {
                 is ImageResource -> listOf(Triple(resource.contentHash, resource.contentPath(), resource.mediaType))
@@ -292,11 +288,11 @@ class ResourceContentStore(
         }
         return carried.filter { it.first in hashes }.mapNotNull { (hash, path, mediaType) ->
             // Already stored: neither hashed nor sent again (a system catalog's faces, on every tenant).
-            if (contentStore.exists(GLOBAL_ASSET_SCOPE, hash)) return@mapNotNull hash to GLOBAL_ASSET_SCOPE
+            if (contentStore.exists(hash)) return@mapNotNull hash
             val bytes = content.assetContents[path]?.takeIf { sha256Hex(it) == hash } ?: return@mapNotNull null
-            contentStore.putIfAbsent(GLOBAL_ASSET_SCOPE, hash, bytes, mediaType, bytes.size.toLong())
-            hash to GLOBAL_ASSET_SCOPE
-        }.toMap()
+            contentStore.putIfAbsent(hash, bytes, mediaType, bytes.size.toLong())
+            hash
+        }
     }
 
     /** Every binary a resource needs: an image's own, and each of a font family's faces. */

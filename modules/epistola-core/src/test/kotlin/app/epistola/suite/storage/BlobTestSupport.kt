@@ -14,9 +14,8 @@ import org.jdbi.v3.core.Jdbi
  * from `EpistolaClock` rather than the database clock, so the interval has to clear a frozen test
  * clock as well as a real one.
  */
-fun Jdbi.backdateAssetBlob(scope: String, contentHash: String) = useHandle<Exception> { handle ->
-    handle.createUpdate("UPDATE asset_content SET created_at = now() - interval '5 years' WHERE scope = :s AND content_hash = :h")
-        .bind("s", scope)
+fun Jdbi.backdateAssetBlob(contentHash: String) = useHandle<Exception> { handle ->
+    handle.createUpdate("UPDATE asset_content SET created_at = now() - interval '5 years' WHERE content_hash = :h")
         .bind("h", contentHash)
         .execute()
 }

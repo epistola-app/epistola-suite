@@ -173,7 +173,7 @@ class ReleaseContentAssembler(
             """
             SELECT c.content
             FROM resource_binaries b
-            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+            JOIN asset_content c ON c.content_hash = b.binary_hash
             WHERE b.tenant_key = :t AND b.binary_hash = :hash
             LIMIT 1
             """,
@@ -281,7 +281,7 @@ class ReleaseContentAssembler(
             """
             SELECT c.content_hash, c.content
             FROM resource_binaries b
-            JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+            JOIN asset_content c ON c.content_hash = b.binary_hash
             WHERE b.tenant_key = :t AND b.binary_hash IN (<hashes>)
             """,
         )

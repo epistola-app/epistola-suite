@@ -6,12 +6,10 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.assetContentScope
 import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
-import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.releases.ReleaseReadable
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -45,7 +43,7 @@ data class GetAssetContent(
     val catalog: CatalogId? = null,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
-) : CatalogReleaseScoped,
+) : ReleaseReadable,
     Query<AssetContent?>,
     RequiresPermission {
     init {
@@ -64,15 +62,14 @@ class GetAssetContentHandler(
 ) : QueryHandler<GetAssetContent, AssetContent?> {
 
     override fun handle(query: GetAssetContent): AssetContent? {
-        // 1. Get metadata (including the content-addressable pointer) from DB
+        // 1. The image, with the hash its bytes are stored under.
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog)
         } ?: return null
 
-        // 2. Read content from the content-addressable store by (scope, hash). An asset without a
-        // hash had no bytes to move from the 1.x store (V20261025133328): it has none.
+        // 2. Its bytes, by that hash. An image without one had no bytes to keep (V20261025134500).
         val hash = metadata.contentHash ?: return null
-        val bytes = assetContentStore.get(assetContentScope(metadata.sensitive, metadata.tenantId), hash)?.content?.readAllBytes() ?: return null
+        val bytes = assetContentStore.get(hash)?.content?.readAllBytes() ?: return null
 
         return AssetContent(
             id = metadata.id,
@@ -90,17 +87,17 @@ private data class AssetMeta(
     val catalogKey: CatalogKey,
     val mediaType: AssetMediaType,
     val contentHash: String?,
-    val sensitive: Boolean,
 )
 
 private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog: app.epistola.suite.common.ids.CatalogId?): AssetMeta? = createQuery(
     """
-    SELECT a.id, a.tenant_key, c.catalog_key AS catalog_key, a.media_type, a.content_hash, a.sensitive
-    FROM assets a
-    JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+    SELECT a.id, a.tenant_key, (SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id) AS catalog_key,
+           a.media_type, a.content_hash
+    FROM current_images a
     WHERE a.id = :assetId
       AND a.tenant_key = :tenantId
-      ${if (catalog != null) "AND a.version_id = ${versionAt("tenantId", "catalogKey")}" else "AND ${inCurrentVersion("a")}"}
+      ${if (catalog != null) "AND a.catalog_id = ${catalogAt("tenantId", "catalogKey")}" else ""}
+    LIMIT 1
     """,
 )
     .bind("assetId", assetId.value)
@@ -113,7 +110,6 @@ private fun Handle.loadAssetMeta(tenantId: TenantKey, assetId: AssetKey, catalog
             catalogKey = CatalogKey.of(rs.getString("catalog_key")),
             mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
             contentHash = rs.getString("content_hash"),
-            sensitive = rs.getBoolean("sensitive"),
         )
     }
     .findOne()

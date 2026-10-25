@@ -21,6 +21,40 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 6: images, one store for bytes (25 October; branch `feat/storage-images`, on `feat/storage-fonts`, not pushed)
+
+| Change                                                                                                                                                                                                                                             | Where                                                | Coverage                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------- |
+| `sensitive` dropped: tenant-scoped bytes move into the one store, deduplicated, links follow; `scope` column gone from `asset_content` and `resource_binaries` (PKs and FK on the hash); `assetContentScope` and `GLOBAL_ASSET_SCOPE` removed      | `V20261025134400`, `AssetContentStore`               | ✅ `ImagesToStorageMigrationTest`, `AssetContentStoreIT`         |
+| Content `{ resource: <ImageResource> }` named by a draft row, its bytes linked; read through `current_images` (size from `asset_content`)                                                                                                          | `ImageStore`, `V20261025134500`, `V20261025134600`   | ✅ `ImageStorageTest`, `DraftReleaseSameContentTest`             |
+| Never refused: an image whose bytes 1.x had lost is kept without a hash, logged; export refuses it as before. A font file whose bytes 1.x had lost is no image: logged and left behind (review fix)                                                | `V20261025134500`, `ExportAssets`                    | ✅ `ImagesToStorageMigrationTest`, `DataPreservationMigrationIT` |
+| Upload, import (put), delete, move through the store; image reads release-readable; REST list and download read a release the same way, paged in SQL; REST upload ignores `sensitive` until the contract drops it (`feature/drop-image-sensitive`) | asset commands and queries, `EpistolaImagesApi`      | ✅ asset, REST suites                                            |
+| Reaper: only `resource_binaries` holds a blob                                                                                                                                                                                                      | `ContentReaper`                                      | ✅ `AssetContentStoreIT`, `ContentReaperMaintainerIT`            |
+| Leftovers: `font-face-asset` edge kind and its test, the released-resource REST mappers for stencils, fonts and images, `GetReleasedBinary` removed                                                                                                | `CatalogDependencyCycles`, `ReleasedResourceMappers` | ✅                                                               |
+| Conversion parity: system images and uploaded ones                                                                                                                                                                                                 | `ImageStorageConversion`                             | ✅ `ImageStorageTest`                                            |
+
+**Measured** (`ImageStoragePerfTest`, `--rerun`; one tenant, 20 catalogs of 25 SVGs, each released;
+median / p95 of 200 runs, upload 100; ms):
+
+| Operation                            | before       | after        |
+| ------------------------------------ | ------------ | ------------ |
+| list a catalog's images (page of 50) | 0.85 / 1.61  | 1.03 / 2.33  |
+| list a tenant's images               | 8.95 / 10.55 | 8.25 / 10.39 |
+| read one image                       | 0.39 / 0.46  | 0.51 / 0.67  |
+| read one image's bytes               | 0.65 / 0.77  | 0.98 / 1.43  |
+| upload an image                      | 3.45 / 4.08  | 5.67 / 7.69  |
+
+An upload stores content, its link and the row besides the bytes (+2 ms); a read looks the bytes up by
+hash after the row (+0.3 ms).
+
+**#751 close-out:** the `sensitive` scope is gone rather than surfaced. It was never on the UI, REST
+or catalog formats; the suite stores every image's bytes once per installation, and the contract
+drops the REST field on `feature/drop-image-sensitive`.
+
+**Noticed, left alone:** a deleted image's bytes now wait for the content collector (a day's grace)
+to take its content before the reaper can take them; step 8 folds the reaper's sweep into the
+collector.
+
 ### ADR 0033 storage, step 6a: the 1.x content store (25 October; branch `feat/storage-images`, on `feat/storage-fonts`, not pushed)
 
 The user's decision: `content_store` was always database-only, so instead of a preflight stop the

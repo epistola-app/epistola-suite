@@ -315,11 +315,9 @@ class DeleteCatalogDraftHandler(
         WITH own AS (
             SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
-            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
         ),
         elsewhere AS (
             SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             -- Every other draft's rows and every release's (ADR 0033): not this draft's own.
             UNION SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IS DISTINCT FROM :v
         ),

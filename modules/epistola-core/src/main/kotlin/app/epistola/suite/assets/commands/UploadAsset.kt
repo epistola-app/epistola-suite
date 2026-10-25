@@ -7,29 +7,23 @@ package app.epistola.suite.assets.commands
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
+import app.epistola.suite.assets.ImageFields
 import app.epistola.suite.assets.ImagePixelPolicy
+import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
 import app.epistola.suite.assets.SvgContentPolicy
-import app.epistola.suite.assets.assetContentScope
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.UserKey
-import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
-import app.epistola.suite.storage.AssetContentStore
-import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_COLUMN_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -55,8 +49,6 @@ data class UploadAsset(
     val width: Int?,
     val height: Int?,
     val id: AssetKey? = null,
-    /** When true, the blob is stored in a per-tenant isolated dedup scope (see #738/#751). */
-    val sensitive: Boolean = false,
     /** The catalog version this addresses; null for its catalog's current version. */
     override val catalogVersion: CatalogReleaseRef? = null,
 ) : CatalogReleaseScoped,
@@ -93,7 +85,7 @@ data class UploadAsset(
 @Component
 class UploadAssetHandler(
     private val jdbi: Jdbi,
-    private val assetContentStore: AssetContentStore,
+    private val images: ImageStore,
 ) : CommandHandler<UploadAsset, Asset> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -106,62 +98,14 @@ class UploadAssetHandler(
         if (sizeBytes > MAX_ASSET_SIZE_BYTES) {
             throw AssetTooLargeException(sizeBytes)
         }
-
         val id = command.id ?: AssetKey.generate()
-        val now = EpistolaClock.offsetDateTime()
-        val auditUser = currentUserIdOrNull()?.value
+        logger.info("Uploading image {} ({}, {} bytes) for tenant {}", command.name, command.mediaType.mimeType, sizeBytes, command.tenantId)
 
-        logger.info(
-            "Uploading asset {} ({}, {} bytes) for tenant {}",
-            command.name,
-            command.mediaType.mimeType,
-            sizeBytes,
-            command.tenantId,
-        )
-
-        // Content-addressable store: dedup identical bytes within the derived scope.
-        // Store content first — an orphaned blob is harmless (the reaper reclaims it),
-        // a DB row pointing to missing content is not.
-        val contentHash = sha256Hex(command.content)
-        // Non-sensitive assets dedup in the shared global scope; sensitive ones are
-        // isolated per tenant (#738/#751).
-        val scope = assetContentScope(command.sensitive, command.tenantId)
-        assetContentStore.putIfAbsent(scope, contentHash, command.content, command.mediaType.mimeType, sizeBytes)
-
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO assets (id, tenant_key, catalog_id, version_id, name, media_type, size_bytes, width, height, content_hash, sensitive, created_at, created_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :mediaType, :sizeBytes, :width, :height, :contentHash, :sensitive, :createdAt, :createdBy)
-                """,
-            )
-                .bind("id", id.value)
-                .bind("tenantId", command.tenantId)
-                .bindCatalog("catalogKey", command.catalog)
-                .bind("name", command.name)
-                .bind("mediaType", command.mediaType.mimeType)
-                .bind("sizeBytes", sizeBytes)
-                .bind("width", command.width)
-                .bind("height", command.height)
-                .bind("contentHash", contentHash)
-                .bind("sensitive", command.sensitive)
-                .bind("createdAt", now)
-                .bind("createdBy", auditUser)
-                .execute()
+        // Bytes first, once per installation: a blob nothing names yet is harmless (the reaper takes
+        // it), a content naming bytes that are not there is not.
+        val contentHash = images.storeBytes(command.content, command.mediaType)
+        return jdbi.inTransaction<Asset, Exception> { handle ->
+            images.create(handle, command.catalog, id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash), currentUserIdOrNull()?.value)
         }
-
-        return Asset(
-            id = id,
-            tenantKey = command.catalog.tenantKey,
-            catalogKey = command.catalog.key,
-            namespace = command.catalog.namespace,
-            name = command.name,
-            mediaType = command.mediaType,
-            sizeBytes = sizeBytes,
-            width = command.width,
-            height = command.height,
-            createdAt = now,
-            createdBy = auditUser?.let { UserKey(it) },
-        )
     }
 }

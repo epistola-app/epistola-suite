@@ -5,33 +5,27 @@
 package app.epistola.suite.storage
 
 /**
- * Storage for **permanent asset** blobs (logos, images, font files) — issue #738.
+ * Storage for **permanent** blobs: an image's bytes and a font face's file — issue #738.
  *
- * Content-addressable and deduplicated: blobs are keyed by `(scope, sha256)` so
- * identical bytes are stored once. Always PostgreSQL, regardless of the configured
- * `epistola.storage.backend` — assets are small, low-churn, keep-forever reference
- * data. The `assets.content_hash` column points into this store.
+ * Content-addressable and deduplicated: blobs are keyed by their SHA-256, so identical bytes are
+ * stored once per installation. Always PostgreSQL, regardless of the configured
+ * `epistola.storage.backend` — they are small, low-churn, keep-forever reference data. A stored
+ * content that needs one links to it through `resource_binaries` (ADR 0033).
  *
- * Deduplication scope is a privacy boundary derived from the asset's `sensitive` flag:
- * non-sensitive assets use a single `"global"` scope (dedup installation-wide), while
- * sensitive assets scope to their tenant key (isolated — no cross-tenant existence
- * side-channel, clean erasure). Callers derive the scope with
- * [app.epistola.suite.assets.assetContentScope].
- *
- * There is no public delete: a blob may back many assets, so reclamation is
- * mark-and-sweep by the content reaper once no `assets` row references its hash.
+ * There is no public delete: a blob may back many contents, so reclamation is mark-and-sweep by the
+ * content reaper once no `resource_binaries` row names its hash.
  */
 interface AssetContentStore {
 
     /**
-     * Store [content] under `(scope, sha256)` if absent; if the blob already exists, only its
-     * write time is touched (deduplication), so the content sweeps count their grace period from the last write. Idempotent — safe to call for every asset write.
+     * Store [content] under [sha256] if absent; if the blob already exists, only its write time is
+     * touched (deduplication), so the content sweeps count their grace period from the last write.
      */
-    fun putIfAbsent(scope: String, sha256: String, content: ByteArray, contentType: String, sizeBytes: Long)
+    fun putIfAbsent(sha256: String, content: ByteArray, contentType: String, sizeBytes: Long)
 
-    /** Retrieve content by `(scope, sha256)`, or null if not found. */
-    fun get(scope: String, sha256: String): StoredContent?
+    /** Retrieve content by [sha256], or null if not found. */
+    fun get(sha256: String): StoredContent?
 
-    /** Check whether content exists at `(scope, sha256)`. */
-    fun exists(scope: String, sha256: String): Boolean
+    /** Check whether content exists under [sha256]. */
+    fun exists(sha256: String): Boolean
 }

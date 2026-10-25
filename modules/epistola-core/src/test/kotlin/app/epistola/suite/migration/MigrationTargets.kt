@@ -19,3 +19,6 @@ internal const val BEFORE_FONT_STORAGE = "20261025083200"
  * the fonts are converted, so a face whose bytes were still there joins its font.
  */
 internal const val BEFORE_LEGACY_CONTENT = "20261025083200"
+
+/** The last migration before every asset's bytes shared one store and images moved to JSON storage (`V20261025134400`). */
+internal const val BEFORE_IMAGE_STORAGE = "20261025133400"

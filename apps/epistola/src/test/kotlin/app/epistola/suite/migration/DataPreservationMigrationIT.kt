@@ -208,6 +208,11 @@ class DataPreservationMigrationIT {
                 VALUES ('00000000-0000-0000-0000-000000000201', '$TENANT', 'default', 'invoice', 'main', 1,
                         'invoice.pdf', 1024, '2026-06-23 10:00:00+00');
 
+                -- Bytes the 1.x content backfill (#738) had not moved yet: the 2.0 upgrade moves them.
+                INSERT INTO content_store (key, content, content_type, size_bytes) VALUES
+                    ('assets/$TENANT/00000000-0000-0000-0000-000000000301', '\x89504e47'::bytea, 'image/png', 4),
+                    ('documents/$TENANT/00000000-0000-0000-0000-000000000201', '\x25504446'::bytea, 'application/pdf', 4);
+
                 -- Partitioned like documents; the fixture owns its partition.
                 CREATE TABLE document_generation_requests_202606
                     PARTITION OF document_generation_requests
@@ -351,9 +356,15 @@ class DataPreservationMigrationIT {
             )
                 .describedAs("both faces, uploaded and bundled, by the hash 1.x recorded")
                 .isEqualTo("400/abc123,700/def456")
-            assertThat(one("SELECT name FROM assets WHERE tenant_key = '$TENANT' AND media_type = 'font/ttf'"))
-                .describedAs("a face's file whose bytes the content backfill has not moved keeps its row, the only way to them")
-                .isEqualTo("brand-regular.ttf")
+            assertThat(one("SELECT CAST(count(*) AS TEXT) FROM current_images WHERE tenant_key = '$TENANT' AND media_type NOT LIKE 'image/%'"))
+                .describedAs("a face's file whose bytes 1.x had already lost is no image: left behind, logged, nothing refused")
+                .isEqualTo("0")
+            assertThat(one("SELECT content_hash FROM current_images WHERE tenant_key = '$TENANT' AND name = 'logo.png'"))
+                .describedAs("an image whose bytes 1.x had not moved names them, moved in the migration step")
+                .isEqualTo("0f4636c78f65d3639ece5a064b5ae753e3408614a14fb18ab4d7540d2c248543")
+            assertThat(one("SELECT encode(content, 'hex') FROM document_content WHERE key = 'documents/$TENANT/00000000-0000-0000-0000-000000000201'"))
+                .describedAs("a document whose bytes 1.x had not moved has them in document_content").isEqualTo("25504446")
+            assertThat(one("SELECT CAST(to_regclass('assets') IS NULL AND to_regclass('content_store') IS NULL AS TEXT)")).describedAs("the asset and legacy content tables are gone").isEqualTo("true")
             assertThat(one("SELECT CAST(to_regclass('fonts') IS NULL AND to_regclass('font_variants') IS NULL AS TEXT)")).describedAs("the font tables are gone").isEqualTo("true")
             // 2.0 drops the 1.x versions (V20261018201400), keeping what the first release is cut from
             // and a summary of the rest.

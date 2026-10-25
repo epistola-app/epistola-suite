@@ -7,16 +7,14 @@ package app.epistola.suite.api.v1
 import app.epistola.api.ImagesApi
 import app.epistola.api.model.ImageDto
 import app.epistola.api.model.ImageListResponse
-import app.epistola.catalog.protocol.ImageResource
 import app.epistola.suite.api.v1.shared.Pagination
 import app.epistola.suite.api.v1.shared.catalogId
 import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.readOnlyHere
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toImageDto
@@ -31,7 +29,6 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListImagePage
-import app.epistola.suite.catalog.releases.GetReleasedBinary
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
@@ -61,7 +58,7 @@ import javax.imageio.ImageIO
  * The rows are the same either way: images and font faces share one content-addressed store,
  * which is a storage concern rather than something a caller should have to know about.
  *
- * A draft reads and changes the working copy; a released version reads the images the release holds.
+ * A draft reads and changes the working copy; a released version reads the images the release holds, the same way (ADR 0033).
  */
 @RestController
 @RequestMapping("/api")
@@ -80,17 +77,6 @@ class EpistolaImagesApi(
         size: Int,
     ): ResponseEntity<ImageListResponse> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            val images = at.releasedResources<ImageResource>("image").filter { search.isNullOrBlank() || it.name.contains(search, ignoreCase = true) }
-            val slice = Pagination.pageOfRelease(images, page, size)
-            return ResponseEntity.ok(
-                ImageListResponse(
-                    items = slice.items.map { it.toDto(at, sizeBytes = releasedBytes(at.tenantKey, it).size.toLong()) },
-                    page = slice.page,
-                ),
-            )
-        }
         // Paged in the database. A tenant's image count is unbounded, so the page a caller asked
         // for should cost the page rather than the whole catalog.
         val result = ListImagePage(
@@ -98,11 +84,12 @@ class EpistolaImagesApi(
             searchTerm = search,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
-            catalogVersion = at.ref,
+            // A draft or a release, read and paged the same way (ADR 0033).
+            catalogVersion = at.readRef,
         ).query()
         return ResponseEntity.ok(
             ImageListResponse(
-                items = at.catalog.readOnlyHere().let { readOnly -> result.items.map { it.toImageDto(at.catalog, readOnly) } },
+                items = (!at.isDraft || at.catalog.readOnlyHere()).let { readOnly -> result.items.map { it.toImageDto(at.catalog, readOnly) } },
                 page = Pagination.pageMeta(page, size, result.totalElements),
             ),
         )
@@ -117,7 +104,9 @@ class EpistolaImagesApi(
         file: MultipartFile,
         name: String?,
         mediaType: String?,
-        sensitive: Boolean,
+        // Contract 2.0.0-alpha.1 still carries it; every image's bytes are stored alike now, so it
+        // chooses nothing (dropped from the contract on `feature/drop-image-sensitive`).
+        @Suppress("UNUSED_PARAMETER") sensitive: Boolean,
     ): ResponseEntity<ImageDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val content = file.bytes
@@ -141,7 +130,6 @@ class EpistolaImagesApi(
             content = content,
             width = dimensions?.first,
             height = dimensions?.second,
-            sensitive = sensitive,
             catalogVersion = draft.ref,
         ).execute()
         return image.toImageDto(draft.catalog).let { created(it.key, it) }
@@ -157,13 +145,9 @@ class EpistolaImagesApi(
     ): ResponseEntity<Resource> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
         val key = AssetKey.of(imageKey)
-        val (mediaType, bytes) = if (at.isDraft) {
-            GetAssetContent(tenantId = at.catalog.tenantKey, catalog = at.catalogId, assetId = key, catalogVersion = at.ref).query()
-                ?.let { it.mediaType to it.content }
-        } else {
-            at.releasedResource<ImageResource>("image", imageKey)
-                ?.let { AssetMediaType(it.mediaType) to releasedBytes(at.tenantKey, it) }
-        } ?: throw AssetNotFoundException(at.tenantKey, key)
+        val (mediaType, bytes) = GetAssetContent(tenantId = at.catalog.tenantKey, catalog = at.catalogId, assetId = key, catalogVersion = at.readRef).query()
+            ?.let { it.mediaType to it.content }
+            ?: throw AssetNotFoundException(at.tenantKey, key)
 
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(mediaType.mimeType))
@@ -196,10 +180,6 @@ class EpistolaImagesApi(
         DeleteAsset(tenantId = draft.catalog.tenantKey, assetId = key, force = force, catalogVersion = draft.ref).execute()
         return ResponseEntity.noContent().build()
     }
-
-    /** The bytes a release holds for [image]; a release that names bytes it does not hold is not served. */
-    private fun releasedBytes(tenantKey: TenantKey, image: ImageResource): ByteArray = GetReleasedBinary(tenantKey, image.contentHash).query()
-        ?: throw AssetNotFoundException(tenantKey, AssetKey.of(image.key))
 
     // From the header only: decoding a file that declares a huge size would take the node's memory.
     private fun imageDimensions(content: ByteArray): Pair<Int, Int>? = ImagePixelPolicy.dimensions(content)

@@ -203,9 +203,6 @@ class ContentVersionSqlTest {
             // which holds only the version a caller means; DroppedContentTableSqlTest refuses the old table.
             "document_templates",
             "template_variants",
-            "assets",
-            "fonts",
-            "font_variants",
             "resource_ready_marks",
             "catalog_dependencies",
             "resource_content_digests",

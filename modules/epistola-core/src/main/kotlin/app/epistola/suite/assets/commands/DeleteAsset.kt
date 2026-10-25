@@ -5,8 +5,8 @@
 package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
+import app.epistola.suite.assets.ImageStore
 import app.epistola.suite.assets.queries.FindAssetUsages
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.requireCatalogEditable
@@ -45,23 +45,24 @@ data class DeleteAsset(
 @Component
 class DeleteAssetHandler(
     private val jdbi: Jdbi,
+    private val images: ImageStore,
 ) : CommandHandler<DeleteAsset, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: DeleteAsset): Boolean {
-        // Check catalog editability before proceeding
-        val catalog = jdbi.withHandle<app.epistola.suite.common.ids.CatalogId, Exception> { handle ->
+        // The image's catalog: an image key names one image of the tenant's current versions.
+        val catalog = jdbi.withHandle<app.epistola.suite.common.ids.CatalogId?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT c.catalog_key, c.namespace FROM assets a
+                SELECT c.catalog_key, c.namespace FROM current_images a
                 JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
                 WHERE a.tenant_key = :tenantId AND a.id = :assetId
-                  AND ${inCurrentVersion("a")}
+                LIMIT 1
                 """,
             )
                 .bind("tenantId", command.tenantId)
-                .bind("assetId", command.assetId)
+                .bind("assetId", command.assetId.value)
                 .map { rs, _ -> app.epistola.suite.common.ids.CatalogId(rs.getString("namespace"), CatalogKey(rs.getString("catalog_key")), app.epistola.suite.common.ids.TenantId(command.tenantId)) }
                 .findOne()
                 .orElse(null)
@@ -75,33 +76,8 @@ class DeleteAssetHandler(
             }
         }
 
-        logger.info("Deleting asset {} for tenant {}", command.assetId, command.tenantId)
-
-        val deleted = jdbi.withHandle<Boolean, Exception> { handle ->
-            val rowsDeleted = handle.createUpdate(
-                """
-                DELETE FROM assets
-                WHERE id = :assetId
-                  AND tenant_key = :tenantId
-                  AND ${inCurrentVersion("assets")}
-                """,
-            )
-                .bind("assetId", command.assetId.value)
-                .bind("tenantId", command.tenantId)
-                .execute()
-
-            rowsDeleted > 0
-        }
-
-        if (deleted) {
-            // The blob is NOT deleted here: under the content-addressable store a blob
-            // may back many assets. The content reaper mark-and-sweeps it once no
-            // `assets` row references its (scope, content_hash). (#738)
-            logger.info("Deleted asset {}", command.assetId)
-        } else {
-            logger.warn("Asset {} not found for tenant {}", command.assetId, command.tenantId)
-        }
-
-        return deleted
+        logger.info("Deleting image {} for tenant {}", command.assetId, command.tenantId)
+        // Its bytes go when no content names them any more (the content reaper, #738).
+        return jdbi.withHandle<Boolean, Exception> { images.delete(it, catalog, command.assetId.value) }
     }
 }

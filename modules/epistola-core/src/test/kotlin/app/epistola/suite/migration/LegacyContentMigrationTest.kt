@@ -97,17 +97,18 @@ class LegacyContentMigrationTest {
         flyway(null).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
-            assertThat(connection.rows("SELECT id, content_hash FROM assets ORDER BY id"))
-                .`as`("each asset with bytes is stamped with their hash; one without is left as it was; the face-only file goes")
-                .containsExactly(listOf("logo", sha(logo)), listOf("lost", null), listOf("lost-face", null), listOf("secret", sha(secret)))
+            assertThat(connection.rows("SELECT id, content_hash FROM current_images ORDER BY id"))
+                .`as`("each image with bytes names their hash; one without is kept without; no font file is an image")
+                .containsExactly(listOf("logo", sha(logo)), listOf("lost", null), listOf("secret", sha(secret)))
+            assertThat(connection.rows("SELECT id FROM current_images WHERE media_type NOT LIKE 'image/%'")).isEmpty()
             // Moved before the fonts are converted (#742), so the conversion finds the face's hash.
             val face400 = connection.rows("SELECT f.payload -> 'resource' -> 'variants' ->> 0 FROM current_fonts f WHERE f.slug = 'house-sans'").single().single()!!
             assertThat(face400).`as`("the face whose bytes were still in content_store is the font's").contains("\"contentHash\": \"${sha(face)}\"")
-            assertThat(connection.rows("SELECT scope, content_hash FROM asset_content ORDER BY content_hash").map { it.joinToString("/") })
-                .`as`("under the shared scope, or the tenant's for a sensitive asset")
-                .containsExactlyInAnyOrder("global/${sha(logo)}", "acme/${sha(secret)}", "global/${sha(face)}")
-            assertThat(connection.rows("SELECT b.scope || '/' || b.binary_hash FROM resource_binaries b JOIN release_resources f ON f.tenant_key = b.tenant_key AND f.content_hash = b.content_hash WHERE f.resource_type = 'font' AND f.resource_key = 'house-sans' AND f.version_id IS NOT NULL").map { it.single() })
-                .`as`("the font links to its face's bytes").containsExactly("global/${sha(face)}")
+            assertThat(connection.rows("SELECT content_hash FROM asset_content").map { it.single() })
+                .`as`("each moved, once (a sensitive asset's too, one store since step 6)")
+                .containsExactlyInAnyOrder(sha(logo), sha(secret), sha(face))
+            assertThat(connection.rows("SELECT b.binary_hash FROM resource_binaries b JOIN release_resources f ON f.tenant_key = b.tenant_key AND f.content_hash = b.content_hash WHERE f.resource_type = 'font' AND f.resource_key = 'house-sans' AND f.version_id IS NOT NULL").map { it.single() })
+                .`as`("the font links to its face's bytes").containsExactly(sha(face))
             assertThat(connection.rows("SELECT key FROM document_content").map { it.single() })
                 .`as`("the document's blob moves; the one whose document is gone does not")
                 .containsExactly("documents/acme/00000000-0000-0000-0000-000000000001")
