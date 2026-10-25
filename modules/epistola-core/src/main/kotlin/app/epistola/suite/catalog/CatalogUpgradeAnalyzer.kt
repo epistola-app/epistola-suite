@@ -54,7 +54,7 @@ class CatalogUpgradeAnalyzer(
             SELECT 'template' AS type, id::text AS slug FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'theme', id::text FROM current_themes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'stencil', id::text FROM stencils WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
-            UNION ALL SELECT 'attribute', id::text FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
+            UNION ALL SELECT 'attribute', id FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'image', id::text FROM assets WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
             UNION ALL SELECT 'codeList', id FROM current_code_lists WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             UNION ALL SELECT 'font', slug::text FROM fonts WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}
@@ -180,14 +180,14 @@ class CatalogUpgradeAnalyzer(
     ) {
         handle.createQuery(
             """
-            SELECT vad.display_name, vc.catalog_key AS catalog_key
-            FROM variant_attribute_definitions vad
-            JOIN catalogs vc ON vc.tenant_key = vad.tenant_key AND vc.catalog_id = vad.catalog_id
-            WHERE vad.tenant_key = :t
-              AND vad.catalog_id != ${catalogAt("t", "c")}
-              AND ${inCurrentVersion("vad")}
-              AND vad.code_list_resource_id = (SELECT resource_id FROM current_code_lists
-                                            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = CAST(:slug AS TEXT))
+            -- Resolved through the one alias resolver (catalog_version_references, ADR 0033).
+            SELECT vad.name AS display_name, vc.catalog_key AS catalog_key
+            FROM catalog_version_references('attribute') x
+            JOIN release_resources vad ON vad.tenant_key = x.tenant_key AND vad.version_id = x.version_id AND vad.resource_type = 'attribute' AND vad.resource_key = x.resource_key
+            JOIN catalogs vc ON vc.tenant_key = x.tenant_key AND vc.catalog_id = x.catalog_id
+            WHERE x.tenant_key = :t
+              AND x.catalog_id != ${catalogAt("t", "c")}
+              AND x.ref_type = 'codeList' AND x.ref_catalog_id = ${catalogAt("t", "c")} AND x.ref_key = CAST(:slug AS TEXT)
             """,
         ).bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("slug", slug)
             .map { rs, _ ->
@@ -289,7 +289,6 @@ class CatalogUpgradeAnalyzer(
         val tableByType = mapOf(
             "template" to ResourceTable("document_templates", "id"),
             "stencil" to ResourceTable("stencils", "id"),
-            "attribute" to ResourceTable("variant_attribute_definitions", "id"),
             "image" to ResourceTable("assets", "id"),
             "font" to ResourceTable("fonts", "slug"),
         )
@@ -298,7 +297,7 @@ class CatalogUpgradeAnalyzer(
         val removed = mutableListOf<RemovedResource>()
         jdbi.useHandle<Exception> { handle ->
             for (resource in ordered) {
-                if (resource.type == "theme" || resource.type == "codeList") {
+                if (resource.type in app.epistola.suite.catalog.revisions.StoredContent.ENVELOPED_TYPES) {
                     // A theme is a draft row naming its content (ADR 0033).
                     app.epistola.suite.catalog.revisions.DraftResources.delete(handle, catalog, resource.type, resource.slug)
                     removed.add(RemovedResource(resource.type, resource.slug))

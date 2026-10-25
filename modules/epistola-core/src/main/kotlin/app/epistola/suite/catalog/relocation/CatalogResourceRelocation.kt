@@ -147,6 +147,7 @@ class MoveCatalogResourcesHandler(
     private val declarer: MissingDependencyDeclarer,
     private val themes: app.epistola.suite.themes.ThemeStore,
     private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
+    private val attributes: app.epistola.suite.attributes.AttributeStore,
     private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : CommandHandler<MoveCatalogResources, CatalogResourceMovePreview> {
     override fun handle(command: MoveCatalogResources): CatalogResourceMovePreview = jdbi.inTransaction<CatalogResourceMovePreview, Exception> { handle ->
@@ -191,6 +192,8 @@ class MoveCatalogResourcesHandler(
 
                 is JsonRewrite.ThemeStyles -> rewriteThemeStyles(handle, command.tenantKey, rewrite)
 
+                is JsonRewrite.AttributeContent -> rewriteAttribute(handle, command.tenantKey, rewrite)
+
                 is JsonRewrite.VariantAttributes -> handle.createUpdate(
                     """
                     UPDATE template_variants SET attributes = :replacement::jsonb
@@ -215,6 +218,13 @@ class MoveCatalogResourcesHandler(
                 // A theme is a draft row naming its content (ADR 0033); its content names its key.
                 val source = relocation.source.catalogIn(command.tenantKey)
                 if (!themes.move(handle, source, relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
+                    throw StaleCatalogResourceMovePlanException()
+                }
+                continue
+            }
+            if (movable == MovableResource.ATTRIBUTE) {
+                // So is an attribute (ADR 0033).
+                if (!attributes.move(handle, relocation.source.catalogIn(command.tenantKey), relocation.source.key, relocation.target.catalogIn(command.tenantKey), relocation.target.key)) {
                     throw StaleCatalogResourceMovePlanException()
                 }
                 continue
@@ -283,6 +293,19 @@ class MoveCatalogResourcesHandler(
         )
         // A rewrite follows a move; it is not the user's edit, so whoever edited it last stays.
         return if (themes.save(handle, theme, fields, theme.updatedBy?.value) != null) 1 else 0
+    }
+
+    /** The attribute's binding replaced, when its content is still what the plan saw; 1 when it was, else 0. */
+    private fun rewriteAttribute(handle: org.jdbi.v3.core.Handle, tenantKey: TenantKey, rewrite: JsonRewrite.AttributeContent): Int {
+        val catalog = app.epistola.suite.common.ids.CatalogId.of(rewrite.catalogKey, app.epistola.suite.common.ids.TenantId(tenantKey))
+        val id = app.epistola.suite.common.ids.AttributeId(app.epistola.suite.common.ids.AttributeKey.of(rewrite.ownerKey), catalog)
+        val stored = handle.createQuery(
+            "SELECT (payload -> 'resource')::text FROM current_attributes WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :k",
+        ).bind("t", tenantKey).bindCatalog("c", catalog).bind("k", rewrite.ownerKey).mapTo(String::class.java).findOne().orElse(null) ?: return 0
+        if (objectMapper.readTree(stored) != objectMapper.readTree(rewrite.expected)) return 0
+        val replacement = objectMapper.readValue(rewrite.replacement, app.epistola.catalog.protocol.AttributeResource::class.java)
+        val fields = app.epistola.suite.attributes.AttributeFields(replacement.name, replacement.allowedValues, replacement.codeListBinding)
+        return if (attributes.write(handle, id, fields, null)) 1 else 0
     }
 
     private fun org.jdbi.v3.core.statement.Update.bindRewrite(tenantKey: TenantKey, rewrite: JsonRewrite) = bind("tenantKey", tenantKey)

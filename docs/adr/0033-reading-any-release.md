@@ -230,7 +230,22 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
 - **Lists and searches** read the summary columns, never the JSON. **Usages and the graph** join
   rows to `resource_references`.
 - **References between resources** are not foreign keys: a write checks that what the content refers
-  to resolves, as the merge already does.
+  to resolves, as the merge already does. Content holds only what the wire form holds, the alias and
+  the key; no identity is kept beside it. `resource_references` is the index, filled from the
+  reference walker when content is stored. Relocation rewrites the content that names a moved
+  resource, and renaming a dependency's alias would go through the same rewrite. An alias is
+  resolved in one place, the SQL function `resolve_catalog_alias` (a draft's declarations, a release's
+  pins, else the tenant's one catalog of that key), and "used by", "in use?" and the graph read
+  through it (`catalog_version_references(type)`), never with an alias join of their own. A binding
+  reads the target at the version its catalog declares: a draft that pins a dependency's release reads
+  that release (variant attributes, step 3).
+- **The reference walker is frozen by golden vectors** (`fixtures/references/v1.json`,
+  `ReferenceWalkerGoldenVectorsTest`; ADR 0035). The index needs rebuilding only when the walker
+  changes its output for content that already exists (a bug fix, an existing field that starts to
+  count as a reference); that change comes with a code migration that walks the existing content
+  again, and the vectors catch exactly it, since a changed output for an existing input fails them. A
+  new kind of reference that only new content can contain (a new component type, say) adds a vector
+  and needs no migration.
 - **Content nothing points at** (the previous content of a saved resource, a removed draft, release
   or resource) is garbage, collected by a background job; the rows go at once, the content later.
   - **Sweep:** per tenant, in batches with `FOR UPDATE SKIP LOCKED`, content older than a grace

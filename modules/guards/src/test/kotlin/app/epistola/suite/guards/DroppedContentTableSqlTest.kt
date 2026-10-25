@@ -33,12 +33,12 @@ class DroppedContentTableSqlTest {
         assertTrue(
             violations.isEmpty(),
             "These statements name a table that moved to JSON storage (ADR 0033). Read the type's view " +
-                "(current_themes) and write through its store (ThemeStore, DraftResources):\n" + violations.joinToString("\n"),
+                "(current_themes, current_code_lists, current_attributes) and write through its store (DraftResources):\n" + violations.joinToString("\n"),
         )
     }
 
     private companion object {
-        val DROPPED = Regex("""\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(themes|code_lists|code_list_entries)\b""", RegexOption.IGNORE_CASE)
+        val DROPPED = Regex("""\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+(themes|code_lists|code_list_entries|variant_attribute_definitions)\b""", RegexOption.IGNORE_CASE)
 
         val EXEMPT = listOf(
             "/src/main/kotlin/db/migration/",

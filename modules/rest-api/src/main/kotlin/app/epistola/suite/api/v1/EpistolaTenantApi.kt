@@ -23,7 +23,6 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
-import app.epistola.catalog.protocol.AttributeResource
 import app.epistola.suite.api.v1.shared.ETags
 import app.epistola.suite.api.v1.shared.ListSorting
 import app.epistola.suite.api.v1.shared.Pagination
@@ -34,9 +33,8 @@ import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
 import app.epistola.suite.api.v1.shared.readOnlyHere
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.tenantKey
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.attributes.AttributeNotFoundException
@@ -195,14 +193,10 @@ class EpistolaTenantApi(
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        val items = if (at.isDraft) {
-            val readOnly = at.catalog.readOnlyHere()
-            ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.ref).query()
-                .map { it.toDto(at.catalog, readOnly) }
-        } else {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            at.releasedResources<AttributeResource>(ATTRIBUTE).map { it.toDto(at) }
-        }
+        // A draft or a release, read the same way (ADR 0033); a release is read-only.
+        val readOnly = !at.isDraft || at.catalog.readOnlyHere()
+        val items = ListAttributeDefinitions(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, catalogVersion = at.readRef).query()
+            .map { it.toDto(at.catalog, readOnly) }
         val slice = Pagination.paginate(items, page, size)
         return ResponseEntity.ok(AttributeListResponse(items = slice.items, page = slice.page))
     }
@@ -242,11 +236,8 @@ class EpistolaTenantApi(
         attributeKey: String,
     ): ResponseEntity<AttributeDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            return ResponseEntity.ok(at.releasedResource<AttributeResource>(ATTRIBUTE, attributeKey)?.toDto(at) ?: throw at.attributeNotFound(attributeKey))
-        }
-        val attribute = GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.ref).query() ?: throw at.attributeNotFound(attributeKey)
-        return okWithETag(attribute.revision, attribute.toDto(at))
+        val attribute = GetAttributeDefinition(id = at.attributeId(attributeKey), catalogVersion = at.readRef).query() ?: throw at.attributeNotFound(attributeKey)
+        return okWithETag(attribute.revision, attribute.toDto(at.catalog, readOnly = !at.isDraft || at.catalog.readOnlyHere()))
     }
 
     override fun updateAttribute(
@@ -494,8 +485,4 @@ class EpistolaTenantApi(
         lastUsedAt = lastUsedAt,
         documentsRequested = documentsRequested,
     )
-
-    private companion object {
-        const val ATTRIBUTE = "attribute"
-    }
 }

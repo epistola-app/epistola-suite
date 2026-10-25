@@ -317,7 +317,9 @@ class CatalogResourceMovePlanner(
         val movingTemplates = relocations.filter { it.source.type == CatalogResourceType.TEMPLATE }.associateBy { it.source }
         val movingStencils = relocations.filter { it.source.type == CatalogResourceType.STENCIL }.associateBy { it.source }
         val movingThemes = relocations.filter { it.source.type == CatalogResourceType.THEME }.associateBy { it.source }
+        val movingAttributes = relocations.filter { it.source.type == CatalogResourceType.ATTRIBUTE }.associateBy { it.source }
         rewriteThemeStyles(handle, tenantKey, contentMoves, movingThemes, rewrites, aliases)
+        rewriteAttributeBindings(handle, tenantKey, contentMoves, movingAttributes, rewrites, aliases)
         if (contentMoves.isEmpty() && movingTemplates.isEmpty() && movingStencils.isEmpty()) return
 
         // Only a batch that moves a referenced type has to look at every holder in the tenant; one
@@ -407,6 +409,47 @@ class CatalogResourceMovePlanner(
             .let(rewrites::addAll)
     }
 
+    /**
+     * An attribute's content names its code list by alias and key (ADR 0033, step 3). A draft's
+     * attribute bound to a moving code list is re-pointed at its destination, and a moving
+     * attribute's binding to a list of its own catalog is pinned to that catalog, as a moving
+     * stencil's relative references are. Only drafts hold attributes that can be rewritten; a
+     * release keeps its content.
+     */
+    private fun rewriteAttributeBindings(
+        handle: Handle,
+        tenantKey: TenantKey,
+        contentMoves: Map<ResourceAddress, ResourceAddress>,
+        movingAttributes: Map<ResourceAddress, ResourceRelocation>,
+        rewrites: MutableList<JsonRewrite>,
+        aliases: Map<Pair<String, String>, String>,
+    ) {
+        if (contentMoves.keys.none { it.type == CatalogResourceType.CODE_LIST } && movingAttributes.isEmpty()) return
+        handle.createQuery(
+            """
+            SELECT c.namespace || '/' || c.catalog_key AS catalog_key, a.id AS attribute_key, (a.payload -> 'resource')::text AS resource
+            FROM current_attributes a
+            JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id
+            WHERE a.tenant_key = :tenantKey AND a.code_list_key IS NOT NULL
+            ORDER BY c.catalog_key, a.id
+            """,
+        )
+            .bind("tenantKey", tenantKey)
+            .map { rs, _ ->
+                val catalogKey = rs.getString("catalog_key")
+                val attributeKey = rs.getString("attribute_key")
+                val raw = rs.getString("resource")
+                val owner = movingAttributes[ResourceAddress.at(CatalogResourceType.ATTRIBUTE, catalogKey, attributeKey)]
+                var result = applyContentMoves(objectMapper.readTree(raw), catalogKey, contentMoves, aliases)
+                if (owner != null) result = result.pinningRelative(catalogKey, owner.source)
+                if (!result.changed) return@map null
+                JsonRewrite.AttributeContent(catalogKey, attributeKey, raw, result.json.toString(), result.attributedTo)
+            }
+            .list()
+            .filterNotNull()
+            .let(rewrites::addAll)
+    }
+
     /** The rewritten payload for one version, or null when it needs no change. */
     private fun rewriteRow(
         row: JsonOwnerRow,
@@ -481,8 +524,8 @@ class CatalogResourceMovePlanner(
         if (renamedSlugs.isNotEmpty()) {
             val answering = handle.createQuery(
                 """
-                SELECT id::text slug, COUNT(*) definitions FROM variant_attribute_definitions
-                WHERE tenant_key = :tenantKey AND ${inCurrentVersion("variant_attribute_definitions")} AND id IN (<slugs>)
+                SELECT id slug, COUNT(*) definitions FROM current_attributes
+                WHERE tenant_key = :tenantKey AND id IN (<slugs>)
                 GROUP BY id
                 """,
             )
@@ -715,6 +758,18 @@ internal sealed interface JsonRewrite {
         override val expected get() = "$expectedDocumentStyles|$expectedPresets"
         override val replacement get() = "$replacementDocumentStyles|$replacementPresets"
         override val identity get() = "theme-styles:$catalogKey:$ownerKey"
+    }
+
+    /** An attribute's released form in its draft's content (ADR 0033): [version] is unused. */
+    data class AttributeContent(
+        override val catalogKey: String,
+        override val ownerKey: String,
+        override val expected: String,
+        override val replacement: String,
+        override val attributedTo: ResourceAddress?,
+    ) : JsonRewrite {
+        override val version = 0
+        override val identity get() = "attribute:$catalogKey:$ownerKey"
     }
 
     /** A variant's attribute map is unversioned live configuration, so [version] is unused. */

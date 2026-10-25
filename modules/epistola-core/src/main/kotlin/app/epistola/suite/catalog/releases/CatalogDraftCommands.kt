@@ -316,14 +316,12 @@ class DeleteCatalogDraftHandler(
         WITH own AS (
             SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = :v
-            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id = :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id = :v
         ),
         elsewhere AS (
             SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id <> :v
-            UNION SELECT resource_id FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM assets WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM fonts WHERE tenant_key = :t AND version_id <> :v
             UNION SELECT resource_id FROM stencils WHERE tenant_key = :t AND version_id <> :v
@@ -334,9 +332,16 @@ class DeleteCatalogDraftHandler(
         refs (holder, holder_resource_id, held_resource_id, ordinal) AS (
             SELECT 'the tenant''s default theme', NULL::uuid, default_theme_resource_id, 1
             FROM tenants WHERE id = :t AND default_theme_resource_id IN (SELECT resource_id FROM alone)
-            UNION SELECT 'attribute', resource_id, code_list_resource_id, 2
-            FROM variant_attribute_definitions WHERE tenant_key = :t AND version_id <> :v
-              AND code_list_resource_id IN (SELECT resource_id FROM alone)
+            -- An attribute of another draft bound to a code list only this draft holds: its binding
+            -- resolved through the one alias resolver (resolve_catalog_alias, ADR 0033).
+            UNION SELECT 'attribute', r.resource_id, target.resource_id, 2
+            FROM release_resources r
+            JOIN resource_references x ON x.tenant_key = r.tenant_key AND x.content_hash = r.content_hash AND x.resource_type = 'codeList'
+            JOIN catalog_resources target ON target.tenant_key = r.tenant_key AND target.resource_type = 'codeList'
+             AND target.catalog_id = resolve_catalog_alias(r.tenant_key, r.catalog_id, r.version_id, r.version, x.alias)
+             AND target.resource_key = x.resource_key
+            WHERE r.tenant_key = :t AND r.resource_type = 'attribute' AND r.version_id IS NOT NULL AND r.version_id <> :v
+              AND target.resource_id IN (SELECT resource_id FROM alone)
             UNION SELECT 'template', resource_id, theme_resource_id, 3
             FROM document_templates WHERE tenant_key = :t AND version_id <> :v
               AND theme_resource_id IN (SELECT resource_id FROM alone)

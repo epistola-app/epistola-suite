@@ -76,12 +76,12 @@ enum class MovableResource(
     /**
      * Referenced only by the keys of `template_variants.attributes`, which is live mutable
      * configuration rather than versioned content. Every reference to an attribute is therefore
-     * rewritable and none is left naming the old address — which is what makes this the simplest type
-     * to move, and why it was the first re-keyed.
+     * rewritable and none is left naming the old address. A draft row naming its content (ADR 0033):
+     * moved by AttributeStore, not by this table.
      */
     ATTRIBUTE(
         CatalogResourceType.ATTRIBUTE,
-        "variant_attribute_definitions",
+        "release_resources",
         "id",
         emptySet(),
         { runCatching { AttributeKey.of(it) }.exceptionOrNull()?.message },
@@ -106,18 +106,17 @@ enum class MovableResource(
     ),
 
     /**
-     * Keyed by identity (`V20260905090100`), so its entries and the attributes bound to it
-     * reference the code list itself rather than where it happens to live: a move or a rename
-     * updates one row and nothing cascades or is rewritten. Queries that need the address read it
-     * from `code_lists`, which keeps the public shape unchanged. No payload names a code list, so
-     * no published document can break either way.
+     * Named by alias and key in an attribute's content (`codeListBinding`, ADR 0033 step 3): a move or
+     * a rename rewrites the binding of every attribute of a draft, as any content reference is
+     * rewritten. A released attribute keeps its bytes and stops resolving, as a released stencil
+     * reference does.
      */
     CODE_LIST(
         CatalogResourceType.CODE_LIST,
         // A draft row naming its content (ADR 0033): moved by CodeListStore, not by this table.
         "release_resources",
         "slug",
-        emptySet(),
+        setOf(ReferenceSiteKind.CODE_LIST_BINDING),
         { runCatching { CodeListKey.of(it) }.exceptionOrNull()?.message },
     ),
 

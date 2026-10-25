@@ -302,14 +302,14 @@ class DataPreservationMigrationIT {
             assertThat(
                 one(
                     """
-                    SELECT list.id FROM variant_attribute_definitions attribute
+                    SELECT list.id FROM current_attributes attribute
                     JOIN current_code_lists list ON list.tenant_key = attribute.tenant_key
-                                        AND list.resource_id = attribute.code_list_resource_id
+                                        AND list.catalog_id = attribute.code_list_catalog_id AND list.id = attribute.code_list_key
                     WHERE attribute.tenant_key = '$TENANT' AND attribute.id = 'country'
                     """,
                 ),
             )
-                .describedAs("a cross-catalog code-list binding must have been re-keyed onto that list's identity")
+                .describedAs("a cross-catalog code-list binding names that list, by alias and key (ADR 0033)")
                 .isEqualTo("countries")
             assertThat(
                 one(
@@ -332,6 +332,10 @@ class DataPreservationMigrationIT {
                         {"code": "be", "label": "Belgium", "hidden": false, "sortOrder": 1}], "description": null}}'::jsonb::text""",
                     ),
                 )
+            assertThat(one("SELECT (payload -> 'resource' -> 'codeListBinding')::text FROM current_attributes WHERE tenant_key = '$TENANT' AND id = 'country'"))
+                .describedAs("the 1.x binding, as the wire form names it")
+                .isEqualTo(one("""SELECT '{"key": "countries", "catalogKey": "shared"}'::jsonb::text"""))
+            assertThat(one("SELECT CAST(to_regclass('variant_attribute_definitions') IS NULL AS TEXT)")).describedAs("the attribute table is gone").isEqualTo("true")
             assertThat(one("SELECT CAST(to_regclass('code_lists') IS NULL AND to_regclass('code_list_entries') IS NULL AS TEXT)"))
                 .describedAs("the code list tables are gone").isEqualTo("true")
             assertThat(
@@ -418,7 +422,7 @@ class DataPreservationMigrationIT {
 
             // Relocation re-keyed attributes onto their identity (V20260905090100) and dropped the
             // generation-history foreign keys into the template hierarchy (V20260905090200).
-            assertThat(one("SELECT display_name FROM variant_attribute_definitions WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'language'"))
+            assertThat(one("SELECT display_name FROM current_attributes WHERE tenant_key = '$TENANT' AND catalog_id = ${catalogId("default")} AND id = 'language'"))
                 .describedAs("attribute must survive its primary key moving onto resource_id")
                 .isEqualTo("Language")
             assertThat(one("SELECT count(*) FROM catalog_resources WHERE tenant_key = '$TENANT' AND resource_type = 'attribute' AND catalog_id = ${catalogId("default")} AND resource_key = 'language'"))

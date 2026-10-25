@@ -112,7 +112,6 @@ class DeletionDriftTest : IntegrationTestBase() {
             "stencils",
             "fonts",
             "assets",
-            "variant_attribute_definitions",
         )
 
         val covered = jdbi.withHandle<Set<String>, Exception> { handle ->

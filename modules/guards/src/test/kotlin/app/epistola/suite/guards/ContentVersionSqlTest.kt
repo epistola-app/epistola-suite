@@ -201,7 +201,7 @@ class ContentVersionSqlTest {
         private val CONTENT_TABLES = listOf(
             // Themes are draft rows of release_resources now (ADR 0033), read through current_themes,
             // which holds only the version a caller means; DroppedContentTableSqlTest refuses the old table.
-            "document_templates", "template_variants", "variant_attribute_definitions",
+            "document_templates", "template_variants",
             "assets", "fonts", "font_variants", "stencils",
             "resource_ready_marks", "catalog_dependencies", "resource_content_digests",
         )

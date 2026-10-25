@@ -57,6 +57,8 @@ private fun validateValue(key: String, value: String, definition: VariantAttribu
             catalog = codeListId.catalogId,
             codeListSlug = codeListId.key,
             code = value,
+            // The list's catalog at the version the attribute's catalog declares (ADR 0033, step 3).
+            boundFrom = definition.catalogId,
         ).query()
         validate("attributes", exists) {
             "Invalid value '$value' for attribute '$key'. Not a member of code list '${codeListId.catalogKey.value}/${codeListId.key.value}'."

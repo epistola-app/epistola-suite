@@ -50,25 +50,20 @@ An attribute is constrained in exactly **one** of three ways:
 2. Inline values — `allowedValues` non-empty and `codeListSlug` null.
 3. Bound to a code list — `codeListSlug` non-null and `allowedValues` empty.
 
-The DB enforces (2) and (3) are mutually exclusive via the
-`attr_constraint_kind_xor` check constraint, and the application layer
-rejects half-specified bindings before the constraint is reached.
+The commands refuse (2) and (3) together. An attribute is stored as JSON (ADR 0033), and its
+binding is what the wire form holds: `codeListBinding: { catalogKey, key }`, the alias the
+attribute's catalog knows the list's catalog under (none for its own catalog) and the list's key.
+There is no foreign key. A write refuses a list that does not exist (`CodeListNotFoundException`);
+the binding is indexed in `resource_references`, and every question about it resolves the alias
+through `resolve_catalog_alias`:
 
-`code_list_catalog_key` is part of the composite FK target, which means an
-attribute can bind to a code list in **any** catalog within the same tenant.
-The shared `tenant_key` keeps the relationship within one tenant boundary;
-cross-tenant references are not possible.
-
-```text
-   variant_attribute_definitions                  code_lists
-   ────────────────────────────                   ──────────
-   (tenant_key, catalog_key, id)        ────────►  (tenant_key, code_list_catalog_key, code_list_slug)
-                                          composite FK, ON DELETE RESTRICT
-```
-
-`ON DELETE RESTRICT` on the FK means deleting a code list that is still bound
-to an attribute fails at the DB layer. `DeleteCodeList` catches that and
-surfaces the clearer `CodeListInUseException`: unbind the attributes first.
+- **In use** — `DeleteCodeList` refuses a list an attribute of a current version binds
+  (`CodeListInUseException`: unbind the attributes first), and discarding a draft refuses when an
+  attribute of another draft binds a list only that draft holds.
+- **Moved or renamed** — relocation rewrites the binding of every draft's attribute.
+- **Which version** — a binding to a list of another catalog reads it at the version the attribute's
+  catalog declares: a draft that pins that catalog's release validates and offers that release's
+  entries, not the list's newer draft.
 
 ## Validation flow
 
