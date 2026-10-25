@@ -5,6 +5,7 @@
 package app.epistola.suite.quality.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.QualityFindingKey
 import app.epistola.suite.common.ids.TenantKey
@@ -17,6 +18,7 @@ import app.epistola.suite.quality.SubmittedFinding
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -152,9 +154,9 @@ class SubmitQualityFindingsHandler(
         return handle.createQuery(
             """
             SELECT md5(template_model::text)
-            FROM template_variants
-            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
+            FROM current_template_variants
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+              AND template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )
             .bind("tenantKey", subject.tenantKey)
@@ -181,7 +183,7 @@ class SubmitQualityFindingsHandler(
                 fingerprint, input_fingerprint, context, metadata, status, first_seen_at, last_seen_at, resolved_at
             ) VALUES (
                 :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, :messageCode, :docsUrl,
+                ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, :messageCode, :docsUrl,
                 :fingerprint, :inputFingerprint, :context::jsonb, :metadata::jsonb, 'OPEN', :now, :now, NULL
             )
             ON CONFLICT (tenant_key, source_id, subject_urn, fingerprint) DO UPDATE SET

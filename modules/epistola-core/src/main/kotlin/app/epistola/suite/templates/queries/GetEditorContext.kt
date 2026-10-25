@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -19,8 +20,10 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.stencils.StencilResolvers
+import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -75,21 +78,18 @@ class GetEditorContextHandler(
             """
             SELECT
                 dt.name as template_name,
-                th.id AS theme_key,
-                th_cat.catalog_key AS theme_catalog_key,
-                th_cat.namespace AS theme_catalog_namespace,
+                dt.theme_key,
+                (SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = dt.tenant_key AND c.catalog_id = dt.theme_catalog_id) AS theme_catalog_key,
+                (SELECT c.namespace FROM catalogs c WHERE c.tenant_key = dt.tenant_key AND c.catalog_id = dt.theme_catalog_id) AS theme_catalog_namespace,
                 dt.data_model,
                 dt.data_examples,
                 tv.attributes as variant_attributes,
                 tv.template_model as draft_template_model,
                 tv.revision AS variant_revision
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
-            -- The theme is in the template's own version, or the current version of another catalog.
-            LEFT JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
-            LEFT JOIN catalogs th_cat ON th_cat.tenant_key = th.tenant_key AND th_cat.catalog_id = th.catalog_id
-            WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
-              AND tv.template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+            WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
+              AND tv.template_resource_id = ${templateIn("tenantId", "catalogKey", "templateId")}
               AND tv.id = :variantId
             """,
         )
@@ -135,7 +135,7 @@ class GetEditorContextHandler(
         val templateModel = row["draft_template_model"]?.let { raw ->
             val json = raw.toString()
             if (json.isNotBlank()) {
-                objectMapper.readValue(json, TemplateDocument::class.java)
+                TemplateModels.read(json, query.variantId.catalogKey.value, objectMapper)
             } else {
                 null
             }

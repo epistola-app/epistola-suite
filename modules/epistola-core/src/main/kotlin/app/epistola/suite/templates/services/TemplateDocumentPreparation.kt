@@ -5,8 +5,8 @@
 package app.epistola.suite.templates.services
 
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.graph.ResourceReferenceSites
 import app.epistola.suite.stencils.model.StencilInstances
+import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.analysis.TemplatePathExtractor
 import app.epistola.suite.templates.validation.TemplateDocumentValidator
 import app.epistola.template.model.TemplateDocument
@@ -49,11 +49,11 @@ class TemplateDocumentPreparation(
 
     private fun prepareValidated(document: TemplateDocument, catalogKey: CatalogKey): PreparedTemplateDocument {
         val referencedPaths = pathExtractor.extractReferencedPaths(document)
-        // Stored references always name the catalog they resolve against, so relocating the owner
-        // cannot silently change what an already-written reference means. Data-path extraction is
-        // unaffected by the catalog and still reads the typed document.
-        val model = objectMapper.valueToTree<tools.jackson.databind.JsonNode>(document)
-        ResourceReferenceSites.qualifyRelative(model, catalogKey.value)
+        // Stored in its released form (ADR 0033): own-catalog references relative, no name
+        // qualifiers, so the draft holds the model its release will. Reads qualify them again
+        // (TemplateModels.read), and a move restores them in the destination's form. Data-path
+        // extraction is unaffected by the catalog and still reads the typed document.
+        val model = TemplateModels.stored(document, catalogKey.value, objectMapper)
         return PreparedTemplateDocument(
             templateModelJson = objectMapper.writeValueAsString(model),
             referencedPaths = referencedPaths,

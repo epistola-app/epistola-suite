@@ -13,6 +13,7 @@ import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.assets.draftAssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.DraftDependencyView
 import app.epistola.suite.catalog.dependencies.DraftDependencyViews
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
@@ -136,7 +137,7 @@ class PrepareDraftRenderHandler(
         )
         val templateResourceId = jdbi.withHandle<UUID?, Exception> { handle ->
             handle.createQuery(
-                "SELECT resource_id FROM document_templates WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND id = :template",
+                "SELECT resource_id FROM current_templates WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND id = :template",
             )
                 .bind("t", query.tenantKey)
                 .bindCatalog("c", query.catalog)

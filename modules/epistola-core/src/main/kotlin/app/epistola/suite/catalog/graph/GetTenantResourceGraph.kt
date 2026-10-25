@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.currentTemplateViewJoin
 import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -72,7 +73,7 @@ class TenantResourceGraphBuilder(
                 UNION ALL SELECT a.resource_id, 'attribute', c.namespace, c.catalog_key::text AS catalog_key, a.id, a.display_name, c.name FROM current_attributes a JOIN catalogs c ON c.tenant_key = a.tenant_key AND c.catalog_id = a.catalog_id WHERE a.tenant_key = :tenantKey
                 UNION ALL SELECT t.resource_id, 'theme', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_themes t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
                 UNION ALL SELECT s.resource_id, 'stencil', c.namespace, c.catalog_key::text AS catalog_key, s.id, s.name, c.name FROM current_stencils s JOIN catalogs c ON c.tenant_key = s.tenant_key AND c.catalog_id = s.catalog_id WHERE s.tenant_key = :tenantKey
-                UNION ALL SELECT t.resource_id, 'template', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey AND ${inCurrentVersion("t")}
+                UNION ALL SELECT t.resource_id, 'template', c.namespace, c.catalog_key::text AS catalog_key, t.id::text, t.name, c.name FROM current_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id WHERE t.tenant_key = :tenantKey
             ) resources
             ORDER BY catalog_name, resource_type, resource_name
         """,
@@ -109,11 +110,11 @@ class TenantResourceGraphBuilder(
         handle.createQuery(
             """
                 SELECT dc.namespace AS namespace, dc.catalog_key::text AS catalog_key, dt.id::text, thc.namespace AS theme_namespace, thc.catalog_key::text AS theme_catalog_key, th.id::text AS theme_key
-                FROM document_templates dt
+                FROM current_templates dt
                 JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
                 JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
                 JOIN catalogs thc ON thc.tenant_key = th.tenant_key AND thc.catalog_id = th.catalog_id
-                WHERE dt.tenant_key = :tenantKey AND ${inCurrentVersion("dt")}
+                WHERE dt.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             Occurrence(
@@ -157,12 +158,12 @@ class TenantResourceGraphBuilder(
             """
                 SELECT template_catalog.namespace AS namespace, template_catalog.catalog_key::text AS catalog_key, template.id::text AS template_key,
                        tv.id::text variant_key, attribute.key attribute_key
-                FROM template_variants tv
-                ${templateJoin("tv")}
+                FROM current_template_variants tv
+                ${currentTemplateViewJoin("tv")}
                 JOIN catalogs template_catalog
                   ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
                 CROSS JOIN LATERAL jsonb_object_keys(tv.attributes) attribute(key)
-                WHERE tv.tenant_key = :tenantKey AND ${inCurrentVersion("tv")}
+                WHERE tv.tenant_key = :tenantKey
             """,
         ).bind("tenantKey", tenantKey).map { rs, _ ->
             val rawKey = rs.getString("attribute_key")
@@ -200,11 +201,11 @@ class TenantResourceGraphBuilder(
         """
             SELECT template_catalog.namespace AS namespace, template_catalog.catalog_key::text AS catalog_key, template.id::text AS template_key,
                    variant.id::text AS variant_key, variant.template_model::text
-            FROM template_variants variant
-            ${templateJoin("variant")}
+            FROM current_template_variants variant
+            ${currentTemplateViewJoin("variant")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")}
+            WHERE variant.tenant_key = :tenantKey
         """,
     ).bind("tenantKey", tenantKey).map { rs, _ ->
         val source = ResourceAddress(CatalogResourceType.TEMPLATE, rs.getString("namespace"), rs.getString("catalog_key"), rs.getString("template_key"))

@@ -51,7 +51,8 @@ class ContentVersionSqlTest {
             }
         }
 
-        assertTrue(scanned > 100, "Found only $scanned statements on content — the scan is broken")
+        // Fewer as each type moves to JSON storage and its reads to a view (ADR 0033): 62 after step 7a.
+        assertTrue(scanned > 40, "Found only $scanned statements on content — the scan is broken")
         assertTrue(
             violations.isEmpty(),
             "These statements touch catalog content without naming the catalog version. Filter or join " +

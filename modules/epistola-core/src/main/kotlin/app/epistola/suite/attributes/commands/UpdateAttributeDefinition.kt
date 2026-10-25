@@ -26,6 +26,7 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.currentTemplateViewJoin
 import app.epistola.suite.templates.templateJoin
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
@@ -107,10 +108,9 @@ class UpdateAttributeDefinitionHandler(
                     val valuesInUse = removedValues.filter { value ->
                         handle.createQuery(
                             """
-                            SELECT COUNT(*) FROM template_variants variants
-                            ${templateJoin("variants")}
+                            SELECT COUNT(*) FROM current_template_variants variants
+                            ${currentTemplateViewJoin("variants")}
                             WHERE variants.tenant_key = :tenantId
-                              AND ${inCurrentVersion("variants")}
                               AND ${AttributeReferences.usesValue("variants", "value")}
                             """,
                         )

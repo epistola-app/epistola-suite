@@ -37,12 +37,11 @@ class FindStencilUsagesHandler(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                       AND dt.resource_id = tv.template_resource_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantId
-              AND ${inCurrentVersion("tv")}
               AND ${StencilReferences.usedBy("n", "dt")}
             ORDER BY dt.name
             """,

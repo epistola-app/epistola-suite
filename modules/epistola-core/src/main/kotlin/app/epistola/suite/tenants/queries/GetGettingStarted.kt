@@ -46,8 +46,8 @@ class GetGettingStartedHandler(
         handle.createQuery(
             """
             SELECT
-                EXISTS (SELECT 1 FROM document_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
-                        WHERE t.tenant_key = :t AND $NOT_SUPPLIED AND ${inCurrentVersion("t")}) AS has_template,
+                EXISTS (SELECT 1 FROM current_templates t JOIN catalogs c ON c.tenant_key = t.tenant_key AND c.catalog_id = t.catalog_id
+                        WHERE t.tenant_key = :t AND $NOT_SUPPLIED) AS has_template,
                 EXISTS (SELECT 1 FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
                         WHERE r.tenant_key = :t AND $NOT_SUPPLIED) AS has_published,
                 EXISTS (SELECT 1 FROM environment_catalog_deployments d WHERE d.tenant_key = :t) AS has_deployed,

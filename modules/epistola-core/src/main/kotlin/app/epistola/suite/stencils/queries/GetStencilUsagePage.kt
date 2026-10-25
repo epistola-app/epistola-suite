@@ -59,13 +59,12 @@ private val USAGE_CTE = """
                COALESCE(c.source_url LIKE 'classpath:%', FALSE) AS supplied,
                tv.id AS variant_key, tv.template_model::text AS template_model, dt.data_model::text AS data_model,
                COUNT(*) AS instance_count
-        FROM template_variants tv
-        JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+        FROM current_template_variants tv
+        JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                   AND dt.resource_id = tv.template_resource_id
         JOIN catalogs c ON c.tenant_key = dt.tenant_key AND c.catalog_id = dt.catalog_id
         CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS node(key, value)
         WHERE tv.tenant_key = :tenantId
-          AND ${inCurrentVersion("tv")}
           AND ${StencilReferences.usedBy("node", "dt")}
         GROUP BY dt.id, c.catalog_key, c.namespace, c.source_url, dt.name, tv.id, tv.template_model::text, dt.data_model::text
     )
@@ -109,7 +108,7 @@ class GetStencilUsagePageHandler(
                 val catalogKey = rs.getString("catalog_key")
                 val templateCatalog = app.epistola.suite.common.ids.CatalogId(rs.getString("namespace"), CatalogKey.of(catalogKey), query.stencilId.catalogId.tenantId)
                 val resolver = resolvers.getOrPut(templateCatalog) { stencilResolvers.workingCopies(dependencyViews.of(templateCatalog)) }
-                val document = objectMapper.readValue(rs.getString("template_model"), TemplateDocument::class.java)
+                val document = app.epistola.suite.templates.TemplateModels.read(rs.getString("template_model"), catalogKey, objectMapper)
                 val dataModel = rs.getString("data_model")?.let { objectMapper.readValue(it, Map::class.java) }?.mapKeys { (key, _) -> key as String }
                 val problems = StencilInstances.expand(document, templateCatalog.address, resolver, dataModel).findings
                     .filter { it.stencilKey == query.stencilId.key.value && it.catalogKey in setOf(query.stencilId.catalogKey.value, query.stencilId.catalogId.address) && it.blocking }

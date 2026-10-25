@@ -150,6 +150,6 @@ data class DocumentCatalog(
 internal val DOCUMENTS_OF_TEMPLATE = """
     AND (template_key = :templateId
          OR template_resource_id IN (
-             SELECT dt.resource_id FROM document_templates dt
-             WHERE dt.tenant_key = :tenantId AND dt.id = :templateId AND ${inCurrentVersion("dt")}))
+             SELECT dt.resource_id FROM current_templates dt
+             WHERE dt.tenant_key = :tenantId AND dt.id = :templateId))
 """

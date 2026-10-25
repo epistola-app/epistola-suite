@@ -85,12 +85,12 @@ class DeleteThemeHandler(
                 SELECT 'the catalog''s default theme' FROM catalog_versions v, theme
                 WHERE v.tenant_key = :tenantId AND v.version_id = ${versionAt("tenantId", "catalogKey")} AND v.default_theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'template ' || dt.id FROM document_templates dt, theme
-                WHERE dt.tenant_key = :tenantId AND dt.version_id = ${versionAt("tenantId", "catalogKey")} AND dt.theme_resource_id = theme.resource_id
+                SELECT 'template ' || dt.id FROM current_templates dt, theme
+                WHERE dt.tenant_key = :tenantId AND dt.catalog_id = ${catalogAt("tenantId", "catalogKey")} AND dt.theme_resource_id = theme.resource_id
                 UNION ALL
-                SELECT 'variant ' || dt.id || '/' || tv.id FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
-                WHERE tv.tenant_key = :tenantId AND tv.version_id = ${versionAt("tenantId", "catalogKey")}
+                SELECT 'variant ' || dt.id || '/' || tv.id FROM current_template_variants tv
+                JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
+                WHERE tv.tenant_key = :tenantId AND tv.catalog_id = ${catalogAt("tenantId", "catalogKey")}
                   AND tv.template_model -> 'themeRef' ->> 'type' = 'override'
                   AND tv.template_model -> 'themeRef' ->> 'themeKey' = :themeId
                   AND COALESCE(tv.template_model -> 'themeRef' ->> 'catalogKey', :catalogKey) = :catalogKey

@@ -16,8 +16,10 @@ import app.epistola.suite.mcp.dto.TemplateInfo
 import app.epistola.suite.mcp.dto.TemplateSummaryInfo
 import app.epistola.suite.mcp.dto.VariantInfo
 import app.epistola.suite.mcp.support.CATALOG_VERSION_DESCRIPTION
+import app.epistola.suite.mcp.support.CATALOG_VERSION_READ_DESCRIPTION
 import app.epistola.suite.mcp.support.EXPECTED_REVISION_DESCRIPTION
 import app.epistola.suite.mcp.support.catalogFilter
+import app.epistola.suite.mcp.support.catalogVersionReadRef
 import app.epistola.suite.mcp.support.catalogVersionRef
 import app.epistola.suite.mcp.support.mcpCatalog
 import app.epistola.suite.mcp.support.mcpTenantId
@@ -67,14 +69,14 @@ class TemplateMcpTools(
             required = false,
         )
         search: String?,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): List<TemplateSummaryInfo> = mediator.query(
         ListTemplateSummaries(
             tenantId = mcpTenantId(),
             catalog = catalogFilter(catalogId),
             searchTerm = search,
-            catalogVersion = catalogVersionRef(catalogId, catalogVersion),
+            catalogVersion = catalogVersionReadRef(catalogId, catalogVersion),
         ),
     ).items.map { TemplateSummaryInfo.from(it) }
 
@@ -89,11 +91,11 @@ class TemplateMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): TemplateInfo? {
         val id = templateId(catalogId, templateId)
-        return mediator.query(GetDocumentTemplate(id, catalogVersion = catalogVersionRef(catalogId, catalogVersion)))?.let { TemplateInfo.from(it) }
+        return mediator.query(GetDocumentTemplate(id, catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))?.let { TemplateInfo.from(it) }
     }
 
     @McpTool(
@@ -108,9 +110,9 @@ class TemplateMcpTools(
         catalogId: String,
         @McpToolParam(description = "Template key.")
         templateId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
-    ): List<VariantInfo> = mediator.query(ListVariants(templateId(catalogId, templateId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+    ): List<VariantInfo> = mediator.query(ListVariants(templateId(catalogId, templateId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
         .map { VariantInfo.from(it) }
 
     @McpTool(
@@ -125,10 +127,10 @@ class TemplateMcpTools(
         templateId: String,
         @McpToolParam(description = "Variant key.")
         variantId: String,
-        @McpToolParam(description = CATALOG_VERSION_DESCRIPTION, required = false)
+        @McpToolParam(description = CATALOG_VERSION_READ_DESCRIPTION, required = false)
         catalogVersion: String? = null,
     ): VariantInfo? = mediator
-        .query(GetVariant(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionRef(catalogId, catalogVersion)))
+        .query(GetVariant(variantId(catalogId, templateId, variantId), catalogVersion = catalogVersionReadRef(catalogId, catalogVersion)))
         ?.let { VariantInfo.from(it) }
 
     @McpTool(

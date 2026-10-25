@@ -4,6 +4,8 @@
 
 package app.epistola.suite.fonts.queries
 
+import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.fonts.model.FontUsage
@@ -49,6 +51,10 @@ class FindFontUsagesHandler(
     private val jsonPath =
         """$.**.fontFamily ? ((@.key == ${'$'}slug || @.slug == ${'$'}slug) && @.catalogKey == ${'$'}catalogKey)"""
 
+    // A template's model names a font of its own catalog relatively (ADR 0033, as a release does).
+    private val relativePath =
+        """$.**.fontFamily ? ((@.key == ${'$'}slug || @.slug == ${'$'}slug) && (!exists(@.catalogKey) || @.catalogKey == null))"""
+
     override fun handle(query: FindFontUsages): List<FontUsage> = jdbi.withHandle<List<FontUsage>, Exception> { handle ->
         val vars = """{"slug": "${query.fontId.key.value}", "catalogKey": "${query.fontId.catalogKey.value}"}"""
 
@@ -74,16 +80,19 @@ class FindFontUsagesHandler(
         val templateUsages = handle.createQuery(
             """
             SELECT DISTINCT dt.name AS name
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id
                                       AND dt.resource_id = tv.template_resource_id
             WHERE tv.tenant_key = :tenantKey
-              AND ${inCurrentVersion("tv")}
-              AND jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+              AND (jsonb_path_exists(tv.template_model, CAST(:jsonPath AS jsonpath), CAST(:vars AS jsonb))
+                   OR (tv.catalog_id = ${catalogAt("tenantKey", "fontCatalog")}
+                       AND jsonb_path_exists(tv.template_model, CAST(:relativePath AS jsonpath), CAST(:vars AS jsonb))))
             ORDER BY dt.name
             """,
         )
             .bind("tenantKey", query.fontId.tenantKey)
+            .bindCatalog("fontCatalog", query.fontId.catalogId)
+            .bind("relativePath", relativePath)
             .bind("jsonPath", jsonPath)
             .bind("vars", vars)
             .map { rs, _ -> FontUsage(kind = "template", name = rs.getString("name")) }

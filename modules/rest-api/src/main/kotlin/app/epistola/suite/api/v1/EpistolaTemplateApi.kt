@@ -34,9 +34,8 @@ import app.epistola.suite.api.v1.shared.catalogVersionAt
 import app.epistola.suite.api.v1.shared.created
 import app.epistola.suite.api.v1.shared.draftAt
 import app.epistola.suite.api.v1.shared.okWithETag
+import app.epistola.suite.api.v1.shared.readRef
 import app.epistola.suite.api.v1.shared.ref
-import app.epistola.suite.api.v1.shared.releasedResource
-import app.epistola.suite.api.v1.shared.releasedResources
 import app.epistola.suite.api.v1.shared.toContentDto
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -121,19 +120,9 @@ class EpistolaTemplateApi(
                 ?: throw UnsupportedSortException(sort, DocumentTemplateSort.paramValues)
         }
         val descending = SortDirection.fromParam(direction).descending
+        // A release's templates read like a draft's (ADR 0033). Large, unbounded collection: paginate
+        // at the database and get the total from a sibling Count query.
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            // Released content is paged in memory: it is assembled whole, and bounded by the catalog.
-            // Its templates share the release's timestamps, so only the name orders them.
-            val templates = at.releasedResources<TemplateResource>(TEMPLATE)
-                .filter { q.isNullOrBlank() || it.name.contains(q, ignoreCase = true) }
-                .let { list -> if (sortKey == DocumentTemplateSort.NAME) list.sortedBy { it.name.lowercase() } else list }
-                .let { if (descending && sortKey == DocumentTemplateSort.NAME) it.reversed() else it }
-            val slice = Pagination.pageOfRelease(templates, page, size)
-            return ResponseEntity.ok(TemplateListResponse(items = slice.items.map { it.toSummaryDto(at) }, page = slice.page))
-        }
-        // Large, unbounded collection: paginate at the database and get the total from a sibling
-        // Count query.
         val tenantId = TenantId(at.catalog.tenantKey)
         val templates = ListDocumentTemplates(
             tenantId = tenantId,
@@ -143,9 +132,9 @@ class EpistolaTemplateApi(
             descending = descending,
             limit = Pagination.limitOf(size),
             offset = Pagination.offsetOf(page, size),
-            catalogVersion = at.ref,
+            catalogVersion = at.readRef,
         ).query()
-        val total = CountDocumentTemplates(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, searchTerm = q, catalogVersion = at.ref).query()
+        val total = CountDocumentTemplates(tenantId = TenantId(at.catalog.tenantKey), catalog = at.catalogId, searchTerm = q, catalogVersion = at.readRef).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
@@ -181,7 +170,6 @@ class EpistolaTemplateApi(
         templateKey: String,
     ): ResponseEntity<TemplateDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) return ResponseEntity.ok(released(at, templateKey).toDto(at, objectMapper))
         val (dto, revision) = workingCopyAtRevision(at, templateKey)
         return okWithETag(revision, dto)
     }
@@ -315,17 +303,12 @@ class EpistolaTemplateApi(
         // This endpoint has no sortable columns; reject a caller-supplied sort rather than ignore it.
         ListSorting.rejectUnsupportedSort(sort, direction)
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        val variants = if (at.isDraft) {
-            val id = at.templateId(templateKey)
-            workingCopy(at, templateKey)
-            // Bounded per-template collection: fetch and slice in application code.
-            val ready = readiness(at, id)
-            val statuses = ResourceStatuses.of(at)
-            ListVariants(templateId = id, catalogVersion = at.ref).query().map { it.toDto(statuses.of(TEMPLATE, templateKey, ready[it.id])) }
-        } else {
-            val template = released(at, templateKey)
-            template.variants.map { it.toDto(template, at) }
-        }
+        val id = at.templateId(templateKey)
+        workingCopy(at, templateKey)
+        // Bounded per-template collection: fetch and slice in application code.
+        val ready = readiness(at, id)
+        val statuses = ResourceStatuses.of(at)
+        val variants = ListVariants(templateId = id, catalogVersion = at.readRef).query().map { it.toDto(statuses.of(TEMPLATE, templateKey, ready[it.id])) }
         val slice = Pagination.paginate(variants, page, size)
         return ResponseEntity.ok(VariantListResponse(items = slice.items, page = slice.page))
     }
@@ -361,10 +344,6 @@ class EpistolaTemplateApi(
         variantKey: String,
     ): ResponseEntity<VariantDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            val template = released(at, templateKey)
-            return ResponseEntity.ok(releasedVariant(at, template, variantKey).toDto(template, at))
-        }
         val variant = workingVariant(at, templateKey, variantKey)
         return okWithETag(variant.revision, variantDto(at, variant))
     }
@@ -439,10 +418,6 @@ class EpistolaTemplateApi(
         variantKey: String,
     ): ResponseEntity<VariantContentDto> {
         val at = catalogVersionAt(tenantKey, registry, namespace, catalogKey, release)
-        if (!at.isDraft) {
-            val template = released(at, templateKey)
-            return ResponseEntity.ok(releasedVariant(at, template, variantKey).toContentDto(template, at))
-        }
         val (dto, revision) = workingContent(at, templateKey, variantKey)
         return okWithETag(revision, dto)
     }
@@ -493,22 +468,16 @@ class EpistolaTemplateApi(
 
     private fun workingCopy(at: ResolvedCatalogRelease, templateKey: String): DocumentTemplate {
         val id = at.templateId(templateKey)
-        return GetDocumentTemplate(id = id, catalogVersion = at.ref).query() ?: throw TemplateNotFoundException(id.tenantKey, id.key)
+        return GetDocumentTemplate(id = id, catalogVersion = at.readRef).query() ?: throw TemplateNotFoundException(id.tenantKey, id.key)
     }
 
     private fun workingVariant(at: ResolvedCatalogRelease, templateKey: String, variantKey: String): TemplateVariant {
         val id = at.variantId(templateKey, variantKey)
-        return GetVariant(variantId = id, catalogVersion = at.ref).query() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
+        return GetVariant(variantId = id, catalogVersion = at.readRef).query() ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
     }
 
-    private fun released(at: ResolvedCatalogRelease, templateKey: String): TemplateResource = at.releasedResource<TemplateResource>(TEMPLATE, templateKey)
-        ?: throw TemplateNotFoundException(at.catalog.tenantKey, TemplateKey.of(templateKey))
-
-    private fun releasedVariant(at: ResolvedCatalogRelease, template: TemplateResource, variantKey: String) = template.variants.firstOrNull { it.key == variantKey }
-        ?: throw TemplateVariantNotFoundException(at.catalog.tenantKey, TemplateKey.of(template.key), VariantKey.of(variantKey))
-
     /** Whether each variant of the template is marked ready as it is now. */
-    private fun readiness(at: ResolvedCatalogRelease, templateId: TemplateId): Map<VariantKey, Boolean> = GetVariantSummaries(templateId = templateId, catalogVersion = at.ref).query().associate { it.id to it.ready }
+    private fun readiness(at: ResolvedCatalogRelease, templateId: TemplateId): Map<VariantKey, Boolean> = GetVariantSummaries(templateId = templateId, catalogVersion = at.readRef).query().associate { it.id to it.ready }
 
     /**
      * The template's working copy and its revision. The template and its data contract are read
@@ -518,7 +487,7 @@ class EpistolaTemplateApi(
     private fun workingCopyAtRevision(at: ResolvedCatalogRelease, templateKey: String): Pair<TemplateDto, Long> {
         repeat(2) {
             val template = workingCopy(at, templateKey)
-            val contract = GetDataContract(templateId = at.templateId(templateKey), catalogVersion = at.ref).query()
+            val contract = GetDataContract(templateId = at.templateId(templateKey), catalogVersion = at.readRef).query()
             if (contract == null || contract.revision == template.revision) return workingCopyDto(at, template, contract) to template.revision
         }
         val template = workingCopy(at, templateKey)
@@ -528,12 +497,12 @@ class EpistolaTemplateApi(
     private fun workingCopyDto(
         at: ResolvedCatalogRelease,
         template: DocumentTemplate,
-        contract: app.epistola.suite.templates.model.DataContract? = GetDataContract(templateId = at.templateId(template.id.value), catalogVersion = at.ref).query(),
+        contract: app.epistola.suite.templates.model.DataContract? = GetDataContract(templateId = at.templateId(template.id.value), catalogVersion = at.readRef).query(),
     ): TemplateDto {
         val id = at.templateId(template.id.value)
         return template.toDto(
             objectMapper,
-            GetVariantSummaries(templateId = id, catalogVersion = at.ref).query(),
+            GetVariantSummaries(templateId = id, catalogVersion = at.readRef).query(),
             contract,
             ResourceStatuses.of(at),
         )
@@ -548,7 +517,7 @@ class EpistolaTemplateApi(
     private fun workingContent(at: ResolvedCatalogRelease, templateKey: String, variantKey: String): Pair<VariantContentDto, Long> {
         val variant = workingVariant(at, templateKey, variantKey)
         val id = at.variantId(templateKey, variantKey)
-        val content = GetVariantContentAtRevision(variantId = id, catalogVersion = at.ref).query()
+        val content = GetVariantContentAtRevision(variantId = id, catalogVersion = at.readRef).query()
             ?: throw TemplateVariantNotFoundException(id.tenantKey, id.templateKey, id.key)
         val ready = readiness(at, at.templateId(templateKey))[variant.id]
         return VariantContentDto(

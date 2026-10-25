@@ -5,6 +5,7 @@
 package app.epistola.suite.quality.queries
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -23,6 +24,7 @@ import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TEMPLATE_ADDRESS_COLUMNS
 import app.epistola.suite.templates.currentTemplateJoin
 import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -77,9 +79,9 @@ class GetFindingsForSubjectHandler(
         val currentInputFingerprint = handle.createQuery(
             """
             SELECT md5(template_model::text)
-            FROM template_variants
-            WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-              AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
+            FROM current_template_variants
+            WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+              AND template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -116,7 +118,7 @@ class GetFindingsForSubjectHandler(
                 WHERE qc.tenant_key = f.tenant_key AND qc.finding_id = f.id
             ) c ON TRUE
             WHERE f.tenant_key = :tenantKey
-              AND f.template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND f.variant_key = :variantKey
+              AND f.template_resource_id = ${templateIn("tenantKey", "catalogKey", "templateKey")} AND f.variant_key = :variantKey
             ORDER BY CASE f.severity WHEN 'ERROR' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END,
                      f.last_seen_at DESC,
                      f.id

@@ -43,13 +43,12 @@ class FindCatalogCrossReferencesHandler(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM document_templates dt
+            FROM current_templates dt
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             JOIN current_themes th ON th.tenant_key = dt.tenant_key AND th.resource_id = dt.theme_resource_id
             WHERE dt.tenant_key = :tenantKey
               AND th.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
               AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
-              AND ${inCurrentVersion("dt")}
             """,
         )
             .bind("tenantKey", query.tenantKey)
@@ -64,13 +63,12 @@ class FindCatalogCrossReferencesHandler(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             WHERE tv.tenant_key = :tenantKey
               AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
-              AND ${inCurrentVersion("dt")}
               AND n.value ->> 'type' = 'stencil'
               AND n.value -> 'props' ->> 'catalogKey' = :catalogKeyStr
             """,
@@ -88,14 +86,13 @@ class FindCatalogCrossReferencesHandler(
         handle.createQuery(
             """
             SELECT DISTINCT dt.name, dc.catalog_key AS catalog_key
-            FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.version_id = tv.version_id AND dt.resource_id = tv.template_resource_id
+            FROM current_template_variants tv
+            JOIN current_templates dt ON dt.tenant_key = tv.tenant_key AND dt.catalog_id = tv.catalog_id AND dt.resource_id = tv.template_resource_id
             JOIN catalogs dc ON dc.tenant_key = dt.tenant_key AND dc.catalog_id = dt.catalog_id
             CROSS JOIN LATERAL jsonb_each(tv.template_model -> 'nodes') AS n(key, value)
             JOIN current_images a ON a.tenant_key = tv.tenant_key AND a.catalog_id = ${catalogAt("tenantKey", "catalogKey")} AND a.id::text = n.value -> 'props' ->> 'imageKey'
             WHERE tv.tenant_key = :tenantKey
               AND dt.catalog_id != ${catalogAt("tenantKey", "catalogKey")}
-              AND ${inCurrentVersion("dt")}
               AND n.value ->> 'type' = 'image'
             """,
         )
