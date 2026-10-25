@@ -409,7 +409,7 @@ class ReleaseCatalogDraftHandler(
         // them, and says so wherever it goes, so it is not behind them after it is released either.
         // Lineage is by hash (ADR 0034): a parent is named by its content hash, its number kept for people.
         fun hashOf(version: String?): String? = version?.let { v ->
-            existing.firstOrNull { it.version == v }?.let { row -> row.contentHash ?: jdbi.withHandle<String?, Exception> { identity.contentHash(it, command.catalog, v) } ?: row.fingerprint }
+            existing.firstOrNull { it.version == v }?.let { row -> row.contentHash ?: row.fingerprint }
         }
         val mergeParents = draft.merged.sortedBy { SemVer.parseOrNull(it) }.map { merged -> ReleaseParent(merged, hashOf(merged)) }
         val releaseInfo = ReleaseInfo(

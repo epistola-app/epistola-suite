@@ -47,8 +47,8 @@ class ReleaseNumbersMigrationTest {
                 """
                 INSERT INTO tenants (id, name) VALUES ('acme', 'Acme');
                 INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name) VALUES ('letters', 'acme', 'exchange.epistola.app', 'acme', 'Letters');
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot)
-                SELECT tenant_key, catalog_id, v, 'v6:${"0".repeat(64)}', '{}'::jsonb FROM catalogs, unnest(ARRAY['1.2.0', '1.10.0', '5.5']) AS v WHERE catalog_key = 'letters';
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, manifest_snapshot)
+                SELECT tenant_key, catalog_id, v, 'v6:${"0".repeat(64)}', 'v6:${"0".repeat(64)}', '{}'::jsonb FROM catalogs, unnest(ARRAY['1.2.0', '1.10.0', '5.5']) AS v WHERE catalog_key = 'letters';
                 """.trimIndent(),
             )
         }
@@ -58,8 +58,8 @@ class ReleaseNumbersMigrationTest {
             val long = "1.3.1-m" + "a".repeat(62) + ".1"
             connection.exec(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, manifest_snapshot)
-                SELECT tenant_key, catalog_id, v, 'v6:${"1".repeat(64)}', '{}'::jsonb FROM catalogs,
+                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, manifest_snapshot)
+                SELECT tenant_key, catalog_id, v, 'v6:${"1".repeat(64)}', 'v6:${"1".repeat(64)}', '{}'::jsonb FROM catalogs,
                        unnest(ARRAY['1.3.1', '1.3.0', '1.3.1-gemeente-x.2', '1.3.1-gemeente-x.10', '1.3.1-bureau.9', '$long']) AS v WHERE catalog_key = 'letters';
                 """.trimIndent(),
             )

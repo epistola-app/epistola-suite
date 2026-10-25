@@ -23,10 +23,8 @@ import java.util.UUID
  * with only new notes shares its content hash with the one before it, and so does the same release
  * received by another route, or the same content released in another catalog.
  *
- * It reads what is recorded and computes nothing. A release whose content hash is not computed yet
- * ([ReleaseContentHashBackfill][app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill] has
- * not reached it) answers [ReleasesWithSameContent.pending] and lists none, and another release
- * without one yet is not listed. Null when the catalog has no such release.
+ * It reads what is recorded and computes nothing: every release records its content hash. Null when
+ * the catalog has no such release.
  */
 data class ListReleasesWithSameContent(
     val catalog: CatalogId,
@@ -39,17 +37,13 @@ data class ListReleasesWithSameContent(
 }
 
 /**
- * What [ListReleasesWithSameContent] found: the release's [contentHash], null while it is being
- * computed, and the [releases] with the same one, those of the same catalog first (highest number
- * first), then the other catalogs' by name.
+ * What [ListReleasesWithSameContent] found: the release's [contentHash] and the [releases] with the
+ * same one, those of the same catalog first (highest number first), then the other catalogs' by name.
  */
 data class ReleasesWithSameContent(
-    val contentHash: String?,
+    val contentHash: String,
     val releases: List<SameContentRelease>,
-) {
-    /** The content hash is not computed yet, so nothing can be said about which releases share it. */
-    val pending: Boolean get() = contentHash == null
-}
+)
 
 /** A release with the same content: its catalog by key and name, its number, and whether it is the asked catalog's own. */
 data class SameContentRelease(
@@ -81,7 +75,6 @@ class ListReleasesWithSameContentHandler(
             .orElse(null)
             ?: return@withHandle null
         val (catalogId, contentHash) = own
-        if (contentHash == null) return@withHandle ReleasesWithSameContent(contentHash = null, releases = emptyList())
 
         val releases = handle.createQuery(
             """

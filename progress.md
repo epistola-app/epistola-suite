@@ -21,6 +21,18 @@ against those ADRs.
 
 ## Touched
 
+### Drop the release content-hash backfill (25 October; branch `feat/drop-release-hash-backfill`, on `feat/storage-images`, not pushed)
+
+| Change                                                                                                                                                                                                                                                                               | Where                                                                                                             | Coverage                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `ReleaseContentHashBackfill` and its task removed; `ReleaseIdentity` reads the recorded hash only (no on-the-spot computation, no `record`)                                                                                                                                          | `ReleaseIdentity`                                                                                                 | ✅ `ReleaseIdentityTest`                            |
+| Every writer records the hash: cutting (`ReleaseCatalogDraft`, which the upgrade runner's first release uses) and receiving or installing (`RecordInstalledRelease`, which the subscribed-catalog record and a snapshot restore use); so `catalog_releases.content_hash` is NOT NULL | `V20261025143621`                                                                                                 | ✅ full suite, `OneXUpgradeReleasesIT`              |
+| Callers simplified: a dependency pin, a merge parent's lineage, `releaseNamed`, `travelling`, `ListReleasesWithSameContent` (no `pending`), the release page (no "being computed")                                                                                                   | `CatalogDependencyStore`, `ReleaseCatalogDraft`, `ReleaseIdentity`, `ListReleasesWithSameContent`, `release.html` | ✅ release suites, `CatalogReleaseIdentityHtmxTest` |
+| 1.x upgrade: a 1.x release is gone, each catalog has its first 2.0 release (the patch after its 1.x one) with a hash, no backfill task is scheduled                                                                                                                                  | `OneXUpgradeReleasesIT`                                                                                           | ✅                                                  |
+
+A stale scheduled-task row of the removed task (`core.release-content-hash`) on an upgraded
+development database is deleted by `ClusterScheduledTaskReconciler` once no node carries it.
+
 ### ADR 0033 storage, step 6: images, one store for bytes (25 October; branch `feat/storage-images`, on `feat/storage-fonts`, not pushed)
 
 | Change                                                                                                                                                                                                                                             | Where                                                | Coverage                                                         |

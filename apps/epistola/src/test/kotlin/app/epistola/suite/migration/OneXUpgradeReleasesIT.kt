@@ -10,7 +10,6 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.catalog.CatalogCanonicalizer
 import app.epistola.suite.catalog.CatalogFingerprintService
 import app.epistola.suite.catalog.revisions.ReleaseContentAssembler
-import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.catalog.revisions.ReleaseResourceStore
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.catalog.upgrade.CatalogUpgradeRunner
@@ -83,8 +82,6 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
 
     @Autowired private lateinit var upgrade: CatalogUpgradeRunner
 
-    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
-
     @Autowired private lateinit var assembler: ReleaseContentAssembler
 
     @Autowired private lateinit var entries: ReleaseResourceStore
@@ -104,13 +101,15 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         // The app has started on the 1.x database: migrated, and the system catalog brought to the
         // bundled release. Then the upgrade's startup work runs, as the scheduler runs it.
         MediatorContext.runWithMediator(mediator) { upgrade.run() }
-        backfill.run()
 
         assertThat(queued()).`as`("the upgrade finished every catalog (catalog_upgrade_queue, with its errors)").isEmpty()
         val releases = releases()
         assertThat(releases.map { "${it.catalogKey.value}@${it.version}" })
-            .`as`("the system catalog at the release the suite ships, and the authored catalog's first release")
-            .containsExactlyInAnyOrder("system@$BUNDLED_SYSTEM_VERSION", "letters@1.0.0")
+            .`as`("the system catalog at the release the suite ships, and the authored catalog's first 2.0 release, the patch after its 1.x one")
+            .containsExactlyInAnyOrder("system@$BUNDLED_SYSTEM_VERSION", "letters@1.1.1")
+        assertThat(releases).`as`("every release records its content hash, the 1.x one gone").allSatisfy { assertThat(it.contentHash).startsWith("v6:") }
+        assertThat(jdbi.withHandle<Int, Exception> { it.createQuery("SELECT count(*) FROM cluster_tasks_scheduled WHERE task_key = 'core.release-content-hash'").mapTo(Int::class.java).one() })
+            .`as`("no content-hash backfill is scheduled: there is nothing to hash").isZero()
 
         val canonicalizer = CatalogCanonicalizer(objectMapper)
         val softly = SoftAssertions()
@@ -227,6 +226,9 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
                     INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind) VALUES
                     ${SYSTEM_FONTS.joinToString(",\n") { "('${it.slug}', 'acme', 'system', '${it.name}', '${it.kind}')" }};
                     INSERT INTO catalogs (id, tenant_key, name, type) VALUES ('letters', 'acme', 'Letters', 'AUTHORED');
+                    -- A 1.x release: its metadata only, 1.x kept no release content. The upgrade deletes it.
+                    INSERT INTO catalog_releases (tenant_key, catalog_key, version, fingerprint, manifest_snapshot)
+                    VALUES ('acme', 'letters', '1.1.0', '${"9".repeat(64)}', '{}'::jsonb);
                     INSERT INTO themes (id, tenant_key, catalog_key, name, document_styles, spacing_unit)
                     VALUES ('house', 'acme', 'letters', 'House', '{"fontFamily": {"slug": "inter", "catalogKey": "system"}}', 8);
                     INSERT INTO fonts (slug, tenant_key, catalog_key, name, kind) VALUES ('brand', 'acme', 'letters', 'Brand', 'sans');

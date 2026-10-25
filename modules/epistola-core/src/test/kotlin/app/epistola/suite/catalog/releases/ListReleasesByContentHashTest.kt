@@ -20,7 +20,6 @@ import app.epistola.suite.environments.commands.DeployCatalogRelease
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.recordBeforeContentHashes
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -101,16 +100,5 @@ class ListReleasesByContentHashTest : IntegrationTestBase() {
         assertThat(second.items.map { it.version }).containsExactly("1.0.0")
         assertThat(second.total).isEqualTo(3)
         assertThat(past.items).isEmpty()
-    }
-
-    @Test
-    fun `a release whose content hash is not computed yet is no match`() {
-        val tenant = createTenant("By content hash pending").id
-        val hash = seeded(tenant)
-        withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.1") }
-
-        val found = withMediator { ListReleasesByContentHash(testCatalog(tenant, letters), hash).query() }
-
-        assertThat(found.items.map { it.version }).containsExactly("1.0.2", "1.0.0")
     }
 }

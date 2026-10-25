@@ -66,7 +66,7 @@ data class CatalogReleaseDetail(
 ) {
     val shortFingerprint: String get() = fingerprint.take(12)
 
-    /** [contentHash] as short as [shortFingerprint]; null while it is being computed. */
+    /** [contentHash] as short as [shortFingerprint]. */
     val shortContentHash: String? get() = contentHash?.take(12)
 
     /**

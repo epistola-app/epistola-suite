@@ -506,14 +506,11 @@ deployments and version ranges use.
   archive this installation writes (an export, the Exchange, a registry, a tenant snapshot) names
   the release by its content hash, as wire v8 requires (`ReleaseIdentity.travelling`), whatever
   fingerprint the release was cut with.
-- **Existing releases** keep the fingerprint they were cut or received with (V5 or older: immutable
-  and verifiable with the algorithm it names), and record their content hash beside it:
-  `catalog_releases.content_hash` (`V20261022104231`), set from the fingerprint when that is V6, else
-  computed from what the release retained by `ReleaseContentHashBackfill`, a single-owner cluster
-  task at startup, or on first use (`ReleaseIdentity.contentHash`). The hash needs the contract
-  library's canonical form, which SQL cannot reproduce, and reading every retained revision back,
-  which a Kotlin migration would do inside the upgrade transaction on the startup path, so it is not a
-  migration.
+- **Every release** keeps the fingerprint it was cut or received with (a received one may be V5 or
+  older: immutable and verifiable with the algorithm it names), and records its content hash beside
+  it, `catalog_releases.content_hash` (NOT NULL, `V20261025143621`): the fingerprint when that is V6,
+  else computed from the content when it is cut or received. 1.x kept no release content and the 2.0
+  upgrade deletes the 1.x releases, so no release is without one.
 - **"Is this the same release?"** is `ReleaseIdentity.isRelease`: the release's recorded fingerprint
   or content hash, or, for a fingerprint of another algorithm (a pin or base recorded as V5), that
   algorithm over its retained content. It decides receiving a release the tenant has (the same
@@ -537,7 +534,7 @@ deployments and version ranges use.
   whose hash is not computed yet is not listed.
 - **The APIs carry it.** REST gives every release its `contentHash` (the release list and page, the
   result of `releaseCatalogDraft`, a registry's releases, a merge base, a dependency's pinned release,
-  a catalog's highest release; null for a draft and while one is being computed), and
+  a catalog's highest release; null for a draft), and
   `listCatalogReleases?contentHash=` lists the releases with that content: a filter, so none is an
   empty list, and anything but a `v6:` hash is a 400. The database answers it
   (`ListReleasesByContentHash`: filtered on `content_hash`, ordered by release number, paged), so a

@@ -95,9 +95,8 @@
                     <p class="catalog-detail-value" data-testid="release-released-by" th:text="${release.releasedByLine}">Released here by Ann</p>
                 </div>
                 <!--/* What identifies the release (ADR 0034): a fingerprint of its content alone, so
-                       releases with the same one have the same content, whatever their number. A
-                       release recorded before content fingerprints gets one from the backfill; until
-                       then it is being computed. */-->
+                       releases with the same one have the same content, whatever their number.
+                       Every release records one when it is cut or received. */-->
                 <div class="catalog-detail-summary-item" data-testid="release-content-hash">
                     <span class="catalog-detail-label">Content fingerprint</span>
                     <th:block th:if="${release.contentHash != null}">
@@ -113,8 +112,6 @@
                         </div>
                         <span id="release-content-hash-status" class="form-hint" aria-live="polite"></span>
                     </th:block>
-                    <p th:if="${release.contentHash == null}" class="catalog-detail-value text-muted"
-                       data-testid="release-content-hash-pending">Being computed</p>
                 </div>
                 <!--/* The fingerprint it was recorded with, kept as it was, when that is of an older
                        kind than the content fingerprint: say why there are two. */-->
@@ -124,9 +121,7 @@
                     <code class="catalog-detail-value" th:text="${release.shortFingerprint}"
                           th:title="${release.fingerprint}"></code>
                     <p class="form-hint" style="margin: var(--ep-space-1) 0 0;"
-                       th:text="${release.contentHash != null}
-                           ? 'This release was recorded before content fingerprints and has been given one.'
-                           : 'This release was recorded before content fingerprints; it is being given one.'">This release was recorded before content fingerprints and has been given one.</p>
+                       >This release was fingerprinted before content fingerprints; it has one too.</p>
                 </div>
                 <!--/* Other releases in this tenant with the same content (ADR 0034): one re-released
                        with only new notes, or the same content received another way or released in

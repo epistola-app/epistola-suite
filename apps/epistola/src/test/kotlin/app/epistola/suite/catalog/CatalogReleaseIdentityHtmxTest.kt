@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.queries.GetCatalogReleaseDetail
-import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -37,8 +36,6 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
     @Autowired private lateinit var restTemplate: TestRestTemplate
 
     @Autowired private lateinit var jdbi: Jdbi
-
-    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
 
     private val letters = CatalogKey.of("letters")
 
@@ -76,7 +73,7 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
         assertThat(body).contains("id=\"release-content-hash\" value=\"$contentHash\"")
             .contains("data-copy-source=\"release-content-hash\"")
         assertThat(body).`as`("cut with a content fingerprint: one fingerprint, nothing to explain")
-            .doesNotContain("data-testid=\"release-original-fingerprint\"", "data-testid=\"release-content-hash-pending\"")
+            .doesNotContain("data-testid=\"release-original-fingerprint\"")
 
         val same = body.part("release-same-as")
         assertThat(same).contains("The same release as")
@@ -86,31 +83,21 @@ class CatalogReleaseIdentityHtmxTest : BaseIntegrationTest() {
     }
 
     /**
-     * Recorded before content fingerprints: the content fingerprint is being computed until the
-     * backfill gives it one, and the fingerprint it was recorded with is shown beside it, saying why.
+     * Received with a fingerprint of an older kind: its content fingerprint is shown, and the
+     * fingerprint it came with beside it, saying why there are two.
      */
     @Test
-    fun `a release recorded before content fingerprints says its content fingerprint is being computed, then shows both`() {
+    fun `a release received with an older fingerprint shows its content fingerprint and the one it came with`() {
         val tenant = createTenant("Release identity before").id
         releasedWithBrand(tenant, letters, "Letters")
         val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant, letters), "1.0.0") }
-
-        val pending = page(tenant, letters, "1.0.0")
-
-        assertThat(pending.part("release-content-hash")).contains("Being computed").doesNotContain("data-copy-source")
-        assertThat(pending.part("release-original-fingerprint"))
-            .contains("Original fingerprint", "title=\"$v5\"", ">${v5.take(12)}</code>")
-            .contains("This release was recorded before content fingerprints; it is being given one.")
-        assertThat(pending).doesNotContain("data-testid=\"release-same-as\"")
-
-        backfill.run()
         val contentHash = withMediator { GetCatalogReleaseDetail(testCatalog(tenant, letters), "1.0.0").query()!!.contentHash!! }
-        val given = page(tenant, letters, "1.0.0")
 
-        assertThat(given.part("release-content-hash-value", "code")).endsWith(">${contentHash.take(12)}")
-        assertThat(given).doesNotContain("data-testid=\"release-content-hash-pending\"")
-        assertThat(given.part("release-original-fingerprint"))
-            .contains("title=\"$v5\"")
-            .contains("This release was recorded before content fingerprints and has been given one.")
+        val page = page(tenant, letters, "1.0.0")
+
+        assertThat(page.part("release-content-hash-value", "code")).endsWith(">${contentHash.take(12)}")
+        assertThat(page.part("release-original-fingerprint"))
+            .contains("Original fingerprint", "title=\"$v5\"", ">${v5.take(12)}</code>")
+            .contains("This release was fingerprinted before content fingerprints; it has one too.")
     }
 }

@@ -11,7 +11,6 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.dependencies.GetCatalogBorrowing
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.queries.ListReleaseContentHashes
-import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.catalog.snapshot.BuildTenantSnapshot
 import app.epistola.suite.catalog.snapshot.RestoreTenantSnapshot
 import app.epistola.suite.common.ids.CatalogId
@@ -63,7 +62,6 @@ import java.time.Duration
  * Each case read the catalog by its key alone before, which named neither of the two.
  */
 class TwoLettersStoredReferencesTest : IntegrationTestBase() {
-    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
 
     @Autowired private lateinit var renderSource: ReleaseRenderSource
 
@@ -111,20 +109,6 @@ class TwoLettersStoredReferencesTest : IntegrationTestBase() {
                 assertThat(GetDocumentTemplate(TemplateId(invoice, letters(tenant, namespace))).query()!!.name).isEqualTo("Invoice of $namespace")
             }
         }
-    }
-
-    @Test
-    fun `the content-hash backfill hashes the releases of both`() {
-        val tenant = tenant("Two letters backfill")
-        twoLetters(tenant)
-        // Raw SQL: a release recorded before content hashes existed has none, which no command makes.
-        jdbi.useHandle<Exception> { it.createUpdate("UPDATE catalog_releases SET content_hash = NULL WHERE tenant_key = :t").bind("t", tenant).execute() }
-
-        backfill.run()
-
-        val hashes = withMediator { ListReleaseContentHashes(tenant).query() }
-        assertThat(hashes.of(letters(tenant, "acme"), "1.0.0")).isNotNull()
-        assertThat(hashes.of(letters(tenant, "bureau"), "1.0.0")).isNotNull()
     }
 
     @Test

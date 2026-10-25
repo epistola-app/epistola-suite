@@ -9,7 +9,6 @@ import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogMetadata
-import app.epistola.suite.catalog.revisions.ReleaseContentHashBackfill
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -35,8 +34,6 @@ import org.springframework.beans.factory.annotation.Autowired
 class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
 
     @Autowired private lateinit var jdbi: Jdbi
-
-    @Autowired private lateinit var backfill: ReleaseContentHashBackfill
 
     // ── GetCatalogReleaseDetail ─────────────────────────────────────────────────
 
@@ -94,8 +91,8 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
 
     /**
      * What identifies a release (ADR 0034): its content hash, which a release cut now has as its
-     * fingerprint. One recorded before content hashes keeps its older fingerprint and has no content
-     * hash until the backfill gives it one; the page shows both then, and says why.
+     * fingerprint. One received with an older fingerprint keeps it beside the content hash it was
+     * recorded with; the page shows both, and says why.
      */
     @Test
     fun `a release reports its content hash, and whether it was recorded before content hashes`() {
@@ -115,16 +112,8 @@ class CatalogReleaseReadQueriesTest : IntegrationTestBase() {
         val v5 = withMediator { mediator.recordBeforeContentHashes(jdbi, testCatalog(tenant.id, key), "1.0.0") }
         val recordedBefore = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
         assertThat(recordedBefore.fingerprint).isEqualTo(v5).startsWith("v5:")
-        assertThat(recordedBefore.contentHash).`as`("being computed").isNull()
-        assertThat(recordedBefore.shortContentHash).isNull()
+        assertThat(recordedBefore.contentHash).`as`("the content hash of what it holds").isEqualTo(cut.contentHash)
         assertThat(recordedBefore.recordedBeforeContentHashes).isTrue()
-
-        backfill.run()
-
-        val given = withMediator { GetCatalogReleaseDetail(testCatalog(tenant.id, key), "1.0.0").query()!! }
-        assertThat(given.contentHash).`as`("given the content hash of what it retained").isEqualTo(cut.contentHash)
-        assertThat(given.fingerprint).isEqualTo(v5)
-        assertThat(given.recordedBeforeContentHashes).isTrue()
     }
 
     // ── ListCatalogReleaseSummaries ───────────────────────────────────────────────
