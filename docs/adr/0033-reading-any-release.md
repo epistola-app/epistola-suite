@@ -285,7 +285,7 @@ In SQL, too, a type is read in one place: the function `catalog_version_resource
 version's rows of that type, a draft's and a release's alike, and each type's reads (`current_themes`
 and its successors) build on it. Its shape is fixed (current versions first, then each version's rows
 by key) so it plans well on tables the planner has no statistics for yet, which a regression test
-holds (`ThemePlanStabilityTest`). A new type adds a mapper and its reads on this function, not a
+holds by the shape of the generic plans, not by timing (`ThemePlanStabilityTest`). A new type adds a mapper and its reads on this function, not a
 query of its own over the storage tables.
 
 ### How it is built

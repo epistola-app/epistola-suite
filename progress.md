@@ -66,6 +66,15 @@ qualified and stores in the target's form. Checked the other JSON types: themes,
 attributes already named one content (`DraftReleaseSameContentTest`, which failed for the stencil
 only before). The demo parity test now also compares the content hashes of draft and release.
 
+**Follow-up 4 (25 October): `ThemePlanStabilityTest` holds a plan shape, not a time.** It failed
+once under full-suite load (448 to 968 ms). It now prepares each read of the four JSON types (a
+catalog's, and one by key) and takes its generic plan (`plan_cache_mode = force_generic_plan`) on a
+never-analyzed database, once while only the system catalog is stored and once after 5 catalogs have
+grown, and requires no nested loop with `resource_contents` outside and `release_resources` inside
+(the plan that went wrong: the tenant's rows rescanned per stored content). A copy of the theme read
+before the fix (the two-union view joined to content and catalog) shows that plan, so the check
+fails on the old shape. Timing stays in the perf tests.
+
 **Noticed, left alone:**
 
 - The demo catalog's index (`catalog.json`) describes `company-header` differently from the

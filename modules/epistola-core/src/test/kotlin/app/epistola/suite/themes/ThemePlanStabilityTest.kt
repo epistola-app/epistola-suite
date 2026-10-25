@@ -33,18 +33,24 @@ import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.TestPropertySource
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
 
 /**
- * Theme reads plan well before the planner has statistics on the storage tables (ADR 0033).
+ * The reads of the types stored as JSON plan well before the planner has statistics on the storage
+ * tables (ADR 0033).
  *
  * A fresh installation starts with `release_resources` and `resource_contents` empty. pgjdbc
- * server-prepares a statement after its fifth execution and Postgres may then keep a generic plan
- * made while the tables were empty, until autoanalyze runs. A plan that depends on statistics then
- * degrades as the tables grow: releasing a catalog went from 0.3 s to 8 s over 25 catalogs, since
- * the generic plan of a catalog's themes rescanned the tenant's rows once per stored content.
+ * server-prepares a statement after its fifth execution and Postgres may keep a generic plan made
+ * while the tables had no statistics. The plan that went wrong put `resource_contents` (estimated
+ * at one row) outermost in a nested loop and rescanned the tenant's `release_resources` rows once
+ * per stored content: releasing a catalog went from 0.3 s to 8 s over 25 catalogs. The reads now go
+ * through `catalog_version_resources(type)`, whose shape is fixed.
  *
- * Its own context, so its own freshly migrated database, with autoanalyze off on the storage tables
- * for the test, so no statistics arrive midway: releases must stay flat as the data grows.
+ * This holds the shape, not a time, so machine load cannot fail it: on its own freshly migrated
+ * database, with autoanalyze off on the storage tables, the generic plan of each read must not have
+ * that nested loop. A copy of the join the reads used before shows the check finds it.
+ * The time it takes is measured in the perf tests only.
  */
 @TestPropertySource(properties = ["epistola.test.context=theme-plan-stability"])
 class ThemePlanStabilityTest : IntegrationTestBase() {
@@ -52,57 +58,127 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var objectMapper: ObjectMapper
+
     private val storage = listOf("release_resources", "resource_contents", "resource_references", "catalog_resources", "resource_credentials", "code_list_refreshes")
 
     private fun autoanalyze(on: Boolean) = jdbi.useHandle<Exception> { h ->
         storage.forEach { h.execute("ALTER TABLE $it SET (autovacuum_enabled = $on)") }
     }
 
+    /**
+     * The generic plan of [sql], as JSON: prepared, as pgjdbc prepares a statement it runs often, and
+     * planned with `plan_cache_mode = force_generic_plan`, so the values bound to it ([values]: $1
+     * tenant, $2 namespace, $3 catalog key, $4 resource key) do not shape it.
+     */
+    private fun genericPlan(sql: String, values: List<String>): JsonNode = jdbi.inTransaction<JsonNode, Exception> { h ->
+        h.execute("SET LOCAL plan_cache_mode = force_generic_plan")
+        h.execute("PREPARE plan_check AS $sql")
+        try {
+            val arguments = values.take(PARAMETER.findAll(sql).map { it.value }.toSet().size).joinToString(", ") { "'${it.replace("'", "''")}'" }
+            val json = h.createQuery("EXPLAIN (FORMAT JSON) EXECUTE plan_check($arguments)").mapTo(String::class.java).one()
+            objectMapper.readTree(json).get(0).get("Plan")
+        } finally {
+            h.execute("DEALLOCATE plan_check")
+        }
+    }
+
+    private fun relations(plan: JsonNode): Set<String> = buildSet {
+        plan.get("Relation Name")?.asString()?.let(::add)
+        plan.get("Plans")?.forEach { addAll(relations(it)) }
+    }
+
+    /** Every nested loop that rescans `release_resources` once per row of `resource_contents`. */
+    private fun rescans(plan: JsonNode): List<String> = buildList {
+        val children = plan.get("Plans")?.toList().orEmpty()
+        if (plan.get("Node Type")?.asString() == "Nested Loop") {
+            val outer = children.firstOrNull { it.get("Parent Relationship")?.asString() == "Outer" }
+            val inner = children.firstOrNull { it.get("Parent Relationship")?.asString() == "Inner" }
+            if (outer != null && inner != null && "resource_contents" in relations(outer) && "release_resources" in relations(inner)) {
+                add("Nested Loop: outer ${relations(outer)}, inner ${relations(inner)}")
+            }
+        }
+        children.forEach { addAll(rescans(it)) }
+    }
+
     @Test
-    fun `releasing stays flat as themes, code lists, attributes and stencils accumulate on tables without statistics`() {
+    fun `the reads of every type stored as JSON never rescan the rows per stored content, on tables without statistics`() {
         autoanalyze(false)
         try {
-            val releases = withMediator {
-                val tenant = createTenant("Theme plan stability").id
-                (0 until CATALOGS).map { c ->
+            val tenant = withMediator { createTenant("Theme plan stability").id }
+            val first = testCatalog(tenant, CatalogKey.of("cat-0"))
+            val values = listOf(tenant.value, first.namespace, first.key.value, "theme-0")
+            // Planned while the tables hold only the system catalog, as a fresh node's first reads are
+            // (where the plan that went wrong was made), and again once they have grown.
+            val early = plans(values)
+            withMediator {
+                (0 until CATALOGS).forEach { c ->
                     val key = CatalogKey.of("cat-$c")
                     CreateCatalog(tenantKey = tenant, id = key, name = "Catalog $c").execute()
                     val catalog = testCatalog(tenant, key)
                     repeat(THEMES) { t -> CreateTheme(ThemeId(ThemeKey.of("theme-$t"), catalog), "Theme $c/$t").execute() }
-                    // Code lists read through the same function and views (ADR 0033, step 2).
                     repeat(CODE_LISTS) { l ->
-                        CreateCodeList(
-                            CodeListId(CodeListKey.of("list-$l"), catalog),
-                            "List $c/$l",
-                            sourceType = CodeListSource.INLINE,
-                            entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) },
-                        ).execute()
-                    }
-                    // Attributes bound to them: their references resolve through the same functions (step 3).
-                    repeat(CODE_LISTS) { l ->
+                        CreateCodeList(CodeListId(CodeListKey.of("list-$l"), catalog), "List $c/$l", sourceType = CodeListSource.INLINE, entries = (0 until 20).map { CodeListEntry("c$it", "Entry $it", it) }).execute()
                         CreateAttributeDefinition(AttributeId(AttributeKey.of("attr-$l"), catalog), "Attribute $c/$l", codeListId = CodeListId(CodeListKey.of("list-$l"), catalog)).execute()
                     }
-                    // Stencils naming one of the themes: read and indexed through the same function (step 4).
                     repeat(STENCILS) { s ->
                         CreateStencil(StencilId(StencilKey.of("stencil-$s"), catalog), "Stencil $c/$s", tags = listOf("tag-${s % 3}"), content = themed("theme-${s % THEMES}")).execute()
                     }
-                    val start = System.nanoTime()
                     mediator.releaseNext(catalog)
-                    (System.nanoTime() - start) / 1_000_000
                 }
             }
-            val first = releases.take(5).sorted()[2]
-            val last = releases.takeLast(5).sorted()[2]
-            assertThat(last)
-                .`as`("median of the last five releases (ms), against the first five's $first ms: %s", releases)
-                .isLessThanOrEqualTo(maxOf(BUDGET_MS, 2 * first))
+            val grown = plans(values)
+
+            for ((name, plan) in early + grown) {
+                if (name == BEFORE) continue
+                assertThat(rescans(plan)).`as`("$name: %s", plan).isEmpty()
+            }
+            // The read the themes had before the fix: the check finds the plan that went wrong.
+            assertThat(listOf(early, grown).flatMap { rescans(it.getValue(BEFORE)) }).`as`("the read before the fix: %s", early.getValue(BEFORE)).isNotEmpty()
         } finally {
             autoanalyze(true)
         }
     }
 
+    /** The generic plan of every read, and of the read before the fix ([BEFORE]), by name. */
+    private fun plans(values: List<String>): Map<String, JsonNode> {
+        val catalog = "t.tenant_key = $1 AND t.catalog_id = epistola_catalog_id($1, $2, $3)"
+        val reads = listOf("current_themes", "current_code_lists", "current_attributes", "current_stencils").flatMap { view ->
+            listOf(
+                "$view of a catalog" to "SELECT t.payload FROM $view t WHERE $catalog",
+                "$view, one" to "SELECT t.payload FROM $view t WHERE $catalog AND t.id = $4",
+            )
+        } + (BEFORE to BEFORE_SQL)
+        return reads.associate { (name, sql) -> name to genericPlan(sql, values) }
+    }
+
     private companion object {
-        const val CATALOGS = 20
+        val PARAMETER = Regex("""\$\d""")
+        const val BEFORE = "the read before the fix"
+
+        /**
+         * A catalog's themes as `ExportThemes` read them before the fix (`V20261024114500` as first
+         * written, ADR 0033 step 1b): the version's rows from a view of two unions, joined to their
+         * content and their catalog, so the planner chose the join order.
+         */
+        val BEFORE_SQL = """
+            SELECT c.payload, k.catalog_key FROM (
+                SELECT r.* FROM release_resources r
+                WHERE r.version_id IS NOT NULL
+                  AND r.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = r.tenant_key)
+                  AND r.catalog_id IS DISTINCT FROM NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
+                UNION ALL
+                SELECT r.* FROM release_resources r
+                WHERE r.version IS NOT NULL
+                  AND r.catalog_id = NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
+                  AND r.version = current_setting('epistola.release_version', TRUE)
+            ) r
+            JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
+            JOIN catalogs k ON k.tenant_key = r.tenant_key AND k.catalog_id = r.catalog_id
+            WHERE r.resource_type = 'theme' AND r.tenant_key = $1 AND r.catalog_id = epistola_catalog_id($1, $2, $3)
+        """
+        const val CATALOGS = 5
         const val THEMES = 25
         const val CODE_LISTS = 5
         const val STENCILS = 10
@@ -114,6 +190,5 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
             slots = mapOf("children" to Slot(id = "children", nodeId = "root", name = "children", children = emptyList())),
             themeRef = ThemeRefOverride(themeKey = theme),
         )
-        const val BUDGET_MS = 300L
     }
 }
