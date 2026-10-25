@@ -5,7 +5,6 @@
 package app.epistola.suite.fonts
 
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import jakarta.annotation.PostConstruct
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.mapper.ColumnMapper
@@ -26,13 +25,6 @@ class FontJdbiConfig(private val jdbi: Jdbi) {
             ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
                 val value = r.getString(columnNumber)
                 if (r.wasNull()) null else FontKind.fromWire(value)
-            },
-        )
-        jdbi.registerColumnMapper(
-            FontVariantSource::class.java,
-            ColumnMapper { r: ResultSet, columnNumber: Int, _: StatementContext ->
-                val value = r.getString(columnNumber)
-                if (r.wasNull()) null else FontVariantSource.valueOf(value)
             },
         )
     }

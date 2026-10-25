@@ -118,11 +118,13 @@ by hand for one tenant from **Operations → Cluster → Stored content → Coll
 `CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog
 still removes the content only it held at once, as before.
 
-A draft's resources of the types stored as JSON (themes, code lists, attributes and stencils, so far) are `release_resources` rows too,
+A draft's resources of the types stored as JSON (themes, code lists, attributes, stencils and fonts, so far) are `release_resources` rows too,
 keyed by the draft (`version_id`) instead of a release number, and their content is stored the same
 way when they are saved ([catalog versioning](catalog-versioning.md#one-storage-for-drafts-and-releases)).
 A draft row holds its content as a release row does; content a save left behind is an orphan the
-collector takes after the grace period. The collector also deletes the credentials (`resource_credentials`,
+collector takes after the grace period. A font's faces are its binaries: its content links to their bytes
+(`resource_binaries`), a draft's as a release's, so a face's file is kept while anything names it;
+there is no asset row for it. The collector also deletes the credentials (`resource_credentials`,
 a code list source's secret) that no content names any more, past the same grace period.
 
 ## Migration from the legacy `content_store`

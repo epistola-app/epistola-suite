@@ -240,86 +240,20 @@ data class ExportFonts(
 @Component
 class ExportFontsHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) : QueryHandler<ExportFonts, List<FontResource>> {
 
     override fun handle(query: ExportFonts): List<FontResource> = jdbi.withHandle<List<FontResource>, Exception> { handle ->
-        // Two-query load: list the matching fonts first, then load all their
-        // variants in a single batched fetch (mirrors `ExportCodeLists`).
-        val fontSql = buildString {
-            append(
-                """
-                SELECT c.catalog_id::text AS catalog_ref, c.catalog_key, f.slug, f.name, f.kind
-                FROM fonts f
-                JOIN catalogs c ON c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id
-                WHERE f.tenant_key = :tenantKey AND ${inCurrentVersion("f")}
-                """,
-            )
-            if (query.catalogKey != null) append(" AND f.version_id = ${versionAt("tenantKey", "catalogKey")}")
+        // A font is stored in its released form (ADR 0033): every face, bundled ones included.
+        val sql = buildString {
+            append("SELECT (f.payload -> 'resource')::text AS resource FROM current_fonts f WHERE f.tenant_key = :tenantKey")
+            if (query.catalogKey != null) append(" AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}")
             if (query.slugs != null) append(" AND f.slug IN (<slugs>)")
-            append(" ORDER BY c.catalog_key, f.slug")
+            append(" ORDER BY (SELECT c.catalog_key FROM catalogs c WHERE c.tenant_key = f.tenant_key AND c.catalog_id = f.catalog_id), f.slug")
         }
-        data class FontRow(val catalogKey: String, val slug: String, val name: String, val kind: String)
-        val fonts = handle.createQuery(fontSql).bind("tenantKey", query.tenantKey).apply {
+        handle.createQuery(sql).bind("tenantKey", query.tenantKey).apply {
             if (query.catalogKey != null) bindCatalog("catalogKey", query.catalog)
             if (query.slugs != null) bindList("slugs", query.slugs)
-        }.map { rs, _ ->
-            FontRow(rs.getString("catalog_ref"), rs.getString("slug"), rs.getString("name"), rs.getString("kind"))
-        }.list()
-
-        if (fonts.isEmpty()) return@withHandle emptyList()
-
-        // System (CLASSPATH) faces are never exported — the wire format only
-        // describes catalog-authored, asset-backed fonts. Filter the candidate
-        // variants in Kotlin against the actual font set (JDBI has no tuple-IN
-        // binder and the row count is tiny).
-        val wantedKeys = fonts.map { it.catalogKey to it.slug }.toSet()
-        val variantsByFont = handle.createQuery(
-            """
-            SELECT family_catalog.catalog_id::text AS catalog_ref, family.slug AS font_slug,
-                   faces.weight, faces.italic, binary_asset.id AS asset_key,
-                   binary_asset.media_type, faces.content_hash
-            FROM font_variants faces
-            JOIN fonts family
-              ON family.tenant_key = faces.tenant_key AND family.version_id = faces.version_id
-             AND family.resource_id = faces.font_resource_id
-            JOIN catalogs family_catalog
-              ON family_catalog.tenant_key = family.tenant_key AND family_catalog.catalog_id = family.catalog_id
-            JOIN assets binary_asset
-              ON binary_asset.tenant_key = faces.tenant_key
-             AND binary_asset.resource_id = faces.asset_resource_id
-             AND ${inCurrentVersion("binary_asset")}
-            WHERE faces.tenant_key = :tenantKey
-              AND ${inCurrentVersion("family")}
-              AND faces.source = 'ASSET'
-              AND family_catalog.catalog_id::text IN (<catalogs>)
-              AND family.slug IN (<slugs>)
-            ORDER BY family_catalog.catalog_id, family.slug, faces.italic, faces.weight
-            """,
-        )
-            .bind("tenantKey", query.tenantKey)
-            .bindList("catalogs", fonts.map { it.catalogKey }.distinct())
-            .bindList("slugs", fonts.map { it.slug }.distinct())
-            .map { rs, _ ->
-                (rs.getString("catalog_ref") to rs.getString("font_slug")) to FontVariantEntry(
-                    weight = rs.getInt("weight"),
-                    italic = rs.getBoolean("italic"),
-                    mediaType = rs.getString("media_type"),
-                    contentHash = requireNotNull(rs.getString("content_hash")) {
-                        "font face has no content hash; the content backfill has not run for it"
-                    },
-                )
-            }
-            .list()
-            .filter { it.first in wantedKeys }
-            .groupBy({ it.first }, { it.second })
-
-        fonts.map { font ->
-            FontResource(
-                key = font.slug,
-                name = font.name,
-                kind = font.kind,
-                variants = variantsByFont[font.catalogKey to font.slug] ?: emptyList(),
-            )
-        }
+        }.map { rs, _ -> objectMapper.readValue(rs.getString("resource"), FontResource::class.java) }.list()
     }
 }

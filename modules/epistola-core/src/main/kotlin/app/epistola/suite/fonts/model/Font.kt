@@ -4,11 +4,9 @@
 
 package app.epistola.suite.fonts.model
 
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import org.jdbi.v3.core.mapper.reflect.ColumnName
 import java.security.MessageDigest
 import java.time.OffsetDateTime
 
@@ -68,31 +66,16 @@ enum class FontKind(val wire: String) {
 }
 
 /**
- * Where a variant's binary lives:
- *
- * - `ASSET`     — an ordinary `assets` row in the same catalog (uploaded
- *   font binary; reuses all asset machinery).
- * - `CLASSPATH` — a bundled system font shipped once in the JAR (no asset
- *   row, no per-tenant copy).
+ * One face of a family, keyed by CSS numeric [weight] (1–1000; 400 = regular, 700 = bold) and
+ * [italic]: its file is the font's own binary, the bytes stored under [contentHash] (ADR 0033).
+ * Every face is a static file; variable fonts are instanced into static faces at upload.
  */
-enum class FontVariantSource {
-    ASSET,
-    CLASSPATH,
-}
-
-/**
- * A single font-face pointer, keyed by CSS numeric [weight] (1–1000;
- * 400 = regular, 700 = bold) + [italic]. Exactly one of [assetKey] /
- * [classpathLocation] is non-null, matching the `chk_font_variant_source`
- * SQL CHECK. Every face is a static binary — variable fonts are instanced
- * into static faces at upload, never represented as a face type here.
- */
-data class FontVariantRow(
+data class FontFace(
     val weight: Int,
     val italic: Boolean,
-    val source: FontVariantSource,
-    val assetKey: AssetKey? = null,
-    val classpathLocation: String? = null,
+    /** `font/ttf` or `font/otf`. */
+    val mediaType: String,
+    val contentHash: String,
 )
 
 /**

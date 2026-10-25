@@ -21,6 +21,68 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 5: fonts (25 October; branch `feat/storage-fonts`, on `feat/storage-stencils`, not pushed)
+
+Fonts before images, as decided: a face's file becomes the font's own binary, so `assets` holds
+images only once this step is in. The bundled system faces go into `asset_content` once per
+installation (decision (i)); the classpath fallback (`bundledFace`, `classpath_location`,
+`withBundledFaces`) is gone.
+
+| Change                                                                                                                                                                                                                                                         | Where                                                   | Coverage                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------- |
+| Content `{ resource: <FontResource> }` (faces by italic, then weight, each with mediaType and contentHash) named by a draft row; read through `current_fonts`                                                                                                  | `FontStore`, `V20261025105724`, `V20261025105800`       | ✅ `FontStorageTest`, `DraftReleaseSameContentTest`             |
+| A face's file is a binary of the font: `ResourceContentStore` links every stored image or font content to its bytes (`resource_binaries`, tenant scope first, else shared), drafts as releases; no asset row for a face                                        | `ResourceContentStore.linkBinaries`, `FontStore`        | ✅ `FontStorageTest`, `SystemFontsIntegrationTest`              |
+| `ImportFont` takes each face's bytes (`ImportFontVariant(weight, italic, mediaType, content)`): upload (UI, MCP), catalog install, system seeding; checks weight, media type, 5 MB, one face per weight/italic                                                 | `ImportFont`, `FontHandler`, `FontMcpTools`, installers | ✅ font suites, `FontUploadHandlerTest`, MCP suite              |
+| System fonts: files read and hashed once per JVM, bytes written once per installation (shared scope), a family whose content is current writes nothing; contents stored before their files (the conversion) are linked on seeding                              | `EnsureSystemFonts`, `FontStore.linkStoredFaces`        | ✅ `SystemFontsIntegrationTest`, `SystemFontBootPerfTest`       |
+| The boot pass validates the system catalog only when it or its fonts changed (validating 14 MB of faces every boot cost ~100 ms a tenant)                                                                                                                      | `InstallSystemCatalog`                                  | ✅ full suite                                                   |
+| Reads are release-readable: `ListFonts`, `GetFontVariants`, `ResolveFontFace`; REST drops its release branch and the bundled-face patch-up                                                                                                                     | font queries, `EpistolaFontApi`                         | ✅ REST suite                                                   |
+| Export from the content (bundled faces included, as a release keeps them); a face's bytes are read when an archive asks for them, not on every build                                                                                                           | `ExportFonts`, `CatalogContentBuilder`                  | ✅ export suites                                                |
+| Migration never refuses: face-only asset rows (not an image, named by nothing but a face, bytes in `asset_content`) go; an image a face used, a font file an image node names, and a file whose bytes the 1.x content backfill has not moved yet stay (logged) | `V20261025105800`                                       | ✅ `FontsToStorageMigrationTest`, `DataPreservationMigrationIT` |
+| Conversion parity: system fonts and an uploaded one                                                                                                                                                                                                            | `FontStorageConversion`                                 | ✅ `FontStorageTest`                                            |
+
+**Measured** (`FontStoragePerfTest`, `--rerun`; one tenant, 10 catalogs of 10 families of two
+uploaded faces, each released, beside the system fonts; median / p95 of 200 runs, save 50; ms):
+
+| Operation               | before         | after         |
+| ----------------------- | -------------- | ------------- |
+| list a catalog's fonts  | 0.88 / 1.10    | 0.95 / 1.16   |
+| list a tenant's fonts   | 1.81 / 2.11    | 1.79 / 2.08   |
+| read a font's faces     | 27.08 / 30.67  | 0.69 / 1.01   |
+| resolve a face's bytes  | 26.60 / 29.88  | 0.61 / 0.80   |
+| save a font (two faces) | 98.12 / 106.39 | 62.52 / 66.75 |
+
+Reading faces was slow because each face found its file through the `assets` join over every
+catalog's current version; it is now one row's JSON.
+
+**Boot cost** (`SystemFontBootPerfTest`, its own fresh database, `--rerun`; ms):
+
+| Operation                                                                       | before | after |
+| ------------------------------------------------------------------------------- | ------ | ----- |
+| create the first tenant (fresh installation: files read, hashed and written)    | 1082   | 1848  |
+| create a second tenant                                                          | 213    | 477   |
+| re-seed the system fonts of an existing tenant (median of 20)                   | —      | 16.9  |
+| boot pass of an existing tenant's system catalog, fonts included (median of 20) | 34.6   | 29.7  |
+
+A tenant's first install now validates and records a system catalog whose fonts carry their 36
+faces (14 MB): +260 ms a tenant, +770 ms for the first, which also writes the files. Every later
+boot is cheaper than before.
+
+**Stop needed, not built: the 1.x content backfill.** An installation that upgrades from a 1.x
+version before the content backfill finished (`ContentBackfillRunner`, #738) has assets whose bytes
+are still in the legacy `content_store`, possibly on S3 or a filesystem, which Flyway cannot reach.
+This step keeps such a face's asset row (it is the only way to its bytes) and its face names the hash
+1.x recorded, but nothing links the font to the bytes once the backfill moves them; the images step
+cannot convert such an image at all (an image's content names its hash). Recommendation: an upgrade
+preflight stop (ADR 0035): refuse 1.x → 2.0 while any asset has no `content_hash`, telling the
+operator to let 1.x finish its content backfill first.
+
+**Noticed, left alone:**
+
+- `CatalogDependencyCycles.NOT_A_CATALOG_DEPENDENCY` still names `font-face-asset`, an edge kind the
+  graph no longer reports.
+- `FontResource.toDto(at)` (`ReleasedResourceMappers`) is unused now that REST reads releases
+  through the queries.
+
 ### ADR 0033 storage, step 4: stencils (25 October; branch `feat/storage-stencils`, on `feat/storage-attributes`, not pushed)
 
 Built against contract `2.0.0-alpha.1`: stencil tags stay `StencilResource.tags`. The move to a

@@ -35,7 +35,7 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
-  through the draft queries switch to releases a resource type at a time; themes, code lists, attributes and stencils do
+  through the draft queries switch to releases a resource type at a time; themes, code lists, attributes, stencils and fonts do
   ([below](#one-storage-for-drafts-and-releases)), the other types still read a release through
   `ListReleasedResources`.
 - <a id="one-storage-for-drafts-and-releases"></a>**One storage for drafts and releases** (ADR 0033,
@@ -227,9 +227,9 @@ until it is released**; only releases are numbered.
   **version id** (`version_key`, eight characters such as `k7m2x9qa`, from `epistola_version_key()`),
   which a release keeps from the draft it was released from; `next` names the next release.
 - **Content belongs to a version.** Every content row (`document_templates`, `template_variants`,
-  `assets`, `fonts`, `font_variants`) is keyed
+  `assets`) is keyed
   `(tenant_key, version_id, resource_id)`; its address is unique per version. Themes, code lists,
-  attributes and stencils are `release_resources` rows keyed by the draft instead
+  attributes, stencils and fonts are `release_resources` rows keyed by the draft instead
   ([above](#one-storage-for-drafts-and-releases)). Ready marks (`resource_ready_marks`) and dependency declarations
   (`catalog_dependencies`) are per version too.
 - **Identity is shared.** `catalog_resources` holds one identity per resource, used by every version

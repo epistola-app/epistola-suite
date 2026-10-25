@@ -23,7 +23,6 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.ResolveFontFace
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -133,20 +132,12 @@ class CrossCatalogFontBindingTest : IntegrationTestBase() {
             CreateCatalog(tenantKey = tenant.id, id = authored, name = "Own Font Catalog").execute()
 
             // Upload + register an AUTHORED font living in THIS catalog.
-            val regular = UploadAsset(
-                catalog = testCatalog(tenant.id, authored),
-                name = "acme-sans-regular.ttf",
-                mediaType = AssetMediaType.TTF,
-                content = ttfBytes(),
-                width = null,
-                height = null,
-            ).execute().id
             ImportFont(
                 catalog = testCatalog(tenantId, authored),
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", ttfBytes())),
             ).execute()
 
             // A theme in the SAME catalog referencing that own font.

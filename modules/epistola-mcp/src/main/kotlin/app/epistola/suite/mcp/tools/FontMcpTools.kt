@@ -15,7 +15,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontVariants
 import app.epistola.suite.fonts.queries.ListFonts
 import app.epistola.suite.mcp.dto.FontInfo
@@ -122,20 +121,9 @@ class FontMcpTools(
         } catch (e: IllegalArgumentException) {
             throw ValidationException("kind", "${e.message}. Use one of ${FontKind.entries.joinToString { it.wire }}")
         }
-        // Every face is validated before any is stored, so a bad face leaves no orphaned asset behind.
+        // Every face is validated before any is stored; a face's file is the font's own binary (ADR 0033).
         val parsed = parseFaces(objectMapper.parseArgument("faces", faces, ArrayNode::class.java))
-        val variants = parsed.map { face ->
-            val asset = UploadAsset(
-                catalog = catalog,
-                name = "${slug.value}-${face.weight}${if (face.italic) "-italic" else ""}.${face.extension}",
-                mediaType = face.mediaType,
-                content = face.bytes,
-                width = null,
-                height = null,
-                catalogVersion = version,
-            ).execute()
-            ImportFontVariant(weight = face.weight, italic = face.italic, source = FontVariantSource.ASSET, assetKey = asset.id)
-        }
+        val variants = parsed.map { face -> ImportFontVariant(face.weight, face.italic, face.mediaType.mimeType, face.bytes) }
         ImportFont(
             catalog = catalog,
             slug = slug.value,
@@ -150,9 +138,7 @@ class FontMcpTools(
         return FontInfo.from(font, stored, catalogEditability().editable(catalog))
     }
 
-    private class Face(val weight: Int, val italic: Boolean, val bytes: ByteArray, val mediaType: AssetMediaType) {
-        val extension get() = if (mediaType == AssetMediaType.OTF) "otf" else "ttf"
-    }
+    private class Face(val weight: Int, val italic: Boolean, val bytes: ByteArray, val mediaType: AssetMediaType)
 
     private fun parseFaces(array: ArrayNode): List<Face> {
         if (array.isEmpty) throw ValidationException("faces", "At least one face is required")

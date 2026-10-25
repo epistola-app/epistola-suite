@@ -13,7 +13,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.fonts.queries.GetFontFamilyFingerprint
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -40,14 +39,9 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
         .getResource("classpath:$resource")
         .contentAsByteArray
 
-    private fun upload(tenant: TenantId, name: String, resource: String): AssetKey = UploadAsset(
-        catalog = testCatalog(tenant.key, CatalogKey.DEFAULT),
-        name = name,
-        mediaType = AssetMediaType.TTF,
-        content = bytesOf(resource),
-        width = null,
-        height = null,
-    ).execute().id
+    /** A face's file: the font's own binary (ADR 0033), not an uploaded asset. */
+    @Suppress("UNUSED_PARAMETER")
+    private fun upload(tenant: TenantId, name: String, resource: String): ByteArray = bytesOf(resource)
 
     @Test
     fun `fingerprint is stable across calls and non-null when faces exist`() {
@@ -61,7 +55,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 slug = "fp-font",
                 name = "FP Font",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
 
             val slug = FontKey.of("fp-font")
@@ -91,7 +85,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 slug = slug.value,
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", regular)),
             ).execute()
             val before = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 
@@ -103,7 +97,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
                 slug = slug.value,
                 name = "FP Mut",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = replacement)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", replacement)),
             ).execute()
             val after = GetFontFamilyFingerprint(testCatalog(tenant.id, CatalogKey.DEFAULT), slug).query()
 

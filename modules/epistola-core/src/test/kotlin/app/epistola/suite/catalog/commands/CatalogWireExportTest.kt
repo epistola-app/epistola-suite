@@ -33,7 +33,6 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.fonts.commands.ImportFont
 import app.epistola.suite.fonts.commands.ImportFontVariant
 import app.epistola.suite.fonts.model.FontKind
-import app.epistola.suite.fonts.model.FontVariantSource
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.stencils.commands.CreateStencil
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -93,16 +92,14 @@ class CatalogWireExportTest : IntegrationTestBase() {
             ).execute()
 
             // Font faces: two weights, each its own binary in the assets table.
-            val regular = UploadAsset(testCatalog(tenantKey, catalogKey), "Inter Regular", AssetMediaType.fromMimeType("font/ttf"), TTF, width = null, height = null).execute().id
-            val bold = UploadAsset(testCatalog(tenantKey, catalogKey), "Inter Bold", AssetMediaType.fromMimeType("font/ttf"), TTF_BOLD, width = null, height = null).execute().id
             ImportFont(
                 catalog = testCatalog(tenantId, catalogKey),
                 slug = "inter",
                 name = "Inter",
                 kind = FontKind.SANS.wire,
                 variants = listOf(
-                    ImportFontVariant(400, false, FontVariantSource.ASSET, assetKey = regular),
-                    ImportFontVariant(700, false, FontVariantSource.ASSET, assetKey = bold),
+                    ImportFontVariant(400, false, "font/ttf", TTF),
+                    ImportFontVariant(700, false, "font/ttf", TTF_BOLD),
                 ),
             ).execute()
 

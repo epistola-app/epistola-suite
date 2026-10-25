@@ -183,24 +183,6 @@ class ReleaseContentAssembler(
             .mapTo(ByteArray::class.java)
             .findOne()
             .orElse(null)
-            ?: bundledFace(handle, tenantKey, contentHash)
-    }
-
-    private fun bundledFace(handle: Handle, tenantKey: TenantKey, contentHash: String): ByteArray? {
-        val location = handle.createQuery(
-            """
-            SELECT classpath_location FROM font_variants
-            WHERE tenant_key = :t AND content_hash = :hash AND source = 'CLASSPATH' AND classpath_location IS NOT NULL
-            LIMIT 1
-            """,
-        )
-            .bind("t", tenantKey)
-            .bind("hash", contentHash)
-            .mapTo(String::class.java)
-            .findOne()
-            .orElse(null) ?: return null
-        val bytes = javaClass.classLoader.getResourceAsStream(location)?.use { it.readBytes() } ?: return null
-        return bytes.takeIf { sha256Hex(it) == contentHash }
     }
 
     /** The latest release of a catalog, or null when it has none. */

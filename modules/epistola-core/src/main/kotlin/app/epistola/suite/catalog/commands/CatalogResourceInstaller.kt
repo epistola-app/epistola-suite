@@ -126,19 +126,11 @@ class CatalogResourceInstaller(
             slug = resource.key,
             name = resource.name,
             kind = resource.kind,
-            // Every variant's binary rode the ZIP as an `AssetResource`
-            // installed in this same catalog (asset slug = asset UUID).
-            // System (CLASSPATH) fonts are never exported.
+            // Every face's file rode the archive; it is the font's own binary (ADR 0033).
             variants = resource.variants.map { entry ->
                 val faceBytes = binaries(entry.contentPath())
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
-                val faceKey = materialiseFontFace(catalog, resource.key, entry, faceBytes)
-                app.epistola.suite.fonts.commands.ImportFontVariant(
-                    weight = entry.weight,
-                    italic = entry.italic,
-                    source = app.epistola.suite.fonts.model.FontVariantSource.ASSET,
-                    assetKey = faceKey,
-                )
+                app.epistola.suite.fonts.commands.ImportFontVariant(entry.weight, entry.italic, entry.mediaType, faceBytes)
             },
         ).execute()
 

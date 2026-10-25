@@ -116,9 +116,13 @@ class InstallSystemCatalogHandler(
         // every pass (idempotent UPSERT) — inside the same elevated principal —
         // so a newly bundled font is picked up on the next boot even when the
         // catalog content didn't move, mirroring the asset/code-list payload.
-        EnsureSystemFonts(tenantKey = command.tenantKey).execute()
-        // Checked now that its content is complete; the install deferred it with the release.
-        installedCatalogCheck.requireValid(systemCatalog(command.tenantKey))
+        val fontsChanged = EnsureSystemFonts(tenantKey = command.tenantKey).execute()
+        // Checked now that its content is complete; the install deferred it with the release. A pass
+        // that changed nothing has nothing new to check (the faces are 14 MB to validate); the release
+        // is recorded either way, which does nothing when it is.
+        if (result.status != EnsureCatalogStatus.ALREADY_CURRENT || fontsChanged) {
+            installedCatalogCheck.requireValid(systemCatalog(command.tenantKey))
+        }
         RecordInstalledRelease(systemCatalog(command.tenantKey)).execute()
 
         InstallSystemCatalogResult(

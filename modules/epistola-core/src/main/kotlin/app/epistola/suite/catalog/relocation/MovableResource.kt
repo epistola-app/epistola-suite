@@ -143,13 +143,12 @@ enum class MovableResource(
      * Also resolved at render time, through `ResolveFontFace`: content that still names the
      * family's old address renders in the built-in fallback font.
      *
-     * Keyed by identity (`V20260905090100`), as are its faces: a face names its family and its
-     * backing asset by identity rather than through a shared catalog column, so a font and its
-     * asset move independently and neither move touches a face.
+     * A draft row naming its content (ADR 0033), its faces' files its own binaries: moved by
+     * FontStore, not by this table.
      */
     FONT(
         CatalogResourceType.FONT,
-        "fonts",
+        "release_resources",
         "slug",
         setOf(ReferenceSiteKind.FONT_FAMILY),
         { runCatching { FontKey.of(it) }.exceptionOrNull()?.message },

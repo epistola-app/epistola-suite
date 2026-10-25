@@ -4,20 +4,16 @@
 
 package app.epistola.suite.fonts.queries
 
-import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
+import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.fonts.FACES_OF_FAMILY_AT_ADDRESS
-import app.epistola.suite.fonts.model.FontVariantSource
+import app.epistola.suite.fonts.FontStore
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
@@ -30,11 +26,8 @@ import org.springframework.stereotype.Component
  * present faces). Render-time resolution uses [ResolveFontFace] instead, which
  * adds nearest-weight matching.
  *
- * - `ASSET`     — dispatches to `GetAssetContent` (the face is an ordinary
- *   uploaded asset in the same catalog).
- * - `CLASSPATH` — reads the bundled JAR resource at `classpath_location`.
- *
- * Returns null when the variant row, asset, or classpath resource is missing.
+ * The face's file is the font's binary, stored under its hash (ADR 0033). Returns null when the
+ * family has no such face or its bytes are missing.
  */
 data class GetFontVariantContent(
     val catalog: CatalogId,
@@ -55,48 +48,12 @@ data class GetFontVariantContent(
 @Component
 class GetFontVariantContentHandler(
     private val jdbi: Jdbi,
+    private val fonts: FontStore,
 ) : QueryHandler<GetFontVariantContent, ByteArray?> {
 
-    private data class VariantPointer(
-        val source: FontVariantSource,
-        val assetKey: AssetKey?,
-        val classpathLocation: String?,
-    )
-
-    override fun handle(query: GetFontVariantContent): ByteArray? {
-        val pointer = jdbi.withHandle<VariantPointer?, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT faces.source, binary_asset.id AS asset_key, faces.classpath_location
-                $FACES_OF_FAMILY_AT_ADDRESS
-                  AND faces.weight = :weight
-                  AND faces.italic = :italic
-                """,
-            )
-                .bind("tenantKey", query.tenantId)
-                .bindCatalog("catalogKey", query.catalog)
-                .bind("slug", query.slug)
-                .bind("weight", query.weight)
-                .bind("italic", query.italic)
-                .map { rs, _ ->
-                    VariantPointer(
-                        source = FontVariantSource.valueOf(rs.getString("source")),
-                        assetKey = rs.getString("asset_key")?.let(::AssetKey),
-                        classpathLocation = rs.getString("classpath_location"),
-                    )
-                }
-                .findOne()
-                .orElse(null)
-        } ?: return null
-
-        return when (pointer.source) {
-            FontVariantSource.CLASSPATH -> pointer.classpathLocation?.let { location ->
-                this::class.java.classLoader.getResourceAsStream(location)?.readBytes()
-            }
-
-            FontVariantSource.ASSET -> pointer.assetKey?.let { assetKey ->
-                GetAssetContent(query.tenantId, assetId = assetKey).query()?.content
-            }
-        }
+    override fun handle(query: GetFontVariantContent): ByteArray? = jdbi.withHandle<ByteArray?, Exception> { handle ->
+        val face = fonts.faces(handle, FontId(query.slug, query.catalog)).firstOrNull { it.weight == query.weight && it.italic == query.italic }
+            ?: return@withHandle null
+        fonts.bytes(handle, query.tenantId, face.contentHash)
     }
 }

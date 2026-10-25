@@ -127,16 +127,22 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     private val hexRegex = Regex("^[0-9a-f]{64}$")
 
     @Test
-    fun `every seeded system font face has a 64-char hex content hash`() {
+    fun `every seeded system font face has a 64-char hex content hash, linked to its stored bytes`() {
         val tenant = createTenant("Fonts Hash Tenant")
         val hashes = jdbi.withHandle<List<String?>, Exception> { handle ->
+            // Each face is a binary of its font's content (ADR 0033): its hash, and a link to bytes stored under it.
             handle.createQuery(
                 """
-                SELECT faces.content_hash
-                FROM font_variants faces
-                JOIN fonts family ON family.tenant_key = faces.tenant_key
-                                 AND family.resource_id = faces.font_resource_id
-                WHERE family.tenant_key = :tenantKey AND family.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                SELECT face ->> 'contentHash' FROM current_fonts f
+                CROSS JOIN LATERAL jsonb_array_elements(f.variants) face
+                WHERE f.tenant_key = :tenantKey AND f.catalog_id = ${catalogAt("tenantKey", "catalogKey")}
+                  AND EXISTS (
+                      SELECT 1 FROM release_resources r
+                      JOIN resource_binaries b ON b.tenant_key = r.tenant_key AND b.content_hash = r.content_hash
+                      JOIN asset_content c ON c.scope = b.scope AND c.content_hash = b.binary_hash
+                      WHERE r.tenant_key = f.tenant_key AND r.version_id = f.version_id AND r.resource_type = 'font'
+                        AND r.resource_key = f.slug AND b.binary_hash = face ->> 'contentHash'
+                  )
                 """,
             )
                 .bind("tenantKey", tenant.id.value)

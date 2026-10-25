@@ -144,10 +144,13 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
             val response = result<ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
 
-            val assets = withMediator { ListAssets(tenantId = testTenant.id).query() }
-            val asset = assets.single { it.name == "corporate-sans.ttf" }
-            assertThat(asset.name).isEqualTo("corporate-sans.ttf")
-            assertThat(asset.mediaType.mimeType).isEqualTo("font/ttf")
+            // The face is a binary of the font (ADR 0033), stored as the TTF the extension says it is.
+            val faces = withMediator {
+                app.epistola.suite.fonts.queries.GetFontVariants(
+                    app.epistola.suite.common.ids.FontId(app.epistola.suite.common.ids.FontKey.of("corporate-sans"), testCatalog(testTenant.id, app.epistola.suite.catalog.CatalogKey.DEFAULT)),
+                ).query()
+            }
+            assertThat(faces.single().mediaType).isEqualTo("font/ttf")
         }
     }
 

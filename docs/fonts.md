@@ -4,8 +4,8 @@ How Epistola models, resolves and renders fonts.
 
 > **TL;DR** — A font is a **catalog resource**: a thin family grouping over
 > per-face binaries keyed by CSS numeric `weight` (1–1000) + `italic`. A
-> face's bytes are either a bundled classpath file (system fonts) or an
-> uploaded `Asset` (customer fonts). The PDF renderer honours the selected
+> face's file is a binary of its font, stored by content hash, whether it was
+> bundled (system fonts) or uploaded (customer fonts). The PDF renderer honours the selected
 > `fontFamily` everywhere — body text, bold/italic marks and headings —
 > resolving the nearest available weight. A catalog release holds its fonts'
 > faces by content hash, so re-uploading a font never changes what a release
@@ -13,21 +13,14 @@ How Epistola models, resolves and renders fonts.
 
 ## Model
 
-A **font family** (`fonts` table, keyed by `(tenant, resource_id)` and addressed
-as `(tenant, catalog, slug)`) groups **faces** (`font_variants`, keyed by the
-family's identity plus `(weight, italic)`). A face names its family and its
-binary by identity, so either can be relocated without disturbing the other.
-Each face points at one of:
-
-- **`CLASSPATH`** — a bundled file shipped once in the JAR (`source=CLASSPATH`,
-  `classpath_location`). System fonts only; no `Asset` row, no per-tenant
-  bytes.
-- **`ASSET`** — an ordinary `assets` row (`source=ASSET`, `asset_resource_id`).
-  Customer-uploaded faces; reuses all asset machinery (upload, content store,
-  catalog export/import).
-
-A face also stores `content_hash` (lowercase hex SHA-256 of the bytes,
-recomputed by `ImportFont`).
+A **font family** is stored as JSON, the way a release keeps it (ADR 0033): a draft's row in
+`release_resources` names its content, `{ "resource": <FontResource> }`, which lists its **faces**,
+each by `(weight, italic)` with its `mediaType` and `contentHash`. A face's file is a binary of the
+font: the bytes are in `asset_content` under the shared scope, and the content links to them through
+`resource_binaries`, so they are kept while any draft or release names them. There is no asset row
+for a face, so the images list never shows one, and a font and its faces always move together.
+Reads go through `current_fonts`; writes through `FontStore`, which `ImportFont` uses for an upload,
+a catalog install and the system font seeding alike.
 
 Font binaries are **TTF/OTF only** — iText embeds sfnt-flavoured fonts; WOFF2
 is rejected at upload. Allowed media types live in the seeded `asset_types`
@@ -103,9 +96,9 @@ The Helm chart sets both bounds through `generation.fontCache.*`, and the
 `epistola.generation.font_cache.*` meters show occupancy, the protected share, hit rate, promotions
 and which limit evicts ([metrics](metrics.md#font-cache)).
 
-Parsed fonts are keyed by the SHA-256 of the face binary. `ResolveFontFace` returns the hash stored
-in `font_variants.content_hash` with the bytes, so a render does not hash them again; the bundled
-Liberation Sans faces are hashed once per JVM. Only bytes that arrive without a hash are hashed. A
+Parsed fonts are keyed by the SHA-256 of the face binary. `ResolveFontFace` returns the face's
+`contentHash` with the bytes, so a render does not hash them again; the bundled faces are hashed
+once per JVM. Only bytes that arrive without a hash are hashed. A
 `PdfFont` cannot be shared the same way: iText ties it to the PDF it is first used in, so each
 document wraps the shared parsed font in its own, which costs about nothing.
 
@@ -125,9 +118,10 @@ Arial, so a letter designed in either keeps its widths and line breaks; its
 faces are the renderer's own fallback files in
 `modules/generation/src/main/resources/fonts/`, registered from there. They are
 seeded per tenant into the `system` catalog by `EnsureSystemFonts` (idempotent,
-runs from `InstallSystemCatalog` on tenant create and every boot) as
-`CLASSPATH` faces at `(400,upright)`, `(700,upright)`, `(400,italic)`,
-`(700,italic)`. The model supports the full weight range; the bundled set just
+runs from `InstallSystemCatalog` on tenant create and every boot) with faces at
+`(400,upright)`, `(700,upright)`, `(400,italic)`, `(700,italic)`. Their files are written into
+`asset_content` once per installation, under the shared scope, and linked like any font's faces;
+the seeding reads them once per JVM and writes nothing on a boot that finds them current. The model supports the full weight range; the bundled set just
 ships those four faces. A test guards that every declared classpath path
 resolves.
 
@@ -176,7 +170,7 @@ Instead, when this is built it will be an **ingest-time** feature:
   weights/styles the designer actually shipped — Light/Regular/Medium/
   SemiBold/Bold…) into ordinary **static** TTF/OTF faces.
 - Each instanced face is stored exactly like any other uploaded static face:
-  an `Asset` + a `font_variants` row with its own `content_hash`.
+  a binary of its font, with its own `contentHash`.
 - Everything downstream is **unchanged**: `ResolveFontFace` nearest-weight
   matching, `FontCache`, the byte cache, catalog export/import, and release
   rendering by content hash all operate on the static outputs — none of the hard

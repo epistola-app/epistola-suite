@@ -339,35 +339,22 @@ class DataPreservationMigrationIT {
             assertThat(one("SELECT CAST(to_regclass('stencils') IS NULL AS TEXT)")).describedAs("the stencil table is gone").isEqualTo("true")
             assertThat(one("SELECT CAST(to_regclass('code_lists') IS NULL AND to_regclass('code_list_entries') IS NULL AS TEXT)"))
                 .describedAs("the code list tables are gone").isEqualTo("true")
+            // A font is stored as JSON (ADR 0033, step 5): each face by its hash, its file the font's binary.
             assertThat(
                 one(
                     """
-                    SELECT binary_asset.name
-                    FROM font_variants faces
-                    JOIN fonts family ON family.tenant_key = faces.tenant_key
-                                     AND family.resource_id = faces.font_resource_id
-                    JOIN assets binary_asset ON binary_asset.tenant_key = faces.tenant_key
-                                            AND binary_asset.resource_id = faces.asset_resource_id
-                    WHERE family.tenant_key = '$TENANT' AND family.slug = 'brand' AND faces.weight = 400
+                    SELECT string_agg((face ->> 'weight') || '/' || (face ->> 'contentHash'), ',' ORDER BY face ->> 'weight')
+                    FROM current_fonts f CROSS JOIN LATERAL jsonb_array_elements(f.variants) face
+                    WHERE f.tenant_key = '$TENANT' AND f.slug = 'brand'
                     """,
                 ),
             )
-                .describedAs("an ASSET face must reach its family and its binary through both identities")
+                .describedAs("both faces, uploaded and bundled, by the hash 1.x recorded")
+                .isEqualTo("400/abc123,700/def456")
+            assertThat(one("SELECT name FROM assets WHERE tenant_key = '$TENANT' AND media_type = 'font/ttf'"))
+                .describedAs("a face's file whose bytes the content backfill has not moved keeps its row, the only way to them")
                 .isEqualTo("brand-regular.ttf")
-            assertThat(
-                one(
-                    """
-                    SELECT faces.classpath_location
-                    FROM font_variants faces
-                    JOIN fonts family ON family.tenant_key = faces.tenant_key
-                                     AND family.resource_id = faces.font_resource_id
-                    WHERE family.tenant_key = '$TENANT' AND family.slug = 'brand' AND faces.weight = 700
-                      AND faces.asset_resource_id IS NULL
-                    """,
-                ),
-            )
-                .describedAs("a CLASSPATH face has no binary, and the backfill must not invent one")
-                .isEqualTo("epistola/fonts/brand/brand-Bold.ttf")
+            assertThat(one("SELECT CAST(to_regclass('fonts') IS NULL AND to_regclass('font_variants') IS NULL AS TEXT)")).describedAs("the font tables are gone").isEqualTo("true")
             // 2.0 drops the 1.x versions (V20261018201400), keeping what the first release is cut from
             // and a summary of the rest.
             fun history(list: String, filter: String) = one(
