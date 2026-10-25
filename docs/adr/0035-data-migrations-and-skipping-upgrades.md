@@ -89,6 +89,18 @@ way, by `fixtures/references/v1.json` in the suite. A change to what it finds in
 exists fails those vectors and comes with a code migration that walks the existing content again; a
 new kind of reference only new content can contain adds a vector and needs no migration.
 
+### Runtime backfills become migrations
+
+A backfill that 1.x ran after startup, and an installation may skip past, moves into the migration
+step when it can be self-contained. The content backfill (#738, `ContentBackfillRunner`) did:
+`V20261025105700` moves the blobs still in the 1.x `content_store` with JDBC and SHA-256, before the
+fonts are converted so a face whose bytes were still there joins its font, and the job, its fallback
+reads and the table are gone. It runs outside Flyway's transaction, a batch per transaction, and is
+idempotent, so what committed before a failure is kept; but Flyway records a failed
+non-transactional migration as failed, and it runs again only after `flyway repair`. `ReleaseContentHashBackfill` still runs after startup, as a
+single-owner task due at once: it needs the contract library's canonical form over every retained
+revision and binary, so it stays where it is until that is a frozen, versioned algorithm.
+
 ### Stops, when they cannot be avoided
 
 When a conversion cannot be self-contained, or a later change cannot keep an old migration runnable,

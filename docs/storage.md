@@ -129,45 +129,21 @@ a code list source's secret) that no content names any more, past the same grace
 
 ## Migration from the legacy `content_store`
 
-Blobs used to share a single `content_store` table. Moving them to the two new stores is
-a **transitional layer** deliberately grouped in one package —
-`storage/backfill/` — so it can be deleted wholesale later (tracked in
-[#742](https://github.com/epistola-app/epistola-suite/issues/742)). It has two parts:
+Blobs used to share a single `content_store` table (1.x). 1.x moved them to the two stores above in
+the background (`ContentBackfillRunner`, #738); an installation that upgrades to 2.0 before that job
+finished has the rest moved in the migration step instead (`V20261025105700`, ADR 0035), before the
+fonts are converted, and the table is dropped (`V20261025133400`, #742):
 
-- **`ContentBackfillRunner`** — a **single-owner background cluster task** (not on the
-  startup path, so it never races readiness on a large install), batched, resumable, and
-  idempotent. It moves blobs forward and records a `content-backfill.completed` marker in
-  `app_metadata` after a full pass, so later occurrences no-op. During a rolling deploy it
-  only ever _executes_ on an upgraded node that carries its handler — an old node that
-  claims an occurrence defers it rather than running or deleting it (see
-  [`cluster-resilience.md`](cluster-resilience.md#4-version-skew-during-rolling-deploys)):
-  - **Documents (PostgreSQL only)** → `document_content`, bucketed into the right monthly
-    partition by the owning document's `created_at`. Blobs whose `documents` row is already
-    gone are pre-existing retention orphans — discarded, not carried forward. On
-    S3/filesystem, document bytes stay in place; only the reclaim mechanism changed.
-  - **Assets (all backends)** → `asset_content`, hashing + deduping + stamping
-    `assets.content_hash`.
-- **`LegacyBlobFallback`** — because the backfill runs in the background, a document or
-  asset may be requested before it's migrated (or on a node that isn't running it). The
-  read paths fall back to `content_store` for a document missing from `document_content`,
-  or an asset whose `content_hash` is still NULL — so serving stays correct throughout the
-  migration window on every node.
+- **Documents** → `document_content`, into the monthly partition of the owning document's
+  `created_at`, one month at a time.
+- **Assets** → `asset_content`, hashed (SHA-256), under the shared scope or the tenant's for a
+  sensitive one, with `assets.content_hash` stamped. An asset whose legacy bytes are missing is
+  logged and left without content: the migration never refuses.
+- **Font faces**: a 1.x face that names no hash takes its asset's, which this stamps, so a face whose
+  bytes were still in `content_store` joins its font when the fonts are converted next.
 
-The legacy `content_store` table is retained one release as a safety net, then dropped
-once cutover is verified — at which point the `storage/backfill/` package and the legacy
-`ContentStore` are removed and `assets.content_hash` becomes `NOT NULL` (#742).
-
-### Rolling-upgrade caveats
-
-During the mixed-version window of a rolling upgrade, old (pre-#738) nodes still write to
-`content_store`. Two consequences, both bounded:
-
-- **Stragglers** written by an old node after the backfill's completion marker is set are
-  served correctly via `LegacyBlobFallback`, but would be missed by a naive drop. The
-  `content_store` drop (#742) therefore runs a **final catch-up pass and verifies actual
-  drain** — it does not trust the marker alone.
-- **Transient stale asset reads:** an old `ImportAsset` re-importing an _already-migrated_
-  asset updates the legacy `content_store` bytes but leaves `assets.content_hash` pointing
-  at the old CAS blob, so a new reader briefly serves the previous bytes (it only falls back
-  when `content_hash IS NULL`). This resolves once the old nodes drain; avoid catalog
-  re-imports mid-upgrade.
+The migration runs outside Flyway's single transaction, a batch per transaction, and is idempotent:
+what committed before a failure is kept, and running it again does only the rest. Flyway records a
+failed non-transactional migration as failed, so it runs again only after `flyway repair`. Rows left in `content_store` after it named nothing that exists
+any more (a document deleted before its blob moved); their count is logged and they go with the
+table. 1.x kept the legacy store in the database, so nothing is read from S3 or a filesystem.

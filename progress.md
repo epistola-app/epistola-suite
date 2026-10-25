@@ -21,6 +21,21 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 6a: the 1.x content store (25 October; branch `feat/storage-images`, on `feat/storage-fonts`, not pushed)
+
+The user's decision: `content_store` was always database-only, so instead of a preflight stop the
+1.x content backfill (#738) becomes a code migration and the runtime job goes.
+
+| Change                                                                                                                                                                                                                                                          | Where                                                          | Coverage                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Remaining 1.x blobs move in the migration step, a batch per transaction, idempotent: documents per month into `document_content`; assets without a hash into `asset_content` (shared scope, tenant's if sensitive), hash stamped; missing bytes logged and left | `V20261025105700`                                              | ✅ `LegacyContentMigrationTest` (SHA-256 golden vector; sensitive, missing, orphan cases)    |
+| Runs before the fonts are converted, so a face with no hash of its own takes its asset's and joins its font (a review found the earlier order dropped it)                                                                                                       | `V20261025105700`                                              | ✅ `LegacyContentMigrationTest` (a 1.x face and asset without hash, failed on the old order) |
+| `content_store` dropped, orphan rows counted and logged first                                                                                                                                                                                                   | `V20261025133400`                                              | ✅ `LegacyContentMigrationTest`, `DataPreservationMigrationIT`                               |
+| `ContentBackfillRunner`, `LegacyBlobFallback`, the legacy `ContentStore` and its five backends, their bean, settings and tests removed; an asset without a hash reads as having no content                                                                      | `storage/`, `GetAssetContent`, `EpistolaDocumentGenerationApi` | ✅ storage and asset suites                                                                  |
+
+`ReleaseContentHashBackfill` still runs after startup; recorded in ADR 0035, and queued to go in its own
+step (`feat/drop-release-hash-backfill`).
+
 ### ADR 0033 storage, step 5: fonts (25 October; branch `feat/storage-fonts`, on `feat/storage-stencils`, not pushed)
 
 Fonts before images, as decided: a face's file becomes the font's own binary, so `assets` holds

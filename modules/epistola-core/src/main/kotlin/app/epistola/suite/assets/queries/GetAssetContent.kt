@@ -21,7 +21,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.AssetContentStore
-import app.epistola.suite.storage.backfill.LegacyBlobFallback
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
@@ -62,8 +61,6 @@ data class GetAssetContent(
 class GetAssetContentHandler(
     private val jdbi: Jdbi,
     private val assetContentStore: AssetContentStore,
-    // Transitional (#742): serves assets not yet migrated to asset_content (content_hash NULL).
-    private val legacyBlobFallback: LegacyBlobFallback,
 ) : QueryHandler<GetAssetContent, AssetContent?> {
 
     override fun handle(query: GetAssetContent): AssetContent? {
@@ -72,14 +69,10 @@ class GetAssetContentHandler(
             handle.loadAssetMeta(query.tenantId, query.assetId, query.catalog)
         } ?: return null
 
-        // 2. Read content: from the content-addressable store by (scope, hash), or —
-        // for assets not yet backfilled — from the legacy identity-keyed store.
-        val bytes = if (metadata.contentHash != null) {
-            val scope = assetContentScope(metadata.sensitive, metadata.tenantId)
-            assetContentStore.get(scope, metadata.contentHash)?.content?.readAllBytes()
-        } else {
-            legacyBlobFallback.assetBytes(metadata.tenantId, metadata.id) // transitional (#742)
-        } ?: return null
+        // 2. Read content from the content-addressable store by (scope, hash). An asset without a
+        // hash had no bytes to move from the 1.x store (V20261025133328): it has none.
+        val hash = metadata.contentHash ?: return null
+        val bytes = assetContentStore.get(assetContentScope(metadata.sensitive, metadata.tenantId), hash)?.content?.readAllBytes() ?: return null
 
         return AssetContent(
             id = metadata.id,
