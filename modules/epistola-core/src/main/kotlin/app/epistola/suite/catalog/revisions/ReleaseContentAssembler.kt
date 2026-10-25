@@ -24,8 +24,6 @@ import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ArrayNode
-import tools.jackson.databind.node.ObjectNode
 
 /**
  * A release, read back: its content and the release metadata it was cut with.
@@ -86,7 +84,7 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[entry.contentHash]) {
                 "Release $version of ${catalog.key.value} names revision ${entry.contentHash}, which is not stored"
             }
-            entry.contentKey to detailOf(handle, catalog.tenantKey, entry.resourceType, withVariants(handle, catalog, version, entry.resourceType, entry.resourceId, payload))
+            entry.contentKey to detailOf(entry.resourceType, withVariants(handle, catalog, version, entry.resourceType, entry.resourceId, payload))
         }
 
         return RetainedRelease(
@@ -135,7 +133,7 @@ class ReleaseContentAssembler(
         val payload = requireNotNull(loadPayloads(handle, catalog.tenantKey, listOf(digest))[digest]) {
             "Release $version of ${catalog.key.value} names revision $digest, which is not stored"
         }
-        detailOf(handle, catalog.tenantKey, resourceType, withVariants(handle, catalog, version, resourceType, resourceId, payload)).resource
+        detailOf(resourceType, withVariants(handle, catalog, version, resourceType, resourceId, payload)).resource
     }
 
     /**
@@ -154,7 +152,7 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[row.contentHash]) {
                 "Release $version of ${catalog.key.value} names content ${row.contentHash}, which is not stored"
             }
-            detailOf(handle, catalog.tenantKey, row.resourceType, withVariants(handle, catalog, version, row.resourceType, row.resourceId, payload)).resource
+            detailOf(row.resourceType, withVariants(handle, catalog, version, row.resourceType, row.resourceId, payload)).resource
         }
     }
 
@@ -208,15 +206,15 @@ class ReleaseContentAssembler(
     }
 
     /**
-     * One stored payload back into a protocol resource, with its child revisions substituted in.
+     * One stored payload back into a protocol resource.
      *
      * Wrapped in a `ResourceDetail` envelope rather than read as a `CatalogResource` directly: the
      * contract declares the type discrimination on that property, so going through the envelope is
      * what makes `type` select the right class instead of duplicating the mapping here.
      */
-    private fun detailOf(handle: Handle, tenantKey: TenantKey, type: String, payload: JsonNode): ResourceDetail {
+    private fun detailOf(type: String, payload: JsonNode): ResourceDetail {
         // The released form: a content may keep the suite's own settings beside it (ADR 0033).
-        val resolved = resolveRefs(handle, tenantKey, StoredContent.releasedForm(type, payload))
+        val resolved = StoredContent.releasedForm(type, payload)
         // Typed references drop the qualifiers when bound; those in free-form JSON (a stencil's
         // props, a fontFamily in styles) are dropped here.
         ResourceReferenceSites.dropNameQualifiers(resolved)
@@ -225,48 +223,6 @@ class ReleaseContentAssembler(
         envelope.set("resource", resolved)
         return objectMapper.treeToValue(envelope, ResourceDetail::class.java)
     }
-
-    /**
-     * Replaces every revision reference in [node] with the payload it names, recursively. Payloads
-     * are loaded a level at a time — every reference found at one depth in one query — so a template
-     * costs one query for its variants however many it has, not one per variant.
-     */
-    private fun resolveRefs(handle: Handle, tenantKey: TenantKey, node: JsonNode): JsonNode {
-        val payloads = mutableMapOf<String, JsonNode>()
-        var pending = refsIn(node)
-        while (pending.isNotEmpty()) {
-            val loaded = loadPayloads(handle, tenantKey, pending)
-            pending.firstOrNull { it !in loaded }?.let { digest ->
-                error("A retained payload references revision $digest, which is not stored")
-            }
-            payloads += loaded
-            pending = loaded.values.flatMap { refsIn(it) }.filterNot { it in payloads }.distinct()
-        }
-        return substitute(node, payloads)
-    }
-
-    private fun refsIn(node: JsonNode): List<String> = when {
-        node.isRevisionRef() -> listOf(node.get(REVISION_REF_FIELD).asString())
-        node is ObjectNode -> node.propertyNames().flatMap { refsIn(node.get(it)) }
-        node is ArrayNode -> node.flatMap { refsIn(it) }
-        else -> emptyList()
-    }.distinct()
-
-    private fun substitute(node: JsonNode, payloads: Map<String, JsonNode>): JsonNode = when {
-        node.isRevisionRef() -> substitute(payloads.getValue(node.get(REVISION_REF_FIELD).asString()), payloads)
-
-        node is ObjectNode -> objectMapper.createObjectNode().also { copy ->
-            node.propertyNames().forEach { name -> copy.set(name, substitute(node.get(name), payloads)) }
-        }
-
-        node is ArrayNode -> objectMapper.createArrayNode().also { copy ->
-            node.forEach { copy.add(substitute(it, payloads)) }
-        }
-
-        else -> node
-    }
-
-    private fun JsonNode.isRevisionRef(): Boolean = this is ObjectNode && size() == 1 && has(REVISION_REF_FIELD)
 
     /**
      * The binaries the rebuilt content needs, keyed by the archive path each takes — the same keys

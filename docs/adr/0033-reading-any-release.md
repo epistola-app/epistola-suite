@@ -298,8 +298,9 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
     content written just before its row points at it.
   - **Scheduled** as a cluster task (one node at a time) in a configurable window, nightly by default,
     with small batches and a pause between them so a busy database is not held up; it can also be
-    started by hand (after removing many releases). A gauge shows what is left to collect, as
-    `ContentReaper` does for documents.
+    started by hand (after removing many releases). Gauges show what is left to collect. It is the
+    one collector: it also deletes the bytes nothing holds (the old content reaper's asset sweep),
+    and deleting a release or a catalog removes rows only, leaving their content to it.
   - Keeping the last saves of a resource as undo history is a later setting of the job, not another
     model.
 

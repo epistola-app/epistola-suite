@@ -21,6 +21,22 @@ against those ADRs.
 
 ## Touched
 
+### ADR 0033 storage, step 8: one collector (25 October; branch `feat/storage-cleanup`, on `feat/storage-templates`, not pushed)
+
+| What                                                                                                                                                                                                                                                                           | Where                                                                                  | Covered                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| One collector deletes bytes: the content reaper's asset sweep, its grace (`epistola.storage.reaper.asset-grace-minutes`, removed) and its gauge move into `ResourceContentCollector`; `epistola.storage.orphaned_blobs{namespace=asset}` is published after each collector run | `ResourceContentCollector.kt`                                                          | ✅ `ResourceContentCollectorTest` (gauge: failed before, no meter), `AssetContentStoreIT`, `ResourceContentStoreTest`              |
+| The reaper is now document retention only (`DocumentRetentionReaper`, task `core.document-retention`, still `epistola.storage.reaper.enabled/cron`; metric `document-retention`)                                                                                               | `storage/DocumentRetentionReaper.kt`                                                   | ✅ `DocumentRetentionReaperIT`                                                                                                     |
+| Deleting a release or a catalog removes rows only; the collector takes what they alone held, past the grace period (`ResourceContentStore.collectUnreferenced`, an unbounded tenant scan in the user's transaction that ignored the grace period, is gone)                     | `DeleteCatalogRelease.kt`, `DeleteCatalog.kt`                                          | ✅ `ResourceContentCollectorTest` (both failed before: the content was gone right after the delete)                                |
+| `asset_content.created_at` is database time (`NOW()`), as the collector compares it with `NOW()`; it was the application clock, so a frozen or skewed clock made just-written bytes look old                                                                                   | `PostgresAssetContentStore.kt`                                                         | ✅ `AssetContentStoreIT` "writing bytes that are stored already restarts their grace period" (failed against the collector before) |
+| Leftover: lifted variant-model references (`revisionDigest`) are no longer written since variants are rows; the assembler's substitution and the collector's children pass over every template payload are removed                                                             | `ReleaseContentAssembler.kt`, `ResourceContentCollector.kt`, `ResourceContentStore.kt` | dead code; the full suite covers reads and collection                                                                              |
+| Leftover: `ContentVersionSqlTest` allowlist entries for removed files (`ContentReaper`, `ContentBackfillRunner`)                                                                                                                                                               | `ContentVersionSqlTest.kt`                                                             | ✅ guards                                                                                                                          |
+| Leftover: the storage doc's asset table still named a per-scope key                                                                                                                                                                                                            | `docs/storage.md`                                                                      | docs                                                                                                                               |
+
+**Left for later:** the contract switch (waits for `2.0.0-alpha.2`); the MigrationLauncher auto-repair
+(undecided); document retention could join partition maintenance (separate concern, kept as a task of
+its own).
+
 ### ADR 0033 storage, step 7b: templates stored as JSON (25 October; branch `feat/storage-templates`, on `feat/storage-templates-reads`, not pushed)
 
 | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Where                                                                                                                                                                                                                                                                                                                             | Coverage                                                                                                                                                                                                                                                                                |
@@ -110,8 +126,7 @@ or catalog formats; the suite stores every image's bytes once per installation, 
 drops the REST field on `feature/drop-image-sensitive`.
 
 **Noticed, left alone:** a deleted image's bytes now wait for the content collector (a day's grace)
-to take its content before the reaper can take them; step 8 folds the reaper's sweep into the
-collector.
+to take its content before the reaper can take them. Done in step 8: the collector takes both.
 
 ### ADR 0033 storage, step 6a: the 1.x content store (25 October; branch `feat/storage-images`, on `feat/storage-fonts`, not pushed)
 
@@ -186,9 +201,9 @@ operator to let 1.x finish its content backfill first.
 **Noticed, left alone:**
 
 - `CatalogDependencyCycles.NOT_A_CATALOG_DEPENDENCY` still names `font-face-asset`, an edge kind the
-  graph no longer reports.
+  graph no longer reports. Done in step 6.
 - `FontResource.toDto(at)` (`ReleasedResourceMappers`) is unused now that REST reads releases
-  through the queries.
+  through the queries. Done in step 6.
 
 ### ADR 0033 storage, step 4: stencils (25 October; branch `feat/storage-stencils`, on `feat/storage-attributes`, not pushed)
 
@@ -430,7 +445,7 @@ three theme foreign keys point at `catalog_resources`, not `themes`, so none had
 **Noticed, left alone:** deleting a release or catalog still removes the content only it held at
 once (`ResourceContentStore.collectUnreferenced`), in the deleting transaction, beside the collector;
 ADR 0033 says rows go at once and content later, which the collector now makes possible. The
-reaper's and the collector's blob passes overlap (both use `BLOB_IS_HELD`).
+reaper's and the collector's blob passes overlap (both use `BLOB_IS_HELD`). Both done in step 8.
 
 ### ADR 0034 section 9, step 1: catalog identity (23 October; branch `refactor/catalog-identity`, not pushed)
 

@@ -11,6 +11,8 @@ import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.catalog.CatalogContent
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalog
+import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantId
@@ -23,6 +25,7 @@ import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.themes.commands.CreateTheme
+import app.epistola.suite.themes.commands.UpdateTheme
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -170,6 +173,64 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
         assertThat(collected.contents).isEqualTo(1)
         assertThat(blobs.get(looseHash)).`as`("nothing holds it once its content went").isNull()
         assertThat(blobs.get(logo.contentHash)).`as`("an asset and the release hold it").isNotNull()
+    }
+
+    /**
+     * Deleting a release removes its rows only. What it alone held is the collector's, past the grace
+     * period like any other orphan, so the delete neither scans the tenant inside the user's
+     * transaction nor takes content a concurrent save is about to point at.
+     */
+    @Test
+    fun `deleting a release leaves what it alone held to the collector, past the grace period`() {
+        val catalog = released("gc-release-delete")
+        val tenant = catalog.tenantKey
+        val oldTheme = released(catalog, "theme")
+        val image = released(catalog, "image")
+        withMediator {
+            UpdateTheme(ThemeId(ThemeKey.of("brand"), catalog), name = "Brand, renamed").execute()
+            mediator.releaseNext(catalog)
+            DeleteCatalogRelease(catalog, "1.0.0").execute()
+        }
+
+        assertThat(exists(tenant, oldTheme)).`as`("collected later, not by the delete").isTrue()
+
+        age(tenant, oldTheme, 3)
+        age(tenant, image, 3)
+        collector().collect(tenant)
+
+        assertThat(exists(tenant, oldTheme)).`as`("only the deleted release held it").isFalse()
+        assertThat(exists(tenant, image)).`as`("the draft and 1.0.1 hold it too").isTrue()
+    }
+
+    /** Deleting a catalog leaves its contents to the collector the same way. */
+    @Test
+    fun `deleting a catalog leaves its contents to the collector, past the grace period`() {
+        val catalog = released("gc-catalog-delete")
+        val tenant = catalog.tenantKey
+        val theme = released(catalog, "theme")
+        withMediator { DeleteCatalog(catalog).execute() }
+
+        assertThat(exists(tenant, theme)).`as`("collected later, not by the delete").isTrue()
+
+        age(tenant, theme, 3)
+        collector().collect(tenant)
+
+        assertThat(exists(tenant, theme)).isFalse()
+    }
+
+    /** The collector reports the bytes it should have taken and did not, as it reports contents. */
+    @Test
+    fun `the collector publishes the orphaned blob gauge`() {
+        val registry = SimpleMeterRegistry()
+        val collector = ResourceContentCollector(jdbi, StorageGcProperties(grace = Duration.ofDays(1), pause = Duration.ZERO), registry)
+        val loose = png(0x0badf0)
+        val hash = app.epistola.suite.fonts.model.sha256Hex(loose)
+        blobs.putIfAbsent(hash, loose, "image/png", loose.size.toLong())
+
+        collector.collectAll()
+
+        assertThat(registry.get("epistola.storage.orphaned_blobs").tag("namespace", "asset").gauge().value())
+            .`as`("inside the grace period, so not an orphan the run missed").isZero()
     }
 
     private fun orphanIn(handle: org.jdbi.v3.core.Handle, catalog: CatalogId, themeName: String): String {

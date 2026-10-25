@@ -4,7 +4,6 @@
 
 package app.epistola.suite.storage
 
-import app.epistola.suite.time.EpistolaClock
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
@@ -24,10 +23,11 @@ class PostgresAssetContentStore(
             handle.createUpdate(
                 """
                 INSERT INTO asset_content (content_hash, content, content_type, size_bytes, created_at)
-                VALUES (:hash, :content, :contentType, :sizeBytes, :createdAt)
+                VALUES (:hash, :content, :contentType, :sizeBytes, NOW())
                 -- Writing bytes that are there already touches them: the sweeps' grace period counts
                 -- from the last write, and the row is locked until this commits, so a blob an upload
-                -- is about to point at again is never collected from under it (ADR 0033).
+                -- is about to point at again is never collected from under it (ADR 0033). Database
+                -- time, as the collector compares it with NOW(): one clock on both sides of the grace.
                 ON CONFLICT (content_hash) DO UPDATE SET created_at = GREATEST(asset_content.created_at, EXCLUDED.created_at)
                 """,
             )
@@ -35,7 +35,6 @@ class PostgresAssetContentStore(
                 .bind("content", content)
                 .bind("contentType", contentType)
                 .bind("sizeBytes", sizeBytes)
-                .bind("createdAt", EpistolaClock.offsetDateTime())
                 .execute()
         }
     }

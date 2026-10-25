@@ -82,12 +82,6 @@ class ContentVersionSqlTest {
             "font face bytes looked up by content hash",
         "modules/epistola-core/src/main/kotlin/app/epistola/suite/catalog/revisions/ResourceContentStore.kt" to
             "asset storage scope looked up by content hash",
-        // A blob is held while an asset row in any version, draft or installed, holds it.
-        "modules/epistola-core/src/main/kotlin/app/epistola/suite/storage/ContentReaper.kt" to
-            "reaps only blobs no version holds",
-        // A one-off backfill of every legacy asset row, in every version.
-        "modules/epistola-core/src/main/kotlin/app/epistola/suite/storage/backfill/ContentBackfillRunner.kt" to
-            "backfills every asset row",
     )
 
     /** Directories allowed as a whole, with their reason. */

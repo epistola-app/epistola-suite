@@ -20,24 +20,6 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * The one field that stands in for a child revision inside a parent payload.
- *
- * An object carrying only this key is a reference, never content: nothing in the protocol is a
- * one-field object named this, so assembling a payload back is an unambiguous substitution.
- */
-const val REVISION_REF_FIELD = "revisionDigest"
-
-/**
- * Revision kinds, matching the `resource_content_kinds` rows. A resource's kind is its wire type.
- *
- * The child kind takes the name of the field it is lifted out of, so [REVISION_REF_FIELD] and the
- * row it points at agree. It says nothing about ownership, and should not be read as doing so: a
- * model belongs to a template *version*, which belongs to a variant, which belongs to a template,
- * and a content-addressed row has no owner at all — two variants with the same model share one.
- */
-const val TEMPLATE_MODEL_KIND = "templateModel"
-
-/**
  * Retains the content of a released catalog as immutable, content-addressed revisions.
  *
  * Sole owner of the `resource_contents` / `resource_binaries` SQL, the way
@@ -51,8 +33,7 @@ const val TEMPLATE_MODEL_KIND = "templateModel"
  * **A template is a content and one per variant** ([TemplateContents], ADR 0033): each variant is
  * a row of its own ([VariantRows]) naming its content, with its model. A
  * bundled template is 20–70 KB of JSON, so keeping every variant in one payload would rewrite all of
- * them whenever one changed, defeat deduplication, and load the lot to render one variant. Content
- * retained before this names its models by [REVISION_REF_FIELD], which the collector still follows.
+ * them whenever one changed, defeat deduplication, and load the lot to render one variant.
  *
  * The digest is **not** the catalog fingerprint. It is internal storage identity, computed over the
  * stored payload; the fingerprint is computed by the contract over the wire form and is what
@@ -206,72 +187,6 @@ class ResourceContentStore(
         }
         batch.execute()
     }
-
-    /**
-     * Deletes every revision of this tenant that no release reaches any more, and returns how many.
-     *
-     * Called wherever release entries stop existing — forgetting one release's content, and deleting
-     * a catalog, which cascades its releases away. Without it those revisions are unreachable and
-     * permanent: nothing else ever deletes one, and `resource_binaries` would go on holding the
-     * bytes they named against the content sweep, so an image deleted from a deleted catalog could
-     * never be reclaimed.
-     *
-     * **Reachability is a graph, not a lookup.** A release entry names a resource's revision; a
-     * template's revision names its models through [REVISION_REF_FIELD], so a model is reachable
-     * only through its parent. Deleting what no `release_resources` row names directly would take
-     * every model with it. The closure below walks the refs out of the payloads, at any depth, so a
-     * deeper tree costs a round trip rather than correctness.
-     *
-     * Deliberately not a scheduled sweep. Revisions become unreachable at exactly two moments, both
-     * of them commands, and collecting inside the transaction that caused it means there is never a
-     * window in which the database holds content nothing can reach. `ContentReaper` still owns the
-     * blobs: dropping the last `resource_binaries` row only makes them collectable.
-     */
-    fun collectUnreferenced(handle: Handle, tenantKey: TenantKey): Int {
-        val reachable = mutableSetOf<String>()
-        var frontier = handle.createQuery(
-            "SELECT DISTINCT content_hash FROM release_resources WHERE tenant_key = :t",
-        )
-            .bind("t", tenantKey)
-            .mapTo(String::class.java)
-            .set()
-
-        while (frontier.isNotEmpty()) {
-            reachable += frontier
-            frontier = childrenOf(handle, tenantKey, frontier) - reachable
-        }
-
-        return handle.createUpdate(
-            """
-            DELETE FROM resource_contents
-            WHERE tenant_key = :t AND NOT (content_hash = ANY(:reachable))
-            """,
-        )
-            .bind("t", tenantKey)
-            .bindArray("reachable", String::class.java, reachable.toTypedArray())
-            .execute()
-    }
-
-    /**
-     * The revisions these payloads reference, wherever they sit in the JSON.
-     *
-     * `$.**` is PostgreSQL's recursive jsonpath wildcard, so this finds a reference nested at any
-     * depth without the store having to know the shape of a payload — which is the point, because
-     * the shape is the contract's and changes without this code.
-     */
-    private fun childrenOf(handle: Handle, tenantKey: TenantKey, digests: Set<String>): Set<String> = handle.createQuery(
-        """
-        SELECT DISTINCT jsonb_array_elements_text(
-                   jsonb_path_query_array(payload, '$.**.$REVISION_REF_FIELD')
-               ) AS child
-        FROM resource_contents
-        WHERE tenant_key = :t AND content_hash = ANY(:digests)
-        """,
-    )
-        .bind("t", tenantKey)
-        .bindArray("digests", String::class.java, digests.toTypedArray())
-        .mapTo(String::class.java)
-        .set()
 
     /**
      * The bytes [content] carries that no asset of the tenant holds: a release received beside the

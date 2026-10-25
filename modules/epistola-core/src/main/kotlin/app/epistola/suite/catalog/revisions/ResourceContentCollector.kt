@@ -15,8 +15,8 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.observability.recordScheduledTask
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.storage.BLOB_IS_HELD
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Tag
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -25,6 +25,17 @@ import org.springframework.context.annotation.Bean
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * What still holds an `asset_content` blob, for a row aliased `ac`: a stored content that links to
+ * it (`resource_binaries`), an image's bytes or a font face's file, of a draft or a release (ADR
+ * 0033). One definition for the sweep and for the gauge, so a blob cannot be deleted by one and
+ * counted as present by the other. The foreign key from `resource_binaries` says the same, so a miss
+ * here fails loudly rather than losing bytes.
+ */
+internal const val BLOB_IS_HELD = """
+    EXISTS (SELECT 1 FROM resource_binaries rb WHERE rb.binary_hash = ac.content_hash)
+"""
 
 /** What a collection took: contents (with their binaries and references), and blobs. */
 data class ContentCollection(
@@ -36,24 +47,25 @@ data class ContentCollection(
 
 /**
  * Collects content nothing points at (ADR 0033): `resource_contents` that no `release_resources`
- * row and no other content refers to, stored longer ago than the grace period, and then the bytes
- * in `asset_content` that nothing holds any more.
+ * row names, stored longer ago than the grace period, and then the bytes in `asset_content` that
+ * nothing holds any more. Every content is named by a row of its own (a template's variants are rows
+ * too), so a row is the only thing that holds a content.
  *
  * - **Per tenant, in batches** of [StorageGcProperties.batchSize], each its own transaction, with
  *   [StorageGcProperties.pause] between them. A batch selects `FOR UPDATE SKIP LOCKED`: content a
  *   save holds (storing content again touches and locks its row, [ResourceContentStore]) is skipped,
  *   not waited for.
  * - **Safe by the foreign key** from `release_resources`: content a row points at cannot be deleted,
- *   so a wrong query fails instead of losing data. A lifted child (a template's variant model) is
- *   held by its parent's payload, not by a row, so it is kept while any content refers to it and
- *   goes in a later pass, after its parent.
+ *   so a wrong query fails instead of losing data.
  * - Deleting a content cascades to its `resource_binaries` and `resource_references`. The second
- *   pass then deletes `asset_content` that neither an asset nor any content's binaries hold
- *   ([BLOB_IS_HELD], the rule `ContentReaper` uses), older than the grace period.
+ *   pass then deletes `asset_content` that no content's binaries hold ([BLOB_IS_HELD]), older than
+ *   the grace period. It is the only place bytes are deleted.
+ * - Deleting a release or a catalog removes rows only; what they alone held is collected here.
  *
  * A single-owner cluster task in a configurable window, nightly by default, which an operator can
- * also start by hand for one tenant ([CollectResourceContents]); `epistola.storage.orphaned_contents`
- * gauges what is left to collect.
+ * also start by hand for one tenant ([CollectResourceContents]). Two gauges say what is left to
+ * collect, past the grace period, after a run: `epistola.storage.orphaned_contents` and
+ * `epistola.storage.orphaned_blobs{namespace=asset}`. A healthy installation reads zero on both.
  */
 @Component
 class ResourceContentCollector(
@@ -64,9 +76,11 @@ class ResourceContentCollector(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private val orphans = AtomicLong(0)
+    private val orphanedBlobs = AtomicLong(0)
 
     init {
         meterRegistry.gauge("epistola.storage.orphaned_contents", orphans) { it.get().toDouble() }
+        meterRegistry.gauge("epistola.storage.orphaned_blobs", listOf(Tag.of("namespace", "asset")), orphanedBlobs) { it.get().toDouble() }
     }
 
     /** Collects every tenant's orphaned content, then the blobs nothing holds. */
@@ -74,7 +88,7 @@ class ResourceContentCollector(
         val contents = tenantsWithCandidates().sumOf { collectContents(it) }
         val credentials = collectCredentials(null)
         val blobs = collectBlobs()
-        orphans.set(countOrphans(null))
+        recordOrphans()
         if (contents + blobs + credentials > 0) logger.info("Collected {} resource content(s), {} credential(s) and {} blob(s) nothing points at", contents, credentials, blobs)
         ContentCollection(contents, blobs, credentials)
     }
@@ -84,7 +98,7 @@ class ResourceContentCollector(
         val contents = collectContents(tenantKey)
         val credentials = collectCredentials(tenantKey)
         val blobs = collectBlobs()
-        orphans.set(countOrphans(null))
+        recordOrphans()
         return ContentCollection(contents, blobs, credentials)
     }
 
@@ -109,11 +123,23 @@ class ResourceContentCollector(
             .execute()
     }
 
+    private fun recordOrphans() {
+        orphans.set(countOrphans(null))
+        orphanedBlobs.set(countOrphanedBlobs())
+    }
+
+    /** Bytes past the grace period that nothing holds: what the blob pass should have taken and did not. */
+    fun countOrphanedBlobs(): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery("SELECT count(*) FROM asset_content ac WHERE ac.created_at < NOW() - CAST(:grace AS INTERVAL) AND NOT ($BLOB_IS_HELD)")
+            .bind("grace", interval())
+            .mapTo(Long::class.java)
+            .one()
+    }
+
     /** What is left to collect: orphaned content past the grace period, of [tenantKey] or of every tenant. */
     fun countOrphans(tenantKey: TenantKey?): Long = jdbi.withHandle<Long, Exception> { handle ->
         handle.createQuery(
             """
-            WITH $CHILDREN
             SELECT count(*) FROM resource_contents c
             WHERE (CAST(:t AS TEXT) IS NULL OR c.tenant_key = :t)
               AND c.stored_at < NOW() - CAST(:grace AS INTERVAL)
@@ -134,10 +160,7 @@ class ResourceContentCollector(
             .map(TenantKey::of)
     }
 
-    /**
-     * Deletes [tenantKey]'s orphaned content, batch by batch, until a pass finds none. A pass that
-     * removes a parent frees its children for the next one.
-     */
+    /** Deletes [tenantKey]'s orphaned content, batch by batch, until a pass finds none. */
     private fun collectContents(tenantKey: TenantKey): Int {
         var total = 0
         while (true) {
@@ -151,7 +174,6 @@ class ResourceContentCollector(
     private fun deleteBatch(handle: Handle, tenantKey: TenantKey): Int {
         val batch = handle.createQuery(
             """
-            WITH $CHILDREN
             SELECT c.content_hash FROM resource_contents c
             WHERE c.tenant_key = :t
               AND c.stored_at < NOW() - CAST(:grace AS INTERVAL)
@@ -207,23 +229,8 @@ class ResourceContentCollector(
     private fun interval(): String = "${properties.grace.toMillis()} milliseconds"
 
     private companion object {
-        /**
-         * The contents another content's payload refers to (a template's lifted models,
-         * [REVISION_REF_FIELD]), of the tenant bound as `:t` or of every tenant when it is null.
-         */
-        val CHILDREN = """
-            children AS (
-                SELECT p.tenant_key, jsonb_array_elements_text(jsonb_path_query_array(p.payload, '$.**.$REVISION_REF_FIELD')) AS content_hash
-                FROM resource_contents p
-                WHERE p.kind = 'template' AND (CAST(:t AS TEXT) IS NULL OR p.tenant_key = :t)
-            )
-        """.trimIndent()
-
-        /** For a content aliased `c`: no release's resource points at it, and no other content refers to it ([CHILDREN]). */
-        val UNREFERENCED = """
-            NOT EXISTS (SELECT 1 FROM release_resources r WHERE r.tenant_key = c.tenant_key AND r.content_hash = c.content_hash)
-            AND NOT EXISTS (SELECT 1 FROM children k WHERE k.tenant_key = c.tenant_key AND k.content_hash = c.content_hash)
-        """.trimIndent()
+        /** For a content aliased `c`: no row of any draft or release points at it. */
+        const val UNREFERENCED = "NOT EXISTS (SELECT 1 FROM release_resources r WHERE r.tenant_key = c.tenant_key AND r.content_hash = c.content_hash)"
     }
 }
 

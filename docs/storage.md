@@ -6,14 +6,14 @@ deduplication.
 
 ## Two stores
 
-|           | Document content (ephemeral)                | Asset content (permanent)                   |
-| --------- | ------------------------------------------- | ------------------------------------------- |
-| What      | Generated PDFs                              | Logos, images, font files                   |
-| Port      | `DocumentContentStore` (pluggable)          | `AssetContentStore` (always PostgreSQL)     |
-| Keyed by  | `documents/{tenant}/{document}`             | `(scope, sha256)` — content-addressable     |
-| Lifecycle | Ages out with the document retention window | Keep-forever                                |
-| Reclaim   | Per-backend (below)                         | Ref-aware: mark-and-sweep by the reaper     |
-| Dedup     | No                                          | Yes — identical bytes stored once per scope |
+|           | Document content (ephemeral)                | Asset content (permanent)                 |
+| --------- | ------------------------------------------- | ----------------------------------------- |
+| What      | Generated PDFs                              | Logos, images, font files                 |
+| Port      | `DocumentContentStore` (pluggable)          | `AssetContentStore` (always PostgreSQL)   |
+| Keyed by  | `documents/{tenant}/{document}`             | `sha256` — content-addressable            |
+| Lifecycle | Ages out with the document retention window | Kept while a content holds it             |
+| Reclaim   | Per-backend (below)                         | Ref-aware: swept by the content collector |
+| Dedup     | No                                          | Yes — stored once per installation        |
 
 The pluggable backend (`epistola.storage.backend` = `POSTGRES` (default) / `S3` /
 `FILESYSTEM` / `MEMORY`) now applies **only to document content**. Asset content is
@@ -47,7 +47,7 @@ way each backend does best:
   `epistola.storage.s3.manage-document-lifecycle=false` to opt out entirely and manage
   the bucket lifecycle yourself.
 - **Filesystem** — `FilesystemDocumentContentStore` implements
-  `ContentRetentionMaintainer`; the reaper drives an age sweep of `documents/**` by
+  `ContentRetentionMaintainer`; the document retention task drives an age sweep of `documents/**` by
   modification time.
 
 ## Image and font bytes
@@ -61,28 +61,22 @@ to them through `resource_binaries`, a draft's as a release's; nothing else poin
 Writes (`UploadAsset`, `ImportAsset`, `ImportFont`) store the bytes first, when they are not there
 yet, then the content; reads (`GetAssetContent`, the font resolvers) read by hash. Deleting an image
 or a font removes its draft row only: bytes many contents may name are reclaimed later, once the
-content collector has taken the contents nothing names and the reaper finds no link.
+content collector has taken the contents nothing names, by that same collector.
 
 There is no per-tenant scope any more. 1.x let an asset be marked `sensitive`, which kept its bytes
 apart per tenant (#751, never surfaced on the UI, REST or catalog formats); 2.0 drops the flag: the
 upgrade moves such bytes into the one store, deduplicated (`V20261025134400`), and the REST upload's
 `sensitive` field is dropped from the contract.
 
-## The content reaper
+## Document retention
 
-`ContentReaper` is a single-owner daily cluster task
-(`core.content-reaper`, `epistola.storage.reaper.cron`) that:
-
-1. **Mark-and-sweeps** `asset_content` blobs older than a grace window
-   (`epistola.storage.reaper.asset-grace-minutes`, default 60) that no `resource_binaries` row
-   references. The grace window counts from the blob's last write:
-   writing bytes that are stored already touches them (`putIfAbsent`), so an upload that reuses
-   an old blob is never swept from under it.
-2. **Drives** each `ContentRetentionMaintainer` (the filesystem sweep).
-3. Publishes `epistola.storage.orphaned_blobs{namespace=asset}` (see
-   [`docs/metrics.md`](metrics.md)).
-
+`DocumentRetentionReaper` is a single-owner daily cluster task (`core.document-retention`,
+`epistola.storage.reaper.cron`, default `0 30 3 * * ?`) that drives each `ContentRetentionMaintainer`
+with `epistola.partitions.retention-months`: the filesystem document backend's age sweep. PostgreSQL
+reclaims documents by dropping partitions and S3 by its lifecycle rule, so they contribute none.
 Disable with `epistola.storage.reaper.enabled=false`.
+
+It no longer touches asset bytes: those are the content collector's, below.
 
 ## The content collector
 
@@ -94,21 +88,23 @@ what it refers to. Rows go at once; content nothing points at any more is collec
 
 1. Per tenant, in batches of `epistola.storage.gc.batch-size` (default 500), each its own
    transaction with `epistola.storage.gc.pause` between them (default 200 ms), it deletes
-   `resource_contents` that no `release_resources` row (a template's variants are rows of their
-   own) and no other content refers to, stored longer ago than `epistola.storage.gc.grace` (default 1 day).
+   `resource_contents` that no `release_resources` row names (a template's variants are rows of
+   their own, so a row is the only holder), stored longer ago than `epistola.storage.gc.grace` (default 1 day).
    A batch selects `FOR UPDATE SKIP LOCKED`; storing content again touches and locks it
    (`stored_at`), so a save that reuses content is skipped, and the foreign key refuses to delete
    content a row points at. Its `resource_binaries` and `resource_references` cascade.
-2. Then it deletes `asset_content` that neither an asset nor any content holds, older than the
-   same grace period, in batches.
-3. It publishes `epistola.storage.orphaned_contents`: orphaned content past the grace period left
-   after the run, zero when it did its job.
+2. Then it deletes `asset_content` that no content's binaries hold (`resource_binaries`), older than
+   the same grace period, in batches. It is the only place bytes are deleted. The grace period counts
+   from the blob's last write: writing bytes that are stored already touches them (`putIfAbsent`,
+   database time), so an upload that reuses an old blob is never swept from under it.
+3. It publishes `epistola.storage.orphaned_contents` and `epistola.storage.orphaned_blobs{namespace=asset}`:
+   orphaned content and bytes past the grace period left after the run, zero when it did its job.
 
 It runs on `epistola.storage.gc.cron` (default `0 0 2 * * ?`, nightly at 02:00); disable the
 schedule with `epistola.storage.gc.enabled=false`. An operator with diagnostics rights starts it
 by hand for one tenant from **Operations → Cluster → Stored content → Collect now** (the command
-`CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog
-still removes the content only it held at once, as before.
+`CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog removes its rows only; the
+content only it held is collected here, past the grace period, like any other orphan.
 
 A draft's resources of every type (themes, code lists, attributes, stencils, fonts, images and templates) are `release_resources` rows too,
 keyed by the draft (`version_id`) instead of a release number, and their content is stored the same
