@@ -31,3 +31,6 @@ internal const val BEFORE_VARIANT_DESCRIPTION = "20261025170800"
 
 /** The last migration before templates moved to JSON storage and their tables went (ADR 0033, `V20261025170700`). */
 internal const val BEFORE_TEMPLATE_STORAGE = "20261025150938"
+
+/** The last migration before every catalog version became a row of `catalog_versions` (ADR 0036, `V20261026162943`). */
+internal const val BEFORE_ONE_VERSION_TABLE = "20261026141633"

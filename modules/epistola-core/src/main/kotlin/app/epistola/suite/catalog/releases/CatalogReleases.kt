@@ -152,7 +152,7 @@ class CatalogDrafts {
      * discarded and not opened again).
      */
     fun draft(handle: Handle, catalog: CatalogId): CatalogDraft? = handle
-        .createQuery("$SELECT WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND kind = 'draft'")
+        .createQuery("$SELECT WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND state = 'draft'")
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
         .map(::toDraft)
@@ -164,7 +164,7 @@ class CatalogDrafts {
 
     /** Every open draft of the catalog: the next version first, then parallel work, oldest first. */
     fun drafts(handle: Handle, catalog: CatalogId): List<CatalogDraft> = handle
-        .createQuery("$SELECT WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' ORDER BY is_next DESC, created_at, version_id")
+        .createQuery("$SELECT WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' ORDER BY is_next DESC, created_at, version_id")
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
         .map(::toDraft)
@@ -187,7 +187,7 @@ class CatalogDrafts {
     fun open(handle: Handle, catalog: CatalogId, base: String?, name: String? = null, createdFrom: String? = null): UUID = handle
         .createQuery(
             """
-            INSERT INTO catalog_versions (tenant_key, catalog_id, kind, is_next, name, base_version, created_from)
+            INSERT INTO catalog_versions (tenant_key, catalog_id, state, is_next, name, base_version, created_from)
             VALUES (:t, ${catalogAt("t", "c")}, 'draft', :next, :name, :base, :from)
             RETURNING version_id
             """,
@@ -202,28 +202,86 @@ class CatalogDrafts {
         .one()
 
     /**
-     * After the next version [versionId] is released as [base], a new next version continues on the
-     * release: the same row, so the content it holds, which the release copied, stays in place, under
-     * a new key, since its old one now addresses the release.
+     * Draft [versionId] becomes release [version] (ADR 0036): its row is frozen in place, keeping its
+     * id, key and name, with the record [version]'s `catalog_releases` row holds. It stops being the
+     * next version; [startNext] opens the one that continues on it.
      */
-    fun advance(handle: Handle, tenantKey: TenantKey, versionId: UUID, base: String) {
-        val moved = handle.createUpdate(
+    fun freeze(handle: Handle, tenantKey: TenantKey, versionId: UUID, version: String) {
+        val frozen = handle.createUpdate(
             """
-            UPDATE catalog_versions SET base_version = :base, created_from = NULL, created_at = NOW(), version_key = epistola_version_key(),
-                base_fingerprints = NULL
-            WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND is_next
+            UPDATE catalog_versions v SET state = 'released', is_next = FALSE, version = r.version,
+                fingerprint = r.fingerprint, content_hash = r.content_hash, notes = r.notes, manifest_snapshot = r.manifest_snapshot,
+                rendering_defaults_version = r.rendering_defaults_version, released_at = r.released_at, released_by = r.released_by,
+                released_by_installation = r.released_by_installation, base_version = r.base_version, base_fingerprint = r.base_fingerprint,
+                base_version_id = (SELECT b.version_id FROM catalog_versions b
+                                   WHERE b.tenant_key = r.tenant_key AND b.catalog_id = r.catalog_id AND b.version = r.base_version AND b.state = 'released')
+            FROM catalog_releases r
+            WHERE v.tenant_key = :t AND v.version_id = :v AND v.state = 'draft'
+              AND r.tenant_key = v.tenant_key AND r.catalog_id = v.catalog_id AND r.version = :version AND r.version_key = v.version_key
             """,
         )
             .bind("t", tenantKey)
             .bind("v", versionId)
+            .bind("version", version)
+            .execute()
+        check(frozen == 1) { "no draft $versionId to release as $version" }
+    }
+
+    /**
+     * After the next version is released as [released] ([freeze]), opens the next version that
+     * continues on it: a new row with a new key, holding what the release holds (its content rows,
+     * ready marks, code list refreshes, dependency declarations and theme settings), measured against
+     * the release. The release keeps none of them as draft rows: what it contains is its own record.
+     * Returns the new next version's `version_id`.
+     */
+    fun startNext(handle: Handle, catalog: CatalogId, released: UUID, base: String): UUID {
+        val next = handle.createQuery(
+            """
+            INSERT INTO catalog_versions (tenant_key, catalog_id, state, is_next, base_version, base_version_id, default_theme_resource_id, presets)
+            SELECT tenant_key, catalog_id, 'draft', TRUE, :base, version_id, default_theme_resource_id, presets
+            FROM catalog_versions WHERE tenant_key = :t AND version_id = :from AND state = 'released'
+            RETURNING version_id
+            """,
+        )
+            .bind("t", catalog.tenantKey)
+            .bind("from", released)
             .bind("base", base)
+            .mapTo(UUID::class.java)
+            .one()
+        handle.createQuery("SELECT copy_catalog_version_content(:t, :from, :to)::text")
+            .bind("t", catalog.tenantKey)
+            .bind("from", released)
+            .bind("to", next)
+            .mapTo(String::class.java)
+            .findOne()
+        // Handing the rows over is not an edit: the catalog's content is what it was a moment ago.
+        val contentUpdatedAt = handle.createQuery("SELECT content_updated_at FROM catalogs WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
+            .mapTo(OffsetDateTime::class.java)
+            .findOne()
+            .orElse(null)
+        retire(handle, catalog.tenantKey, released)
+        handle.createUpdate("UPDATE catalogs SET content_updated_at = :at WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
+            .bind("at", contentUpdatedAt)
             .execute()
-        check(moved == 1) { "no next version $versionId to advance" }
-        // On a new base it has merged nothing yet: what it merged is in the release it continues on.
-        handle.createUpdate("DELETE FROM catalog_draft_merges WHERE tenant_key = :t AND version_id = :v")
-            .bind("t", tenantKey)
-            .bind("v", versionId)
-            .execute()
+        return next
+    }
+
+    /**
+     * Released version [versionId] keeps no draft rows: its content rows, ready marks, code list
+     * refreshes and declarations go, since what it contains is recorded with the release. The row
+     * itself stays: it is the release.
+     */
+    fun retire(handle: Handle, tenantKey: TenantKey, versionId: UUID) {
+        for (table in listOf("release_resources", "resource_ready_marks", "code_list_refreshes", "catalog_dependencies")) {
+            handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND version_id = :v")
+                .bind("t", tenantKey)
+                .bind("v", versionId)
+                .execute()
+        }
     }
 
     /**
@@ -245,7 +303,7 @@ class CatalogDrafts {
             }
         }
         val moved = handle.createUpdate(
-            "UPDATE catalog_versions SET is_next = TRUE, name = NULL WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next",
+            "UPDATE catalog_versions SET is_next = TRUE, name = NULL WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT is_next",
         )
             .bind("t", tenantKey)
             .bind("v", promoted)
@@ -270,7 +328,7 @@ class CatalogDrafts {
 
     /** Renames parallel work [versionId]. */
     fun rename(handle: Handle, tenantKey: TenantKey, versionId: UUID, name: String) {
-        handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND kind = 'draft' AND NOT is_next")
+        handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT is_next")
             .bind("t", tenantKey)
             .bind("v", versionId)
             .bind("name", name)
@@ -282,7 +340,7 @@ class CatalogDrafts {
      * holds (they cascade from it). A resource's identity stays while another version holds it.
      */
     fun delete(handle: Handle, tenantKey: TenantKey, versionId: UUID) {
-        handle.createUpdate("DELETE FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND kind = 'draft'")
+        handle.createUpdate("DELETE FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND state = 'draft'")
             .bind("t", tenantKey)
             .bind("v", versionId)
             .execute()
@@ -324,7 +382,7 @@ class CatalogDrafts {
             """
             INSERT INTO catalog_draft_merges (tenant_key, version_id, release_version, merge_base, resolutions, held_fingerprints, merged_by)
             SELECT :t, version_id, :release, :base, CAST(:resolutions AS JSONB), CAST(:held AS JSONB), :by
-            FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND kind = 'draft'
+            FROM catalog_versions WHERE tenant_key = :t AND version_id = :v AND state = 'draft'
             ON CONFLICT (tenant_key, version_id, release_version) DO NOTHING
             """,
         )

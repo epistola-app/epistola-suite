@@ -151,7 +151,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
                     (SELECT dv.version_id FROM catalog_versions dv
                      JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
-                     WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.version_key = :draftKey
+                     WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.version_key = :draftKey
                        AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key))
             """,
         )
@@ -333,7 +333,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """
             SELECT dv.version_id, $DRAFT_LABEL AS label FROM catalog_versions dv
             JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
-            WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.version_key = :k
+            WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.version_key = :k
               AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key
             """,
         )
@@ -352,7 +352,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """
             SELECT dv.version_key, $DRAFT_LABEL AS label FROM catalog_versions dv
             JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
-            WHERE dv.tenant_key = :t AND dv.kind = 'draft' AND dv.is_next
+            WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.is_next
               AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key
             """,
         )

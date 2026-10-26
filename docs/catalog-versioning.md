@@ -32,6 +32,11 @@ still in the table, defaulted and unused, and goes in a later major release.
   foreign key) and the digest it fingerprinted to (ADR 0033). A release's resource list reads these
   rows alone (`ListReleaseResources`); its content is read per type, its binaries when shown.
   Content nothing points at is collected later ([`storage.md`](storage.md#the-content-collector)).
+- **One row per version** (ADR 0036, in progress): every version, draft or release, is a row of
+  `catalog_versions` (`state` draft or released, `origin` authored or installed). Releasing a draft
+  freezes its row, keeping its id, key and name; the next version is a new row that takes over what
+  the release holds. `catalogs.next_version_id` names the next version. Until the readers keyed by
+  number are re-keyed, `catalog_releases` mirrors the released rows (`trg_catalog_releases_mirror`).
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
