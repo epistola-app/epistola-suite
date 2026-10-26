@@ -12,6 +12,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.TemplateStore
 import db.migration.core.V20261025170700__core_templates_to_storage
+import db.migration.core.V20261026085934__core_variant_description_in_resource
 import org.assertj.core.api.SoftAssertions
 import org.jdbi.v3.core.Jdbi
 import tools.jackson.databind.ObjectMapper
@@ -19,7 +20,8 @@ import tools.jackson.databind.node.ObjectNode
 
 /**
  * Proves, for every template of [catalog]'s next version, that the migration that moved templates to
- * JSON storage (`V20261025170700`) converts a template's 1.x columns exactly as the suite now stores
+ * JSON storage (`V20261025170700`), followed by the one that moved a variant's description into its
+ * released form (`V20261026085934`), converts a template's 1.x columns exactly as the suite now stores
  * it (ADR 0033, ADR 0035): each variant, its model given as 1.x kept it (references into its own
  * catalog named with it), converts to the content its part names, with the references the suite
  * indexed, and the template's content converts to its row's content hash.
@@ -50,7 +52,9 @@ object TemplateStorageConversion {
                         metadata = variant.metadata?.let(objectMapper::writeValueAsString),
                         model = qualified,
                     )
-                    val part = migration.part(converted, migration.releasedModel(objectMapper.readTree(qualified), catalog.key.value))
+                    val part = V20261026085934__core_variant_description_in_resource.moved(
+                        migration.part(converted, migration.releasedModel(objectMapper.readTree(qualified), catalog.key.value)),
+                    )
                     softly.assertThat(migration.contentHash(migration.canonical(part))).`as`("variant $key/${variant.key}").isEqualTo(variant.contentHash)
                     val refs = handle.createQuery(
                         "SELECT COALESCE(alias, '') || '/' || resource_type || '/' || resource_key FROM resource_references WHERE tenant_key = :t AND content_hash = :h",

@@ -104,9 +104,6 @@ class EpistolaImagesApi(
         file: MultipartFile,
         name: String?,
         mediaType: String?,
-        // Contract 2.0.0-alpha.1 still carries it; every image's bytes are stored alike now, so it
-        // chooses nothing (dropped from the contract on `feature/drop-image-sensitive`).
-        @Suppress("UNUSED_PARAMETER") sensitive: Boolean,
     ): ResponseEntity<ImageDto> {
         val draft = draftAt(tenantKey, registry, namespace, catalogKey, release)
         val content = file.bytes

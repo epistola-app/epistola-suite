@@ -102,6 +102,8 @@ data class ImportVariantInput(
      * came and written back on export; null or empty when the variant has none.
      */
     val metadata: Map<String, Map<String, Any?>>? = null,
+    /** The variant's description (wire v8 `VariantEntry.description`); null when it has none. */
+    val description: String? = null,
 )
 
 /**
@@ -199,7 +201,7 @@ class ImportTemplatesHandler(
                     key = variantInput.id,
                     // Title is required (#631); default a title-less import to the variant slug.
                     title = variantInput.resolvedTitle(),
-                    description = existing?.variant(variantInput.id)?.description,
+                    description = variantInput.description?.takeIf { it.isNotBlank() },
                     attributes = variantInput.attributes,
                     isDefault = variantInput.isDefault,
                     // Empty metadata is no metadata: the wire forbids `{}`.

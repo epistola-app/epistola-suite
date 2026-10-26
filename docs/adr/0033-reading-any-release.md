@@ -271,9 +271,10 @@ resource_binaries → asset_content   bytes of content (was revision_binaries)
   (`TemplateContents.assemble`), and the template's release row keeps that fingerprint, so the
   golden vectors hold. A variant row needs its template's row in its version (checked at commit),
   goes with it, and moves with it by the relocation's own update, not by cascade (ADR 0014). A ready
-  mark is per variant (the digest of the template's and the variant's content). The variant's description stays
-  in its content until the contract carries it on the variant (contract `feature/common-tags`,
-  after `2.0.0-alpha.1`), when a code migration moves it into the resource. A data example is
+  mark is per variant (the digest of the template's and the variant's content). The variant's description is
+  part of its released form since contract `2.0.0-alpha.2` (`VariantEntry.description`): a code
+  migration (`V20261026085934`) moved every draft variant's there from beside the resource, and a
+  release that held it beside keeps it so, fingerprinted without it. A data example is
   addressed by its key, derived as a release derives one; the id it had is gone. A template names its
   theme by alias and key (relative for its own catalog), so a moved theme rewrites the templates that
   use it. A stencil instance is

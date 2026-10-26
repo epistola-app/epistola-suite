@@ -37,9 +37,10 @@ import {
 } from './table-utils.js';
 
 /**
- * Per-cell styles (`props.cellStyles`) are not declared by the `table` component in
- * epistola-contract, so the server rejects a draft that contains them and the save fails. The
- * controls stay hidden until the contract declares the property (epistola-contract#97, 2.0).
+ * Per-cell styles (`props.cellStyles`): contract `2.0.0-alpha.2` declares them, allowing only
+ * `backgroundColor`, `padding`, `border` and `verticalAlign` per cell. These controls write
+ * `textAlign` too, which the server then refuses, and the renderer applies no `verticalAlign`, so they
+ * stay hidden until the cell controls match the contract (epistola-contract#97).
  */
 const CELL_STYLES_SUPPORTED = false;
 
