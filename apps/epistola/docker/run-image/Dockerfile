@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-only
 
-FROM paketobuildpacks/run-noble-base:latest
+# ubuntu-noble-run is Paketo's maintained Noble run image, rebuilt as Ubuntu ships
+# security updates. Its predecessor, run-noble-base, has not been updated since
+# April 2024: every image built on it shipped Noble's original OpenSSL, and could
+# never pick up a patched package. The build passes --pull so a stale local copy
+# of :latest is not reused either.
+FROM paketobuildpacks/ubuntu-noble-run:latest
 
 # Pin the container locale to UTF-8. run-noble-base boots with the C/POSIX
 # locale, which makes the JVM resolve sun.jnu.encoding to ASCII and mis-handle
@@ -22,4 +27,5 @@ RUN apt-get update -qq \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-USER 1002:1000
+# The base image's own user. run-noble-base used gid 1000; ubuntu-noble-run uses 1001.
+USER 1002:1001

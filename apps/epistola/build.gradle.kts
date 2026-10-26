@@ -439,12 +439,16 @@ tasks.register<Exec>("resetLocalDb") {
 // Default: JVM image (recommended, stable)
 // Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
 
-// Build a custom run image based on run-noble-base with only fontconfig and DejaVu fonts added.
+// Build a custom run image based on ubuntu-noble-run with only fontconfig and DejaVu fonts added.
 // This cuts ~565MB compared to the full run image while still supporting Java AWT font rendering.
+// The tag is fully qualified because Docker and Podman expand a bare `epistola-run:noble`
+// differently (docker.io/library/ vs localhost/), while bootBuildImage always looks for
+// docker.io/library/. Under Podman a bare tag left bootBuildImage on whatever stale run image
+// that name last pointed at.
 val buildRunImage = tasks.register<Exec>("buildRunImage") {
     group = "docker"
     description = "Build custom CNB run image with fontconfig and fonts"
-    commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)
+    commandLine("docker", "build", "--pull", "-t", "docker.io/library/epistola-run:noble", file("docker/run-image").absolutePath)
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
@@ -465,7 +469,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
     dependsOn(buildRunImage)
-    runImage.set("epistola-run:noble")
+    runImage.set("docker.io/library/epistola-run:noble")
     pullPolicy.set(org.springframework.boot.buildpack.platform.build.PullPolicy.IF_NOT_PRESENT)
     environment.set(
         mapOf(
