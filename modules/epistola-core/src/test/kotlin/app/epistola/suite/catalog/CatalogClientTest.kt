@@ -81,7 +81,7 @@ class CatalogClientTest {
         }
 
         @Test
-        fun `a classpath binary is read once and handed out as a copy`() {
+        fun `a classpath binary is read once and shared, not copied`() {
             val manifest = client.fetchManifest(FIXTURE_MANIFEST, AuthType.NONE, null)
             val detailUrl = manifest.resources.first().detailUrl
             reads.set(0)
@@ -90,7 +90,9 @@ class CatalogClientTest {
             val second = client.fetchBinaryContent(detailUrl, FIXTURE_MANIFEST, AuthType.NONE, null)
 
             assertThat(reads.get()).isEqualTo(1)
-            assertThat(second).isEqualTo(first).isNotSameAs(first)
+            // Shared: a bundled catalog's binaries (the system fonts are 14 MB) are installed for every
+            // tenant, and a copy per install held them again for each one.
+            assertThat(second).isSameAs(first)
         }
 
         @Test

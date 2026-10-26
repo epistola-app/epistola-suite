@@ -27,11 +27,15 @@ import app.epistola.suite.testing.default
 import app.epistola.suite.testing.testCatalog
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.statement.SqlLogger
+import org.jdbi.v3.core.statement.SqlStatements
+import org.jdbi.v3.core.statement.StatementContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.sql.SQLException
 
 /**
  * End-to-end coverage for the bundled system fonts: every tenant gets the
@@ -122,6 +126,39 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
         }
+    }
+
+    @Test
+    fun `creating a tenant reads no font face back from the database`() {
+        // The install fetched the faces and checks the stored catalog with those bytes; reading all
+        // 36 back (14 MB, one query each) was most of a tenant's creation and of its memory.
+        val statements = statementsOnThisThread { createTenant("Fonts Reads Tenant") }
+
+        assertThat(statements.filter { "JOIN asset_content c ON c.content_hash = b.binary_hash" in it }).isEmpty()
+    }
+
+    /** The SQL this thread executes while [block] runs. */
+    private fun statementsOnThisThread(block: () -> Unit): List<String> {
+        val config = jdbi.getConfig(SqlStatements::class.java)
+        val original = config.sqlLogger
+        val thread = Thread.currentThread()
+        val statements = java.util.Collections.synchronizedList(mutableListOf<String>())
+        config.sqlLogger = object : SqlLogger {
+            override fun logBeforeExecution(context: StatementContext) {
+                if (Thread.currentThread() == thread) statements += context.renderedSql
+                original.logBeforeExecution(context)
+            }
+
+            override fun logAfterExecution(context: StatementContext) = original.logAfterExecution(context)
+
+            override fun logException(context: StatementContext, ex: SQLException) = original.logException(context, ex)
+        }
+        try {
+            block()
+        } finally {
+            config.sqlLogger = original
+        }
+        return statements.toList()
     }
 
     private val hexRegex = Regex("^[0-9a-f]{64}$")

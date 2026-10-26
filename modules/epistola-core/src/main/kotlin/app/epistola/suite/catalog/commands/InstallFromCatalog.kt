@@ -172,7 +172,7 @@ class InstallFromCatalogHandler(
             if (results.any { it.status == InstallStatus.FAILED }) {
                 status.setRollbackOnly()
             } else {
-                installedCatalogCheck.requireValid(command.catalog)
+                installedCatalogCheck.requireValid(command.catalog, fetched = fetchedByHash(staged))
             }
             results
         }
@@ -241,6 +241,15 @@ class InstallFromCatalogHandler(
             }
         }
     }
+
+    /** Every binary [staged] holds, by the hash its resource declares for it. */
+    private fun fetchedByHash(staged: List<StagedResource>): Map<String, ByteArray> = staged.flatMap { item ->
+        when (val resource = item.resource) {
+            is ImageResource -> listOf(resource.contentHash to resource.contentPath())
+            is FontResource -> resource.variants.map { it.contentHash to it.contentPath() }
+            else -> emptyList()
+        }.mapNotNull { (hash, path) -> item.binaries[path]?.let { hash to it } }
+    }.toMap()
 
     private fun installResource(
         command: InstallFromCatalog,

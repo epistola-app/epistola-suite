@@ -33,11 +33,12 @@ class CatalogClient(
     // manifest, resource details and binaries were read, schema-migrated and hashed again for every
     // tenant that installs them, every catalogs-page render and every boot. Cached like FontByteCache:
     // one Caffeine cache, weighed by the raw bytes each entry was loaded from, with an explicit
-    // ceiling (every classpath catalog in the repo is under half a megabyte; the ceiling is the bound
-    // stated out loud, not something that is expected to evict). No TTL: classpath content is
-    // immutable. Only `classpath:` sources are cached; `file:` and HTTP sources can change underneath
-    // a running process. Cached manifests and details are shared across tenants and threads: callers
-    // read them and map them into their own structures; nothing writes into a fetched object.
+    // ceiling (the system catalog's fonts are 14 MB and every other bundled catalog is under half a
+    // megabyte; the ceiling is the bound stated out loud, not something that is expected to evict).
+    // No TTL: classpath content is immutable. Only `classpath:` sources are cached; `file:` and HTTP
+    // sources can change underneath a running process. Cached manifests, details and binaries are
+    // shared across tenants and threads: callers read them and map them into their own structures;
+    // nothing writes into a fetched object, a fetched byte array included.
     private val classpathCache = Caffeine.newBuilder()
         .maximumWeight(MAX_CACHED_CLASSPATH_BYTES)
         .weigher<String, CachedClasspathEntry> { _, entry -> entry.weight }
@@ -125,10 +126,11 @@ class CatalogClient(
     fun fetchBinaryContent(contentUrl: String, manifestUrl: String, authType: AuthType, credential: String?): ByteArray {
         val resolvedUrl = resolveContentUrl(contentUrl, manifestUrl)
         if (resolvedUrl.startsWith("classpath:")) {
-            // Copied out so a caller that keeps the array cannot alter what the next tenant reads.
+            // Shared, not copied: every tenant installs the bundled catalogs, and a copy per install
+            // held the system fonts (14 MB) again for each tenant being created. Callers only read it.
             return cachedClasspath<ByteArray>("binary:$manifestUrl\n$resolvedUrl") {
                 loadBinary(resolvedUrl, manifestUrl, authType, credential).let { it to it.size }
-            }.copyOf()
+            }
         }
         return loadBinary(resolvedUrl, manifestUrl, authType, credential)
     }
@@ -145,7 +147,7 @@ class CatalogClient(
     }
 
     companion object {
-        /** Ceiling of the classpath cache, in bytes of source content. Every bundled catalog together is well under 1 MiB. */
+        /** Ceiling of the classpath cache, in bytes of source content. Every bundled catalog together is about 15 MiB, the system fonts nearly all of it. */
         private const val MAX_CACHED_CLASSPATH_BYTES: Long = 32L * 1024 * 1024
 
         /** A leading `scheme:` — anything that makes a path an absolute URL. */
