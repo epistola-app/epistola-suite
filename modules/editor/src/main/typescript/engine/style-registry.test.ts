@@ -28,7 +28,9 @@ describe('editor style registry', () => {
   });
 
   it('offers no control for a property the renderer does not apply yet', () => {
-    const contractKeys = styleRegistry.groups.flatMap((group) => group.properties.map((p) => p.key));
+    const contractKeys = styleRegistry.groups.flatMap((group) =>
+      group.properties.map((p) => p.key),
+    );
     const editorKeys = defaultStyleRegistry.groups.flatMap((group) =>
       group.properties.map((p) => p.key),
     );
