@@ -89,23 +89,26 @@ column and the "exactly one of `version` and `version_id`" check go.
 It replaces `catalog_dependencies` (a draft's declarations, which may name another catalog's draft)
 and `catalog_release_dependencies` (a release's pins by number).
 
-| Column                | Meaning                                                           |
-| --------------------- | ----------------------------------------------------------------- |
-| `version_id`          | The version that declares the dependency                          |
-| `alias`               | The name it is used under                                         |
-| `target_catalog_id`   | The catalog depended on                                           |
-| `target_version_id`   | A specific version: a release, or a named draft                   |
-| `follows_next`        | The target catalog's next draft; `target_version_id` is then NULL |
-| `pinned_content_hash` | For a released target: the hash it is pinned to                   |
+| Column                | Meaning                                                   |
+| --------------------- | --------------------------------------------------------- |
+| `version_id`          | The version that declares the dependency                  |
+| `alias`               | The name it is used under                                 |
+| `target_catalog_id`   | The catalog depended on                                   |
+| `target_version_id`   | The version depended on: a release, or a draft (that row) |
+| `pinned_content_hash` | For a released target: the hash it is pinned to           |
 
-A released version may only depend on released versions (`follows_next = false`, target
-released), which the freeze guard (6) and a check on release enforce.
+A declaration names a row, never "the next draft". One on another catalog's draft follows that row:
+when that catalog releases it, the declaration points at the release. Depending on the new draft
+is an explicit new declaration. A released version may only depend on released versions; releasing
+a version whose declarations name drafts follows contract ADR 0002 ("Releasing takes along the
+drafts it uses"), and the freeze guard and a check on release enforce it.
 
 ### 5. `environment_catalog_deployments`
 
-Per environment and catalog: `target_version_id` (a version row) or `follows_next = true` (the
-catalog's next draft, rendered live). This replaces `version` or `draft_id`. See "Open:
-deployments across a release" for which of the two a deployed draft becomes.
+Per environment and catalog: one `target_version_id` (FK to a version row), replacing `version` or
+`draft_id`. A deployed draft is a deployment of its row, so when that row is released the
+environment serves the release, logged as `released` (contract ADR 0003). Serving the next draft
+takes an explicit new deployment.
 
 ### 6. Every other reference names the row
 
@@ -129,12 +132,13 @@ Releasing a draft sets its number, record and `state = 'released'` in place. Its
   variant rows included, and its settings and declarations, under the new `version_id`, and sets
   `catalogs.next_version_id`. The cost moves from releasing (today: N new rows) to starting the next
   draft (N copied rows), which is rarer than editing and no rarer than releasing.
-- **What follows "next"** follows by catalog, not by row: an editor session, a dependency declared
-  with `follows_next`, and a "follows next" deployment see the new draft after the release. A save
-  that crosses the release (an editor still holding the old row) is refused, with "this draft was
-  released; you are now in the next draft" (contract ADR 0002: "a write through either is refused
-  with `409`, never `404`").
-- **What names the row** keeps naming it: a document rendered from the draft, a merge, a publication.
+- **Everything that names the row follows it into the release:** a deployment (it now serves the
+  release), a declaration on that draft (it now names the release), a document rendered from the
+  draft, a merge, a publication. Nothing follows "the next draft" by itself; pointing at the new
+  draft is an explicit act (a new deployment, a new declaration).
+- **The editor is not a stored pointer.** A save through a released row's id is refused with `409`
+  (contract ADR 0002: "a write through either is refused with `409`, never `404`"), and the editor
+  offers to open the catalog's next draft.
 
 ### Deleting and installing
 
@@ -154,19 +158,13 @@ The database does not refuse a write to a released version's rows. The writers (
 guard test, like `ReleaseResourceSqlTest`, allows writes to `release_resources` and
 `catalog_versions` settings only through code that checks the state.
 
-### Open: deployments across a release
+### Deployments across a release
 
-Contract ADR 0002 and 0003 say a deployed draft is followed into its release: "The deployment
-follows the draft: releasing it keeps the `releaseId`, so the environment then serves it as
-released", and "the deployment stays, an explicit deployment of the released release, logged as
-`released`". That is a deployment of the row (`target_version_id`), which this design gives for
-free. The proposal to let draft deployments follow the catalog's next draft instead would differ
-from the contract. Before (d) is built, one of the two is chosen:
-
-- **As the contract says:** a deployed draft is a deployment of its row; after release it serves the
-  release. "Follows next" is then a separate, suite-only option for a test environment that always
-  wants the latest draft.
-- **Follow next by default:** the contract is amended in the same 2.0 alpha.
+Contract ADR 0002 and 0003 decide it, and this follows them: "The deployment follows the draft:
+releasing it keeps the `releaseId`, so the environment then serves it as released", and "the
+deployment stays, an explicit deployment of the released release, logged as `released`". A
+deployment names a row, so it follows the row into the release with no extra state. There is no
+"follows next" option: an environment that should show the newest draft is deployed to it again.
 
 ## Migration path
 
@@ -183,7 +181,7 @@ releases after startup through the new code.
    version)`, then drop `version` and its check; the same for deployments, publications, merges and
    ready marks.
 3. **The dependencies.** Fill `catalog_version_dependencies` from both tables: draft declarations
-   by `version_id` (with `follows_next` where they named the next draft), release pins by number.
+   by `version_id` (the row they name), release pins by number.
 4. **The pointers.** Drop the four columns on `catalogs` and replace their readers with the view.
 5. **The old tables.** Drop `catalog_releases`, `catalog_release_dependencies`, `is_next`.
 
@@ -202,7 +200,7 @@ removes, on top of the previous one.
   release branch of `versionAt`, `catalog_current_versions` and the `COALESCE(dv.version_key,
   r.version_key)` joins.
 - **(c) The dependencies.** One table; the release-pin and draft-declaration code paths become one.
-- **(d) Deployments and "follow next".** After the open point is decided. Removes the
+- **(d) Deployments.** One `target_version_id`, following the row into the release. Removes the
   `version`/`draft_id` pair and its two joins.
 - **(e) Removing the old.** `catalog_releases`, `catalog_release_dependencies`, `is_next`, the
   `catalogs` pointers and their readers. The guard test refuses new SQL on them.
@@ -216,8 +214,9 @@ removes, on top of the previous one.
 - The cost of a release moves to starting the next draft. Releases are rarer than edits, so it is
   acceptable, but `release_resources` holds one copy more per open next draft, and the plan tests
   (`ThemePlanStabilityTest`) must cover the new key on fresh tables.
-- Anything that cached a draft's `version_id` across a release must follow by catalog; the editor
-  shows the crossing instead of failing silently.
+- A deployment or declaration on a draft ends up on the release when the draft is released; to
+  keep working against the newest draft, it is pointed there again. An editor holding a released
+  row is refused with `409` and offered the next draft, instead of failing silently.
 - Freezing rests on the application and its guard test; a writer that forgets the check is caught
   by the guard, not by the database.
 
