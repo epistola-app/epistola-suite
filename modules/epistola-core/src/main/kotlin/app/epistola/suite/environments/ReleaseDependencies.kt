@@ -81,7 +81,7 @@ class ReleaseDependenciesMissingException(
 
 /**
  * The releases of other catalogs a release renders with (contract ADR 0003): the pins it was cut
- * with in `catalog_release_dependencies`, and, through each pinned release the tenant has, that
+ * with in `catalog_version_dependencies` (ADR 0036), and, through each pinned release the tenant has, that
  * release's own pins, nearest first. An environment that serves the release must serve every one of
  * them exactly, by version and, when the pin recorded one, by fingerprint.
  *

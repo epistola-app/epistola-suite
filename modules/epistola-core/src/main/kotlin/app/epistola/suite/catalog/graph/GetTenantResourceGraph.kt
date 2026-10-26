@@ -95,7 +95,7 @@ class TenantResourceGraphBuilder(
     fun loadAliases(handle: Handle, tenantKey: TenantKey): Map<Pair<String, String>, String> = handle.createQuery(
         """
             SELECT c.namespace, c.catalog_key::text AS catalog_key, d.alias, d.namespace AS dependency_namespace, d.dependency_key
-            FROM catalog_dependencies d
+            FROM catalog_version_dependencies d
             JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
             JOIN catalogs c ON c.tenant_key = cv.tenant_key AND c.catalog_id = cv.catalog_id
             WHERE d.tenant_key = :tenantKey

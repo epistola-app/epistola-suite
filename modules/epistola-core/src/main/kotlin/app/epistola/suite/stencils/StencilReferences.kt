@@ -88,7 +88,7 @@ object StencilReferences {
         val alias = "NULLIF($nodeAlias.value -> 'props' ->> '${StencilNodeKeys.PROP_CATALOG_KEY}', '')"
         return """
             (CASE WHEN $alias IS NULL OR $alias = ${templateCatalog(templateAlias)} THEN $templateAlias.catalog_id
-             ELSE (SELECT epistola_catalog_id(ref.tenant_key, ref.namespace, ref.dependency_key) FROM catalog_dependencies ref
+             ELSE (SELECT epistola_catalog_id(ref.tenant_key, ref.namespace, ref.dependency_key) FROM catalog_version_dependencies ref
                    WHERE ref.tenant_key = $templateAlias.tenant_key AND ref.version_id = $templateAlias.version_id AND ref.alias = $alias) END)
         """
     }

@@ -6,14 +6,18 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.CreateCatalog
+import app.epistola.suite.catalog.commands.DeclaredCatalogDependency
 import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.releaseNext
 import app.epistola.suite.testing.testCatalog
@@ -154,5 +158,39 @@ class OneVersionTableTest : IntegrationTestBase() {
         assertThatThrownBy {
             jdbi.useHandle<Exception> { it.createUpdate("UPDATE catalog_versions SET origin = 'installed' WHERE version_id = :v").bind("v", draft.versionId).execute() }
         }.hasMessageContaining("chk_catalog_versions")
+    }
+
+    @Test
+    fun `a declaration on another catalog's draft follows that row into the release, pinned (step c)`() {
+        val tenant = withMediator {
+            val tenant = createTenant("one-version-declared").id
+            CreateCatalog(tenant, CatalogKey.of("parts"), "Parts").execute()
+            CreateTheme(ThemeId(ThemeKey.of("brand"), testCatalog(TenantId(tenant), "parts")), "Brand").execute()
+            CreateCatalog(tenant, letters, "Letters").execute()
+            tenant
+        }
+        val parts = testCatalog(tenant, "parts")
+        val partsDraft = withMediator { GetCatalogDraft(parts).query()!! }
+        val partsDraftRow = jdbi.withHandle<UUID, Exception> {
+            it.createQuery("SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND version_key = :k").bind("t", tenant).bind("k", partsDraft.versionId).mapTo(UUID::class.java).one()
+        }
+        withMediator {
+            val target = GetCatalog(parts).query()!!
+            UpdateCatalogDependencies(testCatalog(tenant, letters), listOf(DeclaredCatalogDependency(target.registry, target.namespace, "parts", versionId = partsDraft.versionId))).execute()
+        }
+
+        val version = withMediator { mediator.releaseNext(parts) }
+
+        val declared = jdbi.withHandle<Pair<UUID?, String?>, Exception> {
+            it.createQuery(
+                """
+                SELECT d.target_version_id, d.release_version FROM catalog_version_dependencies d
+                JOIN catalog_versions v ON v.version_id = d.version_id AND v.state = 'draft'
+                JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
+                WHERE d.tenant_key = :t AND c.catalog_key = 'letters'
+                """,
+            ).bind("t", tenant).map { rs, _ -> rs.getObject(1, UUID::class.java) to rs.getString(2) }.one()
+        }
+        assertThat(declared).`as`("the draft's row, now the release, and its number").isEqualTo(partsDraftRow to version)
     }
 }

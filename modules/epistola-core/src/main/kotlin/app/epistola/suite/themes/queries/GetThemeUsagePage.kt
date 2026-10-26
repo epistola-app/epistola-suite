@@ -116,7 +116,7 @@ class GetThemeUsagePageHandler(
                                     THEN template.catalog_id
                                 ELSE COALESCE(
                                     (SELECT epistola_catalog_id(dep.tenant_key, dep.namespace, dep.dependency_key)
-                                     FROM catalog_dependencies dep
+                                     FROM catalog_version_dependencies dep
                                      WHERE dep.tenant_key = template.tenant_key
                                        AND dep.version_id = template.version_id
                                        AND dep.alias = variant.template_model -> 'themeRef' ->> 'catalogKey'),

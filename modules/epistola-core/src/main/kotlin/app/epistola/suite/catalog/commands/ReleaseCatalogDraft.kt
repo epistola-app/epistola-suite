@@ -482,7 +482,6 @@ class ReleaseCatalogDraftHandler(
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the
             // others.
-            dependencyStore.recordRelease(handle, command.catalog, newVersion.toString(), pins)
             // A code list's source goes with it, beside its released form (ADR 0033): the release
             // stores the content its draft does.
             val settings = codeLists.sources(handle, command.catalog)
@@ -501,6 +500,8 @@ class ReleaseCatalogDraftHandler(
                 drafts.startNext(handle, command.catalog, draft.versionId, base = newVersion.toString())
             }
             drafts.retire(handle, command.tenantKey, draft.versionId)
+            // Its declarations are its pins (ADR 0036): recorded on its row once it is the release's.
+            dependencyStore.recordRelease(handle, command.catalog, newVersion.toString(), pins)
             releaseResourceStore.record(
                 handle,
                 command.catalog,

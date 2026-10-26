@@ -40,3 +40,6 @@ internal const val BEFORE_RELEASE_SETTINGS_ON_ROW = "20261026162943"
 
 /** The last migration before a release's resources named its version row instead of its number (ADR 0036 step (b), `V20261026172947`). */
 internal const val BEFORE_RESOURCES_BY_VERSION_ROW = "20261026170942"
+
+/** The last migration before a version's declarations and a release's pins shared one table (ADR 0036 step (c), `V20261026183314`). */
+internal const val BEFORE_VERSION_DEPENDENCIES = "20261026172947"

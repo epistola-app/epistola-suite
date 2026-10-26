@@ -58,9 +58,9 @@ class DeleteCatalogHandler(
             // drafts: such a draft names the catalog's content, so forcing past it drops them.
             handle.createUpdate(
                 """
-                DELETE FROM catalog_dependencies
-                WHERE tenant_key = :tenantKey
-                  AND dependency_version_id IN (SELECT version_id FROM catalog_versions WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "id")})
+                DELETE FROM catalog_version_dependencies
+                WHERE tenant_key = :tenantKey AND release_version IS NULL
+                  AND target_version_id IN (SELECT version_id FROM catalog_versions WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "id")})
                 """,
             )
                 .bind("tenantKey", command.tenantKey)

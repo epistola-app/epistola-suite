@@ -128,8 +128,9 @@ class EnvironmentDetailPageTest : BaseIntegrationTest() {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                UPDATE catalog_release_dependencies SET release_version = '9.9.9'
+                UPDATE catalog_version_dependencies SET release_version = '9.9.9', target_version_id = NULL
                 WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')
+                  AND version_id IN (SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND state = 'released')
                 """,
             ).bind("t", tenant.id).execute()
         }

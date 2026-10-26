@@ -72,7 +72,7 @@ class GetCatalogDependencyGraphHandler(
             SELECT owner.catalog_key AS from_key, owner.namespace AS from_namespace, target.catalog_key AS to_key, target.namespace AS to_namespace,
                    d.registry || '/' || d.namespace || '/' || d.dependency_key AS to_identity,
                    d.release_version
-            FROM catalog_dependencies d
+            FROM catalog_version_dependencies d
             JOIN catalog_current_versions cv ON cv.tenant_key = d.tenant_key AND cv.version_id = d.version_id
             JOIN catalogs owner ON owner.tenant_key = d.tenant_key AND owner.catalog_id = d.catalog_id
             LEFT JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry

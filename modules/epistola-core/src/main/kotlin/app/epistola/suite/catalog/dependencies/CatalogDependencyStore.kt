@@ -87,8 +87,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """
             SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
-            FROM catalog_dependencies d
-            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
+            FROM catalog_version_dependencies d
+            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.target_version_id AND dv.state = 'draft'
             WHERE d.tenant_key = :t AND d.version_id = ${versionAt("t", "c")}
             ORDER BY d.position
             """,
@@ -115,8 +115,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """
             SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint,
                    dv.version_key AS draft_key, $DRAFT_LABEL AS draft_name
-            FROM catalog_dependencies d
-            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.dependency_version_id
+            FROM catalog_version_dependencies d
+            LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.target_version_id AND dv.state = 'draft'
             WHERE d.tenant_key = :t AND d.version_id = :v
             ORDER BY d.position
             """,
@@ -139,20 +139,17 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         val current = declarations(handle, catalog)
         if (current.map { it.what() } == declarations.map { it.what() }) return
         requireNoCycle(handle, catalog, declarations.filter { new -> current.none { it.identity == new.identity } })
-        handle.createUpdate("DELETE FROM catalog_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
+        handle.createUpdate("DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
             .execute()
         if (declarations.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position,
-                                              release_version, release_fingerprint, dependency_version_id)
+            INSERT INTO catalog_version_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias, position,
+                                                      release_version, release_fingerprint, target_version_id)
             VALUES (:t, ${catalogAt("t", "c")}, ${versionAt("t", "c")}, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint,
-                    (SELECT dv.version_id FROM catalog_versions dv
-                     JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
-                     WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.version_key = :draftKey
-                       AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key))
+                    $TARGET)
             """,
         )
         declarations.forEachIndexed { position, declaration ->
@@ -184,7 +181,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         val uses = handle.createQuery(
             """
             SELECT DISTINCT c.catalog_key AS user_key, dc.catalog_key AS used_key
-            FROM catalog_dependencies d
+            FROM catalog_version_dependencies d
+            JOIN catalog_versions dvv ON dvv.tenant_key = d.tenant_key AND dvv.version_id = d.version_id AND dvv.state = 'draft'
             JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
             JOIN catalogs dc ON dc.tenant_key = d.tenant_key AND dc.registry = d.registry AND dc.namespace = d.namespace
                             AND dc.catalog_key = d.dependency_key
@@ -223,14 +221,23 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         return null
     }
 
-    /** Records the declarations release [version] of [catalogKey] was cut with, each with its pin. */
+    /**
+     * Records the declarations release [version] of [catalogKey] was cut with, each with its pin: its
+     * row's declarations (ADR 0036), in place of what the draft it froze declared.
+     */
     fun recordRelease(handle: Handle, catalog: CatalogId, version: String, pins: List<CatalogDependencyDeclaration>) {
+        val released = "(SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version AND state = 'released')"
+        handle.createUpdate("DELETE FROM catalog_version_dependencies WHERE tenant_key = :t AND version_id = $released")
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
+            .bind("version", version)
+            .execute()
         if (pins.isEmpty()) return
         val batch = handle.prepareBatch(
             """
-            INSERT INTO catalog_release_dependencies (tenant_key, catalog_id, version, registry, namespace, dependency_key, alias,
-                                                      position, release_version, release_fingerprint)
-            VALUES (:t, ${catalogAt("t", "c")}, :version, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint)
+            INSERT INTO catalog_version_dependencies (tenant_key, catalog_id, version_id, registry, namespace, dependency_key, alias,
+                                                      position, release_version, release_fingerprint, target_version_id)
+            VALUES (:t, ${catalogAt("t", "c")}, $released, :registry, :namespace, :key, :alias, :position, :releaseVersion, :releaseFingerprint, $TARGET)
             """,
         )
         pins.forEachIndexed { position, pin ->
@@ -244,6 +251,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
                 .bind("position", position)
                 .bind("releaseVersion", pin.releaseVersion)
                 .bind("releaseFingerprint", pin.releaseFingerprint)
+                .bind("draftKey", null as String?)
                 .add()
         }
         batch.execute()
@@ -253,10 +261,11 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     fun releasePins(handle: Handle, catalog: CatalogId, version: String): List<CatalogDependencyDeclaration> = handle
         .createQuery(
             """
-            SELECT registry, namespace, dependency_key, alias, release_version, release_fingerprint
-            FROM catalog_release_dependencies
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
-            ORDER BY position
+            SELECT d.registry, d.namespace, d.dependency_key, d.alias, d.release_version, d.release_fingerprint
+            FROM catalog_version_dependencies d
+            JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.version_id
+            WHERE d.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version = :version AND v.state = 'released'
+            ORDER BY d.position
             """,
         )
         .bind("t", catalog.tenantKey)
@@ -371,8 +380,8 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     fun pinDeclarationsOf(handle: Handle, tenantKey: TenantKey, versionId: java.util.UUID, release: CatalogDependencyRelease) {
         handle.createUpdate(
             """
-            UPDATE catalog_dependencies SET dependency_version_id = NULL, release_version = :v, release_fingerprint = :f
-            WHERE tenant_key = :t AND dependency_version_id = :d
+            UPDATE catalog_version_dependencies SET release_version = :v, release_fingerprint = :f
+            WHERE tenant_key = :t AND target_version_id = :d AND release_version IS NULL
             """,
         )
             .bind("t", tenantKey)
@@ -387,10 +396,10 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
         .createQuery(
             """
             SELECT DISTINCT c.catalog_key || ' (' || $DECLARING_LABEL || ')' AS who
-            FROM catalog_dependencies d
-            JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.version_id
+            FROM catalog_version_dependencies d
+            JOIN catalog_versions v ON v.tenant_key = d.tenant_key AND v.version_id = d.version_id AND v.state = 'draft'
             JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id
-            WHERE d.tenant_key = :t AND d.dependency_version_id = :d
+            WHERE d.tenant_key = :t AND d.target_version_id = :d AND d.release_version IS NULL
             ORDER BY who
             """,
         )
@@ -414,6 +423,20 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     }
 
     private companion object {
+        /**
+         * The version a declaration names, when it is here: the draft its `:draftKey` names, else the
+         * release it pins (`:releaseVersion`) of the catalog `:registry`/`:namespace`/`:key`.
+         */
+        const val TARGET = """COALESCE(
+                (SELECT dv.version_id FROM catalog_versions dv
+                 JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
+                 WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.version_key = :draftKey
+                   AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key),
+                (SELECT rv.version_id FROM catalog_versions rv
+                 JOIN catalogs rc ON rc.tenant_key = rv.tenant_key AND rc.catalog_id = rv.catalog_id
+                 WHERE rv.tenant_key = :t AND rv.state = 'released' AND rv.version = :releaseVersion
+                   AND rc.registry = :registry AND rc.namespace = :namespace AND rc.catalog_key = :key))"""
+
         /** A draft's label over alias `dv`: its name, or "Next release" for the next release. */
         const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END"
 

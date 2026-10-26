@@ -54,7 +54,8 @@ object ReleaseInUse {
         // A release renders with the releases it pinned, so it keeps them while it exists.
         val pinnedBy = handle.createQuery(
             """
-            SELECT pinning.catalog_key || '@' || d.version FROM catalog_release_dependencies d
+            SELECT pinning.catalog_key || '@' || pv.version FROM catalog_version_dependencies d
+            JOIN catalog_versions pv ON pv.tenant_key = d.tenant_key AND pv.version_id = d.version_id AND pv.state = 'released'
             JOIN catalogs pinning ON pinning.tenant_key = d.tenant_key AND pinning.catalog_id = d.catalog_id
             JOIN catalogs target ON target.tenant_key = d.tenant_key AND target.registry = d.registry
                                 AND target.namespace = d.namespace AND target.catalog_key = d.dependency_key
