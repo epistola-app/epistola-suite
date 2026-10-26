@@ -16,6 +16,14 @@ on:
     types: [opened, synchronize, labeled]
   workflow_dispatch:
 
+# One build per pull request: a newer event cancels the one in progress. A PR opened with
+# labels fires `opened` and `labeled` together, which built every commit twice. The newer run
+# is the one to keep, since it sees the labels (`no-changelog`, `publish`). Pushes and tags get
+# a group of their own, so they never cancel or queue behind each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -71,6 +79,11 @@ jobs:
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+        with:
+          # setup-gradle writes only on the default branch by default. Release branches write too:
+          # their pull requests read the base branch's cache, and main's entries hold too little
+          # of a diverged release line, so every compile on it started from nothing.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
       # One invocation, not two: the configuration cache is never reused on CI, so
       # every extra `gradle` call pays the full configuration phase again.
