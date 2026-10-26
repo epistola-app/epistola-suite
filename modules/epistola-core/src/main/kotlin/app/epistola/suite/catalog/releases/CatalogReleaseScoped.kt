@@ -137,7 +137,7 @@ class CatalogReleaseTargeting(
         handle.createQuery(
             """
             SELECT v.version_id FROM catalog_versions v
-            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.kind = 'draft' AND $match
+            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.state = 'draft' AND $match
             """,
         )
             .bind("t", ref.tenantKey)

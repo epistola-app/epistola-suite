@@ -63,7 +63,7 @@ object DraftDeploymentStore {
         return handle.createQuery(
             """
             SELECT v.version_id, $LABEL AS label FROM catalog_versions v
-            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.kind = 'draft' AND $match
+            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.state = 'draft' AND $match
             """,
         )
             .bind("t", catalog.tenantKey).bindCatalog("c", catalog)

@@ -338,7 +338,9 @@ class SeveralDraftsTest : IntegrationTestBase() {
 
         assertThat(result.version).`as`("a fix: the next patch").isEqualTo("1.0.1")
         assertThat(result.draftsBehind).containsExactly("Redesign")
-        assertThat(versionId(tenant, DraftRef.Next)).`as`("the same draft continues").isEqualTo(nextBefore)
+        assertThat(versionId(tenant, DraftRef.Next)).`as`("the draft became the release; a new next version continues on it (ADR 0036)").isNotEqualTo(nextBefore)
+        assertThat(jdbi.withHandle<String, Exception> { it.createQuery("SELECT state || ' ' || version FROM catalog_versions WHERE version_id = :v").bind("v", nextBefore).mapTo(String::class.java).one() })
+            .isEqualTo("released 1.0.1")
         assertThat(withMediator { GetCatalogDraft(testCatalog(tenant, letters)).query()!! }.base).isEqualTo("1.0.1")
         assertThat(versions(tenant)).containsExactly(
             CatalogDraft.NEXT_LABEL to CatalogReleaseStatus.DRAFT,

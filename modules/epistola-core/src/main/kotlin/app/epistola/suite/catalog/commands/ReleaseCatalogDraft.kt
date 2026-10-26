@@ -507,12 +507,14 @@ class ReleaseCatalogDraftHandler(
             // Parallel work released for everyday work to continue from becomes the next version first.
             val handsOver = command.continueEverydayWork != null && !draft.isNext
             if (handsOver) handOver.apply(handle, command.catalog, draft, command.continueEverydayWork.keepPreviousAs?.trim())
+            // The draft becomes the release (ADR 0036): its row is frozen, keeping its id and name.
+            drafts.freeze(handle, command.tenantKey, draft.versionId, newVersion.toString())
             if (draft.isNext || handsOver) {
-                // The next version, a convention of this suite, continues on this release: the same
-                // row, its content the release's, under a new id, now measured against it.
-                drafts.advance(handle, command.tenantKey, draft.versionId, base = newVersion.toString())
+                // The next version, a convention of this suite, continues on this release: a new row
+                // holding what the release holds, measured against it.
+                drafts.startNext(handle, command.catalog, draft.versionId, base = newVersion.toString())
             } else {
-                drafts.delete(handle, command.tenantKey, draft.versionId)
+                drafts.retire(handle, command.tenantKey, draft.versionId)
             }
 
             if (port != null && archive != null) {

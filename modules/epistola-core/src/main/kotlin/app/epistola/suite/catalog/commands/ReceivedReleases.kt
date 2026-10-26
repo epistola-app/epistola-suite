@@ -79,7 +79,7 @@ class ReceivedReleases(private val jdbi: Jdbi) {
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_key = :id AND version <> :v
             UNION ALL
             SELECT 'a draft' FROM catalog_versions
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND version_key = :id
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND version_key = :id
             LIMIT 1
             """,
         )

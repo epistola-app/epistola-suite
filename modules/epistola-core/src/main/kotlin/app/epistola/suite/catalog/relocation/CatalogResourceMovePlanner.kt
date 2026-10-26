@@ -239,7 +239,7 @@ class CatalogResourceMovePlanner(
         return handle.createQuery(
             """
             SELECT c.namespace || '/' || c.catalog_key AS catalog_key, count(v.version_id) AS drafts
-            FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.kind = 'draft'
+            FROM catalogs c JOIN catalog_versions v ON v.tenant_key = c.tenant_key AND v.catalog_id = c.catalog_id AND v.state = 'draft'
             WHERE c.tenant_key = :tenantKey AND c.catalog_id IN ${catalogsAt("tenantKey", "keys")}
             GROUP BY c.namespace, c.catalog_key
             """,

@@ -230,7 +230,7 @@ class RestoreTenantSnapshotHandler(
                 handle.createUpdate(
                     """
                     UPDATE catalog_versions SET base_version = :b
-                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND is_next
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next
                       AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     """,
                 )

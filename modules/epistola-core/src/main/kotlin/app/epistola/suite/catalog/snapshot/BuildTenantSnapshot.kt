@@ -207,7 +207,7 @@ class BuildTenantSnapshotHandler(
     /** The release the catalog's next release is on, or null. */
     private fun nextBaseOf(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
-            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND kind = 'draft' AND is_next",
+            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next",
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
