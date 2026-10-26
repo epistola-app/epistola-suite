@@ -197,3 +197,91 @@ jobs:
                 labels: ['security', 'vulnerability']
               });
             }
+
+  # The `scan` job above covers the Java and npm SBOMs of `main`. These jobs cover
+  # what customers run: the published images of every supported release line,
+  # operating-system packages included. Trivy's database updates daily, so a CVE
+  # disclosed today against something we shipped last month surfaces here
+  # tomorrow. See docs/sbom.md#daily-cve-watch.
+  release-images:
+    name: Supported release images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: List supported release images
+        id: list
+        run: echo "images=$(python3 scripts/cve_watch.py supported-images --repository "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
+
+  image-scan:
+    name: Scan ${{ matrix.image }}
+    needs: release-images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.release-images.outputs.images) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # Our own assessments: a finding recorded `not_affected` is not re-filed.
+      - name: Generate VEX document
+        run: python3 scripts/vulnerability_advisories.py export-vex build/vex
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        env:
+          TRIVY_VEX: build/vex/epistola.openvex.json
+        with:
+          scan-type: "image"
+          image-ref: ${{ matrix.image }}
+          format: "json"
+          output: "trivy-image.json"
+          severity: "CRITICAL,HIGH"
+
+      - name: Name the report after the image
+        id: report
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: echo "name=trivy-image-$(echo "$IMAGE" | tr '/:' '__')" >> "$GITHUB_OUTPUT"
+
+      - name: Upload report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.report.outputs.name }}
+          path: trivy-image.json
+          retention-days: 30
+
+  cve-triage:
+    name: File new CVEs
+    needs: image-scan
+    # One image failing to scan must not hold back the findings of the others.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: trivy-image-*
+          path: reports
+
+      - name: Open an issue per new vulnerability
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/cve_watch.py triage reports/*/trivy-image.json --repository "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
