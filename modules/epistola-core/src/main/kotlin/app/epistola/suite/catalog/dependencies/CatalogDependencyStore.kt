@@ -10,6 +10,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
+import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -135,6 +136,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
      *   declares it here, in its own transaction, so the write is refused with it.
      */
     fun replace(handle: Handle, catalog: CatalogId, declarations: List<CatalogDependencyDeclaration>) {
+        handle.requireWritableVersion(catalog)
         // Only a change counts: the same declarations again leave the version's revision as it is.
         fun CatalogDependencyDeclaration.what() = listOf(registry, namespace, this.catalogKey, alias, releaseVersion, releaseFingerprint, draftId)
         val current = declarations(handle, catalog)

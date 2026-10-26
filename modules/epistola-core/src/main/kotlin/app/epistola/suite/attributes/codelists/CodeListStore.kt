@@ -12,6 +12,7 @@ import app.epistola.suite.attributes.codelists.model.CodeListSource
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.catalog.revisions.ResourceMetadata
@@ -185,6 +186,7 @@ class CodeListStore(
 
     /** Records a refresh of code list [id] in the targeted draft: when it succeeded (null: it did not), and its error. */
     fun recordRefresh(handle: Handle, id: CodeListId, succeeded: Boolean, error: String?) {
+        handle.requireWritableVersion(id.catalogId)
         handle.createUpdate(
             """
             INSERT INTO code_list_refreshes (tenant_key, version_id, resource_id, last_refreshed_at, last_refresh_error)

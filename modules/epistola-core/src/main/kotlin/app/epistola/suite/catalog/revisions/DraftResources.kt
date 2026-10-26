@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.revisions
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.writable
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
@@ -54,7 +55,7 @@ object DraftResources {
      * identity: the one registered at that address, or a new one. A row already there is a
      * unique violation, as an insert into a content table was.
      */
-    fun insert(handle: Handle, catalog: CatalogId, type: String, key: String, contentHash: String, name: String, description: String?, actor: UUID?): UUID = handle
+    fun insert(handle: Handle, catalog: CatalogId, type: String, key: String, contentHash: String, name: String, description: String?, actor: UUID?): UUID = handle.writable(catalog)
         .createQuery(
             """
             INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, content_hash, name, description, created_by, updated_by)
@@ -88,7 +89,7 @@ object DraftResources {
         description: String?,
         actor: UUID?,
         expectedRevision: Long? = null,
-    ): Updated? = handle
+    ): Updated? = handle.writable(catalog)
         .createQuery(
             """
             UPDATE release_resources
@@ -115,7 +116,7 @@ object DraftResources {
     data class Updated(val revision: Long, val updatedAt: OffsetDateTime)
 
     /** Removes [type] [key] from the targeted draft of [catalog]; false when it held none. */
-    fun delete(handle: Handle, catalog: CatalogId, type: String, key: String): Boolean = handle
+    fun delete(handle: Handle, catalog: CatalogId, type: String, key: String): Boolean = handle.writable(catalog)
         .createUpdate(
             "DELETE FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL",
         )
@@ -150,7 +151,7 @@ object DraftResources {
      * version, holding [contentHash] (a payload names its key). The identity follows
      * (`sync_draft_resource_identity`). False when the source has no such row.
      */
-    fun move(handle: Handle, source: CatalogId, type: String, key: String, target: CatalogId, targetKey: String, contentHash: String): Boolean = handle
+    fun move(handle: Handle, source: CatalogId, type: String, key: String, target: CatalogId, targetKey: String, contentHash: String): Boolean = handle.writable(source).writable(target)
         .createUpdate(
             """
             UPDATE release_resources

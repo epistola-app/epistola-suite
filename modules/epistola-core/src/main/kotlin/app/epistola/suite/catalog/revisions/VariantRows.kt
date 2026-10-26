@@ -6,7 +6,9 @@ package app.epistola.suite.catalog.revisions
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.catalog.versionAt
+import app.epistola.suite.catalog.writable
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
@@ -29,6 +31,7 @@ object VariantRows {
 
     /** Adds variant [key] of template [parentId] to the targeted draft of [catalog], holding [contentHash]. */
     fun insert(handle: Handle, catalog: CatalogId, parentId: UUID, key: String, contentHash: String, title: String, description: String?, actor: UUID?) {
+        handle.requireWritableVersion(catalog)
         handle.createUpdate(
             """
             INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, parent_id,
@@ -63,7 +66,7 @@ object VariantRows {
         description: String?,
         actor: UUID?,
         expectedRevision: Long? = null,
-    ): DraftResources.Updated? = handle
+    ): DraftResources.Updated? = handle.writable(catalog)
         .createQuery(
             """
             UPDATE release_resources
@@ -87,7 +90,7 @@ object VariantRows {
         .orElse(null)
 
     /** Removes variant [key] of template [parentId] from the targeted draft; false when there was none. */
-    fun delete(handle: Handle, catalog: CatalogId, parentId: UUID, key: String): Boolean = handle
+    fun delete(handle: Handle, catalog: CatalogId, parentId: UUID, key: String): Boolean = handle.writable(catalog)
         .createUpdate(
             """
             DELETE FROM release_resources
@@ -134,6 +137,7 @@ object VariantRows {
      * and the database refuses at commit a template moved without them.
      */
     fun move(handle: Handle, source: CatalogId, parentId: UUID, target: CatalogId) {
+        handle.writable(source).requireWritableVersion(target)
         handle.createUpdate(
             """
             UPDATE release_resources

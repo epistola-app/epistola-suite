@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.requireCatalogEditable
+import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -146,6 +147,7 @@ class SetCatalogDefaultThemeHandler(
         requireCatalogEditable(command.catalog)
         jdbi.useHandle<Exception> { handle ->
             val resourceId = command.theme?.let { theme -> themeIdentity(handle, command, theme) }
+            handle.requireWritableVersion(command.catalog)
             handle.createUpdate("UPDATE catalog_versions SET default_theme_resource_id = :theme WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
                 .bind("t", command.tenantKey)
                 .bindCatalog("c", command.catalog)
@@ -242,6 +244,7 @@ class SetCatalogPresetsHandler(
         requireCatalogEditable(command.catalog)
         val json = objectMapper.writeValueAsString(command.presets.sortedBy { it.key }.map { mapOf("key" to it.key, "name" to it.name, "description" to it.description) })
         jdbi.useHandle<Exception> { handle ->
+            handle.requireWritableVersion(command.catalog)
             handle.createUpdate("UPDATE catalog_versions SET presets = CAST(:presets AS JSONB) WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")}")
                 .bind("t", command.tenantKey)
                 .bindCatalog("c", command.catalog)
