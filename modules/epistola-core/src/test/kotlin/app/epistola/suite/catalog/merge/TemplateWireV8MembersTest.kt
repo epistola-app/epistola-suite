@@ -51,7 +51,7 @@ import java.util.zip.ZipOutputStream
 import app.epistola.catalog.canonical.CatalogCanonicalizer as PortableCatalogCanonicalizer
 
 /**
- * What wire v8 added to a template -- its `description`, a variant's `metadata`, a data example's
+ * What wire v8 added to a template -- its `description`, its `metadata`, a data example's
  * `key` -- is stored, so importing, copying a release into a draft, merging and building content
  * keep it, and a resource that differs from a release in nothing else compares equal to it.
  */
@@ -123,8 +123,8 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         return zip(all)
     }
 
-    private fun ObjectNode.withVariantMetadata(value: Map<String, Map<String, Any>>) = apply {
-        get("variants").forEach { (it as ObjectNode).set("metadata", objectMapper.valueToTree(value)) }
+    private fun ObjectNode.withMetadata(value: Map<String, Map<String, Any>>) = apply {
+        set("metadata", objectMapper.valueToTree(value))
     }
 
     private fun letter(content: CatalogContent): TemplateResource = content.resourceDetails.getValue("template/letter").resource as TemplateResource
@@ -143,10 +143,10 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `an imported template keeps its description, its variants' metadata and its examples' keys`() {
+    fun `an imported template keeps its description, its metadata and its examples' keys`() {
         val a = createTenant("Wire Members A").id
         val b = createTenant("Wire Members B").id
-        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+        val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
@@ -155,11 +155,23 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
 
             assertThat(template.description).isEqualTo("For letters to residents")
             assertThat(built.resourceEntries.single { it.key == "letter" }.description).isEqualTo("For letters to residents")
-            assertThat(template.variants.single().metadata).isEqualTo(metadata)
+            assertThat(template.metadata).isEqualTo(metadata)
             assertThat(template.dataExamples.orEmpty().map { it.key }).containsExactly("example-1")
             // Built back from the rows, the template is the one the release holds.
             assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
         }
+    }
+
+    @Test
+    fun `a template's metadata counts in no fingerprint`() {
+        val a = createTenant("Wire Metadata Hash A").id
+        val base = publish(a)
+        val plain = released(base, "1.0.0", null) { }
+        val described = released(base, "1.0.0", null) { it.withMetadata(metadata) }
+
+        assertThat(archiveFingerprint(described, "template/letter")).isEqualTo(archiveFingerprint(plain, "template/letter"))
+        val catalogFingerprint = { zip: ByteArray -> CatalogArchiveReader.read(ByteArrayInputStream(zip)).archive!!.use { it.manifest.release.fingerprint } }
+        assertThat(catalogFingerprint(described)).isEqualTo(catalogFingerprint(plain))
     }
 
     @Test
@@ -181,7 +193,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     fun `a draft started from a release keeps them`() {
         val a = createTenant("Wire Draft A").id
         val b = createTenant("Wire Draft B").id
-        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+        val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
 
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
@@ -190,13 +202,13 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
             val built = targeting.within(id) { contentBuilder.build(testCatalog(b, catalog)) }
 
             assertThat(letter(built).description).isEqualTo("For letters to residents")
-            assertThat(letter(built).variants.single().metadata).isEqualTo(metadata)
+            assertThat(letter(built).metadata).isEqualTo(metadata)
             assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
         }
     }
 
     @Test
-    fun `a release whose only change is a variant's metadata is taken by a merge, and the draft keeps it`() {
+    fun `a release that changes a template's metadata and description is taken by a merge, and the draft keeps it`() {
         val a = createTenant("Wire Merge A").id
         val b = createTenant("Wire Merge B").id
         val v100 = publish(a)
@@ -205,14 +217,14 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         withMediator {
             ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
             UpdateTheme(theme(b, "brand"), name = "B's brand").execute()
-            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withVariantMetadata(metadata).put("description", "Described again") }).execute()
+            ImportCatalogZip(tenantKey = b, zipBytes = released(v100, "1.0.1", "1.0.0" to fingerprint) { it.withMetadata(metadata).put("description", "Described again") }).execute()
 
             val preview = PreviewDraftMerge(testCatalog(b, catalog), "1.0.1").query()
             assertThat(preview.resources.single { it.contentKey == "template/letter" }.outcome).isEqualTo(MergeOutcome.THEIRS)
             assertThat(MergeReleaseIntoDraft(testCatalog(b, catalog), "1.0.1").execute().taken).containsExactly("template/letter")
 
             val template = letter(contentBuilder.build(testCatalog(b, catalog)))
-            assertThat(template.variants.single().metadata).isEqualTo(metadata)
+            assertThat(template.metadata).isEqualTo(metadata)
             assertThat(template.description).isEqualTo("Described again")
         }
     }
@@ -221,7 +233,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     fun `a template that differs from the release in nothing else is no conflict`() {
         val a = createTenant("Wire Conflict A").id
         val b = createTenant("Wire Conflict B").id
-        val v100 = released(publish(a), "1.0.0", null) { it.withVariantMetadata(metadata) }
+        val v100 = released(publish(a), "1.0.0", null) { it.withMetadata(metadata) }
         val fingerprint = CatalogArchiveReader.read(ByteArrayInputStream(v100)).archive!!.use { it.manifest.release.fingerprint!! }
 
         withMediator { ImportCatalogZip(tenantKey = b, zipBytes = v100).execute() }

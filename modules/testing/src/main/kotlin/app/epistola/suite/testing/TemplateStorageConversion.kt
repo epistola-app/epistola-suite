@@ -49,7 +49,7 @@ object TemplateStorageConversion {
                         description = variant.description,
                         attributes = objectMapper.writeValueAsString(variant.attributes),
                         isDefault = variant.isDefault,
-                        metadata = variant.metadata?.let(objectMapper::writeValueAsString),
+                        metadata = null,
                         model = qualified,
                     )
                     val part = V20261026085934__core_variant_description_in_resource.moved(

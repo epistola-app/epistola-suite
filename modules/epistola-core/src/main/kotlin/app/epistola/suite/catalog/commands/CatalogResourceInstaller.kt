@@ -160,7 +160,7 @@ class CatalogResourceInstaller(
 
 /**
  * A received template as [ImportTemplates] writes it: every member the protocol carries, the wire v8
- * ones (description, a variant's metadata, a data example's key) included. The one translation, so
+ * ones (description, metadata, a data example's key) included. The one translation, so
  * everything that puts a received template in a version stores the same members.
  */
 internal fun templateImportInput(
@@ -188,9 +188,9 @@ internal fun templateImportInput(
             attributes = variant.attributes ?: emptyMap(),
             templateModel = variant.templateModel,
             isDefault = variant.isDefault,
-            metadata = variant.metadata,
             description = variant.description,
         )
     },
     description = resource.description,
+    metadata = resource.metadata,
 )

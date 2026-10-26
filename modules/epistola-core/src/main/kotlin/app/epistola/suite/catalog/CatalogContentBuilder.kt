@@ -295,11 +295,11 @@ class CatalogContentBuilder(
                         attributes = v.attributes,
                         templateModel = if (v.key == default.key) null else modelOf(v),
                         isDefault = v.isDefault,
-                        metadata = v.metadata?.takeIf { it.isNotEmpty() },
                         description = v.description?.takeIf { it.isNotBlank() },
                     )
                 },
                 description = template.description,
+                metadata = template.metadata?.takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -409,5 +409,4 @@ private fun CatalogInfo.withThemeSettings(catalog: CatalogId): CatalogInfo {
     )
 }
 
-/** A variant's stored `metadata` as the protocol models it ([VariantEntry.metadata]). */
 private val PLAIN_MAP = object : tools.jackson.core.type.TypeReference<Map<String, Any?>>() {}

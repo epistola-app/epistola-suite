@@ -20,7 +20,8 @@ import java.sql.DriverManager
  * data example is kept by its key, derived when it had none; a variant's description beside the
  * resource; a ready mark still holds; findings follow a variant through its template's content.
  * Then `core_variant_description_in_resource` moves a draft variant's description into its released
- * form (contract `2.0.0-alpha.2`), and the ready mark still holds.
+ * form (contract `2.0.0-alpha.2`), and `core_template_metadata_on_template` its metadata to its
+ * template (contract `2.0.0-alpha.3`); the ready marks still hold.
  *
  * Seeded with raw SQL on purpose: the tables are the 1.x shape no command writes any more.
  */
@@ -44,7 +45,7 @@ class TemplatesToStorageMigrationTest {
     }
 
     @Test
-    fun `templates become their content, examples keep keys, descriptions and marks stay`() {
+    fun `templates become their content, examples keep keys, descriptions, metadata and marks stay`() {
         val postgres = TestRuntimeLifecycle.postgres()
         val database = "templates_to_storage_migration"
         DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password).use { admin ->
@@ -138,6 +139,11 @@ class TemplatesToStorageMigrationTest {
             assertThat(second.path("resource").path("description").asString()).`as`("the description is in its released form").isEqualTo("For courts")
             assertThat(second.has("description")).`as`("and no longer beside it").isFalse()
             assertThat(content("default").path("resource").has("description")).`as`("a variant without one has none").isFalse()
+            // A variant's metadata moved to its template, folded as the contract's migrator folds it.
+            assertThat(second.path("resource").has("metadata")).`as`("the variant keeps no metadata").isFalse()
+            val head = mapper.readTree(connection.rows("SELECT payload::text FROM current_templates WHERE id = 'invoice'").single().single())
+            assertThat(head.path("resource").path("metadata").path("app.epistola.suite").path("variants").path("second").path("a").asInt())
+                .`as`("the template holds it, by the variant").isEqualTo(1)
             assertThat(connection.rows("SELECT description FROM current_template_variants WHERE id = 'second'").single().single()).isEqualTo("For courts")
             assertThat(connection.rows("SELECT f.resource_type || '/' || COALESCE(f.alias, '') || '/' || f.resource_key FROM release_resources r JOIN resource_references f USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = 'second' ORDER BY 1").map { it.single() })
                 .`as`("its new content names what the old one did").containsExactly("font/system/serif", "stencil//header", "theme//brand")
