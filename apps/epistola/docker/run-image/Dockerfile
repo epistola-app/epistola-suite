@@ -27,5 +27,6 @@ RUN apt-get update -qq \
     && fc-cache -f \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-# The base image's own user. run-noble-base used gid 1000; ubuntu-noble-run uses 1001.
-USER 1002:1001
+# uid 1002 with gid 1000, as on run-noble-base. ubuntu-noble-run's own cnb user has gid 1001,
+# but group 1000 still exists there, so keep it: switching the base should not change the user.
+USER 1002:1000
