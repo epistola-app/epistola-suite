@@ -162,7 +162,7 @@ object VariantRows {
             SELECT v.resource_key, v.name, v.description, v.content_hash
             FROM release_resources v
             WHERE v.tenant_key = :t AND v.parent_id = :parent AND v.resource_type = '$TYPE'
-              AND ${if (versionId != null) "v.version_id = :versionId" else "v.version = :version"}
+              AND ${if (versionId != null) "v.version_id = :versionId" else "v.version_id = (SELECT rv.version_id FROM catalog_versions rv WHERE rv.tenant_key = v.tenant_key AND rv.catalog_id = v.catalog_id AND rv.version = :version AND rv.state = 'released')"}
             """,
         )
         .bind("t", tenantKey)
@@ -172,30 +172,45 @@ object VariantRows {
         .list()
         .associateBy { it.key }
 
-    /** Records [variants] of template [parentId] in release [version] of [catalog], frozen with it. */
-    fun recordRelease(handle: Handle, catalog: CatalogId, version: String, parentId: UUID, variants: List<Released>) {
-        if (variants.isEmpty()) return
-        val batch = handle.prepareBatch(
-            """
-            INSERT INTO release_resources (tenant_key, catalog_id, version, resource_type, resource_key, resource_id, parent_id,
-                content_hash, name, description)
-            VALUES (:t, ${catalogAt("t", "c")}, :version, '$TYPE', :key, variant_resource_id(:parent, :key), :parent, :hash, :name, :description)
-            """,
-        )
-        variants.forEach { variant ->
-            batch.bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("version", version).bind("parent", parentId)
-                .bind("key", variant.key).bind("hash", variant.contentHash).bind("name", variant.title).bind("description", variant.description).add()
+    /**
+     * Records [variants] of template [parentId] in the release whose row is [versionId], frozen with it:
+     * a frozen draft's variant rows become the release's as they are, and one it left out goes.
+     */
+    fun recordRelease(handle: Handle, catalog: CatalogId, versionId: UUID, parentId: UUID, variants: List<Released>) {
+        if (variants.isNotEmpty()) {
+            val batch = handle.prepareBatch(
+                """
+                INSERT INTO release_resources (tenant_key, catalog_id, version_id, resource_type, resource_key, resource_id, parent_id,
+                    content_hash, name, description)
+                VALUES (:t, ${catalogAt("t", "c")}, :versionId, '$TYPE', :key, variant_resource_id(:parent, :key), :parent, :hash, :name, :description)
+                ON CONFLICT (tenant_key, version_id, parent_id, resource_key)
+                DO UPDATE SET content_hash = EXCLUDED.content_hash, name = EXCLUDED.name, description = EXCLUDED.description
+                """,
+            )
+            variants.forEach { variant ->
+                batch.bind("t", catalog.tenantKey).bindCatalog("c", catalog).bind("versionId", versionId).bind("parent", parentId)
+                    .bind("key", variant.key).bind("hash", variant.contentHash).bind("name", variant.title).bind("description", variant.description).add()
+            }
+            batch.execute()
         }
-        batch.execute()
+        handle.createUpdate(
+            "DELETE FROM release_resources WHERE tenant_key = :t AND version_id = :v AND parent_id = :parent AND resource_type = '$TYPE' AND NOT (resource_key = ANY(:keys))",
+        )
+            .bind("t", catalog.tenantKey)
+            .bind("v", versionId)
+            .bind("parent", parentId)
+            .bindArray("keys", String::class.java, variants.map { it.key })
+            .execute()
     }
 
     /** The content of each variant of template [parentId] in release [version] of [catalog], by key. */
     fun releasedHashes(handle: Handle, catalog: CatalogId, version: String, parentId: UUID): Map<String, String> = handle
         .createQuery(
             """
-            SELECT resource_key, content_hash FROM release_resources
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
-              AND resource_type = '$TYPE' AND parent_id = :parent
+            SELECT v.resource_key, v.content_hash FROM release_resources v
+            JOIN catalog_versions rv ON rv.tenant_key = v.tenant_key AND rv.version_id = v.version_id
+            WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND rv.version = :version AND rv.state = 'released'
+              AND v.resource_type = '$TYPE' AND v.parent_id = :parent
             """,
         )
         .bind("t", catalog.tenantKey)

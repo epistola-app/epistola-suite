@@ -62,8 +62,8 @@ class DemoStencilReadParityTest : IntegrationTestBase() {
                 """
                 SELECT d.resource_key FROM release_resources d
                 JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id
-                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.version = :v
-                WHERE d.tenant_key = :t AND d.version_id IS NOT NULL AND d.resource_type = 'stencil' AND d.content_hash <> r.content_hash
+                  AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = :v)
+                WHERE d.tenant_key = :t AND release_resource_is_draft(d.tenant_key, d.version_id) AND d.resource_type = 'stencil' AND d.content_hash <> r.content_hash
                 """,
             ).bind("t", tenant).bind("v", release.version).mapTo(String::class.java).list()
         }

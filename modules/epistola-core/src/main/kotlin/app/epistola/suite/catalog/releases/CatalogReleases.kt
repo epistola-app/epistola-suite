@@ -229,10 +229,9 @@ class CatalogDrafts {
 
     /**
      * After the next version is released as [released] ([freeze]), opens the next version that
-     * continues on it: a new row with a new key, holding what the release holds (its content rows,
-     * ready marks, code list refreshes, dependency declarations and theme settings), measured against
-     * the release. The release keeps none of them as draft rows: what it contains is its own record.
-     * Returns the new next version's `version_id`.
+     * continues on it: a new row with a new key, holding a copy of what the release holds (its content
+     * rows, ready marks, code list refreshes, dependency declarations and theme settings), measured
+     * against the release. Returns the new next version's `version_id`.
      */
     fun startNext(handle: Handle, catalog: CatalogId, released: UUID, base: String): UUID {
         val next = handle.createQuery(
@@ -254,29 +253,16 @@ class CatalogDrafts {
             .bind("to", next)
             .mapTo(String::class.java)
             .findOne()
-        // Handing the rows over is not an edit: the catalog's content is what it was a moment ago.
-        val contentUpdatedAt = handle.createQuery("SELECT content_updated_at FROM catalogs WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
-            .mapTo(OffsetDateTime::class.java)
-            .findOne()
-            .orElse(null)
-        retire(handle, catalog.tenantKey, released)
-        handle.createUpdate("UPDATE catalogs SET content_updated_at = :at WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
-            .bind("t", catalog.tenantKey)
-            .bindCatalog("c", catalog)
-            .bind("at", contentUpdatedAt)
-            .execute()
         return next
     }
 
     /**
-     * Released version [versionId] keeps no draft rows: its content rows, ready marks, code list
-     * refreshes and declarations go, since what it contains is recorded with the release. The row
-     * itself stays: it is the release.
+     * Released version [versionId] keeps no draft bookkeeping: its ready marks, code list refreshes and
+     * dependency declarations go, since what it contains, and the releases it pins, are recorded with
+     * the release. Its content rows stay: they are the release's (ADR 0036).
      */
     fun retire(handle: Handle, tenantKey: TenantKey, versionId: UUID) {
-        for (table in listOf("release_resources", "resource_ready_marks", "code_list_refreshes", "catalog_dependencies")) {
+        for (table in listOf("resource_ready_marks", "code_list_refreshes", "catalog_dependencies")) {
             handle.createUpdate("DELETE FROM $table WHERE tenant_key = :t AND version_id = :v")
                 .bind("t", tenantKey)
                 .bind("v", versionId)

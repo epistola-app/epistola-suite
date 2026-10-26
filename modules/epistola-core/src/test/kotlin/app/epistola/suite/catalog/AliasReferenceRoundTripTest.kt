@@ -362,8 +362,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
                 SET payload = jsonb_set(jsonb_set(m.payload, '{resource,templateModel,nodes,header,props,namespace}', '"$partsNamespace"'),
                                         '{resource,templateModel,nodes,header,props,registry}', '"$partsRegistry"')
                 FROM release_resources e
-                JOIN release_resources p ON p.tenant_key = e.tenant_key AND p.resource_type = 'variant' AND p.parent_id = e.resource_id AND p.version = e.version
-                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter' AND e.version IS NOT NULL
+                JOIN release_resources p ON p.tenant_key = e.tenant_key AND p.resource_type = 'variant' AND p.parent_id = e.resource_id AND p.version_id = e.version_id
+                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter' AND NOT release_resource_is_draft(e.tenant_key, e.version_id)
                   AND m.tenant_key = p.tenant_key AND m.content_hash = p.content_hash
                   AND m.payload #> '{resource,templateModel,nodes,header}' IS NOT NULL
                 """,

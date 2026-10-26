@@ -98,7 +98,11 @@ class OneVersionTableTest : IntegrationTestBase() {
         assertThat(continued.versionId).isNotEqualTo(before.versionId)
         assertThat(continued.key).isNotEqualTo(before.key)
         assertThat(contentRows(tenant, continued.versionId)).`as`("the next version holds what the release holds").isEqualTo(heldBefore)
-        assertThat(contentRows(tenant, released.versionId)).`as`("the release keeps no draft rows").isZero()
+        assertThat(contentRows(tenant, released.versionId)).`as`("the draft's rows became the release's (step b)").isEqualTo(heldBefore)
+        assertThat(count("SELECT count(*) FROM release_resources WHERE tenant_key = :t AND version_id = :v AND parent_id IS NULL AND fingerprint IS NULL", tenant, released.versionId))
+            .`as`("each with its fingerprint").isZero()
+        assertThat(count("SELECT count(*) FROM release_resources WHERE tenant_key = :t AND version_id = :v AND fingerprint IS NOT NULL", tenant, continued.versionId))
+            .`as`("the next version's copy is a draft's, without fingerprints").isZero()
         assertThat(pointer(tenant)).`as`("catalogs.next_version_id follows").isEqualTo(continued.versionId)
     }
 
@@ -118,7 +122,7 @@ class OneVersionTableTest : IntegrationTestBase() {
         val released = rows(tenant).single { it.versionId == workRow.versionId }
         assertThat(released.state).isEqualTo("released")
         assertThat(released.key).isEqualTo(work.versionId)
-        assertThat(contentRows(tenant, released.versionId)).isZero()
+        assertThat(contentRows(tenant, released.versionId)).`as`("its rows are the release's").isPositive()
     }
 
     @Test

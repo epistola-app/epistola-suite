@@ -91,10 +91,12 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
 
     /**
      * The relations [plan] scans, but for the lookup of one template's variant rows by its identity
-     * (`idx_release_resources_parent`, ADR 0033): that reads a template's few rows, not the tenant's.
+     * (`idx_release_resources_parent`, or `uq_release_resources_variant` with the template in its
+     * condition, ADR 0033 and 0036): that reads a template's few rows, not the tenant's.
      */
     private fun scanned(plan: JsonNode): Set<String> = buildSet {
-        val variantLookup = plan.get("Index Name")?.asString() == "idx_release_resources_parent"
+        val variantLookup = plan.get("Index Name")?.asString() in setOf("idx_release_resources_parent", "uq_release_resources_variant") &&
+            plan.get("Index Cond")?.asString().orEmpty().contains("parent_id")
         plan.get("Relation Name")?.asString()?.takeUnless { variantLookup }?.let(::add)
         plan.get("Plans")?.forEach { addAll(scanned(it)) }
     }
@@ -183,14 +185,13 @@ class ThemePlanStabilityTest : IntegrationTestBase() {
         val BEFORE_SQL = """
             SELECT c.payload, k.catalog_key FROM (
                 SELECT r.* FROM release_resources r
-                WHERE r.version_id IS NOT NULL
-                  AND r.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = r.tenant_key)
+                WHERE r.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = r.tenant_key)
                   AND r.catalog_id IS DISTINCT FROM NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
                 UNION ALL
                 SELECT r.* FROM release_resources r
-                WHERE r.version IS NOT NULL
-                  AND r.catalog_id = NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
-                  AND r.version = current_setting('epistola.release_version', TRUE)
+                WHERE r.catalog_id = NULLIF(current_setting('epistola.release_catalog', TRUE), '')::uuid
+                  AND r.version_id IN (SELECT v.version_id FROM catalog_versions v WHERE v.state = 'released'
+                                       AND v.version = current_setting('epistola.release_version', TRUE))
             ) r
             JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
             JOIN catalogs k ON k.tenant_key = r.tenant_key AND k.catalog_id = r.catalog_id

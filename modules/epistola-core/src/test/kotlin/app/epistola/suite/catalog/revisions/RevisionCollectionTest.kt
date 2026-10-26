@@ -335,7 +335,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
             """
             SELECT DISTINCT p.content_hash
             FROM release_resources p JOIN catalogs c ON c.tenant_key = p.tenant_key AND c.catalog_id = p.catalog_id
-            WHERE p.tenant_key = :t AND p.version = :v AND p.resource_type = 'variant' AND c.catalog_key = 'shared-cat'
+            WHERE p.tenant_key = :t AND p.version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = :v) AND p.resource_type = 'variant' AND c.catalog_key = 'shared-cat'
             """,
         ).bind("t", tenantKey).bind("v", version).mapTo(String::class.java).list()
     }
@@ -391,7 +391,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private class ReleaseResourceStoreProbe(private val jdbi: Jdbi) {
         fun entryCount(tenantKey: TenantKey, catalogKey: String, version: String): Int = jdbi.withHandle<Int, Exception> { handle ->
             handle.createQuery(
-                "SELECT count(*) FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+                "SELECT count(*) FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = :v)",
             )
                 .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)
                 .mapTo(Int::class.java)

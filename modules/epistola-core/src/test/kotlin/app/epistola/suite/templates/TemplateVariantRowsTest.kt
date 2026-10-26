@@ -50,7 +50,7 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
 
     private fun variants(tenant: TenantKey, where: String = "TRUE"): List<String> = jdbi.withHandle<List<String>, Exception> { handle ->
         handle.createQuery(
-            "SELECT COALESCE(version, 'draft') || '/' || resource_key FROM release_resources WHERE tenant_key = :t AND resource_type = 'variant' AND $where ORDER BY 1",
+            "SELECT COALESCE((SELECT rv.version FROM catalog_versions rv WHERE rv.version_id = release_resources.version_id AND rv.state = 'released'), 'draft') || '/' || resource_key FROM release_resources WHERE tenant_key = :t AND resource_type = 'variant' AND $where ORDER BY 1",
         ).bind("t", tenant).mapTo(String::class.java).list()
     }
 
@@ -72,8 +72,8 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
                 """
                 SELECT count(*) FROM release_resources d
                 JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.resource_type = 'variant' AND r.parent_id = d.parent_id
-                 AND r.resource_key = d.resource_key AND r.version = '1.0.0'
-                WHERE d.tenant_key = :t AND d.resource_type = 'variant' AND d.version_id IS NOT NULL AND d.content_hash <> r.content_hash
+                 AND r.resource_key = d.resource_key AND r.version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = '1.0.0')
+                WHERE d.tenant_key = :t AND d.resource_type = 'variant' AND release_resource_is_draft(d.tenant_key, d.version_id) AND d.content_hash <> r.content_hash
                 """,
             ).bind("t", tenant).mapTo(Int::class.java).one()
         }
@@ -83,7 +83,7 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
         assertThat(variants(tenant)).`as`("a deleted variant leaves the release's").containsExactly("1.0.0/initial", "1.0.0/second", "draft/initial")
 
         withMediator { DeleteDocumentTemplate(template).execute() }
-        assertThat(variants(tenant, "version IS NULL")).`as`("a deleted template takes its variants").isEmpty()
+        assertThat(variants(tenant, "release_resource_is_draft(tenant_key, version_id)")).`as`("a deleted template takes its variants").isEmpty()
         assertThat(variants(tenant)).`as`("the release keeps its own").containsExactly("1.0.0/initial", "1.0.0/second")
     }
 
@@ -121,10 +121,10 @@ class TemplateVariantRowsTest : IntegrationTestBase() {
             mediator.releaseNext(catalog)
             CreateCatalogDraft(catalog, name = "Redesign").execute()
         }
-        assertThat(variants(tenant, "version IS NULL")).`as`("the new draft holds its template's variants too").containsExactly("draft/initial", "draft/initial")
+        assertThat(variants(tenant, "release_resource_is_draft(tenant_key, version_id)")).`as`("the new draft holds its template's variants too").containsExactly("draft/initial", "draft/initial")
 
         withMediator { DeleteCatalogDraft(catalog, DraftRef.Id(requireNotNull(work.versionId))).execute() }
-        assertThat(variants(tenant, "version IS NULL")).`as`("a discarded draft takes them").containsExactly("draft/initial")
+        assertThat(variants(tenant, "release_resource_is_draft(tenant_key, version_id)")).`as`("a discarded draft takes them").containsExactly("draft/initial")
     }
 
     @Test

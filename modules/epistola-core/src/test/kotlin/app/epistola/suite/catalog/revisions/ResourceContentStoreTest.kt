@@ -242,7 +242,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
     }
 
     private fun templatePayload(tenant: TenantKey): String = jdbi.withHandle<String, Exception> { handle ->
-        handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND kind = 'template' AND content_hash IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND version IS NOT NULL AND resource_type = 'template')")
+        handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND kind = 'template' AND content_hash IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND NOT release_resource_is_draft(tenant_key, version_id) AND resource_type = 'template')")
             .bind("t", tenant).mapTo(String::class.java).one()
     }
 

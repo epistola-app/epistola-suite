@@ -69,6 +69,10 @@ class DeleteCatalogReleaseHandler(
         requireNoSendInFlight(handle, command)
         ReleaseInUse.requireUnused(handle, command.catalog, command.version)
 
+        // Its rows go while its row still says it is a release (ADR 0036), so they are not mistaken for
+        // a draft's: a draft's delete touches the catalog's content and its identities, a release's not.
+        app.epistola.suite.catalog.revisions.ReleaseResourceStore.deleteRelease(handle, command.catalog, command.version)
+
         val deleted = handle.createUpdate(
             """
             DELETE FROM catalog_releases

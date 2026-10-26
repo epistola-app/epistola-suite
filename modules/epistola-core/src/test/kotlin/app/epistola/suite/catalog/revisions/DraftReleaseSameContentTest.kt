@@ -105,8 +105,8 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 FROM release_resources d
                 JOIN release_resources r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id
                   AND r.resource_type = d.resource_type AND r.resource_key = d.resource_key AND r.parent_id IS NOT DISTINCT FROM d.parent_id
-                  AND r.version = :v
-                WHERE d.tenant_key = :t AND d.version_id IS NOT NULL
+                  AND r.version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = :v)
+                WHERE d.tenant_key = :t AND release_resource_is_draft(d.tenant_key, d.version_id)
                   AND d.catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')
                 ORDER BY 1
                 """,

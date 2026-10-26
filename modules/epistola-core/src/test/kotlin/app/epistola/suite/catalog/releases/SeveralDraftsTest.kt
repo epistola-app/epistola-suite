@@ -378,7 +378,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
             DeleteTheme(seasonal).execute()
         }
         fun released(): UUID = jdbi.withHandle<UUID, Exception> { handle ->
-            handle.createQuery("SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version = '1.1.0' AND resource_type = 'theme' AND resource_key = 'seasonal'")
+            handle.createQuery("SELECT resource_id FROM release_resources WHERE tenant_key = :t AND version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = '1.1.0') AND resource_type = 'theme' AND resource_key = 'seasonal'")
                 .bind("t", tenant).mapTo(UUID::class.java).one()
         }
 
