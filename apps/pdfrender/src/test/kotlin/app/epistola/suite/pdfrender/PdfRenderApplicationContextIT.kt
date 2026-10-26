@@ -64,7 +64,7 @@ class PdfRenderApplicationContextIT {
             .isEqualTo(ClusterProperties.PDF_RENDER_CAPABILITY)
 
         // This node advertises render only — never `suite` — so it can never be routed a
-        // partition-maintenance / content-reaper / quality / hub task (all require `suite`).
+        // partition-maintenance / document-retention / quality / hub task (all require `suite`).
         assertThat(clusterProperties.normalizedCapabilities())
             .containsExactly(ClusterProperties.PDF_RENDER_CAPABILITY)
         assertThat(clusterProperties.normalizedCapabilities())

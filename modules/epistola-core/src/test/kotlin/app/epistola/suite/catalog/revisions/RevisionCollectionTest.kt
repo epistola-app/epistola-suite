@@ -39,23 +39,23 @@ import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.testing.withRequiredDataExample
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import java.time.Duration
 
 /**
  * Reclaiming what releases hold.
  *
- * Nothing deleted a revision. Not a sweep, not a command, not a cascade short of dropping the whole
- * tenant — so content accumulated for the life of an installation, and `resource_binaries` went on
- * holding the bytes it named against the content sweep. Two moments make a revision unreachable:
- * deleting a release, and deleting a catalog, whose releases cascade away with it. Both collect, and
- * these tests are what say so.
+ * Two moments make content unreachable: deleting a release, and deleting a catalog, whose releases
+ * cascade away with it. Both remove rows only; the content collector then takes what nothing names,
+ * past its grace period (ADR 0033), with the binaries and references it carried. These tests delete,
+ * then run the collector as its nightly run would, the contents aged past the grace period.
  *
- * The case that makes it more than a `DELETE` is a template: its revision names its models by
- * reference, so a model is reachable only through its parent. Collecting what no release entry names
- * *directly* would take every model with it, and the round trip would still pass.
+ * The case that makes it more than a `DELETE` is a template: each variant's model is a content its
+ * own row names, so a release that is kept keeps its templates' models.
  */
 class RevisionCollectionTest : IntegrationTestBase() {
 
@@ -78,9 +78,11 @@ class RevisionCollectionTest : IntegrationTestBase() {
             assertThat(revisionCount(tenant.id)).`as`("released content is retained").isGreaterThan(0)
 
             assertThat(DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()).isTrue()
+            assertThat(entryCount(tenant.id)).`as`("its rows go at once").isZero()
 
-            assertThat(revisionCount(tenant.id)).`as`("and collected once nothing reaches it").isZero()
-            assertThat(entryCount(tenant.id)).isZero()
+            collectPastGrace(tenant.id)
+
+            assertThat(revisionCount(tenant.id)).`as`("and its content once the collector finds nothing reaches it").isZero()
         }
         assertThat(releaseRow(tenant.id.value, "forget-cat", "1.0.0")).`as`("the release is gone with it").isNull()
     }
@@ -125,10 +127,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     /**
-     * The live leak this fixes. Deleting a catalog cascades its releases away, and their entries
-     * with them, leaving the revisions unreachable — and `resource_binaries` still naming the bytes,
-     * so the content sweep would hold them for ever. Before the collector, deleting a catalog made
-     * its content permanently unreclaimable.
+     * Deleting a catalog cascades its releases away, and their rows with them, leaving their contents
+     * unreachable; the collector takes them, and with them the `resource_binaries` that held bytes.
      */
     @Test
     fun `deleting a catalog collects the revisions its releases held`() {
@@ -143,6 +143,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
             assertThat(revisionCount(tenant.id)).isGreaterThan(0)
 
             DeleteCatalog(catalog = testCatalog(tenant.id, key)).execute()
+            collectPastGrace(tenant.id)
 
             assertThat(revisionCount(tenant.id))
                 .`as`("the catalog's content went with it, instead of outliving it unreachably")
@@ -154,8 +155,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
     /**
      * What the reclaim is actually for. A release holds an image's bytes through
      * `resource_binaries`, which is what stops the content sweep taking them when the asset is
-     * deleted from the working copy. Deleting the release releases that hold, so the bytes become
-     * collectable — the sweep itself still owns when.
+     * deleted from the working copy. Once the release is deleted and the collector has taken its
+     * content, nothing holds them, so the collector's blob pass may take them.
      */
     @Test
     fun `deleting a release releases the hold on the bytes it kept`() {
@@ -180,6 +181,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
                 .isGreaterThan(0)
 
             DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute()
+            collectPastGrace(tenant.id)
 
             assertThat(binaryCount(tenant.id))
                 .`as`("nothing holds them any more, so the sweep may take them")
@@ -260,11 +262,23 @@ class RevisionCollectionTest : IntegrationTestBase() {
             assertThat(after["released_version"]).`as`("cleared, not left naming a deleted release").isNull()
             assertThat(after["released_fingerprint"]).isNull()
             assertThat(after["released_at"]).isNull()
-            assertThat(revisionCount(tenant.id)).`as`("and its content went with it").isZero()
+            collectPastGrace(tenant.id)
+            assertThat(revisionCount(tenant.id)).`as`("and its content goes with the collector").isZero()
             assertThat(DeleteCatalogRelease(testCatalog(tenant.id, key), "1.0.0").execute())
                 .`as`("a second click has nothing to delete")
                 .isFalse()
         }
+    }
+
+    /**
+     * Runs the collector as its nightly run would, this tenant's contents aged past the grace period.
+     * Raw SQL: `stored_at` is database time, which no command can set in the past.
+     */
+    private fun collectPastGrace(tenantKey: TenantKey) {
+        jdbi.useHandle<Exception> {
+            it.createUpdate("UPDATE resource_contents SET stored_at = NOW() - INTERVAL '3 days' WHERE tenant_key = :t").bind("t", tenantKey).execute()
+        }
+        ResourceContentCollector(jdbi, StorageGcProperties(grace = Duration.ofDays(1), pause = Duration.ZERO), SimpleMeterRegistry()).collect(tenantKey)
     }
 
     /** Creates a template, gives it a document and publishes it, so a release can carry a model. */

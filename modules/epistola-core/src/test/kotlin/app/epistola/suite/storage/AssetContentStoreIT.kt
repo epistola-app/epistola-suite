@@ -24,7 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired
 
 /**
  * Content-addressable asset store behaviour (#738): bytes stored once per installation, ref-aware
- * deletion, and reaper mark-and-sweep.
+ * deletion, and the content collector's sweep of bytes nothing holds.
  *
  * Blob presence is checked through the [AssetContentStore] port (`exists`), and the
  * expected content hash is computed from the uploaded bytes ([sha256Hex]) — the same
@@ -39,9 +39,6 @@ class AssetContentStoreIT : IntegrationTestBase() {
 
     @Autowired
     private lateinit var assetContentStore: AssetContentStore
-
-    @Autowired
-    private lateinit var reaper: ContentReaper
 
     @Autowired
     private lateinit var collector: app.epistola.suite.catalog.revisions.ResourceContentCollector
@@ -84,7 +81,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
     }
 
     @Test
-    fun `deleting one of two assets sharing a blob keeps it, reaper GCs once unreferenced`(): Unit = withMediator {
+    fun `deleting one of two assets sharing a blob keeps it, the collector takes it once unreferenced`(): Unit = withMediator {
         val tenant = createTenant("Shared Blob")
         val cat = CatalogKey.of("main")
         createCatalogFor(tenant.id, cat)
@@ -100,22 +97,18 @@ class AssetContentStoreIT : IntegrationTestBase() {
         assertThat(GetAssetContent(tenant.id, a2).query()!!.content).isEqualTo(content)
 
         DeleteAsset(tenant.id, a2).execute()
-        // Now unreferenced but within the reaper's grace window → still present.
+        // Now unreferenced but within the grace period → still present.
         assertThat(assetContentStore.exists(hash)).isTrue()
         // An image's content holds its bytes (ADR 0033): the content collector takes the deleted
         // images' contents first. Raw SQL: aging them past the grace period, which no command sets.
         jdbi.useHandle<Exception> { it.createUpdate("UPDATE resource_contents SET stored_at = NOW() - INTERVAL '5 years' WHERE tenant_key = :t AND kind = 'image'").bind("t", tenant.id).execute() }
-        collector.collect(tenant.id)
-
-        // Backdate well before the (frozen test) clock's grace cutoff so the reaper —
-        // which computes its cutoff from EpistolaClock, not DB now() — treats it as aged.
-        // Raw SQL: planting a historical timestamp the reaper asserts against; no command
-        // sets asset_content.created_at.
+        // Raw SQL: planting a historical timestamp the sweep asserts against; no command sets
+        // asset_content.created_at.
         jdbi.backdateAssetBlob(hash)
-        reaper.reap()
+        collector.collectAll()
 
         assertThat(assetContentStore.exists(hash))
-            .`as`("reaper should mark-and-sweep the now-unreferenced blob")
+            .`as`("the collector takes the now-unreferenced blob with its content")
             .isFalse()
         // The gauge counts what the sweep should have taken and did not, so a run that swept
         // everything reads zero. Blobs other tests leave inside the grace window are not orphans
@@ -135,7 +128,7 @@ class AssetContentStoreIT : IntegrationTestBase() {
         jdbi.backdateAssetBlob(hash)
 
         assetContentStore.putIfAbsent(hash, content, "image/png", content.size.toLong())
-        reaper.reap()
+        collector.collectAll()
 
         assertThat(assetContentStore.exists(hash)).`as`("written again just now").isTrue()
     }

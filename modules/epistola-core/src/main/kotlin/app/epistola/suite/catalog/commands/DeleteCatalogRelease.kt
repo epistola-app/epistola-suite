@@ -8,7 +8,6 @@ import app.epistola.suite.catalog.CatalogReleasePublicationPort
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.ReleaseInUse
-import app.epistola.suite.catalog.revisions.ResourceContentStore
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -23,9 +22,9 @@ import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Component
 
 /**
- * Removes a release from a catalog's history, with its content: the way to reclaim what a release
- * holds, such as an image released by mistake. A release either exists with its content or not at
- * all.
+ * Removes a release from a catalog's history: the way to reclaim what a release holds, such as an
+ * image released by mistake. The release and its rows go at once; the content only it held goes when
+ * the content collector next runs past the grace period (ADR 0033), with its binaries and references.
  *
  * **Already published is not a reason to refuse.** The copy on Epistola Exchange is Exchange's, it
  * stays there, and withdrawing it is a separate conversation with a separate authority. What goes
@@ -59,7 +58,6 @@ data class DeleteCatalogRelease(
 @Component
 class DeleteCatalogReleaseHandler(
     private val jdbi: Jdbi,
-    private val revisions: ResourceContentStore,
     /** Absent on an installation with no publication integration, where nothing can be in flight. */
     private val publicationPort: ObjectProvider<CatalogReleasePublicationPort>,
 ) : CommandHandler<DeleteCatalogRelease, Boolean> {
@@ -84,8 +82,9 @@ class DeleteCatalogReleaseHandler(
 
         if (!deleted) return@withHandle false
 
-        // Entries and publication rows cascade with the release; the content they named does not.
-        revisions.collectUnreferenced(handle, command.tenantKey)
+        // Its rows and publication rows cascade with the release. The content they named is the
+        // collector's (ResourceContentCollector, ADR 0033): past the grace period, what no other
+        // version holds goes with its binaries and references.
         repointCurrentRelease(handle, command)
         true
     }

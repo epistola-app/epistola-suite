@@ -25,7 +25,6 @@ import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.AssetContentStore
-import app.epistola.suite.storage.ContentReaper
 import app.epistola.suite.storage.backdateAssetBlob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
@@ -59,7 +58,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
     private lateinit var assetContentStore: AssetContentStore
 
     @Autowired
-    private lateinit var reaper: ContentReaper
+    private lateinit var collector: ResourceContentCollector
 
     @Test
     fun `releasing retains a revision for every resource`() {
@@ -172,7 +171,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
 
         withMediator { DeleteAsset(catalog.tenantKey, assetId).execute() }
         jdbi.backdateAssetBlob(hash)
-        reaper.reap()
+        collector.collectAll()
 
         assertThat(assetContentStore.exists(hash))
             .`as`("no live asset points at these bytes, but a release still names them")
@@ -198,7 +197,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
-        // The reaper's reachability rule is one thing that keeps these bytes; the foreign key is
+        // The collector's reachability rule is one thing that keeps these bytes; the foreign key is
         // another, and it holds even if that rule is ever wrong. Deleting directly is the only way
         // to ask the schema the question, since no command will.
         assertThatThrownBy {
