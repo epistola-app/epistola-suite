@@ -99,7 +99,7 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `a command carrying bytes is recorded with their size and hash, not the bytes`() {
+    fun `a command carrying bytes is recorded with their size, not the bytes`() {
         withMediator {
             val tenant = TenantId(createTenant("Bytes Tenant").id)
             val face = ByteArray(64 * 1024) { (it % 251).toByte() }
@@ -118,7 +118,8 @@ class EventPersistenceIntegrationTest : IntegrationTestBase() {
                     .mapTo(String::class.java)
                     .one()
             }
-            // The bytes are stored by their hash; the event says which, not what they are.
+            // The bytes are stored by their hash, which the face names beside them; the event says how
+            // large they are, not what they are.
             assertThat(payload).contains(sha256Hex(face)).contains("\"size\": ${face.size}")
             assertThat(payload.length).isLessThan(4 * 1024)
         }

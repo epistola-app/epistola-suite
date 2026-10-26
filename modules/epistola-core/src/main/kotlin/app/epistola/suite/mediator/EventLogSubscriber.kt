@@ -8,7 +8,6 @@ import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.NotEventLogged
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.UUIDv7
-import app.epistola.suite.fonts.model.sha256Hex
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -47,8 +46,10 @@ class EventLogSubscriber(
 
     /**
      * Writes a command as the event stream records it: a byte array (an uploaded image, a font face)
-     * as its size and SHA-256, not its contents. The bytes are stored by that hash already, and
-     * logging them made every font a catalog installs cost its faces again, as base64, in `event_log`.
+     * as its size, not its contents. The bytes are stored by their hash, which a command carrying a
+     * file names beside them (`contentHash`); logging them made every font a catalog installs cost its
+     * faces again, as base64, in `event_log`. Not hashed here either: hashing the faces a tenant's
+     * system catalog brings was a third of creating the tenant.
      */
     private val payloadMapper: ObjectMapper = (objectMapper as JsonMapper).rebuild()
         .addModule(SimpleModule("event-log-binaries").addSerializer(ByteArray::class.java, BinaryReferenceSerializer))
@@ -114,12 +115,11 @@ class EventLogSubscriber(
     }
 }
 
-/** A byte array as a reference to it: `{"size": …, "sha256": …}`. */
+/** A byte array as its size: `{"size": …}`. */
 private object BinaryReferenceSerializer : ValueSerializer<ByteArray>() {
     override fun serialize(value: ByteArray, gen: JsonGenerator, ctxt: SerializationContext) {
         gen.writeStartObject()
         gen.writeNumberProperty("size", value.size)
-        gen.writeStringProperty("sha256", sha256Hex(value))
         gen.writeEndObject()
     }
 }

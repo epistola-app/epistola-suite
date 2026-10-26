@@ -21,6 +21,7 @@ import app.epistola.suite.fonts.model.FontFace
 import app.epistola.suite.fonts.model.FontKind
 import app.epistola.suite.fonts.model.sha256Hex
 import app.epistola.suite.storage.AssetContentStore
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -184,7 +185,14 @@ class FontStore(
         /** The resource type, and content kind, of a font. */
         const val FONT = "font"
 
-        /** The hash a face's bytes are stored under. */
-        fun hashOf(bytes: ByteArray): String = sha256Hex(bytes)
+        /**
+         * The hash a face's bytes are stored under, remembered per array: weakly, by identity, and
+         * bounded. A bundled catalog's binaries are one array each per JVM ([app.epistola.suite.catalog.ClasspathCatalogCache]),
+         * installed for every tenant, and hashing the system fonts again for each one was a sixth of
+         * creating a tenant. An array is never written once it is read, so its hash cannot change.
+         */
+        fun hashOf(bytes: ByteArray): String = HASHES.get(bytes, ::sha256Hex)
+
+        private val HASHES = Caffeine.newBuilder().weakKeys().maximumSize(4096).build<ByteArray, String>()
     }
 }
