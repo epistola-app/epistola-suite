@@ -71,8 +71,8 @@ still in the table, defaulted and unused, and goes in a later major release.
   content (title, model, metadata, description) and its own revision; manifests read
   `release_wire_resources`, which leaves the variant rows out; read through `current_templates` and
   `current_template_variants`, and assembled into the wire form for export and the fingerprint.
-- **Released here** — cutting a release advances `catalogs.released_version` /
-  `released_fingerprint` / `released_at`.
+- **Released here** — the catalog's current release is its highest release cut here, a view over its
+  released rows (`catalog_current_releases`, ADR 0036) rather than a pointer kept by hand.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
   source) records it and, when the next release moves to it, sets `installed_release_version` +
   `installed_fingerprint`; `installed_resource_fingerprints` (JSONB) records the per-resource
@@ -234,7 +234,8 @@ until it is released**; only releases are numbered.
 
 - **Every draft is the same; one is the next release.** Any draft can be released (contract ADR
   0002). Every catalog marks one draft the **next release**
-  (`catalog_versions.is_next`, one per catalog): the draft everyday work goes into and the one a
+  (`catalogs.next_version_id`, one per catalog; a draft without a name is the next one, checked at
+  commit): the draft everyday work goes into and the one a
   caller that names no version means. The mark is a suite default, not a kind of draft. Every other
   draft is named (`catalog_versions.name`, unique per catalog ignoring case): a redesign, a fix to an
   older line, work tried by deploying it to an environment. A version is identified by its

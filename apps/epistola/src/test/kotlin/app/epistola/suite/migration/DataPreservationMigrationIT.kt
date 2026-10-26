@@ -481,7 +481,7 @@ class DataPreservationMigrationIT {
 
             // Every authored catalog has the draft it works in, its next version, which has no number
             // until it is released (V20261018200900; `state` since V20261026162943).
-            assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.is_next THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.state = 'draft'"))
+            assertThat(one("SELECT string_agg(c.catalog_key || '@' || CASE WHEN d.version_id = c.next_version_id THEN 'next' ELSE d.name END || COALESCE('#' || d.version, ''), ',' ORDER BY c.catalog_key) FROM catalog_versions d JOIN catalogs c ON c.tenant_key = d.tenant_key AND c.catalog_id = d.catalog_id WHERE d.tenant_key = '$TENANT' AND d.state = 'draft'"))
                 .isEqualTo("default@next,shared@next")
 
             // Every authored 1.x catalog is queued for its declarations and first release (V20261018201400).

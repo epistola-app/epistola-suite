@@ -16,6 +16,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogReleaseSummaries
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
@@ -241,7 +242,7 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
         // is compared with the release's content itself: a template that lost a member there is a
         // change of its own. No command produces that state, so it is put in place directly.
         jdbi.useHandle<Exception> { h ->
-            h.createUpdate("UPDATE catalog_versions SET base_fingerprints = NULL WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND is_next")
+            h.createUpdate("UPDATE catalog_versions SET base_fingerprints = NULL WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND ${isNext("catalog_versions")}")
                 .bind("t", b).bindCatalog("c", testCatalog(b, catalog)).execute()
         }
         withMediator {

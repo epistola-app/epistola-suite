@@ -77,7 +77,7 @@ import java.util.UUID
 /**
  * Releases a draft of a catalog (contract `releaseCatalogDraft`, ADR 0002): records an
  * explicit, immutable release boundary (SemVer + content fingerprint + notes + a manifest snapshot)
- * and, when it is the catalog's highest, advances the catalog's released-version pointer.
+ * and freezes the draft's row as the release; the catalog's current release is its highest (ADR 0036).
  *
  * - Any draft can be released: [catalogVersion], or the next version when that is null.
  * - It is numbered when it is released: [version], or, when that is null, the number its changes
@@ -428,27 +428,15 @@ class ReleaseCatalogDraftHandler(
         val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
-        val highest = latest == null || newVersion > latest
 
         jdbi.useTransaction<Exception> { handle ->
-            // The catalog's released version is its highest: a maintenance release of a lower line
-            // (ADR 0002 "Ordering") does not move it back.
-            if (highest) {
-                handle.createUpdate(
-                    """
-                    UPDATE catalogs
-                    SET released_version = :version, released_fingerprint = :fingerprint,
-                        released_at = :releasedAt, updated_at = NOW()
-                    WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-                    """,
-                )
-                    .bind("t", command.tenantKey)
-                    .bindCatalog("c", command.catalog)
-                    .bind("version", newVersion.toString())
-                    .bind("fingerprint", fingerprint)
-                    .bind("releasedAt", releasedAt)
-                    .execute()
-            }
+            // The catalog's current release is a query over its released rows (ADR 0036,
+            // `catalog_current_releases`): its highest, so a maintenance release of a lower line (ADR
+            // 0002 "Ordering") does not move it back. The catalog itself only records that it changed.
+            handle.createUpdate("UPDATE catalogs SET updated_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)")
+                .bind("t", command.tenantKey)
+                .bindCatalog("c", command.catalog)
+                .execute()
 
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the

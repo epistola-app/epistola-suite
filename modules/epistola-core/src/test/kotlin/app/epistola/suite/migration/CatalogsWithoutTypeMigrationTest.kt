@@ -56,7 +56,7 @@ class CatalogsWithoutTypeMigrationTest {
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun nextVersions() = connection.rows(
-                "SELECT c.catalog_key, c.type, v.base_version FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.is_next ORDER BY 1",
+                "SELECT c.catalog_key, c.type, v.base_version FROM catalog_versions v JOIN catalogs c ON c.catalog_id = v.catalog_id WHERE v.version_id = c.next_version_id ORDER BY 1",
             )
             assertThat(nextVersions()).`as`("what was there stays").containsExactly(
                 listOf("made", "AUTHORED", null),
@@ -69,7 +69,7 @@ class CatalogsWithoutTypeMigrationTest {
                 "INSERT INTO catalogs (catalog_key, tenant_key, registry, namespace, name, source_url, installed_release_version) " +
                     "VALUES ('installed', 'acme', 'epistola.app', 'other', 'Installed', 'exchange:other/installed', '1.2.0')",
             )
-            assertThat(connection.rows("SELECT c.catalog_key, count(v.*) FROM catalogs c LEFT JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.is_next GROUP BY 1 ORDER BY 1"))
+            assertThat(connection.rows("SELECT c.catalog_key, count(v.*) FROM catalogs c LEFT JOIN catalog_versions v ON v.catalog_id = c.catalog_id AND v.version_id = c.next_version_id GROUP BY 1 ORDER BY 1"))
                 .`as`("every catalog has exactly one next version")
                 .containsExactly(listOf("fresh", "1"), listOf("installed", "1"), listOf("made", "1"), listOf("received", "1"))
             assertThat(nextVersions()).contains(listOf("fresh", "AUTHORED", null), listOf("installed", "AUTHORED", "1.2.0"))

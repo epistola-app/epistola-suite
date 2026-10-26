@@ -229,7 +229,7 @@ class PublishCurrentCatalogReleaseHandler(
         val selection = if (command.version != null) {
             "AND r.version = :version"
         } else {
-            "AND r.version = c.released_version"
+            "AND r.version_id = (SELECT cr.version_id FROM catalog_current_releases cr WHERE cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id)"
         }
         handle.createQuery(
             """

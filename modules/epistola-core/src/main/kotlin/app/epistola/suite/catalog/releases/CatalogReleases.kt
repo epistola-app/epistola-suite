@@ -7,6 +7,8 @@ package app.epistola.suite.catalog.releases
 import app.epistola.suite.catalog.SemVer
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.isNext
+import app.epistola.suite.catalog.setNext
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.Revisions
 import app.epistola.suite.common.ids.CatalogId
@@ -184,22 +186,25 @@ class CatalogDrafts {
      * next version, which must not have one yet; with one, it is another draft. [createdFrom] is the
      * key of the draft it is a copy of, if any.
      */
-    fun open(handle: Handle, catalog: CatalogId, base: String?, name: String? = null, createdFrom: String? = null): UUID = handle
-        .createQuery(
+    fun open(handle: Handle, catalog: CatalogId, base: String?, name: String? = null, createdFrom: String? = null): UUID {
+        val opened = handle.createQuery(
             """
-            INSERT INTO catalog_versions (tenant_key, catalog_id, state, is_next, name, base_version, created_from)
-            VALUES (:t, ${catalogAt("t", "c")}, 'draft', :next, :name, :base, :from)
+            INSERT INTO catalog_versions (tenant_key, catalog_id, state, name, base_version, created_from)
+            VALUES (:t, ${catalogAt("t", "c")}, 'draft', :name, :base, :from)
             RETURNING version_id
             """,
         )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .bind("next", name == null)
-        .bind("name", name)
-        .bind("base", base)
-        .bind("from", createdFrom)
-        .mapTo(UUID::class.java)
-        .one()
+            .bind("t", catalog.tenantKey)
+            .bindCatalog("c", catalog)
+            .bind("name", name)
+            .bind("base", base)
+            .bind("from", createdFrom)
+            .mapTo(UUID::class.java)
+            .one()
+        // Without a name it is the catalog's next version: the catalog's pointer names it (ADR 0036).
+        if (name == null) handle.createUpdate(setNext("t", "v")).bind("t", catalog.tenantKey).bind("v", opened).execute()
+        return opened
+    }
 
     /**
      * Draft [versionId] becomes the release [record] describes (ADR 0036): its row is frozen in place,
@@ -209,7 +214,7 @@ class CatalogDrafts {
     fun freeze(handle: Handle, tenantKey: TenantKey, versionId: UUID, record: FrozenRelease) {
         val frozen = handle.createUpdate(
             """
-            UPDATE catalog_versions v SET state = 'released', is_next = FALSE, version = :version,
+            UPDATE catalog_versions v SET state = 'released', version = :version,
                 fingerprint = :fingerprint, content_hash = :contentHash, notes = :notes, manifest_snapshot = CAST(:snapshot AS JSONB),
                 rendering_defaults_version = :renderingDefaults, released_at = :releasedAt, released_by = :releasedBy,
                 released_by_installation = :releasedByInstallation, base_version = :base, base_fingerprint = :baseFingerprint,
@@ -244,8 +249,8 @@ class CatalogDrafts {
     fun startNext(handle: Handle, catalog: CatalogId, released: UUID, base: String): UUID {
         val next = handle.createQuery(
             """
-            INSERT INTO catalog_versions (tenant_key, catalog_id, state, is_next, base_version, base_version_id, default_theme_resource_id, presets)
-            SELECT tenant_key, catalog_id, 'draft', TRUE, :base, version_id, default_theme_resource_id, presets
+            INSERT INTO catalog_versions (tenant_key, catalog_id, state, base_version, base_version_id, default_theme_resource_id, presets)
+            SELECT tenant_key, catalog_id, 'draft', :base, version_id, default_theme_resource_id, presets
             FROM catalog_versions WHERE tenant_key = :t AND version_id = :from AND state = 'released'
             RETURNING version_id
             """,
@@ -255,6 +260,7 @@ class CatalogDrafts {
             .bind("base", base)
             .mapTo(UUID::class.java)
             .one()
+        handle.createUpdate(setNext("t", "v")).bind("t", catalog.tenantKey).bind("v", next).execute()
         handle.createQuery("SELECT copy_catalog_version_content(:t, :from, :to)::text")
             .bind("t", catalog.tenantKey)
             .bind("from", released)
@@ -289,7 +295,7 @@ class CatalogDrafts {
             if (keepAs == null) {
                 delete(handle, tenantKey, previous)
             } else {
-                handle.createUpdate("UPDATE catalog_versions SET is_next = FALSE, name = :name WHERE tenant_key = :t AND version_id = :v AND is_next")
+                handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND ${isNext("catalog_versions")}")
                     .bind("t", tenantKey)
                     .bind("v", previous)
                     .bind("name", keepAs)
@@ -297,12 +303,13 @@ class CatalogDrafts {
             }
         }
         val moved = handle.createUpdate(
-            "UPDATE catalog_versions SET is_next = TRUE, name = NULL WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT is_next",
+            "UPDATE catalog_versions SET name = NULL WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT ${isNext("catalog_versions")}",
         )
             .bind("t", tenantKey)
             .bind("v", promoted)
             .execute()
         check(moved == 1) { "no draft $promoted to make the next version" }
+        handle.createUpdate(setNext("t", "v")).bind("t", tenantKey).bind("v", promoted).execute()
     }
 
     /**
@@ -322,7 +329,7 @@ class CatalogDrafts {
 
     /** Renames parallel work [versionId]. */
     fun rename(handle: Handle, tenantKey: TenantKey, versionId: UUID, name: String) {
-        handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT is_next")
+        handle.createUpdate("UPDATE catalog_versions SET name = :name WHERE tenant_key = :t AND version_id = :v AND state = 'draft' AND NOT ${isNext("catalog_versions")}")
             .bind("t", tenantKey)
             .bind("v", versionId)
             .bind("name", name)
@@ -452,7 +459,7 @@ class CatalogDrafts {
     )
 
     companion object {
-        private const val SELECT = "SELECT version_id, version_key, is_next, name, base_version, created_from, created_at, revision, " +
+        private val SELECT = "SELECT version_id, version_key, ${isNext("catalog_versions")} AS is_next, name, base_version, created_from, created_at, revision, " +
             "ARRAY(SELECT m.release_version FROM catalog_draft_merges m WHERE m.tenant_key = catalog_versions.tenant_key AND m.version_id = catalog_versions.version_id) AS merged_releases " +
             "FROM catalog_versions"
 

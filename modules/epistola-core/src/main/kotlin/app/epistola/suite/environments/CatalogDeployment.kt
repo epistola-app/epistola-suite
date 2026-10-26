@@ -5,6 +5,7 @@
 package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.common.ids.CatalogId
@@ -49,11 +50,11 @@ data class CatalogDeployment(
 /** Reads `environment_catalog_deployments` as [CatalogDeployment]s, releases and drafts alike. */
 object DeploymentRows {
     /** The columns and joins of a deployment row, over alias `d`. */
-    const val FROM = """
+    val FROM = """
         SELECT d.environment_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, cat.registry AS registry,
                CASE WHEN tv.state = 'released' THEN tv.version END AS version,
                tv.version_key AS version_id,
-               CASE WHEN tv.state = 'released' THEN NULL WHEN tv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE tv.name END AS draft_name,
+               CASE WHEN tv.state = 'released' THEN NULL WHEN ${isNext("tv")} THEN '${CatalogDraft.NEXT_LABEL}' ELSE tv.name END AS draft_name,
                d.deployed_at, d.deployed_by, d.documents_requested, d.last_used_at
         FROM environment_catalog_deployments d
         JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id

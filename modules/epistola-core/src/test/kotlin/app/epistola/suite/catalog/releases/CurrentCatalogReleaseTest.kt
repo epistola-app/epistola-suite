@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.commands.CreateCatalog
 import app.epistola.suite.catalog.commands.InstallFromCatalog
 import app.epistola.suite.catalog.commands.RegisterCatalog
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -40,7 +41,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
     private fun versionRow(tenantKey: TenantKey, catalogKey: CatalogKey): Pair<UUID, String?> = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
         handle.createQuery(
             "SELECT v.version_id, v.version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
+                "WHERE c.tenant_key = :t AND c.catalog_key = :c AND ${isNext("v")}",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("version") }
@@ -95,7 +96,7 @@ class CurrentCatalogReleaseTest : IntegrationTestBase() {
         val (nextRow, base) = jdbi.withHandle<Pair<UUID, String?>, Exception> { handle ->
             handle.createQuery(
                 "SELECT v.version_id, v.base_version FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
+                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND ${isNext("v")}",
             )
                 .bind("t", tenantKey).bind("c", installed)
                 .map { rs, _ -> rs.getObject("version_id", UUID::class.java) to rs.getString("base_version") }

@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -207,7 +208,7 @@ class BuildTenantSnapshotHandler(
     /** The release the catalog's next release is on, or null. */
     private fun nextBaseOf(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
-            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next",
+            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND ${isNext("catalog_versions")}",
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)

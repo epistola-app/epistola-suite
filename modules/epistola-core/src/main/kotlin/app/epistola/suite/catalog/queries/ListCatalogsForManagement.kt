@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.CATALOG_RELEASE_JOIN
+import app.epistola.suite.catalog.CATALOG_ROW_COLUMNS
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.common.ids.TenantKey
@@ -63,13 +65,13 @@ internal val CATALOG_ACTIVITY_CTE = """
 internal const val CATALOG_PENDING_CHANGES = """COALESCE(
                        NOT COALESCE(c.source_url LIKE 'classpath:%', FALSE)
                        AND nv.base_version IS NOT NULL
-                       AND a.last_activity > GREATEST(c.released_at, c.imported_at, nv.created_at),
+                       AND a.last_activity > GREATEST(cr.released_at, c.imported_at, nv.created_at),
                        FALSE
                    ) AS pending_changes"""
 
 /** The catalog's next version, whose base and the moment it was put on it [CATALOG_PENDING_CHANGES] compares with. */
 internal const val CATALOG_NEXT_VERSION_JOIN = """LEFT JOIN catalog_versions nv
-              ON nv.tenant_key = c.tenant_key AND nv.catalog_id = c.catalog_id AND nv.is_next"""
+              ON nv.tenant_key = c.tenant_key AND nv.version_id = c.next_version_id"""
 
 internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_id, MAX(ts) AS last_activity FROM activity GROUP BY catalog_id) a
               ON a.catalog_id = c.catalog_id"""
@@ -120,8 +122,9 @@ class ListCatalogsForManagementHandler(
         handle.createQuery(
             """
             $CATALOG_ACTIVITY_CTE
-            SELECT c.*, $CATALOG_PENDING_CHANGES
+            SELECT $CATALOG_ROW_COLUMNS, $CATALOG_PENDING_CHANGES
             FROM catalogs c
+            $CATALOG_RELEASE_JOIN
             $CATALOG_ACTIVITY_JOIN
             $CATALOG_NEXT_VERSION_JOIN
             WHERE c.tenant_key = :t

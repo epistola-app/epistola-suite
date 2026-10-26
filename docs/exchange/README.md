@@ -151,9 +151,7 @@ follow-up for RC3 stencil draft markers.
 | `installed_release_version` | varchar(50)       | Release last received into the next version.   |
 | `installed_fingerprint`     | char(64)          | Its content fingerprint.                       |
 | `installed_at`              | timestamptz       | Last install/upgrade timestamp.                |
-| `released_version`          | varchar(50)       | Highest SemVer released here.                  |
-| `released_fingerprint`      | char(64)          | Its content fingerprint.                       |
-| `released_at`               | timestamptz       | When it was released.                          |
+| `next_version_id`           | uuid, nullable    | The next version (ADR 0036).                   |
 | `created_at`                | timestamptz       | Creation timestamp.                            |
 | `updated_at`                | timestamptz       | Last modification timestamp.                   |
 

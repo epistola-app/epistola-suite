@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.commands.ImportCatalogZip
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogReleaseBehindException
 import app.epistola.suite.catalog.releases.CatalogReleaseStatus
 import app.epistola.suite.catalog.releases.ListCatalogReleases
@@ -261,7 +262,7 @@ class MergeReleaseIntoDraftTest : IntegrationTestBase() {
                 h.createQuery(
                     "SELECT m.release_version || ' ' || COALESCE(m.merge_base, '-') || ' ' || m.resolutions::text FROM catalog_draft_merges m " +
                         "JOIN catalog_versions v ON v.tenant_key = m.tenant_key AND v.version_id = m.version_id " +
-                        "WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.is_next",
+                        "WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND ${isNext("v")}",
                 ).bind("t", a).bindCatalog("c", testCatalog(a, catalog)).mapTo(String::class.java).list()
             }
             assertThat(recorded).containsExactly("""2.0.0 1.0.0 {"theme/thx": "OURS"}""")

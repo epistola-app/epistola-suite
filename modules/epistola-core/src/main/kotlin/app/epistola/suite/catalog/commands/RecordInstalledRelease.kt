@@ -200,12 +200,8 @@ class RecordInstalledReleaseHandler(
                 INSERT INTO catalog_versions (tenant_key, catalog_id, version_key, state, origin, version, fingerprint, content_hash, notes,
                                               manifest_snapshot, released_at, rendering_defaults_version, base_version, base_version_id,
                                               base_fingerprint, released_by_installation, created_at)
-                SELECT :t, c.catalog_id, :releaseId, 'released',
-                       -- Received, unless it names this installation as the one that cut it (a release
-                       -- that went out and came back is this installation's own).
-                       CASE WHEN CAST(:releasedByInstallation AS UUID) IS NOT DISTINCT FROM (
-                                SELECT CAST(m.value ->> 'id' AS UUID) FROM app_metadata m WHERE m.key = 'installation')
-                            THEN 'authored' ELSE 'installed' END,
+                -- Received, whoever cut it: the catalog's current release is the highest cut here.
+                SELECT :t, c.catalog_id, :releaseId, 'released', 'installed',
                        :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults,
                        :baseVersion,
                        (SELECT b.version_id FROM catalog_versions b
