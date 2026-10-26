@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.catalog.revisions.StoredContent
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -80,6 +81,8 @@ data class AttributeFields(
     val allowedValues: List<String>,
     /** The code list it is bound to, by the alias its catalog knows it under (null: its own) and key. */
     val binding: CodeListBindingRef?,
+    /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /**
@@ -113,7 +116,7 @@ class AttributeStore(
         return CodeListBindingRef(catalogKey = codeList.catalogKey.value.takeUnless { codeList.catalogId == owner }, key = codeList.key.value)
     }
 
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: AttributeFields): String = contents.store(handle, catalog.tenantKey, ATTRIBUTE, payload(key, fields))
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: AttributeFields): String = contents.store(handle, catalog.tenantKey, ATTRIBUTE, ResourceMetadata.carried(handle, catalog, ATTRIBUTE, key, payload(key, fields), fields.metadata, objectMapper))
 
     /** Adds attribute [id] to the targeted draft; one already there is a unique violation. */
     fun create(handle: Handle, id: AttributeId, fields: AttributeFields, actor: UUID?): VariantAttributeDefinition {
@@ -136,7 +139,7 @@ class AttributeStore(
     /** Moves attribute [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val fields = fields(handle, AttributeId(AttributeKey.of(key), source)) ?: return false
-        return DraftResources.move(handle, source, ATTRIBUTE, key, target, targetKey, store(handle, source, targetKey, fields))
+        return DraftResources.move(handle, source, ATTRIBUTE, key, target, targetKey, store(handle, source, targetKey, fields.copy(metadata = ResourceMetadata.moving(handle, source, ATTRIBUTE, key))))
     }
 
     /** Attribute [id] as the version the handle means holds it, or null. */

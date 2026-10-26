@@ -7,6 +7,7 @@ package app.epistola.suite.themes
 import app.epistola.catalog.protocol.ThemeResource
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.templates.model.DocumentStyles
@@ -27,6 +28,8 @@ data class ThemeFields(
     val pageSettings: PageSettings?,
     val blockStylePresets: BlockStylePresets?,
     val spacingUnit: Float?,
+    /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /** What [this] theme says. */
@@ -67,7 +70,7 @@ class ThemeStore(
     private fun stored(spacingUnit: Float): Float = BigDecimal(spacingUnit.toString()).setScale(2, RoundingMode.HALF_UP).toFloat()
 
     /** Stores [fields] as theme [key] of [catalog]'s tenant and returns its content hash. */
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields): String = contents.store(handle, catalog.tenantKey, THEME, payload(key, fields))
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: ThemeFields): String = contents.store(handle, catalog.tenantKey, THEME, ResourceMetadata.carried(handle, catalog, THEME, key, payload(key, fields), fields.metadata, objectMapper))
 
     /** Adds theme [id] to the targeted draft; a theme already there is a unique violation. */
     fun create(handle: Handle, id: ThemeId, fields: ThemeFields, actor: UUID?): Theme {
@@ -111,7 +114,7 @@ class ThemeStore(
     /** Moves theme [key] of [source] to [targetKey] of [target], with its content renamed; false when there is none. */
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val theme = ThemeReads.get(handle, objectMapper, source, app.epistola.suite.common.ids.ThemeKey.of(key)) ?: return false
-        return DraftResources.move(handle, source, THEME, key, target, targetKey, store(handle, source, targetKey, theme.fields()))
+        return DraftResources.move(handle, source, THEME, key, target, targetKey, store(handle, source, targetKey, theme.fields().copy(metadata = ResourceMetadata.moving(handle, source, THEME, key))))
     }
 
     companion object {

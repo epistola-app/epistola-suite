@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.FontId
 import app.epistola.suite.common.ids.FontKey
@@ -66,10 +67,17 @@ class FontStore(
     )
 
     /** One font family to write: its slug, display name, kind and faces. */
-    data class FontSpec(val slug: String, val name: String, val kind: String, val variants: List<ImportFontVariant>)
+    data class FontSpec(
+        val slug: String,
+        val name: String,
+        val kind: String,
+        val variants: List<ImportFontVariant>,
+        /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+        val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
+    )
 
     /** Creates or replaces font [slug] of the targeted draft of [catalog]: INSTALLED when it is new, else UPDATED. */
-    fun put(handle: Handle, catalog: CatalogId, slug: String, name: String, kind: String, variants: List<ImportFontVariant>, actor: UUID?): InstallStatus = putAll(handle, catalog, listOf(FontSpec(slug, name, kind, variants)), actor).getValue(slug)
+    fun put(handle: Handle, catalog: CatalogId, slug: String, name: String, kind: String, variants: List<ImportFontVariant>, actor: UUID?, metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null): InstallStatus = putAll(handle, catalog, listOf(FontSpec(slug, name, kind, variants, metadata)), actor).getValue(slug)
 
     /**
      * Writes several families of [catalog]'s targeted draft. A family whose content is the one its
@@ -80,7 +88,7 @@ class FontStore(
         storeBytes(fonts.flatMap { it.variants })
         val current = currentHashes(handle, catalog)
         return fonts.associate { font ->
-            val payload = payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face))
+            val payload = ResourceMetadata.carried(handle, catalog, FONT, font.slug, payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face)), font.metadata, objectMapper)
             val existing = current[font.slug]
             if (existing != null && existing == contents.hashOf(payload)) return@associate font.slug to InstallStatus.SKIPPED
             val digest = contents.store(handle, catalog.tenantKey, FONT, payload)
@@ -137,7 +145,7 @@ class FontStore(
     /** Moves font [key] of [source] to [targetKey] of [target], its content renamed; false when there is none. */
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val font = get(handle, FontId(FontKey.of(key), source)) ?: return false
-        val payload = payload(targetKey, font.name, font.kind.wire, faces(handle, FontId(FontKey.of(key), source)))
+        val payload = ResourceMetadata.with(payload(targetKey, font.name, font.kind.wire, faces(handle, FontId(FontKey.of(key), source))), ResourceMetadata.held(handle, source, FONT, key))
         return DraftResources.move(handle, source, FONT, key, target, targetKey, contents.store(handle, source.tenantKey, FONT, payload))
     }
 

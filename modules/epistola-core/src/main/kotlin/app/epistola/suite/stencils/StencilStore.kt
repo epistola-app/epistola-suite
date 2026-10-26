@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.revisions.DraftResources
 import app.epistola.suite.catalog.revisions.ResourceContentStore
+import app.epistola.suite.catalog.revisions.ResourceMetadata
 import app.epistola.suite.catalog.revisions.StoredContent
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.StencilId
@@ -29,6 +30,8 @@ data class StencilFields(
     val content: TemplateDocument,
     val parameterSchema: JsonNode?,
     val readsTemplateData: Boolean,
+    /** Producer metadata to store (contract `CatalogResource.metadata`); null keeps what the draft holds, empty clears it. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 )
 
 /** What [this] stencil says. */
@@ -71,7 +74,7 @@ class StencilStore(
         ),
     )
 
-    fun store(handle: Handle, catalog: CatalogId, key: String, fields: StencilFields): String = contents.store(handle, catalog.tenantKey, STENCIL, payload(key, catalog.key.value, fields))
+    fun store(handle: Handle, catalog: CatalogId, key: String, fields: StencilFields): String = contents.store(handle, catalog.tenantKey, STENCIL, ResourceMetadata.carried(handle, catalog, STENCIL, key, payload(key, catalog.key.value, fields), fields.metadata, objectMapper))
 
     /** Adds stencil [id] to the targeted draft; one already there is a unique violation. */
     fun create(handle: Handle, id: StencilId, fields: StencilFields, actor: UUID?): Stencil {
@@ -95,7 +98,7 @@ class StencilStore(
     fun move(handle: Handle, source: CatalogId, key: String, target: CatalogId, targetKey: String): Boolean {
         val stencil = get(handle, StencilId(StencilKey.of(key), source)) ?: return false
         // Read qualified, stored in the target's released form: what named the catalog it leaves still does.
-        return DraftResources.move(handle, source, STENCIL, key, target, targetKey, store(handle, target, targetKey, stencil.fields()))
+        return DraftResources.move(handle, source, STENCIL, key, target, targetKey, store(handle, target, targetKey, stencil.fields().copy(metadata = ResourceMetadata.moving(handle, source, STENCIL, key))))
     }
 
     /** Stencil [id] as the version the handle means holds it, or null. */

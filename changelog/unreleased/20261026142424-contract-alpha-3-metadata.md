@@ -11,3 +11,7 @@ own. What a received catalog said of one variant is kept on its template, under
 `{"<namespace>": {"variants": {"<variant>": …}}}`, exactly as the contract folds an early archive;
 a migration moves every draft variant's metadata there, and a release retained earlier exports it the
 same way.
+
+Every type stored as JSON keeps a received resource's metadata: installing or importing a release
+stores it, an author's edit or a move keeps it, and exporting carries it. Because no fingerprint
+covers it, a later release that changes only metadata is no change to install.

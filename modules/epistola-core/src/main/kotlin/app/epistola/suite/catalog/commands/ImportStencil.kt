@@ -43,6 +43,8 @@ data class ImportStencil(
     val content: TemplateDocument,
     val parameterSchema: Map<String, Any?>? = null,
     val readsTemplateData: Boolean = false,
+    /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
@@ -84,7 +86,7 @@ class ImportStencilHandler(
                 objectMapper.valueToTree<JsonNode>(it.content) == objectMapper.valueToTree<JsonNode>(content) &&
                     it.parameterSchema == parameterSchema && it.readsTemplateData == command.readsTemplateData
             }
-            stencils.put(handle, id, app.epistola.suite.stencils.StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData), auditUser)
+            stencils.put(handle, id, app.epistola.suite.stencils.StencilFields(command.name, command.description, command.tags, content, parameterSchema, command.readsTemplateData, command.metadata), auditUser)
             when (unchanged) {
                 null -> InstallStatus.INSTALLED
                 true -> InstallStatus.SKIPPED

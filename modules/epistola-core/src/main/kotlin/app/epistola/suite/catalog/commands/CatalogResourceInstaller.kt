@@ -80,6 +80,8 @@ class CatalogResourceInstaller(
             pageSettings = resource.pageSettings,
             blockStylePresets = protocolMapper.mapToBlockStylePresets(resource.blockStylePresets),
             spacingUnit = resource.spacingUnit,
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is StencilResource -> ImportStencil(
@@ -91,6 +93,8 @@ class CatalogResourceInstaller(
             content = resource.content,
             parameterSchema = resource.parameterSchema,
             readsTemplateData = resource.readsTemplateData,
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is AttributeResource -> {
@@ -103,6 +107,8 @@ class CatalogResourceInstaller(
                 allowedValues = resource.allowedValues,
                 codeListCatalog = bindingCatalog,
                 codeListSlug = bindingSlug,
+                // As received: none clears what the draft held.
+                metadata = resource.metadata.orEmpty(),
             ).execute()
         }
 
@@ -119,6 +125,8 @@ class CatalogResourceInstaller(
                     hidden = wire.hidden,
                 )
             },
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is FontResource -> app.epistola.suite.fonts.commands.ImportFont(
@@ -132,6 +140,8 @@ class CatalogResourceInstaller(
                     ?: throw IllegalArgumentException("Missing font face content: ${entry.contentPath()}")
                 app.epistola.suite.fonts.commands.ImportFontVariant(entry.weight, entry.italic, entry.mediaType, faceBytes)
             },
+            // As received: none clears what the draft held.
+            metadata = resource.metadata.orEmpty(),
         ).execute()
 
         is ImageResource -> {
@@ -153,6 +163,8 @@ class CatalogResourceInstaller(
                 content = contentBytes,
                 width = resource.width,
                 height = resource.height,
+                // As received: none clears what the draft held.
+                metadata = resource.metadata.orEmpty(),
             ).execute()
         }
     }

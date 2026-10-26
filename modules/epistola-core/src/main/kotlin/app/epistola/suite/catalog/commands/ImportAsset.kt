@@ -38,6 +38,8 @@ data class ImportAsset(
     val content: ByteArray,
     val width: Int? = null,
     val height: Int? = null,
+    /** Producer metadata (contract `CatalogResource.metadata`), as received; null keeps what the draft holds. */
+    val metadata: app.epistola.suite.catalog.revisions.ProducerMetadata? = null,
 ) : Command<InstallStatus>,
     RequiresPermission {
     val tenantId: TenantId get() = catalog.tenantId
@@ -81,13 +83,19 @@ class ImportAssetHandler(
                 height = command.height,
                 id = command.id,
             ).execute()
+            // An upload says nothing of a producer's metadata; what the catalog gave goes on it.
+            if (!command.metadata.isNullOrEmpty()) write(command)
             return InstallStatus.INSTALLED
         }
         // Re-import replaces the content; the previous bytes go when nothing names them any more.
+        write(command)
+        return InstallStatus.UPDATED
+    }
+
+    private fun write(command: ImportAsset) {
         val contentHash = images.storeBytes(command.content, command.mediaType)
         jdbi.inTransaction<Unit, Exception> { handle ->
-            images.put(handle, command.catalog, command.id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash), currentUserIdOrNull()?.value)
+            images.put(handle, command.catalog, command.id.value, ImageFields(command.name, command.mediaType, command.width, command.height, contentHash, command.metadata), currentUserIdOrNull()?.value)
         }
-        return InstallStatus.UPDATED
     }
 }
