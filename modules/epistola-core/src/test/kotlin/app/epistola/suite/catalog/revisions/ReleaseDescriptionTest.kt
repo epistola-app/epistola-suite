@@ -97,7 +97,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
     }
 
     private fun snapshotRelease(tenant: TenantKey, catalog: CatalogKey, version: String): CatalogManifest = jdbi.withHandle<CatalogManifest, Exception> { h ->
-        h.createQuery("SELECT manifest_snapshot::text FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        h.createQuery("SELECT manifest_snapshot::text FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("v", version)
             .map { rs, _ -> objectMapper.readValue(rs.getString(1), CatalogManifest::class.java) }
             .one()
@@ -176,7 +176,7 @@ class ReleaseDescriptionTest : IntegrationTestBase() {
     private data class Recorded(val versionKey: String, val renderingDefaults: Int?, val baseVersion: String?, val baseFingerprint: String?)
 
     private fun recorded(tenant: TenantKey, catalog: CatalogKey, version: String): Recorded? = jdbi.withHandle<Recorded?, Exception> { h ->
-        h.createQuery("SELECT version_key, rendering_defaults_version, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        h.createQuery("SELECT version_key, rendering_defaults_version, base_version, base_fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("v", version)
             .map { rs, _ -> Recorded(rs.getString(1), rs.getObject(2) as Int?, rs.getString(3), rs.getString(4)) }
             .findOne().orElse(null)

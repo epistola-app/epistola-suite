@@ -37,13 +37,9 @@ import org.springframework.stereotype.Component
  * deployed release, the same shape as the in-flight-publication refusal below. There is nothing to
  * ask yet: no deployment exists to consult.
  *
- * **What must not be left dangling is the pointer.** `catalogs.released_version`,
- * `released_fingerprint` and `released_at` are a plain pointer at the current release with no foreign
- * key to keep them honest, and `released_at` is what the drift rule in `ListCatalogsForManagement`
- * compares the working copy against. Delete the release they name without moving them, and every
- * catalog screen reports drift against a release that no longer exists. So this re-points them at
- * the new latest release, or clears them when none is left — in the same transaction, because a
- * catalog whose pointer names a deleted release is not a state anything should be able to observe.
+ * **No pointer is left dangling.** The catalog's current release is a query over its released rows
+ * (ADR 0036, `catalog_current_releases`), so once the release's row is gone the catalog's current
+ * release is the highest that remains, or none, with nothing to repoint.
  */
 data class DeleteCatalogRelease(
     val catalog: CatalogId,
@@ -75,8 +71,8 @@ class DeleteCatalogReleaseHandler(
 
         val deleted = handle.createUpdate(
             """
-            DELETE FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+            DELETE FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
             """,
         )
             .bind("t", command.tenantKey)
@@ -89,7 +85,7 @@ class DeleteCatalogReleaseHandler(
         // Its rows and publication rows cascade with the release. The content they named is the
         // collector's (ResourceContentCollector, ADR 0033): past the grace period, what no other
         // version holds goes with its binaries and references.
-        repointCurrentRelease(handle, command)
+        touchCatalog(handle, command)
         true
     }
 
@@ -117,49 +113,11 @@ class DeleteCatalogReleaseHandler(
     }
 
     /**
-     * Moves the catalog's current-release pointer to whatever is now latest, or clears it.
-     *
-     * Deliberately re-derived from the remaining rows rather than assuming the deleted release was
-     * the latest: deleting an older one must leave the pointer alone, and the same statement does
-     * both. `LATEST_RELEASE_ORDER` is not reused here because this is an UPDATE ... FROM rather than
-     * a SELECT, and one ordering rule spelled twice is better than a constant bent to fit both.
+     * Records that the catalog changed. Its current release needs no repointing: it is a query over
+     * the released rows that remain (ADR 0036, `catalog_current_releases`).
      */
-    private fun repointCurrentRelease(handle: Handle, command: DeleteCatalogRelease) {
-        handle.createUpdate(
-            """
-            UPDATE catalogs c
-            SET released_version = latest.version,
-                released_fingerprint = latest.fingerprint,
-                released_at = latest.released_at,
-                updated_at = NOW()
-            FROM (
-                SELECT r.version, r.fingerprint, r.released_at
-                FROM catalog_releases r
-                WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
-                ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
-                LIMIT 1
-            ) AS latest
-            WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-            """,
-        )
-            .bind("t", command.tenantKey)
-            .bindCatalog("c", command.catalog)
-            .execute()
-            .let { rows ->
-                // No rows updated means the subquery found nothing: the catalog has no releases
-                // left, so the pointer has to be cleared rather than left naming the deleted one.
-                if (rows == 0) clearCurrentRelease(handle, command)
-            }
-    }
-
-    private fun clearCurrentRelease(handle: Handle, command: DeleteCatalogRelease) {
-        handle.createUpdate(
-            """
-            UPDATE catalogs
-            SET released_version = NULL, released_fingerprint = NULL, released_at = NULL, updated_at = NOW()
-            WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-            """,
-        )
+    private fun touchCatalog(handle: Handle, command: DeleteCatalogRelease) {
+        handle.createUpdate("UPDATE catalogs SET updated_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)")
             .bind("t", command.tenantKey)
             .bindCatalog("c", command.catalog)
             .execute()

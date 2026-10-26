@@ -141,7 +141,7 @@ class RecordInstalledReleaseHandler(
         check(command.release == null || command.published != null) { "A release beside the installed one is recorded from its archive" }
 
         val exists = jdbi.withHandle<Boolean, Exception> { handle ->
-            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
+            handle.createQuery("SELECT EXISTS (SELECT 1 FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v)")
                 .bind("t", command.tenantKey)
                 .bindCatalog("c", command.catalog)
                 .bind("v", version)
@@ -197,10 +197,17 @@ class RecordInstalledReleaseHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, version_key, base_version, base_fingerprint, released_by_installation)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :releaseId,
-                        :baseVersion, :baseFingerprint, :releasedByInstallation)
+                INSERT INTO catalog_versions (tenant_key, catalog_id, version_key, state, origin, version, fingerprint, content_hash, notes,
+                                              manifest_snapshot, released_at, rendering_defaults_version, base_version, base_version_id,
+                                              base_fingerprint, released_by_installation, created_at)
+                -- Received, whoever cut it: the catalog's current release is the highest cut here.
+                SELECT :t, c.catalog_id, :releaseId, 'released', 'installed',
+                       :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults,
+                       :baseVersion,
+                       (SELECT b.version_id FROM catalog_versions b
+                        WHERE b.tenant_key = :t AND b.catalog_id = c.catalog_id AND b.version = :baseVersion AND b.state = 'released'),
+                       :baseFingerprint, CAST(:releasedByInstallation AS UUID), :releasedAt
+                FROM catalogs c WHERE c.tenant_key = :t AND c.catalog_id = ${catalogAt("t", "c")}
                 """,
             )
                 .bind("contentHash", contentHash)

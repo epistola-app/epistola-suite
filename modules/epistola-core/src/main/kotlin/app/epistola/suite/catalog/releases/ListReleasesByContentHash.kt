@@ -22,7 +22,7 @@ import java.time.OffsetDateTime
  * The releases of a catalog with content hash [contentHash] (ADR 0034; contract
  * `listCatalogReleases?contentHash=`), highest first: several numbers can name one content (a
  * release re-released with only new notes, one received under another number). Filtered, ordered
- * and paged in the database (`idx_catalog_releases_content_hash`). A draft, which has none, is no
+ * and paged in the database (`idx_catalog_versions_release_content_hash`). A draft, which has none, is no
  * match.
  *
  * [limit] null returns every match; [offset] skips that many.
@@ -59,8 +59,8 @@ class ListReleasesByContentHashHandler(
                          ORDER BY d.environment_key) AS deployed_to,
                    -- All matches before LIMIT/OFFSET, from the same statement as the page.
                    COUNT(*) OVER ()::int AS total
-            FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_hash = :h
+            FROM catalog_versions r
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.content_hash = :h
             ORDER BY ${releaseNumberOrder("r")}
             ${if (query.limit != null) "LIMIT :limit" else ""} OFFSET :offset
             """,

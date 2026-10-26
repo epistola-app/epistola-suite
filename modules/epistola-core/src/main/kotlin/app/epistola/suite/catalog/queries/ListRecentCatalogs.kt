@@ -4,6 +4,8 @@
 
 package app.epistola.suite.catalog.queries
 
+import app.epistola.suite.catalog.CATALOG_RELEASE_JOIN
+import app.epistola.suite.catalog.CATALOG_ROW_COLUMNS
 import app.epistola.suite.catalog.Catalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.TenantKey
@@ -39,10 +41,11 @@ class ListRecentCatalogsHandler(
             // details, or a version published.
             """
             $CATALOG_ACTIVITY_CTE
-            SELECT c.* FROM catalogs c
+            SELECT $CATALOG_ROW_COLUMNS FROM catalogs c
+            $CATALOG_RELEASE_JOIN
             $CATALOG_ACTIVITY_JOIN
             WHERE c.tenant_key = :t AND c.catalog_key <> :system
-            ORDER BY GREATEST(COALESCE(a.last_activity, c.updated_at), c.updated_at, COALESCE(c.released_at, c.updated_at)) DESC, c.name
+            ORDER BY GREATEST(COALESCE(a.last_activity, c.updated_at), c.updated_at, COALESCE(cr.released_at, c.updated_at)) DESC, c.name
             LIMIT :limit
             """,
         )

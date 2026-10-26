@@ -12,6 +12,7 @@ import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.commands.ExportCatalogZip
 import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogs
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
@@ -177,13 +178,13 @@ class BuildTenantSnapshotHandler(
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    /** The catalog's releases, lowest number first, as `catalog_releases` records them. */
+    /** The catalog's releases, lowest number first, as their released rows of `catalog_versions` record them. */
     private fun releasesOf(catalog: CatalogId): List<SnapshotRelease> = jdbi.withHandle<List<SnapshotRelease>, Exception> { handle ->
         handle.createQuery(
             """
             SELECT version, version_key, fingerprint, base_version, base_fingerprint, released_at, released_by, notes
-            FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             ORDER BY ${app.epistola.suite.catalog.queries.releaseNumberOrder(descending = false)}
             """,
         )
@@ -207,7 +208,7 @@ class BuildTenantSnapshotHandler(
     /** The release the catalog's next release is on, or null. */
     private fun nextBaseOf(catalog: CatalogId): String? = jdbi.withHandle<String?, Exception> { handle ->
         handle.createQuery(
-            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next",
+            "SELECT base_version FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND ${isNext("catalog_versions")}",
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)

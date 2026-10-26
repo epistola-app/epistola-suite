@@ -193,8 +193,9 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
         fun read(handle: Handle, catalog: CatalogId): ReleaseLineage {
             val merges = handle.createQuery(
                 """
-                SELECT version, merged_version, merged_fingerprint FROM catalog_release_merges
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version, merged_version
+                SELECT v.version, m.merged_version, m.merged_fingerprint FROM catalog_release_merges m
+                JOIN catalog_versions v ON v.tenant_key = m.tenant_key AND v.version_id = m.version_id
+                WHERE m.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} ORDER BY v.version, m.merged_version
                 """,
             )
                 .bind("t", catalog.tenantKey)
@@ -203,7 +204,7 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
                 .list()
                 .groupBy({ it.first }, { it.second })
             val releases = handle.createQuery(
-                "SELECT version, fingerprint, content_hash, base_version, base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
+                "SELECT version, fingerprint, content_hash, base_version, base_fingerprint FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'released'",
             )
                 .bind("t", catalog.tenantKey)
                 .bindCatalog("c", catalog)
@@ -225,8 +226,9 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
         fun mergedOf(handle: Handle, catalog: CatalogId, version: String): List<ReleaseParent> = handle
             .createQuery(
                 """
-                SELECT merged_version, merged_fingerprint FROM catalog_release_merges
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                SELECT m.merged_version, m.merged_fingerprint FROM catalog_release_merges m
+                JOIN catalog_versions v ON v.tenant_key = m.tenant_key AND v.version_id = m.version_id
+                WHERE m.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version = :v
                 """,
             )
             .bind("t", catalog.tenantKey)
@@ -244,8 +246,9 @@ class ReleaseLineage(releases: Map<String, LineageRelease>) {
             if (merged.isEmpty()) return
             val batch = handle.prepareBatch(
                 """
-                INSERT INTO catalog_release_merges (tenant_key, catalog_id, version, merged_version, merged_fingerprint)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :merged, :fingerprint)
+                INSERT INTO catalog_release_merges (tenant_key, version_id, merged_version, merged_fingerprint)
+                SELECT :t, v.version_id, :merged, :fingerprint FROM catalog_versions v
+                WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version = :version
                 ON CONFLICT DO NOTHING
                 """,
             )

@@ -52,7 +52,8 @@ class ReleaseNumbersMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the migration under test: catalog_releases goes later (ADR 0036, step (e)).
+        flyway("20261022110352").migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val long = "1.3.1-m" + "a".repeat(62) + ".1"

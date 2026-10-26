@@ -344,7 +344,7 @@ class RestoreTenantSnapshotIntegrationTest : IntegrationTestBase() {
         .zip(baseFingerprints(tenant, catalog)) { release, fingerprint -> release.copy(baseFingerprint = fingerprint) }
 
     private fun baseFingerprints(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey): List<String?> = jdbi.withHandle<List<String?>, Exception> { handle ->
-        handle.createQuery("SELECT base_fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version")
+        handle.createQuery("SELECT base_fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} ORDER BY version")
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog))
             .map { rs, _ -> rs.getString(1) }
             .list()

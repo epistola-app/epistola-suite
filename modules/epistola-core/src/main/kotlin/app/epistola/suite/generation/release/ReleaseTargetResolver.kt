@@ -233,8 +233,8 @@ class ReleaseTargetResolver(
                     """
                 } else {
                     """
-                    SELECT r.version FROM catalog_releases r
-                    WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} $condition
+                    SELECT r.version FROM catalog_versions r
+                    WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} $condition
                     $LATEST_RELEASE_ORDER $limit
                     """
                 },

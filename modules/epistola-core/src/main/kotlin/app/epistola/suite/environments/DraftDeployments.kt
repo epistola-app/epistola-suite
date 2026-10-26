@@ -6,6 +6,7 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.releases.DraftRef
 import app.epistola.suite.common.ids.CatalogId
@@ -56,7 +57,7 @@ object DraftDeploymentStore {
     /** The internal id and label of the draft of [catalogKey] that [ref] names, or null when there is none. */
     internal fun draft(handle: Handle, catalog: CatalogId, ref: DraftRef): Pair<UUID, String>? {
         val match = when (ref) {
-            DraftRef.Next -> "v.is_next"
+            DraftRef.Next -> isNext("v")
             is DraftRef.Id -> "v.version_key = :id"
             is DraftRef.Released -> return null
         }
@@ -180,5 +181,5 @@ object DraftDeploymentStore {
         .list()
 
     /** A draft's label in SQL, over alias `v`: its name, or "Next release" for the next release. */
-    private val LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
+    private val LABEL = "CASE WHEN ${isNext("v")} THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
 }

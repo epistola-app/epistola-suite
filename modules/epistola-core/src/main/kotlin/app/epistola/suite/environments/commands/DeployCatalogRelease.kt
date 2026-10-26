@@ -158,7 +158,7 @@ class DeployCatalogReleaseHandler(
 
     /** The number of the release [version] names, by its number or its `versionId`; null when it names none. */
     private fun releaseNamed(handle: Handle, catalog: CatalogId, version: String): String? = handle.createQuery(
-        "SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
+        "SELECT version FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
     )
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)

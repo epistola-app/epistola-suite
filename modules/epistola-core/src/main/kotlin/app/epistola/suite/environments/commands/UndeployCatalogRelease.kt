@@ -73,7 +73,7 @@ class UndeployCatalogReleaseHandler(
         }
         // A release, by its number or its id.
         val version = handle.createQuery(
-            "SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
+            "SELECT version FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND (version = :v OR version_key = :v)",
         )
             .bind("t", command.environmentId.tenantKey)
             .bindCatalog("c", command.catalog)

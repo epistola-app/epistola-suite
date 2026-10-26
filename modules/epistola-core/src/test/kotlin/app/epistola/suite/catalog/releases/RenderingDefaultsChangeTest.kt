@@ -50,7 +50,7 @@ class RenderingDefaultsChangeTest : IntegrationTestBase() {
         }
         // A release cut before the current defaults existed: no command cuts one with older defaults.
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate("UPDATE catalog_releases SET rendering_defaults_version = 6 WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            handle.createUpdate("UPDATE catalog_versions SET rendering_defaults_version = 6 WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
                 .bind("t", tenant).bindCatalog("c", id).execute()
         }
         val current = RenderingDefaults.CURRENT.version

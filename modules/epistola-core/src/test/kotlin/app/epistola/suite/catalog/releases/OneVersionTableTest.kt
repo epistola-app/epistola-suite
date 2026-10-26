@@ -11,6 +11,7 @@ import app.epistola.suite.catalog.commands.DeleteCatalogRelease
 import app.epistola.suite.catalog.commands.MarkCatalogReady
 import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -49,7 +50,7 @@ class OneVersionTableTest : IntegrationTestBase() {
     private fun rows(tenant: TenantKey): List<Row> = jdbi.withHandle<List<Row>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT v.version_id, v.version_key, v.state, v.version, v.is_next, v.fingerprint FROM catalog_versions v
+            SELECT v.version_id, v.version_key, v.state, v.version, ${isNext("v")} AS is_next, v.fingerprint FROM catalog_versions v
             JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
             WHERE v.tenant_key = :t AND c.catalog_key = :c ORDER BY v.created_at, v.version_id
             """,
@@ -93,10 +94,10 @@ class OneVersionTableTest : IntegrationTestBase() {
         assertThat(released.key).`as`("the release keeps the draft's id").isEqualTo(before.key)
         assertThat(released.isNext).isFalse()
         val releaseRecord = jdbi.withHandle<Pair<String, String>, Exception> {
-            it.createQuery("SELECT r.version_key, r.fingerprint FROM catalog_releases r JOIN catalogs c ON c.catalog_id = r.catalog_id WHERE r.tenant_key = :t AND c.catalog_key = :c")
+            it.createQuery("SELECT r.version_key, r.fingerprint FROM catalog_versions r JOIN catalogs c ON c.catalog_id = r.catalog_id WHERE r.state = 'released' AND r.tenant_key = :t AND c.catalog_key = :c")
                 .bind("t", tenant).bind("c", letters).map { rs, _ -> rs.getString(1) to rs.getString(2) }.one()
         }
-        assertThat(releaseRecord).`as`("catalog_releases mirrors the released row").isEqualTo(before.key to released.fingerprint)
+        assertThat(releaseRecord).`as`("the release record is on the released row").isEqualTo(before.key to released.fingerprint)
 
         val continued = next(tenant)
         assertThat(continued.versionId).isNotEqualTo(before.versionId)

@@ -69,9 +69,29 @@ fun releaseAt(tenantParam: String, catalogParam: String, versionParam: String): 
  */
 fun inCurrentVersion(alias: String): String = "$alias.version_id IN (SELECT cv.version_id FROM catalog_current_versions cv WHERE cv.tenant_key = $alias.tenant_key)"
 
+/**
+ * The columns of a [Catalog] row over `catalogs c` joined with [CATALOG_RELEASE_JOIN]: the catalog's
+ * own, and its current release cut here as `released_version`, `released_fingerprint` and
+ * `released_at` (ADR 0036: a query over its released rows, not a pointer that could drift).
+ */
+const val CATALOG_ROW_COLUMNS = "c.*, cr.version AS released_version, cr.fingerprint AS released_fingerprint, cr.released_at AS released_at"
+
+/** Joins `catalogs c` to its current release cut here (`catalog_current_releases`), as `cr`. */
+const val CATALOG_RELEASE_JOIN = "LEFT JOIN catalog_current_releases cr ON cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id"
+
+/**
+ * Whether version row [alias] is its catalog's next version (ADR 0036): `catalogs.next_version_id`
+ * names it. A boolean expression, false when the catalog has no next version.
+ */
+fun isNext(alias: String): String = "COALESCE($alias.version_id = (SELECT nc.next_version_id FROM catalogs nc WHERE nc.tenant_key = $alias.tenant_key AND nc.catalog_id = $alias.catalog_id), FALSE)"
+
+/** Makes version [versionParam] the next version of the catalog it belongs to (`catalogs.next_version_id`). */
+fun setNext(tenantParam: String, versionParam: String): String = "UPDATE catalogs c SET next_version_id = v.version_id FROM catalog_versions v " +
+    "WHERE v.tenant_key = :$tenantParam AND v.version_id = :$versionParam AND c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id"
+
 /** The catalog at [catalog] (see [catalogAt]), or null. */
 fun Handle.findCatalog(catalog: CatalogId): Catalog? = createQuery(
-    "SELECT * FROM catalogs WHERE tenant_key = :tenantKey AND catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
+    "SELECT $CATALOG_ROW_COLUMNS FROM catalogs c $CATALOG_RELEASE_JOIN WHERE c.tenant_key = :tenantKey AND c.catalog_id = ${catalogAt("tenantKey", "catalogKey")}",
 )
     .bind("tenantKey", catalog.tenantKey)
     .bindCatalog("catalogKey", catalog)

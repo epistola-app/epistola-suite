@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.releases
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -127,7 +128,7 @@ class CatalogReleaseTargeting(
      */
     fun resolve(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val match = when (val draft = ref.draft) {
-            DraftRef.Next -> "v.is_next"
+            DraftRef.Next -> isNext("v")
 
             is DraftRef.Id -> "v.version_key = :id"
 
@@ -188,7 +189,7 @@ class CatalogReleaseTargeting(
     fun resolveRelease(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val version = (ref.draft as DraftRef.Released).version
         handle.createQuery(
-            "SELECT r.catalog_id FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v",
+            "SELECT r.catalog_id FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v",
         )
             .bind("t", ref.tenantKey)
             .bindCatalog("c", ref.catalog)

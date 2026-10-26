@@ -9,6 +9,7 @@ import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.CatalogNotFoundException
 import app.epistola.suite.catalog.CatalogPublicationPolicy
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.findCatalog
 import app.epistola.suite.catalog.requireCatalogEditable
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
@@ -17,7 +18,6 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class SetCatalogPublicationSettings(
@@ -37,20 +37,19 @@ class SetCatalogPublicationSettingsHandler(
     override fun handle(command: SetCatalogPublicationSettings): Catalog {
         requireCatalogEditable(command.catalog)
         return jdbi.withHandle<Catalog, Exception> { handle ->
-            handle.createQuery(
+            val updated = handle.createUpdate(
                 """
                 UPDATE catalogs
                 SET exchange_publication_policy = :policy
                 WHERE tenant_key = :tenantKey AND catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
-                RETURNING *
                 """,
             )
                 .bind("tenantKey", command.tenantKey)
                 .bindCatalog("catalogKey", command.catalog)
                 .bind("policy", command.policy)
-                .mapTo<Catalog>()
-                .findOne()
-                .orElseThrow { CatalogNotFoundException(command.catalogKey) }
+                .execute()
+            // Read back with its current release, a query over its released rows (ADR 0036).
+            handle.findCatalog(command.catalog)?.takeIf { updated > 0 } ?: throw CatalogNotFoundException(command.catalogKey)
         }
     }
 }

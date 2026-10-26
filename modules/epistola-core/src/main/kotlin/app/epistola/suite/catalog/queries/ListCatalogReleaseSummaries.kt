@@ -60,8 +60,8 @@ class ListCatalogReleaseSummariesHandler(
                    (SELECT count(*) FROM release_wire_resources e
                      WHERE e.tenant_key = r.tenant_key AND e.catalog_id = r.catalog_id AND e.version = r.version
                    ) AS resource_count
-            FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
+            FROM catalog_versions r
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             LIMIT :limit OFFSET :offset
             """,
@@ -98,7 +98,7 @@ class CountCatalogReleasesHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<CountCatalogReleases, Long> {
     override fun handle(query: CountCatalogReleases): Long = jdbi.withHandle<Long, Exception> { handle ->
-        handle.createQuery("SELECT count(*) FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createQuery("SELECT count(*) FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", query.tenantKey)
             .bindCatalog("c", query.catalog)
             .mapTo(Long::class.java)

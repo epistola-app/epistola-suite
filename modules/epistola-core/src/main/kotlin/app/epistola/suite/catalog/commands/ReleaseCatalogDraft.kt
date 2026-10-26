@@ -41,6 +41,7 @@ import app.epistola.suite.catalog.releases.CatalogReleaseTargeting
 import app.epistola.suite.catalog.releases.ChangeKind
 import app.epistola.suite.catalog.releases.DraftNumberAssessment
 import app.epistola.suite.catalog.releases.DraftRef
+import app.epistola.suite.catalog.releases.FrozenRelease
 import app.epistola.suite.catalog.releases.GetCatalogDraft
 import app.epistola.suite.catalog.releases.NextVersionHandOver
 import app.epistola.suite.catalog.releases.ReleaseLineage
@@ -76,7 +77,7 @@ import java.util.UUID
 /**
  * Releases a draft of a catalog (contract `releaseCatalogDraft`, ADR 0002): records an
  * explicit, immutable release boundary (SemVer + content fingerprint + notes + a manifest snapshot)
- * and, when it is the catalog's highest, advances the catalog's released-version pointer.
+ * and freezes the draft's row as the release; the catalog's current release is its highest (ADR 0036).
  *
  * - Any draft can be released: [catalogVersion], or the next version when that is null.
  * - It is numbered when it is released: [version], or, when that is null, the number its changes
@@ -427,57 +428,15 @@ class ReleaseCatalogDraftHandler(
         val port = publicationPort.ifAvailable?.takeIf { shouldPublish(command, catalog, it) }
         val archive = port?.let { archiveBuilder.build(content, manifest) }
         var publicationId: UUID? = null
-        val highest = latest == null || newVersion > latest
 
         jdbi.useTransaction<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO catalog_releases (tenant_key, catalog_id, version, fingerprint, content_hash, notes, manifest_snapshot, released_at,
-                                              rendering_defaults_version, base_version, base_fingerprint, version_key,
-                                              released_by, released_by_installation)
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :fingerprint, :contentHash, :notes, CAST(:snapshot AS JSONB), :releasedAt, :renderingDefaults, :base,
-                        :baseFingerprint, :key, :releasedBy, :releasedByInstallation)
-                """,
-            )
-                .bind("contentHash", contentHash)
-                // Who released it: the user, and this installation.
-                .bind("releasedBy", currentUserIdOrNull()?.value)
-                .bind("releasedByInstallation", releasedByInstallation)
+            // The catalog's current release is a query over its released rows (ADR 0036,
+            // `catalog_current_releases`): its highest, so a maintenance release of a lower line (ADR
+            // 0002 "Ordering") does not move it back. The catalog itself only records that it changed.
+            handle.createUpdate("UPDATE catalogs SET updated_at = NOW() WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)")
                 .bind("t", command.tenantKey)
                 .bindCatalog("c", command.catalog)
-                .bind("version", newVersion.toString())
-                // The release keeps the draft's id (contract ADR 0002).
-                .bind("key", draft.key)
-                // The release keeps the draft's base (ADR 0002), which is gone once the draft is.
-                .bind("base", draft.base)
-                .bind("baseFingerprint", releaseInfo.base?.fingerprint)
-                .bind("fingerprint", fingerprint)
-                .bind("notes", command.notes)
-                .bindJsonb("snapshot", manifest, objectMapper)
-                .bind("releasedAt", releasedAt)
-                .bind("renderingDefaults", RenderingDefaults.CURRENT.version)
                 .execute()
-
-            // The catalog's released version is its highest: a maintenance release of a lower line
-            // (ADR 0002 "Ordering") does not move it back.
-            if (highest) {
-                handle.createUpdate(
-                    """
-                    UPDATE catalogs
-                    SET released_version = :version, released_fingerprint = :fingerprint,
-                        released_at = :releasedAt, updated_at = NOW()
-                    WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-                    """,
-                )
-                    .bind("t", command.tenantKey)
-                    .bindCatalog("c", command.catalog)
-                    .bind("version", newVersion.toString())
-                    .bind("fingerprint", fingerprint)
-                    .bind("releasedAt", releasedAt)
-                    .execute()
-            }
-
-            ReleaseLineage.recordMerged(handle, command.catalog, newVersion.toString(), mergeParents)
 
             // Inside the release transaction: a release, the content it retains and the record of
             // what it contained commit together, so there is no state where one exists without the
@@ -495,7 +454,27 @@ class ReleaseCatalogDraftHandler(
             // its content rows become the release's below. Environments serving the draft name its row,
             // so they serve the release once it is frozen; they are read first, to log each.
             val servedDraft = DraftDeploymentStore.servingDraft(handle, command.tenantKey, draft.versionId)
-            drafts.freeze(handle, command.tenantKey, draft.versionId, newVersion.toString())
+            drafts.freeze(
+                handle,
+                command.tenantKey,
+                draft.versionId,
+                FrozenRelease(
+                    version = newVersion.toString(),
+                    fingerprint = fingerprint,
+                    contentHash = contentHash,
+                    notes = command.notes,
+                    manifestSnapshot = objectMapper.writeValueAsString(manifest),
+                    renderingDefaultsVersion = RenderingDefaults.CURRENT.version,
+                    releasedAt = releasedAt,
+                    // Who released it: the user, and this installation.
+                    releasedBy = currentUserIdOrNull()?.value,
+                    releasedByInstallation = releasedByInstallation,
+                    // The release keeps the draft's base (ADR 0002), which is gone once the draft is.
+                    base = draft.base,
+                    baseFingerprint = releaseInfo.base?.fingerprint,
+                ),
+            )
+            ReleaseLineage.recordMerged(handle, command.catalog, newVersion.toString(), mergeParents)
             if (draft.isNext || handsOver) {
                 // The next version, a convention of this suite, continues on this release: a new row
                 // holding what the release holds, measured against it.
@@ -619,7 +598,7 @@ class ReleaseCatalogDraftHandler(
 
     private fun loadReleases(catalog: CatalogId): List<ReleaseRow> = jdbi.withHandle<List<ReleaseRow>, Exception> { handle ->
         handle.createQuery(
-            "SELECT version, fingerprint, released_at, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
+            "SELECT version, fingerprint, released_at, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}",
         )
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)

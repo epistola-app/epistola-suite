@@ -57,7 +57,8 @@ class OneVersionTableMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        // Up to the last step with catalog_releases and its mirror (ADR 0036, step (e) drops both).
+        flyway(BEFORE_DROP_CATALOG_RELEASES).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             assertThat(connection.rows("SELECT version_key, state, origin, version, fingerprint FROM catalog_versions WHERE state = 'released' ORDER BY version"))

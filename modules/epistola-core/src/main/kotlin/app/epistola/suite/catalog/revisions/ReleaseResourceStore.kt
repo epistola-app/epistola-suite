@@ -186,8 +186,8 @@ class ReleaseResourceStore {
         .createQuery(
             """
             SELECT r.version
-            FROM catalog_releases r
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
+            FROM catalog_versions r
+            WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             """,
         )
@@ -200,8 +200,8 @@ class ReleaseResourceStore {
     fun latestRelease(handle: Handle, catalog: CatalogId): String? = handle
         .createQuery(
             """
-            SELECT version FROM catalog_releases
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
+            SELECT version FROM catalog_versions
+            WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}
             $LATEST_RELEASE_ORDER
             LIMIT 1
             """,
@@ -216,9 +216,9 @@ class ReleaseResourceStore {
     fun latestReleases(handle: Handle, tenantKey: TenantKey): Map<CatalogId, String> = handle
         .createQuery(
             """
-            SELECT DISTINCT ON (r.catalog_id) cat.namespace, cat.catalog_key, r.version FROM catalog_releases r
+            SELECT DISTINCT ON (r.catalog_id) cat.namespace, cat.catalog_key, r.version FROM catalog_versions r
             JOIN catalogs cat ON cat.tenant_key = r.tenant_key AND cat.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t
+            WHERE r.state = 'released' AND r.tenant_key = :t
             ORDER BY r.catalog_id, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )

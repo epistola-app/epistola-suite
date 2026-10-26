@@ -168,7 +168,7 @@ class ReleaseDependencies(
     private data class Release(val fingerprint: String)
 
     private fun release(handle: Handle, catalog: CatalogId, version: String): Release? = handle
-        .createQuery("SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        .createQuery("SELECT fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
         .bind("v", version)

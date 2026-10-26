@@ -21,6 +21,7 @@ import app.epistola.suite.catalog.commands.ReleaseCatalogDraft
 import app.epistola.suite.catalog.commands.UpdateCatalogDependencies
 import app.epistola.suite.catalog.graph.CatalogResourceType
 import app.epistola.suite.catalog.graph.ResourceAddress
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.CatalogResourceState
 import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.catalog.queries.GetCatalogResourceChanges
@@ -123,7 +124,7 @@ class SeveralDraftsTest : IntegrationTestBase() {
         DraftRef.Next -> jdbi.withHandle<UUID, Exception> { handle ->
             handle.createQuery(
                 "SELECT v.version_id FROM catalog_versions v JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id " +
-                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND v.is_next",
+                    "WHERE c.tenant_key = :t AND c.catalog_key = :c AND ${isNext("v")}",
             ).bind("t", tenant).bind("c", letters).mapTo(UUID::class.java).one()
         }
 

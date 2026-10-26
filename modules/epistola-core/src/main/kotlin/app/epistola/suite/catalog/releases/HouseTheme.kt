@@ -6,6 +6,7 @@ package app.epistola.suite.catalog.releases
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogEditability
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -50,7 +51,7 @@ object HouseTheme {
             UPDATE catalog_versions v SET default_theme_resource_id = (SELECT default_theme_resource_id FROM tenants WHERE id = :t)
             FROM catalogs c
             WHERE c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
-              AND v.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND v.is_next
+              AND v.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND ${isNext("v")}
             """,
         )
             .bind("t", catalog.tenantKey)

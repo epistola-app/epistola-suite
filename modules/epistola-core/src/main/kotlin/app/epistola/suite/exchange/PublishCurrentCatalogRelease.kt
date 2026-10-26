@@ -229,14 +229,14 @@ class PublishCurrentCatalogReleaseHandler(
         val selection = if (command.version != null) {
             "AND r.version = :version"
         } else {
-            "AND r.version = c.released_version"
+            "AND r.version_id = (SELECT cr.version_id FROM catalog_current_releases cr WHERE cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id)"
         }
         handle.createQuery(
             """
             SELECT r.version, r.fingerprint, r.released_at
-            FROM catalog_releases r
+            FROM catalog_versions r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
+            WHERE r.state = 'released' AND r.tenant_key = :tenantKey AND c.catalog_id = epistola_catalog_id(:tenantKey, :catalogKey_ns, :catalogKey)
               $selection
             """,
         ).apply { if (command.version != null) bind("version", command.version) }

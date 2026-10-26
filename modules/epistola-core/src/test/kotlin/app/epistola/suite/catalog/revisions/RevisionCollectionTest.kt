@@ -190,11 +190,10 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     /**
-     * Deleting a release moves the catalog's current-release pointer, and that is the part that
-     * matters. `catalogs.released_version` / `released_fingerprint` / `released_at` have no foreign
-     * key keeping them honest, and `released_at` is what the drift rule compares the working copy
-     * against — so a pointer left naming a deleted release makes every catalog screen report drift
-     * against something that no longer exists.
+     * Deleting a release moves the catalog's current release, and that is the part that matters:
+     * `released_at` is what the drift rule compares the working copy against, so a current release
+     * naming a deleted one would make every catalog screen report drift against something that no
+     * longer exists. Since ADR 0036 it is a view over the released rows, so it cannot.
      */
     @Test
     fun `deleting the latest release points the catalog at the one before it`() {
@@ -299,12 +298,13 @@ class RevisionCollectionTest : IntegrationTestBase() {
     }
 
     /**
-     * Raw SQL: the pointer is three columns on `catalogs` that no read model exposes as such, and
-     * what is under test is the columns themselves rather than anything derived from them.
+     * Raw SQL: the catalog's current release is the view `catalog_current_releases` (ADR 0036), and
+     * what is under test is that view itself rather than anything derived from it.
      */
     private fun pointer(tenantKey: String, catalogKey: String): Map<String, Any?> = jdbi.withHandle<Map<String, Any?>, Exception> { handle ->
         handle.createQuery(
-            "SELECT released_version, released_fingerprint, released_at FROM catalogs WHERE tenant_key = :t AND catalog_key = :c",
+            "SELECT cr.version AS released_version, cr.fingerprint AS released_fingerprint, cr.released_at FROM catalogs c " +
+                "LEFT JOIN catalog_current_releases cr ON cr.tenant_key = c.tenant_key AND cr.catalog_id = c.catalog_id WHERE c.tenant_key = :t AND c.catalog_key = :c",
         )
             .bind("t", tenantKey).bind("c", catalogKey)
             .map { rs, _ ->
@@ -319,7 +319,7 @@ class RevisionCollectionTest : IntegrationTestBase() {
 
     private fun releaseFingerprint(tenantKey: String, catalogKey: String, version: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT fingerprint FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
+            "SELECT fingerprint FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v",
         )
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)
             .mapTo(String::class.java)
@@ -373,8 +373,8 @@ class RevisionCollectionTest : IntegrationTestBase() {
     private fun releaseRow(tenantKey: String, catalogKey: String, version: String): Map<String, Any?>? = jdbi.withHandle<Map<String, Any?>?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT notes, fingerprint FROM catalog_releases
-                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                SELECT notes, fingerprint FROM catalog_versions
+                WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                 """,
         )
             .bind("t", tenantKey).bindCatalog("c", testCatalog(tenantKey, catalogKey)).bind("v", version)

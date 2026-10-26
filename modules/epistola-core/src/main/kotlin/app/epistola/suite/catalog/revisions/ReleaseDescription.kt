@@ -116,13 +116,13 @@ object ReleaseDescription {
         base = info.base ?: base(recorded.baseVersion, recorded.baseFingerprint),
     )
 
-    /** What `catalog_releases` records of a release that describes it. */
+    /** What a release's row records of it that describes it. */
     data class RecordedDescription(
         val releaseId: String?,
         val renderingDefaultsVersion: Int?,
         val baseVersion: String?,
         val baseFingerprint: String?,
-        /** The installation that cut it, as `catalog_releases.released_by_installation` records it. */
+        /** The installation that cut it, as its row's `released_by_installation` records it. */
         val releasedByInstallation: UUID? = null,
         /** Its merge parents, as `catalog_release_merges` records them. */
         val merged: List<ReleaseParent> = emptyList(),

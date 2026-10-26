@@ -201,7 +201,7 @@ data class MergeInputs(
  * computes for the same content, and comparing the two reports changes nobody made.
  *
  * The merge base is found by the lineage each release records ([ReleaseLineage]: its base,
- * `catalog_releases.base_version`, and its merge parents, `catalog_release_merges`, as cut here or as a
+ * `catalog_versions.base_version`, and its merge parents, `catalog_release_merges`, as cut here or as a
  * received release named them), never guessed from the release numbers (contract ADR 0005): a release
  * that records none ends its line.
  */

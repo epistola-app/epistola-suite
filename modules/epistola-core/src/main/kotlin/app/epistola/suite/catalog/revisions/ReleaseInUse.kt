@@ -74,7 +74,7 @@ object ReleaseInUse {
 
     /** As [requireUnused], for every release of a catalog that is about to be deleted. */
     fun requireCatalogUnused(handle: Handle, catalog: CatalogId) {
-        handle.createQuery("SELECT version FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+        handle.createQuery("SELECT version FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", catalog.tenantKey)
             .bindCatalog("c", catalog)
             .mapTo(String::class.java)

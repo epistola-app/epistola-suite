@@ -41,9 +41,9 @@ class ListDeployableReleasesHandler(
         handle.createQuery(
             """
             SELECT c.catalog_key AS catalog_key, c.namespace, c.name AS catalog_name, r.version
-            FROM catalog_releases r
+            FROM catalog_versions r
             JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t
+            WHERE r.state = 'released' AND r.tenant_key = :t
             ORDER BY c.name, c.catalog_key, c.namespace, ${app.epistola.suite.catalog.queries.releaseNumberOrder("r")}
             """,
         )

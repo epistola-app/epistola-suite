@@ -51,7 +51,7 @@ class ReleasedByTest : IntegrationTestBase() {
     private fun manifestOf(bytes: ByteArray): CatalogManifest = objectMapper.readValue(archives.entries(bytes)["catalog.json"]!!, CatalogManifest::class.java)
 
     private fun releasedBy(tenant: app.epistola.suite.common.ids.TenantKey, catalog: CatalogKey, version: String): Pair<UUID?, UUID?> = jdbi.withHandle<Pair<UUID?, UUID?>, Exception> { h ->
-        h.createQuery("SELECT released_by, released_by_installation FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
+        h.createQuery("SELECT released_by, released_by_installation FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v")
             .bind("t", tenant).bindCatalog("c", testCatalog(tenant, catalog)).bind("v", version)
             .map { rs, _ -> rs.getObject(1, UUID::class.java) to rs.getObject(2, UUID::class.java) }
             .one()

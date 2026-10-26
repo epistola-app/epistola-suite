@@ -126,9 +126,10 @@ class CatalogUpstreamCheckStore(
         // the scheduler to hold a principal it has no business holding.
         val rows = handle.createQuery(
             """
-                SELECT c.*
+                SELECT $CATALOG_ROW_COLUMNS
                 FROM catalog_upstream_checks u
                 JOIN catalogs c ON c.tenant_key = u.tenant_key AND c.catalog_id = u.catalog_id
+                $CATALOG_RELEASE_JOIN
                 WHERE u.next_check_at <= NOW()
                   AND c.source_url IS NOT NULL
                   AND (u.claimed_at IS NULL OR u.claimed_at < NOW() - :lease * INTERVAL '1 second')

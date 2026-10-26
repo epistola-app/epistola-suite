@@ -8,6 +8,7 @@ import app.epistola.catalog.canonical.QualifiedCatalogFingerprint
 import app.epistola.catalog.protocol.CatalogDependency
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
@@ -309,7 +310,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
     private fun recordedCandidates(handle: Handle, tenantKey: TenantKey, declaration: CatalogDependencyDeclaration): List<app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded> {
         val catalog = catalogNamed(handle, tenantKey, declaration) ?: return emptyList()
         return handle
-            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_releases WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
+            .createQuery("SELECT version, fingerprint, content_hash FROM catalog_versions WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")}")
             .bind("t", tenantKey)
             .bindCatalog("c", catalog)
             .map { rs, _ -> app.epistola.suite.catalog.revisions.ReleaseIdentity.Recorded(rs.getString("version"), rs.getString("fingerprint"), rs.getString("content_hash")) }
@@ -361,7 +362,7 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
             """
             SELECT dv.version_key, $DRAFT_LABEL AS label FROM catalog_versions dv
             JOIN catalogs dc ON dc.tenant_key = dv.tenant_key AND dc.catalog_id = dv.catalog_id
-            WHERE dv.tenant_key = :t AND dv.state = 'draft' AND dv.is_next
+            WHERE dv.tenant_key = :t AND dv.state = 'draft' AND ${isNext("dv")}
               AND dc.registry = :registry AND dc.namespace = :namespace AND dc.catalog_key = :key
             """,
         )
@@ -438,9 +439,9 @@ class CatalogDependencyStore(private val identity: app.epistola.suite.catalog.re
                    AND rc.registry = :registry AND rc.namespace = :namespace AND rc.catalog_key = :key))"""
 
         /** A draft's label over alias `dv`: its name, or "Next release" for the next release. */
-        const val DRAFT_LABEL = "CASE WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END"
+        val DRAFT_LABEL = "CASE WHEN ${isNext("dv")} THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END"
 
         /** The same over alias `v`, for the declaring draft. */
-        const val DECLARING_LABEL = "CASE WHEN v.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
+        val DECLARING_LABEL = "CASE WHEN ${isNext("v")} THEN '${CatalogDraft.NEXT_LABEL}' ELSE v.name END"
     }
 }

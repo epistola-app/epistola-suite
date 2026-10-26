@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.commands.PurgeTenantCatalogs
 import app.epistola.suite.catalog.commands.PurgeTenantCatalogsResult
 import app.epistola.suite.catalog.identity.TenantResourceIdentities
 import app.epistola.suite.catalog.identity.TenantResourceIdentityStore
+import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.migrations.CatalogSchemaMigrator
 import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.common.ids.CatalogKey
@@ -199,24 +200,18 @@ class RestoreTenantSnapshotHandler(
             for (release in entry.releases) {
                 handle.createUpdate(
                     """
-                    UPDATE catalog_releases
-                    SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes
-                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                    UPDATE catalog_versions
+                    SET released_at = COALESCE(CAST(:at AS TIMESTAMPTZ), released_at), released_by = CAST(:by AS UUID), notes = :notes,
+                        -- Cut here or received, as it was (the restore brings every release back by
+                        -- installing it): the catalog's current release cut here is named by the
+                        -- snapshot, and a received one carries the note installing gave it.
+                        origin = CASE WHEN version = :current OR COALESCE(:notes, '') NOT LIKE 'Installed from %' THEN 'authored' ELSE 'installed' END
+                    WHERE state = 'released' AND tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :v
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", release.version)
                     .bind("at", release.releasedAt).bind("by", release.releasedBy).bind("notes", release.notes)
-                    .execute()
-            }
-            if (entry.version != null) {
-                handle.createUpdate(
-                    """
-                    UPDATE catalogs c SET released_version = r.version, released_fingerprint = r.fingerprint, released_at = r.released_at
-                    FROM catalog_releases r
-                    WHERE c.tenant_key = :t AND c.catalog_id = epistola_catalog_id(:t, :c_ns, :c) AND r.tenant_key = c.tenant_key AND r.catalog_id = c.catalog_id AND r.version = :v
-                    """,
-                )
-                    .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("v", entry.version)
+                    .bind("current", entry.version)
                     .execute()
             }
             entry.installed?.let { installed ->
@@ -230,8 +225,8 @@ class RestoreTenantSnapshotHandler(
                 handle.createUpdate(
                     """
                     UPDATE catalog_versions SET base_version = :b
-                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND is_next
-                      AND EXISTS (SELECT 1 FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
+                    WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND state = 'draft' AND ${isNext("catalog_versions")}
+                      AND EXISTS (SELECT 1 FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = catalog_versions.catalog_id AND r.version = :b)
                     """,
                 )
                     .bind("t", tenantKey).bindCatalog("c", entry.catalogIn(tenantKey)).bind("b", base)

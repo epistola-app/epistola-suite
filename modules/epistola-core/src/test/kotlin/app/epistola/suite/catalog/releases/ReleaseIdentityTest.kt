@@ -82,9 +82,9 @@ class ReleaseIdentityTest : IntegrationTestBase() {
     private fun recordedBeforeV6(tenant: TenantKey, catalog: CatalogKey, version: String, fingerprint: String) = jdbi.useHandle<Exception> { handle ->
         handle.createUpdate(
             """
-            UPDATE catalog_releases r SET fingerprint = :f,
+            UPDATE catalog_versions r SET fingerprint = :f,
                    manifest_snapshot = jsonb_set(r.manifest_snapshot, '{release,fingerprint}', to_jsonb(CAST(:f AS TEXT)))
-            FROM catalogs c WHERE c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
+            FROM catalogs c WHERE r.state = 'released' AND c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id AND r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
             """,
         ).bind("f", fingerprint).bind("t", tenant).bind("c", catalog).bind("v", version).execute()
     }
@@ -92,8 +92,8 @@ class ReleaseIdentityTest : IntegrationTestBase() {
     private fun recorded(tenant: TenantKey, catalog: CatalogKey, version: String): Pair<String, String?> = jdbi.withHandle<Pair<String, String?>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT r.fingerprint, r.content_hash FROM catalog_releases r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
-            WHERE r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
+            SELECT r.fingerprint, r.content_hash FROM catalog_versions r JOIN catalogs c ON c.tenant_key = r.tenant_key AND c.catalog_id = r.catalog_id
+            WHERE r.state = 'released' AND r.tenant_key = :t AND c.catalog_key = :c AND r.version = :v
             """,
         ).bind("t", tenant).bind("c", catalog).bind("v", version)
             .map { rs, _ -> rs.getString(1) to rs.getString(2) }

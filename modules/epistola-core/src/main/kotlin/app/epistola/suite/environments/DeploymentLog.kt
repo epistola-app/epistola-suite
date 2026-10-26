@@ -81,7 +81,7 @@ internal object DeploymentLog {
                 (SELECT registry FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)),
                 (SELECT namespace FROM catalogs WHERE tenant_key = :t AND catalog_id = epistola_catalog_id(:t, :c_ns, :c)),
                 :action, :v, :previous, :draft,
-                COALESCE(CAST(:key AS VARCHAR), (SELECT r.version_key FROM catalog_releases r WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v)),
+                COALESCE(CAST(:key AS VARCHAR), (SELECT r.version_key FROM catalog_versions r WHERE r.state = 'released' AND r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version = :v)),
                 clock_timestamp(), :by
             )
             """,
