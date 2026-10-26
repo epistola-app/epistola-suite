@@ -34,3 +34,6 @@ internal const val BEFORE_TEMPLATE_STORAGE = "20261025150938"
 
 /** The last migration before every catalog version became a row of `catalog_versions` (ADR 0036, `V20261026162943`). */
 internal const val BEFORE_ONE_VERSION_TABLE = "20261026141633"
+
+/** The last migration before a release's settings were filled in on its row from its manifest (ADR 0036, `V20261026170942`). */
+internal const val BEFORE_RELEASE_SETTINGS_ON_ROW = "20261026162943"

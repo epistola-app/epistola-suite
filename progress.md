@@ -31,7 +31,7 @@ against those ADRs.
 
 Occurrences: one removed (the key swap in `advance`); main Kotlin naming `catalog_versions`, `catalog_releases` or `version_id` went from 43/73/164 to 46/75/170 with `freeze`/`startNext`. The reduction comes with (b)–(e).
 
-Deviations from ADR 0036, noted for review: `base_fingerprint` (and the free-text `base_version`) stay beside `base_version_id`, because a release's base may not be installed here; migrated releases leave `default_theme_resource_id`/`presets` empty (they are in their manifest), to be filled when a release's settings are read from its row.
+Decided with the ADR: `base_version` and `base_fingerprint` stay beside `base_version_id`, because a release's base may not be installed here. A release's settings are on its row: one cut here keeps its draft's; one recorded from a manifest (migrated, installed) takes the manifest's default theme (resolved through its declarations) and presets (`V20261026170942`, `RecordInstalledRelease`), ✅ `ReleaseSettingsOnRowMigrationTest` (failed before: no settings), `AliasReferenceRoundTripTest` (the installed row's default theme; failed without the fill).
 
 ### ADR 0033 storage, step 8: one collector (25 October; branch `feat/storage-cleanup`, on `feat/storage-templates`, not pushed)
 
