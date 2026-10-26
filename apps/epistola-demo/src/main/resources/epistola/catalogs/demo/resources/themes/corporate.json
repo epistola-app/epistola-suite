@@ -33,6 +33,9 @@
         }
       }
     },
-    "spacingUnit": 4.0
+    "spacingUnit": 4.0,
+    "defaultBlockStyles": {
+      "marginBottom": "8pt"
+    }
   }
 }

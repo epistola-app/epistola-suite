@@ -15,3 +15,6 @@ same way.
 Every type stored as JSON keeps a received resource's metadata: installing or importing a release
 stores it, an author's edit or a move keeps it, and exporting carries it. Because no fingerprint
 covers it, a later release that changes only metadata is no change to install.
+
+The demo catalog is 6.6.0: the invoice thanks the customer when there are no notes (an else
+branch), keeps its logo with the block after it, and the corporate theme sets 8pt below every block.

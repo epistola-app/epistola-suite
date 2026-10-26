@@ -40,9 +40,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "6.5.0",
+    "version": "6.6.0",
     "releasedAt": "2026-10-22T00:00:00Z",
-    "fingerprint": "v6:e995e05e6b7addd7c955ea3db445bb3518ae23e6b01961178c85e59fb4f628eb"
+    "fingerprint": "v6:f2a6c463da4dd545e274a0cc4efc70e82ab932e4719c59e7a85c23264b149f97"
   },
   "catalogDependencies": [
     {
