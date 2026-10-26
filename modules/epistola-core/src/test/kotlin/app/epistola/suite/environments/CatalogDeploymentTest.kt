@@ -119,6 +119,21 @@ class CatalogDeploymentTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `deleting a catalog whose draft an environment serves ends that deployment, logged`() {
+        val (tenant, letters, _) = releasedTwice("dep-draft-delete")
+        val test = EnvironmentId(EnvironmentKey.of("test"), TenantId(tenant))
+        withMediator {
+            CreateEnvironment(test, "Test").execute()
+            val next = app.epistola.suite.catalog.releases.GetCatalogDraft(letters).query()!!.versionId
+            DeployCatalogRelease(test, letters, next).execute()
+        }
+
+        assertThat(withMediator { DeleteCatalog(testCatalog(letters.tenantKey, letters.key), force = true).execute() }).isTrue()
+
+        assertThat(withMediator { ListDeploymentHistory(test).query() }.first().action).isEqualTo(DeploymentAction.UNDEPLOYED)
+    }
+
+    @Test
     fun `a release another release is pinned to is kept until that release is deleted`() {
         val tenant = createTenant("dep-borrowed").id
         val shared = catalogIn(tenant, "shared")

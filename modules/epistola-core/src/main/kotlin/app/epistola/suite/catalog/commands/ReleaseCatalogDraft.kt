@@ -492,7 +492,9 @@ class ReleaseCatalogDraftHandler(
             val handsOver = command.continueEverydayWork != null && !draft.isNext
             if (handsOver) handOver.apply(handle, command.catalog, draft, command.continueEverydayWork.keepPreviousAs?.trim())
             // The draft becomes the release (ADR 0036): its row is frozen, keeping its id and name, and
-            // its content rows become the release's below.
+            // its content rows become the release's below. Environments serving the draft name its row,
+            // so they serve the release once it is frozen; they are read first, to log each.
+            val servedDraft = DraftDeploymentStore.servingDraft(handle, command.tenantKey, draft.versionId)
             drafts.freeze(handle, command.tenantKey, draft.versionId, newVersion.toString())
             if (draft.isNext || handsOver) {
                 // The next version, a convention of this suite, continues on this release: a new row
@@ -516,7 +518,7 @@ class ReleaseCatalogDraftHandler(
             dependencyStore.pinDeclarationsOf(handle, command.tenantKey, draft.versionId, CatalogDependencyRelease(newVersion.toString(), fingerprint))
             // The draft became the release, keeping its id: environments serving it serve the release
             // (contract ADR 0003), logged as released.
-            DraftDeploymentStore.releaseFor(handle, command.tenantKey, draft.versionId, newVersion.toString())
+            DraftDeploymentStore.released(handle, command.tenantKey, draft.versionId, servedDraft, newVersion.toString())
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

@@ -6,6 +6,7 @@ package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -103,7 +104,7 @@ class DeploymentUsage(
                 UPDATE environment_catalog_deployments
                 SET documents_requested = documents_requested + :count,
                     last_used_at = GREATEST(last_used_at, :last)
-                WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v
+                WHERE tenant_key = :t AND environment_key = :e AND target_version_id = ${releaseAt("t", "c", "v")}
                 """,
             )
             taken.forEach { (key, tally) ->

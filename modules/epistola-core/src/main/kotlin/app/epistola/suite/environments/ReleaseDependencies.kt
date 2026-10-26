@@ -7,6 +7,7 @@ package app.epistola.suite.environments
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.dependencies.CatalogDependencyStore
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -134,9 +135,10 @@ class ReleaseDependencies(
     fun served(handle: Handle, tenantKey: TenantKey, environmentKey: EnvironmentKey): List<Pair<CatalogId, String>> = handle
         .createQuery(
             """
-            SELECT cat.namespace, cat.catalog_key, d.version FROM environment_catalog_deployments d
+            SELECT cat.namespace, cat.catalog_key, tv.version FROM environment_catalog_deployments d
             JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
-            WHERE d.tenant_key = :t AND d.environment_key = :e AND d.version IS NOT NULL
+            JOIN catalog_versions tv ON tv.tenant_key = d.tenant_key AND tv.version_id = d.target_version_id AND tv.state = 'released'
+            WHERE d.tenant_key = :t AND d.environment_key = :e
             """,
         )
         .bind("t", tenantKey)
@@ -178,7 +180,7 @@ class ReleaseDependencies(
         .createQuery(
             """
             SELECT EXISTS (SELECT 1 FROM environment_catalog_deployments
-                           WHERE tenant_key = :t AND environment_key = :e AND catalog_id = ${catalogAt("t", "c")} AND version = :v)
+                           WHERE tenant_key = :t AND environment_key = :e AND target_version_id = ${releaseAt("t", "c", "v")})
             """,
         )
         .bind("t", catalog.tenantKey)

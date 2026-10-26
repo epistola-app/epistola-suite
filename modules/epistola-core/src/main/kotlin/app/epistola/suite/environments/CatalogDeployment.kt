@@ -5,6 +5,7 @@
 package app.epistola.suite.environments
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.releaseAt
 import app.epistola.suite.catalog.releases.CatalogDraft
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -49,14 +50,14 @@ data class CatalogDeployment(
 object DeploymentRows {
     /** The columns and joins of a deployment row, over alias `d`. */
     const val FROM = """
-        SELECT d.environment_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, cat.registry AS registry, d.version,
-               COALESCE(dv.version_key, r.version_key) AS version_id,
-               CASE WHEN dv.version_id IS NULL THEN NULL WHEN dv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE dv.name END AS draft_name,
+        SELECT d.environment_key, cat.catalog_key AS catalog_key, cat.namespace AS namespace, cat.registry AS registry,
+               CASE WHEN tv.state = 'released' THEN tv.version END AS version,
+               tv.version_key AS version_id,
+               CASE WHEN tv.state = 'released' THEN NULL WHEN tv.is_next THEN '${CatalogDraft.NEXT_LABEL}' ELSE tv.name END AS draft_name,
                d.deployed_at, d.deployed_by, d.documents_requested, d.last_used_at
         FROM environment_catalog_deployments d
         JOIN catalogs cat ON cat.tenant_key = d.tenant_key AND cat.catalog_id = d.catalog_id
-        LEFT JOIN catalog_releases r ON r.tenant_key = d.tenant_key AND r.catalog_id = d.catalog_id AND r.version = d.version
-        LEFT JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.draft_id
+        JOIN catalog_versions tv ON tv.tenant_key = d.tenant_key AND tv.version_id = d.target_version_id
     """
 
     /** The deployment of release [version], or of draft [draftId], in [environmentKey]; null when it serves neither. */
@@ -64,7 +65,7 @@ object DeploymentRows {
         """
         $FROM
         WHERE d.tenant_key = :t AND d.environment_key = :e AND cat.catalog_id = epistola_catalog_id(:t, :c_ns, :c)
-          AND ${if (version != null) "d.version = :v" else "d.draft_id = :d"}
+          AND d.target_version_id = ${if (version != null) releaseAt("t", "c", "v") else ":d"}
         """,
     )
         .bind("t", catalog.tenantKey)

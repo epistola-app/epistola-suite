@@ -54,7 +54,8 @@ class ListReleasesByContentHashHandler(
             """
             SELECT r.version, r.version_key, r.released_at, r.notes, r.fingerprint, r.content_hash, r.base_version,
                    ARRAY(SELECT d.environment_key::text FROM environment_catalog_deployments d
-                         WHERE d.tenant_key = r.tenant_key AND d.catalog_id = r.catalog_id AND d.version = r.version
+                         JOIN catalog_versions dv ON dv.tenant_key = d.tenant_key AND dv.version_id = d.target_version_id
+                         WHERE d.tenant_key = r.tenant_key AND d.catalog_id = r.catalog_id AND dv.version = r.version
                          ORDER BY d.environment_key) AS deployed_to,
                    -- All matches before LIMIT/OFFSET, from the same statement as the page.
                    COUNT(*) OVER ()::int AS total

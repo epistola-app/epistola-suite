@@ -13,6 +13,7 @@ import app.epistola.suite.catalog.revisions.ReleaseInUse
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.environments.DraftDeploymentStore
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
@@ -54,6 +55,8 @@ class DeleteCatalogHandler(
             // Its releases go with it, so none of them may still be served or depended on. Not
             // bypassed by force: force overrides references from authoring content, not rendering.
             ReleaseInUse.requireCatalogUnused(handle, command.catalog)
+            // A draft an environment serves goes with the catalog, its deployment ended and logged.
+            DraftDeploymentStore.endForCatalog(handle, command.catalog)
             // Declarations in other catalogs' drafts that build on one of its drafts go with those
             // drafts: such a draft names the catalog's content, so forcing past it drops them.
             handle.createUpdate(
