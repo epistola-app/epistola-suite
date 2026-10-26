@@ -525,6 +525,33 @@ class DirectPdfRendererTest {
     }
 
     @Test
+    fun `a conditional renders its else slot when the condition is false, and only then`() {
+        fun texts(show: Boolean): String {
+            val cond = Node(id = "cond1", type = "conditional", slots = listOf("cond1-body", "cond1-else"), props = mapOf("condition" to mapOf("raw" to "show", "language" to "simple_path")))
+            val root = Node(id = "root", type = "root", slots = listOf("root-children"))
+            val document = TemplateDocument(
+                root = "root",
+                nodes = mapOf("root" to root, "cond1" to cond, "yes" to textNode("yes", "Shown when true"), "no" to textNode("no", "Shown otherwise")),
+                slots = mapOf(
+                    "root-children" to Slot(id = "root-children", nodeId = "root", name = "children", children = listOf("cond1")),
+                    "cond1-body" to Slot(id = "cond1-body", nodeId = "cond1", name = "body", children = listOf("yes")),
+                    "cond1-else" to Slot(id = "cond1-else", nodeId = "cond1", name = "else", children = listOf("no")),
+                ),
+            )
+            val output = ByteArrayOutputStream()
+            renderer.render(document, mapOf("show" to show), output)
+            PdfDocument(PdfReader(ByteArrayInputStream(output.toByteArray()))).use { pdf ->
+                return (1..pdf.numberOfPages).joinToString("\n") { PdfTextExtractor.getTextFromPage(pdf.getPage(it)) }
+            }
+        }
+
+        val whenTrue = texts(true)
+        assertTrue("Shown when true" in whenTrue && "Shown otherwise" !in whenTrue, whenTrue)
+        val whenFalse = texts(false)
+        assertTrue("Shown otherwise" in whenFalse && "Shown when true" !in whenFalse, whenFalse)
+    }
+
+    @Test
     fun `renders template with loop node`() {
         val textNode = Node(
             id = "text1",

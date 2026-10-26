@@ -11,7 +11,8 @@ import com.itextpdf.layout.element.IElement
 /**
  * Renders a "conditional" node to iText elements.
  *
- * Only renders slot children if the condition evaluates to true (or false if inverse is set).
+ * Renders its body (every slot but `else`) when the condition holds (or does not, if inverse is
+ * set), and otherwise its `else` slot, when it has one (contract `2.0.0-alpha.3`).
  *
  * Props:
  * - `condition`: Expression object stored as Map (with "raw" and optional "language" keys)
@@ -40,10 +41,12 @@ class ConditionalNodeRenderer : NodeRenderer {
         // Apply inverse if needed
         val shouldRender = if (inverse) !conditionResult else conditionResult
 
-        return if (shouldRender) {
-            registry.renderSlots(node, document, context)
-        } else {
-            emptyList()
-        }
+        val (otherwise, body) = node.slots.partition { document.slots[it]?.name == ELSE_SLOT }
+        return (if (shouldRender) body else otherwise).flatMap { registry.renderSlot(it, document, context) }
+    }
+
+    companion object {
+        /** The slot a conditional renders when its condition does not hold. */
+        const val ELSE_SLOT = "else"
     }
 }

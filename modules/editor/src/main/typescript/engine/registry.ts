@@ -918,12 +918,13 @@ export function createDefaultRegistry(): ComponentRegistry {
     label: 'Conditional',
     icon: 'git-branch',
     category: 'logic',
-    slots: [{ name: 'body' }],
+    // The body renders when the condition holds, the else slot when it does not.
+    slots: [{ name: 'body' }, { name: 'else' }],
     allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
     inspector: [
       { key: 'condition.raw', label: 'Condition', type: 'expression' },
-      { key: 'inverse', label: 'Inverse (else)', type: 'boolean', defaultValue: false },
+      { key: 'inverse', label: 'Inverse', type: 'boolean', defaultValue: false },
     ],
     defaultProps: {
       condition: { raw: '', language: 'jsonata' },
