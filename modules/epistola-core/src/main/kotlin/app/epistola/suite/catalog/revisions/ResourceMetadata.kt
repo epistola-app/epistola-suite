@@ -4,9 +4,6 @@
 
 package app.epistola.suite.catalog.revisions
 
-import app.epistola.suite.catalog.bindCatalog
-import app.epistola.suite.catalog.catalogAt
-import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import org.jdbi.v3.core.Handle
 import tools.jackson.databind.JsonNode
@@ -48,23 +45,7 @@ object ResourceMetadata {
         .orEmpty()
 
     /** The metadata the targeted draft's row [type] [key] of [catalog] holds; null when none or no row. */
-    fun held(handle: Handle, catalog: CatalogId, type: String, key: String): JsonNode? = handle
-        .createQuery(
-            """
-            SELECT (c.payload -> 'resource' -> 'metadata')::text
-            FROM release_resources r
-            JOIN resource_contents c ON c.tenant_key = r.tenant_key AND c.content_hash = r.content_hash
-            WHERE r.tenant_key = :t AND r.catalog_id = ${catalogAt("t", "c")} AND r.version_id = ${versionAt("t", "c")}
-              AND r.resource_type = :type AND r.resource_key = :key
-            """,
-        )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .bind("type", type)
-        .bind("key", key)
-        .map { rs, _ -> rs.getString(1) }
-        .list()
-        .firstOrNull()
+    fun held(handle: Handle, catalog: CatalogId, type: String, key: String): JsonNode? = DraftResources.metadataOf(handle, catalog, type, key)
         ?.let { MAPPER.readTree(it) }
         ?.takeIf { it.isObject && !it.isEmpty }
 
