@@ -36,12 +36,15 @@ internal fun catalogClient(
     resourceLoader: ResourceLoader = DefaultResourceLoader(),
     resolver: HostResolver = HostResolver.SYSTEM,
     maxBytes: Long = 20L * 1024 * 1024,
+    // Its own cache, so a test counting reads does not see what another test in the JVM cached.
+    classpathCache: ClasspathCatalogCache = ClasspathCatalogCache(),
 ): CatalogClient {
     val guard = OutboundUrlGuard(properties, resolver)
     return CatalogClient(
         sourceReader = OutboundSourceReader(guard, OutboundHttpFetcher(guard), resourceLoader, maxBytes),
         schemaMigrator = CatalogSchemaMigrator(),
         properties = properties,
+        classpathCache = classpathCache,
     )
 }
 
@@ -78,6 +81,21 @@ class CatalogClientTest {
 
             assertThat(reads.get()).isEqualTo(1)
             assertThat(second).isSameAs(first)
+        }
+
+        @Test
+        fun `every client in the JVM shares one classpath cache by default`() {
+            // Spring makes a CatalogClient per application context, and a test JVM holds a couple of
+            // dozen contexts: a cache per client held the system fonts (14 MB) once per context.
+            fun client(): CatalogClient {
+                val guard = OutboundUrlGuard(CatalogSourceProperties(), HostResolver.SYSTEM)
+                return CatalogClient(OutboundSourceReader(guard, OutboundHttpFetcher(guard), DefaultResourceLoader(), 20L * 1024 * 1024), CatalogSchemaMigrator(), CatalogSourceProperties())
+            }
+            val manifest = client().fetchManifest(FIXTURE_MANIFEST, AuthType.NONE, null)
+            val detailUrl = manifest.resources.first().detailUrl
+
+            assertThat(client().fetchBinaryContent(detailUrl, FIXTURE_MANIFEST, AuthType.NONE, null))
+                .isSameAs(client().fetchBinaryContent(detailUrl, FIXTURE_MANIFEST, AuthType.NONE, null))
         }
 
         @Test
