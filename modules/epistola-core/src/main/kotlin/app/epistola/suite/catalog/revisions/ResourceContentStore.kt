@@ -65,13 +65,11 @@ class ResourceContentStore(
             val own = settings["${resource.type}/${resource.key}"]
             if (resource is TemplateResource) {
                 // A template is its content and one per variant (TemplateContents), as its draft stores it.
-                val descriptions = TemplateContents.descriptions(own)
                 val default = resource.variants.firstOrNull { it.isDefault } ?: resource.variants.firstOrNull()
                 variants[key] = resource.variants.map { variant ->
                     val model = if (variant.key == default?.key) resource.templateModel else variant.templateModel
-                    val description = descriptions[variant.key]
-                    val hash = write(handle, tenantKey, TemplateContents.VARIANT_KIND, TemplateContents.part(variant, model, description, objectMapper))
-                    VariantRows.Released(variant.key, hash, variant.title ?: variant.key, description)
+                    val hash = write(handle, tenantKey, TemplateContents.VARIANT_KIND, TemplateContents.part(variant, model, objectMapper))
+                    VariantRows.Released(variant.key, hash, variant.title ?: variant.key, variant.description)
                 }
                 return@mapValues write(handle, tenantKey, resource.type, TemplateContents.head(resource, objectMapper))
             }

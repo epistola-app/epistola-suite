@@ -1282,6 +1282,7 @@
       {
         "key": "nl-nl",
         "title": "Dutch",
+        "description": "The Dutch letter for residents; its wording follows the Dutch plain-language guidelines.",
         "attributes": {
           "system.locale": "nl-NL"
         },

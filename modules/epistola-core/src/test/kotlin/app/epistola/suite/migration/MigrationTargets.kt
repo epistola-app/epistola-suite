@@ -23,5 +23,11 @@ internal const val BEFORE_LEGACY_CONTENT = "20261025083200"
 /** The last migration before every asset's bytes shared one store and images moved to JSON storage (`V20261025134400`). */
 internal const val BEFORE_IMAGE_STORAGE = "20261025133400"
 
+/**
+ * The last migration before a draft variant's description moved into its released form
+ * (`V20261026085934`, contract `2.0.0-alpha.2`).
+ */
+internal const val BEFORE_VARIANT_DESCRIPTION = "20261025170800"
+
 /** The last migration before templates moved to JSON storage and their tables went (ADR 0033, `V20261025170700`). */
 internal const val BEFORE_TEMPLATE_STORAGE = "20261025150938"

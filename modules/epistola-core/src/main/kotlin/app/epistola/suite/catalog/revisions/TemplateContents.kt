@@ -21,9 +21,10 @@ import tools.jackson.databind.node.ObjectNode
  *   [{ key, attributes, isDefault }] } }`, everything the wire form says of the template and of each
  *   variant's place in it, and no model.
  * - **A variant** (a row of its own, [VariantRows], kind [VARIANT_KIND]): `{ "resource": { title,
- *   templateModel, metadata }, "description": … }`, its model whole (the default variant's included,
- *   which the wire form keeps on the template), and its description beside it until the contract
- *   carries it (`VariantEntry.description`, after contract `2.0.0-alpha.1`).
+ *   templateModel, metadata, description } }`, its model whole (the default variant's included,
+ *   which the wire form keeps on the template). A variant content stored before contract
+ *   `2.0.0-alpha.2` may keep its description beside the resource; a release holding one was
+ *   fingerprinted without it.
  *
  * Saving a variant writes its one content; the template's does not change.
  */
@@ -56,16 +57,14 @@ object TemplateContents {
      * [variant]'s content, its model [model] (the template's for the default variant); null for a
      * variant that has none of its own and renders the default's, as a received release may say.
      */
-    fun part(variant: VariantEntry, model: TemplateDocument?, description: String?, objectMapper: ObjectMapper): ObjectNode {
+    fun part(variant: VariantEntry, model: TemplateDocument?, objectMapper: ObjectMapper): ObjectNode {
         val resource = objectMapper.createObjectNode().apply {
             put("title", variant.title)
             model?.let { set("templateModel", objectMapper.valueToTree(it)) }
             variant.metadata?.takeIf { it.isNotEmpty() }?.let { set("metadata", objectMapper.valueToTree(it)) }
+            variant.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
         }
-        return objectMapper.createObjectNode().also { content ->
-            content.set("resource", resource)
-            description?.takeIf { it.isNotBlank() }?.let { content.put("description", it) }
-        }
+        return objectMapper.createObjectNode().set("resource", resource)
     }
 
     /**
@@ -93,6 +92,7 @@ object TemplateContents {
                             set("templateModel", if (key == default?.path("key")?.asString()) objectMapper.nullNode() else part?.get("templateModel") ?: objectMapper.nullNode())
                             put("isDefault", slot.path("isDefault").asBoolean(false))
                             part?.get("metadata")?.let { set("metadata", it) }
+                            part?.get("description")?.let { set("description", it) }
                         },
                     )
                 }
@@ -100,10 +100,4 @@ object TemplateContents {
         )
         return resource
     }
-
-    /** The descriptions a template's variants have, by key, from what its draft keeps beside it. */
-    fun descriptions(settings: ObjectNode?): Map<String, String> = settings?.get(VARIANT_DESCRIPTIONS)?.properties()?.associate { (key, value) -> key to value.asString() }.orEmpty()
-
-    /** The setting a release is handed for a template: each described variant's description, by key. */
-    const val VARIANT_DESCRIPTIONS = "variantDescriptions"
 }

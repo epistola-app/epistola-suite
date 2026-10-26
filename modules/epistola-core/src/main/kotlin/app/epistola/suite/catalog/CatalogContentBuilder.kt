@@ -296,6 +296,7 @@ class CatalogContentBuilder(
                         templateModel = if (v.key == default.key) null else modelOf(v),
                         isDefault = v.isDefault,
                         metadata = v.metadata?.takeIf { it.isNotEmpty() },
+                        description = v.description?.takeIf { it.isNotBlank() },
                     )
                 },
                 description = template.description,

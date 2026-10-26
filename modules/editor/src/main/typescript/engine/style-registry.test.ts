@@ -27,6 +27,18 @@ describe('editor style registry', () => {
     expect(keys).toEqual(['border', 'borderRadius']);
   });
 
+  it('offers no control for a property the renderer does not apply yet', () => {
+    const contractKeys = styleRegistry.groups.flatMap((group) => group.properties.map((p) => p.key));
+    const editorKeys = defaultStyleRegistry.groups.flatMap((group) =>
+      group.properties.map((p) => p.key),
+    );
+
+    expect(contractKeys).toEqual(expect.arrayContaining(['minHeight', 'verticalAlign']));
+    expect(editorKeys).not.toContain('minHeight');
+    expect(editorKeys).not.toContain('verticalAlign');
+    expect(defaultStyleRegistry.groups.every((group) => group.properties.length > 0)).toBe(true);
+  });
+
   it('does not mutate the contract registry', () => {
     createEditorStyleRegistry(styleRegistry);
     const spacing = styleRegistry.groups.find((group) => group.label === 'Spacing');

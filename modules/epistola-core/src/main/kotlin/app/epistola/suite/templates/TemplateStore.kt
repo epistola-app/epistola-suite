@@ -140,6 +140,7 @@ class TemplateStore(
                     templateModel = if (variant.key == default.key) null else models[variant.key] ?: PLACEHOLDER,
                     isDefault = variant.isDefault,
                     metadata = variant.metadata?.takeIf { it.isNotEmpty() },
+                    description = variant.description?.takeIf { it.isNotBlank() },
                 )
             },
             description = template.description,
@@ -152,7 +153,7 @@ class TemplateStore(
     /** [variant]'s content, its model [model] (TemplateContents.part). */
     private fun partPayload(template: StoredTemplate, variant: StoredVariant, model: TemplateDocument): ObjectNode {
         val entry = resourceOf(template, emptyMap()).variants.first { it.key == variant.key }
-        return TemplateContents.part(entry, model, variant.description, objectMapper)
+        return TemplateContents.part(entry, model, objectMapper)
     }
 
     /**
@@ -348,31 +349,6 @@ class TemplateStore(
             },
         )
     }
-
-    /**
-     * What every template of the targeted draft of [catalog] keeps beside its released form, keyed
-     * `"template/<key>"`: its variants' descriptions, which a release cut from it keeps too
-     * ([ResourceContentStore.retain]).
-     */
-    fun settings(handle: Handle, catalog: CatalogId): Map<String, ObjectNode> = handle
-        .createQuery(
-            """
-            SELECT t.id AS template, tv.id AS variant, tv.description FROM current_template_variants tv
-            JOIN current_templates t ON t.tenant_key = tv.tenant_key AND t.catalog_id = tv.catalog_id AND t.resource_id = tv.template_resource_id
-            WHERE tv.tenant_key = :t AND tv.catalog_id = ${catalogAt("t", "c")} AND tv.description IS NOT NULL
-            """,
-        )
-        .bind("t", catalog.tenantKey)
-        .bindCatalog("c", catalog)
-        .map { rs, _ -> Triple(rs.getString("template"), rs.getString("variant"), rs.getString("description")) }
-        .list()
-        .groupBy { it.first }
-        .map { (template, rows) ->
-            "$TEMPLATE/$template" to objectMapper.createObjectNode().also { settings ->
-                settings.putObject(TemplateContents.VARIANT_DESCRIPTIONS).also { map -> rows.forEach { map.put(it.second, it.third) } }
-            }
-        }
-        .toMap()
 
     private fun JsonNode.text(field: String): String? = get(field)?.takeIf { it.isString }?.asString()?.takeIf { it.isNotEmpty() }
 

@@ -163,6 +163,21 @@ class TemplateWireV8MembersTest : IntegrationTestBase() {
     }
 
     @Test
+    fun `an imported variant keeps its description, and the template built back from the rows is the release's`() {
+        val a = createTenant("Wire Variant Description A").id
+        val b = createTenant("Wire Variant Description B").id
+        val v100 = released(publish(a), "1.0.0", null) { template -> template.get("variants").forEach { (it as ObjectNode).put("description", "For courts") } }
+
+        withMediator {
+            ImportCatalogZip(tenantKey = b, zipBytes = v100).execute()
+            val built = contentBuilder.build(testCatalog(b, catalog))
+
+            assertThat(letter(built).variants.single().description).isEqualTo("For courts")
+            assertThat(fingerprints.resourceFingerprints(built).getValue("template/letter")).isEqualTo(archiveFingerprint(v100, "template/letter"))
+        }
+    }
+
+    @Test
     fun `a draft started from a release keeps them`() {
         val a = createTenant("Wire Draft A").id
         val b = createTenant("Wire Draft B").id

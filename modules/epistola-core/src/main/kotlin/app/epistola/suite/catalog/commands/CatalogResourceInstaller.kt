@@ -189,6 +189,7 @@ internal fun templateImportInput(
             templateModel = variant.templateModel,
             isDefault = variant.isDefault,
             metadata = variant.metadata,
+            description = variant.description,
         )
     },
     description = resource.description,

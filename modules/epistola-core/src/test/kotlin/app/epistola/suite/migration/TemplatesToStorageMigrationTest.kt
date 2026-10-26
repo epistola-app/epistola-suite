@@ -19,6 +19,8 @@ import java.sql.DriverManager
  * variants become one content in its released form, each variant's model a content of its own; a
  * data example is kept by its key, derived when it had none; a variant's description beside the
  * resource; a ready mark still holds; findings follow a variant through its template's content.
+ * Then `core_variant_description_in_resource` moves a draft variant's description into its released
+ * form (contract `2.0.0-alpha.2`), and the ready mark still holds.
  *
  * Seeded with raw SQL on purpose: the tables are the 1.x shape no command writes any more.
  */
@@ -90,7 +92,7 @@ class TemplatesToStorageMigrationTest {
                 """.trimIndent(),
             )
         }
-        flyway(null).migrate()
+        flyway(BEFORE_VARIANT_DESCRIPTION).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             val payload = mapper.readTree(connection.rows("SELECT payload::text FROM current_templates WHERE id = 'invoice'").single().single())
@@ -122,6 +124,25 @@ class TemplatesToStorageMigrationTest {
             assertThat(connection.rows("SELECT count(*) FROM resource_ready_marks m JOIN resource_content_digests d USING (tenant_key, version_id, resource_id, part) WHERE d.digest = m.digest").single().single())
                 .`as`("both marks hold against the content").isEqualTo("2")
             assertThat(connection.rows("SELECT CAST(to_regclass('document_templates') IS NULL AND to_regclass('template_variants') IS NULL AS TEXT)").single().single()).isEqualTo("true")
+            val beside = mapper.readTree(connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = 'second'").single().single())
+            assertThat(beside.path("description").asString()).`as`("7b keeps the description beside the resource").isEqualTo("For courts")
+        }
+
+        flyway(null).migrate()
+
+        DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
+            fun content(key: String) = mapper.readTree(
+                connection.rows("SELECT c.payload::text FROM release_resources r JOIN resource_contents c USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = '$key'").single().single(),
+            )
+            val second = content("second")
+            assertThat(second.path("resource").path("description").asString()).`as`("the description is in its released form").isEqualTo("For courts")
+            assertThat(second.has("description")).`as`("and no longer beside it").isFalse()
+            assertThat(content("default").path("resource").has("description")).`as`("a variant without one has none").isFalse()
+            assertThat(connection.rows("SELECT description FROM current_template_variants WHERE id = 'second'").single().single()).isEqualTo("For courts")
+            assertThat(connection.rows("SELECT f.resource_type || '/' || COALESCE(f.alias, '') || '/' || f.resource_key FROM release_resources r JOIN resource_references f USING (tenant_key, content_hash) WHERE r.resource_type = 'variant' AND r.resource_key = 'second' ORDER BY 1").map { it.single() })
+                .`as`("its new content names what the old one did").containsExactly("font/system/serif", "stencil//header", "theme//brand")
+            assertThat(connection.rows("SELECT count(*) FROM resource_ready_marks m JOIN resource_content_digests d USING (tenant_key, version_id, resource_id, part) WHERE d.digest = m.digest").single().single())
+                .`as`("both marks still hold").isEqualTo("2")
         }
     }
 
