@@ -16,7 +16,7 @@ import { html } from 'lit';
 import { convertSpToPt, DEFAULT_SPACING_UNIT_PT } from '../../ui/style-css.js';
 
 /** Layout-only style properties available on image nodes. */
-const IMAGE_STYLES = ['padding', 'margin'];
+const IMAGE_STYLES = ['padding', 'margin', 'keepWithNext'];
 
 export interface ImageOptions {
   assetPicker?: AssetPickerCallbacks;
