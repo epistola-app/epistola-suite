@@ -5,6 +5,7 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.catalog.bindCatalog
+import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.releases.CatalogReleaseRef
 import app.epistola.suite.catalog.releases.CatalogReleaseScoped
 import app.epistola.suite.catalog.versionAt
@@ -19,7 +20,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TemplateNotFoundException
 import app.epistola.suite.templates.commands.variants.MarkVariantReady
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -43,7 +44,7 @@ class MarkTemplateReadyHandler(
         val template = command.templateId
         val variants = jdbi.withHandle<List<String>, Exception> { handle ->
             handle.createQuery(
-                "SELECT id FROM template_variants WHERE tenant_key = :t AND version_id = ${versionAt("t", "c")} AND template_resource_id = ${templateAtAddress("t", "c", "k")} ORDER BY id",
+                "SELECT id FROM current_template_variants WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND template_resource_id = ${templateIn("t", "c", "k")} ORDER BY id",
             )
                 .bind("t", template.tenantKey)
                 .bindCatalog("c", template.catalogId)

@@ -86,7 +86,7 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[entry.contentHash]) {
                 "Release $version of ${catalog.key.value} names revision ${entry.contentHash}, which is not stored"
             }
-            entry.contentKey to detailOf(handle, catalog.tenantKey, entry.resourceType, payload)
+            entry.contentKey to detailOf(handle, catalog.tenantKey, entry.resourceType, withVariants(handle, catalog, version, entry.resourceType, entry.resourceId, payload))
         }
 
         return RetainedRelease(
@@ -117,9 +117,9 @@ class ReleaseContentAssembler(
         resourceType: String,
         resourceKey: String,
     ): CatalogResource? = jdbi.withHandle<CatalogResource?, Exception> { handle ->
-        val digest = handle.createQuery(
+        val (digest, resourceId) = handle.createQuery(
             """
-            SELECT content_hash FROM release_resources
+            SELECT content_hash, resource_id FROM release_wire_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = :type AND resource_key = :key
             """,
@@ -129,13 +129,13 @@ class ReleaseContentAssembler(
             .bind("version", version)
             .bind("type", resourceType)
             .bind("key", resourceKey)
-            .mapTo(String::class.java)
+            .map { rs, _ -> rs.getString("content_hash") to rs.getObject("resource_id", java.util.UUID::class.java) }
             .findOne()
             .orElse(null) ?: return@withHandle null
         val payload = requireNotNull(loadPayloads(handle, catalog.tenantKey, listOf(digest))[digest]) {
             "Release $version of ${catalog.key.value} names revision $digest, which is not stored"
         }
-        detailOf(handle, catalog.tenantKey, resourceType, payload).resource
+        detailOf(handle, catalog.tenantKey, resourceType, withVariants(handle, catalog, version, resourceType, resourceId, payload)).resource
     }
 
     /**
@@ -154,8 +154,22 @@ class ReleaseContentAssembler(
             val payload = requireNotNull(payloads[row.contentHash]) {
                 "Release $version of ${catalog.key.value} names content ${row.contentHash}, which is not stored"
             }
-            detailOf(handle, catalog.tenantKey, row.resourceType, payload).resource
+            detailOf(handle, catalog.tenantKey, row.resourceType, withVariants(handle, catalog, version, row.resourceType, row.resourceId, payload)).resource
         }
+    }
+
+    /**
+     * A template's content with its variants' (their rows, [VariantRows]) assembled into the wire
+     * form ([TemplateContents]); any other content as it is. Content retained before variants had rows
+     * names its models by revision instead, and passes as it is.
+     */
+    private fun withVariants(handle: Handle, catalog: CatalogId, version: String, type: String, resourceId: java.util.UUID, payload: JsonNode): JsonNode {
+        if (type != "template") return payload
+        val hashes = VariantRows.releasedHashes(handle, catalog, version, resourceId)
+        if (hashes.isEmpty()) return payload
+        val contents = loadPayloads(handle, catalog.tenantKey, hashes.values.toList())
+        val byKey = hashes.mapValues { (key, hash) -> requireNotNull(contents[hash]) { "Release $version of ${catalog.key.value} names variant $key content $hash, which is not stored" } }
+        return objectMapper.createObjectNode().set("resource", TemplateContents.assemble(payload, byKey, objectMapper))
     }
 
     /**

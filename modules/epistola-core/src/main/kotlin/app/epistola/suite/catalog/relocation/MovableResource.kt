@@ -95,10 +95,12 @@ enum class MovableResource(
      *
      * The largest of the seven: the address sat in eight tables' primary keys across three
      * modules, so re-keying it is what let every one of relocation's weakened foreign keys go.
+     *
+     * A draft row naming its content (ADR 0033): moved by TemplateStore, not by this table.
      */
     TEMPLATE(
         CatalogResourceType.TEMPLATE,
-        "document_templates",
+        "release_resources",
         "id",
         emptySet(),
         { runCatching { TemplateKey.of(it) }.exceptionOrNull()?.message },

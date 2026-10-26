@@ -128,34 +128,34 @@
           "id": "n-address",
           "type": "stencil",
           "slots": [
-            "s-address-children"
+            "n-address:children"
           ],
           "props": {
             "stencilKey": "customer-address"
-          }
-        },
-        "n-fill-body": {
-          "id": "n-fill-body",
-          "type": "placeholder",
-          "slots": [
-            "s-fill-body-fill"
-          ],
-          "props": {
-            "name": "body",
-            "parametersAs": "shell"
           }
         },
         "n-shell": {
           "id": "n-shell",
           "type": "stencil",
           "slots": [
-            "s-shell-children"
+            "n-shell:children"
           ],
           "props": {
             "stencilKey": "letter-shell",
             "parameterBindings": {
               "companyName": "companyName"
             }
+          }
+        },
+        "n-shell:fill:body": {
+          "id": "n-shell:fill:body",
+          "type": "placeholder",
+          "slots": [
+            "n-shell:fill:body:fill"
+          ],
+          "props": {
+            "name": "body",
+            "parametersAs": "shell"
           }
         }
       },
@@ -168,28 +168,28 @@
             "n-shell"
           ]
         },
-        "s-address-children": {
-          "id": "s-address-children",
+        "n-shell:children": {
+          "id": "n-shell:children",
+          "nodeId": "n-shell",
+          "name": "children",
+          "children": [
+            "n-shell:fill:body"
+          ]
+        },
+        "n-address:children": {
+          "id": "n-address:children",
           "nodeId": "n-address",
           "name": "children",
           "children": []
         },
-        "s-fill-body-fill": {
-          "id": "s-fill-body-fill",
-          "nodeId": "n-fill-body",
+        "n-shell:fill:body:fill": {
+          "id": "n-shell:fill:body:fill",
+          "nodeId": "n-shell:fill:body",
           "name": "fill",
           "children": [
             "n-address",
             "n-greeting",
             "n-body-text"
-          ]
-        },
-        "s-shell-children": {
-          "id": "s-shell-children",
-          "nodeId": "n-shell",
-          "name": "children",
-          "children": [
-            "n-fill-body"
           ]
         }
       }

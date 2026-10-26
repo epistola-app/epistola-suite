@@ -68,7 +68,7 @@ object StencilReferences {
         AND (
             ${referencedCatalog(nodeAlias, templateAlias)} = ${catalogAt(TENANT_PARAM, CATALOG_PARAM)}
             OR NOT EXISTS (
-                SELECT 1 FROM release_resources referenced
+                SELECT 1 FROM release_wire_resources referenced
                 JOIN catalog_current_versions referenced_version
                   ON referenced_version.tenant_key = referenced.tenant_key AND referenced_version.version_id = referenced.version_id
                 WHERE referenced.tenant_key = $templateAlias.tenant_key

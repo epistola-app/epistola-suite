@@ -401,7 +401,8 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
         }
         assertThat(contract.templateId).isEqualTo("letter")
         assertThat(contract.dataModel.toString()).contains("\"name\"")
-        assertThat(contract.dataExamples.map { it.id to it.name }).containsExactly("example-1" to "Jane")
+        // Stored by its key, derived from its name (ADR 0033).
+        assertThat(contract.dataExamples.map { it.id to it.name }).containsExactly("jane" to "Jane")
 
         assertThatThrownBy {
             runAsApiKey(tenantId) {

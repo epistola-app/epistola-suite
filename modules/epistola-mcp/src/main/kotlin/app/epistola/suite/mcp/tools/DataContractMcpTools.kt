@@ -78,8 +78,9 @@ class DataContractMcpTools(
         )
         dataModel: String?,
         @McpToolParam(
-            description = "JSON array of examples, each `{\"id\": \"...\", \"name\": \"...\", \"data\": {...}}`. " +
-                "Replaces all examples. `id` defaults to `example-<n>`.",
+            description = "JSON array of examples, each `{\"key\": \"...\", \"name\": \"...\", \"data\": {...}}`. " +
+                "Replaces all examples. An example is addressed by its `key` (`id` is taken as one too); " +
+                "one without is given a key derived from its name, as a release derives it.",
             required = false,
         )
         dataExamples: String?,
@@ -113,11 +114,16 @@ class DataContractMcpTools(
     private fun toExamples(array: ArrayNode): List<DataExample> = array.values().mapIndexed { index, node ->
         val data = node.get("data") as? ObjectNode
             ?: throw ValidationException("dataExamples", "Example ${index + 1} needs a `data` object")
+        // An example is addressed by its key (ADR 0033); an `id` that is a valid key is taken as one.
+        val key = listOf("key", "id").firstNotNullOfOrNull { field ->
+            node.get(field)?.asString()?.takeIf { app.epistola.catalog.protocol.CatalogKeys.isValid(it) }
+        }
         DataExample(
-            id = node.get("id")?.asString()?.takeIf { it.isNotBlank() } ?: "example-${index + 1}",
+            id = key ?: "example-${index + 1}",
             name = node.get("name")?.asString()?.takeIf { it.isNotBlank() }
                 ?: throw ValidationException("dataExamples", "Example ${index + 1} needs a `name`"),
             data = data,
+            key = key,
         )
     }
 }

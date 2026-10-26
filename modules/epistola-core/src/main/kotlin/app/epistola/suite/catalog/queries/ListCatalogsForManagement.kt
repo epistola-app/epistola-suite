@@ -12,7 +12,6 @@ import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.currentTemplateViewJoin
-import app.epistola.suite.templates.templateJoin
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.core.mapper.Nested
@@ -95,10 +94,8 @@ internal const val CATALOG_ACTIVITY_JOIN = """LEFT JOIN (SELECT catalog_id, MAX(
  * trips it.
  *
  * Column choice per table mirrors what the export fingerprint actually sees:
- *  - `updated_at` for the live resource rows
- *    (`document_templates`, `template_variants`, `themes`, `stencils`,
- *    `variant_attribute_definitions`, `code_lists`, `fonts`), which hold the
- *    working copy a release and an export are built from;
+ *  - `updated_at` for the live resource rows (each type's draft rows, ADR 0033),
+ *    which hold the working copy a release and an export are built from;
  *  - `created_at` for `assets` (effectively immutable; a new asset is a
  *    change).
  *

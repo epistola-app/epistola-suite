@@ -260,6 +260,26 @@ describe('DataContractState', () => {
   // -------------------------------------------------------------------------
 
   describe('saveExamples', () => {
+    it('takes the ids the server stored the examples under', async () => {
+      // The server addresses an example by its key, derived from its name for a new one.
+      const onSaveDataExamples = vi.fn().mockResolvedValue({
+        success: true,
+        dataExamples: [
+          { id: 'example-1', name: 'Example 1', data: { name: 'John' } },
+          { id: 'new-one', name: 'New one', data: {} },
+        ],
+      });
+      const state = createState(testSchema, testExamples, { onSaveDataExamples });
+      state.addDraftExample({ id: 'nano-1', name: 'New one', data: {} });
+
+      await state.saveExamples();
+
+      expect(state.dataExamples.map((e) => e.id)).toEqual(['example-1', 'new-one']);
+      expect(state.storedIds.get('nano-1')).toBe('new-one');
+      expect(state.isExamplesDirty).toBe(false);
+      expect(state.isExampleCommitted('new-one')).toBe(true);
+    });
+
     it('calls onSaveDataExamples and commits on success', async () => {
       const onSaveDataExamples = vi.fn().mockResolvedValue({ success: true });
       const state = createState(testSchema, testExamples, { onSaveDataExamples });

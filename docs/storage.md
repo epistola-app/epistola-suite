@@ -94,8 +94,8 @@ what it refers to. Rows go at once; content nothing points at any more is collec
 
 1. Per tenant, in batches of `epistola.storage.gc.batch-size` (default 500), each its own
    transaction with `epistola.storage.gc.pause` between them (default 200 ms), it deletes
-   `resource_contents` that no `release_resources` row and no other content (a template's lifted
-   variant model) refers to, stored longer ago than `epistola.storage.gc.grace` (default 1 day).
+   `resource_contents` that no `release_resources` row (a template's variants are rows of their
+   own) and no other content refers to, stored longer ago than `epistola.storage.gc.grace` (default 1 day).
    A batch selects `FOR UPDATE SKIP LOCKED`; storing content again touches and locks it
    (`stored_at`), so a save that reuses content is skipped, and the foreign key refuses to delete
    content a row points at. Its `resource_binaries` and `resource_references` cascade.
@@ -110,11 +110,17 @@ by hand for one tenant from **Operations → Cluster → Stored content → Coll
 `CollectResourceContents`), after removing many releases, say. Deleting a release or a catalog
 still removes the content only it held at once, as before.
 
-A draft's resources of the types stored as JSON (themes, code lists, attributes, stencils, fonts and images, so far) are `release_resources` rows too,
+A draft's resources of every type (themes, code lists, attributes, stencils, fonts, images and templates) are `release_resources` rows too,
 keyed by the draft (`version_id`) instead of a release number, and their content is stored the same
 way when they are saved ([catalog versioning](catalog-versioning.md#one-storage-for-drafts-and-releases)).
 A draft row holds its content as a release row does; content a save left behind is an orphan the
-collector takes after the grace period. A font's faces are its binaries: its content links to their bytes
+collector takes after the grace period. A template is the busiest case: each variant is a row of
+its own (storage type `variant`, naming its template's row), so each save of a variant's model stores
+that variant's content alone, and an editing session leaves one content per distinct save
+(`TemplateReadsPerfTest` measures it) until the collector runs. Because the table holds variant rows
+beside the wire resources, what lists, counts or fingerprints entries reads `release_wire_resources`
+(`ReleaseResourceSqlTest`); `release_resource_types` lists what a row may be. Not keeping every
+autosave is a later improvement. A font's faces are its binaries: its content links to their bytes
 (`resource_binaries`), a draft's as a release's, so a face's file is kept while anything names it;
 there is no asset row for it. The collector also deletes the credentials (`resource_credentials`,
 a code list source's secret) that no content names any more, past the same grace period.

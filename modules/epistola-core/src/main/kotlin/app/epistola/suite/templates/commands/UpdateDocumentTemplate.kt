@@ -23,6 +23,7 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.themes.themeAtAddress
@@ -74,6 +75,7 @@ data class UpdateDocumentTemplate(
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val usedCatalogs: UsedCatalogDeclarer,
+    private val templates: TemplateStore,
 ) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
     @Transactional
     override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
@@ -86,47 +88,12 @@ class UpdateDocumentTemplateHandler(
     private fun save(command: UpdateDocumentTemplate): DocumentTemplate? {
         requireCatalogEditable(command.id.catalogId)
 
-        // Build dynamic UPDATE query
-        val updates = mutableListOf<String>()
-        val bindings = mutableMapOf<String, Any?>()
-
-        if (command.name != null) {
-            updates.add("name = :name")
-            bindings["name"] = command.name
-        }
-        if (command.description != null) {
-            updates.add("description = :description")
-            bindings["description"] = command.description.takeIf { it.isNotBlank() }
-        }
-        if (command.clearThemeId) {
-            updates.add("theme_resource_id = NULL")
-        } else if (command.themeId != null) {
-            updates.add("theme_resource_id = ${themeAtAddress("tenantId", "themeCatalogKey", "themeId")}")
-            bindings["themeId"] = command.themeId
-            bindings["themeCatalogKey"] = command.themeCatalog?.key
-            bindings["themeCatalogKey_ns"] = command.themeCatalog?.namespace
-        }
-        if (command.pdfaEnabled != null) {
-            updates.add("pdfa_enabled = :pdfaEnabled")
-            bindings["pdfaEnabled"] = command.pdfaEnabled
+        val changes = command.name != null || command.description != null || command.clearThemeId || command.themeId != null || command.pdfaEnabled != null
+        if (!changes) {
+            return GetDocumentTemplate(id = command.id).query()?.also { Revisions.refuse("Template '${command.id.key.value}'", command.expectedRevision, it.revision) }
         }
 
-        if (updates.isEmpty()) {
-            return getExisting(command.id)?.also { Revisions.refuse("Template '${command.id.key.value}'", command.expectedRevision, it.revision) }
-        }
-
-        updates.add("updated_at = NOW()")
-        updates.add("updated_by = :updatedBy")
-        bindings["updatedBy"] = currentUserIdOrNull()?.value
-
-        val sql = """
-            UPDATE document_templates
-            SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-              AND ${Revisions.MATCHES}
-        """
-
-        val rowsUpdated = jdbi.withHandle<Int, Exception> { handle ->
+        val saved = jdbi.inTransaction<Boolean, Exception> { handle ->
             if (!command.clearThemeId && command.themeId != null) {
                 val themeCatalogKey = command.themeCatalog?.address
                 val themeExists = handle.createQuery(
@@ -139,7 +106,7 @@ class UpdateDocumentTemplateHandler(
                     """,
                 )
                     .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("themeCatalogKey", command.themeCatalog)
+                    .bindCatalog("themeCatalogKey", command.themeCatalog ?: command.id.catalogId)
                     .bind("themeId", command.themeId)
                     .mapTo(Int::class.java)
                     .findOne()
@@ -151,32 +118,31 @@ class UpdateDocumentTemplateHandler(
                     )
                 }
             }
-
-            val update = handle.createUpdate(sql)
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .bind("expectedRevision", command.expectedRevision)
-
-            bindings.forEach { (key, value) -> update.bind(key, value) }
-
-            update.execute().also { updated ->
-                if (updated == 0) Revisions.refuse("Template '${command.id.key.value}'", command.expectedRevision, templateRevision(handle, command.id))
-            }
+            templates.modify(handle, command.id, currentUserIdOrNull()?.value, command.expectedRevision, "Template '${command.id.key.value}'") { template ->
+                var changed = template
+                command.name?.let { changed = changed.copy(name = it) }
+                command.description?.let { changed = changed.copy(description = it.takeIf(String::isNotBlank)) }
+                if (command.clearThemeId) {
+                    changed = changed.copy(themeKey = null, themeCatalogKey = null)
+                } else if (command.themeId != null) {
+                    // By alias (ADR 0034): a theme of the template's own catalog is named without one.
+                    val alias = command.themeCatalog?.takeUnless { it == command.id.catalogId }?.key?.value
+                    changed = changed.copy(themeKey = command.themeId.value, themeCatalogKey = alias)
+                }
+                command.pdfaEnabled?.let { changed = changed.copy(pdfaEnabled = it) }
+                changed
+            } != null
         }
 
-        if (rowsUpdated == 0) return null
+        if (!saved) return null
 
-        // Refetch with full context (catalog key via JOIN)
         return GetDocumentTemplate(id = command.id).query()
     }
-
-    private fun getExisting(id: TemplateId): DocumentTemplate? = GetDocumentTemplate(id = id).query()
 }
 
 /** The revision of template [id] in the version the caller means, or null when there is no such template. */
 internal fun templateRevision(handle: Handle, id: TemplateId): Long? = handle.createQuery(
-    "SELECT revision FROM document_templates WHERE tenant_key = :t AND id = :k AND version_id = ${versionAt("t", "c")}",
+    "SELECT revision FROM current_templates WHERE tenant_key = :t AND id = :k AND catalog_id = ${catalogAt("t", "c")}",
 )
     .bind("t", id.tenantKey)
     .bindCatalog("c", id.catalogId)

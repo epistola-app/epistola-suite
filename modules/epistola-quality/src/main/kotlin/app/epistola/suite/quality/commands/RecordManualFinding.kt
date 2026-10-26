@@ -14,7 +14,7 @@ import app.epistola.suite.quality.QualitySourceId
 import app.epistola.suite.quality.QualitySubject
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateIn
 import app.epistola.suite.time.EpistolaClock
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
@@ -91,7 +91,7 @@ class RecordManualFindingHandler(
                     fingerprint, input_fingerprint, context, metadata, status, first_seen_at, last_seen_at, resolved_at
                 ) VALUES (
                     :tenantKey, :id, :sourceId, :ruleId, :severity, :subjectUrn, :subjectType, :ignoreScopeUrn,
-                    ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, NULL, NULL,
+                    ${templateIn("tenantKey", "catalogKey", "templateKey")}, :variantKey, :versionKey, :nodeIds, :path, :message, NULL, NULL,
                     -- message_code NULL: a person's note is prose, not a translatable template.
                     -- metadata '{}': no checker produced it, so there is no operational data to carry.
                     :fingerprint, NULL, '{}'::jsonb, '{}'::jsonb, 'OPEN', :now, :now, NULL

@@ -19,7 +19,6 @@ import app.epistola.suite.documents.queries.PreviewVariant
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.TemplateDataInvalidException
 import app.epistola.suite.testing.DocumentSetup
 import app.epistola.suite.testing.IntegrationTestBase
@@ -27,6 +26,7 @@ import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.TestTemplateBuilder
 import app.epistola.suite.testing.default
 import app.epistola.suite.testing.deployLatestRelease
+import app.epistola.suite.testing.rewriteStoredModel
 import app.epistola.suite.testing.testCatalog
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
@@ -45,6 +45,9 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var templates: app.epistola.suite.templates.TemplateStore
 
     private val objectMapper = ObjectMapper()
 
@@ -232,20 +235,8 @@ class PreviewDocumentIntegrationTest : IntegrationTestBase() {
                 val version = version(compositeVariantId, templateModel)
                 DocumentSetup(tenant, template, variant, version)
             }.whenever { setup ->
-                jdbi.withHandle<Int, Exception> { handle ->
-                    handle.createUpdate(
-                        """
-                        UPDATE template_variants
-                        SET template_model = jsonb_set(template_model, '{root}', '"missing-root"'::jsonb)
-                        WHERE tenant_key = :tenantKey
-                          AND template_resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")} AND id = :variantKey
-                        """,
-                    )
-                        .bind("tenantKey", setup.tenant.id)
-                        .bindCatalog("catalogKey", testCatalog(setup.tenant.id, CatalogKey.DEFAULT))
-                        .bind("templateKey", setup.template.id)
-                        .bind("variantKey", setup.variant.id)
-                        .execute()
+                templates.rewriteStoredModel(jdbi, tools.jackson.databind.json.JsonMapper.builder().build(), VariantId(setup.variant.id, TemplateId(setup.template.id, testCatalog(setup.tenant.id, CatalogKey.DEFAULT)))) { model ->
+                    model.put("root", "missing-root")
                 }
                 setup
             }.then { setup, _ ->

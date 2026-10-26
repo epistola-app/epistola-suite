@@ -81,9 +81,9 @@ class ResourceReferencesTest : IntegrationTestBase() {
             ).bind("t", tenant).mapTo(String::class.java).list()
         }
         assertThat(references).contains(
-            // A template names its theme's catalog by alias even when it is its own; content records it as written.
-            "template -> letters theme/brand",
-            "templateModel -> (own) stencil/letterhead",
+            // A template names a theme of its own catalog relatively, as its models do (ADR 0033).
+            "template -> (own) theme/brand",
+            "variant -> (own) stencil/letterhead",
             "attribute -> (own) codeList/regions",
         )
     }

@@ -17,8 +17,9 @@ import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.TemplateVariant
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateVariant
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -49,8 +50,8 @@ data class UpdateVariant(
 @Component
 class UpdateVariantHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
     private val usedCatalogs: app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer,
+    private val templates: TemplateStore,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
         requireCatalogEditable(command.variantId.catalogId)
@@ -61,35 +62,14 @@ class UpdateVariantHandler(
         // as every write that starts using another catalog declares it (contract ADR 0003).
         usedCatalogs.declareAttributes(command.variantId.catalogId, command.attributes.keys)
 
-        val auditUser = currentUserIdOrNull()?.value
-
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-            val attributesJson = objectMapper.writeValueAsString(command.attributes)
-            requireDistinctAttributeSet(handle, command.variantId, command.attributes, attributesJson)
-
-            handle.createQuery(
-                """
-                UPDATE template_variants
-                SET title = :title, attributes = :attributes::jsonb, updated_at = NOW(), updated_by = :updatedBy
-                WHERE tenant_key = :tenantId AND id = :variantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                  AND ${Revisions.MATCHES}
-                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
-                """,
-            )
-                .bind("tenantId", command.variantId.tenantKey)
-                .bindCatalog("catalogKey", command.variantId.catalogId)
-                .bind("variantId", command.variantId.key)
-                .bind("templateId", command.variantId.templateKey)
-                .bind("title", command.title)
-                .bind("attributes", attributesJson)
-                .bind("createdBy", auditUser).bind("updatedBy", auditUser)
-                .bind("expectedRevision", command.expectedRevision)
-                .mapTo<TemplateVariant>()
-                .findOne()
-                .orElse(null)
-                ?.also { return@inTransaction it }
-            Revisions.refuse("Variant '${command.variantId.key.value}'", command.expectedRevision, variantRevision(handle, command.variantId))
-            null
+            val key = command.variantId.key.value
+            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
+                template.variant(key) ?: return@modifyVariant null
+                requireDistinctAttributeSet(template, key, command.attributes)
+                template.withVariant(key) { it.copy(title = command.title, attributes = command.attributes) }
+            } ?: return@inTransaction null
+            templateVariant(handle, command.variantId)
         }
     }
 }

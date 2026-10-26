@@ -19,10 +19,13 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.security.currentUserIdOrNull
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.StoredTemplate
+import app.epistola.suite.templates.StoredVariant
+import app.epistola.suite.templates.TemplateStore
+import app.epistola.suite.templates.documentTemplate
 import app.epistola.suite.templates.fitsTemplateDescription
 import app.epistola.suite.templates.model.createDefaultTemplateModel
 import app.epistola.suite.templates.services.TemplateDocumentPreparation
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.validation.FieldLimits.MAX_NAME_LENGTH
 import app.epistola.suite.validation.FieldLimits.MAX_TEMPLATE_DESCRIPTION_LENGTH
 import app.epistola.suite.validation.executeOrThrowDuplicate
@@ -62,6 +65,7 @@ data class CreateDocumentTemplate(
 class CreateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val templateDocumentPreparation: TemplateDocumentPreparation,
+    private val templates: TemplateStore,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
     override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
         requireCatalogEditable(command.id.catalogId)
@@ -70,53 +74,30 @@ class CreateDocumentTemplateHandler(
 
         return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
-                // 1. Create the template
-                val template = handle.createQuery(
-                    """
-                INSERT INTO document_templates (id, tenant_key, catalog_id, version_id, name, description, pdfa_enabled, created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${catalogAt("tenantId", "catalogKey")}, ${versionAt("tenantId", "catalogKey")}, :name, :description, TRUE, NOW(), NOW(), :createdBy, :updatedBy)
-                RETURNING id, tenant_key, (SELECT cat.catalog_key FROM catalogs cat WHERE cat.tenant_key = document_templates.tenant_key AND cat.catalog_id = document_templates.catalog_id) AS catalog_key, CAST(:catalogKey_ns AS TEXT) AS namespace, name, description, NULL::text AS theme_key, pdfa_enabled, created_at, updated_at, created_by, updated_by
-                """,
-                )
-                    .bind("id", command.id.key)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("name", command.name)
-                    .bind("description", command.description?.takeIf { it.isNotBlank() })
-                    .bind("createdBy", auditUser)
-                    .bind("updatedBy", auditUser)
-                    .mapTo<DocumentTemplate>()
-                    .one()
-
-                // 2. Create the default variant with the fixed VariantKey.INITIAL id — a
-                // role-neutral provenance slug, not the mutable is_default role. See its KDoc.
-                // Title is required (#631). A variant title discriminates between variants of
-                // one template ("Default"/"US English"/"Dutch"), so it is deliberately not the
-                // template's name: that is constant across every variant and would distinguish
-                // nothing, duplicate the parent in the UI, and go stale on rename. Matches the
-                // title the bundled catalogs give their own default variants.
+                // The default variant has the fixed VariantKey.INITIAL id — a role-neutral provenance
+                // slug, not the mutable is_default role. See its KDoc. Title is required (#631). A
+                // variant title discriminates between variants of one template ("Default"/"US
+                // English"/"Dutch"), so it is deliberately not the template's name: that is constant
+                // across every variant and would distinguish nothing, duplicate the parent in the UI,
+                // and go stale on rename. Matches the title the bundled catalogs give their own
+                // default variants.
                 val variantId = VariantKey.INITIAL
                 val prepared = templateDocumentPreparation.prepare(createDefaultTemplateModel(variantId), command.id.catalogKey)
-                handle.createUpdate(
-                    """
-                INSERT INTO template_variants (id, tenant_key, version_id, template_resource_id, title, attributes, is_default, template_model, referenced_paths,
-                                               created_at, updated_at, created_by, updated_by)
-                VALUES (:id, :tenantId, ${versionAt("tenantId", "catalogKey")}, ${templateAtAddress("tenantId", "catalogKey", "templateId")}, :title, '{}'::jsonb, TRUE,
-                        :templateModel::jsonb, :referencedPaths::jsonb, NOW(), NOW(), :createdBy, :updatedBy)
-                """,
+                val template = StoredTemplate(
+                    key = command.id.key.value,
+                    name = command.name,
+                    description = command.description?.takeIf { it.isNotBlank() },
+                    variants = listOf(
+                        StoredVariant(
+                            key = variantId.value,
+                            title = DEFAULT_VARIANT_TITLE,
+                            isDefault = true,
+                            model = templates.storedModel(prepared.templateModelJson),
+                        ),
+                    ),
                 )
-                    .bind("id", variantId)
-                    .bind("tenantId", command.id.tenantKey)
-                    .bindCatalog("catalogKey", command.id.catalogId)
-                    .bind("templateId", template.id)
-                    .bind("title", DEFAULT_VARIANT_TITLE)
-                    .bind("templateModel", prepared.templateModelJson)
-                    .bind("referencedPaths", prepared.referencedPathsJson)
-                    .bind("createdBy", auditUser)
-                    .bind("updatedBy", auditUser)
-                    .execute()
-
-                template
+                templates.create(handle, command.id.catalogId, template, auditUser)
+                checkNotNull(documentTemplate(handle, command.id)) { "Template ${command.id.key.value} was just written" }
             }
         }
     }

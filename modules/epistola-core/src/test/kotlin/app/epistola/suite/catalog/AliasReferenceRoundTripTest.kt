@@ -346,12 +346,13 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
             handle.createUpdate(
                 """
                 UPDATE resource_contents m
-                SET payload = jsonb_set(jsonb_set(m.payload, '{nodes,header,props,namespace}', '"$partsNamespace"'),
-                                        '{nodes,header,props,registry}', '"$partsRegistry"')
+                SET payload = jsonb_set(jsonb_set(m.payload, '{resource,templateModel,nodes,header,props,namespace}', '"$partsNamespace"'),
+                                        '{resource,templateModel,nodes,header,props,registry}', '"$partsRegistry"')
                 FROM release_resources e
-                JOIN resource_contents t ON t.tenant_key = e.tenant_key AND t.content_hash = e.content_hash
-                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter'
-                  AND m.tenant_key = t.tenant_key AND m.content_hash = t.payload -> 'templateModel' ->> 'revisionDigest'
+                JOIN release_resources p ON p.tenant_key = e.tenant_key AND p.resource_type = 'variant' AND p.parent_id = e.resource_id AND p.version = e.version
+                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter' AND e.version IS NOT NULL
+                  AND m.tenant_key = p.tenant_key AND m.content_hash = p.content_hash
+                  AND m.payload #> '{resource,templateModel,nodes,header}' IS NOT NULL
                 """,
             ).bind("t", a).execute()
             assertThat(handle.createQuery("SELECT count(*) FROM resource_contents WHERE tenant_key = :t AND payload::text LIKE '%registry.example.com%'").bind("t", a).mapTo(Int::class.java).one())

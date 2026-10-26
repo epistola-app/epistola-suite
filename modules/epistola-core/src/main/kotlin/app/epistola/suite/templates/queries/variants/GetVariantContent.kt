@@ -18,7 +18,6 @@ import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.TemplateModels
 import app.epistola.suite.templates.model.TemplateDocument
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.templateIn
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component

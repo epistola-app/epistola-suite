@@ -160,6 +160,7 @@ export class DataContractState extends EventTarget {
       if (result.success) {
         this._markSchemaCommitted();
         if (includeExamples) {
+          this._adoptStoredExamples(result.dataExamples);
           this._markExamplesCommitted();
         }
       }
@@ -188,6 +189,7 @@ export class DataContractState extends EventTarget {
       const result = await this._callbacks.onSaveDataExamples(examples);
       if (result.success) {
         this._draftExamples = examples;
+        this._adoptStoredExamples(result.dataExamples);
         this._markExamplesCommitted();
       }
       return {
@@ -284,6 +286,30 @@ export class DataContractState extends EventTarget {
       this._committedRawJsonSchema = structuredClone(this._rawJsonSchema);
     }
     this._fireChange();
+  }
+
+  /** The ids the last save gave the examples (`new id` by old id), for a selection to follow. */
+  get storedIds(): Map<string, string> {
+    return this._storedIds;
+  }
+
+  private _storedIds = new Map<string, string>();
+
+  /**
+   * Takes the examples as the server stored them: it addresses each by its key, which it derives
+   * for an example that has none, so an id the editor gave a new example is replaced (matched by
+   * position, which the server keeps).
+   */
+  private _adoptStoredExamples(stored: DataExample[] | undefined): void {
+    this._storedIds = new Map();
+    if (!stored || stored.length !== this._draftExamples.length) return;
+    this._draftExamples.forEach((draft, index) => {
+      if (draft.id !== stored[index].id) this._storedIds.set(draft.id, stored[index].id);
+    });
+    this._draftExamples = this._draftExamples.map((draft, index) => ({
+      ...draft,
+      id: stored[index].id,
+    }));
   }
 
   private _markExamplesCommitted(): void {

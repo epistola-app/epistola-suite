@@ -18,7 +18,7 @@ import app.epistola.suite.catalog.queries.CatalogEditability
 import app.epistola.suite.common.ids.ResourceIdentity
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
-import app.epistola.suite.templates.templateJoin
+import app.epistola.suite.templates.currentTemplateViewJoin
 import org.jdbi.v3.core.Handle
 import org.springframework.stereotype.Component
 import tools.jackson.databind.JsonNode
@@ -543,11 +543,11 @@ class CatalogResourceMovePlanner(
             """
             SELECT template_catalog.namespace || '/' || template_catalog.catalog_key AS catalog_key, template.id::text AS template_key,
                    variants.id::text variant_key, variants.attributes::text
-            FROM template_variants variants
-            ${templateJoin("variants")}
+            FROM current_template_variants variants
+            ${currentTemplateViewJoin("variants")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variants.tenant_key = :tenantKey AND ${inCurrentVersion("variants")}
+            WHERE variants.tenant_key = :tenantKey
               AND EXISTS (SELECT 1 FROM jsonb_object_keys(variants.attributes) named WHERE named IN (<keys>))
             ORDER BY template_catalog.catalog_key, template.id, variants.id
             """,
@@ -583,11 +583,11 @@ class CatalogResourceMovePlanner(
             """
             SELECT template_catalog.namespace || '/' || template_catalog.catalog_key AS catalog_key, template.id::text owner_key,
                    variant.id::text AS variant_key, 0 AS id, 'draft' AS status, variant.template_model::text json
-            FROM template_variants variant
-            ${templateJoin("variant")}
+            FROM current_template_variants variant
+            ${currentTemplateViewJoin("variant")}
             JOIN catalogs template_catalog
               ON template_catalog.tenant_key = template.tenant_key AND template_catalog.catalog_id = template.catalog_id
-            WHERE variant.tenant_key = :tenantKey AND ${inCurrentVersion("variant")} ${ownerFilter(owners, "template.id", "(template_catalog.namespace || '/' || template_catalog.catalog_key)")}
+            WHERE variant.tenant_key = :tenantKey ${ownerFilter(owners, "template.id", "(template_catalog.namespace || '/' || template_catalog.catalog_key)")}
             ORDER BY template_catalog.catalog_key, template.id, variant.id
             """,
         )

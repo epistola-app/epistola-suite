@@ -103,7 +103,8 @@ class DataContractTabHandler(
                 )
         }
 
-        val response = mutableMapOf<String, Any?>("success" to true, "revision" to result.revision)
+        // The examples as stored, each addressed by its key (ADR 0033): the editor takes their ids.
+        val response = mutableMapOf<String, Any?>("success" to true, "revision" to result.revision, "dataExamples" to result.contract.dataExamples)
         if (result.warnings.isNotEmpty()) {
             response["warnings"] = result.warnings
         }

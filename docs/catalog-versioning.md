@@ -35,9 +35,8 @@ still in the table, defaulted and unused, and goes in a later major release.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads
-  through the draft queries switch to releases a resource type at a time; themes, code lists, attributes, stencils, fonts and images do
-  ([below](#one-storage-for-drafts-and-releases)), the other types still read a release through
-  `ListReleasedResources`.
+  through the draft queries switch to releases a resource type at a time; every type does now
+  ([below](#one-storage-for-drafts-and-releases)).
 - <a id="one-storage-for-drafts-and-releases"></a>**One storage for drafts and releases** (ADR 0033,
   a type at a time; themes first). A theme of a draft is a `release_resources` row keyed by the
   draft (`version_id`) where a release's row is keyed by its number (`version`), naming its content
@@ -57,6 +56,11 @@ still in the table, defaulted and unused, and goes in a later major release.
   source), their entries live only in it and are listed, found and hidden in SQL over it
   (`current_code_lists`); a credential is a `resource_credentials` row named by id, and the last
   refresh is kept per draft in `code_list_refreshes`.
+  Templates are last (step 7b): the template's content (its wire form without models) on its row,
+  and each variant a row of its own (storage type `variant`, naming its template's) with its own
+  content (title, model, metadata, description) and its own revision; manifests read
+  `release_wire_resources`, which leaves the variant rows out; read through `current_templates` and
+  `current_template_variants`, and assembled into the wire form for export and the fingerprint.
 - **Released here** — cutting a release advances `catalogs.released_version` /
   `released_fingerprint` / `released_at`.
 - **Received** — receiving a release (an import, an Exchange or registry install, an upgrade from a
@@ -226,10 +230,8 @@ until it is released**; only releases are numbered.
   older line, work tried by deploying it to an environment. A version is identified by its
   **version id** (`version_key`, eight characters such as `k7m2x9qa`, from `epistola_version_key()`),
   which a release keeps from the draft it was released from; `next` names the next release.
-- **Content belongs to a version.** Every content row (`document_templates`, `template_variants`)
-  is keyed `(tenant_key, version_id, resource_id)`; its address is unique per version. Themes, code
-  lists, attributes, stencils, fonts and images are `release_resources` rows keyed by the draft instead
-  ([above](#one-storage-for-drafts-and-releases)). Ready marks (`resource_ready_marks`) and dependency declarations
+- **Content belongs to a version.** Every resource is a `release_resources` row keyed by the draft
+  (`version_id`), its address unique per version ([above](#one-storage-for-drafts-and-releases)). Ready marks (`resource_ready_marks`) and dependency declarations
   (`catalog_dependencies`) are per version too.
 - **Identity is shared.** `catalog_resources` holds one identity per resource, used by every version
   that holds a row of it, and every reference to a resource (a template's theme, an attribute's code
@@ -736,8 +738,7 @@ of the installed content, so dependents can pin it.
 ## Ready marks
 
 Templates, stencils and every other resource are edited in place: a template variant has one
-working model (`template_variants.template_model`), a template one data contract
-(`document_templates.data_model` / `data_examples`). There are no template or contract versions; the
+working model, a template one data contract, both in the template's content. There are no template or contract versions; the
 catalog release is the only version (contract ADR 0002).
 
 What replaces publishing is a **ready mark**: a record that a resource's current content is
@@ -825,10 +826,9 @@ when previewing — from the source while it still serves the installed release,
 release's retained content — and replaced at the next upgrade.
 
 Everything wire v8 added to a resource is stored, so it survives being written into a version: a
-template's `description` (`document_templates.description`), a variant's `metadata`
-(`template_variants.metadata`, kept as it came; this suite writes none of its own), a data example's
-`key` and a stencil's `readsTemplateData`. A template built back from the rows a release was written
-into fingerprints as the release holds it.
+template's `description`, a variant's `metadata` (kept as it came; this suite writes none of its
+own), a data example's `key` and a stencil's `readsTemplateData`. A draft stores a template as its
+release does, so it fingerprints as the release holds it.
 
 A release without those entries (one from 1.x; the 2.0 upgrade removes them) recorded
 no baseline, and none can be reconstructed — the manifest snapshot holds the

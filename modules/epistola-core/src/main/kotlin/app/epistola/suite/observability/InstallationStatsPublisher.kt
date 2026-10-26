@@ -4,7 +4,6 @@
 
 package app.epistola.suite.observability
 
-import app.epistola.suite.catalog.inCurrentVersion
 import app.epistola.suite.cluster.schedules.ClusterScheduledTask
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskDefinition
 import app.epistola.suite.cluster.schedules.ClusterScheduledTaskExecutionScope
@@ -97,9 +96,9 @@ class InstallationStatsPublisher(
                 return@useTransaction
             }
             ENTITIES.forEach { entity ->
-                // Catalog content counts each catalog's current version once, not every draft's copy.
-                val inCurrent = if (entity.versioned) " t WHERE ${inCurrentVersion("t")}" else ""
-                val count = handle.createQuery("SELECT count(*) FROM ${entity.table}$inCurrent")
+                // Catalog content counts each catalog's current version once, not every draft's copy:
+                // each type's view holds only that.
+                val count = handle.createQuery("SELECT count(*) FROM ${entity.table}")
                     .mapTo(Long::class.java)
                     .one()
                 values.getValue(entity).set(count.toDouble())
@@ -109,11 +108,11 @@ class InstallationStatsPublisher(
     }
 
     /** Bounded design-time entity tables. `table` is a hardcoded literal — never user input. */
-    internal enum class Entity(val metric: String, val table: String, val versioned: Boolean = false) {
+    internal enum class Entity(val metric: String, val table: String) {
         TENANTS("tenants", "tenants"),
-        TEMPLATES("templates", "document_templates", versioned = true),
 
-        // Its view holds each catalog's current version only (ADR 0033).
+        // Each view holds each catalog's current version only (ADR 0033).
+        TEMPLATES("templates", "current_templates"),
         THEMES("themes", "current_themes"),
         CATALOGS("catalogs", "catalogs"),
         STENCILS("stencils", "current_stencils"),

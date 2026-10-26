@@ -110,6 +110,33 @@ class ContentRevisionsTest : IntegrationTestBase() {
         }
     }
 
+    /**
+     * Each variant has its own revision (ADR 0033, a part of its template's row): two authors saving
+     * different variants of one template do not refuse each other, and one saving the same variant
+     * against a revision someone else moved on still is.
+     */
+    @Test
+    fun `saves of different variants do not conflict, saves of the same variant do`() {
+        val first = template(catalog("rev-parts"))
+        val second = VariantId(VariantKey.of("second"), first.templateId)
+        withMediator {
+            CreateVariant(second, "Second", null).execute()
+            val firstOpened = GetVariant(first).query()!!.revision
+            val secondOpened = GetVariant(second).query()!!.revision
+            val template = app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId).query()!!.revision
+
+            UpdateVariantContent(first, document("mine"), expectedRevision = firstOpened).execute()
+            // The other author opened the second variant before the first save: it still stands.
+            val theirs = UpdateVariantContent(second, document("theirs"), expectedRevision = secondOpened).execute()
+            assertThat(theirs.revision).isEqualTo(secondOpened + 1)
+            assertThat(app.epistola.suite.templates.queries.GetDocumentTemplate(first.templateId).query()!!.revision)
+                .`as`("saving a variant does not write its template").isEqualTo(template)
+
+            assertThatThrownBy { UpdateVariantContent(first, document("stale"), expectedRevision = firstOpened).execute() }
+                .isInstanceOf(ResourceModifiedException::class.java)
+        }
+    }
+
     @Test
     fun `saving unchanged content or making another variant the default keeps the revision`() {
         val variant = template(catalog("rev-unchanged"))
@@ -121,6 +148,7 @@ class ContentRevisionsTest : IntegrationTestBase() {
             val other = VariantId(VariantKey.of("other"), variant.templateId)
             CreateVariant(other, "Other", null).execute()
             SetDefaultVariant(other).execute()
+            // A variant is its own part of its template (ADR 0033): the default is the template's to say.
             assertThat(GetVariant(variant).query()!!.revision).`as`("losing the default is not an edit of its content").isEqualTo(saved.revision)
         }
     }

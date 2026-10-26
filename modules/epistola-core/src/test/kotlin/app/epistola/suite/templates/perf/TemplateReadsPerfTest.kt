@@ -49,6 +49,9 @@ import java.nio.file.Path
 @Tag("integration")
 class TemplateReadsPerfTest : IntegrationTestBase() {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private lateinit var jdbi: org.jdbi.v3.core.Jdbi
+
     private data class Result(val operation: String, val coldMs: Double, val medianMs: Double, val p95Ms: Double)
 
     @Test
@@ -81,8 +84,24 @@ class TemplateReadsPerfTest : IntegrationTestBase() {
             measure("open the editor") { GetEditorContext(variant).query() },
             measure("save a variant's model", runs = 100, warmup = 10) { UpdateVariantContent(variant, model).execute() },
         )
+
+        // Autosave churn (ADR 0033, step 7b): what one editing session of 20 distinct saves leaves
+        // behind in resource_contents until the content collector takes what nothing names.
+        fun contents(): Long = jdbi.withHandle<Long, Exception> { it.createQuery("SELECT count(*) FROM resource_contents WHERE tenant_key = :t").bind("t", tenant).mapTo(Long::class.java).one() }
+        val before = contents()
+        withMediator {
+            repeat(20) { i ->
+                val edited = model.copy(documentStylesOverride = mapOf("color" to "#0000%02x".format(i)))
+                UpdateVariantContent(variant, edited).execute()
+            }
+        }
+        val churn = contents() - before
+        println("Template autosave churn: $churn new content rows for 20 saves of one variant")
+        // A variant is a row of its own (ADR 0033): a save writes its content and nothing of its template's.
+        org.assertj.core.api.Assertions.assertThat(churn).`as`("content rows per 20 variant saves").isEqualTo(20L)
         val report = buildString {
             appendLine("operation,cold_ms,median_ms,p95_ms")
+            appendLine("autosave churn (content rows per 20 saves),$churn,,")
             results.forEach { appendLine("${it.operation},${"%.2f".format(it.coldMs)},${"%.2f".format(it.medianMs)},${"%.2f".format(it.p95Ms)}") }
         }
         println("Template reads perf\n$report")

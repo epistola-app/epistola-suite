@@ -31,11 +31,12 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     lateinit var jdbi: Jdbi
 
     /**
-     * The types of catalog resource still stored in a table of their own, each keyed by its identity.
-     * Themes, code lists, attributes, stencils, fonts and images are draft rows of `release_resources` (ADR 0033), keyed by version and address there.
+     * Where every type of catalog resource is held: draft and release rows of `release_resources`
+     * (ADR 0033), each naming its identity in `catalog_resources`.
      */
     private val resourceTables = listOf(
-        "document_templates",
+        "release_resources",
+        "catalog_resources",
     )
 
     // ---------------------------------------------------------------- hygiene
@@ -169,17 +170,10 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
         val keys = primaryKeyColumns()
         val uniques = uniqueConstraintColumns()
 
-        resourceTables.forEach { table ->
-            assertThat(keys[table])
-                .describedAs("$table primary key")
-                .isEqualTo(listOf("tenant_key", "version_id", "resource_id"))
-
-            assertThat(uniques[table].orEmpty())
-                .describedAs("$table must still enforce its address within a version, just not key on it")
-                .anySatisfy { columns ->
-                    assertThat(columns).startsWith("tenant_key", "version_id").hasSize(3)
-                }
-        }
+        // Every type is a row of release_resources (ADR 0033): the registry keys each by its
+        // identity, and a draft's row names it, its address unique within the draft.
+        assertThat(keys["catalog_resources"]).describedAs("catalog_resources primary key").isEqualTo(listOf("tenant_key", "resource_id"))
+        assertThat(columnsByTable()["release_resources"].orEmpty()).describedAs("a draft row names its identity").contains("resource_id", "version_id")
     }
 
     /**
@@ -222,7 +216,6 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
     @Test
     fun `owned rows name their parent's identity and no longer copy its address`() {
         val ownership = mapOf(
-            "template_variants" to "template_resource_id",
             "quality_findings" to "template_resource_id",
             "load_test_runs" to "template_resource_id",
         )
@@ -237,14 +230,6 @@ class SchemaHygieneAppTest : BaseIntegrationTest() {
             assertThat(columns[table].orEmpty())
                 .describedAs("$table must not keep a copy of its parent's address")
                 .doesNotContain("catalog_key")
-
-            // The one whose parent's address was also in its key.
-            if (table == "template_variants") {
-                assertThat(keys[table])
-                    .describedAs("$table primary key")
-                    .contains(identity)
-                    .doesNotContain("catalog_key", "template_key")
-            }
         }
     }
 

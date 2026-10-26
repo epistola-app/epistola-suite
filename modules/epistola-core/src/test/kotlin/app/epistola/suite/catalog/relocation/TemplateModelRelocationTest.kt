@@ -43,8 +43,24 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
     /** The variant's model as stored: its `themeRef` as the row holds it. */
     private fun storedThemeRef(tenant: app.epistola.suite.common.ids.TenantKey, templateResource: String): String = jdbi.withHandle<String, Exception> { handle ->
         handle.createQuery(
-            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
+            "SELECT v.template_model -> 'themeRef' ->> 'catalogKey' FROM current_template_variants v JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.template_resource_id WHERE v.tenant_key = :t AND r.resource_type = 'template' AND r.resource_key = :k",
         ).bind("t", tenant).bind("k", templateResource).mapTo(String::class.java).findOne().orElse("<relative>")
+    }
+
+    @Test
+    fun `a template that follows its theme to another catalog names it there`() {
+        val tenant = tenantWith("Template theme relocation")
+        val invoice = TemplateId(TemplateKey.of("invoice"), catalogId(tenant, letters))
+        withMediator {
+            CreateTheme(ThemeId(ThemeKey.of("house"), catalogId(tenant, letters)), "House").execute()
+            CreateDocumentTemplate(invoice, "Invoice").execute()
+            app.epistola.suite.templates.commands.UpdateDocumentTemplate(invoice, themeId = ThemeKey.of("house"), themeCatalog = catalogId(tenant, letters)).execute()
+        }
+
+        move(tenant, testAddress(tenant, CatalogResourceType.THEME, letters.value, "house").movedTo(shared, "brand"))
+
+        val template = withMediator { app.epistola.suite.templates.queries.GetDocumentTemplate(invoice).query()!! }
+        assertThat(listOf(template.themeKey?.value, template.themeCatalogKey?.value)).`as`("named by alias and key, it follows").containsExactly("brand", "shared")
     }
 
     @Test
@@ -65,6 +81,18 @@ class TemplateModelRelocationTest : RelocationTestSupport() {
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, letters.value, "leaving").movedTo(shared))
         move(tenant, testAddress(tenant, CatalogResourceType.TEMPLATE, shared.value, "joining").movedTo(letters))
 
+        // Its variant rows moved with it, by the move itself (ADR 0014): each with its template's row.
+        val variantRows = jdbi.withHandle<List<String>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT c.catalog_key FROM release_resources v
+                JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
+                JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.parent_id
+                WHERE v.tenant_key = :t AND v.resource_type = 'variant' AND v.version_id IS NOT NULL AND r.resource_key = 'leaving'
+                """,
+            ).bind("t", tenant).mapTo(String::class.java).list()
+        }
+        assertThat(variantRows).containsExactly(shared.value)
         // Leaving letters, its theme is named with letters; joining it, its theme is its own.
         assertThat(storedThemeRef(tenant, "leaving")).isEqualTo("letters")
         assertThat(storedThemeRef(tenant, "joining")).isEqualTo("<relative>")

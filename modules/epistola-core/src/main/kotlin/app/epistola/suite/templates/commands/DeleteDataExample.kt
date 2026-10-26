@@ -16,8 +16,9 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TemplateStore
+import app.epistola.suite.templates.contracts.commands.writeContract
 import app.epistola.suite.templates.contracts.queries.readDataContract
-import app.epistola.suite.templates.templateAtAddress
 import app.epistola.suite.templates.validation.requireAtLeastOneDataExample
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -50,6 +51,7 @@ data class DeleteDataExampleResult(
 class DeleteDataExampleHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    private val templates: TemplateStore,
 ) : CommandHandler<DeleteDataExample, DeleteDataExampleResult?> {
     override fun handle(command: DeleteDataExample): DeleteDataExampleResult? {
         requireCatalogEditable(command.templateId.catalogId)
@@ -68,21 +70,7 @@ class DeleteDataExampleHandler(
             val updatedExamples = draftContract.dataExamples.filter { it.id != command.exampleId }
             requireAtLeastOneDataExample(updatedExamples)
 
-            val revision = handle.createQuery(
-                """
-                UPDATE document_templates
-                SET data_examples = :dataExamples::jsonb, updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND version_id = ${versionAt("tenantKey", "catalogKey")}
-                  AND resource_id = ${templateAtAddress("tenantKey", "catalogKey", "templateKey")}
-                RETURNING revision
-                """,
-            )
-                .bind("tenantKey", command.templateId.tenantKey)
-                .bindCatalog("catalogKey", command.templateId.catalogId)
-                .bind("templateKey", command.templateId.key)
-                .bind("dataExamples", objectMapper.writeValueAsString(updatedExamples))
-                .mapTo(Long::class.java)
-                .one()
+            val revision = writeContract(handle, templates, objectMapper, command.templateId, draftContract.dataModel, updatedExamples)
 
             DeleteDataExampleResult(deleted = true, revision = revision)
         }

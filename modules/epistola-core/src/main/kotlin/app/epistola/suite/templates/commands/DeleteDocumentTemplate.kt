@@ -15,6 +15,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.TemplateStore
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -32,22 +33,10 @@ data class DeleteDocumentTemplate(
 @Component
 class DeleteDocumentTemplateHandler(
     private val jdbi: Jdbi,
+    private val templates: TemplateStore,
 ) : CommandHandler<DeleteDocumentTemplate, Boolean> {
     override fun handle(command: DeleteDocumentTemplate): Boolean {
         requireCatalogEditable(command.id.catalogId)
-
-        return jdbi.withHandle<Boolean, Exception> { handle ->
-            val rowsAffected = handle.createUpdate(
-                """
-                DELETE FROM document_templates
-                WHERE id = :id AND tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")}
-                """,
-            )
-                .bind("id", command.id.key)
-                .bind("tenantId", command.id.tenantKey)
-                .bindCatalog("catalogKey", command.id.catalogId)
-                .execute()
-            rowsAffected > 0
-        }
+        return jdbi.withHandle<Boolean, Exception> { handle -> templates.delete(handle, command.id) }
     }
 }

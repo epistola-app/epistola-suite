@@ -16,8 +16,10 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.currentUserIdOrNull
+import app.epistola.suite.templates.TemplateStore
 import app.epistola.suite.templates.model.TemplateVariant
-import app.epistola.suite.templates.templateAtAddress
+import app.epistola.suite.templates.templateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -43,46 +45,17 @@ data class SetDefaultVariant(
 @Component
 class SetDefaultVariantHandler(
     private val jdbi: Jdbi,
+    private val templates: TemplateStore,
 ) : CommandHandler<SetDefaultVariant, TemplateVariant?> {
     override fun handle(command: SetDefaultVariant): TemplateVariant? {
         requireCatalogEditable(command.variantId.catalogId)
-        return setDefault(command)
-    }
-
-    private fun setDefault(command: SetDefaultVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-        // Verify variant belongs to the template and tenant, at the revision the caller read.
-        val current = variantRevision(handle, command.variantId) ?: return@inTransaction null
-        Revisions.refuse("Variant '${command.variantId.key.value}'", command.expectedRevision, current)
-
-        // Clear default on current default variant for this template
-        handle.createUpdate(
-            """
-                UPDATE template_variants
-                SET is_default = FALSE
-                WHERE tenant_key = :tenantId AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")} AND is_default = TRUE
-                """,
-        )
-            .bind("tenantId", command.variantId.tenantKey)
-            .bindCatalog("catalogKey", command.variantId.catalogId)
-            .bind("templateId", command.variantId.templateKey)
-            .execute()
-
-        // Set the new default and return it
-        handle.createQuery(
-            """
-                UPDATE template_variants
-                SET is_default = TRUE
-                WHERE tenant_key = :tenantId AND id = :variantId
-                  AND version_id = ${versionAt("tenantId", "catalogKey")} AND template_resource_id = ${templateAtAddress("tenantId", "catalogKey", "templateId")}
-                RETURNING *, CAST(:catalogKey AS TEXT) AS catalog_key, CAST(:templateId AS TEXT) AS template_key
-                """,
-        )
-            .bind("tenantId", command.variantId.tenantKey)
-            .bindCatalog("catalogKey", command.variantId.catalogId)
-            .bind("templateId", command.variantId.templateKey)
-            .bind("variantId", command.variantId.key)
-            .mapTo<TemplateVariant>()
-            .findOne()
-            .orElse(null)
+        return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
+            val key = command.variantId.key.value
+            templates.modifyVariant(handle, command.variantId, currentUserIdOrNull()?.value, command.expectedRevision, "Variant '$key'") { template ->
+                template.variant(key) ?: return@modifyVariant null
+                template.copy(variants = template.variants.map { it.copy(isDefault = it.key == key) })
+            } ?: return@inTransaction null
+            templateVariant(handle, command.variantId)
+        }
     }
 }

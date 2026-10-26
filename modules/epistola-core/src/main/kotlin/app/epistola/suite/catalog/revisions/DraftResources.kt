@@ -19,7 +19,8 @@ import java.util.UUID
  * naming its content in `resource_contents`. The one writer of draft rows; reads go through
  * the function `catalog_version_resources` and the per-type views on it.
  *
- * Every write here names the version its message targets (`versionAt`). The database keeps the
+ * Every write here names the version its message targets (`versionAt`), and a wire resource's row
+ * (`parent_id IS NULL`): a template's variant rows are written by [VariantRows]. The database keeps the
  * rest, as it does for the relational content tables: the identity at the address
  * (`sync_draft_resource_identity`), the revision (`bump_content_revision`), `updated_at`, and the
  * catalog's `content_updated_at` when a row goes.
@@ -70,7 +71,7 @@ object DraftResources {
             """
             UPDATE release_resources
             SET content_hash = :hash, name = :name, description = :description, updated_by = :actor
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
               AND ${Revisions.MATCHES}
             RETURNING revision, updated_at
             """,
@@ -94,7 +95,7 @@ object DraftResources {
     /** Removes [type] [key] from the targeted draft of [catalog]; false when it held none. */
     fun delete(handle: Handle, catalog: CatalogId, type: String, key: String): Boolean = handle
         .createUpdate(
-            "DELETE FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key",
+            "DELETE FROM release_resources WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL",
         )
         .bind("t", catalog.tenantKey)
         .bindCatalog("c", catalog)
@@ -110,7 +111,7 @@ object DraftResources {
         .createQuery(
             """
             SELECT revision FROM release_resources
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version_id = ${versionAt("t", "c")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
             FOR UPDATE
             """,
         )
@@ -132,7 +133,7 @@ object DraftResources {
             """
             UPDATE release_resources
             SET catalog_id = ${catalogAt("t", "target")}, version_id = ${versionAt("t", "target")}, resource_key = :targetKey, content_hash = :hash
-            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key
+            WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "source")} AND version_id = ${versionAt("t", "source")} AND resource_type = :type AND resource_key = :key AND parent_id IS NULL
             """,
         )
         .bind("t", source.tenantKey)

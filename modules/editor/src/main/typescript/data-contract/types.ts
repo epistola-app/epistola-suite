@@ -243,12 +243,16 @@ export interface SaveCallbacks {
     warnings?: Record<string, ValidationError[]>;
     errors?: Record<string, ValidationError[]>;
     error?: string;
+    /** The examples as stored, each addressed by its key from now on; absent when unknown. */
+    dataExamples?: DataExample[];
   }>;
   onSaveDataExamples?: (examples: DataExample[]) => Promise<{
     success: boolean;
     warnings?: Record<string, ValidationError[]>;
     errors?: Record<string, ValidationError[]>;
     error?: string;
+    /** The examples as stored, each addressed by its key from now on; absent when unknown. */
+    dataExamples?: DataExample[];
   }>;
   onUpdateDataExample?: (
     exampleId: string,

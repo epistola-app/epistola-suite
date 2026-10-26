@@ -260,7 +260,7 @@ class ReleaseRenderSource(
     fun templateResourceId(tenantKey: TenantKey, release: ReleaseRef, templateKey: String): java.util.UUID? = jdbi.withHandle<java.util.UUID?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT resource_id FROM release_resources
+            SELECT resource_id FROM release_wire_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND resource_type = 'template' AND resource_key = :key
             """,

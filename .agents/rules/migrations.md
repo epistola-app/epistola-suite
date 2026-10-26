@@ -24,10 +24,13 @@ forward, data-preserving migration. This is not negotiable for any feature matur
 - **A code migration** (Kotlin, `src/main/kotlin/db/migration/<module>/`) uses JDBC, a JSON tree
   and frozen code only, and pins its checksum (`getChecksum` = `CHECKSUM`): `CodeMigrationGuardTest`
   (ADR 0035, [`docs/migrations.md`](../../docs/migrations.md#code-migrations)).
-- **A table moved to JSON storage** (ADR 0033, `themes` so far) is never named in SQL again outside
+- **A table moved to JSON storage** (ADR 0033, every content table by now) is never named in SQL again outside
   code migrations and their tests: read the type's view, write through `DraftResources`
-  (`DroppedContentTableSqlTest`). Templates, until they move, are read only through
-  `current_templates` and `current_template_variants` (`TemplateTableReadsTest`).
+  (`DroppedContentTableSqlTest`).
+- **`release_resources` is storage, not a manifest**: it holds a template's variant rows (storage
+  type `variant`, `release_resource_types`) beside the wire resources. Read entries through
+  `release_wire_resources` or a type's view; only the storage code names the table (`ReleaseResourceSqlTest`).
+  A new wire type in `catalog_resource_types` becomes a storage type by trigger.
 - Prefer a lookup table over a `CHECK` constraint for extensible value sets — asset and font media
   types are seeded `asset_types` rows, so adding one is an insert, not a constraint change.
 
@@ -38,6 +41,7 @@ Background: [`docs/migrations.md`](../../docs/migrations.md).
 ```bash
 ./gradlew checkMigrationVersions        # uniqueness, ordering, and that merged files are untouched
 ./gradlew :apps:epistola:integrationTest --tests "*SchemaHygieneAppTest*"
+./gradlew :modules:guards:test --tests "*ReleaseResourceSqlTest*"
 ```
 
 `checkMigrationVersions` compares against the base branch, so it catches a version that sorts before

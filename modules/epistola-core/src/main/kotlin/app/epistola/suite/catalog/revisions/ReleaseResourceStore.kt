@@ -49,6 +49,7 @@ class ReleaseResourceStore {
      *
      * @param contentHashes each resource's revision, keyed `"type/slug"`, from [ResourceContentStore].
      * @param fingerprints each resource's canonical wire digest, keyed the same way.
+     * @param variants each template's variants ([ResourceContentStore.Retained.variants]), frozen with it.
      * @param registerNew whether a resource the catalog never held gets an identity here: a release
      *   received beside the others (ADR 0032) may bring one that no version of the catalog has. A
      *   release cut here holds only what a version held, so there a gap is a defect.
@@ -61,6 +62,7 @@ class ReleaseResourceStore {
         contentHashes: Map<String, String>,
         fingerprints: Map<String, String>,
         registerNew: Boolean = false,
+        variants: Map<String, List<VariantRows.Released>> = emptyMap(),
     ) {
         val identities = loadIdentities(handle, catalog).toMutableMap()
         if (registerNew) {
@@ -98,6 +100,8 @@ class ReleaseResourceStore {
                 .bind("name", entry.name)
                 .bind("description", entry.description)
                 .execute()
+            // A template's variants are rows of their own (ADR 0033), frozen with it.
+            variants[key]?.let { VariantRows.recordRelease(handle, catalog, version, resourceId, it) }
         }
     }
 
@@ -106,7 +110,7 @@ class ReleaseResourceStore {
         .createQuery(
             """
             SELECT resource_type, resource_key, resource_id, content_hash, fingerprint, name, description
-            FROM release_resources
+            FROM release_wire_resources
             WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version
               AND (CAST(:type AS TEXT) IS NULL OR resource_type = :type)
             ORDER BY resource_type, resource_key

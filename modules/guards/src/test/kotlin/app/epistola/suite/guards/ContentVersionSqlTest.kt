@@ -51,8 +51,8 @@ class ContentVersionSqlTest {
             }
         }
 
-        // Fewer as each type moves to JSON storage and its reads to a view (ADR 0033): 62 after step 7a.
-        assertTrue(scanned > 40, "Found only $scanned statements on content — the scan is broken")
+        // Fewer as each type moved to JSON storage and its reads to a view (ADR 0033): 21 after step 7b.
+        assertTrue(scanned > 10, "Found only $scanned statements on content — the scan is broken")
         assertTrue(
             violations.isEmpty(),
             "These statements touch catalog content without naming the catalog version. Filter or join " +
@@ -200,10 +200,8 @@ class ContentVersionSqlTest {
 
     private companion object {
         private val CONTENT_TABLES = listOf(
-            // Themes are draft rows of release_resources now (ADR 0033), read through current_themes,
+            // Every resource type is draft rows of release_resources now (ADR 0033), read through its view,
             // which holds only the version a caller means; DroppedContentTableSqlTest refuses the old table.
-            "document_templates",
-            "template_variants",
             "resource_ready_marks",
             "catalog_dependencies",
             "resource_content_digests",

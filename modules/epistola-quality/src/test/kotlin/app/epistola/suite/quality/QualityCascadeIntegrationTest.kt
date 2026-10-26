@@ -21,6 +21,7 @@ import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.testing.default
+import app.epistola.suite.testing.releaseNext
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
@@ -110,6 +111,26 @@ class QualityCascadeIntegrationTest : IntegrationTestBase() {
 
         val remaining = withMediator { ListQualityFindings(tenant.id).query().items }
         assertThat(remaining).singleElement().satisfies({ assertThat(it.fingerprint).isEqualTo("fp-survivor") })
+    }
+
+    /**
+     * A variant is an entry of its template's content (ADR 0033), held by the draft and by every
+     * release that holds the template: a finding about it goes only when none holds it any more.
+     */
+    @Test
+    fun `a variant a release still holds keeps its findings`() {
+        val tenant = createTenant("Cascade Released Variant")
+        val templateId = newTemplate(tenant.id)
+        val variantId = newVariant(templateId)
+        withMediator {
+            app.epistola.suite.templates.contracts.commands.UpdateDataContract(templateId, dataExamples = listOf(app.epistola.suite.templates.model.DataExample("e", "Example", tools.jackson.databind.json.JsonMapper.builder().build().createObjectNode()))).execute()
+            SubmitQualityFindings(source, QualitySubject.of(variantId), listOf(finding("fp-released"))).execute()
+            mediator.releaseNext(templateId.catalogId)
+        }
+
+        withMediator { DeleteVariant(variantId).execute() }
+
+        assertThat(withMediator { ListQualityFindings(tenant.id).query().items }.map { it.fingerprint }).containsExactly("fp-released")
     }
 
     /**

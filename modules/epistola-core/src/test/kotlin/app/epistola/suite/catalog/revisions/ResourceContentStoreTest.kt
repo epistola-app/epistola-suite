@@ -140,10 +140,10 @@ class ResourceContentStoreTest : IntegrationTestBase() {
             ReleaseCatalogDraft(catalog = testCatalog(catalog.tenantKey, catalog.key), version = "1.0.0").execute()
         }
 
-        assertThat(revisionKinds(catalog.tenantKey)).contains(TEMPLATE_MODEL_KIND, "template")
-        // The model lives in its own row, and the template payload points at it rather than
-        // carrying it — which is what stops one variant's edit rewriting all of them.
-        assertThat(templatePayload(catalog.tenantKey)).contains(REVISION_REF_FIELD)
+        assertThat(revisionKinds(catalog.tenantKey)).contains(app.epistola.suite.catalog.revisions.VariantRows.TYPE, "template")
+        // The model lives in its variant's content, and the template's does not carry it — which is
+        // what stops one variant's edit rewriting all of them.
+        assertThat(templatePayload(catalog.tenantKey)).doesNotContain("templateModel")
     }
 
     @Test
@@ -243,7 +243,7 @@ class ResourceContentStoreTest : IntegrationTestBase() {
     }
 
     private fun templatePayload(tenant: TenantKey): String = jdbi.withHandle<String, Exception> { handle ->
-        handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND content_hash NOT IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'system')) AND kind = 'template'")
+        handle.createQuery("SELECT payload::text FROM resource_contents WHERE tenant_key = :t AND kind = 'template' AND content_hash IN (SELECT content_hash FROM release_resources WHERE tenant_key = :t AND version IS NOT NULL AND resource_type = 'template')")
             .bind("t", tenant).mapTo(String::class.java).one()
     }
 

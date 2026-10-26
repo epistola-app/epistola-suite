@@ -79,7 +79,7 @@ class ReleaseReadCostTest : IntegrationTestBase() {
         val catalog = releasedLetterWithThreeVariants("cost-shared")
         val tenant = withMediator { GetTenant(catalog.tenantKey).query()!! }
 
-        val templateLookups = countStatements("SELECT content_hash FROM release_resources") {
+        val templateLookups = countStatements("SELECT content_hash, resource_id FROM release_wire_resources") {
             val target = resolver.resolveLatest(testCatalog(catalog.tenantKey, catalog.key), TemplateKey.of("letter"), VariantKey.of("nld"), criteria = null)
             source.resolve(tenant, target.release, "letter", target.variantKey.value)
             // A second request against the same release.

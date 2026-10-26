@@ -201,6 +201,7 @@ class ReleaseCatalogDraftHandler(
     private val identity: app.epistola.suite.catalog.revisions.ReleaseIdentity,
     private val grants: NamespaceGrantStore,
     private val codeLists: app.epistola.suite.attributes.codelists.CodeListStore,
+    private val templates: app.epistola.suite.templates.TemplateStore,
 ) : CommandHandler<ReleaseCatalogDraft, ReleaseCatalogDraftResult> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -487,15 +488,18 @@ class ReleaseCatalogDraftHandler(
             // stores the content its draft does.
             val settings = codeLists.sources(handle, command.catalog)
                 .map { (key, source) -> "${app.epistola.suite.attributes.codelists.CodeListStore.CODE_LIST}/$key" to objectMapper.createObjectNode().set("source", source) }
-                .toMap()
-            val contentHashes = revisionStore.retain(handle, command.tenantKey, content, settings)
+                .toMap() +
+                // So do a template's variant descriptions, until the contract carries them.
+                templates.settings(handle, command.catalog)
+            val retained = revisionStore.retain(handle, command.tenantKey, content, settings)
             releaseResourceStore.record(
                 handle,
                 command.catalog,
                 newVersion.toString(),
                 content,
-                contentHashes,
+                retained.contents,
                 resourceFingerprints,
+                variants = retained.variants,
             )
 
             // Declarations in other drafts that named this draft now pin the release it became.

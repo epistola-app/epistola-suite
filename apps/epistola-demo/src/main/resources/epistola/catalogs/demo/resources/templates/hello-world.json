@@ -52,26 +52,14 @@
         "n-header": {
           "id": "n-header",
           "type": "stencil",
-          "slots": [],
+          "slots": [
+            "n-header:children"
+          ],
           "props": {
             "stencilKey": "company-header",
-            "catalogKey": "epistola-demo",
             "paramsAlias": "params",
             "parameterBindings": {
               "companyName": "companyName"
-            },
-            "parameterSchemaSnapshot": {
-              "type": "object",
-              "properties": {
-                "companyName": {
-                  "type": "string",
-                  "description": "Company name shown in the header",
-                  "default": "Acme Corporation"
-                }
-              },
-              "required": [
-                "companyName"
-              ]
             }
           }
         },
@@ -144,6 +132,12 @@
             "n-heading",
             "n-body"
           ]
+        },
+        "n-header:children": {
+          "id": "n-header:children",
+          "nodeId": "n-header",
+          "name": "children",
+          "children": []
         }
       }
     },
@@ -152,7 +146,6 @@
         "key": "default",
         "title": "Default",
         "attributes": {},
-        "templateModel": null,
         "isDefault": true
       }
     ]

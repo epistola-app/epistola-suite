@@ -41,7 +41,7 @@ class WorkingCopyWithoutVersionsMigrationTest {
             // Rows as 1.x wrote them: no command writes template or contract versions any more.
             connection.createStatement().use { it.execute(SEED) }
         }
-        flyway(null).migrate()
+        flyway(BEFORE_TEMPLATE_STORAGE).migrate()
 
         DriverManager.getConnection(url, postgres.username, postgres.password).use { connection ->
             fun rows(sql: String): Map<String, String?> = connection.createStatement().use { st ->

@@ -87,6 +87,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             dataExamples = listOf(
                 DataExample(
                     id = "example-1",
+                    key = "example-1",
                     name = "Example 1",
                     data = objectMapper.createObjectNode(),
                 ),
@@ -879,7 +880,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("\"compatible\":false")
                 assertThat(response.body).contains("\"autoMigratable\":true")
-                assertThat(response.body).contains("\"exampleId\":\"1\"")
+                // Stored by its key, derived from its name (ADR 0033).
+                assertThat(response.body).contains("\"exampleId\":\"example-1\"")
             }
         }
 
@@ -979,6 +981,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.valueToTree(mapOf("name" to "John")),
                             ),
@@ -1035,6 +1038,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Original Name",
                                 data = objectMapper.valueToTree(mapOf("field" to "original")),
                             ),
@@ -1139,6 +1143,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.valueToTree(mapOf("count" to 42)),
                             ),
@@ -1184,6 +1189,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.valueToTree(mapOf("count" to 42)),
                             ),
@@ -1228,6 +1234,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.valueToTree(mapOf("name" to "John")),
                             ),
@@ -1277,6 +1284,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.createObjectNode(),
                             ),
@@ -1325,6 +1333,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                         listOf(
                             DataExample(
                                 id = "example-1",
+                                key = "example-1",
                                 name = "Example 1",
                                 data = objectMapper.valueToTree(mapOf("name" to "John")),
                             ),
@@ -1459,7 +1468,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("\"success\":true")
                 val contract = mediator.query(GetDataContract(TemplateId(template.id, CatalogId.default(TenantId(testTenant.id)))))!!
                 assertThat(contract.dataModel?.get("properties")?.has("name")).isTrue()
-                assertThat(contract.dataExamples.map { it.id }).containsExactly("ex-1")
+                // Stored by its key, derived from its name (ADR 0033): its id from now on.
+                assertThat(contract.dataExamples.map { it.id }).containsExactly("example")
             }
         }
 
