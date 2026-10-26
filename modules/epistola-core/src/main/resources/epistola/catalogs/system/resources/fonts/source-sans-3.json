@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "font",
+    "key": "source-sans-3",
+    "name": "Source Sans 3",
+    "kind": "sans",
+    "variants": [
+      {
+        "weight": 400,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "4644c81b86ec9caaa76b634889968ed3c4f4f52f054855933acc7c2b21e53b0f",
+        "contentUrl": "./binaries/fonts/source-sans-3/source-sans-3-Regular.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "9214b9d95e4231c609802815c2646c98174e2102d0d37f88978a7f8e71006e6a",
+        "contentUrl": "./binaries/fonts/source-sans-3/source-sans-3-Bold.ttf"
+      },
+      {
+        "weight": 400,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "192afd78f0f54a3c69eaf02d43f4d9a821e9d6110e41d3d25d61a7385cd580e4",
+        "contentUrl": "./binaries/fonts/source-sans-3/source-sans-3-Italic.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "7978291fc1bf314db887e0366853b33c5cf2e964c7b95cfb9ce403a6ec46a842",
+        "contentUrl": "./binaries/fonts/source-sans-3/source-sans-3-BoldItalic.ttf"
+      }
+    ]
+  }
+}

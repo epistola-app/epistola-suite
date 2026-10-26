@@ -9,7 +9,6 @@ import app.epistola.generation.pdf.FontFaceBytes
 import app.epistola.generation.pdf.FontFamilyResolver
 import app.epistola.generation.pdf.ResolvedTheme
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
-import app.epistola.suite.fonts.commands.EnsureSystemFontsHandler
 import app.epistola.template.model.Node
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
@@ -44,7 +43,7 @@ import java.io.ByteArrayOutputStream
 @Execution(ExecutionMode.SAME_THREAD)
 class SystemFontRenderingTest {
 
-    private val faces = EnsureSystemFontsHandler.DECLARED_FACES
+    private val faces = SystemCatalogFaces.ALL
 
     private val resolver = FontFamilyResolver { _, slug, weight, italic ->
         faces.firstOrNull { it.slug == slug && it.weight == weight && it.italic == italic }
@@ -180,6 +179,6 @@ class SystemFontRenderingTest {
         private val REGIONS = listOf("HEADER", "FOOTER", "ADDRESS", "ASIDE", "BODY")
 
         @JvmStatic
-        fun families(): List<String> = EnsureSystemFontsHandler.DECLARED_FACES.map { it.slug }.distinct()
+        fun families(): List<String> = SystemCatalogFaces.ALL.map { it.slug }.distinct()
     }
 }

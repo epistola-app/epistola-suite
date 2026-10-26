@@ -110,20 +110,22 @@ times more.
 
 ## System fonts
 
-Nine OFL families ship with the suite. Eight (Inter, Source Sans 3, Roboto,
-Lato, Source Serif 4, Merriweather, Lora, JetBrains Mono) are under
-`modules/epistola-core/src/main/resources/epistola/fonts/<slug>/`. The ninth,
-Liberation Sans (`liberation-sans`), is metric-compatible with Helvetica and
-Arial, so a letter designed in either keeps its widths and line breaks; its
-faces are the renderer's own fallback files in
-`modules/generation/src/main/resources/fonts/`, registered from there. They are
-seeded per tenant into the `system` catalog by `EnsureSystemFonts` (idempotent,
-runs from `InstallSystemCatalog` on tenant create and every boot) with faces at
-`(400,upright)`, `(700,upright)`, `(400,italic)`, `(700,italic)`. Their files are written into
-`asset_content` once per installation, under the shared scope, and linked like any font's faces;
-the seeding reads them once per JVM and writes nothing on a boot that finds them current. The model supports the full weight range; the bundled set just
-ships those four faces. A test guards that every declared classpath path
-resolves.
+Nine OFL families ship with the suite, as font resources of the bundled
+`system` catalog: its manifest declares them and their faces are its binaries,
+under `modules/epistola-core/src/main/resources/epistola/catalogs/system/binaries/fonts/<slug>/`.
+Eight are Inter, Source Sans 3, Roboto, Lato, Source Serif 4, Merriweather, Lora
+and JetBrains Mono. The ninth, Liberation Sans (`liberation-sans`), is
+metric-compatible with Helvetica and Arial, so a letter designed in either keeps
+its widths and line breaks; its faces are copies of the renderer's own fallback
+files in `modules/generation/src/main/resources/fonts/`, and a test keeps the two
+byte-identical. Each family has faces at `(400,upright)`, `(700,upright)`,
+`(400,italic)`, `(700,italic)`. They reach a tenant as any catalog's fonts do,
+when `InstallSystemCatalog` installs the system catalog on tenant creation and
+upgrades it on boot: their files are written into `asset_content` once per
+installation and linked like any font's faces, so a new or changed bundled font
+is a new release of the system catalog. The model supports the full weight
+range; the bundled set just ships those four faces. A test guards that every
+face the catalog declares is on the classpath and hashes to its declared hash.
 
 The default tenant theme and the demo catalog reference
 `{ slug: "inter", catalogKey: "system" }`.

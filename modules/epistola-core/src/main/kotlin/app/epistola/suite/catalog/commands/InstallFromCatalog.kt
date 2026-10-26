@@ -171,9 +171,7 @@ class InstallFromCatalogHandler(
             }
             if (results.any { it.status == InstallStatus.FAILED }) {
                 status.setRollbackOnly()
-            } else if (!InstalledReleaseRecording.isDeferred) {
-                // A caller that defers recording the release completes the content first (the system
-                // catalog seeds its fonts) and checks it then.
+            } else {
                 installedCatalogCheck.requireValid(command.catalog)
             }
             results
@@ -188,8 +186,7 @@ class InstallFromCatalogHandler(
         // the new release once it has moved the pointer, from the content handed to it here.
         InstalledContentHandoff.offer(published)
         if (results.none { it.status == InstallStatus.FAILED } &&
-            catalog.installedReleaseVersion == manifest.release.version &&
-            !InstalledReleaseRecording.isDeferred
+            catalog.installedReleaseVersion == manifest.release.version
         ) {
             RecordInstalledRelease(command.catalog, published = published, received = manifest.release).execute()
         }

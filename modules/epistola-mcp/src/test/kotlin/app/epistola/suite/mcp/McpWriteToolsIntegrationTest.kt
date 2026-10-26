@@ -555,6 +555,6 @@ class McpWriteToolsIntegrationTest : IntegrationTestBase() {
     }.toByteArray()
 
     private fun base64Font(file: String): String = Base64.getEncoder().encodeToString(
-        resourceLoader.getResource("classpath:epistola/fonts/inter/$file").contentAsByteArray,
+        resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/$file").contentAsByteArray,
     )
 }

@@ -667,9 +667,7 @@ class ImportCatalogZipHandler(
             jdbi.useHandle<Exception> { dependencyStore.replace(it, catalog, declared) }
             rows.updateThemeSettings(catalog, manifest.catalog, objectMapper)
             markReady(catalog, manifest.resources)
-            if (!InstalledReleaseRecording.isDeferred) {
-                RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
-            }
+            RecordInstalledRelease(catalog, published = publishedContent(manifest, bound, entries), received = manifest.release).execute()
         } else if (!anyFailed) {
             if (!command.intoDraft) {
                 rows.updateMetadata(

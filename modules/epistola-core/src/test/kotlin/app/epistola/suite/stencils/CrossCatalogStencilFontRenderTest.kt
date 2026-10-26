@@ -57,7 +57,7 @@ class CrossCatalogStencilFontRenderTest : IntegrationTestBase() {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    private val fontFile = "classpath:epistola/fonts/inter/inter-Regular.ttf"
+    private val fontFile = "classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf"
 
     private fun text(id: String, value: String, styles: Map<String, Any>? = null) = Node(
         id = id,

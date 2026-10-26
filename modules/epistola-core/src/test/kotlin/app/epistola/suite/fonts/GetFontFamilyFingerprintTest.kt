@@ -48,7 +48,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
         withMediator {
             val tenant = createTenant("FP Stable Tenant")
             val tenantId = TenantId(tenant.id)
-            val regular = upload(tenantId, "fp-reg.ttf", "epistola/fonts/inter/inter-Regular.ttf")
+            val regular = upload(tenantId, "fp-reg.ttf", "epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
 
             ImportFont(
                 catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
@@ -79,7 +79,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
             val tenantId = TenantId(tenant.id)
             val slug = FontKey.of("fp-mut")
 
-            val regular = upload(tenantId, "fp-mut-1.ttf", "epistola/fonts/inter/inter-Regular.ttf")
+            val regular = upload(tenantId, "fp-mut-1.ttf", "epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
             ImportFont(
                 catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = slug.value,
@@ -91,7 +91,7 @@ class GetFontFamilyFingerprintTest : IntegrationTestBase() {
 
             // Re-import the SAME face key (400, false) but a DIFFERENT binary —
             // ImportFont delete-and-reinserts variants, re-hashing the bytes.
-            val replacement = upload(tenantId, "fp-mut-2.ttf", "epistola/fonts/inter/inter-Bold.ttf")
+            val replacement = upload(tenantId, "fp-mut-2.ttf", "epistola/catalogs/system/binaries/fonts/inter/inter-Bold.ttf")
             ImportFont(
                 catalog = testCatalog(tenantId, CatalogKey.DEFAULT),
                 slug = slug.value,

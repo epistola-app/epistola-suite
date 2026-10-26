@@ -41,15 +41,12 @@ import java.sql.DriverManager
  *
  * Then every release the tenant has must hold what its record says it holds:
  *
- * - every font it retained carries its faces: the system catalog's bundled ones, which live on the
- *   classpath and not in its archive, and an authored font's uploaded one; and the authored theme
- *   keeps its spacing unit;
+ * - every font it retained carries its faces: the system catalog's bundled ones, binaries of its
+ *   archive, and an authored font's uploaded one; and the authored theme keeps its spacing unit;
  * - every entry's recorded fingerprint is the fingerprint of the revision it points at;
- * - its content hash, and the fingerprint it was cut with, reproduce from what it retained. The
- *   system catalog is the one exception, by decision (findings G6, ADR 0032 section 8): its release
- *   carries the fingerprint of the archive the suite ships, which dependents pin, while it also holds
- *   the fonts the suite seeds beside that archive and is rebuilt from the installed rows. Its content
- *   hash is therefore the bundled archive's.
+ * - its content hash, and the fingerprint it was cut with, reproduce from what it retained. For the
+ *   system catalog that is also the fingerprint of the archive the suite ships, which dependents pin:
+ *   its fonts are resources of that archive.
  *
  * The 1.x rows are raw SQL on purpose: no command of today writes the 1.x schema.
  */
@@ -135,12 +132,11 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
 
             if (release.catalogKey == SYSTEM_CATALOG_KEY) {
                 softly.assertThat(release.contentHash).`as`("$name is the archive the suite ships").isEqualTo(BUNDLED_SYSTEM_FINGERPRINT)
-            } else {
-                softly.assertThat(release.contentHash).`as`("$name's content hash, from what it retained").isEqualTo(canonicalizer.contentHash(retained))
-                softly.assertThat(canonicalizer.matchesFingerprint(retained, release.fingerprint))
-                    .`as`("$name's retained content reproduces the fingerprint it was cut with, ${release.fingerprint}")
-                    .isTrue()
             }
+            softly.assertThat(release.contentHash).`as`("$name's content hash, from what it retained").isEqualTo(canonicalizer.contentHash(retained))
+            softly.assertThat(canonicalizer.matchesFingerprint(retained, release.fingerprint))
+                .`as`("$name's retained content reproduces the fingerprint it was cut with, ${release.fingerprint}")
+                .isTrue()
         }
         softly.assertAll()
     }
@@ -149,7 +145,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
 
     /** The faces each catalog's fonts have, as 1.x left them: the bundled ones by their files' hashes, and the uploaded one. */
     private val expectedFaces: Map<CatalogKey, Map<String, Set<Face>>> = mapOf(
-        SYSTEM_CATALOG_KEY to SYSTEM_FONTS.associate { font -> font.slug to BUNDLED_FACES.map { (weight, italic, token) -> Face(weight, italic, sha256Hex(classpathBytes(font.location(token)))) }.toSet() },
+        SYSTEM_CATALOG_KEY to SYSTEM_FONTS.associate { font -> font.slug to BUNDLED_FACES.map { (weight, italic, token) -> Face(weight, italic, sha256Hex(classpathBytes(font.file(token)))) }.toSet() },
         LETTERS to mapOf("brand" to setOf(Face(400, false, sha256Hex(classpathBytes(BRAND_FACE))))),
     )
 
@@ -169,9 +165,12 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         ).mapTo(String::class.java).list()
     }
 
-    /** A bundled family as 1.x seeded it into the system catalog (`EnsureSystemFonts`): its faces sit on the classpath. */
+    /** A bundled family as 1.x seeded it into the system catalog: 1.x recorded where its faces sat on the classpath ([location]). */
     private data class SystemFont(val slug: String, val name: String, val kind: String, val at: ((String) -> String)? = null) {
         fun location(token: String): String = at?.invoke(token) ?: "epistola/fonts/$slug/$slug-$token.ttf"
+
+        /** Where the face's file is now: a binary of the system catalog, or the renderer's fallback. */
+        fun file(token: String): String = at?.invoke(token) ?: "epistola/catalogs/system/binaries/fonts/$slug/$slug-$token.ttf"
     }
 
     companion object {
@@ -184,11 +183,11 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
         private val LETTERS = CatalogKey.of("letters")
 
         /** The system catalog this suite ships (`catalogs/system/catalog.json`). */
-        private const val BUNDLED_SYSTEM_VERSION = "2.0.1"
-        private const val BUNDLED_SYSTEM_FINGERPRINT = "v6:34175c1b7b2d6f106af120548e5472194f165c52da0622f8ef0ee016e63fb6de"
+        private const val BUNDLED_SYSTEM_VERSION = "2.1.0"
+        private const val BUNDLED_SYSTEM_FINGERPRINT = "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
 
         /** The file the authored font's uploaded face holds. */
-        private const val BRAND_FACE = "epistola/fonts/lato/lato-Regular.ttf"
+        private const val BRAND_FACE = "epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf"
 
         private val SYSTEM_FONTS = listOf(
             SystemFont("inter", "Inter", "sans"),
@@ -213,7 +212,8 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
          * the system catalog's Inter with a spacing unit of its own, and a template with a published
          * version and contract. The
          * system catalog's other resources are its manifest's, which the bootstrap puts in place at
-         * the bundled release either way; its fonts are what the manifest does not carry.
+         * the bundled release either way; its fonts are in the manifest too, and 1.x's seeded ones
+         * are the same families, so the upgrade keeps them.
          */
         private fun seed1x(connection: java.sql.Connection) {
             connection.createStatement().use { statement ->
@@ -260,7 +260,7 @@ class OneXUpgradeReleasesIT : BaseIntegrationTest() {
                         insert.setInt(1, weight)
                         insert.setBoolean(2, italic)
                         insert.setString(3, font.location(token))
-                        insert.setString(4, sha256Hex(classpathBytes(font.location(token))))
+                        insert.setString(4, sha256Hex(classpathBytes(font.file(token))))
                         insert.setString(5, font.slug)
                         insert.addBatch()
                     }

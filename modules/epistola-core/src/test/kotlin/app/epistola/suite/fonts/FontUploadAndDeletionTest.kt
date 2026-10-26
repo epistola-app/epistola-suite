@@ -53,7 +53,7 @@ class FontUploadAndDeletionTest : IntegrationTestBase() {
 
     /** A real bundled TTF used as the uploaded face binary. */
     private fun ttfBytes(): ByteArray = resourceLoader
-        .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+        .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
     /** A face's file: since ADR 0033 step 5 the font's own binary, not an uploaded asset. */

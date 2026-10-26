@@ -308,7 +308,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
         runUpgrade()
 
         val recorded = releases(subscribed)
-        assertThat(recorded.map { it.first }).containsExactly("5.17.3")
+        assertThat(recorded.map { it.first }).containsExactly("5.17.4")
         assertThat(recorded.single().second).`as`("qualified, so a dependent can lock to it").startsWith("v6:")
         assertThat(queueRow(subscribed)).isNull()
     }
@@ -332,7 +332,7 @@ class CatalogUpgradeTest : IntegrationTestBase() {
 
         assertThat(versions(letters)).contains("v1.0.0" to CatalogReleaseStatus.RELEASED)
         assertThat(withMediator { ListCatalogDependencies(testCatalog(letters.tenantKey, letters.key)).query() }.map { it.catalogKey to it.releaseVersion })
-            .contains("epistola-demo" to "5.17.3")
+            .contains("epistola-demo" to "5.17.4")
     }
 
     // ── Order and retries ──

@@ -30,9 +30,9 @@
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "5.17.3",
+    "version": "5.17.4",
     "releasedAt": "2026-08-21T00:00:00Z",
-    "fingerprint": "v6:a67f3c9308995d3ce16fdb0b6fa5899d3358044e099e3ca95313b4cc33c1e199"
+    "fingerprint": "v6:7619db49825409661eee85def16a18ea31ac9bcbc97162d5d74e3117fb3e09a9"
   },
   "catalogDependencies": [
     {
@@ -40,8 +40,8 @@
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "releaseVersion": "2.0.1",
-      "releaseFingerprint": "v6:34175c1b7b2d6f106af120548e5472194f165c52da0622f8ef0ee016e63fb6de"
+      "releaseVersion": "2.1.0",
+      "releaseFingerprint": "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
     }
   ],
   "resources": [

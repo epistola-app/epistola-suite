@@ -40,7 +40,7 @@ class FontDialogHandlerHtmxTest : BaseIntegrationTest() {
     private lateinit var resourceLoader: ResourceLoader
 
     private fun ttf(): ByteArray = resourceLoader
-        .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+        .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
     private fun facePart(name: String) = HttpEntity(

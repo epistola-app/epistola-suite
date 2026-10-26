@@ -49,8 +49,8 @@ class FontStoragePerfTest : IntegrationTestBase() {
     @Test
     fun `font reads and writes on a large data set`() {
         val tenant = createTenant("Font perf").id
-        val regular = resourceLoader.getResource("classpath:epistola/fonts/lato/lato-Regular.ttf").contentAsByteArray
-        val bold = resourceLoader.getResource("classpath:epistola/fonts/lato/lato-Bold.ttf").contentAsByteArray
+        val regular = resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf").contentAsByteArray
+        val bold = resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/lato/lato-Bold.ttf").contentAsByteArray
         withMediator {
             for (c in 0 until CATALOGS) {
                 val catalog = testCatalog(tenant, CatalogKey.of("cat-$c"))

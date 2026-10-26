@@ -57,7 +57,7 @@ class DraftReleaseSameContentTest : IntegrationTestBase() {
                 letters,
                 "house-sans",
                 "House Sans",
-                mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/fonts/lato/lato-Regular.ttf")!!.readBytes()),
+                mapOf((400 to false) to javaClass.classLoader.getResourceAsStream("epistola/catalogs/system/binaries/fonts/lato/lato-Regular.ttf")!!.readBytes()),
             )
             app.epistola.suite.assets.commands.UploadAsset(
                 letters,

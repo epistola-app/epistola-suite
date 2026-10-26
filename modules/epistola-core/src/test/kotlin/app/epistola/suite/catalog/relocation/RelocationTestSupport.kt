@@ -190,7 +190,7 @@ abstract class RelocationTestSupport : IntegrationTestBase() {
         ).execute()
     }
 
-    protected fun ttfBytes(): ByteArray = resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray
+    protected fun ttfBytes(): ByteArray = resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray
 
     /** A template model inserting stencil [stencilKey], qualified with [catalogKey] when given. */
     protected fun templateEmbedding(stencilKey: String, catalogKey: String? = null, nodeId: String = "stencil-instance"): TemplateDocument = templateEmbedding(listOf(Triple(nodeId, stencilKey, catalogKey)))

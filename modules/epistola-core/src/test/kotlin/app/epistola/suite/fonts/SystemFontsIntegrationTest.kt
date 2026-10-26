@@ -6,6 +6,7 @@ package app.epistola.suite.fonts
 
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
+import app.epistola.suite.catalog.system.InstallSystemCatalog
 import app.epistola.suite.catalog.system.SYSTEM_CATALOG_KEY
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -34,7 +35,7 @@ import tools.jackson.databind.node.ObjectNode
 
 /**
  * End-to-end coverage for the bundled system fonts: every tenant gets the
- * nine OFL families seeded into its `system` catalog on creation, the
+ * nine bundled families as resources of its `system` catalog on creation, the
  * classpath-backed binaries resolve to real TTF bytes, and the structured
  * `fontFamily` ref is honoured by the live render path (the `system/default`
  * theme points at `inter`/`system`).
@@ -113,12 +114,11 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `seeding is idempotent across repeated install`() {
+    fun `installing the system catalog again keeps the nine families`() {
         val tenant = createTenant("Fonts3")
         withMediator {
-            // CreateTenant already ran EnsureSystemFonts once; run it again
-            // directly — ImportFont UPSERTs, so the family count must hold.
-            app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
+            // CreateTenant installed the system catalog once; install it again: nothing changes.
+            InstallSystemCatalog(tenant.id).execute()
             val fonts = ListFonts(TenantId(tenant.id), testCatalog(tenant.id, SYSTEM_CATALOG_KEY)).query()
             assertThat(fonts).hasSize(9)
         }
@@ -161,7 +161,7 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
     }
 
     @Test
-    fun `re-seeding system fonts is hash-idempotent`() {
+    fun `installing the system catalog again keeps every family's fingerprint`() {
         val tenant = createTenant("Fonts Hash Idempotent Tenant")
         withMediator {
             val before = expectedSlugs.associateWith { slug ->
@@ -169,9 +169,8 @@ class SystemFontsIntegrationTest : IntegrationTestBase() {
             }
             assertThat(before.values).allSatisfy { assertThat(it).isNotNull() }
 
-            // CreateTenant already ran EnsureSystemFonts; re-run it (ImportFont
-            // re-hashes from the same classpath bytes) — fingerprints must hold.
-            app.epistola.suite.fonts.commands.EnsureSystemFonts(tenant.id).execute()
+            // CreateTenant installed the system catalog; installing it again must not move a font.
+            InstallSystemCatalog(tenant.id).execute()
 
             val after = expectedSlugs.associateWith { slug ->
                 GetFontFamilyFingerprint(testCatalog(tenant.id, SYSTEM_CATALOG_KEY), FontKey.of(slug)).query()

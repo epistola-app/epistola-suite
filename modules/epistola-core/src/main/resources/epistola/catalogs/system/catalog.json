@@ -5,16 +5,16 @@
     "registry": "exchange.epistola.app",
     "namespace": "epistola",
     "name": "System",
-    "description": "Reserved attributes and canonical code lists shipped with Epistola. Every tenant gets this catalog at creation."
+    "description": "Reserved attributes, canonical code lists and the bundled fonts shipped with Epistola. Every tenant gets this catalog at creation."
   },
   "publisher": {
     "name": "Epistola",
     "url": "https://github.com/epistola-app"
   },
   "release": {
-    "version": "2.0.1",
-    "releasedAt": "2026-10-22T00:00:00Z",
-    "fingerprint": "v6:34175c1b7b2d6f106af120548e5472194f165c52da0622f8ef0ee016e63fb6de"
+    "version": "2.1.0",
+    "releasedAt": "2026-10-26T00:00:00Z",
+    "fingerprint": "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
   },
   "resources": [
     {
@@ -35,21 +35,21 @@
       "type": "codeList",
       "key": "bcp-47",
       "name": "BCP-47 Language Tags",
-      "description": "Curated subset of common BCP-47 language + region tags.",
+      "description": "Curated subset of common BCP-47 language + region tags. Tenants needing more granularity can author additional code lists alongside this one.",
       "detailUrl": "./resources/codelists/bcp-47.json"
     },
     {
       "type": "codeList",
       "key": "iso-639-1",
       "name": "ISO 639-1 Languages",
-      "description": "Two-letter language codes from ISO 639-1.",
+      "description": "Two-letter language codes from ISO 639-1. Retired codes (e.g. iw, in) are intentionally omitted; tenants who need them can author overrides.",
       "detailUrl": "./resources/codelists/iso-639-1.json"
     },
     {
       "type": "codeList",
       "key": "iso-3166-1-alpha2",
       "name": "ISO 3166-1 Countries (alpha-2)",
-      "description": "Two-letter country codes from ISO 3166-1 alpha-2.",
+      "description": "Two-letter country codes from ISO 3166-1.",
       "detailUrl": "./resources/codelists/iso-3166-1-alpha2.json"
     },
     {
@@ -72,6 +72,60 @@
       "name": "Country",
       "description": "ISO 3166-1 alpha-2 country code (e.g. US, NL).",
       "detailUrl": "./resources/attributes/country.json"
+    },
+    {
+      "type": "font",
+      "key": "inter",
+      "name": "Inter",
+      "detailUrl": "./resources/fonts/inter.json"
+    },
+    {
+      "type": "font",
+      "key": "source-sans-3",
+      "name": "Source Sans 3",
+      "detailUrl": "./resources/fonts/source-sans-3.json"
+    },
+    {
+      "type": "font",
+      "key": "roboto",
+      "name": "Roboto",
+      "detailUrl": "./resources/fonts/roboto.json"
+    },
+    {
+      "type": "font",
+      "key": "lato",
+      "name": "Lato",
+      "detailUrl": "./resources/fonts/lato.json"
+    },
+    {
+      "type": "font",
+      "key": "liberation-sans",
+      "name": "Liberation Sans",
+      "detailUrl": "./resources/fonts/liberation-sans.json"
+    },
+    {
+      "type": "font",
+      "key": "source-serif-4",
+      "name": "Source Serif 4",
+      "detailUrl": "./resources/fonts/source-serif-4.json"
+    },
+    {
+      "type": "font",
+      "key": "merriweather",
+      "name": "Merriweather",
+      "detailUrl": "./resources/fonts/merriweather.json"
+    },
+    {
+      "type": "font",
+      "key": "lora",
+      "name": "Lora",
+      "detailUrl": "./resources/fonts/lora.json"
+    },
+    {
+      "type": "font",
+      "key": "jetbrains-mono",
+      "name": "JetBrains Mono",
+      "detailUrl": "./resources/fonts/jetbrains-mono.json"
     }
   ]
 }

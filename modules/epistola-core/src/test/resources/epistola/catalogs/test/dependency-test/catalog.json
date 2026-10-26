@@ -18,8 +18,8 @@
       "registry": "exchange.epistola.app",
       "namespace": "epistola",
       "catalogKey": "system",
-      "releaseVersion": "2.0.1",
-      "releaseFingerprint": "v6:34175c1b7b2d6f106af120548e5472194f165c52da0622f8ef0ee016e63fb6de"
+      "releaseVersion": "2.1.0",
+      "releaseFingerprint": "v6:3a56c7588b320e201173fe10dedd05dbe7fe364ecabbaa2b2761f8affeb12849"
     }
   ],
   "resources": [

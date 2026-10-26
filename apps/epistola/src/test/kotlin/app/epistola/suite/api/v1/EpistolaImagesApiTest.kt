@@ -91,7 +91,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
                 slug = "acme-sans",
                 name = "Acme Sans",
                 kind = FontKind.SANS.wire,
-                variants = listOf(ImportFontVariant(400, false, "font/ttf", resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray)),
+                variants = listOf(ImportFontVariant(400, false, "font/ttf", resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray)),
             ).execute()
         }
 
@@ -157,7 +157,7 @@ class EpistolaImagesApiTest : IntegrationTestBase() {
             add(
                 "file",
                 object : ByteArrayResource(
-                    resourceLoader.getResource("classpath:epistola/fonts/inter/inter-Regular.ttf").contentAsByteArray,
+                    resourceLoader.getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf").contentAsByteArray,
                 ) {
                     override fun getFilename() = "inter-Regular.ttf"
                 },

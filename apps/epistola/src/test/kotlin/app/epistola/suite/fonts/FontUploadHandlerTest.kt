@@ -49,7 +49,7 @@ class FontUploadHandlerTest : BaseIntegrationTest() {
     private lateinit var objectMapper: ObjectMapper
 
     private fun ttf(): ByteArray = resourceLoader
-        .getResource("classpath:epistola/fonts/inter/inter-Regular.ttf")
+        .getResource("classpath:epistola/catalogs/system/binaries/fonts/inter/inter-Regular.ttf")
         .contentAsByteArray
 
     private fun facePart(name: String, contentType: String = "font/ttf") = HttpEntity(

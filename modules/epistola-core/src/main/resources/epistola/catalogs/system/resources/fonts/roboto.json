@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 8,
+  "resource": {
+    "type": "font",
+    "key": "roboto",
+    "name": "Roboto",
+    "kind": "sans",
+    "variants": [
+      {
+        "weight": 400,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "f3edb8058e523f5612bfd99d0745e661568ad85e1b6217bc62f786fabae624c6",
+        "contentUrl": "./binaries/fonts/roboto/roboto-Regular.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": false,
+        "mediaType": "font/ttf",
+        "contentHash": "2ca2b3bfc2c2d43fa8f2b7227982d735fd537ecf113a4c56cc2d292bcc3106c8",
+        "contentUrl": "./binaries/fonts/roboto/roboto-Bold.ttf"
+      },
+      {
+        "weight": 400,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "2b4076dd3f5a7fadfca760ef45557a0d437af983284652fc149535c5bd93d493",
+        "contentUrl": "./binaries/fonts/roboto/roboto-Italic.ttf"
+      },
+      {
+        "weight": 700,
+        "italic": true,
+        "mediaType": "font/ttf",
+        "contentHash": "03ccd7a9d4493577d5b7da5440d01a24bd4f6bf05f48c2e114ef24b752859323",
+        "contentUrl": "./binaries/fonts/roboto/roboto-BoldItalic.ttf"
+      }
+    ]
+  }
+}

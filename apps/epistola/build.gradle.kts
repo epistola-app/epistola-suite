@@ -208,7 +208,7 @@ val generateThirdPartyNotices = tasks.register("generateThirdPartyNotices") {
     val frontendReport = rootProject.file("modules/editor/build/THIRD-PARTY-NOTICES-frontend.txt")
     val fontNotices = buildList {
         add(rootProject.file("modules/generation/src/main/resources/fonts/LICENSE-LiberationFonts"))
-        rootProject.file("modules/epistola-core/src/main/resources/epistola/fonts")
+        rootProject.file("modules/epistola-core/src/main/resources/epistola/catalogs/system/binaries/fonts")
             .listFiles()
             ?.filter { it.isDirectory }
             ?.sortedBy { it.name }

@@ -81,11 +81,14 @@ class FontStore(
 
     /**
      * Writes several families of [catalog]'s targeted draft. A family whose content is the one its
-     * row names already is left alone, so seeding the system fonts on every boot writes nothing.
+     * row names already is left alone, so installing a catalog again writes nothing. Its faces are
+     * still linked to their bytes, which a family stored before its files were (the 2.0 upgrade's
+     * conversion of 1.x's bundled fonts) does not have yet.
      */
     fun putAll(handle: Handle, catalog: CatalogId, fonts: List<FontSpec>, actor: UUID?): Map<String, InstallStatus> {
         if (fonts.isEmpty()) return emptyMap()
         storeBytes(fonts.flatMap { it.variants })
+        linkStoredFaces(handle, catalog.tenantKey, fonts.flatMap { it.variants }.map { it.contentHash })
         val current = currentHashes(handle, catalog)
         return fonts.associate { font ->
             val payload = ResourceMetadata.carried(handle, catalog, FONT, font.slug, payload(font.slug, font.name, font.kind, font.variants.map(ImportFontVariant::face)), font.metadata, objectMapper)
