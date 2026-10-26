@@ -232,6 +232,20 @@ class RecordInstalledReleaseHandler(
             val retained = revisionStore.retain(handle, command.tenantKey, content)
             // A release beside the installed one may hold resources no version of the catalog has.
             releaseResourceStore.record(handle, command.catalog, version, content, retained.contents, resourceFingerprints, registerNew = command.release != null, variants = retained.variants)
+            // Its settings, frozen on its row (ADR 0036), as its manifest states them: resolved now its
+            // declarations and its themes are recorded.
+            handle.createUpdate(
+                """
+                UPDATE catalog_versions
+                SET default_theme_resource_id = catalog_release_default_theme(tenant_key, catalog_id, version, manifest_snapshot),
+                    presets = catalog_release_presets(manifest_snapshot)
+                WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version AND state = 'released'
+                """,
+            )
+                .bind("t", command.tenantKey)
+                .bindCatalog("c", command.catalog)
+                .bind("version", version)
+                .execute()
         }
 
         logger.info("Recorded installed release {}@{} for tenant {}", command.catalogKey.value, version, command.tenantKey.value)

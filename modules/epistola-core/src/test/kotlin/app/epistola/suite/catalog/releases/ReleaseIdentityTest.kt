@@ -256,7 +256,7 @@ class ReleaseIdentityTest : IntegrationTestBase() {
                 """
                 DELETE FROM release_resources e USING catalogs c
                 WHERE c.tenant_key = e.tenant_key AND c.catalog_id = e.catalog_id
-                  AND e.tenant_key = :t AND c.catalog_key = :c AND e.version = '1.1.0' AND e.resource_key = 'added'
+                  AND e.tenant_key = :t AND c.catalog_key = :c AND e.version_id IN (SELECT rv.version_id FROM catalog_versions rv WHERE rv.state = 'released' AND rv.version = '1.1.0') AND e.resource_key = 'added'
                 """,
             ).bind("t", a).bind("c", lines).execute()
         }

@@ -37,6 +37,8 @@ still in the table, defaulted and unused, and goes in a later major release.
   freezes its row, keeping its id, key and name; the next version is a new row that takes over what
   the release holds. `catalogs.next_version_id` names the next version. Until the readers keyed by
   number are re-keyed, `catalog_releases` mirrors the released rows (`trg_catalog_releases_mirror`).
+  A release's `release_resources` rows name its row too (step (b)): releasing turns the frozen
+  draft's rows into the release's, with their fingerprints, after the next version copied them.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads

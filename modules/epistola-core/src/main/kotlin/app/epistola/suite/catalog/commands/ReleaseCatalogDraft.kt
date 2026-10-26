@@ -489,6 +489,18 @@ class ReleaseCatalogDraftHandler(
                 .map { (key, source) -> "${app.epistola.suite.attributes.codelists.CodeListStore.CODE_LIST}/$key" to objectMapper.createObjectNode().set("source", source) }
                 .toMap()
             val retained = revisionStore.retain(handle, command.tenantKey, content, settings)
+            // Parallel work released for everyday work to continue from becomes the next version first.
+            val handsOver = command.continueEverydayWork != null && !draft.isNext
+            if (handsOver) handOver.apply(handle, command.catalog, draft, command.continueEverydayWork.keepPreviousAs?.trim())
+            // The draft becomes the release (ADR 0036): its row is frozen, keeping its id and name, and
+            // its content rows become the release's below.
+            drafts.freeze(handle, command.tenantKey, draft.versionId, newVersion.toString())
+            if (draft.isNext || handsOver) {
+                // The next version, a convention of this suite, continues on this release: a new row
+                // holding what the release holds, measured against it.
+                drafts.startNext(handle, command.catalog, draft.versionId, base = newVersion.toString())
+            }
+            drafts.retire(handle, command.tenantKey, draft.versionId)
             releaseResourceStore.record(
                 handle,
                 command.catalog,
@@ -504,18 +516,6 @@ class ReleaseCatalogDraftHandler(
             // The draft became the release, keeping its id: environments serving it serve the release
             // (contract ADR 0003), logged as released.
             DraftDeploymentStore.releaseFor(handle, command.tenantKey, draft.versionId, newVersion.toString())
-            // Parallel work released for everyday work to continue from becomes the next version first.
-            val handsOver = command.continueEverydayWork != null && !draft.isNext
-            if (handsOver) handOver.apply(handle, command.catalog, draft, command.continueEverydayWork.keepPreviousAs?.trim())
-            // The draft becomes the release (ADR 0036): its row is frozen, keeping its id and name.
-            drafts.freeze(handle, command.tenantKey, draft.versionId, newVersion.toString())
-            if (draft.isNext || handsOver) {
-                // The next version, a convention of this suite, continues on this release: a new row
-                // holding what the release holds, measured against it.
-                drafts.startNext(handle, command.catalog, draft.versionId, base = newVersion.toString())
-            } else {
-                drafts.retire(handle, command.tenantKey, draft.versionId)
-            }
 
             if (port != null && archive != null) {
                 publicationId = port.recordReleasePublication(

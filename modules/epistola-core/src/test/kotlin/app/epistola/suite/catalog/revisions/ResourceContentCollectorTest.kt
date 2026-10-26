@@ -90,7 +90,7 @@ class ResourceContentCollectorTest : IntegrationTestBase() {
     }
 
     private fun released(catalog: CatalogId, type: String): String = jdbi.withHandle<String, Exception> {
-        it.createQuery("SELECT content_hash FROM release_resources WHERE tenant_key = :t AND version IS NOT NULL AND resource_type = :type AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')").bind("t", catalog.tenantKey).bind("type", type).mapTo(String::class.java).one()
+        it.createQuery("SELECT content_hash FROM release_resources WHERE tenant_key = :t AND NOT release_resource_is_draft(tenant_key, version_id) AND resource_type = :type AND catalog_id = (SELECT catalog_id FROM catalogs WHERE tenant_key = :t AND catalog_key = 'letters')").bind("t", catalog.tenantKey).bind("type", type).mapTo(String::class.java).one()
     }
 
     @Test

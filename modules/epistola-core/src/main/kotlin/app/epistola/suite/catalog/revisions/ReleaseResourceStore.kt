@@ -64,6 +64,7 @@ class ReleaseResourceStore {
         registerNew: Boolean = false,
         variants: Map<String, List<VariantRows.Released>> = emptyMap(),
     ) {
+        val versionId = releasedRow(handle, catalog, version)
         val identities = loadIdentities(handle, catalog).toMutableMap()
         if (registerNew) {
             content.resourceEntries.filter { "${it.type}/${it.key}" !in identities }.forEach { entry ->
@@ -80,18 +81,23 @@ class ReleaseResourceStore {
             val resourceId = requireNotNull(identities[key]) {
                 "No identity registered for $key in catalog ${catalog.key.value}; cannot record it in a release"
             }
+            // The release's rows (ADR 0036): a draft frozen into the release holds them already, and
+            // they become the release's as they are, with its fingerprints; a received release writes them.
             handle.createUpdate(
                 """
                 INSERT INTO release_resources (
-                    tenant_key, catalog_id, version, resource_type, resource_key,
+                    tenant_key, catalog_id, version_id, resource_type, resource_key,
                     resource_id, content_hash, fingerprint, name, description
                 )
-                VALUES (:t, ${catalogAt("t", "c")}, :version, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
+                VALUES (:t, ${catalogAt("t", "c")}, :versionId, :type, :key, :resourceId, :revision, :fingerprint, :name, :description)
+                ON CONFLICT (tenant_key, catalog_id, version_id, resource_type, resource_key) WHERE parent_id IS NULL
+                DO UPDATE SET resource_id = EXCLUDED.resource_id, content_hash = EXCLUDED.content_hash, fingerprint = EXCLUDED.fingerprint,
+                    name = EXCLUDED.name, description = EXCLUDED.description
                 """,
             )
                 .bind("t", catalog.tenantKey)
                 .bindCatalog("c", catalog)
-                .bind("version", version)
+                .bind("versionId", versionId)
                 .bind("type", entry.type)
                 .bind("key", entry.key)
                 .bind("resourceId", resourceId)
@@ -101,9 +107,51 @@ class ReleaseResourceStore {
                 .bind("description", entry.description)
                 .execute()
             // A template's variants are rows of their own (ADR 0033), frozen with it.
-            variants[key]?.let { VariantRows.recordRelease(handle, catalog, version, resourceId, it) }
+            variants[key]?.let { VariantRows.recordRelease(handle, catalog, versionId, resourceId, it) }
+        }
+        // What the release does not contain is no row of it: a frozen draft's rows it left out.
+        val entries = content.resourceEntries.map { "${it.type}/${it.key}" }.toSet()
+        handle.createQuery("SELECT resource_type || '/' || resource_key FROM release_resources WHERE tenant_key = :t AND version_id = :v AND parent_id IS NULL")
+            .bind("t", catalog.tenantKey)
+            .bind("v", versionId)
+            .mapTo(String::class.java)
+            .list()
+            .filter { it !in entries }
+            .forEach { stale ->
+                handle.createUpdate("DELETE FROM release_resources WHERE tenant_key = :t AND version_id = :v AND parent_id IS NULL AND resource_type || '/' || resource_key = :k")
+                    .bind("t", catalog.tenantKey)
+                    .bind("v", versionId)
+                    .bind("k", stale)
+                    .execute()
+            }
+    }
+
+    companion object {
+        /** Deletes the rows of release [version] of [catalog], while its row still says it is a release. */
+        fun deleteRelease(handle: Handle, catalog: CatalogId, version: String) {
+            handle.createUpdate(
+                """
+                DELETE FROM release_resources r USING catalog_versions v
+                WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.version = :v AND v.state = 'released'
+                  AND r.tenant_key = v.tenant_key AND r.version_id = v.version_id
+                """,
+            )
+                .bind("t", catalog.tenantKey)
+                .bindCatalog("c", catalog)
+                .bind("v", version)
+                .execute()
         }
     }
+
+    /** The row of release [version] of [catalog] (ADR 0036): what its resources name. */
+    private fun releasedRow(handle: Handle, catalog: CatalogId, version: String): UUID = handle
+        .createQuery("SELECT version_id FROM catalog_versions WHERE tenant_key = :t AND catalog_id = ${catalogAt("t", "c")} AND version = :version AND state = 'released'")
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .bind("version", version)
+        .mapTo(UUID::class.java)
+        .findOne()
+        .orElseThrow { IllegalStateException("No released row for ${catalog.key.value}@$version to record its resources in") }
 
     /** The entries of one release, in the order a manifest lists them. */
     fun entriesOf(handle: Handle, catalog: CatalogId, version: String, resourceType: String? = null): List<ReleaseResource> = handle

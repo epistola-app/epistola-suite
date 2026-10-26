@@ -53,9 +53,10 @@ freezes the row; it copies nothing.** Every table that names a version names tha
 | `state`                                                                                   | `draft` or `released`                                                                               |
 | `origin`                                                                                  | `authored` or `installed` (received from an archive, a registry or the Exchange)                    |
 | `name`                                                                                    | A draft's name; required for a draft that is not next, kept on release                              |
-| `base_version_id`                                                                         | FK to the version this one was made from, replacing the free-text `base_version`                    |
+| `base_version_id`                                                                         | FK to the version this one was made from, while it exists here                                      |
+| `base_version`, `base_fingerprint`                                                        | That base by number and hash, kept beside the FK: a release's base may not be installed here        |
 | `revision`, `base_fingerprints`                                                           | Draft bookkeeping; kept, read-only, on release                                                      |
-| `default_theme_resource_id`, `presets`                                                    | The version's settings, frozen once released                                                        |
+| `default_theme_resource_id`, `presets`                                                    | The version's settings, frozen once released; a release recorded from a manifest takes them from it |
 | `version` (+ generated major, minor, patch, label)                                        | The number: NULL for a draft, unique per catalog once set                                           |
 | `fingerprint`, `content_hash`, `notes`, `manifest_snapshot`, `rendering_defaults_version` | The release record                                                                                  |
 | `released_at`, `released_by`, `released_by_installation`                                  | Who released it, and when                                                                           |

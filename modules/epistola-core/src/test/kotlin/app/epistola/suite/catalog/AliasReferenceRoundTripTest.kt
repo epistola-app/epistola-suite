@@ -258,6 +258,19 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
             ImportCatalogZip(tenantKey = b, zipBytes = released.parts).execute()
             ImportCatalogZip(tenantKey = b, zipBytes = released.letters).execute()
             assertThat(objectMapper.valueToTree<JsonNode>(contentBuilder.build(testCatalog(b, letters)).catalog.defaultTheme)).isEqualTo(sent)
+            // The installed release keeps it on its row (ADR 0036), resolved to the theme its alias names.
+            val onRow = jdbi.withHandle<String?, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT t.catalog_key || '/' || r.resource_key FROM catalog_versions v
+                    JOIN catalogs c ON c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id
+                    JOIN catalog_resources r ON r.tenant_key = v.tenant_key AND r.resource_id = v.default_theme_resource_id
+                    JOIN catalogs t ON t.tenant_key = r.tenant_key AND t.catalog_id = r.catalog_id
+                    WHERE v.tenant_key = :t AND c.catalog_key = :c AND v.state = 'released' AND v.version = :version
+                    """,
+                ).bind("t", b).bind("c", letters).bind("version", releaseVersion(released.letters)).mapTo(String::class.java).findOne().orElse(null)
+            }
+            assertThat(onRow).isEqualTo("system/default")
 
             val draft = CreateCatalogDraft(testCatalog(b, letters), name = "Redesign", from = releaseVersion(released.letters)).execute()
             val id = targeting.resolve(CatalogReleaseRef(testCatalog(b, letters), DraftRef.Id(draft.versionId)))
@@ -349,8 +362,8 @@ class AliasReferenceRoundTripTest : IntegrationTestBase() {
                 SET payload = jsonb_set(jsonb_set(m.payload, '{resource,templateModel,nodes,header,props,namespace}', '"$partsNamespace"'),
                                         '{resource,templateModel,nodes,header,props,registry}', '"$partsRegistry"')
                 FROM release_resources e
-                JOIN release_resources p ON p.tenant_key = e.tenant_key AND p.resource_type = 'variant' AND p.parent_id = e.resource_id AND p.version = e.version
-                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter' AND e.version IS NOT NULL
+                JOIN release_resources p ON p.tenant_key = e.tenant_key AND p.resource_type = 'variant' AND p.parent_id = e.resource_id AND p.version_id = e.version_id
+                WHERE e.tenant_key = :t AND e.resource_type = 'template' AND e.resource_key = 'letter' AND NOT release_resource_is_draft(e.tenant_key, e.version_id)
                   AND m.tenant_key = p.tenant_key AND m.content_hash = p.content_hash
                   AND m.payload #> '{resource,templateModel,nodes,header}' IS NOT NULL
                 """,
