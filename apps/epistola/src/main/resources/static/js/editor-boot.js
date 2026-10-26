@@ -8,6 +8,14 @@
 // swaps (module top-level code only evaluates once per URL, so mounting is
 // driven by htmx:load with an idempotency guard).
 
+// The same page in the catalog's next draft: the catalog address without its version
+// (`/catalogs/{namespace}/{key}@{version}/…` becomes `/catalogs/{namespace}/{key}/…`, and the
+// short `/catalogs/{key}@{version}/…` becomes `/catalogs/{key}/…`).
+function nextDraftLocation(location) {
+  const path = location.pathname.replace(/(\/catalogs\/(?:[^/@]+\/)?[^/@]+)@[^/]+/, '$1');
+  return path + location.search;
+}
+
 async function mount(container) {
   if (container.dataset.editorMounted) return;
   const island = document.getElementById('editor-config');
@@ -274,6 +282,17 @@ async function mount(container) {
             field = (body.errors && body.errors[0] && body.errors[0].field) || null;
           } catch (_) {
             message = text;
+          }
+        }
+        // This version was released while it was open here (ADR 0036): it cannot change any more,
+        // and work goes on in the catalog's next draft, which the same page without a version opens.
+        if (response.status === 409 && type && type.endsWith('/catalog-version-released')) {
+          const openNext = window.confirm(
+            message + '\n\nOK: open the next draft (your unsaved changes here are lost).',
+          );
+          if (openNext) {
+            window.location.assign(nextDraftLocation(window.location));
+            return;
           }
         }
         // Carry the structured problem `type`/`field` on the Error so

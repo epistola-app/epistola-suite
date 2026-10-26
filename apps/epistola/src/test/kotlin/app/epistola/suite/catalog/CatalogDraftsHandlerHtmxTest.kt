@@ -268,6 +268,32 @@ class CatalogDraftsHandlerHtmxTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `saving through a draft that was released meanwhile is refused as released, so the editor offers the next draft`() = fixture {
+        lateinit var tenant: Tenant
+        lateinit var work: String
+        given {
+            tenant = tenant("Drafts Save Released")
+            work = withRedesign(tenant)
+            // Someone releases the parallel work while the editor still has it open (ADR 0036).
+            withMediator {
+                MarkCatalogReady(testCatalog(tenant.id, letters), catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+                ReleaseCatalogDraft(testCatalog(tenant.id, letters), version = "2.0.0", catalogVersion = at(tenant, DraftRef.Id(work))).execute()
+            }
+        }
+        whenever {
+            val variant = VariantId(VariantKey.INITIAL, invoice(tenant))
+            val model = withMediator { GetVariantContent(variant, catalogVersion = next(tenant)).query() }!!
+            val json = objectMapper.writeValueAsString(mapOf("templateModel" to model.copy(documentStylesOverride = mapOf("color" to "#654321"))))
+            send(HttpMethod.PUT, "/tenants/${tenant.id}/catalogs/${tenant.id}/letters@$work/templates/invoice/variants/initial/content", json)
+        }
+        then {
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.CONFLICT)
+            assertThat(response.body).contains("catalog-version-released").contains("open the next draft")
+        }
+    }
+
+    @Test
     fun `a theme saved from its page in parallel work changes only that work`() = fixture {
         lateinit var tenant: Tenant
         lateinit var work: String

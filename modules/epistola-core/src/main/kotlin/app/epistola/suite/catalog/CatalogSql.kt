@@ -89,6 +89,34 @@ fun isNext(alias: String): String = "COALESCE($alias.version_id = (SELECT nc.nex
 fun setNext(tenantParam: String, versionParam: String): String = "UPDATE catalogs c SET next_version_id = v.version_id FROM catalog_versions v " +
     "WHERE v.tenant_key = :$tenantParam AND v.version_id = :$versionParam AND c.tenant_key = v.tenant_key AND c.catalog_id = v.catalog_id"
 
+/**
+ * The freeze (ADR 0036): only a draft's rows change. Refuses a write to the version [catalog]'s
+ * callers mean (the targeted one, else the next) when that version is released, with
+ * [app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException] (409: open the next draft).
+ * Every writer of draft content calls it first (`FrozenVersionWriteTest` holds that).
+ */
+fun Handle.requireWritableVersion(catalog: CatalogId) {
+    val released = createQuery(
+        """
+        SELECT v.version FROM catalog_current_versions cv
+        JOIN catalog_versions v ON v.tenant_key = cv.tenant_key AND v.version_id = cv.version_id
+        WHERE cv.tenant_key = :t AND cv.catalog_id = ${catalogAt("t", "c")} AND v.state = 'released'
+        """,
+    )
+        .bind("t", catalog.tenantKey)
+        .bindCatalog("c", catalog)
+        .mapTo(String::class.java)
+        .findOne()
+        .orElse(null)
+    if (released != null) throw app.epistola.suite.catalog.releases.CatalogReleaseIsReleasedException(catalog.key, released)
+}
+
+/** This handle, once [requireWritableVersion] passed for [catalog]: for a writer written as one expression. */
+fun Handle.writable(catalog: CatalogId): Handle = apply { requireWritableVersion(catalog) }
+
+/** A predicate that the row aliased [alias] belongs to a draft, not a release: for a write that names no catalog. */
+fun inDraft(alias: String): String = "EXISTS (SELECT 1 FROM catalog_versions fv WHERE fv.tenant_key = $alias.tenant_key AND fv.version_id = $alias.version_id AND fv.state = 'draft')"
+
 /** The catalog at [catalog] (see [catalogAt]), or null. */
 fun Handle.findCatalog(catalog: CatalogId): Catalog? = createQuery(
     "SELECT $CATALOG_ROW_COLUMNS FROM catalogs c $CATALOG_RELEASE_JOIN WHERE c.tenant_key = :tenantKey AND c.catalog_id = ${catalogAt("tenantKey", "catalogKey")}",

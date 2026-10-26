@@ -126,7 +126,7 @@ class CatalogReleaseTargeting(
      * @throws CatalogReleaseNotFoundException when the catalog has no such draft: no draft with that
      *   id, or no next version (a subscribed catalog, or one whose next version was discarded).
      */
-    fun resolve(ref: CatalogReleaseRef): UUID = jdbi.withHandle<UUID, Exception> { handle ->
+    fun resolve(ref: CatalogReleaseRef, write: Boolean = false): UUID = jdbi.withHandle<UUID, Exception> { handle ->
         val match = when (val draft = ref.draft) {
             DraftRef.Next -> isNext("v")
 
@@ -148,8 +148,25 @@ class CatalogReleaseTargeting(
             .findOne()
             .orElseGet {
                 if (!catalogExists(handle, ref)) throw CatalogNotFoundException(ref.catalogKey)
+                // A draft that was released keeps its id as the release (ADR 0036): a change made
+                // through that id is refused as such, so its author opens the next draft.
+                if (write) releasedAs(handle, ref)?.let { throw CatalogReleaseIsReleasedException(ref.catalogKey, it) }
                 throw CatalogReleaseNotFoundException(ref.catalogKey, ref.draft.toString())
             }
+    }
+
+    /** The release number the draft [ref] names by its id became, or null. */
+    private fun releasedAs(handle: Handle, ref: CatalogReleaseRef): String? {
+        val id = (ref.draft as? DraftRef.Id)?.key ?: return null
+        return handle.createQuery(
+            "SELECT v.version FROM catalog_versions v WHERE v.tenant_key = :t AND v.catalog_id = ${catalogAt("t", "c")} AND v.state = 'released' AND v.version_key = :id",
+        )
+            .bind("t", ref.tenantKey)
+            .bindCatalog("c", ref.catalog)
+            .bind("id", id)
+            .mapTo(String::class.java)
+            .findOne()
+            .orElse(null)
     }
 
     /**

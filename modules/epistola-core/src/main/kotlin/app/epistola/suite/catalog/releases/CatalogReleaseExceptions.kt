@@ -9,8 +9,12 @@ import app.epistola.suite.common.ids.CatalogKey
 /** The catalog has no release with that number, nor a draft by that key. */
 class CatalogReleaseNotFoundException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Catalog '${catalogKey.value}' has no release or draft $version")
 
-/** Only a draft can be changed or discarded; [version] is released. */
-class CatalogReleaseIsReleasedException(val catalogKey: CatalogKey, val version: String) : RuntimeException("Release $version of catalog '${catalogKey.value}' is published and cannot change")
+/**
+ * Only a draft can be changed or discarded; [version] is released (ADR 0036: a release is its frozen
+ * row). Also what a save through a draft's id gets once that draft was released: the next draft is
+ * where the work goes on.
+ */
+class CatalogReleaseIsReleasedException(val catalogKey: CatalogKey, val version: String) : RuntimeException("This version of catalog '${catalogKey.value}' has been released as $version and cannot change; open the next draft to go on.")
 
 /**
  * A draft that is behind releases (contract ADR 0002, "A draft can be behind": releases it does not

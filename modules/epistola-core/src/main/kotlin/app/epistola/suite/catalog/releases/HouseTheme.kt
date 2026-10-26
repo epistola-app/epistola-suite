@@ -8,6 +8,7 @@ import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.dependencies.UsedCatalogDeclarer
 import app.epistola.suite.catalog.isNext
 import app.epistola.suite.catalog.queries.ListCatalogEditability
+import app.epistola.suite.catalog.requireWritableVersion
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
 import app.epistola.suite.common.ids.TenantKey
@@ -34,6 +35,7 @@ object HouseTheme {
      *   has no house theme or [catalog] has no next version.
      */
     fun applyTo(handle: Handle, catalog: CatalogId): CatalogId? {
+        handle.requireWritableVersion(catalog)
         val themeCatalog = handle.createQuery(
             """
             SELECT tc.namespace, tc.catalog_key FROM tenants t

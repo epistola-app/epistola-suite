@@ -240,7 +240,7 @@ class SpringMediator(
         if (released != null && message is app.epistola.suite.catalog.releases.ReleaseReadable) {
             return targeting.withinRelease(targeting.resolveRelease(target), released.version, block)
         }
-        return targeting.within(targeting.resolve(target), block)
+        return targeting.within(targeting.resolve(target, write = message is Command<*>), block)
     }
 
     /**

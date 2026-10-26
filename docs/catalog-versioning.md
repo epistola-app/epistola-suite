@@ -42,6 +42,11 @@ still in the table, defaulted and unused, and goes in a later major release.
   draft's rows into the release's, with their fingerprints, after the next version copied them.
   What a version depends on is one table too (`catalog_version_dependencies`, step (c)): a
   draft's declarations and a release's pins, by the version that declares them.
+- **The freeze** (step (f)): a released row never changes. Every writer of a version's rows refuses a
+  released one first (`requireWritableVersion`), and a change through the id a draft had before it
+  was released gets `409 catalog-version-released` ("open the next draft") in the UI, REST and MCP;
+  the template editor then offers to open the same page in the next draft.
+  `FrozenVersionWriteGuardTest` keeps every write either guarded or on the release path.
 - **A version reference** names the next version, a draft by its id, or a release by its number
   (`DraftRef.Released`; in the UI `/catalogs/{namespace}/{key}@1.2.0/…`). A release is read-only:
   the mediator refuses any command that targets one (`ReleasedVersionReadOnlyException`). Reads

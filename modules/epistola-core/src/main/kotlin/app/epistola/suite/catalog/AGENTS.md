@@ -12,6 +12,10 @@ bytecode, so a fully qualified reference fails too — there is no import line t
 Every SQL statement reading or writing catalog content names the catalog version it means, since a
 catalog may hold several drafts; `ContentVersionSqlTest` finds those that do not.
 
+A released version never changes (ADR 0036, the freeze): every writer of a version's rows refuses a
+released one first (`requireWritableVersion`, `Handle.writable` or `inDraft`), or belongs to the
+release path; `FrozenVersionWriteGuardTest` holds that.
+
 - **Outbound**: `ReleaseCatalogDraft` records publication intent through
   `CatalogReleasePublicationPort` (owned by `catalog`), handed the open release transaction so the
   outbox write stays atomic without inverting the dependency.

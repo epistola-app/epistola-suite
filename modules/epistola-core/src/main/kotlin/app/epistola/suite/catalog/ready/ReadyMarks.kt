@@ -7,6 +7,7 @@ package app.epistola.suite.catalog.ready
 import app.epistola.suite.catalog.bindCatalog
 import app.epistola.suite.catalog.catalogAt
 import app.epistola.suite.catalog.inCurrentVersion
+import app.epistola.suite.catalog.inDraft
 import app.epistola.suite.catalog.versionAt
 import app.epistola.suite.common.ids.CatalogId
 import app.epistola.suite.common.ids.CatalogKey
@@ -115,7 +116,7 @@ class ReadyMarks {
             INSERT INTO resource_ready_marks (tenant_key, version_id, resource_id, part, digest, marked_by)
             SELECT d.tenant_key, d.version_id, d.resource_id, d.part, d.digest, :by
             FROM resource_content_digests d
-            WHERE d.tenant_key = :t AND d.resource_id = :id AND ${inCurrentVersion("d")}
+            WHERE d.tenant_key = :t AND d.resource_id = :id AND ${inCurrentVersion("d")} AND ${inDraft("d")}
               AND (CAST(:part AS TEXT) IS NULL OR d.part = :part)
             ON CONFLICT (tenant_key, version_id, resource_id, part)
             DO UPDATE SET digest = EXCLUDED.digest, marked_at = NOW(), marked_by = EXCLUDED.marked_by
@@ -136,7 +137,7 @@ class ReadyMarks {
         handle.createUpdate(
             """
             DELETE FROM resource_ready_marks m
-            WHERE m.tenant_key = :t AND m.resource_id = :id AND ${inCurrentVersion("m")}
+            WHERE m.tenant_key = :t AND m.resource_id = :id AND ${inCurrentVersion("m")} AND ${inDraft("m")}
             """,
         )
             .bind("t", tenantKey)
